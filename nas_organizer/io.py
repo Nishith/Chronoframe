@@ -1,7 +1,8 @@
+import errno
 import os
 import shutil
 import hashlib
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 
 def fast_hash(path, known_size=None):
@@ -27,6 +28,23 @@ def verify_copy(src_path, dst_path, expected_hash):
         return False
 
 
+def check_disk_space(src_path, dst_dir):
+    """Raise OSError(ENOSPC) if destination lacks free space for src_path.
+
+    Uses a 10 MB safety buffer beyond the file size. Silently ignores
+    stat/disk_usage failures (non-ENOSPC) so the caller can proceed and let
+    the copy fail naturally if something else is wrong.
+    """
+    needed = os.path.getsize(src_path)
+    free = shutil.disk_usage(dst_dir).free
+    if free < needed + 10 * 1024 * 1024:
+        raise OSError(
+            errno.ENOSPC,
+            f"Insufficient disk space on destination: "
+            f"{free // (1024 * 1024)} MB free, {needed // (1024 * 1024)} MB needed",
+        )
+
+
 def cleanup_tmp_files(dst_dir):
     """Remove orphaned .tmp files left by interrupted copies. Returns count removed."""
     cleaned = 0
@@ -43,26 +61,34 @@ def cleanup_tmp_files(dst_dir):
     return cleaned
 
 
+def _is_retryable_error(exc):
+    """Return True for transient OSErrors that are worth retrying.
+
+    ENOSPC (disk full) is permanent — retrying wastes time and should be
+    propagated immediately to the caller.
+    """
+    return isinstance(exc, OSError) and getattr(exc, 'errno', None) != errno.ENOSPC
+
+
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=1, max=10),
-       retry=retry_if_exception_type(OSError))
+       retry=retry_if_exception(_is_retryable_error))
 def safe_copy_atomic(src, dst):
-    """Copy src to dst atomically: write to .tmp, fsync, rename."""
+    """Copy src to dst atomically: write to .tmp, fsync, rename.
+
+    Pre-flight checks disk space (raises ENOSPC immediately, not retried).
+    Collision-safe: appends _collision_N suffix if dst already exists.
+    """
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     dst_dir = os.path.dirname(dst)
 
-    # Check available disk space before attempting copy (10 MB safety buffer)
+    # Check available disk space (10 MB buffer). Non-space OSErrors are ignored
+    # here — the copy itself will raise them if needed.
     try:
-        needed = os.path.getsize(src)
-        free = shutil.disk_usage(dst_dir).free
-        if free < needed + 10 * 1024 * 1024:
-            raise OSError(
-                f"Insufficient disk space on destination: {free // (1024*1024)} MB free, "
-                f"{needed // (1024*1024)} MB needed"
-            )
+        check_disk_space(src, dst_dir)
     except OSError as e:
-        if "Insufficient disk space" in str(e):
+        if e.errno == errno.ENOSPC:
             raise
-        # getsize or disk_usage failed for another reason; proceed and let copy fail naturally
+        # getsize / disk_usage failed for another reason; proceed
 
     original_dst = dst
     counter = 1
