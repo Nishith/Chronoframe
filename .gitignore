@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+.organize_cache.db
+.dest_hash_cache.json
+.src_hash_cache.json
+.organize_log.txt
