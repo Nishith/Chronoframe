@@ -1,0 +1,55 @@
+import sqlite3
+
+class CacheDB:
+    def __init__(self, db_path):
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._init_pragmas()
+        self._init_tables()
+
+    def _init_pragmas(self):
+        self.conn.execute("PRAGMA journal_mode=WAL;")
+        self.conn.execute("PRAGMA synchronous=NORMAL;")
+        
+    def _init_tables(self):
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS FileCache (
+                              id INTEGER,
+                              path TEXT,
+                              hash TEXT,
+                              size INTEGER,
+                              mtime REAL,
+                              PRIMARY KEY (id, path)
+                           )''')
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS CopyJobs (
+                              src_path TEXT PRIMARY KEY,
+                              dst_path TEXT,
+                              hash TEXT,
+                              status TEXT
+                           )''')
+        self.conn.commit()
+
+    def get_cache_dict(self, type_id):
+        cur = self.conn.execute("SELECT path, hash, size, mtime FROM FileCache WHERE id = ?", (type_id,))
+        return {row[0]: {"hash": row[1], "size": row[2], "mtime": row[3]} for row in cur}
+
+    def save_batch(self, type_id, updates):
+        self.conn.executemany("REPLACE INTO FileCache (id, path, hash, size, mtime) VALUES (?, ?, ?, ?, ?)",
+                              [(type_id, p, h, s, m) for p, h, s, m in updates])
+        self.conn.commit()
+    
+    def enqueue_jobs(self, jobs):
+        # jobs: list of (src, dst, hash, status)
+        self.conn.executemany("INSERT OR IGNORE INTO CopyJobs (src_path, dst_path, hash, status) VALUES (?, ?, ?, ?)", jobs)
+        self.conn.commit()
+        
+    def get_pending_jobs(self):
+        cur = self.conn.execute("SELECT src_path, dst_path, hash FROM CopyJobs WHERE status = 'PENDING'")
+        return cur.fetchall()
+        
+    def update_job_status(self, src_path, status):
+        self.conn.execute("UPDATE CopyJobs SET status = ? WHERE src_path = ?", (status, src_path))
+        self.conn.commit()
+
+    def clear(self):
+        self.conn.execute("DELETE FROM FileCache")
+        self.conn.execute("DELETE FROM CopyJobs")
+        self.conn.commit()
