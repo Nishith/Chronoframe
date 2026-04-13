@@ -118,6 +118,9 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
     dup_seq_index = defaultdict(int)
     seq_pattern = re.compile(r'^(\d{4}-\d{2}-\d{2})_(\d+)')
     dup_dir = os.path.join(dst_dir, "Duplicate")
+    
+    if progress and ptask:
+        progress.update(ptask, total=None)
 
     for root, dirs, fnames in os.walk(dst_dir):
         dirs[:] = [d for d in dirs if not d.startswith('.')]
@@ -139,11 +142,17 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
                     if seq > seq_index[date_str]:
                         seq_index[date_str] = seq
 
+            if progress and ptask and len(files_to_check) % 1000 == 0:
+                progress.update(ptask, description=f"[cyan]Scanning Dest... ({len(files_to_check)} found)")
+
     hash_index = {}
     updates = []
 
     if progress and ptask:
-        progress.update(ptask, total=len(files_to_check))
+        if len(files_to_check) == 0:
+            progress.update(ptask, description="[cyan]Index Built (Empty)", total=1, completed=1)
+        else:
+            progress.update(ptask, description="[cyan]Validating Dest Hashes...", total=len(files_to_check))
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
@@ -305,12 +314,12 @@ def main():
         transient=False,
     ) as progress:
 
-        task_dest = progress.add_task("[cyan]Indexing destination...", total=None)
+        task_dest = progress.add_task("[cyan]Scanning Destination Array...", total=None)
         dest_hash_index, dest_seq, dup_seq = build_dest_index(
             dst, cache_db, rebuild, workers, progress, task_dest
         )
 
-        task_src = progress.add_task("[magenta]Hashing source files...", total=len(src_files))
+        task_src = progress.add_task("[magenta]Hashing Source Payload...", total=len(src_files))
         src_cache = cache_db.get_cache_dict(1)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
