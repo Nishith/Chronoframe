@@ -18,7 +18,7 @@ from rich.prompt import Confirm
 from rich.panel import Panel
 
 from .database import CacheDB
-from .io import safe_copy_atomic, process_single_file, verify_copy, cleanup_tmp_files
+from .io import safe_copy_atomic, process_single_file, verify_copy, cleanup_tmp_files, check_disk_space
 from .metadata import get_file_date, ALL_EXTS, SKIP_FILES, HAS_EXIFREAD
 
 SEQ_WIDTH = 3
@@ -128,7 +128,7 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
     hash_index = {}
 
     if fast_dest:
-        if progress and ptask:
+        if progress is not None and ptask is not None:
             progress.update(ptask, description="[cyan]Fast Dest: Loading from cache...", total=1)
         emit_json("task_start", task="dest_hash", total=len(cache))
 
@@ -147,7 +147,7 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
                     if seq > seq_index[date_str]:
                         seq_index[date_str] = seq
 
-        if progress and ptask:
+        if progress is not None and ptask is not None:
             progress.update(ptask, completed=1)
         emit_json("task_complete", task="dest_hash")
         return hash_index, seq_index, dup_seq_index
@@ -155,7 +155,7 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
     # ── Standard Validation (Network Scan) — walk and hash concurrently ──
     updates = []
 
-    if progress and ptask:
+    if progress is not None and ptask is not None:
         progress.update(ptask, description="[cyan]Scanning & Hashing Dest...", total=None)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
@@ -189,7 +189,7 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
         total = len(futures)
         emit_json("task_start", task="dest_hash", total=total)
 
-        if progress and ptask:
+        if progress is not None and ptask is not None:
             if total == 0:
                 progress.update(ptask, description="[cyan]Index Built (Empty)", total=1, completed=1)
             else:
@@ -207,7 +207,7 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
             except Exception:
                 pass
             count += 1
-            if progress and ptask:
+            if progress is not None and ptask is not None:
                 progress.advance(ptask)
             if total > 0 and count % max(1, total // 100) == 0:
                 emit_json("task_progress", task="dest_hash", completed=count, total=total)

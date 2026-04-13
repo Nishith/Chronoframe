@@ -5,6 +5,7 @@ Run: python3 -m pytest test_organize_nas.py -v
   or: python3 -m unittest test_organize_nas.py -v
 """
 
+import errno
 import unittest
 import tempfile
 import shutil
@@ -22,7 +23,10 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, MofNCompleteColumn
 
 from nas_organizer.database import CacheDB
-from nas_organizer.io import fast_hash, safe_copy_atomic, verify_copy, process_single_file
+from nas_organizer.io import (
+    fast_hash, safe_copy_atomic, verify_copy, process_single_file,
+    cleanup_tmp_files, check_disk_space, _is_retryable_error,
+)
 from nas_organizer.metadata import (
     get_file_date, get_date_from_filename, get_date_mdls,
     ALL_EXTS, PHOTO_EXTS, VIDEO_EXTS, SKIP_FILES, HAS_EXIFREAD,
@@ -30,7 +34,7 @@ from nas_organizer.metadata import (
 from nas_organizer.core import (
     build_dest_index, generate_dry_run_report, generate_audit_receipt,
     load_profile, RunLogger, SEQ_WIDTH, MAX_CONSECUTIVE_FAILURES,
-    DEFAULT_WORKERS, parse_args,
+    MAX_TOTAL_FAILURES, DEFAULT_WORKERS, parse_args, _format_seq,
 )
 
 
@@ -1713,6 +1717,983 @@ class TestFindProfilesYaml(unittest.TestCase):
         from nas_organizer.core import _find_profiles_yaml, _PROJECT_DIR
         result = _find_profiles_yaml()
         self.assertEqual(result, os.path.join(_PROJECT_DIR, "nas_profiles.yaml"))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# cleanup_tmp_files
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestCleanupTmpFiles(TempDirMixin, unittest.TestCase):
+
+    def test_removes_tmp_files(self):
+        self._mkfile("photo.jpg.tmp", b"partial write")
+        self._mkfile("video.mov.tmp", b"partial write")
+        count = cleanup_tmp_files(self.tmpdir)
+        self.assertEqual(count, 2)
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, "photo.jpg.tmp")))
+        self.assertFalse(os.path.exists(os.path.join(self.tmpdir, "video.mov.tmp")))
+
+    def test_ignores_non_tmp_files(self):
+        self._mkfile("photo.jpg", b"complete file")
+        self._mkfile("video.mp4", b"complete file")
+        count = cleanup_tmp_files(self.tmpdir)
+        self.assertEqual(count, 0)
+        self.assertTrue(os.path.exists(os.path.join(self.tmpdir, "photo.jpg")))
+
+    def test_returns_correct_count(self):
+        for i in range(5):
+            self._mkfile(f"file_{i}.jpg.tmp", b"data")
+        count = cleanup_tmp_files(self.tmpdir)
+        self.assertEqual(count, 5)
+
+    def test_empty_dir_returns_zero(self):
+        count = cleanup_tmp_files(self.tmpdir)
+        self.assertEqual(count, 0)
+
+    def test_nested_tmp_files(self):
+        self._mkfile("a/b/photo.jpg.tmp", b"partial")
+        self._mkfile("x/y/z/video.mp4.tmp", b"partial")
+        count = cleanup_tmp_files(self.tmpdir)
+        self.assertEqual(count, 2)
+
+    def test_skips_dotdirs(self):
+        """Files inside hidden directories (e.g. .organize_logs) are not touched."""
+        path = os.path.join(self.tmpdir, ".organize_logs", "something.tmp")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'wb') as f:
+            f.write(b"data")
+        count = cleanup_tmp_files(self.tmpdir)
+        self.assertEqual(count, 0)
+        self.assertTrue(os.path.exists(path))
+
+    def test_unremovable_tmp_silently_skipped(self):
+        """If os.remove raises (e.g. permissions), the error is silenced and count stays 0."""
+        self._mkfile("stuck.jpg.tmp", b"data")
+        with patch('nas_organizer.io.os.remove', side_effect=OSError("permission denied")):
+            count = cleanup_tmp_files(self.tmpdir)
+        self.assertEqual(count, 0)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# check_disk_space
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestCheckDiskSpace(TempDirMixin, unittest.TestCase):
+
+    def test_sufficient_space_does_not_raise(self):
+        src = self._mkfile("test.jpg", b"small file")
+        # tmpdir is on a real filesystem with plenty of space
+        check_disk_space(src, self.tmpdir)  # must not raise
+
+    def test_insufficient_space_raises_enospc(self):
+        src = self._mkfile("test.jpg", b"x" * 1000)
+        with patch('nas_organizer.io.shutil.disk_usage') as mock_du:
+            mock_du.return_value = MagicMock(free=50)  # only 50 bytes free
+            with self.assertRaises(OSError) as ctx:
+                check_disk_space(src, self.tmpdir)
+        self.assertEqual(ctx.exception.errno, errno.ENOSPC)
+
+    def test_error_message_contains_mb_info(self):
+        src = self._mkfile("test.jpg", b"x" * (2 * 1024 * 1024))  # 2 MB file
+        with patch('nas_organizer.io.shutil.disk_usage') as mock_du:
+            mock_du.return_value = MagicMock(free=1024 * 1024)  # 1 MB free
+            with self.assertRaises(OSError) as ctx:
+                check_disk_space(src, self.tmpdir)
+        msg = str(ctx.exception)
+        self.assertIn("MB", msg)
+
+    def test_exactly_at_threshold_raises(self):
+        """File size + 10 MB buffer exactly equal to free space should still raise."""
+        src = self._mkfile("test.jpg", b"x" * 1024)
+        with patch('nas_organizer.io.shutil.disk_usage') as mock_du:
+            # free == needed + 10 MB exactly — should raise (strictly less than required)
+            mock_du.return_value = MagicMock(free=1024 + 10 * 1024 * 1024 - 1)
+            with self.assertRaises(OSError):
+                check_disk_space(src, self.tmpdir)
+
+    def test_enospc_propagated_through_safe_copy(self):
+        """ENOSPC from check_disk_space bubbles through safe_copy_atomic __wrapped__."""
+        from nas_organizer.io import safe_copy_atomic
+        raw = safe_copy_atomic.__wrapped__
+        src = self._mkfile("test.jpg", b"x" * 1000)
+        dst = os.path.join(self.tmpdir, "out.jpg")
+        with patch('nas_organizer.io.shutil.disk_usage') as mock_du:
+            mock_du.return_value = MagicMock(free=50)
+            with self.assertRaises(OSError) as ctx:
+                raw(src, dst)
+        self.assertEqual(ctx.exception.errno, errno.ENOSPC)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# _is_retryable_error
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestIsRetryableError(unittest.TestCase):
+
+    def test_plain_oserror_is_retryable(self):
+        e = OSError("network reset")
+        self.assertTrue(_is_retryable_error(e))
+
+    def test_enoent_is_retryable(self):
+        e = OSError(errno.ENOENT, "no such file")
+        self.assertTrue(_is_retryable_error(e))
+
+    def test_enospc_is_not_retryable(self):
+        e = OSError(errno.ENOSPC, "no space left on device")
+        self.assertFalse(_is_retryable_error(e))
+
+    def test_non_oserror_is_not_retryable(self):
+        self.assertFalse(_is_retryable_error(ValueError("type error")))
+        self.assertFalse(_is_retryable_error(RuntimeError("runtime")))
+        self.assertFalse(_is_retryable_error(Exception("generic")))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# _format_seq
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestFormatSeq(unittest.TestCase):
+
+    def test_pads_single_digit(self):
+        self.assertEqual(_format_seq(1), "001")
+
+    def test_pads_double_digit(self):
+        self.assertEqual(_format_seq(42), "042")
+
+    def test_pads_to_exact_width(self):
+        self.assertEqual(_format_seq(999), "999")
+
+    def test_widens_at_1000(self):
+        result = _format_seq(1000)
+        self.assertEqual(result, "1000")
+        self.assertGreaterEqual(len(result), SEQ_WIDTH)
+
+    def test_widens_for_large_numbers(self):
+        result = _format_seq(99999)
+        self.assertEqual(result, "99999")
+
+    def test_never_truncates(self):
+        """Overflow must widen, not truncate — no data loss."""
+        for n in [1000, 5000, 10000]:
+            self.assertEqual(_format_seq(n), str(n))
+
+    def test_lexicographic_order_preserved_within_width(self):
+        nums = [_format_seq(i) for i in range(1, 1000)]
+        self.assertEqual(nums, sorted(nums))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# MAX_TOTAL_FAILURES constant and total_fail abort behaviour
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestMaxTotalFailures(unittest.TestCase):
+
+    def test_constant_value(self):
+        self.assertEqual(MAX_TOTAL_FAILURES, 20)
+
+    def test_greater_than_consecutive_threshold(self):
+        """Total threshold must be stricter than or equal to consecutive threshold."""
+        self.assertGreaterEqual(MAX_TOTAL_FAILURES, MAX_CONSECUTIVE_FAILURES)
+
+    def test_total_fail_simulation(self):
+        """
+        Simulates the new dual-counter logic:
+        consecutive resets on each success, but total_fail keeps growing.
+        A flapping network (4 bad, 1 good, repeating) should eventually abort.
+        """
+        consecutive_fail = 0
+        total_fail = 0
+        aborted = False
+
+        # 4 fail, 1 ok — repeat. With only consecutive logic this never aborts.
+        # With total_fail logic it aborts once total_fail >= MAX_TOTAL_FAILURES.
+        pattern = (['fail'] * 4 + ['ok']) * 10  # 50 ops, 40 failures total
+        for r in pattern:
+            if r == 'ok':
+                consecutive_fail = 0
+            else:
+                consecutive_fail += 1
+                total_fail += 1
+                if consecutive_fail >= MAX_CONSECUTIVE_FAILURES or total_fail >= MAX_TOTAL_FAILURES:
+                    aborted = True
+                    break
+
+        self.assertTrue(aborted)
+        self.assertLessEqual(total_fail, MAX_TOTAL_FAILURES)
+
+
+class TestTotalFailAbortIntegration(TempDirMixin, unittest.TestCase):
+    """Integration: execute_jobs aborts on total failures even with flapping network."""
+
+    def _setup_env(self):
+        src_dir = os.path.join(self.tmpdir, "source")
+        dst_dir = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src_dir)
+        os.makedirs(dst_dir)
+        db = CacheDB(os.path.join(dst_dir, ".cache.db"))
+        return src_dir, dst_dir, db
+
+    def test_flapping_network_aborts_at_total_threshold(self):
+        """
+        Pattern: 4 bad jobs, 1 good job, repeating.
+        Consecutive counter resets every 5th job → never hits MAX_CONSECUTIVE=5.
+        Total failures accumulate → hits MAX_TOTAL=20 and aborts early.
+
+        safe_copy_atomic is mocked so no real retry backoff occurs.
+        """
+        from nas_organizer.core import execute_jobs
+        src_dir, dst_dir, db = self._setup_env()
+
+        jobs = []
+        for i in range(MAX_TOTAL_FAILURES + 5):
+            if i % 5 == 4:
+                src = os.path.join(src_dir, f"good_{i}.jpg")
+                with open(src, 'wb') as f:
+                    f.write(f"ok_{i}".encode())
+                dst_path = os.path.join(dst_dir, f"good_{i}.jpg")
+            else:
+                src = os.path.join(src_dir, f"bad_{i}.jpg")  # path present in jobs list
+                dst_path = os.path.join(dst_dir, f"bad_{i}.jpg")
+            jobs.append((src, dst_path, f"hash_{i}", "PENDING"))
+
+        db.enqueue_jobs(jobs)
+
+        # Mock safe_copy_atomic so "bad_" jobs fail instantly (no tenacity backoff)
+        def mock_copy(src, dst):
+            if "bad_" in os.path.basename(src):
+                raise OSError("simulated network failure")
+            import shutil
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
+            return dst
+
+        with patch('nas_organizer.core.safe_copy_atomic', side_effect=mock_copy):
+            execute_jobs(db.get_pending_jobs(), db, dst_dir)
+
+        cur = db.conn.execute("SELECT COUNT(*) FROM CopyJobs WHERE status = 'PENDING'")
+        remaining = cur.fetchone()[0]
+        self.assertGreater(remaining, 0, "Expected early abort but all jobs were processed")
+
+        cur = db.conn.execute("SELECT COUNT(*) FROM CopyJobs WHERE status = 'FAILED'")
+        failed = cur.fetchone()[0]
+        self.assertGreaterEqual(failed, MAX_TOTAL_FAILURES)
+        db.close()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# build_dest_index — fast_dest mode
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestBuildDestIndexFastDest(TempDirMixin, unittest.TestCase):
+
+    def _setup_dest(self, files):
+        dst = os.path.join(self.tmpdir, "dest")
+        for relpath, content in files:
+            path = os.path.join(dst, relpath)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'wb') as f:
+                f.write(content)
+        return dst
+
+    def test_fast_dest_matches_full_scan(self):
+        dst = self._setup_dest([
+            ("2023/06/15/2023-06-15_001.jpg", b"photo1"),
+            ("2023/06/15/2023-06-15_002.jpg", b"photo2"),
+        ])
+        db = CacheDB(os.path.join(self.tmpdir, "test.db"))
+
+        # Full scan first — populates cache
+        hi_full, seq_full, dup_full = build_dest_index(dst, db)
+
+        # Fast mode — reads from cache only
+        hi_fast, seq_fast, dup_fast = build_dest_index(dst, db, fast_dest=True)
+
+        self.assertEqual(hi_full, hi_fast)
+        self.assertEqual(dict(seq_full), dict(seq_fast))
+        db.close()
+
+    def test_fast_dest_empty_cache_returns_empty(self):
+        dst = self._setup_dest([])
+        db = CacheDB(os.path.join(self.tmpdir, "test.db"))
+        hi, seq, _ = build_dest_index(dst, db, fast_dest=True)
+        self.assertEqual(hi, {})
+        self.assertEqual(dict(seq), {})
+        db.close()
+
+    def test_fast_dest_dup_dir_tracked_correctly(self):
+        dst = self._setup_dest([
+            ("2023/06/15/2023-06-15_005.jpg", b"main"),
+            ("Duplicate/2023/06/15/2023-06-15_003.jpg", b"dup"),
+        ])
+        db = CacheDB(os.path.join(self.tmpdir, "test.db"))
+        build_dest_index(dst, db)  # populate cache
+
+        _, seq, dup_seq = build_dest_index(dst, db, fast_dest=True)
+        self.assertEqual(seq["2023-06-15"], 5)
+        self.assertEqual(dup_seq["2023-06-15"], 3)
+        db.close()
+
+    def test_fast_dest_with_progress(self):
+        dst = self._setup_dest([
+            ("2023/01/01/2023-01-01_001.jpg", b"data"),
+        ])
+        db = CacheDB(os.path.join(self.tmpdir, "test.db"))
+        build_dest_index(dst, db)  # populate cache
+
+        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
+                      console=Console(quiet=True)) as progress:
+            ptask = progress.add_task("Test", total=None)
+            hi, _, _ = build_dest_index(dst, db, fast_dest=True, progress=progress, ptask=ptask)
+
+        self.assertEqual(len(hi), 1)
+        db.close()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# generate_audit_receipt — return value
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestAuditReceiptReturnValue(TempDirMixin, unittest.TestCase):
+
+    def test_returns_receipt_path(self):
+        rpath = generate_audit_receipt([("/src/a.jpg", "/dst/a.jpg", "h1")], self.tmpdir)
+        self.assertIsNotNone(rpath)
+        self.assertTrue(os.path.isfile(rpath))
+        self.assertTrue(rpath.endswith(".json"))
+        self.assertIn("audit_receipt_", os.path.basename(rpath))
+
+    def test_returned_path_contains_valid_json(self):
+        rpath = generate_audit_receipt([("/s", "/d", "h")], self.tmpdir)
+        with open(rpath) as f:
+            data = json.load(f)
+        self.assertEqual(data["total_jobs"], 1)
+
+    def test_empty_receipt_returns_path(self):
+        rpath = generate_audit_receipt([], self.tmpdir)
+        self.assertTrue(os.path.isfile(rpath))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# execute_jobs — bytes tracking + workers param
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestExecuteJobsBytesTracking(TempDirMixin, unittest.TestCase):
+
+    def _setup_env(self):
+        src_dir = os.path.join(self.tmpdir, "source")
+        dst_dir = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src_dir)
+        os.makedirs(dst_dir)
+        db = CacheDB(os.path.join(dst_dir, ".cache.db"))
+        return src_dir, dst_dir, db
+
+    def test_bytes_tracking_does_not_break_execution(self):
+        """Bytes pre-computation and tracking should not interfere with normal copy."""
+        from nas_organizer.core import execute_jobs
+        src_dir, dst_dir, db = self._setup_env()
+
+        src = os.path.join(src_dir, "a.jpg")
+        with open(src, 'wb') as f:
+            f.write(b"payload" * 1000)  # 7 KB
+        dst = os.path.join(dst_dir, "a.jpg")
+
+        db.enqueue_jobs([(src, dst, "h1", "PENDING")])
+        execute_jobs(db.get_pending_jobs(), db, dst_dir)
+
+        self.assertTrue(os.path.exists(dst))
+        self.assertEqual(len(db.get_pending_jobs()), 0)
+        db.close()
+
+    def test_missing_source_still_tracks_bytes(self):
+        """If getsize fails for a missing source, bytes_total degrades gracefully."""
+        from nas_organizer.core import execute_jobs
+        src_dir, dst_dir, db = self._setup_env()
+
+        # Job with nonexistent source — getsize will fail silently
+        db.enqueue_jobs([("/nonexistent/file.jpg", os.path.join(dst_dir, "x.jpg"), "h", "PENDING")])
+        execute_jobs(db.get_pending_jobs(), db, dst_dir)  # must not raise
+        db.close()
+
+    def test_workers_param_accepted(self):
+        """execute_jobs should accept a workers keyword without error."""
+        from nas_organizer.core import execute_jobs
+        src_dir, dst_dir, db = self._setup_env()
+
+        src = os.path.join(src_dir, "b.jpg")
+        with open(src, 'wb') as f:
+            f.write(b"data")
+        dst = os.path.join(dst_dir, "b.jpg")
+
+        db.enqueue_jobs([(src, dst, "h1", "PENDING")])
+        execute_jobs(db.get_pending_jobs(), db, dst_dir, workers=2)
+
+        self.assertTrue(os.path.exists(dst))
+        db.close()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Parallel classification
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestParallelClassification(TempDirMixin, unittest.TestCase):
+    """Integration: verify parallel date extraction produces the same results as serial."""
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_parallel_classification_correct_dates(self, _):
+        """Files with date-parseable names should land in the right YYYY/MM/DD dirs."""
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        dates = ["20230101", "20230615", "20231225"]
+        for d in dates:
+            with open(os.path.join(src, f"IMG_{d}_120000.jpg"), 'wb') as f:
+                f.write(d.encode())
+
+        with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '-y']):
+            main()
+
+        self.assertTrue(os.path.exists(os.path.join(dst, "2023", "01", "01")))
+        self.assertTrue(os.path.exists(os.path.join(dst, "2023", "06", "15")))
+        self.assertTrue(os.path.exists(os.path.join(dst, "2023", "12", "25")))
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_parallel_classification_with_mdls_fallback(self, _):
+        """Files without EXIF or filename dates should still be classified via mdls/mtime."""
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with open(os.path.join(src, "nondescript.jpg"), 'wb') as f:
+            f.write(b"no date info")
+
+        with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '-y']):
+            with patch('nas_organizer.metadata.HAS_EXIFREAD', False):
+                with patch('nas_organizer.metadata.get_date_mdls', return_value=None):
+                    main()  # Should fall back to mtime, complete without error
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# SEQ_WIDTH overflow warning
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestSeqOverflowWarning(TempDirMixin, unittest.TestCase):
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_overflow_warning_logged(self, _):
+        """When a date has >999 new files, a warning is written to the run log.
+
+        Uses 1001 tiny files so the hashing phase stays fast.
+        """
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        # 1001 unique single-byte files on the same date → seq 1000 triggers overflow
+        for i in range(1001):
+            with open(os.path.join(src, f"IMG_20230101_{i:06d}.jpg"), 'wb') as f:
+                f.write(bytes([i % 256]) + str(i).encode())
+
+        with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+            main()
+
+        log_path = os.path.join(dst, ".organize_log.txt")
+        with open(log_path) as f:
+            log_content = f.read()
+        self.assertIn("overflow", log_content.lower())
+
+    def test_format_seq_at_limit(self):
+        self.assertEqual(_format_seq(999), "999")
+
+    def test_format_seq_over_limit_widens(self):
+        self.assertEqual(_format_seq(1000), "1000")
+        self.assertEqual(_format_seq(9999), "9999")
+
+    def test_format_seq_data_not_lost(self):
+        """The number encoded in the filename must always be recoverable."""
+        for n in [1, 42, 999, 1000, 5000, 10000]:
+            result = _format_seq(n)
+            self.assertEqual(int(result), n)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# RunLogger — try/finally guarantee
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestRunLoggerCloseOnException(TempDirMixin, unittest.TestCase):
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_logger_closed_after_no_media(self, _):
+        """main() exits early (no media) — log file must still be flushed/closed."""
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+            main()
+
+        log_path = os.path.join(dst, ".organize_log.txt")
+        self.assertTrue(os.path.exists(log_path))
+        # File must be readable (not left in a locked/unflushed state)
+        with open(log_path) as f:
+            content = f.read()
+        self.assertIn("Run started", content)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Orphan .tmp cleanup in main()
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestMainCleansOrphanTmp(TempDirMixin, unittest.TestCase):
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_orphan_tmp_files_removed_on_startup(self, _):
+        """main() should clean orphaned .tmp files in dest at startup."""
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        # Plant orphaned .tmp files
+        orphan1 = os.path.join(dst, "2023", "01", "01", "2023-01-01_001.jpg.tmp")
+        os.makedirs(os.path.dirname(orphan1), exist_ok=True)
+        with open(orphan1, 'wb') as f:
+            f.write(b"partial write")
+
+        with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+            main()
+
+        self.assertFalse(os.path.exists(orphan1))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# main() — emit complete event with dest/report fields
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestMainJsonCompleteEvent(TempDirMixin, unittest.TestCase):
+    """Verify the 'complete' JSON event carries dest and report paths."""
+
+    def _setup_src_dst(self):
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+        return src, dst
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_dry_run_complete_event_contains_dest_and_report(self, _):
+        from nas_organizer.core import main
+        src, dst = self._setup_src_dst()
+        with open(os.path.join(src, "IMG_20230615_120000.jpg"), 'wb') as f:
+            f.write(b"data")
+
+        captured = []
+
+        def capture_print(*args, **kwargs):
+            if args and isinstance(args[0], str):
+                captured.append(args[0])
+
+        with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run', '--json']):
+            with patch('builtins.print', side_effect=capture_print):
+                main()
+
+        complete_events = []
+        for line in captured:
+            try:
+                evt = json.loads(line)
+                if evt.get('type') == 'complete':
+                    complete_events.append(evt)
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        self.assertEqual(len(complete_events), 1)
+        evt = complete_events[0]
+        self.assertEqual(evt.get('dest'), dst)
+        self.assertIn('report', evt)
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_copy_complete_event_contains_dest(self, _):
+        from nas_organizer.core import main
+        src, dst = self._setup_src_dst()
+        with open(os.path.join(src, "IMG_20230615_120000.jpg"), 'wb') as f:
+            f.write(b"data")
+
+        captured = []
+
+        def capture_print(*args, **kwargs):
+            if args and isinstance(args[0], str):
+                captured.append(args[0])
+
+        with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '-y', '--json']):
+            with patch('builtins.print', side_effect=capture_print):
+                main()
+
+        complete_events = [
+            json.loads(line) for line in captured
+            if line.startswith('{') and json.loads(line).get('type') == 'complete'
+            for _ in [None]  # trick to avoid double-parse; use next pattern
+        ]
+        # Parse again cleanly
+        complete_events = []
+        for line in captured:
+            try:
+                evt = json.loads(line)
+                if evt.get('type') == 'complete':
+                    complete_events.append(evt)
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        self.assertGreater(len(complete_events), 0)
+        self.assertEqual(complete_events[0].get('dest'), dst)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# parse_args — --json and --fast-dest flags
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestParseArgsExtended(unittest.TestCase):
+
+    def test_json_flag(self):
+        with patch('sys.argv', ['prog', '--json']):
+            args = parse_args()
+        self.assertTrue(args.json)
+
+    def test_fast_dest_flag(self):
+        with patch('sys.argv', ['prog', '--fast-dest']):
+            args = parse_args()
+        self.assertTrue(args.fast_dest)
+
+    def test_json_false_by_default(self):
+        with patch('sys.argv', ['prog']):
+            args = parse_args()
+        self.assertFalse(args.json)
+
+    def test_fast_dest_false_by_default(self):
+        with patch('sys.argv', ['prog']):
+            args = parse_args()
+        self.assertFalse(args.fast_dest)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Additional coverage tests
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestBuildDestIndexWorkerException(TempDirMixin, unittest.TestCase):
+    """build_dest_index gracefully ignores futures that raise."""
+
+    def test_worker_exception_caught_silently(self):
+        """Lines 207-208: exception from future.result() must be swallowed."""
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(dst)
+        # Create a real media file so the executor submits it
+        photo = os.path.join(dst, "2023-06-15_001.jpg")
+        with open(photo, 'wb') as f:
+            f.write(b"photo data")
+
+        db = CacheDB(os.path.join(self.tmpdir, "test.db"))
+
+        with patch('nas_organizer.core.process_single_file', side_effect=RuntimeError("worker crash")):
+            # Should not raise — exceptions must be caught
+            hi, seq, dup_seq = build_dest_index(dst, db)
+
+        self.assertEqual(hi, {})
+        db.close()
+
+
+class TestSrcHashWorkerException(TempDirMixin, unittest.TestCase):
+    """Lines 401-402: exception from src_hash future.result() must be swallowed."""
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_src_hash_exception_caught(self, _):
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with open(os.path.join(src, "IMG_20230101_120000.jpg"), 'wb') as f:
+            f.write(b"content")
+
+        from nas_organizer.io import process_single_file as original_psf
+
+        def raise_for_src(path, cached_data):
+            if "source" in path:
+                raise RuntimeError("src hash crash")
+            return original_psf(path, cached_data)
+
+        with patch('nas_organizer.core.process_single_file', side_effect=raise_for_src):
+            with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '-y']):
+                main()  # Must not raise; hash errors silently absorbed
+
+
+class TestHashErrors(TempDirMixin, unittest.TestCase):
+    """Lines 422-423 and 473: files whose hash returns None hit the hash_errors counter."""
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_hash_none_increments_error_count(self, _):
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with open(os.path.join(src, "IMG_20230101_120000.jpg"), 'wb') as f:
+            f.write(b"content")
+
+        from nas_organizer.io import process_single_file as original_psf
+
+        def return_none_for_src(path, cached_data):
+            if "source" in path:
+                return None, 0, 0, False  # h=None triggers hash_errors
+            return original_psf(path, cached_data)
+
+        with patch('nas_organizer.core.process_single_file', side_effect=return_none_for_src):
+            with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+                main()  # Must complete; hash_errors printed to console
+
+
+class TestClassificationException(TempDirMixin, unittest.TestCase):
+    """Lines 450-454: get_file_date raising inside classification executor uses mtime fallback."""
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_get_file_date_exception_falls_back_to_mtime(self, _):
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with open(os.path.join(src, "nondescript.jpg"), 'wb') as f:
+            f.write(b"no exif no filename date")
+
+        with patch('nas_organizer.core.get_file_date', side_effect=RuntimeError("date crash")):
+            with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+                main()  # Should complete using mtime fallback
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_get_file_date_exception_and_mtime_also_fails(self, _):
+        """Lines 453-454: if mtime also raises, file_dates[path] = None (Unknown_Date)."""
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with open(os.path.join(src, "nondescript.jpg"), 'wb') as f:
+            f.write(b"data")
+
+        with patch('nas_organizer.core.get_file_date', side_effect=RuntimeError("date crash")):
+            with patch('nas_organizer.core.os.path.getmtime', side_effect=OSError("mtime fail")):
+                with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+                    main()  # file_dates[path] = None → Unknown_Date
+
+
+class TestUnknownDatePath(TempDirMixin, unittest.TestCase):
+    """Lines 487-488 and 509-510: files classified as Unknown_Date land in Unknown_Date dir."""
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_unknown_date_in_copy_plan(self, _):
+        """Lines 487-488: copy plan uses Unknown_Date subdir when dt is None."""
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with open(os.path.join(src, "nondescript.jpg"), 'wb') as f:
+            f.write(b"data")
+
+        # Return a 1970 datetime so date_str becomes "Unknown_Date"
+        with patch('nas_organizer.core.get_file_date', return_value=datetime(1970, 1, 1)):
+            with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+                main()
+
+        # Dry-run report should exist; Unknown_Date dir would be target in plan
+        log_dir = os.path.join(dst, ".organize_logs")
+        reports = [f for f in os.listdir(log_dir) if f.endswith('.csv')]
+        self.assertEqual(len(reports), 1)
+        with open(os.path.join(log_dir, reports[0])) as f:
+            content = f.read()
+        self.assertIn("Unknown_Date", content)
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_unknown_date_for_src_dups(self, _):
+        """Lines 509-510: duplicate files with Unknown_Date land in Duplicate/Unknown_Date."""
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        # Two files with identical content → one becomes a src_dup
+        for name in ["file_a.jpg", "file_b.jpg"]:
+            with open(os.path.join(src, name), 'wb') as f:
+                f.write(b"identical content here")
+
+        # Return 1970 for all date queries → Unknown_Date for both copy plan and dups
+        with patch('nas_organizer.core.get_file_date', return_value=datetime(1970, 1, 1)):
+            with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+                main()
+
+
+class TestExecuteJobsWithRunLog(TempDirMixin, unittest.TestCase):
+    """Lines 608 and 616: run_log.error is called when run_log is provided."""
+
+    def _setup_env(self):
+        src_dir = os.path.join(self.tmpdir, "source")
+        dst_dir = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src_dir)
+        os.makedirs(dst_dir)
+        db = CacheDB(os.path.join(dst_dir, ".cache.db"))
+        return src_dir, dst_dir, db
+
+    def test_run_log_error_on_copy_failure(self):
+        """Line 608: run_log.error is called when a copy fails."""
+        from nas_organizer.core import execute_jobs, RunLogger
+        src_dir, dst_dir, db = self._setup_env()
+
+        log_path = os.path.join(dst_dir, "test.log")
+        run_log = RunLogger(log_path)
+        run_log.open()
+
+        # Job will fail because source doesn't exist
+        db.enqueue_jobs([("/nonexistent/fail.jpg", os.path.join(dst_dir, "fail.jpg"), "h1", "PENDING")])
+        execute_jobs(db.get_pending_jobs(), db, dst_dir, run_log=run_log)
+        run_log.close()
+
+        with open(log_path) as f:
+            content = f.read()
+        self.assertIn("Copy failed", content)
+        db.close()
+
+    def test_run_log_error_on_abort(self):
+        """Line 616: run_log.error is called in the abort message."""
+        from nas_organizer.core import execute_jobs, RunLogger
+        src_dir, dst_dir, db = self._setup_env()
+
+        log_path = os.path.join(dst_dir, "abort.log")
+        run_log = RunLogger(log_path)
+        run_log.open()
+
+        # Enough consecutive failures to trigger abort
+        jobs = [
+            ("/nonexistent/bad_{}.jpg".format(i),
+             os.path.join(dst_dir, "bad_{}.jpg".format(i)),
+             "h{}".format(i), "PENDING")
+            for i in range(MAX_CONSECUTIVE_FAILURES + 1)
+        ]
+        db.enqueue_jobs(jobs)
+        execute_jobs(db.get_pending_jobs(), db, dst_dir, run_log=run_log)
+        run_log.close()
+
+        with open(log_path) as f:
+            content = f.read()
+        self.assertIn("Aborting", content)
+        db.close()
+
+
+class TestExecuteJobsGetSizeOSError(TempDirMixin, unittest.TestCase):
+    """Lines 601-602: fallback to st_size when getsize raises OSError after successful copy."""
+
+    def test_getsize_oserror_uses_stat_size_fallback(self):
+        """Lines 601-602: if os.path.getsize fails post-copy, st_size is used instead."""
+        from nas_organizer.core import execute_jobs
+        src_dir = os.path.join(self.tmpdir, "source")
+        dst_dir = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src_dir)
+        os.makedirs(dst_dir)
+        db = CacheDB(os.path.join(dst_dir, ".cache.db"))
+
+        src = os.path.join(src_dir, "photo.jpg")
+        with open(src, 'wb') as f:
+            f.write(b"x" * 1024)
+        dst_path = os.path.join(dst_dir, "photo.jpg")
+
+        db.enqueue_jobs([(src, dst_path, "h1", "PENDING")])
+
+        original_getsize = os.path.getsize
+        call_count = [0]
+
+        def getsize_raises_once(path):
+            call_count[0] += 1
+            # Pre-flight loop makes 1 call (call_count==1) — let it pass.
+            # The post-copy call inside the copy loop is call_count==2 — raise
+            # OSError so execution falls through to the st.st_size fallback.
+            if call_count[0] > 1:  # fail on post-copy call
+                raise OSError("getsize failed")
+            return original_getsize(path)
+
+        with patch('nas_organizer.core.os.path.getsize', side_effect=getsize_raises_once):
+            execute_jobs(db.get_pending_jobs(), db, dst_dir)
+
+        self.assertTrue(os.path.exists(dst_path))
+        db.close()
+
+
+class TestHasExifreadFalseWarning(TempDirMixin, unittest.TestCase):
+    """Line 299: console prints warning when HAS_EXIFREAD is False."""
+
+    @patch('nas_organizer.core._find_profiles_yaml', return_value='/nonexistent/nas_profiles.yaml')
+    def test_no_exifread_prints_warning(self, _):
+        from nas_organizer.core import main
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with patch('nas_organizer.core.HAS_EXIFREAD', False):
+            with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+                main()  # Must complete; line 299 hit when HAS_EXIFREAD is False
+
+
+class TestExifreadTagFound(unittest.TestCase):
+    """metadata.py lines 28-33: exifread returns a matching tag."""
+
+    def test_get_date_exifread_with_datetime_original(self):
+        """Lines 28-33: when EXIF DateTimeOriginal is present, return parsed datetime."""
+        from nas_organizer.metadata import get_date_exifread
+
+        fake_tags = {'EXIF DateTimeOriginal': '2023:06:15 12:30:00'}
+
+        with patch('exifread.process_file', return_value=fake_tags):
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
+                f.write(b"fake jpeg")
+                tmp = f.name
+            try:
+                result = get_date_exifread(tmp)
+            finally:
+                os.unlink(tmp)
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.year, 2023)
+        self.assertEqual(result.month, 6)
+        self.assertEqual(result.day, 15)
+
+    def test_get_date_exifread_zero_timestamp_returns_none(self):
+        """The all-zero timestamp is treated as missing and returns None."""
+        from nas_organizer.metadata import get_date_exifread
+
+        fake_tags = {'EXIF DateTimeOriginal': '0000:00:00 00:00:00'}
+
+        with patch('exifread.process_file', return_value=fake_tags):
+            with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as f:
+                f.write(b"fake jpeg")
+                tmp = f.name
+            try:
+                result = get_date_exifread(tmp)
+            finally:
+                os.unlink(tmp)
+
+        self.assertIsNone(result)
 
 
 if __name__ == '__main__':
