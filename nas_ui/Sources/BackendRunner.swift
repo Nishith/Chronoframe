@@ -70,9 +70,14 @@ class BackendRunner: ObservableObject {
         self.process = task
         self.inputPipe = inPipe
         
-        // In a real .app bundle, we might bundle the python script inside Contents/Resources.
-        // For development, we point it to the parent directory script.
-        let scriptPath = FileManager.default.currentDirectoryPath + "/organize_nas.py"
+        // Resolve the script relative to the running .app bundle (which lives in nas_ui/build/)
+        let bundleURL = Bundle.main.bundleURL
+        let scriptPath = bundleURL
+            .deletingLastPathComponent() // removes .app
+            .deletingLastPathComponent() // removes build/
+            .deletingLastPathComponent() // removes nas_ui/
+            .appendingPathComponent("organize_nas.py")
+            .path
         
         task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         var args = ["python3", scriptPath, "--json"]
