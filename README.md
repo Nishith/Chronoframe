@@ -255,6 +255,14 @@ python3 organize_nas.py --source /Volumes/photo/Incoming --dest /Volumes/home/Or
 
 ### macOS App
 
+**Download the latest release:**
+
+1. Go to the [Releases page](https://github.com/Nishith/NAS-Photo-Organizer/releases) and download `NAS.Organizer.vX.Y.Z.zip`.
+2. Unzip and drag **NAS Organizer UI.app** to `/Applications`.
+3. **First launch only:** macOS Gatekeeper will block the app because it is not notarized. Right-click (or Control-click) the app, choose **Open**, then confirm in the dialog.
+
+**Build from source:**
+
 ```bash
 cd nas_ui
 ./build.sh
