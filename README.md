@@ -86,7 +86,7 @@ The queue is written before transfers begin, so an interrupted run can be resume
 
 ### Atomic Copy Path
 
-`safe_copy_atomic()` in [`nas_organizer/io.py`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_organizer/io.py) performs the write path:
+`safe_copy_atomic()` in [`nas_organizer/io.py`](nas_organizer/io.py) performs the write path:
 
 1. Ensure the destination directory exists.
 2. Check available disk space with a 10 MB safety buffer.
@@ -134,7 +134,7 @@ If no reliable date can be determined, the file is routed into `Unknown_Date/`.
 
 ## CLI And App Flow
 
-The backend is implemented in [`nas_organizer/core.py`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_organizer/core.py) and orchestrates these phases:
+The backend is implemented in [`nas_organizer/core.py`](nas_organizer/core.py) and orchestrates these phases:
 
 1. Startup
 2. Discovery
@@ -178,7 +178,7 @@ Important payload fields currently used by the UI include:
 
 ## macOS UI
 
-The macOS app lives under [`nas_ui/`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_ui).
+The macOS app lives under [`nas_ui/`](nas_ui/).
 
 Current UI behavior:
 
@@ -198,23 +198,23 @@ Current UI behavior:
 
 Core UI files:
 
-- [`nas_ui/Sources/ContentView.swift`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_ui/Sources/ContentView.swift)
-- [`nas_ui/Sources/BackendRunner.swift`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_ui/Sources/BackendRunner.swift)
-- [`nas_ui/Sources/NASOrganizerApp.swift`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_ui/Sources/NASOrganizerApp.swift)
-- [`nas_ui/Tools/IconGenerator.swift`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_ui/Tools/IconGenerator.swift)
+- [`nas_ui/Sources/ContentView.swift`](nas_ui/Sources/ContentView.swift)
+- [`nas_ui/Sources/BackendRunner.swift`](nas_ui/Sources/BackendRunner.swift)
+- [`nas_ui/Sources/NASOrganizerApp.swift`](nas_ui/Sources/NASOrganizerApp.swift)
+- [`nas_ui/Tools/IconGenerator.swift`](nas_ui/Tools/IconGenerator.swift)
 
-The build script at [`nas_ui/build.sh`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/nas_ui/build.sh) packages a `.app` bundle without needing an Xcode project, generates the app icon, and writes the bundle metadata.
+The build script at [`nas_ui/build.sh`](nas_ui/build.sh) packages a `.app` bundle without needing an Xcode project, generates the app icon, and writes the bundle metadata.
 
 ## Installation
 
-Python dependencies are listed in [`requirements.txt`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/requirements.txt):
+Python dependencies are listed in [`requirements.txt`](requirements.txt):
 
 - `exifread`
 - `tenacity`
 - `rich`
 - `pyyaml`
 
-The bootstrap wrapper [`organize_nas.py`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/organize_nas.py) checks for these packages and offers to install them if they are missing.
+The bootstrap wrapper [`organize_nas.py`](organize_nas.py) checks for these packages and offers to install them if they are missing.
 
 ### CLI Usage
 
@@ -288,12 +288,12 @@ Example:
 
 ```yaml
 default:
-  source: "/Volumes/photo/bkp_1_9"
-  dest: "/Volumes/home/Organized_Photos"
+  source: "/Volumes/MyDrive/Incoming"
+  dest: "/Volumes/MyDrive/Organized_Photos"
 
 mobile_backup:
-  source: "/Volumes/home/Mobile_Snapshots"
-  dest: "/Volumes/home/Organized_Photos"
+  source: "/Volumes/MyDrive/Phone_Imports"
+  dest: "/Volumes/MyDrive/Organized_Photos"
 ```
 
 Resolution behavior:
@@ -347,7 +347,7 @@ NAS-Photo-Organizer/
 
 ## Testing
 
-The current repository test suite contains 209 unit and integration tests in [`test_organize_nas.py`](/Users/nishithnand/Downloads/photo_org/NAS-Photo-Organizer/test_organize_nas.py).
+The current repository test suite contains 209 unit and integration tests in [`test_organize_nas.py`](test_organize_nas.py).
 
 Run the suite with:
 
