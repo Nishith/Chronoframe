@@ -18,3 +18,4 @@ htmlcov/
 .claude/
 profiles.yaml
 ui/build/
+ui/.build/
