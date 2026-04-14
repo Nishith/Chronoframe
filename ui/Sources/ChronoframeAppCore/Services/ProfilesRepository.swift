@@ -1,6 +1,13 @@
 import Foundation
 
-public final class ProfilesRepository: Sendable {
+public protocol ProfilesRepositorying: AnyObject {
+    func profilesFileURL() -> URL
+    func loadProfiles() throws -> [Profile]
+    func save(profile: Profile) throws
+    func deleteProfile(named name: String) throws
+}
+
+public final class ProfilesRepository: ProfilesRepositorying, Sendable {
     public init() {}
 
     public func profilesFileURL() -> URL {

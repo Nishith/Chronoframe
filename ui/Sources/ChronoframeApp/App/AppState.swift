@@ -14,12 +14,13 @@ final class AppState: ObservableObject {
     var historyStore: HistoryStore
     var runSessionStore: RunSessionStore
 
-    private let folderAccessService: FolderAccessService
-    private let finderService: FinderService
-    private let profilesRepository: ProfilesRepository
+    private let folderAccessService: any FolderAccessServicing
+    private let finderService: any FinderServicing
+    private let profilesRepository: any ProfilesRepositorying
+    private let showSettingsWindowAction: @MainActor () -> Void
     private var cancellables: Set<AnyCancellable>
 
-    init() {
+    convenience init() {
         let preferencesStore = PreferencesStore()
         let profilesRepository = ProfilesRepository()
         let folderAccessService = FolderAccessService()
@@ -34,7 +35,33 @@ final class AppState: ObservableObject {
         let engine = PythonOrganizerEngine(profilesRepository: profilesRepository)
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
 
-        self.selection = .setup
+        self.init(
+            preferencesStore: preferencesStore,
+            setupStore: setupStore,
+            runLogStore: runLogStore,
+            historyStore: historyStore,
+            runSessionStore: runSessionStore,
+            folderAccessService: folderAccessService,
+            finderService: finderService,
+            profilesRepository: profilesRepository
+        )
+    }
+
+    init(
+        selection: SidebarDestination = .setup,
+        preferencesStore: PreferencesStore,
+        setupStore: SetupStore,
+        runLogStore: RunLogStore,
+        historyStore: HistoryStore,
+        runSessionStore: RunSessionStore,
+        folderAccessService: any FolderAccessServicing,
+        finderService: any FinderServicing,
+        profilesRepository: any ProfilesRepositorying,
+        showSettingsWindowAction: @escaping @MainActor () -> Void = {
+            NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        }
+    ) {
+        self.selection = selection
         self.transientErrorMessage = nil
         self.preferencesStore = preferencesStore
         self.setupStore = setupStore
@@ -44,10 +71,11 @@ final class AppState: ObservableObject {
         self.folderAccessService = folderAccessService
         self.finderService = finderService
         self.profilesRepository = profilesRepository
+        self.showSettingsWindowAction = showSettingsWindowAction
         self.cancellables = []
 
         bindChildStores()
-        restoreManualBookmarks()
+        restoreManualPaths()
         refreshProfiles()
         historyStore.refresh(destinationRoot: setupStore.destinationPath)
     }
@@ -96,6 +124,7 @@ final class AppState: ObservableObject {
     func clearSelectedProfile() {
         setupStore.clearProfileSelection()
         preferencesStore.lastSelectedProfileName = ""
+        restoreManualPaths()
         historyStore.refresh(destinationRoot: setupStore.destinationPath)
     }
 
@@ -201,7 +230,7 @@ final class AppState: ObservableObject {
     }
 
     func openSettingsWindow() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        showSettingsWindowAction()
     }
 
     func revealHistoryEntry(_ entry: RunHistoryEntry) {
@@ -224,7 +253,10 @@ final class AppState: ObservableObject {
         preferencesStore.storeBookmark(bookmark)
     }
 
-    private func restoreManualBookmarks() {
+    private func restoreManualPaths() {
+        setupStore.sourcePath = preferencesStore.lastManualSourcePath
+        setupStore.destinationPath = preferencesStore.lastManualDestinationPath
+
         if let sourceBookmark = preferencesStore.bookmark(for: bookmarkKey(for: .source, profileName: nil)),
            let sourceURL = folderAccessService.resolveBookmark(sourceBookmark)
         {

@@ -27,5 +27,10 @@ let package = Package(
             dependencies: ["ChronoframeAppCore"],
             path: "Tests/ChronoframeAppCoreTests"
         ),
+        .testTarget(
+            name: "ChronoframeAppTests",
+            dependencies: ["ChronoframeApp"],
+            path: "Tests/ChronoframeAppTests"
+        ),
     ]
 )

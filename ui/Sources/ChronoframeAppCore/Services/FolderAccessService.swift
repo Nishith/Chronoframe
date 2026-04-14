@@ -2,7 +2,14 @@ import AppKit
 import Foundation
 
 @MainActor
-public final class FolderAccessService {
+public protocol FolderAccessServicing: AnyObject {
+    func chooseFolder(startingAt path: String?, prompt: String) -> URL?
+    func makeBookmark(for url: URL, key: String) throws -> FolderBookmark
+    func resolveBookmark(_ bookmark: FolderBookmark) -> URL?
+}
+
+@MainActor
+public final class FolderAccessService: FolderAccessServicing {
     public init() {}
 
     public func chooseFolder(startingAt path: String? = nil, prompt: String = "Choose Folder") -> URL? {

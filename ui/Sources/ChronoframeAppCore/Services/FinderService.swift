@@ -2,7 +2,13 @@ import AppKit
 import Foundation
 
 @MainActor
-public final class FinderService {
+public protocol FinderServicing: AnyObject {
+    func openPath(_ path: String)
+    func revealInFinder(_ path: String)
+}
+
+@MainActor
+public final class FinderService: FinderServicing {
     public init() {}
 
     public func openPath(_ path: String) {
