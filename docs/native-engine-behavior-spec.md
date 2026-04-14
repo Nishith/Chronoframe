@@ -154,6 +154,7 @@ fixtures.
 ## Reference Fixtures And Tests
 
 - Planning parity fixtures:
+  - `planning_fast_dest_cache_reuse`
   - `planning_mixed_inputs`
   - `planning_sequence_reuse`
   - `planning_sequence_overflow`

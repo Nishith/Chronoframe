@@ -17,6 +17,12 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_ROOT = Path(__file__).resolve().parent
 
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from chronoframe.database import CacheDB
+from chronoframe.io import fast_hash
+
 
 def load_manifest(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
@@ -49,6 +55,36 @@ def normalize_path(path: str, source_root: Path, dest_root: Path) -> str:
         pass
 
     return path
+
+
+def resolve_fixture_path(spec: str, source_root: Path, dest_root: Path) -> Path:
+    if spec.startswith("source/"):
+        return source_root / spec.removeprefix("source/")
+    if spec.startswith("dest/"):
+        return dest_root / spec.removeprefix("dest/")
+    raise ValueError(f"Unsupported fixture path spec: {spec}")
+
+
+def resolve_hash_spec(spec: str, source_root: Path, dest_root: Path) -> str:
+    if spec.startswith("actual:"):
+        path = resolve_fixture_path(spec.removeprefix("actual:"), source_root, dest_root)
+        return fast_hash(str(path))
+    return spec
+
+
+def seed_destination_cache(cache_db: CacheDB, rows: list[dict[str, Any]], source_root: Path, dest_root: Path) -> None:
+    updates = []
+    for row in rows:
+        path = resolve_fixture_path(row["path"], source_root, dest_root)
+        updates.append(
+            (
+                str(path),
+                resolve_hash_spec(row["hash"], source_root, dest_root),
+                row["size"],
+                row["mtime"],
+            )
+        )
+    cache_db.save_batch(2, updates)
 
 
 def parse_report_rows(report_path: Path, source_root: Path, dest_root: Path) -> list[dict[str, Any]]:
@@ -123,9 +159,19 @@ def run_scenario(manifest_path: Path) -> dict[str, Any]:
     dest_root = temp_root / "dest"
 
     try:
+        source_root.mkdir(parents=True, exist_ok=True)
+        dest_root.mkdir(parents=True, exist_ok=True)
+
         for entry in manifest["files"]:
             target_root = source_root if entry["root"] == "source" else dest_root
             write_fixture_file(target_root, entry)
+
+        if manifest.get("seed_destination_cache"):
+            cache_db = CacheDB(str(dest_root / ".organize_cache.db"))
+            try:
+                seed_destination_cache(cache_db, manifest["seed_destination_cache"], source_root, dest_root)
+            finally:
+                cache_db.close()
 
         command = [
             sys.executable,
@@ -140,6 +186,8 @@ def run_scenario(manifest_path: Path) -> dict[str, Any]:
             "--workers",
             "1",
         ]
+        if manifest.get("fast_dest", False):
+            command.append("--fast-dest")
 
         result = subprocess.run(
             command,
