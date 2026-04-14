@@ -395,6 +395,41 @@ class TestCacheDB(TempDirMixin, unittest.TestCase):
         self.assertEqual(cur.fetchone()[0], "wal")
         db.close()
 
+    def test_synchronous_mode_enabled(self):
+        db = self._make_db()
+        cur = db.conn.execute("PRAGMA synchronous;")
+        # SQLite may return the symbolic value as an integer for PRAGMA reads.
+        self.assertEqual(cur.fetchone()[0], 1)
+        db.close()
+
+    def test_database_schema_contract_remains_stable(self):
+        db = self._make_db()
+
+        file_cache_columns = db.conn.execute("PRAGMA table_info(FileCache);").fetchall()
+        copy_jobs_columns = db.conn.execute("PRAGMA table_info(CopyJobs);").fetchall()
+
+        self.assertEqual(
+            [(row[1], row[2], row[5]) for row in file_cache_columns],
+            [
+                ("id", "INTEGER", 1),
+                ("path", "TEXT", 2),
+                ("hash", "TEXT", 0),
+                ("size", "INTEGER", 0),
+                ("mtime", "REAL", 0),
+            ],
+        )
+        self.assertEqual(
+            [(row[1], row[2], row[5]) for row in copy_jobs_columns],
+            [
+                ("src_path", "TEXT", 1),
+                ("dst_path", "TEXT", 0),
+                ("hash", "TEXT", 0),
+                ("status", "TEXT", 0),
+            ],
+        )
+
+        db.close()
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # Metadata — get_date_from_filename

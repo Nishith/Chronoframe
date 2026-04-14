@@ -3,46 +3,64 @@ import XCTest
 @testable import ChronoframeAppCore
 
 final class HistoryStoreTests: XCTestCase {
-    private var temporaryDirectoryURL: URL!
+    func testRefreshUsesIndexerResults() {
+        let entries = [
+            RunHistoryEntry(
+                kind: .queueDatabase,
+                title: "Queue Database",
+                path: "/tmp/run/.organize_cache.db",
+                relativePath: ".organize_cache.db",
+                fileSizeBytes: 4_096,
+                createdAt: Date(timeIntervalSince1970: 30)
+            ),
+            RunHistoryEntry(
+                kind: .auditReceipt,
+                title: "Audit Receipt",
+                path: "/tmp/run/.organize_logs/audit_receipt.json",
+                relativePath: ".organize_logs/audit_receipt.json",
+                fileSizeBytes: 512,
+                createdAt: Date(timeIntervalSince1970: 20)
+            ),
+        ]
+        let indexer = MockRunHistoryIndexer(result: .success(entries))
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        temporaryDirectoryURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("ChronoframeHistoryTests-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: temporaryDirectoryURL, withIntermediateDirectories: true)
+        let store = HistoryStore(indexer: indexer)
+        store.refresh(destinationRoot: "/tmp/run")
+
+        XCTAssertEqual(store.entries, entries)
+        XCTAssertEqual(store.destinationRoot, "/tmp/run")
+        XCTAssertNil(store.lastRefreshError)
     }
 
-    override func tearDownWithError() throws {
-        if let temporaryDirectoryURL {
-            try? FileManager.default.removeItem(at: temporaryDirectoryURL)
-        }
-        temporaryDirectoryURL = nil
-        try super.tearDownWithError()
-    }
-
-    func testRefreshDiscoversRunArtifacts() throws {
-        let logFile = temporaryDirectoryURL.appendingPathComponent(".organize_log.txt")
-        let logsDirectory = temporaryDirectoryURL.appendingPathComponent(".organize_logs", isDirectory: true)
-        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
-
-        let report = logsDirectory.appendingPathComponent("dry_run_report_20260413_120000.csv")
-        let receipt = logsDirectory.appendingPathComponent("audit_receipt_20260413_121500.json")
-
-        try "run log".write(to: logFile, atomically: true, encoding: .utf8)
-        try "report".write(to: report, atomically: true, encoding: .utf8)
-        try "{}".write(to: receipt, atomically: true, encoding: .utf8)
-
-        let store = HistoryStore()
-        store.refresh(destinationRoot: temporaryDirectoryURL.path)
-
-        let normalizedPaths = Set(
-            store.entries.map { URL(fileURLWithPath: $0.path).resolvingSymlinksInPath().path }
+    func testRefreshRecordsIndexerFailures() {
+        let indexer = MockRunHistoryIndexer(result: .failure(MockRunHistoryIndexer.Error.sample))
+        let store = HistoryStore(
+            entries: [
+                RunHistoryEntry(kind: .runLog, title: "Run Log", path: "/tmp/old.log", createdAt: .distantPast)
+            ],
+            indexer: indexer
         )
 
-        XCTAssertEqual(store.entries.count, 3)
-        XCTAssertTrue(normalizedPaths.contains(logFile.resolvingSymlinksInPath().path))
-        XCTAssertTrue(normalizedPaths.contains(report.resolvingSymlinksInPath().path))
-        XCTAssertTrue(normalizedPaths.contains(receipt.resolvingSymlinksInPath().path))
-        XCTAssertNil(store.lastRefreshError)
+        store.refresh(destinationRoot: "/tmp/run")
+
+        XCTAssertEqual(store.entries, [])
+        XCTAssertEqual(store.destinationRoot, "/tmp/run")
+        XCTAssertEqual(store.lastRefreshError, MockRunHistoryIndexer.Error.sample.localizedDescription)
+    }
+}
+
+private struct MockRunHistoryIndexer: RunHistoryIndexing {
+    enum Error: LocalizedError {
+        case sample
+
+        var errorDescription: String? {
+            "History index failed"
+        }
+    }
+
+    let result: Result<[RunHistoryEntry], Swift.Error>
+
+    func index(destinationRoot: String) throws -> [RunHistoryEntry] {
+        try result.get()
     }
 }

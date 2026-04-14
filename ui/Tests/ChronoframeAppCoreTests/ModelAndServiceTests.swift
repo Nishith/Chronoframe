@@ -30,6 +30,7 @@ final class ModelAndServiceTests: XCTestCase {
 
         for kind in RunHistoryEntryKind.allCases {
             XCTAssertFalse(kind.title.isEmpty)
+            XCTAssertFalse(kind.systemImage.isEmpty)
         }
     }
 

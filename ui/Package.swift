@@ -8,12 +8,17 @@ let package = Package(
         .macOS(.v13),
     ],
     products: [
+        .library(name: "ChronoframeCore", targets: ["ChronoframeCore"]),
         .library(name: "ChronoframeAppCore", targets: ["ChronoframeAppCore"]),
         .executable(name: "ChronoframeApp", targets: ["ChronoframeApp"]),
     ],
     targets: [
         .target(
+            name: "ChronoframeCore"
+        ),
+        .target(
             name: "ChronoframeAppCore",
+            dependencies: ["ChronoframeCore"],
             linkerSettings: [
                 .linkedLibrary("sqlite3"),
             ]
@@ -24,7 +29,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ChronoframeAppCoreTests",
-            dependencies: ["ChronoframeAppCore"],
+            dependencies: ["ChronoframeAppCore", "ChronoframeCore"],
             path: "Tests/ChronoframeAppCoreTests"
         ),
         .testTarget(

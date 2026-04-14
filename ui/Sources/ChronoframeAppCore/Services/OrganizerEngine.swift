@@ -1,3 +1,4 @@
+import ChronoframeCore
 import Foundation
 
 public enum OrganizerEngineError: LocalizedError {

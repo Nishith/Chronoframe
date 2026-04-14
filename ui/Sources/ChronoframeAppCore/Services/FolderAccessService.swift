@@ -1,4 +1,5 @@
 import AppKit
+import ChronoframeCore
 import Foundation
 
 public struct ResolvedFolderBookmark: Equatable, Sendable {

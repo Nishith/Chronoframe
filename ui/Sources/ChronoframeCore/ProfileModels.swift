@@ -34,6 +34,9 @@ public enum RunHistoryEntryKind: String, Codable, CaseIterable, Sendable {
     case dryRunReport
     case auditReceipt
     case runLog
+    case queueDatabase
+    case csvArtifact
+    case jsonArtifact
 
     public var title: String {
         switch self {
@@ -43,6 +46,29 @@ public enum RunHistoryEntryKind: String, Codable, CaseIterable, Sendable {
             return "Audit Receipt"
         case .runLog:
             return "Run Log"
+        case .queueDatabase:
+            return "Queue Database"
+        case .csvArtifact:
+            return "CSV Artifact"
+        case .jsonArtifact:
+            return "JSON Artifact"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .dryRunReport:
+            return "doc.text.magnifyingglass"
+        case .auditReceipt:
+            return "checklist"
+        case .runLog:
+            return "text.append"
+        case .queueDatabase:
+            return "internaldrive"
+        case .csvArtifact:
+            return "tablecells"
+        case .jsonArtifact:
+            return "curlybraces"
         }
     }
 }
@@ -52,6 +78,8 @@ public struct RunHistoryEntry: Identifiable, Equatable, Sendable {
     public let kind: RunHistoryEntryKind
     public let title: String
     public let path: String
+    public let relativePath: String
+    public let fileSizeBytes: Int64?
     public let createdAt: Date
 
     public init(
@@ -59,12 +87,16 @@ public struct RunHistoryEntry: Identifiable, Equatable, Sendable {
         kind: RunHistoryEntryKind,
         title: String,
         path: String,
+        relativePath: String? = nil,
+        fileSizeBytes: Int64? = nil,
         createdAt: Date
     ) {
         self.id = id
         self.kind = kind
         self.title = title
         self.path = path
+        self.relativePath = relativePath ?? URL(fileURLWithPath: path).lastPathComponent
+        self.fileSizeBytes = fileSizeBytes
         self.createdAt = createdAt
     }
 }
