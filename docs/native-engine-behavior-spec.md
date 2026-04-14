@@ -156,8 +156,10 @@ fixtures.
 - Planning parity fixtures:
   - `planning_mixed_inputs`
   - `planning_sequence_reuse`
+  - `planning_sequence_overflow`
 - Execution parity fixtures:
   - `execution_collision_receipt`
+  - `execution_missing_source_abort`
   - `execution_verify_cleanup`
   - `resume_pending_queue`
 - Contract-focused Python tests in `test_chronoframe.py` remain part of the

@@ -25,6 +25,7 @@
     "copy_plan_ready": 4,
     "complete_status": "dry_run_finished"
   },
+  "warning_messages": [],
   "report_rows": [
     {
       "source": "source/camera/IMG_20240102_101010.jpg",

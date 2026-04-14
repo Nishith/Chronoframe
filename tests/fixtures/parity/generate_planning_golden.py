@@ -110,6 +110,10 @@ def simplify_events(events: list[dict[str, Any]]) -> tuple[list[str], dict[str, 
     return sequence, counts
 
 
+def extract_warning_messages(events: list[dict[str, Any]]) -> list[str]:
+    return [event["message"] for event in events if event.get("type") == "warning" and "message" in event]
+
+
 def run_scenario(manifest_path: Path) -> dict[str, Any]:
     manifest = load_manifest(manifest_path)
     scenario_dir = manifest_path.parent
@@ -169,6 +173,7 @@ def run_scenario(manifest_path: Path) -> dict[str, Any]:
             "description": manifest.get("description", ""),
             "phase_sequence": phase_sequence,
             "counts": counts,
+            "warning_messages": extract_warning_messages(events),
             "report_rows": rows,
         }
     finally:
