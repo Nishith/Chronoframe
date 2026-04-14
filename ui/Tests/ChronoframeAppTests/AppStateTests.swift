@@ -28,6 +28,55 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testChooseFolderValidationFailureSurfacesErrorWithoutChangingState() async {
+        let sourceURL = URL(fileURLWithPath: "/Volumes/Locked")
+        let harness = AppStateHarness()
+        harness.folderAccessService.nextChosenFolder = sourceURL
+        harness.folderAccessService.validationFailures[sourceURL.path] = FolderValidationError.unreadable(
+            role: .source,
+            path: sourceURL.path
+        )
+        let appState = harness.makeAppState()
+
+        await appState.chooseSourceFolder()
+
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "Chronoframe cannot read the selected source folder: /Volumes/Locked"
+        )
+        XCTAssertEqual(appState.setupStore.sourcePath, "")
+        XCTAssertNil(appState.preferencesStore.bookmark(for: "manual.source"))
+    }
+
+    @MainActor
+    func testInitialStateRestoresManualBookmarksAndRefreshesStaleBookmarkData() {
+        let harness = AppStateHarness()
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.source", path: "/Volumes/OldCard", data: Data([0x01]))
+        )
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.destination", path: "/Volumes/OldArchive", data: Data([0x02]))
+        )
+        harness.folderAccessService.resolvedBookmarks["manual.source"] = ResolvedFolderBookmark(
+            url: URL(fileURLWithPath: "/Volumes/NewCard"),
+            refreshedBookmark: FolderBookmark(key: "manual.source", path: "/Volumes/NewCard", data: Data([0x11]))
+        )
+        harness.folderAccessService.resolvedBookmarks["manual.destination"] = ResolvedFolderBookmark(
+            url: URL(fileURLWithPath: "/Volumes/NewArchive"),
+            refreshedBookmark: FolderBookmark(key: "manual.destination", path: "/Volumes/NewArchive", data: Data([0x22]))
+        )
+
+        let appState = harness.makeAppState()
+
+        XCTAssertEqual(appState.setupStore.sourcePath, "/Volumes/NewCard")
+        XCTAssertEqual(appState.setupStore.destinationPath, "/Volumes/NewArchive")
+        XCTAssertEqual(appState.preferencesStore.lastManualSourcePath, "/Volumes/NewCard")
+        XCTAssertEqual(appState.preferencesStore.lastManualDestinationPath, "/Volumes/NewArchive")
+        XCTAssertEqual(appState.preferencesStore.bookmark(for: "manual.source")?.path, "/Volumes/NewCard")
+        XCTAssertEqual(appState.preferencesStore.bookmark(for: "manual.destination")?.path, "/Volumes/NewArchive")
+    }
+
+    @MainActor
     func testUseProfileAndSaveProfileUpdateSelectionRepositoryAndBookmarks() {
         let harness = AppStateHarness()
         harness.repository.profiles = [
@@ -53,6 +102,36 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(appState.setupStore.selectedProfileName, "archive")
         XCTAssertEqual(appState.preferencesStore.bookmark(for: "profile.archive.source")?.path, "/Volumes/Card")
         XCTAssertEqual(appState.preferencesStore.bookmark(for: "profile.archive.destination")?.path, "/Volumes/Trips")
+    }
+
+    @MainActor
+    func testUseProfileRestoresBookmarkedPathsAndRefreshesHistory() {
+        let harness = AppStateHarness()
+        harness.repository.profiles = [
+            Profile(name: "travel", sourcePath: "/Volumes/YAML-Card", destinationPath: "/Volumes/YAML-Trips")
+        ]
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "profile.travel.source", path: "/Volumes/Bookmark-Card", data: Data([0x03]))
+        )
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "profile.travel.destination", path: "/Volumes/Bookmark-Trips", data: Data([0x04]))
+        )
+        harness.folderAccessService.resolvedBookmarks["profile.travel.source"] = ResolvedFolderBookmark(
+            url: URL(fileURLWithPath: "/Volumes/Resolved-Card")
+        )
+        harness.folderAccessService.resolvedBookmarks["profile.travel.destination"] = ResolvedFolderBookmark(
+            url: URL(fileURLWithPath: "/Volumes/Resolved-Trips"),
+            refreshedBookmark: FolderBookmark(key: "profile.travel.destination", path: "/Volumes/Resolved-Trips", data: Data([0x44]))
+        )
+
+        let appState = harness.makeAppState()
+        appState.refreshProfiles()
+        appState.useProfile(named: "travel")
+
+        XCTAssertEqual(appState.setupStore.sourcePath, "/Volumes/Resolved-Card")
+        XCTAssertEqual(appState.setupStore.destinationPath, "/Volumes/Resolved-Trips")
+        XCTAssertEqual(appState.historyStore.destinationRoot, "/Volumes/Resolved-Trips")
+        XCTAssertEqual(appState.preferencesStore.bookmark(for: "profile.travel.destination")?.path, "/Volumes/Resolved-Trips")
     }
 
     @MainActor
@@ -312,6 +391,8 @@ private final class AppStateHarness {
 private final class MockFolderAccessService: FolderAccessServicing {
     var nextChosenFolder: URL?
     var bookmarkURLs: [URL] = []
+    var resolvedBookmarks: [String: ResolvedFolderBookmark] = [:]
+    var validationFailures: [String: Error] = [:]
 
     func chooseFolder(startingAt path: String?, prompt: String) -> URL? {
         nextChosenFolder
@@ -322,8 +403,14 @@ private final class MockFolderAccessService: FolderAccessServicing {
         return FolderBookmark(key: key, path: url.path, data: Data(url.path.utf8))
     }
 
-    func resolveBookmark(_ bookmark: FolderBookmark) -> URL? {
-        URL(fileURLWithPath: bookmark.path)
+    func resolveBookmark(_ bookmark: FolderBookmark) -> ResolvedFolderBookmark? {
+        resolvedBookmarks[bookmark.key] ?? ResolvedFolderBookmark(url: URL(fileURLWithPath: bookmark.path))
+    }
+
+    func validateFolder(_ url: URL, role: FolderRole) throws {
+        if let error = validationFailures[url.path] {
+            throw error
+        }
     }
 }
 

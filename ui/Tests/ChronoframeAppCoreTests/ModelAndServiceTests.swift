@@ -63,6 +63,35 @@ final class ModelAndServiceTests: XCTestCase {
         let service = FolderAccessService()
         let bookmark = FolderBookmark(key: "manual.source", path: "/tmp/fallback", data: Data([0x00, 0x01]))
 
-        XCTAssertEqual(service.resolveBookmark(bookmark)?.path, "/tmp/fallback")
+        XCTAssertEqual(service.resolveBookmark(bookmark)?.url.path, "/tmp/fallback")
+    }
+
+    @MainActor
+    func testFolderAccessServiceValidatesDirectoryCapabilities() throws {
+        let service = FolderAccessService()
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let fileURL = root.appendingPathComponent("item.txt")
+        try Data("hello".utf8).write(to: fileURL)
+
+        XCTAssertNoThrow(try service.validateFolder(root, role: .source))
+        XCTAssertNoThrow(try service.validateFolder(root, role: .destination))
+
+        XCTAssertThrowsError(try service.validateFolder(fileURL, role: .source)) { error in
+            XCTAssertEqual(
+                error as? FolderValidationError,
+                .notDirectory(role: .source, path: fileURL.path)
+            )
+        }
+
+        let missingURL = root.appendingPathComponent("missing", isDirectory: true)
+        XCTAssertThrowsError(try service.validateFolder(missingURL, role: .destination)) { error in
+            XCTAssertEqual(
+                error as? FolderValidationError,
+                .pathDoesNotExist(role: .destination, path: missingURL.path)
+            )
+        }
     }
 }

@@ -90,6 +90,12 @@ final class AppState: ObservableObject {
 
     func chooseSourceFolder() async {
         if let url = folderAccessService.chooseFolder(startingAt: setupStore.sourcePath, prompt: "Choose Source Folder") {
+            do {
+                try folderAccessService.validateFolder(url, role: .source)
+            } catch {
+                transientErrorMessage = error.localizedDescription
+                return
+            }
             setupStore.sourcePath = url.path
             preferencesStore.lastManualSourcePath = url.path
             persistBookmark(for: url, key: bookmarkKey(for: .source, profileName: nil))
@@ -101,6 +107,12 @@ final class AppState: ObservableObject {
 
     func chooseDestinationFolder() async {
         if let url = folderAccessService.chooseFolder(startingAt: setupStore.destinationPath, prompt: "Choose Destination Folder") {
+            do {
+                try folderAccessService.validateFolder(url, role: .destination)
+            } catch {
+                transientErrorMessage = error.localizedDescription
+                return
+            }
             setupStore.destinationPath = url.path
             preferencesStore.lastManualDestinationPath = url.path
             persistBookmark(for: url, key: bookmarkKey(for: .destination, profileName: nil))
@@ -115,7 +127,8 @@ final class AppState: ObservableObject {
         setupStore.selectProfile(named: name)
         preferencesStore.lastSelectedProfileName = setupStore.selectedProfileName
         if let activeProfile = setupStore.activeProfile {
-            historyStore.refresh(destinationRoot: activeProfile.destinationPath)
+            restoreProfilePaths(named: activeProfile.name)
+            historyStore.refresh(destinationRoot: setupStore.destinationPath)
         } else if !setupStore.usingProfile {
             historyStore.refresh(destinationRoot: setupStore.destinationPath)
         }
@@ -257,19 +270,40 @@ final class AppState: ObservableObject {
         setupStore.sourcePath = preferencesStore.lastManualSourcePath
         setupStore.destinationPath = preferencesStore.lastManualDestinationPath
 
-        if let sourceBookmark = preferencesStore.bookmark(for: bookmarkKey(for: .source, profileName: nil)),
-           let sourceURL = folderAccessService.resolveBookmark(sourceBookmark)
-        {
-            setupStore.sourcePath = sourceURL.path
-            preferencesStore.lastManualSourcePath = sourceURL.path
+        if let sourcePath = resolveBookmarkedPath(for: .source, profileName: nil) {
+            setupStore.sourcePath = sourcePath
+            preferencesStore.lastManualSourcePath = sourcePath
         }
 
-        if let destinationBookmark = preferencesStore.bookmark(for: bookmarkKey(for: .destination, profileName: nil)),
-           let destinationURL = folderAccessService.resolveBookmark(destinationBookmark)
-        {
-            setupStore.destinationPath = destinationURL.path
-            preferencesStore.lastManualDestinationPath = destinationURL.path
+        if let destinationPath = resolveBookmarkedPath(for: .destination, profileName: nil) {
+            setupStore.destinationPath = destinationPath
+            preferencesStore.lastManualDestinationPath = destinationPath
         }
+    }
+
+    private func restoreProfilePaths(named profileName: String) {
+        if let sourcePath = resolveBookmarkedPath(for: .source, profileName: profileName) {
+            setupStore.sourcePath = sourcePath
+        }
+
+        if let destinationPath = resolveBookmarkedPath(for: .destination, profileName: profileName) {
+            setupStore.destinationPath = destinationPath
+        }
+    }
+
+    private func resolveBookmarkedPath(for role: FolderRole, profileName: String?) -> String? {
+        let key = bookmarkKey(for: role, profileName: profileName)
+        guard let bookmark = preferencesStore.bookmark(for: key),
+              let resolvedBookmark = folderAccessService.resolveBookmark(bookmark)
+        else {
+            return nil
+        }
+
+        if let refreshedBookmark = resolvedBookmark.refreshedBookmark {
+            preferencesStore.storeBookmark(refreshedBookmark)
+        }
+
+        return resolvedBookmark.url.path
     }
 
     private func bindChildStores() {
