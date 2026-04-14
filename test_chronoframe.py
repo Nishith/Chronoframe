@@ -905,12 +905,14 @@ class TestParseArgs(unittest.TestCase):
         self.assertFalse(args.rebuild_cache)
         self.assertFalse(args.verify)
         self.assertFalse(args.yes)
+        self.assertFalse(args.json)
+        self.assertFalse(args.fast_dest)
         self.assertEqual(args.workers, DEFAULT_WORKERS)
 
     def test_all_flags(self):
         with patch('sys.argv', ['prog', '--source', '/s', '--dest', '/d',
                                 '--profile', 'p', '--dry-run', '--rebuild-cache',
-                                '--verify', '-y', '--workers', '4']):
+                                '--verify', '-y', '--json', '--fast-dest', '--workers', '4']):
             args = parse_args()
         self.assertEqual(args.source, '/s')
         self.assertEqual(args.dest, '/d')
@@ -919,6 +921,8 @@ class TestParseArgs(unittest.TestCase):
         self.assertTrue(args.rebuild_cache)
         self.assertTrue(args.verify)
         self.assertTrue(args.yes)
+        self.assertTrue(args.json)
+        self.assertTrue(args.fast_dest)
         self.assertEqual(args.workers, 4)
 
     def test_workers_flag(self):
@@ -935,6 +939,9 @@ class TestConstants(unittest.TestCase):
 
     def test_max_consecutive_failures(self):
         self.assertEqual(MAX_CONSECUTIVE_FAILURES, 5)
+
+    def test_max_total_failures(self):
+        self.assertEqual(MAX_TOTAL_FAILURES, 20)
 
     def test_default_workers(self):
         self.assertGreater(DEFAULT_WORKERS, 0)
@@ -2081,6 +2088,14 @@ class TestIsRetryableError(unittest.TestCase):
 
     def test_enotdir_is_not_retryable(self):
         e = OSError(errno.ENOTDIR, "not a directory")
+        self.assertFalse(_is_retryable_error(e))
+
+    def test_eisdir_is_not_retryable(self):
+        e = OSError(errno.EISDIR, "is a directory")
+        self.assertFalse(_is_retryable_error(e))
+
+    def test_einval_is_not_retryable(self):
+        e = OSError(errno.EINVAL, "invalid argument")
         self.assertFalse(_is_retryable_error(e))
 
     def test_non_oserror_is_not_retryable(self):

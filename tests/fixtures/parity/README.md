@@ -1,7 +1,7 @@
-# Planning Parity Fixtures
+# Native Engine Parity Fixtures
 
-These fixtures freeze Python dry-run planning behavior so the future Swift
-planner can be compared against the same corpus.
+These fixtures freeze Python planning and execution behavior so the future
+Swift engine can be compared against the same corpus.
 
 Each scenario directory contains:
 
