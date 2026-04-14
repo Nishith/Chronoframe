@@ -184,7 +184,11 @@ def write_expected_outputs(scenario_dir: Path) -> None:
 
 
 def scenario_dirs() -> list[Path]:
-    return sorted(path for path in FIXTURE_ROOT.iterdir() if (path / "manifest.json").is_file())
+    return sorted(
+        path
+        for path in FIXTURE_ROOT.iterdir()
+        if (path / "manifest.json").is_file() and path.name.startswith("planning_")
+    )
 
 
 def parse_args() -> argparse.Namespace:

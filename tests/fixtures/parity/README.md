@@ -13,6 +13,7 @@ Regenerate the checked-in golden outputs with:
 
 ```bash
 python3 tests/fixtures/parity/generate_planning_golden.py --write
+python3 tests/fixtures/parity/generate_execution_golden.py --write
 ```
 
 The generated `expected.json` files intentionally normalize absolute paths into
