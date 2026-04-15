@@ -34,7 +34,10 @@ final class AppState: ObservableObject {
         )
         let runLogStore = RunLogStore(capacity: preferencesStore.logBufferCapacity)
         let historyStore = HistoryStore()
-        let engine = PythonOrganizerEngine(profilesRepository: profilesRepository)
+        let engine = HybridOrganizerEngine(
+            previewEngine: SwiftOrganizerEngine(profilesRepository: profilesRepository),
+            transferEngine: PythonOrganizerEngine(profilesRepository: profilesRepository)
+        )
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
 
         self.init(
