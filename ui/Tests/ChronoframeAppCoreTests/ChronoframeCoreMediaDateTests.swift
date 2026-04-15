@@ -100,6 +100,73 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         XCTAssertEqual(reader.photoMetadataCallCount, 0)
     }
 
+    // MARK: - Complete fallback chain coverage
+
+    /// All metadata sources are unavailable → resolver returns nil → bucket = Unknown_Date.
+    func testFileDateResolverReturnsNilWhenAllSourcesUnavailable() {
+        let reader = StubMetadataReader(
+            photoDate: nil,
+            creationDate: nil,
+            modificationDate: nil
+        )
+        let resolver = FileDateResolver(metadataReader: reader)
+        let result = resolver.resolveDate(for: "/photos/DSC_4321.jpg")
+
+        XCTAssertNil(result, "Expected nil when no date source is available")
+        XCTAssertEqual(DateClassification.bucket(for: result), "Unknown_Date")
+    }
+
+    /// Modification date is also epoch/old → resolver returns nil.
+    func testFileDateResolverReturnsNilWhenModificationDateIsAlsoAncient() {
+        let reader = StubMetadataReader(
+            photoDate: nil,
+            creationDate: makeDate("1970-01-01"),
+            modificationDate: makeDate("1970-01-01")
+        )
+        let resolver = FileDateResolver(metadataReader: reader)
+        let result = resolver.resolveDate(for: "/photos/no_date.jpg")
+
+        XCTAssertNil(result)
+        XCTAssertEqual(DateClassification.bucket(for: result), "Unknown_Date")
+    }
+
+    /// Verifies the full priority order on a photo: EXIF > filename > creation > mtime.
+    /// Removing higher-priority sources one by one should fall through to the next.
+    func testFileDateResolverFullFallbackOrderForPhoto() {
+        // 1. EXIF beats filename.
+        let r1 = StubMetadataReader(photoDate: makeDate("2022-03-01"), creationDate: makeDate("2020-01-01"), modificationDate: makeDate("2019-01-01"))
+        XCTAssertEqual(dayString(FileDateResolver(metadataReader: r1).resolveDate(for: "/photos/IMG_20210101_120000.jpg")), "2022-03-01")
+
+        // 2. No EXIF → filename wins over creation date.
+        let r2 = StubMetadataReader(photoDate: nil, creationDate: makeDate("2020-01-01"), modificationDate: makeDate("2019-01-01"))
+        XCTAssertEqual(dayString(FileDateResolver(metadataReader: r2).resolveDate(for: "/photos/IMG_20210101_120000.jpg")), "2021-01-01")
+
+        // 3. No EXIF, no filename date → creation date.
+        let r3 = StubMetadataReader(photoDate: nil, creationDate: makeDate("2020-01-01"), modificationDate: makeDate("2019-01-01"))
+        XCTAssertEqual(dayString(FileDateResolver(metadataReader: r3).resolveDate(for: "/photos/DSC_4321.jpg")), "2020-01-01")
+
+        // 4. No EXIF, no filename, old creation → mtime.
+        let r4 = StubMetadataReader(photoDate: nil, creationDate: makeDate("1970-01-01"), modificationDate: makeDate("2019-06-15"))
+        XCTAssertEqual(dayString(FileDateResolver(metadataReader: r4).resolveDate(for: "/photos/DSC_4321.jpg")), "2019-06-15")
+
+        // 5. All unavailable/old → nil → Unknown_Date.
+        let r5 = StubMetadataReader(photoDate: nil, creationDate: makeDate("1970-01-01"), modificationDate: makeDate("1970-01-01"))
+        XCTAssertNil(FileDateResolver(metadataReader: r5).resolveDate(for: "/photos/DSC_4321.jpg"))
+    }
+
+    /// Video files should NOT consult EXIF metadata (expensive + unreliable for video).
+    func testFileDateResolverDoesNotCallPhotoMetadataForMp4() {
+        let reader = StubMetadataReader(
+            photoDate: makeDate("2023-01-01"),
+            creationDate: nil,
+            modificationDate: makeDate("2021-01-01")
+        )
+        let resolver = FileDateResolver(metadataReader: reader)
+        _ = resolver.resolveDate(for: "/videos/clip.mp4")
+
+        XCTAssertEqual(reader.photoMetadataCallCount, 0, "EXIF lookup must not be invoked for .mp4 files")
+    }
+
     private func makeDate(_ rawValue: String) -> Date {
         Self.dayFormatter.date(from: rawValue)!
     }

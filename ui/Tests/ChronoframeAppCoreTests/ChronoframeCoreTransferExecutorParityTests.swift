@@ -265,6 +265,85 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
         return try JSONDecoder().decode(type, from: data)
     }
 
+    // MARK: - Crash recovery: resume from PENDING jobs
+
+    /// Simulates a mid-run crash by cancelling execution after the first job, then
+    /// verifies that re-running against the same DB completes the remaining jobs.
+    func testResumePendingJobsAfterSimulatedCrash() throws {
+        let sourceDir = temporaryDirectoryURL.appendingPathComponent("resume_source", isDirectory: true)
+        let destDir   = temporaryDirectoryURL.appendingPathComponent("resume_dest",   isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destDir,   withIntermediateDirectories: true)
+
+        // Create 3 small source files.
+        var sourceURLs: [URL] = []
+        for i in 1...3 {
+            let url = sourceDir.appendingPathComponent("photo_\(i).jpg")
+            try Data("content \(i)".utf8).write(to: url)
+            sourceURLs.append(url)
+        }
+
+        let databaseURL = destDir.appendingPathComponent(".organize_cache.db")
+        let database = try OrganizerDatabase(url: databaseURL)
+        defer { database.close() }
+
+        // Seed all three jobs as PENDING.
+        let jobs = try sourceURLs.map { src -> QueuedCopyJob in
+            let hash = try FileIdentityHasher().hashIdentity(at: src).rawValue
+            let dest = destDir.appendingPathComponent("2024/01/01/\(src.lastPathComponent)")
+            return QueuedCopyJob(sourcePath: src.path, destinationPath: dest.path, hash: hash, status: .pending)
+        }
+        try database.enqueueQueuedJobs(jobs)
+
+        let logger = PersistentRunLogger(
+            logURL: destDir.appendingPathComponent(".organize_log.txt")
+        )
+        try logger.open()
+        defer { logger.close() }
+
+        // First execution: cancel after the first successfully copied job.
+        // Using a Sendable class-based counter because `isCancelled` is @Sendable.
+        let cancelAfterFirst = CancelAfterFirstJob()
+        _ = try TransferExecutor().executeQueuedJobs(
+            database: database,
+            destinationRoot: destDir,
+            verifyCopies: false,
+            runLogger: logger,
+            status: .pending,
+            orderByInsertion: true,
+            isCancelled: { cancelAfterFirst.shouldCancel() }
+        )
+
+        // At least 1 job should be COPIED and at least 1 should still be PENDING.
+        let afterFirst = try database.loadQueuedJobs()
+        let copiedAfterFirst  = afterFirst.filter { $0.status == .copied  }.count
+        let pendingAfterFirst = afterFirst.filter { $0.status == .pending }.count
+        XCTAssertGreaterThanOrEqual(copiedAfterFirst,  1, "At least one job should be copied before cancellation")
+        XCTAssertGreaterThanOrEqual(pendingAfterFirst, 1, "At least one job should remain pending after cancellation")
+
+        // Second execution: resume remaining PENDING jobs.
+        _ = try TransferExecutor().executeQueuedJobs(
+            database: database,
+            destinationRoot: destDir,
+            verifyCopies: false,
+            runLogger: logger,
+            status: .pending,
+            orderByInsertion: true
+        )
+
+        // All 3 jobs should now be COPIED and 0 PENDING.
+        let afterResume = try database.loadQueuedJobs()
+        XCTAssertEqual(afterResume.filter { $0.status == .copied  }.count, 3, "All jobs should be copied after resume")
+        XCTAssertEqual(afterResume.filter { $0.status == .pending }.count, 0, "No pending jobs should remain after resume")
+        XCTAssertEqual(afterResume.filter { $0.status == .failed  }.count, 0, "No jobs should have failed")
+
+        // All destination files should exist on disk.
+        for job in afterResume {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: job.destinationPath),
+                          "Destination file should exist: \(job.destinationPath)")
+        }
+    }
+
     private var fixtureRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -272,6 +351,20 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("tests/fixtures/parity", isDirectory: true)
+    }
+}
+
+/// Sendable counter used by the crash-recovery test. Cancels after the first
+/// poll returns false (i.e. after the first job is processed).
+private final class CancelAfterFirstJob: @unchecked Sendable {
+    private let lock = NSLock()
+    private var calls = 0
+
+    func shouldCancel() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        calls += 1
+        return calls > 1
     }
 }
 

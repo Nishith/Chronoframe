@@ -1,13 +1,25 @@
 import SwiftUI
+#if canImport(ChronoframeAppCore)
+import ChronoframeAppCore
+#endif
 
 @main
 struct ChronoframeApp: App {
     @StateObject private var appState = AppState()
 
+    init() {
+        RunSessionStore.requestNotificationPermission()
+    }
+
     var body: some Scene {
         WindowGroup("Chronoframe") {
             RootSplitView(appState: appState)
-                .frame(minWidth: 860, idealWidth: 1_160, minHeight: 680, idealHeight: 800)
+                .frame(
+                    minWidth: DesignTokens.Window.mainMinWidth,
+                    idealWidth: DesignTokens.Window.mainIdealWidth,
+                    minHeight: DesignTokens.Window.mainMinHeight,
+                    idealHeight: DesignTokens.Window.mainIdealHeight
+                )
         }
         .commands {
             AppCommands(appState: appState)
@@ -15,7 +27,11 @@ struct ChronoframeApp: App {
 
         Settings {
             SettingsView(appState: appState)
-                .frame(minWidth: 420, idealWidth: 460, minHeight: 280)
+                .frame(
+                    minWidth: DesignTokens.Window.settingsMinWidth,
+                    idealWidth: DesignTokens.Window.settingsIdealWidth,
+                    minHeight: DesignTokens.Window.settingsMinHeight
+                )
                 .padding()
         }
     }

@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import os
 
 public struct TransferExecutionObserver: Sendable {
     public var onPhaseStarted: @Sendable (_ total: Int, _ bytesTotal: Int64) -> Void
@@ -42,7 +43,9 @@ public struct TransferExecutionResult: Equatable, Sendable {
 public final class PersistentRunLogger: @unchecked Sendable {
     public let logURL: URL
 
-    private var handle: FileHandle?
+    // OSAllocatedUnfairLock guards all access to `handle`, making concurrent
+    // open/close/append calls safe from multiple async contexts.
+    private let lock = OSAllocatedUnfairLock<FileHandle?>(initialState: nil)
 
     public init(logURL: URL) {
         self.logURL = logURL
@@ -62,13 +65,16 @@ public final class PersistentRunLogger: @unchecked Sendable {
             FileManager.default.createFile(atPath: logURL.path, contents: Data())
         }
 
-        handle = try FileHandle(forWritingTo: logURL)
-        try handle?.seekToEnd()
+        let newHandle = try FileHandle(forWritingTo: logURL)
+        try newHandle.seekToEnd()
+        lock.withLock { $0 = newHandle }
     }
 
     public func close() {
-        try? handle?.close()
-        handle = nil
+        lock.withLock { handle in
+            try? handle?.close()
+            handle = nil
+        }
     }
 
     public func log(_ message: String) {
@@ -89,8 +95,8 @@ public final class PersistentRunLogger: @unchecked Sendable {
             return
         }
 
-        if let handle {
-            try? handle.write(contentsOf: data)
+        lock.withLock { handle in
+            try? handle?.write(contentsOf: data)
         }
     }
 
@@ -255,7 +261,11 @@ public struct TransferExecutor: Sendable {
                     }
 
                     attemptedJobs += 1
-                    let shouldContinue = try context.process(job: job, attemptedJobs: attemptedJobs)
+                    // Drain autoreleased URL/NSString/FileManager temporaries per job;
+                    // across 14k+ copies this otherwise retains until the outer call returns.
+                    let shouldContinue: Bool = try autoreleasepool {
+                        try context.process(job: job, attemptedJobs: attemptedJobs)
+                    }
                     if !shouldContinue {
                         throw TransferExecutionStopSignal.stopRequested
                     }
@@ -435,7 +445,7 @@ public struct TransferExecutor: Sendable {
     }
 
     private func fsyncFile(atPath path: String) throws {
-        let fileDescriptor = open(path, O_RDONLY)
+        let fileDescriptor = open(path, O_RDWR)
         guard fileDescriptor >= 0 else {
             throw currentPOSIXError()
         }
@@ -443,7 +453,9 @@ public struct TransferExecutor: Sendable {
             close(fileDescriptor)
         }
 
-        guard fsync(fileDescriptor) == 0 else {
+        // F_FULLFSYNC flushes all the way to the storage device on macOS,
+        // unlike fsync() which only guarantees flush to the disk controller.
+        guard fcntl(fileDescriptor, F_FULLFSYNC) == 0 else {
             throw currentPOSIXError()
         }
     }

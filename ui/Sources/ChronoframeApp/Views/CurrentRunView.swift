@@ -36,6 +36,8 @@ struct CurrentRunView: View {
 
                         ProgressView(value: runSessionStore.progress)
                             .tint(.accentColor)
+                            .accessibilityLabel("Run progress")
+                            .accessibilityValue("\(Int(runSessionStore.progress * 100))%")
 
                         phaseView
                     }
@@ -65,8 +67,8 @@ struct CurrentRunView: View {
                     }
                 }
             }
-            .padding(24)
-            .frame(maxWidth: 1_120, alignment: .leading)
+            .padding(DesignTokens.Layout.contentPadding)
+            .frame(maxWidth: DesignTokens.Layout.contentMaxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("Current Run")
@@ -126,14 +128,16 @@ struct CurrentRunView: View {
                         } else {
                             ForEach(runLogStore.entries) { entry in
                                 Text(entry.text)
-                                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                                    .font(.system(size: DesignTokens.Layout.consoleFontSize, weight: .regular, design: .monospaced))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .textSelection(.enabled)
                             }
                         }
                     }
                 }
-                .frame(minHeight: 220, idealHeight: 280)
+                .frame(minHeight: DesignTokens.Layout.consoleMinHeight, idealHeight: DesignTokens.Layout.consoleIdealHeight)
+                .accessibilityLabel("Run log")
+                .accessibilityIdentifier("consoleScrollView")
             }
         }
     }
@@ -165,6 +169,8 @@ struct CurrentRunView: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(.thinMaterial, in: Capsule())
+            .accessibilityLabel("Status: \(statusTitle)")
+            .accessibilityIdentifier("statusBadge")
     }
 
     private var phaseView: some View {
@@ -192,7 +198,8 @@ struct CurrentRunView: View {
                 VStack(spacing: 8) {
                     Circle()
                         .fill(fill(for: phase))
-                        .frame(width: 20, height: 20)
+                        .frame(width: DesignTokens.Layout.phaseIndicatorSize, height: DesignTokens.Layout.phaseIndicatorSize)
+                        .accessibilityLabel(phaseAccessibilityLabel(for: phase))
 
                     if showLabels {
                         Text(phase.title)
@@ -204,9 +211,25 @@ struct CurrentRunView: View {
                 if phase != RunPhase.allCases.last {
                     Capsule()
                         .fill(connectorFill(after: phase))
-                        .frame(height: 4)
+                        .frame(height: DesignTokens.Layout.phaseConnectorHeight)
+                        .accessibilityHidden(true)
                 }
             }
+        }
+    }
+
+    private func phaseAccessibilityLabel(for phase: RunPhase) -> String {
+        guard let currentPhase = runSessionStore.currentPhase else {
+            return "Phase \(phase.title): not started"
+        }
+        let currentIndex = RunPhase.allCases.firstIndex(of: currentPhase) ?? 0
+        let phaseIndex   = RunPhase.allCases.firstIndex(of: phase)        ?? 0
+        if phaseIndex < currentIndex {
+            return "Phase \(phase.title): complete"
+        } else if phase == currentPhase {
+            return "Phase \(phase.title): in progress"
+        } else {
+            return "Phase \(phase.title): pending"
         }
     }
 
@@ -216,16 +239,22 @@ struct CurrentRunView: View {
                 appState.openDestination()
             }
             .disabled(destinationRoot == nil)
+            .accessibilityLabel("Open destination folder in Finder")
+            .accessibilityIdentifier("openDestinationButton")
 
             Button("Open Report") {
                 appState.openReport()
             }
             .disabled(runSessionStore.summary?.artifacts.reportPath == nil)
+            .accessibilityLabel("Open dry-run report")
+            .accessibilityIdentifier("openReportButton")
 
             Button("Open Logs") {
                 appState.openLogsDirectory()
             }
             .disabled(runSessionStore.summary?.artifacts.logsDirectoryPath == nil)
+            .accessibilityLabel("Open logs directory in Finder")
+            .accessibilityIdentifier("openLogsButton")
         }
     }
 
@@ -288,6 +317,8 @@ struct CurrentRunView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(value)")
     }
 
     private func summaryRow(_ title: String, _ value: String) -> some View {

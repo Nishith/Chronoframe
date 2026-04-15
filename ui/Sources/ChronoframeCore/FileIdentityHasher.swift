@@ -21,7 +21,10 @@ public struct ProcessedFileIdentity: Equatable, Sendable {
 }
 
 public struct FileIdentityHasher: Sendable {
-    public static let chunkByteCount = 8 * 1024 * 1024
+    // 1 MiB chunk balances throughput (BLAKE2b saturates well under this)
+    // with peak working-memory per concurrent hash. An 8 MiB buffer per
+    // in-flight hash pushed RSS during large-tree planning considerably.
+    public static let chunkByteCount = 1 * 1024 * 1024
 
     public init() {}
 
@@ -84,13 +87,14 @@ public struct FileIdentityHasher: Sendable {
         var hasher = BLAKE2bHasher()
         hasher.update(Data(String(size).utf8))
 
-        while true {
+        while autoreleasepool(invoking: { () -> Bool in
             let chunk = handle.readData(ofLength: Self.chunkByteCount)
             if chunk.isEmpty {
-                break
+                return false
             }
             hasher.update(chunk)
-        }
+            return true
+        }) { }
 
         return hasher.finalizeHexDigest()
     }

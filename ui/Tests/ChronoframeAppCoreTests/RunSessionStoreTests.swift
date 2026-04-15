@@ -184,6 +184,182 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(store.logLines.contains("ERROR: backend launch failed"))
     }
 
+    // MARK: - Cancellation timing variants
+
+    @MainActor
+    func testCancelDuringDiscoveryPhaseRecordsPhaseBeforeCancellation() async throws {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        // Stream yields a discovery-started event and then hangs, simulating a long scan.
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let running = await waitForCondition { store.isRunning }
+        XCTAssertTrue(running)
+
+        // Wait until the stream task has actually called engine.start() and the
+        // continuation is live. status == .running only means beginStream() has
+        // set the flag synchronously; the Task body (which calls engine.start())
+        // is scheduled separately and may not have run yet.
+        let continuationReady = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(continuationReady, "Engine continuation should be available before yielding events")
+
+        // Inject a discovery phase event via the pending continuation before cancelling.
+        engine.pendingContinuation?.yield(.phaseStarted(phase: .discovery, total: 50))
+        let phaseSet = await waitForCondition { store.currentPhase == .discovery }
+        XCTAssertTrue(phaseSet, "Phase should be set before cancellation")
+
+        store.cancelCurrentRun()
+        let cancelled = await waitForCondition { store.status == .cancelled }
+        XCTAssertTrue(cancelled)
+        XCTAssertEqual(store.summary?.status, .cancelled)
+    }
+
+    @MainActor
+    func testCancelDuringCopyPhaseProducesCancelledSummary() async throws {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath,
+            pendingJobCount: 0
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .transfer, configuration: configuration)
+        // Confirm the transfer prompt.
+        store.confirmPrompt()
+        let running = await waitForCondition { store.isRunning }
+        XCTAssertTrue(running)
+
+        // Wait until the stream task has actually called engine.start().
+        let continuationReady = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(continuationReady, "Engine continuation should be available before yielding events")
+
+        // Simulate copy phase in progress before cancellation.
+        engine.pendingContinuation?.yield(.phaseStarted(phase: .copy, total: 100))
+        engine.pendingContinuation?.yield(.phaseProgress(phase: .copy, completed: 30, total: 100, bytesCopied: 30_000, bytesTotal: 100_000))
+        let progressSet = await waitForCondition { store.progress > 0 }
+        XCTAssertTrue(progressSet)
+
+        store.cancelCurrentRun()
+        let cancelled = await waitForCondition { store.status == .cancelled }
+        XCTAssertTrue(cancelled)
+        XCTAssertEqual(store.summary?.status, .cancelled)
+        // Speed metrics should be cleared on cancellation.
+        XCTAssertEqual(store.metrics.speedMBps, 0)
+        XCTAssertNil(store.metrics.etaSeconds)
+    }
+
+    // MARK: - Status propagation from complete event
+
+    @MainActor
+    func testNothingToCopyStatusPropagatesFromCompleteEvent() async throws {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let summary = RunSummary(
+            status: .nothingToCopy,
+            title: "Nothing to copy",
+            metrics: RunMetrics(discoveredCount: 5, plannedCount: 0),
+            artifacts: RunArtifactPaths(destinationRoot: tempDestinationURL.path)
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .events([.complete(summary)])
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let done = await waitForCondition { store.status == .nothingToCopy }
+        XCTAssertTrue(done)
+        XCTAssertEqual(store.summary?.title, "Nothing to copy")
+        XCTAssertEqual(store.metrics.plannedCount, 0)
+    }
+
+    // MARK: - Accumulated issue/error counting
+
+    @MainActor
+    func testMultipleErrorIssuesAccumulateErrorCount() async throws {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let summary = RunSummary(
+            status: .dryRunFinished,
+            title: "Preview complete",
+            metrics: RunMetrics(errorCount: 3),
+            artifacts: RunArtifactPaths(destinationRoot: tempDestinationURL.path)
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .events([
+                .issue(RunIssue(severity: .error, message: "Error 1")),
+                .issue(RunIssue(severity: .warning, message: "Warning")),
+                .issue(RunIssue(severity: .error, message: "Error 2")),
+                .issue(RunIssue(severity: .error, message: "Error 3")),
+                .complete(summary),
+            ])
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let done = await waitForCondition { store.summary != nil }
+        XCTAssertTrue(done)
+
+        // Final metrics come from the complete event (engine's authoritative count).
+        XCTAssertEqual(store.metrics.errorCount, 3)
+        // Log lines should contain all issues. Warnings use "⚠ " prefix per RunIssue.renderedLine.
+        XCTAssertTrue(store.logLines.contains("ERROR: Error 1"))
+        XCTAssertTrue(store.logLines.contains("⚠ Warning"))
+        XCTAssertTrue(store.logLines.contains("ERROR: Error 2"))
+    }
+
+    // MARK: - Confirm-transfer prompt path
+
+    @MainActor
+    func testConfirmTransferPromptStartsFreshTransferStream() async throws {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath,
+            pendingJobCount: 0  // fresh transfer (not resume)
+        )
+        let summary = RunSummary(
+            status: .finished,
+            title: "Done",
+            metrics: RunMetrics(copiedCount: 2),
+            artifacts: RunArtifactPaths(destinationRoot: tempDestinationURL.path)
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .events([.complete(summary)])
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .transfer, configuration: configuration)
+        XCTAssertEqual(store.prompt?.kind, .confirmTransfer)
+        XCTAssertEqual(engine.startConfigurations.count, 0, "Stream should not start until confirmed")
+
+        store.confirmPrompt()
+        let finished = await waitForCondition { store.status == .finished }
+        XCTAssertTrue(finished)
+        XCTAssertEqual(engine.startConfigurations.count, 1)
+        XCTAssertEqual(engine.resumeConfigurations.count, 0, "Fresh transfer should use start, not resume")
+    }
+
     @MainActor
     func testBackendPromptEventSurfacesBlockingPrompt() async {
         let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)

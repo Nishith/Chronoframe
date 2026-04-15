@@ -242,6 +242,11 @@ public struct FileDateResolver: Sendable {
             return creationDate
         }
 
-        return metadataReader.fileSystemModificationDate(at: url)
+        if let modificationDate = metadataReader.fileSystemModificationDate(at: url),
+           !DateClassification.isUnknown(modificationDate) {
+            return modificationDate
+        }
+
+        return nil
     }
 }

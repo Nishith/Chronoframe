@@ -27,8 +27,8 @@ struct SetupView: View {
 
                 libraryCard
             }
-            .padding(24)
-            .frame(maxWidth: 1_040, alignment: .leading)
+            .padding(DesignTokens.Layout.contentPadding)
+            .frame(maxWidth: DesignTokens.Layout.setupMaxWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .navigationTitle("Setup")
@@ -80,7 +80,7 @@ struct SetupView: View {
 
             runSection
         }
-        .padding(20)
+        .padding(DesignTokens.Layout.cardPadding)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
@@ -109,6 +109,8 @@ struct SetupView: View {
             }
             .pickerStyle(.menu)
             .labelsHidden()
+            .accessibilityIdentifier("profilePicker")
+            .accessibilityLabel("Profile")
         }
     }
 
@@ -216,6 +218,9 @@ struct SetupView: View {
         }
         .buttonStyle(.bordered)
         .disabled(!canStartRun || runSessionStore.isRunning)
+        .accessibilityIdentifier("previewButton")
+        .accessibilityLabel("Preview")
+        .accessibilityHint(canStartRun ? "Generates a copy plan without moving any files" : "Choose both folders or a saved profile first")
     }
 
     private var transferButton: some View {
@@ -227,6 +232,9 @@ struct SetupView: View {
         }
         .buttonStyle(.borderedProminent)
         .disabled(!canStartRun || runSessionStore.isRunning)
+        .accessibilityIdentifier("transferButton")
+        .accessibilityLabel("Transfer")
+        .accessibilityHint(canStartRun ? "Copies files from the source to the destination" : "Choose both folders or a saved profile first")
     }
 
     private var canStartRun: Bool {
@@ -274,6 +282,7 @@ struct SetupView: View {
                 .font(.callout.monospaced())
                 .lineLimit(3)
                 .truncationMode(.middle)
+                .accessibilityLabel("\(title) path: \(value.isEmpty ? "not set" : value)")
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)

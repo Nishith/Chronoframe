@@ -136,6 +136,9 @@ public final class OrganizerDatabase {
         database = handle
 
         if !readOnly {
+            // Wait up to 30 s before returning SQLITE_BUSY, instead of failing
+            // immediately when another connection holds a write lock.
+            try execute("PRAGMA busy_timeout=30000;")
             try execute("PRAGMA journal_mode=WAL;")
             try execute("PRAGMA synchronous=NORMAL;")
             try initializeSchema()

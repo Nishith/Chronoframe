@@ -43,12 +43,33 @@ struct RunHistoryView: View {
                     ForEach(historyStore.entries) { entry in
                         historyRow(for: entry)
                             .padding(.vertical, 4)
+                            .contextMenu {
+                                Button("Open") { appState.openHistoryEntry(entry) }
+                                Button("Reveal in Finder") { appState.revealHistoryEntry(entry) }
+                                Divider()
+                                Button("Move to Trash", role: .destructive) {
+                                    historyStore.remove(entry: entry)
+                                }
+                            }
                     }
                 }
             }
         }
         .listStyle(.inset)
         .navigationTitle("Run History")
+        .toolbar {
+            if !historyStore.entries.isEmpty {
+                ToolbarItem(placement: .automatic) {
+                    Button(role: .destructive) {
+                        historyStore.removeAll()
+                    } label: {
+                        Label("Clear All", systemImage: "trash")
+                    }
+                    .accessibilityLabel("Move all artifacts to Trash")
+                    .accessibilityIdentifier("clearAllArtifactsButton")
+                }
+            }
+        }
     }
 
     private func historyRow(for entry: RunHistoryEntry) -> some View {
@@ -112,21 +133,28 @@ struct RunHistoryView: View {
                 Button("Open") {
                     appState.openHistoryEntry(entry)
                 }
+                .accessibilityLabel("Open \(entry.title)")
+                .accessibilityIdentifier("openArtifact_\(entry.id)")
 
                 Button("Reveal") {
                     appState.revealHistoryEntry(entry)
                 }
+                .accessibilityLabel("Reveal \(entry.title) in Finder")
+                .accessibilityIdentifier("revealArtifact_\(entry.id)")
             }
 
             Menu("Actions") {
                 Button("Open") {
                     appState.openHistoryEntry(entry)
                 }
+                .accessibilityLabel("Open \(entry.title)")
 
                 Button("Reveal") {
                     appState.revealHistoryEntry(entry)
                 }
+                .accessibilityLabel("Reveal \(entry.title) in Finder")
             }
+            .accessibilityLabel("Actions for \(entry.title)")
         }
     }
 }

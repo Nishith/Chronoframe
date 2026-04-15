@@ -17,7 +17,11 @@ struct RootSplitView: View {
     var body: some View {
         NavigationSplitView {
             SidebarView(appState: appState)
-                .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 300)
+                .navigationSplitViewColumnWidth(
+                    min: DesignTokens.Sidebar.minWidth,
+                    ideal: DesignTokens.Sidebar.idealWidth,
+                    max: DesignTokens.Sidebar.maxWidth
+                )
         } detail: {
             detailView
         }

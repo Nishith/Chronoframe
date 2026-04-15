@@ -39,17 +39,23 @@ public enum MediaDiscovery {
         let partition = try partitionedChildren(of: directoryURL)
 
         for child in partition.files {
-            let name = child.lastPathComponent
-            if name.hasPrefix(".") {
-                continue
-            }
+            // Drain Foundation autoreleased temporaries (URL/NSString/NSDictionary bridges,
+            // FileHandle, NSRegularExpression results) per-iteration. Without this, the
+            // pool only drains when plan()/executeQueuedJobs() returns, which on large
+            // trees (10k+ files) can pin hundreds of MB of otherwise-dead NSObjects.
+            try autoreleasepool {
+                let name = child.lastPathComponent
+                if name.hasPrefix(".") {
+                    return
+                }
 
-            if MediaLibraryRules.shouldSkipDiscoveredFile(named: name) {
-                continue
-            }
+                if MediaLibraryRules.shouldSkipDiscoveredFile(named: name) {
+                    return
+                }
 
-            if MediaLibraryRules.isSupportedMediaFile(path: child.path) {
-                try visitFilePath(child.path)
+                if MediaLibraryRules.isSupportedMediaFile(path: child.path) {
+                    try visitFilePath(child.path)
+                }
             }
         }
 

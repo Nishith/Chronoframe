@@ -3,6 +3,7 @@ import ChronoframeCore
 #endif
 import Foundation
 import Combine
+import UserNotifications
 
 @MainActor
 public final class RunSessionStore: ObservableObject {
@@ -275,7 +276,53 @@ public final class RunSessionStore: ObservableObject {
             self.summary = summary
             historyStore.refresh(destinationRoot: summary.artifacts.destinationRoot)
             logStore.append("Finished: \(summary.title)")
+            postRunCompletionNotification(summary: summary)
         }
+    }
+
+    // MARK: - Run completion notifications
+
+    /// Requests permission to display macOS notifications. Call once during app startup.
+    public static func requestNotificationPermission() {
+        guard isRunningInAppBundle else { return }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    /// `UNUserNotificationCenter.current()` raises an NSException when the host
+    /// process isn't a proper `.app` bundle (xctest runners, CLI tools), so skip
+    /// the call in those contexts.
+    private static var isRunningInAppBundle: Bool {
+        Bundle.main.bundleURL.pathExtension == "app"
+    }
+
+    private func postRunCompletionNotification(summary: RunSummary) {
+        guard Self.isRunningInAppBundle else { return }
+        let content = UNMutableNotificationContent()
+        switch summary.status {
+        case .finished:
+            content.title = "Transfer complete"
+            content.body = "\(summary.metrics.copiedCount) file\(summary.metrics.copiedCount == 1 ? "" : "s") copied"
+        case .dryRunFinished:
+            content.title = "Preview complete"
+            content.body = "\(summary.metrics.plannedCount) file\(summary.metrics.plannedCount == 1 ? "" : "s") planned"
+        case .nothingToCopy:
+            content.title = "Already up to date"
+            content.body = "All source files are already in the destination."
+        case .failed:
+            content.title = "Transfer failed"
+            content.body = summary.title
+        case .cancelled:
+            return  // user-initiated, no notification needed
+        default:
+            return
+        }
+
+        let request = UNNotificationRequest(
+            identifier: UUID().uuidString,
+            content: content,
+            trigger: nil  // deliver immediately
+        )
+        UNUserNotificationCenter.current().add(request) { _ in }
     }
 
     private func handleFailure(message: String) {

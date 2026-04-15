@@ -38,6 +38,59 @@ final class SetupStoreTests: XCTestCase {
         XCTAssertNil(store.activeProfile)
     }
 
+    // MARK: - canStartRun logic (mirrors SetupView.canStartRun)
+
+    func testCanStartRunIsFalseWhenBothManualPathsAreEmpty() {
+        let store = SetupStore(sourcePath: "", destinationPath: "")
+        XCTAssertFalse(store.usingProfile)
+        XCTAssertFalse(canStartRun(store), "Should not be able to start without paths or profile")
+    }
+
+    func testCanStartRunIsFalseWhenOnlySourceIsSet() {
+        let store = SetupStore(sourcePath: "/tmp/src", destinationPath: "")
+        XCTAssertFalse(store.usingProfile)
+        XCTAssertFalse(canStartRun(store))
+    }
+
+    func testCanStartRunIsFalseWhenOnlyDestinationIsSet() {
+        let store = SetupStore(sourcePath: "", destinationPath: "/tmp/dst")
+        XCTAssertFalse(store.usingProfile)
+        XCTAssertFalse(canStartRun(store))
+    }
+
+    func testCanStartRunIsTrueWhenBothManualPathsAreSet() {
+        let store = SetupStore(sourcePath: "/tmp/src", destinationPath: "/tmp/dst")
+        XCTAssertFalse(store.usingProfile)
+        XCTAssertTrue(canStartRun(store))
+    }
+
+    func testCanStartRunIsTrueWhenProfileIsSelected() {
+        let store = SetupStore(profiles: [
+            Profile(name: "travel", sourcePath: "/Volumes/Card", destinationPath: "/Volumes/Trips")
+        ])
+        store.selectProfile(named: "travel")
+        XCTAssertTrue(store.usingProfile)
+        XCTAssertTrue(canStartRun(store), "A selected profile should enable the run buttons even without manual paths")
+    }
+
+    func testCanStartRunIsFalseAfterClearingProfile() {
+        let store = SetupStore(profiles: [
+            Profile(name: "travel", sourcePath: "/Volumes/Card", destinationPath: "/Volumes/Trips")
+        ])
+        store.selectProfile(named: "travel")
+        store.clearProfileSelection()
+        // Paths are populated from profile but no longer considered a "profile run"
+        // and there are no bookmarked manual paths — usingProfile is false.
+        XCTAssertFalse(store.usingProfile)
+        // canStartRun is still true because source and destination paths are non-empty.
+        XCTAssertTrue(canStartRun(store), "Non-empty paths from cleared profile should still allow run")
+    }
+
+    // Helper mirroring SetupView.canStartRun
+    private func canStartRun(_ store: SetupStore) -> Bool {
+        store.usingProfile || (!store.sourcePath.isEmpty && !store.destinationPath.isEmpty)
+    }
+
     func testMakeConfigurationUsesTrimmedPathsAndPreferenceFlags() {
         let suiteName = "SetupStoreTests-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

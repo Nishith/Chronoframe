@@ -317,7 +317,9 @@ private struct DestinationIndexBuildResult {
 
 private struct DestinationIndexSnapshotBuilder {
     private let namingRules: PlannerNamingRules
-    private let filenamePattern = try? NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}|Unknown)_(\d+)"#)
+    // Compile-time constant pattern — try! ensures a typo crashes loudly at
+    // startup rather than silently disabling sequence-number tracking.
+    private let filenamePattern = try! NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}|Unknown)_(\d+)"#)
 
     private(set) var pathsByIdentity: [FileIdentity: String] = [:]
     private(set) var primaryByDate: [String: Int] = [:]
@@ -330,10 +332,6 @@ private struct DestinationIndexSnapshotBuilder {
     mutating func consume(path: String, identity: FileIdentity?) {
         if let identity {
             pathsByIdentity[identity] = path
-        }
-
-        guard let filenamePattern else {
-            return
         }
 
         let filename = URL(fileURLWithPath: path).lastPathComponent
