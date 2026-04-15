@@ -4,7 +4,9 @@ import ChronoframeAppCore
 import SwiftUI
 
 struct RunHistoryView: View {
-    @ObservedObject var appState: AppState
+    let appState: AppState
+    @ObservedObject private var historyStore: HistoryStore
+
     private static let fileSizeFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useKB, .useMB, .useGB]
@@ -12,11 +14,16 @@ struct RunHistoryView: View {
         return formatter
     }()
 
+    init(appState: AppState) {
+        self.appState = appState
+        self._historyStore = ObservedObject(wrappedValue: appState.historyStore)
+    }
+
     var body: some View {
         List {
-            if !appState.historyStore.destinationRoot.isEmpty {
+            if !historyStore.destinationRoot.isEmpty {
                 Section("Destination") {
-                    Text(appState.historyStore.destinationRoot)
+                    Text(historyStore.destinationRoot)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
@@ -25,7 +32,7 @@ struct RunHistoryView: View {
             }
 
             Section("Artifacts") {
-                if appState.historyStore.entries.isEmpty {
+                if historyStore.entries.isEmpty {
                     EmptyStateView(
                         title: "No Artifacts Yet",
                         message: "Run a preview or transfer, then open this section to inspect reports, receipts, and logs.",
@@ -33,7 +40,7 @@ struct RunHistoryView: View {
                     )
                     .listRowInsets(EdgeInsets())
                 } else {
-                    ForEach(appState.historyStore.entries) { entry in
+                    ForEach(historyStore.entries) { entry in
                         historyRow(for: entry)
                             .padding(.vertical, 4)
                     }

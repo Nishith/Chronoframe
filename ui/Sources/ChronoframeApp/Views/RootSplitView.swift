@@ -5,6 +5,14 @@ import SwiftUI
 
 struct RootSplitView: View {
     @ObservedObject var appState: AppState
+    @ObservedObject private var setupStore: SetupStore
+    @ObservedObject private var runSessionStore: RunSessionStore
+
+    init(appState: AppState) {
+        self.appState = appState
+        self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
+        self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -16,7 +24,7 @@ struct RootSplitView: View {
         .navigationSplitViewStyle(.balanced)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                if appState.runSessionStore.isRunning {
+                if runSessionStore.isRunning {
                     Button(role: .destructive) {
                         appState.cancelRun()
                     } label: {
@@ -28,21 +36,21 @@ struct RootSplitView: View {
                     } label: {
                         Label("Preview", systemImage: "eye")
                     }
-                    .disabled(!appState.canStartRun)
+                    .disabled(!canStartRun)
 
                     Button {
                         Task { await appState.startTransfer() }
                     } label: {
                         Label("Transfer", systemImage: "arrow.right.circle.fill")
                     }
-                    .disabled(!appState.canStartRun)
+                    .disabled(!canStartRun)
                 }
             }
         }
         .alert(
-            appState.runSessionStore.prompt?.title ?? "Chronoframe",
+            runSessionStore.prompt?.title ?? "Chronoframe",
             isPresented: Binding(
-                get: { appState.runSessionStore.prompt != nil },
+                get: { runSessionStore.prompt != nil },
                 set: { isPresented in
                     if !isPresented {
                         appState.dismissRunPrompt()
@@ -50,7 +58,7 @@ struct RootSplitView: View {
                 }
             )
         ) {
-            switch appState.runSessionStore.prompt?.kind {
+            switch runSessionStore.prompt?.kind {
             case .confirmTransfer, .resumePendingJobs:
                 Button("Continue") {
                     Task { await appState.confirmRunPrompt() }
@@ -64,7 +72,7 @@ struct RootSplitView: View {
                 }
             }
         } message: {
-            Text(appState.runSessionStore.prompt?.message ?? "")
+            Text(runSessionStore.prompt?.message ?? "")
         }
         .alert(
             "Problem",
@@ -106,5 +114,9 @@ struct RootSplitView: View {
         case .setup, .history, .profiles:
             return false
         }
+    }
+
+    private var canStartRun: Bool {
+        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
     }
 }

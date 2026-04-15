@@ -188,12 +188,26 @@ public final class OrganizerDatabase {
     }
 
     public func loadRawCacheRecords(namespace: CacheNamespace) throws -> [RawFileCacheRecord] {
+        var rows: [RawFileCacheRecord] = []
+        try enumerateRawCacheRecordBatches(namespace: namespace) { batch in
+            rows.append(contentsOf: batch)
+        }
+        return rows
+    }
+
+    public func enumerateRawCacheRecordBatches(
+        namespace: CacheNamespace,
+        batchSize: Int = 512,
+        _ body: ([RawFileCacheRecord]) throws -> Void
+    ) throws {
         let statement = try prepare("SELECT id, path, hash, size, mtime FROM FileCache WHERE id = ? ORDER BY path")
         defer { sqlite3_finalize(statement) }
 
         sqlite3_bind_int(statement, 1, Int32(namespace.rawValue))
 
-        var rows: [RawFileCacheRecord] = []
+        var batch: [RawFileCacheRecord] = []
+        batch.reserveCapacity(max(1, batchSize))
+
         while true {
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
@@ -211,7 +225,7 @@ public final class OrganizerDatabase {
                 throw OrganizerDatabaseError.invalidIdentity(Self.sqliteString(statement, column: 2) ?? "")
             }
 
-            rows.append(
+            batch.append(
                 RawFileCacheRecord(
                     namespace: namespaceValue,
                     path: path,
@@ -220,9 +234,16 @@ public final class OrganizerDatabase {
                     modificationTime: sqlite3_column_double(statement, 4)
                 )
             )
+
+            if batch.count >= max(1, batchSize) {
+                try body(batch)
+                batch.removeAll(keepingCapacity: true)
+            }
         }
 
-        return rows
+        if !batch.isEmpty {
+            try body(batch)
+        }
     }
 
     public func loadCacheRecords(namespace: CacheNamespace) throws -> [FileCacheRecord] {
@@ -235,15 +256,24 @@ public final class OrganizerDatabase {
     }
 
     public func saveRawCacheRecords(_ records: [RawFileCacheRecord]) throws {
-        guard !records.isEmpty else { return }
-        try execute("BEGIN IMMEDIATE TRANSACTION;")
-        do {
-            let statement = try prepare(
-                "REPLACE INTO FileCache (id, path, hash, size, mtime) VALUES (?, ?, ?, ?, ?)"
-            )
-            defer { sqlite3_finalize(statement) }
+        try saveRawCacheRecords(records[...])
+    }
 
+    public func saveRawCacheRecords<S: Sequence>(_ records: S) throws where S.Element == RawFileCacheRecord {
+        let statement = try prepare(
+            "REPLACE INTO FileCache (id, path, hash, size, mtime) VALUES (?, ?, ?, ?, ?)"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        var wroteAnyRecords = false
+
+        do {
             for record in records {
+                if !wroteAnyRecords {
+                    try execute("BEGIN IMMEDIATE TRANSACTION;")
+                    wroteAnyRecords = true
+                }
+
                 sqlite3_reset(statement)
                 sqlite3_clear_bindings(statement)
                 sqlite3_bind_int(statement, 1, Int32(record.namespace.rawValue))
@@ -257,9 +287,13 @@ public final class OrganizerDatabase {
                 }
             }
 
-            try execute("COMMIT;")
+            if wroteAnyRecords {
+                try execute("COMMIT;")
+            }
         } catch {
-            try? execute("ROLLBACK;")
+            if wroteAnyRecords {
+                try? execute("ROLLBACK;")
+            }
             throw error
         }
     }
@@ -269,15 +303,24 @@ public final class OrganizerDatabase {
     }
 
     public func enqueueQueuedJobs(_ jobs: [QueuedCopyJob]) throws {
-        guard !jobs.isEmpty else { return }
-        try execute("BEGIN IMMEDIATE TRANSACTION;")
-        do {
-            let statement = try prepare(
-                "INSERT OR IGNORE INTO CopyJobs (src_path, dst_path, hash, status) VALUES (?, ?, ?, ?)"
-            )
-            defer { sqlite3_finalize(statement) }
+        try enqueueQueuedJobs(jobs[...])
+    }
 
+    public func enqueueQueuedJobs<S: Sequence>(_ jobs: S) throws where S.Element == QueuedCopyJob {
+        let statement = try prepare(
+            "INSERT OR IGNORE INTO CopyJobs (src_path, dst_path, hash, status) VALUES (?, ?, ?, ?)"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        var wroteAnyJobs = false
+
+        do {
             for job in jobs {
+                if !wroteAnyJobs {
+                    try execute("BEGIN IMMEDIATE TRANSACTION;")
+                    wroteAnyJobs = true
+                }
+
                 sqlite3_reset(statement)
                 sqlite3_clear_bindings(statement)
                 sqlite3_bind_text(statement, 1, job.sourcePath, -1, Self.sqliteTransient)
@@ -290,11 +333,28 @@ public final class OrganizerDatabase {
                 }
             }
 
-            try execute("COMMIT;")
+            if wroteAnyJobs {
+                try execute("COMMIT;")
+            }
         } catch {
-            try? execute("ROLLBACK;")
+            if wroteAnyJobs {
+                try? execute("ROLLBACK;")
+            }
             throw error
         }
+    }
+
+    public func enqueuePlannedTransfers<S: Sequence>(_ transfers: S) throws where S.Element == PlannedTransfer {
+        try enqueueQueuedJobs(
+            transfers.lazy.map { transfer in
+                QueuedCopyJob(
+                    sourcePath: transfer.sourcePath,
+                    destinationPath: transfer.destinationPath,
+                    hash: transfer.identity.rawValue,
+                    status: .pending
+                )
+            }
+        )
     }
 
     public func enqueueJobs(_ jobs: [CopyJobRecord]) throws {
@@ -305,6 +365,19 @@ public final class OrganizerDatabase {
         status: CopyJobStatus? = nil,
         orderByInsertion: Bool = false
     ) throws -> [QueuedCopyJob] {
+        var rows: [QueuedCopyJob] = []
+        try enumerateQueuedJobBatches(status: status, orderByInsertion: orderByInsertion) { batch in
+            rows.append(contentsOf: batch)
+        }
+        return rows
+    }
+
+    public func enumerateQueuedJobBatches(
+        status: CopyJobStatus? = nil,
+        orderByInsertion: Bool = false,
+        batchSize: Int = 512,
+        _ body: ([QueuedCopyJob]) throws -> Void
+    ) throws {
         let sql: String
         let orderClause = orderByInsertion ? " ORDER BY rowid" : " ORDER BY src_path"
         if status != nil {
@@ -320,7 +393,9 @@ public final class OrganizerDatabase {
             sqlite3_bind_text(statement, 1, status.rawValue, -1, Self.sqliteTransient)
         }
 
-        var rows: [QueuedCopyJob] = []
+        var batch: [QueuedCopyJob] = []
+        batch.reserveCapacity(max(1, batchSize))
+
         while true {
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
@@ -340,7 +415,7 @@ public final class OrganizerDatabase {
                 throw OrganizerDatabaseError.invalidIdentity(Self.sqliteString(statement, column: 2) ?? "")
             }
 
-            rows.append(
+            batch.append(
                 QueuedCopyJob(
                     sourcePath: sourcePath,
                     destinationPath: destinationPath,
@@ -348,9 +423,16 @@ public final class OrganizerDatabase {
                     status: jobStatus
                 )
             )
+
+            if batch.count >= max(1, batchSize) {
+                try body(batch)
+                batch.removeAll(keepingCapacity: true)
+            }
         }
 
-        return rows
+        if !batch.isEmpty {
+            try body(batch)
+        }
     }
 
     public func loadCopyJobs(status: CopyJobStatus? = nil) throws -> [CopyJobRecord] {
@@ -362,8 +444,24 @@ public final class OrganizerDatabase {
         }
     }
 
+    public func queuedJobCount(status: CopyJobStatus? = nil) throws -> Int {
+        if let status {
+            let statement = try prepare("SELECT COUNT(*) FROM CopyJobs WHERE status = ?")
+            defer { sqlite3_finalize(statement) }
+            sqlite3_bind_text(statement, 1, status.rawValue, -1, Self.sqliteTransient)
+
+            guard sqlite3_step(statement) == SQLITE_ROW else {
+                throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+            }
+
+            return Int(sqlite3_column_int(statement, 0))
+        }
+
+        return Int(try scalarInt(statement: "SELECT COUNT(*) FROM CopyJobs"))
+    }
+
     public func pendingJobCount() throws -> Int {
-        try Int(scalarInt(statement: "SELECT COUNT(*) FROM CopyJobs WHERE status = 'PENDING'"))
+        try queuedJobCount(status: .pending)
     }
 
     public func updateJobStatus(sourcePath: String, status: CopyJobStatus) throws {

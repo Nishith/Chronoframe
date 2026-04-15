@@ -4,7 +4,17 @@ import ChronoframeAppCore
 import SwiftUI
 
 struct SetupView: View {
-    @ObservedObject var appState: AppState
+    let appState: AppState
+    @ObservedObject private var setupStore: SetupStore
+    @ObservedObject private var preferencesStore: PreferencesStore
+    @ObservedObject private var runSessionStore: RunSessionStore
+
+    init(appState: AppState) {
+        self.appState = appState
+        self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
+        self._preferencesStore = ObservedObject(wrappedValue: appState.preferencesStore)
+        self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+    }
 
     var body: some View {
         ScrollView {
@@ -49,7 +59,7 @@ struct SetupView: View {
             VStack(alignment: .leading, spacing: 12) {
                 pathCard(
                     title: "Source",
-                    value: appState.setupStore.sourcePath,
+                    value: setupStore.sourcePath,
                     helper: "The organizer never mutates this library.",
                     actionTitle: "Choose Source…"
                 ) {
@@ -58,7 +68,7 @@ struct SetupView: View {
 
                 pathCard(
                     title: "Destination",
-                    value: appState.setupStore.destinationPath,
+                    value: setupStore.destinationPath,
                     helper: "Chronoframe writes queue state, logs, and reports here.",
                     actionTitle: "Choose Destination…"
                 ) {
@@ -82,7 +92,7 @@ struct SetupView: View {
             Picker(
                 "Profile",
                 selection: Binding(
-                    get: { appState.setupStore.selectedProfileName },
+                    get: { setupStore.selectedProfileName },
                     set: { selection in
                         if selection.isEmpty {
                             appState.clearSelectedProfile()
@@ -93,7 +103,7 @@ struct SetupView: View {
                 )
             ) {
                 Text("Manual Paths").tag("")
-                ForEach(appState.setupStore.profiles) { profile in
+                ForEach(setupStore.profiles) { profile in
                     Text(profile.name).tag(profile.name)
                 }
             }
@@ -104,10 +114,10 @@ struct SetupView: View {
 
     private var profileSummary: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(appState.setupStore.usingProfile ? "Using a saved profile" : "Using manual source and destination")
+            Text(setupStore.usingProfile ? "Using a saved profile" : "Using manual source and destination")
                 .font(.subheadline.weight(.semibold))
 
-            if appState.setupStore.usingProfile {
+            if setupStore.usingProfile {
                 Text("Changes still stay compatible with `profiles.yaml` for the CLI.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -126,7 +136,7 @@ struct SetupView: View {
                     appState.refreshProfiles()
                 }
 
-                if appState.setupStore.usingProfile {
+                if setupStore.usingProfile {
                     Button("Clear Profile") {
                         appState.clearSelectedProfile()
                     }
@@ -138,7 +148,7 @@ struct SetupView: View {
                     appState.refreshProfiles()
                 }
 
-                if appState.setupStore.usingProfile {
+                if setupStore.usingProfile {
                     Button("Clear Profile") {
                         appState.clearSelectedProfile()
                     }
@@ -152,7 +162,7 @@ struct SetupView: View {
             Text("Run")
                 .font(.headline)
 
-            Text(appState.canStartRun ? "Preview first to confirm the plan. Transfer stays app-confirmed before the backend begins copying." : "Choose both folders or a saved profile before starting.")
+            Text(canStartRun ? "Preview first to confirm the plan. Transfer stays app-confirmed before the backend begins copying." : "Choose both folders or a saved profile before starting.")
                 .foregroundStyle(.secondary)
 
             ViewThatFits(in: .horizontal) {
@@ -205,7 +215,7 @@ struct SetupView: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.bordered)
-        .disabled(!appState.canStartRun || appState.runSessionStore.isRunning)
+        .disabled(!canStartRun || runSessionStore.isRunning)
     }
 
     private var transferButton: some View {
@@ -216,14 +226,18 @@ struct SetupView: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
-        .disabled(!appState.canStartRun || appState.runSessionStore.isRunning)
+        .disabled(!canStartRun || runSessionStore.isRunning)
+    }
+
+    private var canStartRun: Bool {
+        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
     }
 
     private var runOptionsSummary: String {
         [
-            "\(appState.preferencesStore.workerCount) workers",
-            appState.preferencesStore.useFastDestinationScan ? "cached destination scan" : "full destination scan",
-            appState.preferencesStore.verifyCopies ? "verification on" : "verification off",
+            "\(preferencesStore.workerCount) workers",
+            preferencesStore.useFastDestinationScan ? "cached destination scan" : "full destination scan",
+            preferencesStore.verifyCopies ? "verification on" : "verification off",
         ]
         .joined(separator: " • ")
     }

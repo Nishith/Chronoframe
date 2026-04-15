@@ -53,12 +53,16 @@ public struct CopyPlanResult: Equatable, Codable, Sendable {
         self.sequenceState = sequenceState
     }
 
+    public var transferCount: Int {
+        transfers.count
+    }
+
     public var copyJobs: [CopyJobRecord] {
-        transfers.map {
+        transfers.map { transfer in
             CopyJobRecord(
-                sourcePath: $0.sourcePath,
-                destinationPath: $0.destinationPath,
-                identity: $0.identity,
+                sourcePath: transfer.sourcePath,
+                destinationPath: transfer.destinationPath,
+                identity: transfer.identity,
                 status: .pending
             )
         }

@@ -179,6 +179,47 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
         )
     }
 
+    func testEnumerateRawCacheRecordBatchesPreservesPathOrdering() throws {
+        let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+
+        try database.saveRawCacheRecords(
+            [
+                RawFileCacheRecord(namespace: .destination, path: "/dest/c.jpg", hash: "c", size: 3, modificationTime: 3),
+                RawFileCacheRecord(namespace: .destination, path: "/dest/a.jpg", hash: "a", size: 1, modificationTime: 1),
+                RawFileCacheRecord(namespace: .destination, path: "/dest/b.jpg", hash: "b", size: 2, modificationTime: 2),
+            ]
+        )
+
+        var streamedPaths: [String] = []
+        try database.enumerateRawCacheRecordBatches(namespace: .destination, batchSize: 2) { batch in
+            streamedPaths.append(contentsOf: batch.map(\.path))
+        }
+
+        XCTAssertEqual(streamedPaths, ["/dest/a.jpg", "/dest/b.jpg", "/dest/c.jpg"])
+    }
+
+    func testEnumerateQueuedJobBatchesCanPreserveInsertionOrder() throws {
+        let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+
+        try database.enqueueQueuedJobs(
+            [
+                QueuedCopyJob(sourcePath: "/src/3.jpg", destinationPath: "/dst/3.jpg", hash: "h3", status: .pending),
+                QueuedCopyJob(sourcePath: "/src/1.jpg", destinationPath: "/dst/1.jpg", hash: "h1", status: .pending),
+                QueuedCopyJob(sourcePath: "/src/2.jpg", destinationPath: "/dst/2.jpg", hash: "h2", status: .pending),
+            ]
+        )
+
+        var streamedPaths: [String] = []
+        try database.enumerateQueuedJobBatches(status: .pending, orderByInsertion: true, batchSize: 2) { batch in
+            streamedPaths.append(contentsOf: batch.map(\.sourcePath))
+        }
+
+        XCTAssertEqual(streamedPaths, ["/src/3.jpg", "/src/1.jpg", "/src/2.jpg"])
+        XCTAssertEqual(try database.queuedJobCount(status: .pending), 3)
+    }
+
     func testDestinationIndexSnapshotMatchesFastDestSemantics() throws {
         let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
         defer { database.close() }

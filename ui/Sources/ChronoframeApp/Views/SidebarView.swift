@@ -5,12 +5,22 @@ import SwiftUI
 
 struct SidebarView: View {
     @ObservedObject var appState: AppState
+    @ObservedObject private var setupStore: SetupStore
+    @ObservedObject private var historyStore: HistoryStore
+    @ObservedObject private var runSessionStore: RunSessionStore
+
+    init(appState: AppState) {
+        self.appState = appState
+        self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
+        self._historyStore = ObservedObject(wrappedValue: appState.historyStore)
+        self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+    }
 
     var body: some View {
         List(SidebarDestination.allCases, selection: $appState.selection) { destination in
             HStack(spacing: 10) {
                 Image(systemName: destination.systemImage)
-                    .foregroundStyle(destination == .currentRun && appState.runSessionStore.isRunning ? .blue : .secondary)
+                    .foregroundStyle(destination == .currentRun && runSessionStore.isRunning ? .blue : .secondary)
                     .frame(width: 16)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -24,7 +34,7 @@ struct SidebarView: View {
 
                 Spacer()
 
-                if destination == .currentRun && appState.runSessionStore.isRunning {
+                if destination == .currentRun && runSessionStore.isRunning {
                     ProgressView()
                         .controlSize(.small)
                 }
@@ -38,13 +48,17 @@ struct SidebarView: View {
     private func destinationSubtitle(for destination: SidebarDestination) -> String {
         switch destination {
         case .setup:
-            return appState.canStartRun ? "Ready to preview" : destination.subtitle
+            return canStartRun ? "Ready to preview" : destination.subtitle
         case .currentRun:
-            return appState.runSessionStore.currentTaskTitle
+            return runSessionStore.currentTaskTitle
         case .history:
-            return appState.historyStore.entries.isEmpty ? destination.subtitle : "\(appState.historyStore.entries.count) artifacts"
+            return historyStore.entries.isEmpty ? destination.subtitle : "\(historyStore.entries.count) artifacts"
         case .profiles:
-            return appState.setupStore.profiles.isEmpty ? destination.subtitle : "\(appState.setupStore.profiles.count) saved"
+            return setupStore.profiles.isEmpty ? destination.subtitle : "\(setupStore.profiles.count) saved"
         }
+    }
+
+    private var canStartRun: Bool {
+        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
     }
 }

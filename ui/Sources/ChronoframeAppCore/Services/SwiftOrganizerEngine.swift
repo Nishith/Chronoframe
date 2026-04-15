@@ -116,7 +116,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     )
                     let metrics = RunMetrics(
                         discoveredCount: result.discoveredSourceCount,
-                        plannedCount: result.copyJobs.count,
+                        plannedCount: result.transferCount,
                         alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
                         duplicateCount: result.counts.duplicateCount,
                         hashErrorCount: result.counts.hashErrorCount
@@ -274,7 +274,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             runLogger.warn(warning)
         }
 
-        if result.copyJobs.isEmpty {
+        if result.transferCount == 0 {
             runLogger.log("Nothing to copy — all files already in destination")
             continuation.yield(
                 .complete(
@@ -296,16 +296,15 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             return
         }
 
-        try database.enqueueQueuedJobs(result.copyJobs.map(QueuedCopyJob.init(copyJob:)))
-        let queuedJobs = try database.loadQueuedJobs(status: .pending, orderByInsertion: true)
-
+        try database.enqueuePlannedTransfers(result.transfers)
         let errorCounter = IssueCounter()
-        let executionResult = try transferExecutor.execute(
-            queuedJobs: queuedJobs,
+        let executionResult = try transferExecutor.executeQueuedJobs(
             database: database,
             destinationRoot: destinationURL,
             verifyCopies: configuration.verifyCopies,
             runLogger: runLogger,
+            status: .pending,
+            orderByInsertion: true,
             observer: TransferExecutionObserver(
                 onPhaseStarted: { total, _ in
                     continuation.yield(.phaseStarted(phase: .copy, total: total))
@@ -353,7 +352,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     title: "Done",
                     metrics: RunMetrics(
                         discoveredCount: result.discoveredSourceCount,
-                        plannedCount: result.copyJobs.count,
+                        plannedCount: result.transferCount,
                         alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
                         duplicateCount: result.counts.duplicateCount,
                         hashErrorCount: result.counts.hashErrorCount,
@@ -376,10 +375,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         runLogger: PersistentRunLogger,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
     ) throws {
-        let queuedJobs = try database.loadQueuedJobs(status: .pending, orderByInsertion: true)
-        runLogger.log("Found \(queuedJobs.count) pending jobs from interrupted session")
+        let pendingJobCount = try database.pendingJobCount()
+        runLogger.log("Found \(pendingJobCount) pending jobs from interrupted session")
 
-        if queuedJobs.isEmpty {
+        if pendingJobCount == 0 {
             continuation.yield(
                 .complete(
                     RunSummary(
@@ -395,12 +394,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         }
 
         let errorCounter = IssueCounter()
-        let executionResult = try transferExecutor.execute(
-            queuedJobs: queuedJobs,
+        let executionResult = try transferExecutor.executeQueuedJobs(
             database: database,
             destinationRoot: destinationURL,
             verifyCopies: configuration.verifyCopies,
             runLogger: runLogger,
+            status: .pending,
+            orderByInsertion: true,
             observer: TransferExecutionObserver(
                 onPhaseStarted: { total, _ in
                     continuation.yield(.phaseStarted(phase: .copy, total: total))
@@ -447,7 +447,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     status: .finished,
                     title: "Done",
                     metrics: RunMetrics(
-                        plannedCount: queuedJobs.count,
+                        plannedCount: pendingJobCount,
                         copiedCount: executionResult.copiedCount,
                         failedCount: executionResult.failedCount,
                         errorCount: errorCounter.value
@@ -486,7 +486,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             continuation.yield(.issue(RunIssue(severity: .warning, message: warning)))
         }
 
-        continuation.yield(.copyPlanReady(count: result.copyJobs.count))
+        continuation.yield(.copyPlanReady(count: result.transferCount))
     }
 
     nonisolated private static func writeDryRunArtifacts(
@@ -501,7 +501,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         let reportURL = logsDirectoryURL.appendingPathComponent("dry_run_report_\(timestamp).csv")
         let logURL = destinationURL.appendingPathComponent(".organize_log.txt")
 
-        try writeReport(result.copyJobs, to: reportURL)
+        try writeReport(result.transfers, to: reportURL)
         if !FileManager.default.fileExists(atPath: logURL.path) {
             try Data().write(to: logURL)
         }
@@ -514,20 +514,34 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         )
     }
 
-    nonisolated private static func writeReport(_ jobs: [CopyJobRecord], to reportURL: URL) throws {
-        var lines = ["Source,Destination,Hash,Status"]
-        lines.append(
-            contentsOf: jobs.map {
-                [
-                    csvField($0.sourcePath),
-                    csvField($0.destinationPath),
-                    csvField($0.identity.rawValue),
-                    csvField($0.status.rawValue),
+    nonisolated private static func writeReport(_ transfers: [PlannedTransfer], to reportURL: URL) throws {
+        let temporaryReportURL = reportURL.appendingPathExtension("tmp")
+        FileManager.default.createFile(atPath: temporaryReportURL.path, contents: Data())
+        let handle = try FileHandle(forWritingTo: temporaryReportURL)
+
+        do {
+            try handle.write(contentsOf: Data("Source,Destination,Hash,Status\n".utf8))
+            for transfer in transfers {
+                let row = [
+                    csvField(transfer.sourcePath),
+                    csvField(transfer.destinationPath),
+                    csvField(transfer.identity.rawValue),
+                    csvField(CopyJobStatus.pending.rawValue),
                 ]
-                .joined(separator: ",")
+                .joined(separator: ",") + "\n"
+                try handle.write(contentsOf: Data(row.utf8))
             }
-        )
-        try (lines.joined(separator: "\n") + "\n").write(to: reportURL, atomically: true, encoding: .utf8)
+            try handle.close()
+
+            if FileManager.default.fileExists(atPath: reportURL.path) {
+                try FileManager.default.removeItem(at: reportURL)
+            }
+            try FileManager.default.moveItem(at: temporaryReportURL, to: reportURL)
+        } catch {
+            try? handle.close()
+            try? FileManager.default.removeItem(at: temporaryReportURL)
+            throw error
+        }
     }
 
     nonisolated private static func csvField(_ value: String) -> String {

@@ -4,28 +4,38 @@ import ChronoframeAppCore
 import SwiftUI
 
 struct SettingsView: View {
-    @ObservedObject var appState: AppState
+    let appState: AppState
+    @ObservedObject private var preferencesStore: PreferencesStore
+
+    init(appState: AppState) {
+        self.appState = appState
+        self._preferencesStore = ObservedObject(wrappedValue: appState.preferencesStore)
+    }
 
     var body: some View {
         Form {
-            Stepper(value: $appState.preferencesStore.workerCount, in: 1...32) {
+            Stepper(value: $preferencesStore.workerCount, in: 1...32) {
                 LabeledContent("Worker Threads") {
-                    Text("\(appState.preferencesStore.workerCount)")
+                    Text("\(preferencesStore.workerCount)")
                         .monospacedDigit()
                 }
             }
 
-            Toggle("Use Cached Destination Scan", isOn: $appState.preferencesStore.useFastDestinationScan)
-            Toggle("Verify Completed Copies", isOn: $appState.preferencesStore.verifyCopies)
+            Toggle("Use Cached Destination Scan", isOn: $preferencesStore.useFastDestinationScan)
+            Toggle("Verify Completed Copies", isOn: $preferencesStore.verifyCopies)
 
-            Stepper(value: $appState.preferencesStore.logBufferCapacity, in: PreferencesStore.minimumLogCapacity...PreferencesStore.maximumLogCapacity, step: 250) {
+            Stepper(
+                value: $preferencesStore.logBufferCapacity,
+                in: PreferencesStore.minimumLogCapacity...PreferencesStore.maximumLogCapacity,
+                step: 250
+            ) {
                 LabeledContent("In-Memory Log Buffer") {
-                    Text("\(appState.preferencesStore.logBufferCapacity)")
+                    Text("\(preferencesStore.logBufferCapacity)")
                         .monospacedDigit()
                 }
             }
         }
-        .onChange(of: appState.preferencesStore.logBufferCapacity) { newValue in
+        .onChange(of: preferencesStore.logBufferCapacity) { newValue in
             appState.runLogStore.capacity = newValue
         }
         .navigationTitle("Settings")

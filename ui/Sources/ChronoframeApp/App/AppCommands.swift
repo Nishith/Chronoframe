@@ -4,7 +4,15 @@ import ChronoframeAppCore
 import SwiftUI
 
 struct AppCommands: Commands {
-    @ObservedObject var appState: AppState
+    let appState: AppState
+    @ObservedObject private var setupStore: SetupStore
+    @ObservedObject private var runSessionStore: RunSessionStore
+
+    init(appState: AppState) {
+        self.appState = appState
+        self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
+        self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+    }
 
     var body: some Commands {
         CommandMenu("Library") {
@@ -31,20 +39,20 @@ struct AppCommands: Commands {
                 Task { await appState.startPreview() }
             }
             .keyboardShortcut("r", modifiers: [.command])
-            .disabled(!appState.canStartRun || appState.runSessionStore.isRunning)
+            .disabled(!canStartRun || runSessionStore.isRunning)
 
             Button("Transfer") {
                 Task { await appState.startTransfer() }
             }
             .keyboardShortcut(.return, modifiers: [.command])
-            .disabled(!appState.canStartRun || appState.runSessionStore.isRunning)
+            .disabled(!canStartRun || runSessionStore.isRunning)
 
             Divider()
 
             Button("Cancel Run") {
                 appState.cancelRun()
             }
-            .disabled(!appState.runSessionStore.isRunning)
+            .disabled(!runSessionStore.isRunning)
         }
 
         CommandGroup(replacing: .appSettings) {
@@ -53,5 +61,9 @@ struct AppCommands: Commands {
             }
             .keyboardShortcut(",", modifiers: [.command])
         }
+    }
+
+    private var canStartRun: Bool {
+        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
     }
 }

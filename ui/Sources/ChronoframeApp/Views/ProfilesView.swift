@@ -4,14 +4,20 @@ import ChronoframeAppCore
 import SwiftUI
 
 struct ProfilesView: View {
-    @ObservedObject var appState: AppState
+    let appState: AppState
+    @ObservedObject private var setupStore: SetupStore
+
+    init(appState: AppState) {
+        self.appState = appState
+        self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
+    }
 
     var body: some View {
         List {
             Section("Save Current Paths") {
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) {
-                        TextField("Profile name", text: $appState.setupStore.newProfileName)
+                        TextField("Profile name", text: $setupStore.newProfileName)
                         Button("Save Current Paths") {
                             appState.saveCurrentPathsAsProfile()
                         }
@@ -19,7 +25,7 @@ struct ProfilesView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        TextField("Profile name", text: $appState.setupStore.newProfileName)
+                        TextField("Profile name", text: $setupStore.newProfileName)
                         Button("Save Current Paths") {
                             appState.saveCurrentPathsAsProfile()
                         }
@@ -33,7 +39,7 @@ struct ProfilesView: View {
             }
 
             Section("Saved Profiles") {
-                if appState.setupStore.profiles.isEmpty {
+                if setupStore.profiles.isEmpty {
                     EmptyStateView(
                         title: "No Saved Profiles",
                         message: "Save the current source and destination to create a reusable setup.",
@@ -41,7 +47,7 @@ struct ProfilesView: View {
                     )
                     .listRowInsets(EdgeInsets())
                 } else {
-                    ForEach(appState.setupStore.profiles) { profile in
+                    ForEach(setupStore.profiles) { profile in
                         profileRow(for: profile)
                             .padding(.vertical, 4)
                     }
@@ -58,7 +64,7 @@ struct ProfilesView: View {
                 Text(profile.name)
                     .font(.headline)
 
-                if profile.name == appState.setupStore.selectedProfileName {
+                if profile.name == setupStore.selectedProfileName {
                     Text("Active")
                         .font(.caption.weight(.semibold))
                         .padding(.horizontal, 8)

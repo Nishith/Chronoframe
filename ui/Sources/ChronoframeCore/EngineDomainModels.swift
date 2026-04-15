@@ -133,6 +133,15 @@ public struct CopyJobRecord: Equatable, Codable, Sendable {
         self.status = status
     }
 
+    public init(plannedTransfer: PlannedTransfer, status: CopyJobStatus = .pending) {
+        self.init(
+            sourcePath: plannedTransfer.sourcePath,
+            destinationPath: plannedTransfer.destinationPath,
+            identity: plannedTransfer.identity,
+            status: status
+        )
+    }
+
     public var identityString: String {
         identity.rawValue
     }
@@ -162,6 +171,15 @@ public struct QueuedCopyJob: Equatable, Codable, Sendable {
             destinationPath: copyJob.destinationPath,
             hash: copyJob.identityString,
             status: copyJob.status
+        )
+    }
+
+    public init(plannedTransfer: PlannedTransfer, status: CopyJobStatus = .pending) {
+        self.init(
+            sourcePath: plannedTransfer.sourcePath,
+            destinationPath: plannedTransfer.destinationPath,
+            hash: plannedTransfer.identity.rawValue,
+            status: status
         )
     }
 

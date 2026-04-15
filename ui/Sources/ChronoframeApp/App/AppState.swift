@@ -20,7 +20,6 @@ final class AppState: ObservableObject {
     private let finderService: any FinderServicing
     private let profilesRepository: any ProfilesRepositorying
     private let showSettingsWindowAction: @MainActor () -> Void
-    private var cancellables: Set<AnyCancellable>
 
     convenience init() {
         let preferencesStore = PreferencesStore()
@@ -80,9 +79,7 @@ final class AppState: ObservableObject {
         self.finderService = finderService
         self.profilesRepository = profilesRepository
         self.showSettingsWindowAction = showSettingsWindowAction
-        self.cancellables = []
 
-        bindChildStores()
         restoreManualPaths()
         refreshProfiles()
         historyStore.refresh(destinationRoot: setupStore.destinationPath)
@@ -312,22 +309,5 @@ final class AppState: ObservableObject {
         }
 
         return resolvedBookmark.url.path
-    }
-
-    private func bindChildStores() {
-        [
-            preferencesStore.objectWillChange.eraseToAnyPublisher(),
-            setupStore.objectWillChange.eraseToAnyPublisher(),
-            runLogStore.objectWillChange.eraseToAnyPublisher(),
-            historyStore.objectWillChange.eraseToAnyPublisher(),
-            runSessionStore.objectWillChange.eraseToAnyPublisher(),
-        ]
-        .forEach { publisher in
-            publisher
-                .sink { [weak self] _ in
-                    self?.objectWillChange.send()
-                }
-                .store(in: &cancellables)
-        }
     }
 }

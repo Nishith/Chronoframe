@@ -108,6 +108,7 @@ public struct TransferExecutor: Sendable {
     public static let orphanedTemporarySuffix = ".tmp"
     public static let safetyBufferBytes: Int64 = 10 * 1024 * 1024
     public static let maxCollisionCount = 9_999
+    public static let destinationCacheBatchSize = 256
 
     public var fileHasher: FileIdentityHasher
     public var retryPolicy: RetryPolicy
@@ -176,129 +177,98 @@ public struct TransferExecutor: Sendable {
         observer: TransferExecutionObserver = TransferExecutionObserver(),
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) throws -> TransferExecutionResult {
-        let artifacts = artifactPaths(destinationRoot: destinationRoot)
         let totalJobs = queuedJobs.count
         let bytesTotal = queuedJobs.reduce(into: Int64(0)) { partialResult, job in
             partialResult += safeFileSize(atPath: job.sourcePath) ?? 0
         }
+        let context = try TransferExecutionContext(
+            executor: self,
+            database: database,
+            destinationRoot: destinationRoot,
+            verifyCopies: verifyCopies,
+            runLogger: runLogger,
+            observer: observer,
+            isCancelled: isCancelled,
+            totalJobs: totalJobs,
+            bytesTotal: bytesTotal
+        )
+        context.start()
 
-        observer.onPhaseStarted(totalJobs, bytesTotal)
-
-        var copiedCount = 0
-        var failedCount = 0
-        var consecutiveFailures = 0
-        var bytesCopied: Int64 = 0
-        var destinationUpdates: [RawFileCacheRecord] = []
-        var executedTransfers: [[String: String]] = []
-        let progressInterval = max(1, totalJobs / 100)
-
-        for (index, job) in queuedJobs.enumerated() {
+        var attemptedJobs = 0
+        for job in queuedJobs {
             if isCancelled() {
                 break
             }
 
-            do {
-                let actualDestinationPath = try safeCopyAtomic(sourcePath: job.sourcePath, requestedDestinationPath: job.destinationPath)
-
-                if verifyCopies {
-                    let verifiedIdentity = try? fileHasher.hashIdentity(at: URL(fileURLWithPath: actualDestinationPath))
-                    if verifiedIdentity?.rawValue != job.hash {
-                        removeUnverifiedCopyIfNeeded(
-                            atPath: actualDestinationPath,
-                            runLogger: runLogger
-                        )
-                        try database.updateJobStatus(sourcePath: job.sourcePath, status: .failed)
-
-                        let message = "Verification failed: \(job.sourcePath) -> \(actualDestinationPath)"
-                        runLogger.error("Verification failed: \(job.sourcePath) → \(actualDestinationPath)")
-                        observer.onIssue(RunIssue(severity: .error, message: message))
-
-                        consecutiveFailures += 1
-                        failedCount += 1
-
-                        if shouldAbort(
-                            consecutiveFailures: consecutiveFailures,
-                            totalFailures: failedCount,
-                            attemptedJobs: index + 1,
-                            runLogger: runLogger
-                        ) {
-                            break
-                        }
-
-                        observer.onPhaseProgress(index + 1, totalJobs, bytesCopied, bytesTotal)
-                        continue
-                    }
-                }
-
-                try database.updateJobStatus(sourcePath: job.sourcePath, status: .copied)
-                let fileAttributes = try FileManager.default.attributesOfItem(atPath: actualDestinationPath)
-                let actualSize = (fileAttributes[.size] as? NSNumber)?.int64Value ?? 0
-                let actualModificationDate = (fileAttributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-
-                destinationUpdates.append(
-                    RawFileCacheRecord(
-                        namespace: .destination,
-                        path: actualDestinationPath,
-                        hash: job.hash,
-                        size: actualSize,
-                        modificationTime: actualModificationDate
-                    )
-                )
-                executedTransfers.append(
-                    [
-                        "source": job.sourcePath,
-                        "dest": actualDestinationPath,
-                        "hash": job.hash,
-                    ]
-                )
-                bytesCopied += safeFileSize(atPath: job.sourcePath) ?? actualSize
-                consecutiveFailures = 0
-                copiedCount += 1
-            } catch {
-                try database.updateJobStatus(sourcePath: job.sourcePath, status: .failed)
-
-                let message = "Copy failed: \(job.sourcePath) -> \(job.destinationPath): \(error.localizedDescription)"
-                runLogger.error("Copy failed: \(job.sourcePath) → \(job.destinationPath): \(error.localizedDescription)")
-                observer.onIssue(RunIssue(severity: .error, message: message))
-
-                consecutiveFailures += 1
-                failedCount += 1
-
-                if shouldAbort(
-                    consecutiveFailures: consecutiveFailures,
-                    totalFailures: failedCount,
-                    attemptedJobs: index + 1,
-                    runLogger: runLogger
-                ) {
-                    break
-                }
-            }
-
-            if totalJobs > 0, (index + 1) % progressInterval == 0 {
-                observer.onPhaseProgress(index + 1, totalJobs, bytesCopied, bytesTotal)
+            attemptedJobs += 1
+            let shouldContinue = try context.process(job: job, attemptedJobs: attemptedJobs)
+            if !shouldContinue {
+                break
             }
         }
 
-        try database.saveRawCacheRecords(destinationUpdates)
-        try writeAuditReceipt(
-            executedTransfers: executedTransfers,
-            destinationRoot: destinationRoot
-        )
-
-        if totalJobs > 0, copiedCount + failedCount > 0, (copiedCount + failedCount) % progressInterval != 0 {
-            observer.onPhaseProgress(copiedCount + failedCount, totalJobs, bytesCopied, bytesTotal)
-        }
-
-        return TransferExecutionResult(
-            copiedCount: copiedCount,
-            failedCount: failedCount,
-            bytesCopied: bytesCopied,
-            bytesTotal: bytesTotal,
-            artifacts: artifacts
-        )
+        return try context.finish(attemptedJobs: attemptedJobs)
     }
 
-    private func shouldAbort(
+    public func executeQueuedJobs(
+        database: OrganizerDatabase,
+        destinationRoot: URL,
+        verifyCopies: Bool,
+        runLogger: PersistentRunLogger,
+        status: CopyJobStatus = .pending,
+        orderByInsertion: Bool = true,
+        batchSize: Int = 512,
+        observer: TransferExecutionObserver = TransferExecutionObserver(),
+        isCancelled: @escaping @Sendable () -> Bool = { false }
+    ) throws -> TransferExecutionResult {
+        let totalJobs = try database.queuedJobCount(status: status)
+        let bytesTotal = try totalBytesForQueuedJobs(
+            database: database,
+            status: status,
+            orderByInsertion: orderByInsertion,
+            batchSize: batchSize
+        )
+        let context = try TransferExecutionContext(
+            executor: self,
+            database: database,
+            destinationRoot: destinationRoot,
+            verifyCopies: verifyCopies,
+            runLogger: runLogger,
+            observer: observer,
+            isCancelled: isCancelled,
+            totalJobs: totalJobs,
+            bytesTotal: bytesTotal
+        )
+        context.start()
+
+        var attemptedJobs = 0
+
+        do {
+            try database.enumerateQueuedJobBatches(
+                status: status,
+                orderByInsertion: orderByInsertion,
+                batchSize: batchSize
+            ) { batch in
+                for job in batch {
+                    if isCancelled() {
+                        throw TransferExecutionStopSignal.stopRequested
+                    }
+
+                    attemptedJobs += 1
+                    let shouldContinue = try context.process(job: job, attemptedJobs: attemptedJobs)
+                    if !shouldContinue {
+                        throw TransferExecutionStopSignal.stopRequested
+                    }
+                }
+            }
+        } catch TransferExecutionStopSignal.stopRequested {
+            // Stop requested via cancellation or abort threshold.
+        }
+
+        return try context.finish(attemptedJobs: attemptedJobs)
+    }
+
+    fileprivate func shouldAbort(
         consecutiveFailures: Int,
         totalFailures: Int,
         attemptedJobs: Int,
@@ -316,7 +286,7 @@ public struct TransferExecutor: Sendable {
         return true
     }
 
-    private func removeUnverifiedCopyIfNeeded(
+    fileprivate func removeUnverifiedCopyIfNeeded(
         atPath path: String,
         runLogger: PersistentRunLogger
     ) {
@@ -329,30 +299,18 @@ public struct TransferExecutor: Sendable {
         }
     }
 
-    private func writeAuditReceipt(
-        executedTransfers: [[String: String]],
-        destinationRoot: URL
+    fileprivate func flushDestinationUpdates(
+        _ updates: [RawFileCacheRecord],
+        database: OrganizerDatabase
     ) throws {
-        let logsDirectoryURL = destinationRoot.appendingPathComponent(
-            EngineArtifactLayout.pythonReference.logsDirectoryName,
-            isDirectory: true
-        )
-        try FileManager.default.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
+        guard !updates.isEmpty else {
+            return
+        }
 
-        let receiptURL = logsDirectoryURL.appendingPathComponent(
-            "\(EngineArtifactLayout.pythonReference.auditReceiptPrefix)\(Self.receiptTimestampFormatter.string(from: Date())).json"
-        )
-        let payload: [String: Any] = [
-            "timestamp": ISO8601DateFormatter().string(from: Date()),
-            "total_jobs": executedTransfers.count,
-            "status": "COMPLETED",
-            "transfers": executedTransfers,
-        ]
-        let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
-        try data.write(to: receiptURL)
+        try database.saveRawCacheRecords(updates)
     }
 
-    private func safeCopyAtomic(
+    fileprivate func safeCopyAtomic(
         sourcePath: String,
         requestedDestinationPath: String
     ) throws -> String {
@@ -510,9 +468,28 @@ public struct TransferExecutor: Sendable {
         return !retryPolicy.nonRetryableErrnos.contains(Int32(code.rawValue))
     }
 
-    private func safeFileSize(atPath path: String) -> Int64? {
+    fileprivate func safeFileSize(atPath path: String) -> Int64? {
         let attributes = try? FileManager.default.attributesOfItem(atPath: path)
         return (attributes?[.size] as? NSNumber)?.int64Value
+    }
+
+    private func totalBytesForQueuedJobs(
+        database: OrganizerDatabase,
+        status: CopyJobStatus,
+        orderByInsertion: Bool,
+        batchSize: Int
+    ) throws -> Int64 {
+        var bytesTotal: Int64 = 0
+        try database.enumerateQueuedJobBatches(
+            status: status,
+            orderByInsertion: orderByInsertion,
+            batchSize: batchSize
+        ) { batch in
+            for job in batch {
+                bytesTotal += safeFileSize(atPath: job.sourcePath) ?? 0
+            }
+        }
+        return bytesTotal
     }
 
     private func currentPOSIXError() -> NSError {
@@ -535,7 +512,7 @@ public struct TransferExecutor: Sendable {
         return POSIXErrorCode(rawValue: Int32(nsError.code))
     }
 
-    private static let receiptTimestampFormatter: DateFormatter = {
+fileprivate static let receiptTimestampFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -543,4 +520,299 @@ public struct TransferExecutor: Sendable {
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         return formatter
     }()
+}
+
+private enum TransferExecutionStopSignal: Error {
+    case stopRequested
+}
+
+private final class StreamingAuditReceiptWriter {
+    private let finalReceiptURL: URL
+    private let transferSpoolURL: URL
+    private let createdAt: Date
+    private let timestampString: String
+    private let fileManager: FileManager
+
+    private var spoolHandle: FileHandle?
+    private var transferCount = 0
+    private var finished = false
+
+    init(
+        destinationRoot: URL,
+        fileManager: FileManager = .default,
+        createdAt: Date = Date()
+    ) throws {
+        self.fileManager = fileManager
+        self.createdAt = createdAt
+        self.timestampString = ISO8601DateFormatter().string(from: createdAt)
+
+        let logsDirectoryURL = destinationRoot.appendingPathComponent(
+            EngineArtifactLayout.pythonReference.logsDirectoryName,
+            isDirectory: true
+        )
+        try fileManager.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
+
+        let stem = "\(EngineArtifactLayout.pythonReference.auditReceiptPrefix)\(TransferExecutor.receiptTimestampFormatter.string(from: createdAt))"
+        self.finalReceiptURL = logsDirectoryURL.appendingPathComponent("\(stem).json")
+        self.transferSpoolURL = logsDirectoryURL.appendingPathComponent("\(stem).transfers.tmp")
+
+        fileManager.createFile(atPath: transferSpoolURL.path, contents: Data())
+        self.spoolHandle = try FileHandle(forWritingTo: transferSpoolURL)
+    }
+
+    deinit {
+        discardUnfinishedFiles()
+    }
+
+    func appendTransfer(sourcePath: String, destinationPath: String, hash: String) throws {
+        let payload: [String: String] = [
+            "dest": destinationPath,
+            "hash": hash,
+            "source": sourcePath,
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+
+        if transferCount > 0 {
+            try spoolHandle?.write(contentsOf: Data(",\n".utf8))
+        }
+        try spoolHandle?.write(contentsOf: Data("    ".utf8))
+        try spoolHandle?.write(contentsOf: data)
+        transferCount += 1
+    }
+
+    func finish(status: String) throws {
+        guard !finished else {
+            return
+        }
+
+        try spoolHandle?.close()
+        spoolHandle = nil
+
+        let temporaryReceiptURL = finalReceiptURL.appendingPathExtension("tmp")
+        fileManager.createFile(atPath: temporaryReceiptURL.path, contents: Data())
+        let receiptHandle = try FileHandle(forWritingTo: temporaryReceiptURL)
+
+        do {
+            try receiptHandle.write(contentsOf: Data("{\n".utf8))
+            try receiptHandle.write(contentsOf: Data("  \"status\" : \"\(status)\",\n".utf8))
+            try receiptHandle.write(contentsOf: Data("  \"timestamp\" : \"\(timestampString)\",\n".utf8))
+            try receiptHandle.write(contentsOf: Data("  \"total_jobs\" : \(transferCount),\n".utf8))
+            try receiptHandle.write(contentsOf: Data("  \"transfers\" : [\n".utf8))
+            try pipeTransferSpool(into: receiptHandle)
+            try receiptHandle.write(contentsOf: Data("\n  ]\n}\n".utf8))
+            try receiptHandle.close()
+
+            if fileManager.fileExists(atPath: finalReceiptURL.path) {
+                try fileManager.removeItem(at: finalReceiptURL)
+            }
+            try fileManager.moveItem(at: temporaryReceiptURL, to: finalReceiptURL)
+            try? fileManager.removeItem(at: transferSpoolURL)
+            finished = true
+        } catch {
+            try? receiptHandle.close()
+            try? fileManager.removeItem(at: temporaryReceiptURL)
+            throw error
+        }
+    }
+
+    func discardUnfinishedFiles() {
+        guard !finished else {
+            return
+        }
+
+        try? spoolHandle?.close()
+        spoolHandle = nil
+        try? fileManager.removeItem(at: transferSpoolURL)
+        try? fileManager.removeItem(at: finalReceiptURL.appendingPathExtension("tmp"))
+    }
+
+    private func pipeTransferSpool(into receiptHandle: FileHandle) throws {
+        let sourceHandle = try FileHandle(forReadingFrom: transferSpoolURL)
+        defer {
+            try? sourceHandle.close()
+        }
+
+        while true {
+            let chunk = try sourceHandle.read(upToCount: 64 * 1024) ?? Data()
+            if chunk.isEmpty {
+                break
+            }
+            try receiptHandle.write(contentsOf: chunk)
+        }
+    }
+}
+
+private final class TransferExecutionContext {
+    private let executor: TransferExecutor
+    private let database: OrganizerDatabase
+    private let verifyCopies: Bool
+    private let runLogger: PersistentRunLogger
+    private let observer: TransferExecutionObserver
+    private let isCancelled: @Sendable () -> Bool
+    private let totalJobs: Int
+    private let bytesTotal: Int64
+    private let artifacts: RunArtifactPaths
+    private let progressInterval: Int
+    private let receiptWriter: StreamingAuditReceiptWriter
+
+    private var copiedCount = 0
+    private var failedCount = 0
+    private var consecutiveFailures = 0
+    private var bytesCopied: Int64 = 0
+    private var destinationUpdates: [RawFileCacheRecord]
+    private var finished = false
+
+    init(
+        executor: TransferExecutor,
+        database: OrganizerDatabase,
+        destinationRoot: URL,
+        verifyCopies: Bool,
+        runLogger: PersistentRunLogger,
+        observer: TransferExecutionObserver,
+        isCancelled: @escaping @Sendable () -> Bool,
+        totalJobs: Int,
+        bytesTotal: Int64
+    ) throws {
+        self.executor = executor
+        self.database = database
+        self.verifyCopies = verifyCopies
+        self.runLogger = runLogger
+        self.observer = observer
+        self.isCancelled = isCancelled
+        self.totalJobs = totalJobs
+        self.bytesTotal = bytesTotal
+        self.artifacts = executor.artifactPaths(destinationRoot: destinationRoot)
+        self.progressInterval = max(1, totalJobs / 100)
+        self.receiptWriter = try StreamingAuditReceiptWriter(destinationRoot: destinationRoot)
+        self.destinationUpdates = []
+        self.destinationUpdates.reserveCapacity(min(TransferExecutor.destinationCacheBatchSize, totalJobs))
+    }
+
+    deinit {
+        if !finished {
+            receiptWriter.discardUnfinishedFiles()
+        }
+    }
+
+    func start() {
+        observer.onPhaseStarted(totalJobs, bytesTotal)
+    }
+
+    func process(job: QueuedCopyJob, attemptedJobs: Int) throws -> Bool {
+        var emittedProgress = false
+        var completedCopy: (destinationPath: String, actualSize: Int64, actualModificationDate: TimeInterval)?
+
+        do {
+            let actualDestinationPath = try executor.safeCopyAtomic(
+                sourcePath: job.sourcePath,
+                requestedDestinationPath: job.destinationPath
+            )
+
+            if verifyCopies {
+                let verifiedIdentity = try? executor.fileHasher.hashIdentity(at: URL(fileURLWithPath: actualDestinationPath))
+                if verifiedIdentity?.rawValue != job.hash {
+                    executor.removeUnverifiedCopyIfNeeded(atPath: actualDestinationPath, runLogger: runLogger)
+                    try database.updateJobStatus(sourcePath: job.sourcePath, status: .failed)
+
+                    let message = "Verification failed: \(job.sourcePath) -> \(actualDestinationPath)"
+                    runLogger.error("Verification failed: \(job.sourcePath) → \(actualDestinationPath)")
+                    observer.onIssue(RunIssue(severity: .error, message: message))
+
+                    consecutiveFailures += 1
+                    failedCount += 1
+                    observer.onPhaseProgress(attemptedJobs, totalJobs, bytesCopied, bytesTotal)
+                    emittedProgress = true
+
+                    if executor.shouldAbort(
+                        consecutiveFailures: consecutiveFailures,
+                        totalFailures: failedCount,
+                        attemptedJobs: attemptedJobs,
+                        runLogger: runLogger
+                    ) {
+                        return false
+                    }
+
+                    return true
+                }
+            }
+
+            try database.updateJobStatus(sourcePath: job.sourcePath, status: .copied)
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: actualDestinationPath)
+            completedCopy = (
+                destinationPath: actualDestinationPath,
+                actualSize: (fileAttributes[.size] as? NSNumber)?.int64Value ?? 0,
+                actualModificationDate: (fileAttributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+            )
+        } catch {
+            try database.updateJobStatus(sourcePath: job.sourcePath, status: .failed)
+
+            let message = "Copy failed: \(job.sourcePath) -> \(job.destinationPath): \(error.localizedDescription)"
+            runLogger.error("Copy failed: \(job.sourcePath) → \(job.destinationPath): \(error.localizedDescription)")
+            observer.onIssue(RunIssue(severity: .error, message: message))
+
+            consecutiveFailures += 1
+            failedCount += 1
+
+            if executor.shouldAbort(
+                consecutiveFailures: consecutiveFailures,
+                totalFailures: failedCount,
+                attemptedJobs: attemptedJobs,
+                runLogger: runLogger
+            ) {
+                return false
+            }
+        }
+
+        guard let completedCopy else {
+            return !isCancelled()
+        }
+
+        destinationUpdates.append(
+            RawFileCacheRecord(
+                namespace: .destination,
+                path: completedCopy.destinationPath,
+                hash: job.hash,
+                size: completedCopy.actualSize,
+                modificationTime: completedCopy.actualModificationDate
+            )
+        )
+        if destinationUpdates.count >= TransferExecutor.destinationCacheBatchSize {
+            try executor.flushDestinationUpdates(destinationUpdates, database: database)
+            destinationUpdates.removeAll(keepingCapacity: true)
+        }
+
+        try receiptWriter.appendTransfer(
+            sourcePath: job.sourcePath,
+            destinationPath: completedCopy.destinationPath,
+            hash: job.hash
+        )
+        bytesCopied += executor.safeFileSize(atPath: job.sourcePath) ?? completedCopy.actualSize
+        consecutiveFailures = 0
+        copiedCount += 1
+
+        if !emittedProgress, totalJobs > 0, attemptedJobs % progressInterval == 0 {
+            observer.onPhaseProgress(attemptedJobs, totalJobs, bytesCopied, bytesTotal)
+        }
+
+        return !isCancelled()
+    }
+
+    func finish(attemptedJobs: Int) throws -> TransferExecutionResult {
+        try executor.flushDestinationUpdates(destinationUpdates, database: database)
+        try receiptWriter.finish(status: "COMPLETED")
+
+        if totalJobs > 0, attemptedJobs > 0, attemptedJobs % progressInterval != 0 {
+            observer.onPhaseProgress(attemptedJobs, totalJobs, bytesCopied, bytesTotal)
+        }
+
+        finished = true
+
+        return TransferExecutionResult(
+            copiedCount: copiedCount,
+            failedCount: failedCount,
+            bytesCopied: bytesCopied,
+            bytesTotal: bytesTotal,
+            artifacts: artifacts
+        )
+    }
 }

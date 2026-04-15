@@ -4,16 +4,26 @@ import ChronoframeAppCore
 import SwiftUI
 
 struct CurrentRunView: View {
-    @ObservedObject var appState: AppState
+    let appState: AppState
+    @ObservedObject private var runSessionStore: RunSessionStore
+    @ObservedObject private var runLogStore: RunLogStore
+    @ObservedObject private var historyStore: HistoryStore
+
+    init(appState: AppState) {
+        self.appState = appState
+        self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+        self._runLogStore = ObservedObject(wrappedValue: appState.runLogStore)
+        self._historyStore = ObservedObject(wrappedValue: appState.historyStore)
+    }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(alignment: .top, spacing: 16) {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(appState.runSessionStore.currentTaskTitle)
+                                Text(runSessionStore.currentTaskTitle)
                                     .font(.title2.weight(.semibold))
 
                                 Text(statusSubtitle)
@@ -24,7 +34,7 @@ struct CurrentRunView: View {
                             statusBadge
                         }
 
-                        ProgressView(value: appState.runSessionStore.progress)
+                        ProgressView(value: runSessionStore.progress)
                             .tint(.accentColor)
 
                         phaseView
@@ -32,12 +42,12 @@ struct CurrentRunView: View {
                 }
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12)], spacing: 12) {
-                    metricCard(title: "Discovered", value: abbreviated(appState.runSessionStore.metrics.discoveredCount))
-                    metricCard(title: "Planned", value: abbreviated(appState.runSessionStore.metrics.plannedCount))
-                    metricCard(title: "Already There", value: abbreviated(appState.runSessionStore.metrics.alreadyInDestinationCount))
-                    metricCard(title: "Duplicates", value: abbreviated(appState.runSessionStore.metrics.duplicateCount))
-                    metricCard(title: "Issues", value: abbreviated(appState.runSessionStore.issueCount))
-                    metricCard(title: "Copied", value: abbreviated(appState.runSessionStore.metrics.copiedCount))
+                    metricCard(title: "Discovered", value: abbreviated(runSessionStore.metrics.discoveredCount))
+                    metricCard(title: "Planned", value: abbreviated(runSessionStore.metrics.plannedCount))
+                    metricCard(title: "Already There", value: abbreviated(runSessionStore.metrics.alreadyInDestinationCount))
+                    metricCard(title: "Duplicates", value: abbreviated(runSessionStore.metrics.duplicateCount))
+                    metricCard(title: "Issues", value: abbreviated(runSessionStore.issueCount))
+                    metricCard(title: "Copied", value: abbreviated(runSessionStore.metrics.copiedCount))
                 }
 
                 ViewThatFits(in: .horizontal) {
@@ -68,11 +78,16 @@ struct CurrentRunView: View {
                 Text("Overview")
                     .font(.headline)
 
-                summaryRow("Mode", appState.runSessionStore.currentMode?.title ?? "Idle")
-                summaryRow("Speed", appState.runSessionStore.metrics.speedMBps > 0 ? String(format: "%.1f MB/s", appState.runSessionStore.metrics.speedMBps) : "—")
-                summaryRow("ETA", formattedETA(appState.runSessionStore.metrics.etaSeconds))
-                summaryRow("Warnings", "\(appState.runLogStore.warningCount)")
-                summaryRow("Errors", "\(appState.runLogStore.errorCount)")
+                summaryRow("Mode", runSessionStore.currentMode?.title ?? "Idle")
+                summaryRow(
+                    "Speed",
+                    runSessionStore.metrics.speedMBps > 0
+                        ? String(format: "%.1f MB/s", runSessionStore.metrics.speedMBps)
+                        : "—"
+                )
+                summaryRow("ETA", formattedETA(runSessionStore.metrics.etaSeconds))
+                summaryRow("Warnings", "\(runLogStore.warningCount)")
+                summaryRow("Errors", "\(runLogStore.errorCount)")
 
                 if let destination = destinationRoot, !destination.isEmpty {
                     Divider()
@@ -104,13 +119,13 @@ struct CurrentRunView: View {
                     .font(.headline)
 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if appState.runSessionStore.logLines.isEmpty {
+                    LazyVStack(alignment: .leading, spacing: 8) {
+                        if runLogStore.entries.isEmpty {
                             Text("The console will appear here once the backend emits activity.")
                                 .foregroundStyle(.secondary)
                         } else {
-                            ForEach(Array(appState.runSessionStore.logLines.enumerated()), id: \.offset) { _, line in
-                                Text(line)
+                            ForEach(runLogStore.entries) { entry in
+                                Text(entry.text)
                                     .font(.system(size: 12, weight: .regular, design: .monospaced))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .textSelection(.enabled)
@@ -124,13 +139,13 @@ struct CurrentRunView: View {
     }
 
     private var statusSubtitle: String {
-        switch appState.runSessionStore.status {
+        switch runSessionStore.status {
         case .idle:
             return "Preview first, then transfer when the plan looks right."
         case .preflighting:
             return "Checking the current configuration and backend readiness."
         case .running:
-            return "The Python organizer is streaming live phase progress into the macOS workspace."
+            return "Chronoframe is streaming live phase progress into the macOS workspace."
         case .dryRunFinished:
             return "The preview completed without copying files."
         case .finished:
@@ -140,7 +155,7 @@ struct CurrentRunView: View {
         case .cancelled:
             return "The run stopped before completion."
         case .failed:
-            return appState.runSessionStore.lastErrorMessage ?? "The run failed."
+            return runSessionStore.lastErrorMessage ?? "The run failed."
         }
     }
 
@@ -161,7 +176,7 @@ struct CurrentRunView: View {
 
     private var compactPhaseRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let currentPhase = appState.runSessionStore.currentPhase {
+            if let currentPhase = runSessionStore.currentPhase {
                 Text(currentPhase.title)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
@@ -205,22 +220,22 @@ struct CurrentRunView: View {
             Button("Open Report") {
                 appState.openReport()
             }
-            .disabled(appState.runSessionStore.summary?.artifacts.reportPath == nil)
+            .disabled(runSessionStore.summary?.artifacts.reportPath == nil)
 
             Button("Open Logs") {
                 appState.openLogsDirectory()
             }
-            .disabled(appState.runSessionStore.summary?.artifacts.logsDirectoryPath == nil)
+            .disabled(runSessionStore.summary?.artifacts.logsDirectoryPath == nil)
         }
     }
 
     private var destinationRoot: String? {
-        let destination = appState.runSessionStore.summary?.artifacts.destinationRoot ?? appState.historyStore.destinationRoot
+        let destination = runSessionStore.summary?.artifacts.destinationRoot ?? historyStore.destinationRoot
         return destination.isEmpty ? nil : destination
     }
 
     private var statusTitle: String {
-        switch appState.runSessionStore.status {
+        switch runSessionStore.status {
         case .idle:
             return "Idle"
         case .preflighting:
@@ -241,7 +256,7 @@ struct CurrentRunView: View {
     }
 
     private func fill(for phase: RunPhase) -> Color {
-        guard let currentPhase = appState.runSessionStore.currentPhase else {
+        guard let currentPhase = runSessionStore.currentPhase else {
             return Color.secondary.opacity(0.2)
         }
         if phase == currentPhase {
@@ -254,10 +269,12 @@ struct CurrentRunView: View {
     }
 
     private func connectorFill(after phase: RunPhase) -> Color {
-        guard let currentPhase = appState.runSessionStore.currentPhase else {
+        guard let currentPhase = runSessionStore.currentPhase else {
             return Color.secondary.opacity(0.15)
         }
-        return (RunPhase.allCases.firstIndex(of: phase) ?? 0 < RunPhase.allCases.firstIndex(of: currentPhase) ?? 0) ? .green : Color.secondary.opacity(0.15)
+        return (RunPhase.allCases.firstIndex(of: phase) ?? 0 < RunPhase.allCases.firstIndex(of: currentPhase) ?? 0)
+            ? .green
+            : Color.secondary.opacity(0.15)
     }
 
     private func metricCard(title: String, value: String) -> some View {

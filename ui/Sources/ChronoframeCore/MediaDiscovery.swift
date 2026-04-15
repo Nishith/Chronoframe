@@ -13,8 +13,17 @@ public struct MediaDiscoveryEntry: Equatable, Sendable {
 public enum MediaDiscovery {
     public static func discoverMediaFiles(at rootURL: URL) throws -> [String] {
         var results: [String] = []
-        try walk(directoryURL: rootURL, results: &results)
+        try enumerateMediaFiles(at: rootURL) { path in
+            results.append(path)
+        }
         return results
+    }
+
+    public static func enumerateMediaFiles(
+        at rootURL: URL,
+        _ body: (String) throws -> Void
+    ) throws {
+        try walk(directoryURL: rootURL, visitFilePath: body)
     }
 
     public static func walkEntries(at rootURL: URL) throws -> [MediaDiscoveryEntry] {
@@ -23,7 +32,10 @@ public enum MediaDiscovery {
         return entries
     }
 
-    private static func walk(directoryURL: URL, results: inout [String]) throws {
+    private static func walk(
+        directoryURL: URL,
+        visitFilePath: (String) throws -> Void
+    ) throws {
         let partition = try partitionedChildren(of: directoryURL)
 
         for child in partition.files {
@@ -37,12 +49,12 @@ public enum MediaDiscovery {
             }
 
             if MediaLibraryRules.isSupportedMediaFile(path: child.path) {
-                results.append(child.path)
+                try visitFilePath(child.path)
             }
         }
 
         for child in partition.directories {
-            try walk(directoryURL: child, results: &results)
+            try walk(directoryURL: child, visitFilePath: visitFilePath)
         }
     }
 
