@@ -14,15 +14,6 @@ public struct PlanningFileCandidate: Equatable, Codable, Sendable {
         self.identity = identity
         self.capturedAt = capturedAt
     }
-
-    fileprivate static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
 }
 
 public struct CopyPlanCounts: Equatable, Codable, Sendable {
@@ -236,15 +227,6 @@ public enum CopyPlanBuilder {
         for capturedAt: Date?,
         namingRules: PlannerNamingRules
     ) -> String {
-        guard let capturedAt else {
-            return namingRules.unknownDateDirectoryName
-        }
-
-        let year = Calendar(identifier: .gregorian).component(.year, from: capturedAt)
-        guard year > 1971 else {
-            return namingRules.unknownDateDirectoryName
-        }
-
-        return PlanningFileCandidate.dayFormatter.string(from: capturedAt)
+        DateClassification.bucket(for: capturedAt, namingRules: namingRules)
     }
 }
