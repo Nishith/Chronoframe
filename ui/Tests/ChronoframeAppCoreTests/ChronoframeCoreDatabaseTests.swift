@@ -121,6 +121,64 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
         XCTAssertEqual(try database.loadCopyJobs(status: .copied).map(\.sourcePath), ["/src/a.jpg"])
     }
 
+    func testRawQueueAndCacheRowsRoundTripWithoutParsingIdentity() throws {
+        let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+
+        try database.saveRawCacheRecords(
+            [
+                RawFileCacheRecord(
+                    namespace: .destination,
+                    path: "/dest/copied.jpg",
+                    hash: "raw-hash",
+                    size: 11,
+                    modificationTime: 1_700_000_010
+                ),
+            ]
+        )
+        try database.enqueueQueuedJobs(
+            [
+                QueuedCopyJob(
+                    sourcePath: "/src/raw-a.jpg",
+                    destinationPath: "/dst/raw-a.jpg",
+                    hash: "raw-job-a",
+                    status: .pending
+                ),
+                QueuedCopyJob(
+                    sourcePath: "/src/raw-b.jpg",
+                    destinationPath: "/dst/raw-b.jpg",
+                    hash: "raw-job-b",
+                    status: .copied
+                ),
+            ]
+        )
+
+        XCTAssertEqual(try database.loadRawCacheRecords(namespace: .destination).map(\.hash), ["raw-hash"])
+        XCTAssertEqual(try database.loadQueuedJobs().map(\.hash), ["raw-job-a", "raw-job-b"])
+    }
+
+    func testLoadQueuedJobsCanPreserveInsertionOrderForResume() throws {
+        let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+
+        try database.enqueueQueuedJobs(
+            [
+                QueuedCopyJob(sourcePath: "/src/c.jpg", destinationPath: "/dst/c.jpg", hash: "h3", status: .pending),
+                QueuedCopyJob(sourcePath: "/src/a.jpg", destinationPath: "/dst/a.jpg", hash: "h1", status: .pending),
+                QueuedCopyJob(sourcePath: "/src/b.jpg", destinationPath: "/dst/b.jpg", hash: "h2", status: .pending),
+            ]
+        )
+
+        XCTAssertEqual(
+            try database.loadQueuedJobs(status: .pending, orderByInsertion: true).map(\.sourcePath),
+            ["/src/c.jpg", "/src/a.jpg", "/src/b.jpg"]
+        )
+        XCTAssertEqual(
+            try database.loadQueuedJobs(status: .pending, orderByInsertion: false).map(\.sourcePath),
+            ["/src/a.jpg", "/src/b.jpg", "/src/c.jpg"]
+        )
+    }
+
     func testDestinationIndexSnapshotMatchesFastDestSemantics() throws {
         let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
         defer { database.close() }

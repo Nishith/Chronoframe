@@ -59,6 +59,56 @@ public struct FileCacheRecord: Equatable, Codable, Sendable {
     }
 }
 
+public struct RawFileCacheRecord: Equatable, Codable, Sendable {
+    public var namespace: CacheNamespace
+    public var path: String
+    public var hash: String
+    public var size: Int64
+    public var modificationTime: TimeInterval
+
+    public init(
+        namespace: CacheNamespace,
+        path: String,
+        hash: String,
+        size: Int64,
+        modificationTime: TimeInterval
+    ) {
+        self.namespace = namespace
+        self.path = path
+        self.hash = hash
+        self.size = size
+        self.modificationTime = modificationTime
+    }
+
+    public init(cacheRecord: FileCacheRecord) {
+        self.init(
+            namespace: cacheRecord.namespace,
+            path: cacheRecord.path,
+            hash: cacheRecord.identityString,
+            size: cacheRecord.size,
+            modificationTime: cacheRecord.modificationTime
+        )
+    }
+
+    public var parsedIdentity: FileIdentity? {
+        FileIdentity(rawValue: hash)
+    }
+
+    public var typedRecord: FileCacheRecord? {
+        guard let identity = parsedIdentity else {
+            return nil
+        }
+
+        return FileCacheRecord(
+            namespace: namespace,
+            path: path,
+            identity: identity,
+            size: size,
+            modificationTime: modificationTime
+        )
+    }
+}
+
 public enum CopyJobStatus: String, Codable, CaseIterable, Sendable {
     case pending = "PENDING"
     case copied = "COPIED"
@@ -85,6 +135,51 @@ public struct CopyJobRecord: Equatable, Codable, Sendable {
 
     public var identityString: String {
         identity.rawValue
+    }
+}
+
+public struct QueuedCopyJob: Equatable, Codable, Sendable {
+    public var sourcePath: String
+    public var destinationPath: String
+    public var hash: String
+    public var status: CopyJobStatus
+
+    public init(
+        sourcePath: String,
+        destinationPath: String,
+        hash: String,
+        status: CopyJobStatus
+    ) {
+        self.sourcePath = sourcePath
+        self.destinationPath = destinationPath
+        self.hash = hash
+        self.status = status
+    }
+
+    public init(copyJob: CopyJobRecord) {
+        self.init(
+            sourcePath: copyJob.sourcePath,
+            destinationPath: copyJob.destinationPath,
+            hash: copyJob.identityString,
+            status: copyJob.status
+        )
+    }
+
+    public var parsedIdentity: FileIdentity? {
+        FileIdentity(rawValue: hash)
+    }
+
+    public var typedRecord: CopyJobRecord? {
+        guard let identity = parsedIdentity else {
+            return nil
+        }
+
+        return CopyJobRecord(
+            sourcePath: sourcePath,
+            destinationPath: destinationPath,
+            identity: identity,
+            status: status
+        )
     }
 }
 

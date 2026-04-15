@@ -43,10 +43,17 @@ public struct DestinationIndexSnapshot: Equatable, Sendable {
         _ records: [FileCacheRecord],
         namingRules: PlannerNamingRules = .pythonReference
     ) -> DestinationIndexSnapshot {
+        fromRawCacheRecords(records.map(RawFileCacheRecord.init(cacheRecord:)), namingRules: namingRules)
+    }
+
+    public static func fromRawCacheRecords(
+        _ records: [RawFileCacheRecord],
+        namingRules: PlannerNamingRules = .pythonReference
+    ) -> DestinationIndexSnapshot {
         fromIndexedPaths(
             records
                 .filter { $0.namespace == .destination }
-                .map { (path: $0.path, identity: Optional($0.identity)) },
+                .map { (path: $0.path, identity: $0.parsedIdentity) },
             namingRules: namingRules
         )
     }
@@ -180,13 +187,13 @@ public final class OrganizerDatabase {
         try scalarInt(statement: "PRAGMA synchronous;")
     }
 
-    public func loadCacheRecords(namespace: CacheNamespace) throws -> [FileCacheRecord] {
+    public func loadRawCacheRecords(namespace: CacheNamespace) throws -> [RawFileCacheRecord] {
         let statement = try prepare("SELECT id, path, hash, size, mtime FROM FileCache WHERE id = ? ORDER BY path")
         defer { sqlite3_finalize(statement) }
 
         sqlite3_bind_int(statement, 1, Int32(namespace.rawValue))
 
-        var rows: [FileCacheRecord] = []
+        var rows: [RawFileCacheRecord] = []
         while true {
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
@@ -199,17 +206,16 @@ public final class OrganizerDatabase {
             guard
                 let namespaceValue = CacheNamespace(rawValue: Int(sqlite3_column_int(statement, 0))),
                 let path = Self.sqliteString(statement, column: 1),
-                let identityString = Self.sqliteString(statement, column: 2),
-                let identity = FileIdentity(rawValue: identityString)
+                let hash = Self.sqliteString(statement, column: 2)
             else {
                 throw OrganizerDatabaseError.invalidIdentity(Self.sqliteString(statement, column: 2) ?? "")
             }
 
             rows.append(
-                FileCacheRecord(
+                RawFileCacheRecord(
                     namespace: namespaceValue,
                     path: path,
-                    identity: identity,
+                    hash: hash,
                     size: sqlite3_column_int64(statement, 3),
                     modificationTime: sqlite3_column_double(statement, 4)
                 )
@@ -219,7 +225,16 @@ public final class OrganizerDatabase {
         return rows
     }
 
-    public func saveCacheRecords(_ records: [FileCacheRecord]) throws {
+    public func loadCacheRecords(namespace: CacheNamespace) throws -> [FileCacheRecord] {
+        try loadRawCacheRecords(namespace: namespace).map { row in
+            guard let typedRecord = row.typedRecord else {
+                throw OrganizerDatabaseError.invalidIdentity(row.hash)
+            }
+            return typedRecord
+        }
+    }
+
+    public func saveRawCacheRecords(_ records: [RawFileCacheRecord]) throws {
         guard !records.isEmpty else { return }
         try execute("BEGIN IMMEDIATE TRANSACTION;")
         do {
@@ -233,7 +248,7 @@ public final class OrganizerDatabase {
                 sqlite3_clear_bindings(statement)
                 sqlite3_bind_int(statement, 1, Int32(record.namespace.rawValue))
                 sqlite3_bind_text(statement, 2, record.path, -1, Self.sqliteTransient)
-                sqlite3_bind_text(statement, 3, record.identity.rawValue, -1, Self.sqliteTransient)
+                sqlite3_bind_text(statement, 3, record.hash, -1, Self.sqliteTransient)
                 sqlite3_bind_int64(statement, 4, record.size)
                 sqlite3_bind_double(statement, 5, record.modificationTime)
 
@@ -249,7 +264,11 @@ public final class OrganizerDatabase {
         }
     }
 
-    public func enqueueJobs(_ jobs: [CopyJobRecord]) throws {
+    public func saveCacheRecords(_ records: [FileCacheRecord]) throws {
+        try saveRawCacheRecords(records.map(RawFileCacheRecord.init(cacheRecord:)))
+    }
+
+    public func enqueueQueuedJobs(_ jobs: [QueuedCopyJob]) throws {
         guard !jobs.isEmpty else { return }
         try execute("BEGIN IMMEDIATE TRANSACTION;")
         do {
@@ -263,7 +282,7 @@ public final class OrganizerDatabase {
                 sqlite3_clear_bindings(statement)
                 sqlite3_bind_text(statement, 1, job.sourcePath, -1, Self.sqliteTransient)
                 sqlite3_bind_text(statement, 2, job.destinationPath, -1, Self.sqliteTransient)
-                sqlite3_bind_text(statement, 3, job.identity.rawValue, -1, Self.sqliteTransient)
+                sqlite3_bind_text(statement, 3, job.hash, -1, Self.sqliteTransient)
                 sqlite3_bind_text(statement, 4, job.status.rawValue, -1, Self.sqliteTransient)
 
                 guard sqlite3_step(statement) == SQLITE_DONE else {
@@ -278,12 +297,20 @@ public final class OrganizerDatabase {
         }
     }
 
-    public func loadCopyJobs(status: CopyJobStatus? = nil) throws -> [CopyJobRecord] {
+    public func enqueueJobs(_ jobs: [CopyJobRecord]) throws {
+        try enqueueQueuedJobs(jobs.map(QueuedCopyJob.init(copyJob:)))
+    }
+
+    public func loadQueuedJobs(
+        status: CopyJobStatus? = nil,
+        orderByInsertion: Bool = false
+    ) throws -> [QueuedCopyJob] {
         let sql: String
+        let orderClause = orderByInsertion ? " ORDER BY rowid" : " ORDER BY src_path"
         if status != nil {
-            sql = "SELECT src_path, dst_path, hash, status FROM CopyJobs WHERE status = ? ORDER BY src_path"
+            sql = "SELECT src_path, dst_path, hash, status FROM CopyJobs WHERE status = ?\(orderClause)"
         } else {
-            sql = "SELECT src_path, dst_path, hash, status FROM CopyJobs ORDER BY src_path"
+            sql = "SELECT src_path, dst_path, hash, status FROM CopyJobs\(orderClause)"
         }
 
         let statement = try prepare(sql)
@@ -293,7 +320,7 @@ public final class OrganizerDatabase {
             sqlite3_bind_text(statement, 1, status.rawValue, -1, Self.sqliteTransient)
         }
 
-        var rows: [CopyJobRecord] = []
+        var rows: [QueuedCopyJob] = []
         while true {
             let stepResult = sqlite3_step(statement)
             if stepResult == SQLITE_DONE {
@@ -306,8 +333,7 @@ public final class OrganizerDatabase {
             guard
                 let sourcePath = Self.sqliteString(statement, column: 0),
                 let destinationPath = Self.sqliteString(statement, column: 1),
-                let identityString = Self.sqliteString(statement, column: 2),
-                let identity = FileIdentity(rawValue: identityString),
+                let hash = Self.sqliteString(statement, column: 2),
                 let statusString = Self.sqliteString(statement, column: 3),
                 let jobStatus = CopyJobStatus(rawValue: statusString)
             else {
@@ -315,16 +341,25 @@ public final class OrganizerDatabase {
             }
 
             rows.append(
-                CopyJobRecord(
+                QueuedCopyJob(
                     sourcePath: sourcePath,
                     destinationPath: destinationPath,
-                    identity: identity,
+                    hash: hash,
                     status: jobStatus
                 )
             )
         }
 
         return rows
+    }
+
+    public func loadCopyJobs(status: CopyJobStatus? = nil) throws -> [CopyJobRecord] {
+        try loadQueuedJobs(status: status).map { row in
+            guard let typedRecord = row.typedRecord else {
+                throw OrganizerDatabaseError.invalidIdentity(row.hash)
+            }
+            return typedRecord
+        }
     }
 
     public func pendingJobCount() throws -> Int {
@@ -346,8 +381,8 @@ public final class OrganizerDatabase {
     public func destinationIndexSnapshot(
         namingRules: PlannerNamingRules = .pythonReference
     ) throws -> DestinationIndexSnapshot {
-        DestinationIndexSnapshot.fromCacheRecords(
-            try loadCacheRecords(namespace: .destination),
+        DestinationIndexSnapshot.fromRawCacheRecords(
+            try loadRawCacheRecords(namespace: .destination),
             namingRules: namingRules
         )
     }

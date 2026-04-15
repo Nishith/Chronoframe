@@ -39,6 +39,17 @@
 		AA000000000000000000021E /* ChronoframeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000123 /* ChronoframeUITests.swift */; };
 		AA000000000000000000021F /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000126 /* XCTest.framework */; };
 		AA0000000000000000000220 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000126 /* XCTest.framework */; };
+		AA0000000000000000000221 /* SwiftOrganizerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000127 /* SwiftOrganizerEngine.swift */; };
+		AA0000000000000000000222 /* BLAKE2bHasher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000128 /* BLAKE2bHasher.swift */; };
+		AA0000000000000000000223 /* CopyPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000129 /* CopyPlanBuilder.swift */; };
+		AA0000000000000000000224 /* DryRunPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012A /* DryRunPlanner.swift */; };
+		AA0000000000000000000225 /* EngineDomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012B /* EngineDomainModels.swift */; };
+		AA0000000000000000000226 /* FileIdentityHasher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012C /* FileIdentityHasher.swift */; };
+		AA0000000000000000000227 /* MediaDateResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012D /* MediaDateResolver.swift */; };
+		AA0000000000000000000228 /* MediaDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012E /* MediaDiscovery.swift */; };
+		AA0000000000000000000229 /* OrganizerDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012F /* OrganizerDatabase.swift */; };
+		AA000000000000000000022A /* PlanningPathBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000130 /* PlanningPathBuilder.swift */; };
+		AA000000000000000000022B /* TransferExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000131 /* TransferExecutor.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -91,6 +102,17 @@
 		AA0000000000000000000124 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		AA0000000000000000000125 /* Chronoframe.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Chronoframe.entitlements; sourceTree = "<group>"; };
 		AA0000000000000000000126 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		AA0000000000000000000127 /* SwiftOrganizerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftOrganizerEngine.swift; sourceTree = "<group>"; };
+		AA0000000000000000000128 /* BLAKE2bHasher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLAKE2bHasher.swift; sourceTree = "<group>"; };
+		AA0000000000000000000129 /* CopyPlanBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopyPlanBuilder.swift; sourceTree = "<group>"; };
+		AA000000000000000000012A /* DryRunPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunPlanner.swift; sourceTree = "<group>"; };
+		AA000000000000000000012B /* EngineDomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineDomainModels.swift; sourceTree = "<group>"; };
+		AA000000000000000000012C /* FileIdentityHasher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileIdentityHasher.swift; sourceTree = "<group>"; };
+		AA000000000000000000012D /* MediaDateResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDateResolver.swift; sourceTree = "<group>"; };
+		AA000000000000000000012E /* MediaDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDiscovery.swift; sourceTree = "<group>"; };
+		AA000000000000000000012F /* OrganizerDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerDatabase.swift; sourceTree = "<group>"; };
+		AA0000000000000000000130 /* PlanningPathBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningPathBuilder.swift; sourceTree = "<group>"; };
+		AA0000000000000000000131 /* TransferExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferExecutor.swift; sourceTree = "<group>"; };
 		AA0000000000000000000181 /* Chronoframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chronoframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000182 /* ChronoframeAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000183 /* ChronoframeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -208,6 +230,7 @@
 				AA000000000000000000010F /* OrganizerEngine.swift */,
 				AA0000000000000000000110 /* ProfilesRepository.swift */,
 				AA0000000000000000000111 /* PythonOrganizerEngine.swift */,
+				AA0000000000000000000127 /* SwiftOrganizerEngine.swift */,
 				AA0000000000000000000112 /* RunHistoryIndexer.swift */,
 			);
 			path = Services;
@@ -236,8 +259,18 @@
 		AA0000000000000000000018 /* ChronoframeCore */ = {
 			isa = PBXGroup;
 			children = (
+				AA0000000000000000000128 /* BLAKE2bHasher.swift */,
+				AA0000000000000000000129 /* CopyPlanBuilder.swift */,
+				AA000000000000000000012A /* DryRunPlanner.swift */,
+				AA000000000000000000012B /* EngineDomainModels.swift */,
+				AA000000000000000000012C /* FileIdentityHasher.swift */,
+				AA000000000000000000012D /* MediaDateResolver.swift */,
+				AA000000000000000000012E /* MediaDiscovery.swift */,
+				AA000000000000000000012F /* OrganizerDatabase.swift */,
+				AA0000000000000000000130 /* PlanningPathBuilder.swift */,
 				AA0000000000000000000119 /* ProfileModels.swift */,
 				AA000000000000000000011A /* RunModels.swift */,
+				AA0000000000000000000131 /* TransferExecutor.swift */,
 			);
 			path = ChronoframeCore;
 			sourceTree = "<group>";
@@ -444,6 +477,7 @@
 				AA000000000000000000020F /* OrganizerEngine.swift in Sources */,
 				AA0000000000000000000210 /* ProfilesRepository.swift in Sources */,
 				AA0000000000000000000211 /* PythonOrganizerEngine.swift in Sources */,
+				AA0000000000000000000221 /* SwiftOrganizerEngine.swift in Sources */,
 				AA0000000000000000000212 /* RunHistoryIndexer.swift in Sources */,
 				AA0000000000000000000213 /* HistoryStore.swift in Sources */,
 				AA0000000000000000000214 /* PreferencesStore.swift in Sources */,
@@ -451,8 +485,18 @@
 				AA0000000000000000000216 /* RunSessionStore.swift in Sources */,
 				AA0000000000000000000217 /* SetupStore.swift in Sources */,
 				AA0000000000000000000218 /* RuntimePaths.swift in Sources */,
+				AA0000000000000000000222 /* BLAKE2bHasher.swift in Sources */,
+				AA0000000000000000000223 /* CopyPlanBuilder.swift in Sources */,
+				AA0000000000000000000224 /* DryRunPlanner.swift in Sources */,
+				AA0000000000000000000225 /* EngineDomainModels.swift in Sources */,
+				AA0000000000000000000226 /* FileIdentityHasher.swift in Sources */,
+				AA0000000000000000000227 /* MediaDateResolver.swift in Sources */,
+				AA0000000000000000000228 /* MediaDiscovery.swift in Sources */,
+				AA0000000000000000000229 /* OrganizerDatabase.swift in Sources */,
+				AA000000000000000000022A /* PlanningPathBuilder.swift in Sources */,
 				AA0000000000000000000219 /* ProfileModels.swift in Sources */,
 				AA000000000000000000021A /* RunModels.swift in Sources */,
+				AA000000000000000000022B /* TransferExecutor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

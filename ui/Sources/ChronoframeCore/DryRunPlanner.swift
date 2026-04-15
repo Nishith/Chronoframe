@@ -86,7 +86,11 @@ public struct DryRunPlanner: Sendable {
         )
 
         let sourceCacheByPath = try Dictionary(
-            uniqueKeysWithValues: database.loadCacheRecords(namespace: .source).map { ($0.path, $0) }
+            uniqueKeysWithValues: database
+                .loadRawCacheRecords(namespace: .source)
+                .compactMap { rawRecord in
+                    rawRecord.typedRecord.map { (rawRecord.path, $0) }
+                }
         )
 
         var sourceResults: [String: ProcessedFileIdentity] = [:]
@@ -233,16 +237,20 @@ public struct DryRunPlanner: Sendable {
         namingRules: PlannerNamingRules
     ) throws -> DestinationIndexBuildResult {
         if fastDestination {
-            let cachedRows = try database.loadCacheRecords(namespace: .destination)
+            let cachedRows = try database.loadRawCacheRecords(namespace: .destination)
             return DestinationIndexBuildResult(
                 indexedFileCount: cachedRows.count,
-                snapshot: DestinationIndexSnapshot.fromCacheRecords(cachedRows, namingRules: namingRules)
+                snapshot: DestinationIndexSnapshot.fromRawCacheRecords(cachedRows, namingRules: namingRules)
             )
         }
 
         let destinationPaths = try MediaDiscovery.discoverMediaFiles(at: destinationRoot)
         let cachedRowsByPath = try Dictionary(
-            uniqueKeysWithValues: database.loadCacheRecords(namespace: .destination).map { ($0.path, $0) }
+            uniqueKeysWithValues: database
+                .loadRawCacheRecords(namespace: .destination)
+                .compactMap { rawRecord in
+                    rawRecord.typedRecord.map { (rawRecord.path, $0) }
+                }
         )
 
         var indexedPaths: [(path: String, identity: FileIdentity?)] = []

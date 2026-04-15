@@ -5,6 +5,7 @@ import XCTest
 final class RuntimePathsTests: XCTestCase {
     private var originalProfilesPath: String?
     private var originalRepositoryRoot: String?
+    private var originalAppEngine: String?
     private var originalCurrentDirectory: String!
     private var temporaryDirectoryURL: URL!
 
@@ -12,6 +13,7 @@ final class RuntimePathsTests: XCTestCase {
         try super.setUpWithError()
         originalProfilesPath = ProcessInfo.processInfo.environment["CHRONOFRAME_PROFILES_PATH"]
         originalRepositoryRoot = ProcessInfo.processInfo.environment["CHRONOFRAME_REPOSITORY_ROOT"]
+        originalAppEngine = ProcessInfo.processInfo.environment["CHRONOFRAME_APP_ENGINE"]
         originalCurrentDirectory = FileManager.default.currentDirectoryPath
         temporaryDirectoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("RuntimePathsTests-\(UUID().uuidString)", isDirectory: true)
@@ -78,6 +80,17 @@ final class RuntimePathsTests: XCTestCase {
         )
     }
 
+    func testAppEnginePreferenceDefaultsToSwiftAndSupportsPythonKillSwitch() {
+        unsetenv("CHRONOFRAME_APP_ENGINE")
+        XCTAssertEqual(RuntimePaths.appEnginePreference(), .swift)
+
+        setenv("CHRONOFRAME_APP_ENGINE", "python", 1)
+        XCTAssertEqual(RuntimePaths.appEnginePreference(), .python)
+
+        setenv("CHRONOFRAME_APP_ENGINE", "unexpected", 1)
+        XCTAssertEqual(RuntimePaths.appEnginePreference(), .swift)
+    }
+
     private func restoreEnvironment() {
         if let originalProfilesPath {
             setenv("CHRONOFRAME_PROFILES_PATH", originalProfilesPath, 1)
@@ -89,6 +102,12 @@ final class RuntimePathsTests: XCTestCase {
             setenv("CHRONOFRAME_REPOSITORY_ROOT", originalRepositoryRoot, 1)
         } else {
             unsetenv("CHRONOFRAME_REPOSITORY_ROOT")
+        }
+
+        if let originalAppEngine {
+            setenv("CHRONOFRAME_APP_ENGINE", originalAppEngine, 1)
+        } else {
+            unsetenv("CHRONOFRAME_APP_ENGINE")
         }
     }
 }

@@ -1,5 +1,10 @@
 import Foundation
 
+public enum AppEnginePreference: String, Equatable, Sendable {
+    case swift
+    case python
+}
+
 public enum RuntimePaths {
     public static func backendRootURL() -> URL? {
         if let bundled = bundledBackendRootURL() {
@@ -39,6 +44,18 @@ public enum RuntimePaths {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base.appendingPathComponent("Chronoframe", isDirectory: true)
+    }
+
+    public static func appEnginePreference() -> AppEnginePreference {
+        let environment = ProcessInfo.processInfo.environment
+        let rawValue = environment["CHRONOFRAME_APP_ENGINE"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        switch rawValue {
+        case AppEnginePreference.python.rawValue:
+            return .python
+        default:
+            return .swift
+        }
     }
 
     private static func bundledBackendRootURL() -> URL? {

@@ -7,14 +7,17 @@ import Foundation
 public final class SwiftOrganizerEngine: OrganizerEngine {
     private let profilesRepository: any ProfilesRepositorying
     private let planner: DryRunPlanner
+    private let transferExecutor: TransferExecutor
     private var activeTask: Task<Void, Never>?
 
     public init(
         profilesRepository: any ProfilesRepositorying = ProfilesRepository(),
-        planner: DryRunPlanner = DryRunPlanner()
+        planner: DryRunPlanner = DryRunPlanner(),
+        transferExecutor: TransferExecutor = TransferExecutor()
     ) {
         self.profilesRepository = profilesRepository
         self.planner = planner
+        self.transferExecutor = transferExecutor
     }
 
     public func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight {
@@ -33,91 +36,24 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
 
     public func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
         let resolvedConfiguration = try resolvedConfiguration(for: configuration)
-        guard resolvedConfiguration.mode == .preview else {
-            throw OrganizerEngineError.failedToLaunch("The native Swift engine currently supports preview runs only.")
-        }
 
-        return AsyncThrowingStream { continuation in
-            let planner = self.planner
-            let task = Task.detached(priority: .userInitiated) {
-                do {
-                    let result = try planner.plan(
-                        sourceRoot: URL(fileURLWithPath: resolvedConfiguration.sourcePath, isDirectory: true),
-                        destinationRoot: URL(fileURLWithPath: resolvedConfiguration.destinationPath, isDirectory: true),
-                        fastDestination: resolvedConfiguration.useFastDestinationScan
-                    )
-
-                    if Task.isCancelled {
-                        continuation.finish()
-                        return
-                    }
-
-                    let artifacts = try Self.writeDryRunArtifacts(
-                        result: result,
-                        destinationRoot: resolvedConfiguration.destinationPath
-                    )
-                    let metrics = RunMetrics(
-                        discoveredCount: result.discoveredSourceCount,
-                        plannedCount: result.copyJobs.count,
-                        alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
-                        duplicateCount: result.counts.duplicateCount,
-                        hashErrorCount: result.counts.hashErrorCount
-                    )
-
-                    continuation.yield(.startup)
-                    continuation.yield(.phaseStarted(phase: .discovery, total: result.discoveredSourceCount))
-                    continuation.yield(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: result.discoveredSourceCount)))
-                    continuation.yield(.phaseStarted(phase: .destinationIndexing, total: result.destinationIndexedCount))
-                    continuation.yield(.phaseCompleted(phase: .destinationIndexing, result: RunPhaseResult()))
-                    continuation.yield(.phaseStarted(phase: .sourceHashing, total: result.sourceHashedCount))
-                    continuation.yield(.phaseCompleted(phase: .sourceHashing, result: RunPhaseResult()))
-                    continuation.yield(.phaseStarted(phase: .classification, total: result.counts.newCount))
-                    continuation.yield(
-                        .phaseCompleted(
-                            phase: .classification,
-                            result: RunPhaseResult(
-                                newCount: result.counts.newCount,
-                                alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
-                                duplicateCount: result.counts.duplicateCount,
-                                hashErrorCount: result.counts.hashErrorCount
-                            )
-                        )
-                    )
-
-                    for warning in result.warningMessages {
-                        continuation.yield(.issue(RunIssue(severity: .warning, message: warning)))
-                    }
-
-                    continuation.yield(.copyPlanReady(count: result.copyJobs.count))
-                    continuation.yield(
-                        .complete(
-                            RunSummary(
-                                status: .dryRunFinished,
-                                title: "Preview complete",
-                                metrics: metrics,
-                                artifacts: artifacts
-                            )
-                        )
-                    )
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-
-                Task { @MainActor in
-                    self.activeTask = nil
-                }
-            }
-
-            self.activeTask = task
-            continuation.onTermination = { @Sendable _ in
-                task.cancel()
-            }
+        switch resolvedConfiguration.mode {
+        case .preview:
+            return makePreviewStream(configuration: resolvedConfiguration)
+        case .transfer:
+            return makeTransferStream(configuration: resolvedConfiguration, resumePendingJobs: false)
         }
     }
 
     public func resume(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
-        try start(configuration)
+        let resolvedConfiguration = try resolvedConfiguration(for: configuration)
+
+        switch resolvedConfiguration.mode {
+        case .preview:
+            return makePreviewStream(configuration: resolvedConfiguration)
+        case .transfer:
+            return makeTransferStream(configuration: resolvedConfiguration, resumePendingJobs: true)
+        }
     }
 
     public func cancelCurrentRun() {
@@ -158,6 +94,144 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         return resolvedConfiguration
     }
 
+    private func makePreviewStream(configuration: RunConfiguration) -> AsyncThrowingStream<RunEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let planner = self.planner
+            let task = Task.detached(priority: .userInitiated) {
+                do {
+                    let result = try planner.plan(
+                        sourceRoot: URL(fileURLWithPath: configuration.sourcePath, isDirectory: true),
+                        destinationRoot: URL(fileURLWithPath: configuration.destinationPath, isDirectory: true),
+                        fastDestination: configuration.useFastDestinationScan
+                    )
+
+                    if Task.isCancelled {
+                        continuation.finish()
+                        return
+                    }
+
+                    let artifacts = try Self.writeDryRunArtifacts(
+                        result: result,
+                        destinationRoot: configuration.destinationPath
+                    )
+                    let metrics = RunMetrics(
+                        discoveredCount: result.discoveredSourceCount,
+                        plannedCount: result.copyJobs.count,
+                        alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
+                        duplicateCount: result.counts.duplicateCount,
+                        hashErrorCount: result.counts.hashErrorCount
+                    )
+
+                    continuation.yield(.startup)
+                    Self.emitPlanningEvents(for: result, into: continuation)
+                    continuation.yield(
+                        .complete(
+                            RunSummary(
+                                status: .dryRunFinished,
+                                title: "Preview complete",
+                                metrics: metrics,
+                                artifacts: artifacts
+                            )
+                        )
+                    )
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+
+                Task { @MainActor in
+                    self.activeTask = nil
+                }
+            }
+
+            self.activeTask = task
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+
+    private func makeTransferStream(
+        configuration: RunConfiguration,
+        resumePendingJobs: Bool
+    ) -> AsyncThrowingStream<RunEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let planner = self.planner
+            let transferExecutor = self.transferExecutor
+            let task = Task.detached(priority: .userInitiated) {
+                let destinationURL = URL(fileURLWithPath: configuration.destinationPath, isDirectory: true)
+                let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+                let logURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.runLogFilename)
+                let runLogger = PersistentRunLogger(logURL: logURL)
+
+                do {
+                    try runLogger.open()
+
+                    let database = try OrganizerDatabase(url: databaseURL)
+                    defer {
+                        database.close()
+                        runLogger.close()
+                    }
+
+                    runLogger.log(
+                        "=== Run started: src=\(configuration.sourcePath) dst=\(configuration.destinationPath) dry_run=False workers=\(max(1, configuration.workerCount)) ==="
+                    )
+
+                    let cleanedTemporaryFiles = transferExecutor.cleanupTemporaryFiles(at: destinationURL)
+                    if cleanedTemporaryFiles > 0 {
+                        runLogger.warn("Cleaned up \(cleanedTemporaryFiles) orphaned .tmp files from previous interrupted run")
+                        continuation.yield(
+                            .issue(
+                                RunIssue(
+                                    severity: .info,
+                                    message: "Cleaned \(cleanedTemporaryFiles) orphaned .tmp files"
+                                )
+                            )
+                        )
+                    }
+
+                    continuation.yield(.startup)
+
+                    if resumePendingJobs {
+                        try Self.resumeTransfer(
+                            configuration: configuration,
+                            database: database,
+                            destinationURL: destinationURL,
+                            transferExecutor: transferExecutor,
+                            runLogger: runLogger,
+                            continuation: continuation
+                        )
+                    } else {
+                        try Self.startTransfer(
+                            configuration: configuration,
+                            planner: planner,
+                            database: database,
+                            destinationURL: destinationURL,
+                            transferExecutor: transferExecutor,
+                            runLogger: runLogger,
+                            continuation: continuation
+                        )
+                    }
+                } catch {
+                    if Task.isCancelled {
+                        continuation.finish()
+                    } else {
+                        continuation.finish(throwing: error)
+                    }
+                }
+
+                Task { @MainActor in
+                    self.activeTask = nil
+                }
+            }
+
+            self.activeTask = task
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+
     private func pendingJobCount(destinationRoot: String) -> Int {
         let dbURL = URL(fileURLWithPath: destinationRoot).appendingPathComponent(".organize_cache.db")
         guard FileManager.default.fileExists(atPath: dbURL.path) else { return 0 }
@@ -169,6 +243,250 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         } catch {
             return 0
         }
+    }
+
+    private nonisolated static func startTransfer(
+        configuration: RunConfiguration,
+        planner: DryRunPlanner,
+        database: OrganizerDatabase,
+        destinationURL: URL,
+        transferExecutor: TransferExecutor,
+        runLogger: PersistentRunLogger,
+        continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
+    ) throws {
+        let result = try planner.plan(
+            sourceRoot: URL(fileURLWithPath: configuration.sourcePath, isDirectory: true),
+            destinationRoot: destinationURL,
+            fastDestination: configuration.useFastDestinationScan
+        )
+
+        if Task.isCancelled {
+            continuation.finish()
+            return
+        }
+
+        emitPlanningEvents(for: result, into: continuation)
+        runLogger.log(
+            "Classification: \(result.counts.alreadyInDestinationCount) already in dest, \(result.counts.newCount) new, \(result.counts.duplicateCount) internal dups, \(result.counts.hashErrorCount) hash errors"
+        )
+
+        for warning in result.warningMessages {
+            runLogger.warn(warning)
+        }
+
+        if result.copyJobs.isEmpty {
+            runLogger.log("Nothing to copy — all files already in destination")
+            continuation.yield(
+                .complete(
+                    RunSummary(
+                        status: .nothingToCopy,
+                        title: "Already up to date",
+                        metrics: RunMetrics(
+                            discoveredCount: result.discoveredSourceCount,
+                            plannedCount: 0,
+                            alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
+                            duplicateCount: result.counts.duplicateCount,
+                            hashErrorCount: result.counts.hashErrorCount
+                        ),
+                        artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
+                    )
+                )
+            )
+            continuation.finish()
+            return
+        }
+
+        try database.enqueueQueuedJobs(result.copyJobs.map(QueuedCopyJob.init(copyJob:)))
+        let queuedJobs = try database.loadQueuedJobs(status: .pending, orderByInsertion: true)
+
+        let errorCounter = IssueCounter()
+        let executionResult = try transferExecutor.execute(
+            queuedJobs: queuedJobs,
+            database: database,
+            destinationRoot: destinationURL,
+            verifyCopies: configuration.verifyCopies,
+            runLogger: runLogger,
+            observer: TransferExecutionObserver(
+                onPhaseStarted: { total, _ in
+                    continuation.yield(.phaseStarted(phase: .copy, total: total))
+                },
+                onPhaseProgress: { completed, total, bytesCopied, bytesTotal in
+                    continuation.yield(
+                        .phaseProgress(
+                            phase: .copy,
+                            completed: completed,
+                            total: total,
+                            bytesCopied: Int(bytesCopied),
+                            bytesTotal: Int(bytesTotal)
+                        )
+                    )
+                },
+                onIssue: { issue in
+                    if issue.severity == .error {
+                        errorCounter.increment()
+                    }
+                    continuation.yield(.issue(issue))
+                }
+            ),
+            isCancelled: { Task.isCancelled }
+        )
+
+        if Task.isCancelled {
+            continuation.finish()
+            return
+        }
+
+        continuation.yield(
+            .phaseCompleted(
+                phase: .copy,
+                result: RunPhaseResult(
+                    copiedCount: executionResult.copiedCount,
+                    failedCount: executionResult.failedCount
+                )
+            )
+        )
+        runLogger.log("Run complete")
+        continuation.yield(
+            .complete(
+                RunSummary(
+                    status: .finished,
+                    title: "Done",
+                    metrics: RunMetrics(
+                        discoveredCount: result.discoveredSourceCount,
+                        plannedCount: result.copyJobs.count,
+                        alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
+                        duplicateCount: result.counts.duplicateCount,
+                        hashErrorCount: result.counts.hashErrorCount,
+                        copiedCount: executionResult.copiedCount,
+                        failedCount: executionResult.failedCount,
+                        errorCount: errorCounter.value
+                    ),
+                    artifacts: executionResult.artifacts
+                )
+            )
+        )
+        continuation.finish()
+    }
+
+    private nonisolated static func resumeTransfer(
+        configuration: RunConfiguration,
+        database: OrganizerDatabase,
+        destinationURL: URL,
+        transferExecutor: TransferExecutor,
+        runLogger: PersistentRunLogger,
+        continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
+    ) throws {
+        let queuedJobs = try database.loadQueuedJobs(status: .pending, orderByInsertion: true)
+        runLogger.log("Found \(queuedJobs.count) pending jobs from interrupted session")
+
+        if queuedJobs.isEmpty {
+            continuation.yield(
+                .complete(
+                    RunSummary(
+                        status: .nothingToCopy,
+                        title: "Already up to date",
+                        metrics: RunMetrics(),
+                        artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
+                    )
+                )
+            )
+            continuation.finish()
+            return
+        }
+
+        let errorCounter = IssueCounter()
+        let executionResult = try transferExecutor.execute(
+            queuedJobs: queuedJobs,
+            database: database,
+            destinationRoot: destinationURL,
+            verifyCopies: configuration.verifyCopies,
+            runLogger: runLogger,
+            observer: TransferExecutionObserver(
+                onPhaseStarted: { total, _ in
+                    continuation.yield(.phaseStarted(phase: .copy, total: total))
+                },
+                onPhaseProgress: { completed, total, bytesCopied, bytesTotal in
+                    continuation.yield(
+                        .phaseProgress(
+                            phase: .copy,
+                            completed: completed,
+                            total: total,
+                            bytesCopied: Int(bytesCopied),
+                            bytesTotal: Int(bytesTotal)
+                        )
+                    )
+                },
+                onIssue: { issue in
+                    if issue.severity == .error {
+                        errorCounter.increment()
+                    }
+                    continuation.yield(.issue(issue))
+                }
+            ),
+            isCancelled: { Task.isCancelled }
+        )
+
+        if Task.isCancelled {
+            continuation.finish()
+            return
+        }
+
+        continuation.yield(
+            .phaseCompleted(
+                phase: .copy,
+                result: RunPhaseResult(
+                    copiedCount: executionResult.copiedCount,
+                    failedCount: executionResult.failedCount
+                )
+            )
+        )
+        runLogger.log("Resumed session complete")
+        continuation.yield(
+            .complete(
+                RunSummary(
+                    status: .finished,
+                    title: "Done",
+                    metrics: RunMetrics(
+                        plannedCount: queuedJobs.count,
+                        copiedCount: executionResult.copiedCount,
+                        failedCount: executionResult.failedCount,
+                        errorCount: errorCounter.value
+                    ),
+                    artifacts: executionResult.artifacts
+                )
+            )
+        )
+        continuation.finish()
+    }
+
+    private nonisolated static func emitPlanningEvents(
+        for result: DryRunPlanningResult,
+        into continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
+    ) {
+        continuation.yield(.phaseStarted(phase: .discovery, total: result.discoveredSourceCount))
+        continuation.yield(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: result.discoveredSourceCount)))
+        continuation.yield(.phaseStarted(phase: .destinationIndexing, total: result.destinationIndexedCount))
+        continuation.yield(.phaseCompleted(phase: .destinationIndexing, result: RunPhaseResult()))
+        continuation.yield(.phaseStarted(phase: .sourceHashing, total: result.sourceHashedCount))
+        continuation.yield(.phaseCompleted(phase: .sourceHashing, result: RunPhaseResult()))
+        continuation.yield(.phaseStarted(phase: .classification, total: result.counts.newCount))
+        continuation.yield(
+            .phaseCompleted(
+                phase: .classification,
+                result: RunPhaseResult(
+                    newCount: result.counts.newCount,
+                    alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
+                    duplicateCount: result.counts.duplicateCount,
+                    hashErrorCount: result.counts.hashErrorCount
+                )
+            )
+        )
+
+        for warning in result.warningMessages {
+            continuation.yield(.issue(RunIssue(severity: .warning, message: warning)))
+        }
+
+        continuation.yield(.copyPlanReady(count: result.copyJobs.count))
     }
 
     nonisolated private static func writeDryRunArtifacts(
@@ -224,4 +542,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         return formatter
     }()
+}
+
+private final class IssueCounter: @unchecked Sendable {
+    private(set) var value = 0
+
+    func increment() {
+        value += 1
+    }
 }
