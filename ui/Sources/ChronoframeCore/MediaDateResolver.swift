@@ -217,7 +217,7 @@ public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
     }()
 }
 
-public struct FileDateResolver {
+public struct FileDateResolver: Sendable {
     public var metadataReader: any MediaMetadataDateReading
 
     public init(metadataReader: any MediaMetadataDateReading = NativeMediaMetadataDateReader()) {

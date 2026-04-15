@@ -43,14 +43,28 @@ public struct DestinationIndexSnapshot: Equatable, Sendable {
         _ records: [FileCacheRecord],
         namingRules: PlannerNamingRules = .pythonReference
     ) -> DestinationIndexSnapshot {
+        fromIndexedPaths(
+            records
+                .filter { $0.namespace == .destination }
+                .map { (path: $0.path, identity: Optional($0.identity)) },
+            namingRules: namingRules
+        )
+    }
+
+    static func fromIndexedPaths(
+        _ records: [(path: String, identity: FileIdentity?)],
+        namingRules: PlannerNamingRules = .pythonReference
+    ) -> DestinationIndexSnapshot {
         let filenamePattern = try? NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}|Unknown)_(\d+)"#)
 
         var pathsByIdentity: [FileIdentity: String] = [:]
         var primaryByDate: [String: Int] = [:]
         var duplicatesByDate: [String: Int] = [:]
 
-        for record in records where record.namespace == .destination {
-            pathsByIdentity[record.identity] = record.path
+        for record in records {
+            if let identity = record.identity {
+                pathsByIdentity[identity] = record.path
+            }
 
             guard let filenamePattern else { continue }
             let filename = URL(fileURLWithPath: record.path).lastPathComponent
