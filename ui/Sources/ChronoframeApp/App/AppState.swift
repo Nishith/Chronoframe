@@ -219,8 +219,12 @@ final class AppState: ObservableObject {
         await runSessionStore.requestRun(mode: .transfer, configuration: setupStore.makeConfiguration(preferences: preferencesStore, mode: .transfer))
     }
 
-    func confirmRunPrompt() async {
+    func confirmRunPrompt() {
         runSessionStore.confirmPrompt()
+    }
+
+    func confirmRunPromptStartFresh() {
+        runSessionStore.confirmPromptStartFresh()
     }
 
     func dismissRunPrompt() {
