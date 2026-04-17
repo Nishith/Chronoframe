@@ -86,7 +86,9 @@ def parse_args():
                         help=f"Thread pool size for hashing (default {DEFAULT_WORKERS})")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompts (unattended)")
     parser.add_argument("--json", action="store_true", help="Output progress as JSON instead of Rich text (for GUI backend usage)")
+    parser.add_argument("--folder-structure", type=str, choices=["YYYY/MM/DD", "YYYY/MM", "YYYY", "Flat"], default="YYYY/MM/DD", help="Output directory layout")
     parser.add_argument("--fast-dest", action="store_true", help="Bypass destination OS scan and load directly from cache (fast repeated dry runs)")
+    parser.add_argument("--revert", type=str, metavar="RECEIPT_JSON", help="Revert a previous run using its audit receipt")
     return parser.parse_args()
 
 
@@ -248,6 +250,77 @@ def generate_audit_receipt(jobs_executed, dest_path):
     return rpath
 
 
+def revert_receipt(receipt_path):
+    if not os.path.exists(receipt_path):
+        console.print(f"[red]Receipt not found:[red] {receipt_path}")
+        emit_json("error", message=f"Receipt not found: {receipt_path}")
+        sys.exit(1)
+
+    try:
+        with open(receipt_path, 'r') as f:
+            data = json.load(f)
+    except Exception as e:
+        console.print(f"[red]Invalid receipt:[red] {e}")
+        emit_json("error", message=f"Invalid receipt: {e}")
+        sys.exit(1)
+
+    transfers = data.get("transfers", [])
+    if not transfers:
+        console.print("[yellow]No transfers to revert.[/yellow]")
+        emit_json("complete", status="revert_empty")
+        sys.exit(0)
+
+    from .io import fast_hash
+    reverted_count = 0
+    failed_count = 0
+
+    emit_json("task_start", task="revert", total=len(transfers))
+    
+    with Progress(
+        SpinnerColumn(),
+        TaskProgressColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TimeRemainingColumn(),
+        console=console
+    ) as progress:
+        task_id = progress.add_task("[cyan]Reverting items...", total=len(transfers))
+        for item in transfers:
+            dst = item.get("dest")
+            expected_hash = item.get("hash")
+            
+            if dst and os.path.exists(dst):
+                try:
+                    # Optional: Verify it still has the same hash before destroying!
+                    current_hash = fast_hash(dst)
+                    if current_hash == expected_hash:
+                        os.remove(dst)
+                        reverted_count += 1
+                        
+                        # Clean up directory if empty
+                        d_dir = os.path.dirname(dst)
+                        try:
+                            if not os.listdir(d_dir):
+                                os.rmdir(d_dir)
+                        except OSError:
+                            pass
+                    else:
+                        failed_count += 1
+                except OSError:
+                    failed_count += 1
+            else:
+                # Missing implies trivially reverted
+                pass
+            
+            progress.advance(task_id)
+            emit_json("task_progress", task="revert", completed=reverted_count + failed_count, total=len(transfers))
+
+    console.print(f"\n[bold green]Reverted {reverted_count} files[/bold green] ({failed_count} skipped/modified)")
+    emit_json("task_complete", task="revert", reverted=reverted_count, skipped=failed_count)
+    emit_json("complete", status="reverted")
+
+
 def _format_seq(seq):
     """Zero-pad sequence number; widens beyond SEQ_WIDTH if needed with a warning marker."""
     width = max(SEQ_WIDTH, len(str(seq)))
@@ -264,6 +337,10 @@ def main():
         _json_active = True
         console = Console(quiet=True)
         emit_json("startup", status="initializing")
+
+    if args.revert:
+        revert_receipt(args.revert)
+        return
 
     # Resolve paths
     src = args.source
@@ -495,7 +572,14 @@ def main():
                 else:
                     yyyy, mm, dd = date_str.split('-')
                     filename = f"{date_str}_{seq_str}{ext}"
-                    dst_path = os.path.join(dst, yyyy, mm, dd, filename)
+                    if args.folder_structure == "YYYY/MM/DD":
+                        dst_path = os.path.join(dst, yyyy, mm, dd, filename)
+                    elif args.folder_structure == "YYYY/MM":
+                        dst_path = os.path.join(dst, yyyy, mm, filename)
+                    elif args.folder_structure == "YYYY":
+                        dst_path = os.path.join(dst, yyyy, filename)
+                    else:  # Flat
+                        dst_path = os.path.join(dst, filename)
                 jobs_to_insert.append((src_path, dst_path, h, 'PENDING'))
 
         if seq_overflow_dates:
@@ -517,7 +601,14 @@ def main():
             else:
                 yyyy, mm, dd = date_str.split('-')
                 filename = f"{date_str}_{seq_str}{ext}"
-                dst_path = os.path.join(dup, yyyy, mm, dd, filename)
+                if args.folder_structure == "YYYY/MM/DD":
+                    dst_path = os.path.join(dup, yyyy, mm, dd, filename)
+                elif args.folder_structure == "YYYY/MM":
+                    dst_path = os.path.join(dup, yyyy, mm, filename)
+                elif args.folder_structure == "YYYY":
+                    dst_path = os.path.join(dup, yyyy, filename)
+                else:  # Flat
+                    dst_path = os.path.join(dup, filename)
             jobs_to_insert.append((src_path, dst_path, h, 'PENDING'))
 
         emit_json("copy_plan_ready", count=len(jobs_to_insert))
@@ -548,10 +639,10 @@ def main():
                 return
 
         cache_db.enqueue_jobs(jobs_to_insert)
-        execute_jobs(cache_db.get_pending_jobs(), cache_db, dst, run_log, verify=args.verify, workers=workers)
+        rpath = execute_jobs(cache_db.get_pending_jobs(), cache_db, dst, run_log, verify=args.verify, workers=workers)
 
         run_log.log("Run complete")
-        emit_json("complete", status="finished", dest=dst)
+        emit_json("complete", status="finished", dest=dst, report=rpath)
 
     finally:
         run_log.close()
@@ -623,11 +714,11 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False, w
                 st = os.stat(result)
                 dest_updates.append((result, h, st.st_size, st.st_mtime))
                 executed_log.append((src_p, result, h))
+                consecutive_fail = 0
                 try:
                     bytes_copied += os.path.getsize(src_p)
                 except OSError:
                     bytes_copied += st.st_size
-                consecutive_fail = 0
             except Exception as e:
                 cache_db.update_job_status(src_p, 'FAILED')
                 emit_json("error", message=f"Copy failed: {src_p} -> {dst_p}: {e}")
@@ -655,4 +746,4 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False, w
     if verify and verify_failures > 0:
         console.print(f"[bold yellow]{verify_failures} files failed verification![/bold yellow]")
 
-    generate_audit_receipt(executed_log, dst_root)
+    return generate_audit_receipt(executed_log, dst_root)

@@ -61,6 +61,7 @@ struct ContentView: View {
     @State private var destPath: String = ""
     @State private var profileName: String = ""
     @State private var isFastDest: Bool = false
+    @State private var folderStructure: String = "YYYY/MM/DD"
     @State private var numWorkers: Int = 8
     @State private var showingProfileHelp = false
     @State private var showingProfileField = false
@@ -244,7 +245,7 @@ struct ContentView: View {
             MetricItem(
                 title: "Duplicates",
                 value: abbreviatedCount(runner.duplicateCount),
-                caption: "Routed into duplicate review paths",
+                caption: "Exact binary matches routed separately",
                 symbol: "square.on.square",
                 tint: Color(red: 0.84, green: 0.55, blue: 0.18)
             ),
@@ -715,6 +716,24 @@ struct ContentView: View {
                 }
                 .toggleStyle(.switch)
 
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Folder Structure")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(inkPrimary)
+                    
+                    Picker("", selection: $folderStructure) {
+                        Text("YYYY/MM/DD").tag("YYYY/MM/DD")
+                        Text("YYYY/MM").tag("YYYY/MM")
+                        Text("YYYY").tag("YYYY")
+                        Text("Flat (No Folders)").tag("Flat")
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    Text("Determines how files are organized in the destination root.")
+                        .font(.footnote)
+                        .foregroundStyle(inkSecondary)
+                }
+
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Worker Threads")
@@ -1082,6 +1101,17 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                }
+
+                if runner.completionStatus == "finished", !runner.completedReport.isEmpty, runner.completedReport.hasSuffix(".json") {
+                    Button(action: {
+                        runner.revert(receipt: runner.completedReport)
+                    }) {
+                        Label("Revert Last Run", systemImage: "arrow.uturn.backward")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.red)
                 }
 
                 Button(action: openLogsFolder) {
@@ -1595,7 +1625,8 @@ struct ContentView: View {
             profile: profileName,
             isDryRun: dryRun,
             isFastDest: isFastDest,
-            workers: numWorkers
+            workers: numWorkers,
+            folderStructure: folderStructure
         )
     }
 

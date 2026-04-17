@@ -528,6 +528,25 @@ class TestGetFileDate(TempDirMixin, unittest.TestCase):
         self.assertGreater(dt.year, 1971)
 
 
+class TestMDLSParsing(unittest.TestCase):
+    def test_mdls_timezone_offset(self):
+        from chronoframe.metadata import parse_mdls_creation_date
+        # test mapping +0000 UTC output properly
+        dt = parse_mdls_creation_date("2024-06-15 12:00:00 +0000")
+        self.assertIsNotNone(dt)
+        # We don't strictly test the timezone offset size because it's localized to the test runner,
+        # but the parsing sequence shouldn't raise a ValueError.
+
+class TestRetryableError(unittest.TestCase):
+    def test_permission_errors_are_not_retryable(self):
+        from chronoframe.io import _is_retryable_error
+        import errno
+        exc_eacces = OSError(errno.EACCES, "Permission denied")
+        exc_eperm = OSError(errno.EPERM, "Operation not permitted")
+        self.assertFalse(_is_retryable_error(exc_eacces))
+        self.assertFalse(_is_retryable_error(exc_eperm))
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # Metadata — extension sets
 # ════════════════════════════════════════════════════════════════════════════
@@ -760,6 +779,11 @@ class TestAuditReceipt(TempDirMixin, unittest.TestCase):
 
     def test_generates_json(self):
         executed = [("/src/a.jpg", "/dst/a.jpg", "h1")]
+        # To avoid error with missing directory in revert_receipt, make the destination real but empty file
+        dst_path = os.path.join(self.tmpdir, "a.jpg")
+        with open(dst_path, "w") as f: f.write("test")
+        
+        executed = [("/src/a.jpg", dst_path, "3_hash1")] # using mock hash with prefix 3_ for fast_hash compat if tested
         generate_audit_receipt(executed, self.tmpdir)
         log_dir = os.path.join(self.tmpdir, ".organize_logs")
         self.assertTrue(os.path.isdir(log_dir))
@@ -786,6 +810,61 @@ class TestAuditReceipt(TempDirMixin, unittest.TestCase):
         """Audit receipt goes to .organize_logs/ subfolder, not root."""
         generate_audit_receipt([("/a", "/b", "h")], self.tmpdir)
         self.assertTrue(os.path.isdir(os.path.join(self.tmpdir, ".organize_logs")))
+
+class TestAuditReceiptReturnValue(TempDirMixin, unittest.TestCase):
+    def test_returns_receipt_path(self):
+        path = generate_audit_receipt([("/a", "/b", "h")], self.tmpdir)
+        self.assertTrue(path.endswith(".json"))
+        self.assertTrue(os.path.exists(path))
+
+    def test_empty_receipt_returns_path(self):
+        path = generate_audit_receipt([], self.tmpdir)
+        self.assertTrue(os.path.exists(path))
+
+    def test_returned_path_contains_valid_json(self):
+        path = generate_audit_receipt([("/a", "/b", "h")], self.tmpdir)
+        with open(path, "r") as f:
+            data = json.load(f)
+        self.assertEqual(data["status"], "COMPLETED")
+
+class TestRevertReceipt(TempDirMixin, unittest.TestCase):
+    @patch('chronoframe.core.emit_json')
+    @patch('chronoframe.io.fast_hash')
+    def test_revert_receipt_success(self, mock_fast_hash, mock_emit):
+        from chronoframe.core import revert_receipt
+        dst_path = os.path.join(self.tmpdir, "to_revert.jpg")
+        with open(dst_path, "w") as f: f.write("data")
+        
+        receipt_path = os.path.join(self.tmpdir, "receipt.json")
+        payload = {
+            "transfers": [{"source": "/src/a.jpg", "dest": dst_path, "hash": "known_hash"}]
+        }
+        with open(receipt_path, "w") as f: json.dump(payload, f)
+            
+        mock_fast_hash.return_value = "known_hash"
+        
+        revert_receipt(receipt_path)
+            
+        self.assertFalse(os.path.exists(dst_path), "Destination file should be deleted on revert!")
+
+    @patch('chronoframe.core.emit_json')
+    @patch('chronoframe.io.fast_hash')
+    def test_revert_receipt_hash_mismatch(self, mock_fast_hash, mock_emit):
+        from chronoframe.core import revert_receipt
+        dst_path = os.path.join(self.tmpdir, "to_revert.jpg")
+        with open(dst_path, "w") as f: f.write("data")
+        
+        receipt_path = os.path.join(self.tmpdir, "receipt.json")
+        payload = {
+            "transfers": [{"source": "/src/a.jpg", "dest": dst_path, "hash": "known_hash"}]
+        }
+        with open(receipt_path, "w") as f: json.dump(payload, f)
+            
+        mock_fast_hash.return_value = "DIFFERENT_HASH"
+        
+        revert_receipt(receipt_path)
+            
+        self.assertTrue(os.path.exists(dst_path), "File should be preserved if hash does not match!")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1790,7 +1869,11 @@ class TestMdlsParsing(TempDirMixin, unittest.TestCase):
 
     def test_mdls_valid_date(self):
         result = parse_mdls_creation_date("2023-06-15 10:30:00 +0000")
-        self.assertEqual(result, datetime(2023, 6, 15, 10, 30, 0))
+        dt_utc = datetime.strptime("2023-06-15 10:30:00 +0000", '%Y-%m-%d %H:%M:%S %z')
+        from datetime import timezone
+        dt_local = dt_utc.astimezone()
+        expected = dt_local.replace(tzinfo=None)
+        self.assertEqual(result, expected)
 
     def test_mdls_null_result(self):
         result = parse_mdls_creation_date("(null)")

@@ -20,6 +20,8 @@ struct JsonEvent: Decodable {
     var report: String?
     var copied: Int?
     var failed: Int?
+    var reverted: Int?
+    var skipped: Int?
 }
 
 // Maps backend task names to UI phase indices (0-based)
@@ -77,7 +79,7 @@ class BackendRunner: ObservableObject {
     }
 
     func start(source: String, dest: String, profile: String, isDryRun: Bool,
-               isFastDest: Bool, workers: Int) {
+               isFastDest: Bool, workers: Int, folderStructure: String = "YYYY/MM/DD") {
         guard !isRunning else { return }
         isRunning = true
         logLines.removeAll()
@@ -102,7 +104,7 @@ class BackendRunner: ObservableObject {
 
         DispatchQueue.global(qos: .userInitiated).async {
             self.runProcess(source: source, dest: dest, profile: profile,
-                            isDryRun: isDryRun, isFastDest: isFastDest, workers: workers)
+                            isDryRun: isDryRun, isFastDest: isFastDest, workers: workers, folderStructure: folderStructure)
         }
     }
 
@@ -127,7 +129,7 @@ class BackendRunner: ObservableObject {
     }
 
     private func runProcess(source: String, dest: String, profile: String,
-                            isDryRun: Bool, isFastDest: Bool, workers: Int) {
+                            isDryRun: Bool, isFastDest: Bool, workers: Int, folderStructure: String) {
         let task = Process()
         let pipe = Pipe()
         let inPipe = Pipe()
@@ -147,6 +149,8 @@ class BackendRunner: ObservableObject {
         task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         var args = ["python3", scriptPath, "--json", "--yes",
                     "--workers", "\(workers)"]
+
+        args.append(contentsOf: ["--folder-structure", folderStructure])
 
         if isDryRun  { args.append("--dry-run") }
         if isFastDest { args.append("--fast-dest") }
@@ -282,6 +286,8 @@ class BackendRunner: ObservableObject {
                     self.copiedCount = event.copied ?? 0
                     self.failedCount = event.failed ?? 0
                     self.appendLog("Copy complete: \(event.copied ?? 0) succeeded, \(event.failed ?? 0) failed.")
+                } else if t == "revert" {
+                    self.appendLog("Revert complete: \(event.reverted ?? 0) reverted, \(event.skipped ?? 0) skipped.")
                 }
 
             case "copy_plan_ready":
@@ -316,6 +322,8 @@ class BackendRunner: ObservableObject {
                 case "dry_run_finished": statusLabel = "Preview complete"
                 case "nothing_to_copy":  statusLabel = "Already up to date"
                 case "cancelled":        statusLabel = "Cancelled"
+                case "revert_empty":     statusLabel = "Nothing to revert"
+                case "reverted":         statusLabel = "Revert completed"
                 default:                 statusLabel = event.status ?? "Done"
                 }
                 self.currentTaskName = statusLabel
@@ -334,7 +342,85 @@ class BackendRunner: ObservableObject {
         case "dest_hash":     return "Indexing destination..."
         case "classification":return "Classifying by date..."
         case "copy":          return "Copying files..."
+        case "revert":        return "Reverting run..."
         default:              return "Running: \(task)"
         }
+    }
+
+    func revert(receipt: String) {
+        guard !isRunning else { return }
+        isRunning = true
+        logLines.removeAll()
+        progress = 0.0
+        currentPhase = -1
+        errorCount = 0
+        speedMBps = 0.0
+        etaSeconds = -1
+        currentTaskName = "Starting Revert Engine..."
+        completionStatus = "running"
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.runRevertProcess(receipt: receipt)
+        }
+    }
+    
+    private func runRevertProcess(receipt: String) {
+        let task = Process()
+        let pipe = Pipe()
+        let inPipe = Pipe()
+
+        self.process = task
+        self.inputPipe = inPipe
+
+        let bundleURL = Bundle.main.bundleURL
+        let scriptPath = bundleURL
+            .deletingLastPathComponent() // removes .app
+            .deletingLastPathComponent() // removes build/
+            .deletingLastPathComponent() // removes ui/
+            .appendingPathComponent("chronoframe.py")
+            .path
+
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        let args = ["python3", scriptPath, "--json", "--yes", "--revert", receipt]
+
+        task.arguments = args
+        task.standardOutput = pipe
+        task.standardInput = inPipe
+        task.standardError = pipe
+
+        let outHandle = pipe.fileHandleForReading
+        outHandle.waitForDataInBackgroundAndNotify()
+
+        var buffer = ""
+
+        let observer = NotificationCenter.default.addObserver(
+            forName: .NSFileHandleDataAvailable, object: outHandle, queue: nil
+        ) { [weak self] _ in
+            let data = outHandle.availableData
+            if data.count > 0 {
+                if let str = String(data: data, encoding: .utf8) {
+                    buffer += str
+                    self?.processBuffer(&buffer)
+                }
+                outHandle.waitForDataInBackgroundAndNotify()
+            } else {
+                DispatchQueue.main.async {
+                    self?.isRunning = false
+                }
+            }
+        }
+
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            self.appendLog("Failed to launch Python backend for revert: \(error)")
+            DispatchQueue.main.async {
+                self.isRunning = false
+            }
+        }
+
+        NotificationCenter.default.removeObserver(observer)
+        self.inputPipe = nil
     }
 }

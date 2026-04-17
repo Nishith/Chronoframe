@@ -76,6 +76,8 @@ def _is_retryable_error(exc):
         errno.ENOTDIR,
         errno.EISDIR,
         errno.EINVAL,
+        errno.EACCES,
+        errno.EPERM,
     }
     return isinstance(exc, OSError) and getattr(exc, 'errno', None) not in non_retryable_errnos
 

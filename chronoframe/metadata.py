@@ -39,6 +39,14 @@ def parse_mdls_creation_date(raw_value):
         return None
 
     try:
+        dt = datetime.strptime(val, '%Y-%m-%d %H:%M:%S %z')
+        from datetime import timezone
+        dt_local = dt.astimezone()
+        return dt_local.replace(tzinfo=None)
+    except ValueError:
+        pass
+
+    try:
         return datetime.strptime(val[:19], '%Y-%m-%d %H:%M:%S')
     except ValueError:
         return None
