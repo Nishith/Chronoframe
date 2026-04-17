@@ -8,13 +8,16 @@ Chronoframe takes a folder full of unsorted photos and videos (from your phone, 
 | :--- | :--- |
 | ![Chronoframe overview](docs/screenshots/ui-overview.png) | ![Chronoframe setup detail](docs/screenshots/ui-setup-detail.png) |
 
+> [!NOTE]
+> **Meridian Design System:** Chronoframe features a custom "Meridian" visual language — combining photographic precision with a clean timeline-based organizational logic. The hallmark is the amber waypoint dot, representing the exact moment a memory finds its place.
+
 ## Getting Started
 
 You can use Chronoframe two ways: through the **macOS app** (recommended for most people) or the **command line**.
 
 ### macOS App
 
-1. Download `Chronoframe.zip` from the [Releases page](https://github.com/Nishith/NAS-Photo-Organizer/releases).
+1. Download `Chronoframe.zip` from the [Releases page](https://github.com/Nishith/Chronoframe/releases).
 2. Unzip and drag **Chronoframe.app** to your Applications folder.
 3. Open the app, pick your source folder and destination folder, and click **Preview** to see what will happen — no files are copied yet.
 4. When you're satisfied with the plan, click **Transfer** to start organizing.
@@ -131,7 +134,7 @@ The sections below cover the internal architecture, safety guarantees, and desig
 Chronoframe has two front ends over a shared Python backend:
 
 - **CLI** — a [Rich](https://github.com/Textualize/rich)-powered terminal interface with live progress bars and colored output
-- **macOS app** — a native SwiftUI shell that launches the backend in `--json` mode and renders live progress, metrics, and post-run actions
+- **macOS app** — a native SwiftUI shell (Meridian design) that launches the backend in `--json` mode and renders live progress, metrics, and post-run actions
 
 The backend is implemented as a Python package (`chronoframe/`) with the following modules:
 
@@ -257,13 +260,13 @@ python3 ui/Packaging/validate_app_bundle.py ui/build/Chronoframe.app
 
 ### Testing
 
-The test suite contains 233 tests covering the Python backend:
+The test suite contains **238 tests** covering the Python backend:
 
 ```bash
-python3 -m unittest test_chronoframe -v
+python3 -m unittest test_chronoframe test_ui_build test_ui_packaging -v
 ```
 
-Coverage includes: hashing and cache reuse, atomic copy and collision handling, retry classification, permission-denied fast-fail, timezone-aware date parsing, destination indexing, classification fallback chains, copy execution and abort thresholds, dry-run reports, audit receipts, revert logic, profile loading, and CLI parsing.
+Coverage includes: hashing and cache reuse, atomic copy and collision handling, retry classification, permission-denied fast-fail (EACCES/EPERM), timezone-aware date parsing (MDLS), destination indexing, classification fallback chains, copy execution and abort thresholds, dry-run reports, audit receipts, revert logic, profile loading, and CLI parsing.
 
 Additional test files:
 - `test_ui_build.py` — macOS packaging smoke tests
@@ -301,7 +304,7 @@ Chronoframe/
     Chronoframe.xcodeproj
   docs/
     screenshots/
-  test_chronoframe.py          # 233 backend tests
+  test_chronoframe.py          # 238 backend tests
   test_ui_build.py
   test_ui_packaging.py
 ```
