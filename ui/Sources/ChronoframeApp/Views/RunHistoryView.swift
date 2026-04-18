@@ -191,10 +191,12 @@ struct RunHistoryView: View {
                             appState.useHistoricalSource(record)
                         }
                         .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("useHistoricalSourceButton")
 
                         Button("Reveal") {
                             appState.revealTransferredSource(record)
                         }
+                        .accessibilityIdentifier("revealHistoricalSourceButton")
 
                         Menu("More") {
                             Button("Forget This Source", role: .destructive) {
@@ -208,11 +210,13 @@ struct RunHistoryView: View {
                             appState.useHistoricalSource(record)
                         }
                         .buttonStyle(.borderedProminent)
+                        .accessibilityIdentifier("useHistoricalSourceButton")
 
                         HStack(spacing: 8) {
                             Button("Reveal") {
                                 appState.revealTransferredSource(record)
                             }
+                            .accessibilityIdentifier("revealHistoricalSourceButton")
 
                             Menu("More") {
                                 Button("Forget This Source", role: .destructive) {
@@ -224,8 +228,7 @@ struct RunHistoryView: View {
                 }
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Source \(record.sourcePath), last transferred \(record.lastTransferredAt.formatted()), \(record.runCount) runs, \(record.totalCopiedCount) files copied")
+        .accessibilityElement(children: .contain)
     }
 
     private var archiveCard: some View {
@@ -247,6 +250,7 @@ struct RunHistoryView: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 360)
+                    .accessibilityIdentifier("historyFilterControl")
                 }
 
                 if filteredEntries.isEmpty {

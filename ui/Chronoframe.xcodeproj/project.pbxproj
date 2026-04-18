@@ -54,6 +54,17 @@
 		AA000000000000000000022D /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000133 /* AccessibilityTests.swift */; };
 		AA000000000000000000022E /* TransferredSourcesLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000134 /* TransferredSourcesLog.swift */; };
 		AA000000000000000000022F /* DroppedItemStager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000135 /* DroppedItemStager.swift */; };
+		AA0000000000000000000230 /* BookmarkPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000136 /* BookmarkPathResolver.swift */; };
+		AA0000000000000000000231 /* HistoryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000137 /* HistoryCoordinator.swift */; };
+		AA0000000000000000000232 /* RunCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000138 /* RunCoordinator.swift */; };
+		AA0000000000000000000233 /* SetupCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000139 /* SetupCoordinator.swift */; };
+		AA0000000000000000000234 /* UITestAppStateFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013A /* UITestAppStateFactory.swift */; };
+		AA0000000000000000000235 /* UITestDoubles.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013B /* UITestDoubles.swift */; };
+		AA0000000000000000000236 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013C /* UITestScenario.swift */; };
+		AA0000000000000000000237 /* RunSectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013D /* RunSectionViews.swift */; };
+		AA0000000000000000000238 /* RunWorkspaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013E /* RunWorkspaceModel.swift */; };
+		AA0000000000000000000239 /* SetupSectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013F /* SetupSectionViews.swift */; };
+		AA000000000000000000023A /* SetupScreenModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000140 /* SetupScreenModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -121,6 +132,17 @@
 		AA0000000000000000000133 /* AccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000134 /* TransferredSourcesLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferredSourcesLog.swift; sourceTree = "<group>"; };
 		AA0000000000000000000135 /* DroppedItemStager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DroppedItemStager.swift; sourceTree = "<group>"; };
+		AA0000000000000000000136 /* BookmarkPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkPathResolver.swift; sourceTree = "<group>"; };
+		AA0000000000000000000137 /* HistoryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCoordinator.swift; sourceTree = "<group>"; };
+		AA0000000000000000000138 /* RunCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCoordinator.swift; sourceTree = "<group>"; };
+		AA0000000000000000000139 /* SetupCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCoordinator.swift; sourceTree = "<group>"; };
+		AA000000000000000000013A /* UITestAppStateFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestAppStateFactory.swift; sourceTree = "<group>"; };
+		AA000000000000000000013B /* UITestDoubles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestDoubles.swift; sourceTree = "<group>"; };
+		AA000000000000000000013C /* UITestScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestScenario.swift; sourceTree = "<group>"; };
+		AA000000000000000000013D /* RunSectionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunSectionViews.swift; sourceTree = "<group>"; };
+		AA000000000000000000013E /* RunWorkspaceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunWorkspaceModel.swift; sourceTree = "<group>"; };
+		AA000000000000000000013F /* SetupSectionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupSectionViews.swift; sourceTree = "<group>"; };
+		AA0000000000000000000140 /* SetupScreenModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupScreenModel.swift; sourceTree = "<group>"; };
 		AA0000000000000000000181 /* Chronoframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chronoframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000182 /* ChronoframeAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000183 /* ChronoframeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -201,6 +223,8 @@
 				AA0000000000000000000102 /* AppState.swift */,
 				AA0000000000000000000103 /* ChronoframeApp.swift */,
 				AA0000000000000000000132 /* DesignTokens.swift */,
+				AA000000000000000000001F /* Coordinators */,
+				AA0000000000000000000020 /* UITesting */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -208,16 +232,57 @@
 		AA0000000000000000000013 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000104 /* CurrentRunView.swift */,
 				AA0000000000000000000105 /* ProfilesView.swift */,
 				AA0000000000000000000106 /* RootSplitView.swift */,
 				AA0000000000000000000107 /* RunHistoryView.swift */,
 				AA0000000000000000000108 /* SettingsView.swift */,
-				AA0000000000000000000109 /* SetupView.swift */,
 				AA000000000000000000010A /* SharedViews.swift */,
 				AA000000000000000000010B /* SidebarView.swift */,
+				AA0000000000000000000022 /* Setup */,
+				AA0000000000000000000021 /* Run */,
 			);
 			path = Views;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000001F /* Coordinators */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000136 /* BookmarkPathResolver.swift */,
+				AA0000000000000000000137 /* HistoryCoordinator.swift */,
+				AA0000000000000000000138 /* RunCoordinator.swift */,
+				AA0000000000000000000139 /* SetupCoordinator.swift */,
+			);
+			path = Coordinators;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000020 /* UITesting */ = {
+			isa = PBXGroup;
+			children = (
+				AA000000000000000000013A /* UITestAppStateFactory.swift */,
+				AA000000000000000000013B /* UITestDoubles.swift */,
+				AA000000000000000000013C /* UITestScenario.swift */,
+			);
+			path = UITesting;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000021 /* Run */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000104 /* CurrentRunView.swift */,
+				AA000000000000000000013D /* RunSectionViews.swift */,
+				AA000000000000000000013E /* RunWorkspaceModel.swift */,
+			);
+			path = Run;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000022 /* Setup */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000109 /* SetupView.swift */,
+				AA000000000000000000013F /* SetupSectionViews.swift */,
+				AA0000000000000000000140 /* SetupScreenModel.swift */,
+			);
+			path = Setup;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000014 /* ChronoframeAppCore */ = {
@@ -493,12 +558,23 @@
 				AA0000000000000000000212 /* RunHistoryIndexer.swift in Sources */,
 				AA000000000000000000022E /* TransferredSourcesLog.swift in Sources */,
 				AA000000000000000000022F /* DroppedItemStager.swift in Sources */,
+				AA0000000000000000000230 /* BookmarkPathResolver.swift in Sources */,
+				AA0000000000000000000231 /* HistoryCoordinator.swift in Sources */,
+				AA0000000000000000000232 /* RunCoordinator.swift in Sources */,
+				AA0000000000000000000233 /* SetupCoordinator.swift in Sources */,
+				AA0000000000000000000234 /* UITestAppStateFactory.swift in Sources */,
+				AA0000000000000000000235 /* UITestDoubles.swift in Sources */,
+				AA0000000000000000000236 /* UITestScenario.swift in Sources */,
 				AA0000000000000000000213 /* HistoryStore.swift in Sources */,
 				AA0000000000000000000214 /* PreferencesStore.swift in Sources */,
 				AA0000000000000000000215 /* RunLogStore.swift in Sources */,
 				AA0000000000000000000216 /* RunSessionStore.swift in Sources */,
 				AA0000000000000000000217 /* SetupStore.swift in Sources */,
 				AA0000000000000000000218 /* RuntimePaths.swift in Sources */,
+				AA0000000000000000000237 /* RunSectionViews.swift in Sources */,
+				AA0000000000000000000238 /* RunWorkspaceModel.swift in Sources */,
+				AA0000000000000000000239 /* SetupSectionViews.swift in Sources */,
+				AA000000000000000000023A /* SetupScreenModel.swift in Sources */,
 				AA0000000000000000000222 /* BLAKE2bHasher.swift in Sources */,
 				AA0000000000000000000223 /* CopyPlanBuilder.swift in Sources */,
 				AA0000000000000000000224 /* DryRunPlanner.swift in Sources */,

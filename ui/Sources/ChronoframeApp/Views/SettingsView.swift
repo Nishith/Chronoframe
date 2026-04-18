@@ -53,6 +53,7 @@ struct SettingsView: View {
                             .monospacedDigit()
                     }
                 }
+                .accessibilityIdentifier("diagnosticsLogBufferStepper")
             } header: {
                 Text("Diagnostics")
             } footer: {
@@ -62,6 +63,9 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .onChange(of: preferencesStore.logBufferCapacity) { newValue in
             appState.runLogStore.capacity = newValue
+        }
+        .onAppear {
+            UITestScenario.configureCurrentWindow(for: UITestScenario.current(), isSettings: true)
         }
         .navigationTitle("Settings")
     }
