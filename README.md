@@ -135,12 +135,31 @@ The sections below cover the internal architecture, safety guarantees, and desig
 
 ### Architecture
 
-Chronoframe has two front ends over a shared Python backend:
+Chronoframe currently ships as a cross-platform Python CLI plus a native macOS app built from the `ui/` workspace.
 
 - **CLI** — a [Rich](https://github.com/Textualize/rich)-powered terminal interface with live progress bars and colored output
-- **macOS app** — a native SwiftUI workspace with a restrained Meridian brand layer that launches the backend in `--json` mode and renders live progress, metrics, artifacts, and post-run review surfaces
+- **macOS app** — a SwiftUI split-view workspace for Setup, Run, Run History, Profiles, and Settings
 
-The backend is implemented as a Python package (`chronoframe/`) with the following modules:
+The macOS app is split into three Swift layers:
+
+- **`ChronoframeCore`** — pure Swift planning, hashing, media discovery, date resolution, transfer, and database primitives
+- **`ChronoframeAppCore`** — engine adapters, repositories, stores, runtime-path resolution, folder access, Finder integration, and history indexing
+- **`ChronoframeApp`** — scene wiring, commands, split-view navigation, feature views, presentation models, and app-only UI testing helpers
+
+Within the app target, the current structure is intentionally feature-oriented:
+
+- **`AppState`** remains the single root object injected into the UI, but it now acts as a facade over focused collaborators
+- **Coordinators** own setup actions, run actions, history actions, and bookmark restoration
+- **`Views/Setup`** and **`Views/Run`** contain the thin screen roots, dedicated section subviews, and presentation models (`SetupScreenModel`, `RunWorkspaceModel`)
+- **`App/UITesting`** contains deterministic in-memory app scenarios used by XCUITests and the screenshot refresh workflow
+
+The app defaults to the **Swift** organizer engine. For parity checks or backend integration work, you can force the app to launch the Python backend with:
+
+```bash
+CHRONOFRAME_APP_ENGINE=python open ui/build/Chronoframe.app
+```
+
+The Python backend still lives in `chronoframe/` and provides the CLI plus the fallback/runtime-parity engine path used by the macOS app:
 
 | Module | Responsibility |
 | :--- | :--- |
@@ -249,6 +268,8 @@ cd ui
 open "build/Chronoframe.app"
 ```
 
+`ui/build.sh` always writes the full `xcodebuild` output to `ui/build/xcodebuild.log` and prints that path on both success and failure.
+
 For a Release archive:
 
 ```bash
@@ -264,17 +285,69 @@ python3 ui/Packaging/validate_app_bundle.py ui/build/Chronoframe.app
 
 ### Testing
 
-The test suite contains **238 tests** covering the Python backend:
+Chronoframe is tested across the Python backend, the Swift package layers, and deterministic macOS UI scenarios.
+
+Run the Python backend and packaging tests with:
 
 ```bash
 python3 -m unittest test_chronoframe test_ui_build test_ui_packaging -v
 ```
 
-Coverage includes: hashing and cache reuse, atomic copy and collision handling, retry classification, permission-denied fast-fail (EACCES/EPERM), timezone-aware date parsing (MDLS), destination indexing, classification fallback chains, copy execution and abort thresholds, dry-run reports, audit receipts, revert logic, profile loading, and CLI parsing.
+Run the Swift package tests with:
+
+```bash
+cd ui
+swift test
+```
+
+Run the deterministic macOS UI scenarios with:
+
+```bash
+cd ui
+xcodebuild -project Chronoframe.xcodeproj \
+  -scheme Chronoframe \
+  -configuration Debug \
+  -derivedDataPath build/UITestDerivedDataSigned \
+  -destination 'platform=macOS,arch=arm64' \
+  test -only-testing:ChronoframeUITests
+```
+
+Coverage includes: hashing and cache reuse, atomic copy and collision handling, retry classification, permission-denied fast-fail (`EACCES`/`EPERM`), timezone-aware date parsing (`mdls`), destination indexing, classification fallback chains, copy execution and abort thresholds, dry-run reports, audit receipts, revert logic, profile loading, runtime-path resolution, organizer-engine parity, bookmark restoration, app coordinators, screen models, and macOS UI-state rendering.
 
 Additional test files:
 - `test_ui_build.py` — macOS packaging smoke tests
 - `test_ui_packaging.py` — bundle validator tests
+- `ui/Tests/ChronoframeAppCoreTests/*` — Swift engine, stores, repositories, and integration tests
+- `ui/Tests/ChronoframeAppTests/*` — app-layer coordinator, presentation-model, and accessibility tests
+- `ui/Xcode/UITests/ChronoframeUITests.swift` — deterministic scenario-based macOS UI tests
+
+### Contributor Workflows
+
+Refresh the README screenshots from the deterministic UI harness with:
+
+```bash
+bash ui/Tools/refresh_readme_screenshots.sh
+```
+
+This is the single supported screenshot refresh path. It launches the built app with the in-memory UI test scenarios, sizes the window consistently, and rewrites:
+
+- `docs/screenshots/ui-setup-overview.png`
+- `docs/screenshots/ui-run-preview.png`
+
+The harness uses the launch contract below:
+
+- `CHRONOFRAME_UI_TEST_SCENARIO`
+- `CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS=1`
+
+Current built-in scenarios are:
+
+- `setupReady`
+- `runPreviewReview`
+- `historyPopulated`
+- `profilesPopulated`
+- `settingsSections`
+
+The screenshot script currently captures `setupReady` and `runPreviewReview`. Because it drives a visible macOS app window, it should be run from an interactive desktop session with Accessibility and Screen Recording permissions available.
 
 ## Repository Layout
 
@@ -291,17 +364,28 @@ Chronoframe/
     io.py                      # Atomic copy, retry, hashing
     metadata.py                # Date extraction (EXIF, filename, mdls)
   ui/                          # macOS SwiftUI frontend
+    Package.swift              # Swift package entry point
     Sources/
       ChronoframeApp/
         App/
           ChronoframeApp.swift # App entry point and scene wiring
-          AppState.swift       # App state, actions, navigation
+          AppState.swift       # Root facade and coordinator wiring
           AppCommands.swift    # Menu commands and shortcuts
           DesignTokens.swift   # Semantic colors, surfaces, spacing
+          Coordinators/
+            *.swift            # Setup, run, history, bookmark collaborators
+          UITesting/
+            *.swift            # Deterministic app scenarios and in-memory doubles
         Views/
+          Setup/
+            SetupView.swift
+            SetupScreenModel.swift
+            SetupSectionViews.swift
+          Run/
+            CurrentRunView.swift
+            RunWorkspaceModel.swift
+            RunSectionViews.swift
           SidebarView.swift
-          SetupView.swift
-          CurrentRunView.swift
           RunHistoryView.swift
           ProfilesView.swift
           SettingsView.swift
@@ -314,8 +398,15 @@ Chronoframe/
         Support/               # Runtime path resolution
       ChronoframeCore/
         *.swift                # Shared planning, hashing, media, transfer models
+    Tests/
+      ChronoframeAppCoreTests/ # Swift core/app-core coverage and backend parity
+      ChronoframeAppTests/     # App facade, coordinator, and presentation tests
+    Xcode/
+      UITests/
+        ChronoframeUITests.swift
     Tools/
       IconGenerator.swift
+      refresh_readme_screenshots.sh
     Packaging/
       validate_app_bundle.py
       Chronoframe.entitlements
@@ -327,7 +418,7 @@ Chronoframe/
     Chronoframe.xcodeproj
   docs/
     screenshots/
-  test_chronoframe.py          # 238 backend tests
+  test_chronoframe.py          # Python backend unit tests
   test_ui_build.py
   test_ui_packaging.py
 ```
