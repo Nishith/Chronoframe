@@ -6,6 +6,7 @@ import os
 import plistlib
 import subprocess
 import sys
+import tempfile
 import unittest
 
 
@@ -98,6 +99,39 @@ class TestUIBuildPipeline(unittest.TestCase):
         signature_output = signature.stdout + signature.stderr
         self.assertIn("Signature=adhoc", signature_output)
         self.assertIn("Sealed Resources version=2", signature_output)
+
+    def test_build_script_failure_points_to_xcodebuild_log(self):
+        repo_root = os.path.dirname(__file__)
+        ui_dir = os.path.join(repo_root, "ui")
+        log_path = os.path.join(ui_dir, "build", "xcodebuild.log")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fake_xcodebuild = os.path.join(temp_dir, "xcodebuild")
+            with open(fake_xcodebuild, "w", encoding="utf-8") as handle:
+                handle.write("#!/bin/sh\n")
+                handle.write("echo 'fake xcodebuild failure from test harness' >&2\n")
+                handle.write("exit 42\n")
+            os.chmod(fake_xcodebuild, 0o755)
+
+            env = os.environ.copy()
+            env["PATH"] = temp_dir + os.pathsep + env["PATH"]
+
+            result = subprocess.run(
+                ["bash", "build.sh"],
+                cwd=ui_dir,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(os.path.exists(log_path), log_path)
+        combined_output = result.stdout + result.stderr
+        self.assertIn("xcodebuild.log", combined_output)
+        with open(log_path, "r", encoding="utf-8") as handle:
+            contents = handle.read()
+        self.assertIn("fake xcodebuild failure from test harness", contents)
 
 
 if __name__ == "__main__":

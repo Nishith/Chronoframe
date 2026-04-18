@@ -5,9 +5,16 @@ import ChronoframeAppCore
 
 @main
 struct ChronoframeApp: App {
-    @StateObject private var appState = AppState()
+    @StateObject private var appState: AppState
+    @State private var didOpenScenarioSettings = false
+    private let uiTestScenario: UITestScenario?
 
     init() {
+        let scenario = UITestScenario.current()
+        self.uiTestScenario = scenario
+        self._appState = StateObject(
+            wrappedValue: scenario.map { UITestAppStateFactory.make(scenario: $0) } ?? AppState()
+        )
         RunSessionStore.requestNotificationPermission()
     }
 
@@ -20,6 +27,11 @@ struct ChronoframeApp: App {
                     minHeight: DesignTokens.Window.mainMinHeight,
                     idealHeight: DesignTokens.Window.mainIdealHeight
                 )
+                .task {
+                    guard uiTestScenario?.opensSettingsOnLaunch == true, !didOpenScenarioSettings else { return }
+                    didOpenScenarioSettings = true
+                    appState.openSettingsWindow()
+                }
         }
         .commands {
             AppCommands(appState: appState)

@@ -3,7 +3,6 @@ import AppKit
 import ChronoframeAppCore
 #endif
 import Foundation
-import Combine
 
 @MainActor
 final class AppState: ObservableObject {
@@ -21,6 +20,48 @@ final class AppState: ObservableObject {
     private let profilesRepository: any ProfilesRepositorying
     private let droppedItemStager: DroppedItemStager
     private let showSettingsWindowAction: @MainActor () -> Void
+    private lazy var bookmarkPathResolver = BookmarkPathResolver(
+        preferencesStore: preferencesStore,
+        folderAccessService: folderAccessService
+    )
+    private lazy var setupCoordinator = SetupCoordinator(
+        preferencesStore: preferencesStore,
+        setupStore: setupStore,
+        historyStore: historyStore,
+        folderAccessService: folderAccessService,
+        profilesRepository: profilesRepository,
+        droppedItemStager: droppedItemStager,
+        bookmarkPathResolver: bookmarkPathResolver,
+        setSelection: { [weak self] selection in
+            self?.selection = selection
+        },
+        setTransientErrorMessage: { [weak self] message in
+            self?.transientErrorMessage = message
+        }
+    )
+    private lazy var runCoordinator = RunCoordinator(
+        preferencesStore: preferencesStore,
+        setupStore: setupStore,
+        historyStore: historyStore,
+        runSessionStore: runSessionStore,
+        finderService: finderService,
+        showSettingsWindowAction: showSettingsWindowAction,
+        setSelection: { [weak self] selection in
+            self?.selection = selection
+        },
+        canStartRun: { [weak self] in
+            self?.canStartRun ?? false
+        }
+    )
+    private lazy var historyCoordinator = HistoryCoordinator(
+        preferencesStore: preferencesStore,
+        setupStore: setupStore,
+        historyStore: historyStore,
+        finderService: finderService,
+        setSelection: { [weak self] selection in
+            self?.selection = selection
+        }
+    )
 
     convenience init() {
         let preferencesStore = PreferencesStore()
@@ -66,6 +107,7 @@ final class AppState: ObservableObject {
         finderService: any FinderServicing,
         profilesRepository: any ProfilesRepositorying,
         droppedItemStager: DroppedItemStager = DroppedItemStager(),
+        performInitialBootstrap: Bool = true,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
@@ -83,13 +125,9 @@ final class AppState: ObservableObject {
         self.droppedItemStager = droppedItemStager
         self.showSettingsWindowAction = showSettingsWindowAction
 
-        // Reclaim disk from staging dirs left over by previous sessions.
-        // These are just symlink trees, but they accumulate.
-        droppedItemStager.cleanupAllStagingDirectories()
-
-        restoreManualPaths()
-        refreshProfiles()
-        historyStore.refresh(destinationRoot: setupStore.destinationPath)
+        if performInitialBootstrap {
+            setupCoordinator.bootstrap()
+        }
     }
 
     var canStartRun: Bool {
@@ -101,21 +139,7 @@ final class AppState: ObservableObject {
     }
 
     func chooseSourceFolder() async {
-        if let url = folderAccessService.chooseFolder(startingAt: setupStore.sourcePath, prompt: "Choose Source Folder") {
-            do {
-                try folderAccessService.validateFolder(url, role: .source)
-            } catch {
-                transientErrorMessage = error.localizedDescription
-                return
-            }
-            setupStore.sourcePath = url.path
-            setupStore.clearDroppedSource()
-            preferencesStore.lastManualSourcePath = url.path
-            persistBookmark(for: url, key: bookmarkKey(for: .source, profileName: nil))
-            if !setupStore.usingProfile {
-                preferencesStore.lastSelectedProfileName = ""
-            }
-        }
+        await setupCoordinator.chooseSourceFolder()
     }
 
     /// Handles files/folders dragged onto the app. Single-folder drops
@@ -123,249 +147,96 @@ final class AppState: ObservableObject {
     /// a symlink directory so the existing pipeline can walk them. Falls
     /// back to `transientErrorMessage` on failure.
     func applyDrop(urls: [URL]) async {
-        guard !urls.isEmpty else { return }
-        do {
-            let staged = try droppedItemStager.stage(urls: urls)
-            if setupStore.usingProfile {
-                setupStore.clearProfileSelection()
-                preferencesStore.lastSelectedProfileName = ""
-            }
-            setupStore.sourcePath = staged.sourceDirectory.path
-            if staged.wasSingleFolder {
-                setupStore.clearDroppedSource()
-                preferencesStore.lastManualSourcePath = staged.sourceDirectory.path
-            } else {
-                setupStore.droppedSourceLabel = staged.displayLabel
-                setupStore.droppedSourceItemCount = staged.itemCount
-            }
-            selection = .setup
-        } catch {
-            transientErrorMessage = error.localizedDescription
-        }
+        await setupCoordinator.applyDrop(urls: urls)
     }
 
     func chooseDestinationFolder() async {
-        if let url = folderAccessService.chooseFolder(startingAt: setupStore.destinationPath, prompt: "Choose Destination Folder") {
-            do {
-                try folderAccessService.validateFolder(url, role: .destination)
-            } catch {
-                transientErrorMessage = error.localizedDescription
-                return
-            }
-            setupStore.destinationPath = url.path
-            preferencesStore.lastManualDestinationPath = url.path
-            persistBookmark(for: url, key: bookmarkKey(for: .destination, profileName: nil))
-            historyStore.refresh(destinationRoot: url.path)
-            if !setupStore.usingProfile {
-                preferencesStore.lastSelectedProfileName = ""
-            }
-        }
+        await setupCoordinator.chooseDestinationFolder()
     }
 
     func useProfile(named name: String) {
-        setupStore.selectProfile(named: name)
-        preferencesStore.lastSelectedProfileName = setupStore.selectedProfileName
-        if let activeProfile = setupStore.activeProfile {
-            restoreProfilePaths(named: activeProfile.name)
-            historyStore.refresh(destinationRoot: setupStore.destinationPath)
-        } else if !setupStore.usingProfile {
-            historyStore.refresh(destinationRoot: setupStore.destinationPath)
-        }
+        setupCoordinator.useProfile(named: name)
     }
 
     func clearSelectedProfile() {
-        setupStore.clearProfileSelection()
-        preferencesStore.lastSelectedProfileName = ""
-        restoreManualPaths()
-        historyStore.refresh(destinationRoot: setupStore.destinationPath)
+        setupCoordinator.clearSelectedProfile()
     }
 
     func refreshProfiles() {
-        do {
-            let profiles = try profilesRepository.loadProfiles()
-            setupStore.updateProfiles(profiles)
-            if setupStore.usingProfile {
-                setupStore.selectProfile(named: setupStore.selectedProfileName)
-            }
-        } catch {
-            transientErrorMessage = error.localizedDescription
-        }
+        setupCoordinator.refreshProfiles()
     }
 
     func saveCurrentPathsAsProfile() {
-        let name = setupStore.newProfileName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !name.isEmpty else {
-            transientErrorMessage = "Enter a profile name before saving."
-            return
-        }
-        guard !setupStore.sourcePath.isEmpty, !setupStore.destinationPath.isEmpty else {
-            transientErrorMessage = "Choose both a source and destination before saving a profile."
-            return
-        }
-
-        let profile = Profile(name: name, sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
-
-        do {
-            try profilesRepository.save(profile: profile)
-            if let sourceBookmark = preferencesStore.bookmark(for: bookmarkKey(for: .source, profileName: nil)) {
-                preferencesStore.storeBookmark(FolderBookmark(key: bookmarkKey(for: .source, profileName: name), path: sourceBookmark.path, data: sourceBookmark.data))
-            }
-            if let destinationBookmark = preferencesStore.bookmark(for: bookmarkKey(for: .destination, profileName: nil)) {
-                preferencesStore.storeBookmark(FolderBookmark(key: bookmarkKey(for: .destination, profileName: name), path: destinationBookmark.path, data: destinationBookmark.data))
-            }
-            setupStore.newProfileName = ""
-            refreshProfiles()
-            useProfile(named: name)
-            selection = .profiles
-        } catch {
-            transientErrorMessage = error.localizedDescription
-        }
+        setupCoordinator.saveCurrentPathsAsProfile()
     }
 
     func overwriteProfile(named name: String) {
-        setupStore.newProfileName = name
-        saveCurrentPathsAsProfile()
+        setupCoordinator.overwriteProfile(named: name)
     }
 
     func deleteProfile(named name: String) {
-        do {
-            try profilesRepository.deleteProfile(named: name)
-            preferencesStore.removeBookmark(for: bookmarkKey(for: .source, profileName: name))
-            preferencesStore.removeBookmark(for: bookmarkKey(for: .destination, profileName: name))
-            if setupStore.selectedProfileName == name {
-                clearSelectedProfile()
-            }
-            refreshProfiles()
-        } catch {
-            transientErrorMessage = error.localizedDescription
-        }
+        setupCoordinator.deleteProfile(named: name)
     }
 
     func startPreview() async {
-        guard canStartRun else { return }
-        selection = .run
-        await runSessionStore.requestRun(mode: .preview, configuration: setupStore.makeConfiguration(preferences: preferencesStore, mode: .preview))
+        await runCoordinator.startPreview()
     }
 
     func startTransfer() async {
-        guard canStartRun else { return }
-        selection = .run
-        await runSessionStore.requestRun(mode: .transfer, configuration: setupStore.makeConfiguration(preferences: preferencesStore, mode: .transfer))
+        await runCoordinator.startTransfer()
     }
 
     func confirmRunPrompt() {
-        runSessionStore.confirmPrompt()
+        runCoordinator.confirmRunPrompt()
     }
 
     func confirmRunPromptStartFresh() {
-        runSessionStore.confirmPromptStartFresh()
+        runCoordinator.confirmRunPromptStartFresh()
     }
 
     func dismissRunPrompt() {
-        runSessionStore.dismissPrompt()
+        runCoordinator.dismissRunPrompt()
     }
 
     func cancelRun() {
-        runSessionStore.cancelCurrentRun()
+        runCoordinator.cancelRun()
     }
 
     func openDestination() {
-        finderService.openPath(runSessionStore.summary?.artifacts.destinationRoot ?? historyStore.destinationRoot)
+        runCoordinator.openDestination()
     }
 
     func openReport() {
-        if let path = runSessionStore.summary?.artifacts.reportPath {
-            finderService.openPath(path)
-        }
+        runCoordinator.openReport()
     }
 
     func openLogsDirectory() {
-        if let path = runSessionStore.summary?.artifacts.logsDirectoryPath {
-            finderService.openPath(path)
-        }
+        runCoordinator.openLogsDirectory()
     }
 
     func openSettingsWindow() {
-        showSettingsWindowAction()
+        runCoordinator.openSettingsWindow()
     }
 
     func revealHistoryEntry(_ entry: RunHistoryEntry) {
-        finderService.revealInFinder(entry.path)
+        historyCoordinator.revealHistoryEntry(entry)
     }
 
     func openHistoryEntry(_ entry: RunHistoryEntry) {
-        finderService.openPath(entry.path)
+        historyCoordinator.openHistoryEntry(entry)
     }
 
     /// Repopulates the Setup view with a previously-used source path and switches to it.
     /// Clears any active profile selection so the manual source path takes effect.
     func useHistoricalSource(_ record: TransferredSourceRecord) {
-        if setupStore.usingProfile {
-            setupStore.clearProfileSelection()
-            preferencesStore.lastSelectedProfileName = ""
-        }
-        setupStore.sourcePath = record.sourcePath
-        preferencesStore.lastManualSourcePath = record.sourcePath
-        selection = .setup
+        historyCoordinator.useHistoricalSource(record)
     }
 
     func revealTransferredSource(_ record: TransferredSourceRecord) {
-        finderService.revealInFinder(record.sourcePath)
+        historyCoordinator.revealTransferredSource(record)
     }
 
     func forgetTransferredSource(_ record: TransferredSourceRecord) {
-        historyStore.removeTransferredSource(record)
-    }
-
-    private func bookmarkKey(for role: FolderRole, profileName: String?) -> String {
-        if let profileName {
-            return "profile.\(profileName).\(role.rawValue)"
-        }
-        return "manual.\(role.rawValue)"
-    }
-
-    private func persistBookmark(for url: URL, key: String) {
-        guard let bookmark = try? folderAccessService.makeBookmark(for: url, key: key) else { return }
-        preferencesStore.storeBookmark(bookmark)
-    }
-
-    private func restoreManualPaths() {
-        setupStore.sourcePath = preferencesStore.lastManualSourcePath
-        setupStore.destinationPath = preferencesStore.lastManualDestinationPath
-
-        if let sourcePath = resolveBookmarkedPath(for: .source, profileName: nil) {
-            setupStore.sourcePath = sourcePath
-            preferencesStore.lastManualSourcePath = sourcePath
-        }
-
-        if let destinationPath = resolveBookmarkedPath(for: .destination, profileName: nil) {
-            setupStore.destinationPath = destinationPath
-            preferencesStore.lastManualDestinationPath = destinationPath
-        }
-    }
-
-    private func restoreProfilePaths(named profileName: String) {
-        if let sourcePath = resolveBookmarkedPath(for: .source, profileName: profileName) {
-            setupStore.sourcePath = sourcePath
-        }
-
-        if let destinationPath = resolveBookmarkedPath(for: .destination, profileName: profileName) {
-            setupStore.destinationPath = destinationPath
-        }
-    }
-
-    private func resolveBookmarkedPath(for role: FolderRole, profileName: String?) -> String? {
-        let key = bookmarkKey(for: role, profileName: profileName)
-        guard let bookmark = preferencesStore.bookmark(for: key),
-              let resolvedBookmark = folderAccessService.resolveBookmark(bookmark)
-        else {
-            return nil
-        }
-
-        if let refreshedBookmark = resolvedBookmark.refreshedBookmark {
-            preferencesStore.storeBookmark(refreshedBookmark)
-        }
-
-        return resolvedBookmark.url.path
+        historyCoordinator.forgetTransferredSource(record)
     }
 }

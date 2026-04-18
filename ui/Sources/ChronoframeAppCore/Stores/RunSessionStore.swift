@@ -344,7 +344,7 @@ public final class RunSessionStore: ObservableObject {
 
     /// Requests permission to display macOS notifications. Call once during app startup.
     public static func requestNotificationPermission() {
-        guard isRunningInAppBundle else { return }
+        guard isRunningInAppBundle, !notificationsDisabledForUITest else { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
@@ -355,8 +355,12 @@ public final class RunSessionStore: ObservableObject {
         Bundle.main.bundleURL.pathExtension == "app"
     }
 
+    private static var notificationsDisabledForUITest: Bool {
+        ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS"] == "1"
+    }
+
     private func postRunCompletionNotification(summary: RunSummary) {
-        guard Self.isRunningInAppBundle else { return }
+        guard Self.isRunningInAppBundle, !Self.notificationsDisabledForUITest else { return }
         let content = UNMutableNotificationContent()
         switch summary.status {
         case .finished:

@@ -126,6 +126,7 @@ struct ProfilesView: View {
                         Text(profile.name)
                             .font(DesignTokens.Typography.cardTitle)
                             .foregroundStyle(DesignTokens.Color.inkPrimary)
+                            .accessibilityIdentifier("profileName-\(profile.name)")
 
                         Text(isActive ? "Active in Setup right now" : "Ready to activate")
                             .font(.subheadline)
@@ -140,6 +141,7 @@ struct ProfilesView: View {
                             systemImage: "checkmark.circle.fill",
                             tint: DesignTokens.Color.success
                         )
+                        .accessibilityIdentifier("activeProfileBadge")
                     }
                 }
 
