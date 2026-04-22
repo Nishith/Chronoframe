@@ -4,11 +4,9 @@
 
 Built for anyone sitting on years of messy phone dumps, camera cards, and backup drives who just wants their library in order without the stress of manually dragging files around.
 
-| ![Chronoframe overview](docs/screenshots/ui-overview.png) | ![Folder structure picker](docs/screenshots/ui-folder-structure.png) |
+| ![Chronoframe setup overview](docs/screenshots/ui-setup-overview.png) | ![Run preview with timeline](docs/screenshots/ui-run-preview.png) |
 | :---: | :---: |
-| Overview — pick a source and destination, preview the plan | Folder structure — choose how your library is laid out |
-| ![Live transfer](docs/screenshots/ui-transfer-progress.png) | ![Setup detail](docs/screenshots/ui-setup-detail.png) |
-| Transfer — live progress with per-file metrics | Setup detail — saved profiles and advanced options |
+| Setup — pick a source and destination, choose a folder layout | Run preview — source-date histogram and per-phase progress |
 
 > [!NOTE]
 > **Meridian Design System:** Chronoframe features a custom "Meridian" visual language — combining photographic precision with a clean timeline-based organizational logic. The hallmark is the amber waypoint dot, representing the exact moment a memory finds its place.
