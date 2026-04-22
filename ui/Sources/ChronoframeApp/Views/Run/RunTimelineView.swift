@@ -19,7 +19,16 @@ struct RunTimelineView: View {
     @State private var measuredWidth: CGFloat = 0
 
     private let columnCount = 24
-    private let rowCount = 6
+    private let maxRowCount = 6
+    private var rowCount: Int {
+        guard isCopying else { return 1 }
+        let planned = model.context.metrics.plannedCount
+        let rowsForPlanned = max(1, (planned + columnCount - 1) / columnCount)
+        return min(rowsForPlanned, maxRowCount)
+    }
+    private var isCopying: Bool {
+        model.context.status == .running && model.context.currentPhase == .copy
+    }
     private var dotCount: Int { columnCount * rowCount }
 
     var body: some View {
@@ -110,6 +119,7 @@ struct RunTimelineView: View {
                 }
             }
             .motion(Motion.filmic, value: state)
+            .contentShape(Rectangle())
             .help(tooltip(for: index, state: state))
     }
 
@@ -125,16 +135,27 @@ struct RunTimelineView: View {
 
         guard planned > 0 else {
             switch state {
-            case .pending: return "Awaiting plan"
-            case .active: return "In progress"
-            case .complete: return "Placed"
+            case .pending: return "Dot \(index + 1) · awaiting plan"
+            case .active: return "Dot \(index + 1) · in progress"
+            case .complete: return "Dot \(index + 1) · placed"
             }
         }
 
         let framesPerDot = max(1, Int((Double(planned) / Double(dotCount)).rounded(.up)))
         let startFrame = min(planned, index * framesPerDot + 1)
         let endFrame = min(planned, (index + 1) * framesPerDot)
-        let range = startFrame == endFrame ? "Frame \(startFrame)" : "Frames \(startFrame)–\(endFrame)"
+
+        if startFrame > planned {
+            return "Beyond planned frames · \(stateLabel)"
+        }
+
+        let count = endFrame - startFrame + 1
+        let range: String
+        if startFrame == endFrame {
+            range = "Frame \(startFrame.formatted())"
+        } else {
+            range = "Frames \(startFrame.formatted())–\(endFrame.formatted()) (\(count) items)"
+        }
         return "\(range) · \(stateLabel)"
     }
 
@@ -251,6 +272,7 @@ struct RunPhaseStrip: View {
             .accessibilityValue(phasesAccessibilityValue)
         }
         .frame(height: 4)
+        .help(model.phaseStripTooltip)
     }
 
     private func color(for state: RunPhaseTimelineEntry.State) -> Color {

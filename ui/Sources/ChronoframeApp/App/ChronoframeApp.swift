@@ -46,5 +46,11 @@ struct ChronoframeApp: App {
                 )
                 .padding()
         }
+
+        Window("Chronoframe Help", id: ChronoframeApp.helpWindowID) {
+            HelpView()
+        }
     }
+
+    static let helpWindowID = "chronoframe-help"
 }

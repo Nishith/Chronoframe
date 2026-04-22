@@ -7,6 +7,7 @@ struct AppCommands: Commands {
     let appState: AppState
     @ObservedObject private var setupStore: SetupStore
     @ObservedObject private var runSessionStore: RunSessionStore
+    @Environment(\.openWindow) private var openWindow
 
     init(appState: AppState) {
         self.appState = appState
@@ -15,6 +16,12 @@ struct AppCommands: Commands {
     }
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About Chronoframe") {
+                AboutPanel.show()
+            }
+        }
+
         CommandMenu("Library") {
             Button("Choose Source…") {
                 Task { await appState.chooseSourceFolder() }
@@ -55,11 +62,11 @@ struct AppCommands: Commands {
             .disabled(!runSessionStore.isRunning)
         }
 
-        CommandGroup(replacing: .appSettings) {
-            Button("Settings…") {
-                appState.openSettingsWindow()
+        CommandGroup(replacing: .help) {
+            Button("Chronoframe Help") {
+                openWindow(id: ChronoframeApp.helpWindowID)
             }
-            .keyboardShortcut(",", modifiers: [.command])
+            .keyboardShortcut("?", modifiers: [.command])
         }
     }
 
