@@ -257,6 +257,7 @@ struct RunPhaseStrip: View {
             .accessibilityValue(phasesAccessibilityValue)
         }
         .frame(height: 4)
+        .help(model.phaseStripTooltip)
     }
 
     private func color(for state: RunPhaseTimelineEntry.State) -> Color {

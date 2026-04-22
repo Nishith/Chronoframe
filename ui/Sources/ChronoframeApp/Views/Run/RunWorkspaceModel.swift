@@ -108,6 +108,7 @@ struct RunWorkspaceContext {
     var issueCount: Int
     var logEntries: [RunWorkspaceLogLine]
     var historyDestinationRoot: String
+    var currentSourceRoot: String
     var canStartRun: Bool
 }
 
@@ -138,6 +139,9 @@ struct RunWorkspaceModel {
                     RunWorkspaceLogLine(id: entry.id, text: entry.text)
                 },
                 historyDestinationRoot: historyStore.destinationRoot,
+                currentSourceRoot: runSessionStore.lastPreflight?.resolvedSourcePath
+                    ?? runSessionStore.lastPreflight?.configuration.sourcePath
+                    ?? "",
                 canStartRun: canStartRun
             )
         )
@@ -265,6 +269,14 @@ struct RunWorkspaceModel {
         destinationRoot ?? "Destination will appear here once a run is configured"
     }
 
+    var sourceRoot: String? {
+        context.currentSourceRoot.isEmpty ? nil : context.currentSourceRoot
+    }
+
+    var sourceSummaryValue: String {
+        sourceRoot ?? "Source will appear here once a run is configured"
+    }
+
     var issueSummaryValue: String {
         let warningCount = context.warningCount
         let errorCount = max(context.errorCount, context.issueCount)
@@ -319,6 +331,25 @@ struct RunWorkspaceModel {
             }
             return RunPhaseTimelineEntry(phase: phase, state: state)
         }
+    }
+
+    var phaseStripTooltip: String {
+        let entries = phaseEntries
+        let complete = entries.filter { $0.state == .complete }.map { $0.phase.title }
+        let current = entries.filter { $0.state == .current }.map { $0.phase.title }
+        let pending = entries.filter { $0.state == .pending }.map { $0.phase.title }
+
+        func line(color: String, label: String, names: [String]) -> String {
+            let joined = names.isEmpty ? "none" : names.joined(separator: ", ")
+            return "\(color) · \(label) (\(names.count)): \(joined)"
+        }
+
+        return [
+            "Phase progress",
+            line(color: "Green", label: "Complete", names: complete),
+            line(color: "Yellow", label: "Current", names: current),
+            line(color: "Gray", label: "Pending", names: pending),
+        ].joined(separator: "\n")
     }
 
     var showsPreviewReview: Bool {

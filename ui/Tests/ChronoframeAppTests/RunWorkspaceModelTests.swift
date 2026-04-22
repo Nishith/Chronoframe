@@ -38,6 +38,7 @@ final class RunWorkspaceModelTests: XCTestCase {
                     RunWorkspaceLogLine(id: 2, text: "ERROR: hashing failed"),
                 ],
                 historyDestinationRoot: "/Volumes/Archive",
+                currentSourceRoot: "/Volumes/Ingest",
                 canStartRun: true
             )
         )
@@ -47,6 +48,7 @@ final class RunWorkspaceModelTests: XCTestCase {
         XCTAssertTrue(model.canStartTransferFromPreview)
         XCTAssertEqual(model.issueSummaryValue, "1 warning, 1 error")
         XCTAssertEqual(model.tabTitle(.issues), "Issues (2)")
+        XCTAssertEqual(model.sourceSummaryValue, "/Volumes/Ingest")
     }
 
     func testFailedStateRoutesToIssuesAndFormatsArtifactsFallback() {
@@ -67,6 +69,7 @@ final class RunWorkspaceModelTests: XCTestCase {
                     RunWorkspaceLogLine(id: 1, text: "ERROR: disk unavailable"),
                 ],
                 historyDestinationRoot: "/Volumes/Fallback",
+                currentSourceRoot: "",
                 canStartRun: true
             )
         )
@@ -74,6 +77,7 @@ final class RunWorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.heroState.primaryAction, .showIssues)
         XCTAssertEqual(model.heroState.message, "Disk became unavailable")
         XCTAssertEqual(model.destinationSummaryValue, "/Volumes/Fallback")
+        XCTAssertEqual(model.sourceSummaryValue, "Source will appear here once a run is configured")
         XCTAssertEqual(model.issueEntries.count, 1)
         XCTAssertEqual(model.issueTone, .danger)
     }

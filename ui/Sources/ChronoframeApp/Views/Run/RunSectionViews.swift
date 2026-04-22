@@ -25,6 +25,7 @@ struct RunHeroSection: View {
                 SummaryLine(title: "Mode", value: model.context.currentMode?.title ?? "Idle")
                 SummaryLine(title: "Current Focus", value: model.context.currentTaskTitle)
                 SummaryLine(title: "Issues", value: model.issueSummaryValue, valueColor: model.issueTone.color)
+                SummaryLine(title: "Source", value: model.sourceSummaryValue)
                 SummaryLine(title: "Destination", value: model.destinationSummaryValue)
             }
         } actions: {

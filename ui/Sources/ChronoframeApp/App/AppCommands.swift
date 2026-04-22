@@ -4,8 +4,6 @@ import ChronoframeAppCore
 import AppKit
 import SwiftUI
 
-let HelpWindowID = "chronoframe.help"
-
 struct AppCommands: Commands {
     let appState: AppState
     @ObservedObject private var setupStore: SetupStore
@@ -19,6 +17,12 @@ struct AppCommands: Commands {
     }
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About Chronoframe") {
+                AboutPanel.show()
+            }
+        }
+
         CommandMenu("Library") {
             Button("Choose Source…") {
                 Task { await appState.chooseSourceFolder() }
@@ -59,27 +63,14 @@ struct AppCommands: Commands {
             .disabled(!runSessionStore.isRunning)
         }
 
-        CommandGroup(replacing: .appSettings) {
-            Button("Settings…") {
-                appState.openSettingsWindow()
-            }
-            .keyboardShortcut(",", modifiers: [.command])
-        }
-
-        CommandGroup(replacing: .appInfo) {
-            Button("About Chronoframe") {
-                openWindow(id: HelpWindowID)
-            }
-        }
-
         CommandGroup(replacing: .help) {
             Button("Chronoframe Help") {
-                openWindow(id: HelpWindowID)
+                openWindow(id: ChronoframeApp.helpWindowID)
             }
             .keyboardShortcut("?", modifiers: [.command])
 
             Button("Keyboard Shortcuts") {
-                openWindow(id: HelpWindowID)
+                openWindow(id: ChronoframeApp.helpWindowID)
             }
 
             Divider()
@@ -98,7 +89,7 @@ struct AppCommands: Commands {
             Divider()
 
             Button("Acknowledgments") {
-                openWindow(id: HelpWindowID)
+                openWindow(id: ChronoframeApp.helpWindowID)
             }
         }
     }
