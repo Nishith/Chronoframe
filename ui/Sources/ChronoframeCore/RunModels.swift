@@ -124,6 +124,20 @@ public struct RunIssue: Identifiable, Sendable {
     }
 }
 
+/// One bucket in the source-date histogram. `key` is `"YYYY-MM"` for dated
+/// files or `"Unknown"` for files whose date could not be extracted.
+public struct DateHistogramBucket: Equatable, Codable, Sendable, Identifiable {
+    public var key: String
+    public var plannedCount: Int
+
+    public var id: String { key }
+
+    public init(key: String, plannedCount: Int) {
+        self.key = key
+        self.plannedCount = plannedCount
+    }
+}
+
 public struct RunMetrics: Equatable, Codable, Sendable {
     public var discoveredCount: Int
     public var plannedCount: Int
@@ -135,6 +149,7 @@ public struct RunMetrics: Equatable, Codable, Sendable {
     public var errorCount: Int
     public var speedMBps: Double
     public var etaSeconds: Double?
+    public var dateHistogram: [DateHistogramBucket]
 
     public init(
         discoveredCount: Int = 0,
@@ -146,7 +161,8 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         failedCount: Int = 0,
         errorCount: Int = 0,
         speedMBps: Double = 0,
-        etaSeconds: Double? = nil
+        etaSeconds: Double? = nil,
+        dateHistogram: [DateHistogramBucket] = []
     ) {
         self.discoveredCount = discoveredCount
         self.plannedCount = plannedCount
@@ -158,6 +174,7 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         self.errorCount = errorCount
         self.speedMBps = speedMBps
         self.etaSeconds = etaSeconds
+        self.dateHistogram = dateHistogram
     }
 }
 
@@ -286,6 +303,7 @@ public enum RunEvent: Sendable {
     case phaseProgress(phase: RunPhase, completed: Int, total: Int, bytesCopied: Int?, bytesTotal: Int?)
     case phaseCompleted(phase: RunPhase, result: RunPhaseResult)
     case copyPlanReady(count: Int)
+    case dateHistogram(buckets: [DateHistogramBucket])
     case issue(RunIssue)
     case prompt(message: String)
     case complete(RunSummary)

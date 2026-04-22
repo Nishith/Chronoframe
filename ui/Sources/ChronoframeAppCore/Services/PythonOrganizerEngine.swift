@@ -28,6 +28,7 @@ public struct PythonEventDecoder: Sendable {
         var report: String?
         var copied: Int?
         var failed: Int?
+        var buckets: [String: Int]?
     }
 
     public init() {}
@@ -83,6 +84,19 @@ public struct PythonEventDecoder: Sendable {
 
         case "copy_plan_ready":
             return .copyPlanReady(count: rawEvent.count ?? 0)
+
+        case "date_histogram":
+            let raw = rawEvent.buckets ?? [:]
+            // Sort by key so "Unknown" lands at the end and dated buckets stay
+            // chronological — the view relies on this order for left-to-right fill.
+            let buckets = raw
+                .map { DateHistogramBucket(key: $0.key, plannedCount: $0.value) }
+                .sorted { lhs, rhs in
+                    if lhs.key == "Unknown" { return false }
+                    if rhs.key == "Unknown" { return true }
+                    return lhs.key < rhs.key
+                }
+            return .dateHistogram(buckets: buckets)
 
         case "info":
             return .issue(RunIssue(severity: .info, message: rawEvent.message ?? ""))
@@ -300,6 +314,8 @@ public final class PythonOrganizerEngine: OrganizerEngine {
                             }
                         case let .copyPlanReady(count):
                             metrics.plannedCount = count
+                        case let .dateHistogram(buckets):
+                            metrics.dateHistogram = buckets
                         case let .issue(issue):
                             if issue.severity == .error {
                                 metrics.errorCount += 1

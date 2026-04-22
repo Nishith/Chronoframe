@@ -3,43 +3,33 @@ import ChronoframeAppCore
 #endif
 import SwiftUI
 
-/// The emotional centerpiece of the Run view: a grid of dots, each one
-/// representing a frame (or a small batch of frames) finding its place.
+/// The emotional centerpiece of the Run view: a chronological histogram of
+/// the photos and videos found in the source. Each bar is one year-month;
+/// height scales with the file count for that month.
 ///
-/// Data model caveat: the full year×month version envisioned in the plan
-/// needs per-(year,month) aggregation streamed from the engine, which does
-/// not ship today. Until that data is available, we render a fixed grid
-/// proportional to `plannedCount`, lit from `copiedCount`. Visually this
-/// already delivers the "frames finding their place" moment; the data
-/// binding can be upgraded without rewriting the view.
+/// During a transfer the bars fill in left-to-right (oldest → newest) as
+/// `copiedCount` advances, giving the "frames finding their place" moment
+/// while also showing the actual shape of the user's library.
+///
+/// Source: `RunMetrics.dateHistogram`, populated from the Python engine's
+/// `date_histogram` event after the classification phase completes.
 struct RunTimelineView: View {
     let model: RunWorkspaceModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var hasAnimatedCompletion = false
-    @State private var measuredWidth: CGFloat = 0
 
-    private let columnCount = 24
-    private let rowCount = 6
-    private var dotCount: Int { columnCount * rowCount }
+    private let chartHeight: CGFloat = 96
+    private let minBarHeight: CGFloat = 3
 
     var body: some View {
         DarkroomPanel(variant: .panel) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text("Timeline")
-                        .font(DesignTokens.Typography.cardTitle)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                header
 
-                    Spacer()
-
-                    Text(progressCaption)
-                        .font(DesignTokens.Typography.label)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
+                if buckets.isEmpty {
+                    emptyState
+                } else {
+                    chart
                 }
-
-                grid
 
                 Text(subtitle)
                     .font(DesignTokens.Typography.body)
@@ -48,145 +38,167 @@ struct RunTimelineView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Run timeline")
+        .accessibilityLabel("Source timeline")
         .accessibilityValue(accessibilityValue)
     }
 
-    private var grid: some View {
-        let active = activeIndex
-        let completed = completedIndex
-        let totalSpacing = CGFloat(columnCount - 1) * 4
-        let dotSize: CGFloat = measuredWidth > 0
-            ? max(6, (measuredWidth - totalSpacing) / CGFloat(columnCount))
-            : 16
-        let totalHeight = CGFloat(rowCount) * dotSize + CGFloat(rowCount - 1) * 4
+    // MARK: - Header
 
-        return VStack(spacing: 4) {
-            ForEach(0..<rowCount, id: \.self) { row in
-                HStack(spacing: 4) {
-                    ForEach(0..<columnCount, id: \.self) { column in
-                        let index = row * columnCount + column
-                        dot(at: index, active: active, completed: completed)
-                            .frame(width: dotSize, height: dotSize)
-                    }
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Timeline")
+                .font(DesignTokens.Typography.cardTitle)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+
+            Spacer()
+
+            Text(rangeCaption)
+                .font(DesignTokens.Typography.label)
+                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+        }
+    }
+
+    // MARK: - Chart
+
+    private var chart: some View {
+        let fills = barFills
+        let maxCount = max(buckets.map(\.plannedCount).max() ?? 1, 1)
+
+        return GeometryReader { geo in
+            let spacing: CGFloat = max(1, min(4, geo.size.width / CGFloat(buckets.count) * 0.15))
+            let totalSpacing = spacing * CGFloat(max(0, buckets.count - 1))
+            let barWidth = max(2, (geo.size.width - totalSpacing) / CGFloat(buckets.count))
+
+            HStack(alignment: .bottom, spacing: spacing) {
+                ForEach(Array(buckets.enumerated()), id: \.element.id) { index, bucket in
+                    bar(
+                        for: bucket,
+                        fill: fills[index],
+                        maxCount: maxCount,
+                        width: barWidth,
+                        availableHeight: geo.size.height
+                    )
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: totalHeight)
-        .background(
-            GeometryReader { geo in
-                Color.clear.preference(key: TimelineWidthKey.self, value: geo.size.width)
-            }
-        )
-        .onPreferenceChange(TimelineWidthKey.self) { width in
-            if abs(width - measuredWidth) > 0.5 {
-                measuredWidth = width
-            }
-        }
+        .frame(height: chartHeight)
     }
 
-    private func dot(at index: Int, active: Int, completed: Int) -> some View {
-        let state: DotState
-        if hasAnimatedCompletion || model.context.status == .finished {
-            state = .complete
-        } else if index < completed {
-            state = .complete
-        } else if index == active && model.context.status == .running {
-            state = .active
-        } else if index < active {
-            state = .active
-        } else {
-            state = .pending
-        }
+    private func bar(
+        for bucket: DateHistogramBucket,
+        fill: Double,
+        maxCount: Int,
+        width: CGFloat,
+        availableHeight: CGFloat
+    ) -> some View {
+        let ratio = Double(bucket.plannedCount) / Double(maxCount)
+        let height = max(minBarHeight, CGFloat(ratio) * availableHeight)
+        let cornerRadius = min(width, height) / 2
 
-        return Circle()
-            .fill(fill(for: state))
-            .overlay {
-                if state == .active {
-                    Circle()
-                        .stroke(DesignTokens.ColorSystem.accentWaypoint.opacity(0.5), lineWidth: 1)
-                        .scaleEffect(pulseScale(for: state))
-                }
-            }
-            .motion(Motion.filmic, value: state)
-            .help(tooltip(for: index, state: state))
+        return ZStack(alignment: .bottom) {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(DesignTokens.ColorSystem.inkMuted.opacity(0.18))
+
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(fillColor(for: fill))
+                .frame(height: max(0, height * CGFloat(fill)))
+                .motion(reduceMotion ? Motion.mechanical : Motion.filmic, value: fill)
+        }
+        .frame(width: width, height: height)
+        .accessibilityLabel(label(for: bucket))
     }
 
-    private func tooltip(for index: Int, state: DotState) -> String {
-        let planned = model.context.metrics.plannedCount
-        let stateLabel: String = {
-            switch state {
-            case .pending: return "awaiting transfer"
-            case .active: return "transferring now"
-            case .complete: return "placed at destination"
-            }
-        }()
-
-        guard planned > 0 else {
-            switch state {
-            case .pending: return "Awaiting plan"
-            case .active: return "In progress"
-            case .complete: return "Placed"
-            }
-        }
-
-        let framesPerDot = max(1, Int((Double(planned) / Double(dotCount)).rounded(.up)))
-        let startFrame = min(planned, index * framesPerDot + 1)
-        let endFrame = min(planned, (index + 1) * framesPerDot)
-        let range = startFrame == endFrame ? "Frame \(startFrame)" : "Frames \(startFrame)–\(endFrame)"
-        return "\(range) · \(stateLabel)"
-    }
-
-    private func fill(for state: DotState) -> Color {
-        switch state {
-        case .pending:
-            return DesignTokens.ColorSystem.inkMuted.opacity(0.18)
-        case .active:
-            return DesignTokens.ColorSystem.accentWaypoint
-        case .complete:
+    private func fillColor(for fill: Double) -> Color {
+        if fill >= 1.0 {
             return DesignTokens.ColorSystem.statusSuccess
         }
+        if fill > 0 {
+            return DesignTokens.ColorSystem.accentWaypoint
+        }
+        return .clear
     }
 
-    private func pulseScale(for state: DotState) -> CGFloat {
-        state == .active && !reduceMotion ? 1.15 : 1.0
+    // MARK: - Empty state
+
+    private var emptyState: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(DesignTokens.ColorSystem.hairline.opacity(0.4))
+
+            Text(emptyStateMessage)
+                .font(DesignTokens.Typography.label)
+                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DesignTokens.Spacing.md)
+        }
+        .frame(height: chartHeight)
+    }
+
+    private var emptyStateMessage: String {
+        switch model.context.status {
+        case .idle:
+            return "Run a preview to see the source timeline."
+        case .preflighting, .running:
+            return "Scanning source — bars will appear as files are dated."
+        default:
+            return "No dated files found in this source."
+        }
     }
 
     // MARK: - Data mapping
 
-    private var completedIndex: Int {
-        guard model.context.metrics.plannedCount > 0 else { return 0 }
-        let ratio = min(1.0, Double(model.context.metrics.copiedCount) / Double(model.context.metrics.plannedCount))
-        return Int((Double(dotCount) * ratio).rounded(.down))
+    private var buckets: [DateHistogramBucket] {
+        model.context.metrics.dateHistogram
     }
 
-    private var activeIndex: Int {
-        switch model.context.status {
-        case .running:
-            return min(completedIndex + 1, dotCount - 1)
-        case .finished, .nothingToCopy:
-            return dotCount
-        case .dryRunFinished:
-            return 0
-        case .idle, .preflighting, .cancelled, .failed:
-            return completedIndex
+    /// Distributes `copiedCount` across buckets left-to-right. Each bucket gets
+    /// a fill ratio in [0, 1]. This is an approximation — the engine doesn't
+    /// emit per-file completion order, but the copy phase iterates buckets in
+    /// chronological order, so left-to-right fill matches reality closely.
+    private var barFills: [Double] {
+        let copied = model.context.metrics.copiedCount
+        var remaining = copied
+        return buckets.map { bucket in
+            guard bucket.plannedCount > 0 else { return 0 }
+            let used = min(remaining, bucket.plannedCount)
+            remaining -= used
+            let ratio = Double(used) / Double(bucket.plannedCount)
+            // After the run finishes, treat every planned bar as complete so
+            // a successful run reads as fully green even if the engine reports
+            // a slightly different copiedCount (e.g. duplicates folded in).
+            if model.context.status == .finished || model.context.status == .nothingToCopy {
+                return 1.0
+            }
+            return ratio
         }
     }
 
-    private var progressCaption: String {
-        let copied = model.context.metrics.copiedCount
-        let planned = model.context.metrics.plannedCount
-        guard planned > 0 else { return "—" }
-        return "\(copied.formatted()) / \(planned.formatted())"
+    private var rangeCaption: String {
+        let dated = buckets.filter { $0.key != "Unknown" }
+        guard let first = dated.first, let last = dated.last else {
+            let total = buckets.reduce(0) { $0 + $1.plannedCount }
+            return total > 0 ? "\(total.formatted()) files" : "—"
+        }
+        let firstYear = String(first.key.prefix(4))
+        let lastYear = String(last.key.prefix(4))
+        let total = buckets.reduce(0) { $0 + $1.plannedCount }
+        if firstYear == lastYear {
+            return "\(firstYear) · \(total.formatted()) files"
+        }
+        return "\(firstYear)–\(lastYear) · \(total.formatted()) files"
     }
 
     private var subtitle: String {
         switch model.context.status {
         case .running:
-            return "Each dot is a frame finding its place."
+            if model.context.currentPhase == .copy {
+                return "Each bar fills as those frames find their place."
+            }
+            return "Reading dates from the source."
         case .dryRunFinished:
-            return "Preview is ready. Start the transfer when the plan looks right."
+            return "Here's the shape of your source — every bar a month of frames waiting to land."
         case .finished:
             return "Every frame is home."
         case .nothingToCopy:
@@ -198,25 +210,19 @@ struct RunTimelineView: View {
         case .preflighting:
             return "Preparing the run."
         case .idle:
-            return "Run something to see frames appear here."
+            return "Run a preview to see the timeline of your source."
         }
     }
 
     private var accessibilityValue: String {
-        "\(model.context.metrics.copiedCount) of \(model.context.metrics.plannedCount) frames placed."
+        let total = buckets.reduce(0) { $0 + $1.plannedCount }
+        let copied = model.context.metrics.copiedCount
+        return "\(copied) of \(total) frames placed across \(buckets.count) months."
     }
 
-    private enum DotState: Equatable {
-        case pending
-        case active
-        case complete
-    }
-}
-
-private struct TimelineWidthKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+    private func label(for bucket: DateHistogramBucket) -> String {
+        let label = bucket.key == "Unknown" ? "Unknown date" : bucket.key
+        return "\(label): \(bucket.plannedCount) files"
     }
 }
 

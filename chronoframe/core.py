@@ -563,6 +563,13 @@ def main():
                   already_in_dst=already_in_dst, new=len(new_files),
                   dups=len(src_dups), errors=hash_errors)
 
+        # Year-month histogram of planned files, for the UI's source timeline.
+        month_buckets = defaultdict(int)
+        for date_str, files in date_groups.items():
+            key = "Unknown" if date_str == "Unknown_Date" else date_str[:7]
+            month_buckets[key] += len(files)
+        emit_json("date_histogram", buckets=dict(month_buckets))
+
         run_log.log(f"Classification: {already_in_dst} already in dest, "
                     f"{len(new_files)} new, {len(src_dups)} internal dups, "
                     f"{hash_errors} hash errors")

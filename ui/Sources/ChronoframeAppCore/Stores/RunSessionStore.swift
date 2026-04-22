@@ -302,6 +302,9 @@ public final class RunSessionStore: ObservableObject {
             metrics.plannedCount = count
             logStore.append("Plan ready: \(count) files queued for copy.")
 
+        case let .dateHistogram(buckets):
+            metrics.dateHistogram = buckets
+
         case let .issue(issue):
             if issue.severity == .error {
                 metrics.errorCount += 1
