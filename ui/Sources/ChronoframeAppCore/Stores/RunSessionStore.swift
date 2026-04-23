@@ -4,6 +4,9 @@ import ChronoframeCore
 import Foundation
 import Combine
 import UserNotifications
+#if canImport(AppKit)
+import AppKit
+#endif
 
 @MainActor
 public final class RunSessionStore: ObservableObject {
@@ -384,12 +387,65 @@ public final class RunSessionStore: ObservableObject {
             return
         }
 
+        // Attach the app icon as the notification's hero image so it visibly
+        // matches what the user sees in the Dock and the in-app brand mark.
+        // macOS also uses this to pick the small badge icon in Notification
+        // Center when the cached Launch Services icon is stale.
+        if let iconURL = Self.notificationAppIconURL(),
+           let attachment = try? UNNotificationAttachment(
+                identifier: "chronoframe.app-icon",
+                url: iconURL,
+                options: [UNNotificationAttachmentOptionsThumbnailHiddenKey: false]
+           ) {
+            content.attachments = [attachment]
+        }
+
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
             content: content,
             trigger: nil  // deliver immediately
         )
         UNUserNotificationCenter.current().add(request) { _ in }
+    }
+
+    /// Returns a stable file URL pointing at a PNG of the app icon, suitable
+    /// for `UNNotificationAttachment`. Written once per launch to the caches
+    /// directory; cached in memory afterward.
+    private static var cachedNotificationIconURL: URL?
+    private static func notificationAppIconURL() -> URL? {
+        #if canImport(AppKit)
+        if let cached = cachedNotificationIconURL,
+           FileManager.default.fileExists(atPath: cached.path) {
+            return cached
+        }
+        guard let caches = try? FileManager.default.url(
+            for: .cachesDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else { return nil }
+        let url = caches.appendingPathComponent("Chronoframe-NotificationIcon.png")
+
+        guard let icon = NSImage(named: NSImage.applicationIconName) else { return nil }
+        // Render at a fixed point size so the attachment always looks crisp;
+        // the bundle icon itself is multi-resolution and `tiffRepresentation`
+        // picks a representation based on current size.
+        icon.size = NSSize(width: 512, height: 512)
+        guard let tiff = icon.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else {
+            return nil
+        }
+        do {
+            try png.write(to: url, options: .atomic)
+            cachedNotificationIconURL = url
+            return url
+        } catch {
+            return nil
+        }
+        #else
+        return nil
+        #endif
     }
 
     private func handleFailure(message: String) {
