@@ -50,6 +50,7 @@ struct ChronoframeApp: App {
         Window("Chronoframe Help", id: ChronoframeApp.helpWindowID) {
             HelpView()
         }
+        .windowResizability(.contentMinSize)
     }
 
     static let helpWindowID = "chronoframe-help"

@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#endif
 
 // MARK: - Darkroom Panel (the new preferred surface component)
 
@@ -186,31 +189,57 @@ struct MeridianLeadIcon: View {
     var size: CGFloat = DesignTokens.Layout.heroIconSize
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                .fill(tint.opacity(0.12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                        .strokeBorder(tint.opacity(0.22), lineWidth: 0.5)
-                )
+        if usesBrandMark {
+            // The brand mark IS the app icon — render it at full size with no
+            // tinted backdrop so we don't nest its rounded rect inside another.
+            MeridianMark()
+                .frame(width: size, height: size)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                    .fill(tint.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                            .strokeBorder(tint.opacity(0.22), lineWidth: 0.5)
+                    )
 
-            if usesBrandMark {
-                MeridianMark()
-                    .padding(size * 0.22)
-            } else {
                 Image(systemName: systemImage)
                     .font(.system(size: size * 0.44, weight: .medium))
                     .foregroundStyle(tint)
             }
+            .frame(width: size, height: size)
         }
-        .frame(width: size, height: size)
     }
 }
 
 // MARK: - Brand mark
 
+/// Renders the actual Chronoframe app icon. Using `NSImage.applicationIconName`
+/// means this mark stays in sync with whatever icon the app is currently
+/// shipping — no drift between the Dock icon and in-app brand glyphs.
 struct MeridianMark: View {
     var body: some View {
+        #if canImport(AppKit)
+        appIconImage
+        #else
+        fallbackMark
+        #endif
+    }
+
+    #if canImport(AppKit)
+    @ViewBuilder
+    private var appIconImage: some View {
+        if let icon = NSImage(named: NSImage.applicationIconName) {
+            Image(nsImage: icon)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+        } else {
+            fallbackMark
+        }
+    }
+    #endif
+
+    private var fallbackMark: some View {
         ZStack {
             Image(systemName: "camera.aperture")
                 .font(.system(size: 20, weight: .light))

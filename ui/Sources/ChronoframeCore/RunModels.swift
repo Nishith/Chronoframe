@@ -152,6 +152,20 @@ public struct RunIssue: Identifiable, Sendable {
     }
 }
 
+/// One bucket in the source-date histogram. `key` is `"YYYY-MM"` for dated
+/// files or `"Unknown"` for files whose date could not be extracted.
+public struct DateHistogramBucket: Equatable, Codable, Sendable, Identifiable {
+    public var key: String
+    public var plannedCount: Int
+
+    public var id: String { key }
+
+    public init(key: String, plannedCount: Int) {
+        self.key = key
+        self.plannedCount = plannedCount
+    }
+}
+
 public struct RunMetrics: Equatable, Codable, Sendable {
     public var discoveredCount: Int
     public var plannedCount: Int
@@ -167,6 +181,7 @@ public struct RunMetrics: Equatable, Codable, Sendable {
     public var skippedCount: Int
     public var missingCount: Int
     public var movedCount: Int
+    public var dateHistogram: [DateHistogramBucket]
 
     public init(
         discoveredCount: Int = 0,
@@ -182,7 +197,8 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         revertedCount: Int = 0,
         skippedCount: Int = 0,
         missingCount: Int = 0,
-        movedCount: Int = 0
+        movedCount: Int = 0,
+        dateHistogram: [DateHistogramBucket] = []
     ) {
         self.discoveredCount = discoveredCount
         self.plannedCount = plannedCount
@@ -198,12 +214,14 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         self.skippedCount = skippedCount
         self.missingCount = missingCount
         self.movedCount = movedCount
+        self.dateHistogram = dateHistogram
     }
 
     private enum CodingKeys: String, CodingKey {
         case discoveredCount, plannedCount, alreadyInDestinationCount, duplicateCount,
              hashErrorCount, copiedCount, failedCount, errorCount, speedMBps, etaSeconds,
-             revertedCount, skippedCount, missingCount, movedCount
+             revertedCount, skippedCount, missingCount, movedCount,
+             dateHistogram
     }
 
     public init(from decoder: Decoder) throws {
@@ -222,6 +240,7 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         self.skippedCount = try c.decodeIfPresent(Int.self, forKey: .skippedCount) ?? 0
         self.missingCount = try c.decodeIfPresent(Int.self, forKey: .missingCount) ?? 0
         self.movedCount = try c.decodeIfPresent(Int.self, forKey: .movedCount) ?? 0
+        self.dateHistogram = try c.decodeIfPresent([DateHistogramBucket].self, forKey: .dateHistogram) ?? []
     }
 }
 
@@ -381,6 +400,7 @@ public enum RunEvent: Sendable {
     case phaseProgress(phase: RunPhase, completed: Int, total: Int, bytesCopied: Int?, bytesTotal: Int?)
     case phaseCompleted(phase: RunPhase, result: RunPhaseResult)
     case copyPlanReady(count: Int)
+    case dateHistogram(buckets: [DateHistogramBucket])
     case issue(RunIssue)
     case prompt(message: String)
     case complete(RunSummary)

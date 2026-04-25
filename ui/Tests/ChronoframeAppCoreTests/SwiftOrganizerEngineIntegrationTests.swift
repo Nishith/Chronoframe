@@ -342,6 +342,8 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
                 return "phaseProgress:\(phase.rawValue):\(completed)/\(total)"
             case let .prompt(message):
                 return "prompt:\(message)"
+            case let .dateHistogram(buckets):
+                return "dateHistogram:\(buckets.count)"
             }
         }
     }

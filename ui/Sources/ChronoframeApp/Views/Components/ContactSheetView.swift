@@ -21,13 +21,17 @@ struct ContactSheetView: View {
     @StateObject private var loader = ContactSheetLoader()
 
     var body: some View {
-        let columns = [GridItem(.adaptive(minimum: cellSize, maximum: cellSize + 20), spacing: 8)]
+        // Fixed cell width keeps the grid's intrinsic footprint predictable —
+        // `.adaptive` packs as many columns as fit in the available width and
+        // wraps the rest, so the contact sheet never extends past the panel.
+        let columns = [GridItem(.adaptive(minimum: cellSize, maximum: cellSize), spacing: 8)]
 
-        LazyVGrid(columns: columns, spacing: 8) {
+        LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
             ForEach(0..<cellCount, id: \.self) { index in
                 cell(at: index)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .task(id: sourcePath) {
             await loader.load(sourcePath: sourcePath, count: cellCount, cellSize: cellSize)
         }
@@ -53,7 +57,7 @@ struct ContactSheetView: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
             }
-            .frame(height: cellSize)
+            .frame(width: cellSize, height: cellSize)
             .motion(.easeOut(duration: Motion.Duration.reveal).delay(0.04 * Double(index)), value: thumb != nil)
     }
 

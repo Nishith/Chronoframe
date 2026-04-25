@@ -1,6 +1,7 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import AppKit
 import SwiftUI
 
 struct AppCommands: Commands {
@@ -67,6 +68,29 @@ struct AppCommands: Commands {
                 openWindow(id: ChronoframeApp.helpWindowID)
             }
             .keyboardShortcut("?", modifiers: [.command])
+
+            Button("Keyboard Shortcuts") {
+                openWindow(id: ChronoframeApp.helpWindowID)
+            }
+
+            Divider()
+
+            Button("Reveal Profiles File…") {
+                let url = RuntimePaths.profilesFileURL()
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+
+            Button("Reveal App Support Folder…") {
+                let url = RuntimePaths.applicationSupportDirectory()
+                try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
+
+            Divider()
+
+            Button("Acknowledgments") {
+                openWindow(id: ChronoframeApp.helpWindowID)
+            }
         }
     }
 
