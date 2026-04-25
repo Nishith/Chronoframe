@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import QuickLookThumbnailing
 import SwiftUI
 import UniformTypeIdentifiers
@@ -93,17 +94,19 @@ private final class ContactSheetLoader: ObservableObject {
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let size = CGSize(width: cellSize * 2, height: cellSize * 2)
 
-        await withTaskGroup(of: (Int, NSImage?).self) { group in
+        await withTaskGroup(of: ThumbnailResult.self) { group in
             for (index, url) in urls.prefix(count).enumerated() {
                 group.addTask {
-                    let image = await Self.thumbnail(for: url, size: size, scale: scale)
-                    return (index, image)
+                    let imageData = await Self.thumbnailData(for: url, size: size, scale: scale)
+                    return ThumbnailResult(index: index, imageData: imageData)
                 }
             }
 
-            for await (index, image) in group {
-                if let image, index < thumbnails.count {
-                    thumbnails[index] = image
+            for await result in group {
+                if let imageData = result.imageData,
+                   result.index < thumbnails.count,
+                   let image = NSImage(data: imageData) {
+                    thumbnails[result.index] = image
                 }
             }
         }
@@ -143,7 +146,7 @@ private final class ContactSheetLoader: ObservableObject {
         mediaExtensions.contains(url.pathExtension.lowercased())
     }
 
-    nonisolated private static func thumbnail(for url: URL, size: CGSize, scale: CGFloat) async -> NSImage? {
+    nonisolated private static func thumbnailData(for url: URL, size: CGSize, scale: CGFloat) async -> Data? {
         let request = QLThumbnailGenerator.Request(
             fileAt: url,
             size: size,
@@ -152,10 +155,36 @@ private final class ContactSheetLoader: ObservableObject {
         )
         return await withCheckedContinuation { continuation in
             QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
-                continuation.resume(returning: rep?.nsImage)
+                guard let cgImage = rep?.cgImage else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: pngData(for: cgImage))
             }
         }
     }
+
+    nonisolated private static func pngData(for image: CGImage) -> Data? {
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            return nil
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            return nil
+        }
+        return data as Data
+    }
+}
+
+private struct ThumbnailResult: Sendable {
+    let index: Int
+    let imageData: Data?
 }
 
 private extension Array {
