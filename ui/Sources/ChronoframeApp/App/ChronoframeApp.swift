@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
@@ -5,6 +6,7 @@ import ChronoframeAppCore
 
 @main
 struct ChronoframeApp: App {
+    @NSApplicationDelegateAdaptor(ChronoframeAppDelegate.self) private var appDelegate
     @StateObject private var appState: AppState
     @State private var didOpenScenarioSettings = false
     private let uiTestScenario: UITestScenario?
@@ -19,7 +21,7 @@ struct ChronoframeApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("Chronoframe") {
+        Window("Chronoframe", id: ChronoframeApp.mainWindowID) {
             RootSplitView(appState: appState)
                 .frame(
                     minWidth: DesignTokens.Window.mainMinWidth,
@@ -53,5 +55,29 @@ struct ChronoframeApp: App {
         .windowResizability(.contentMinSize)
     }
 
+    static let mainWindowID = "chronoframe-main"
     static let helpWindowID = "chronoframe-help"
+}
+
+@MainActor
+final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        DispatchQueue.main.async {
+            self.activateMainWindow()
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            activateMainWindow()
+        }
+        return true
+    }
+
+    private func activateMainWindow() {
+        let mainWindow = NSApp.windows.first { $0.title == "Chronoframe" } ?? NSApp.windows.first
+        mainWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
 }

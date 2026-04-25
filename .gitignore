@@ -16,6 +16,7 @@ audit_receipt_*.json
 .coverage
 htmlcov/
 .cache/
+.tmp/
 .swift-home/
 .claude/
 profiles.yaml

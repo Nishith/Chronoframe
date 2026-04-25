@@ -93,7 +93,8 @@ final class AppState: ObservableObject {
             runSessionStore: runSessionStore,
             folderAccessService: folderAccessService,
             finderService: finderService,
-            profilesRepository: profilesRepository
+            profilesRepository: profilesRepository,
+            restoreBookmarksDuringBootstrap: false
         )
     }
 
@@ -109,6 +110,7 @@ final class AppState: ObservableObject {
         profilesRepository: any ProfilesRepositorying,
         droppedItemStager: DroppedItemStager = DroppedItemStager(),
         performInitialBootstrap: Bool = true,
+        restoreBookmarksDuringBootstrap: Bool = true,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
@@ -127,7 +129,7 @@ final class AppState: ObservableObject {
         self.showSettingsWindowAction = showSettingsWindowAction
 
         if performInitialBootstrap {
-            setupCoordinator.bootstrap()
+            setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
         }
     }
 

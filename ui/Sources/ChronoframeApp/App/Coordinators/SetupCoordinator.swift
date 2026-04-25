@@ -37,9 +37,11 @@ final class SetupCoordinator {
         self.setTransientErrorMessage = setTransientErrorMessage
     }
 
-    func bootstrap() {
+    func bootstrap(restoreBookmarks: Bool = true) {
         droppedItemStager.cleanupAllStagingDirectories()
-        bookmarkPathResolver.restoreManualPaths(into: setupStore)
+        if restoreBookmarks {
+            bookmarkPathResolver.restoreManualPaths(into: setupStore)
+        }
         refreshProfiles()
         historyStore.refresh(destinationRoot: setupStore.destinationPath)
     }

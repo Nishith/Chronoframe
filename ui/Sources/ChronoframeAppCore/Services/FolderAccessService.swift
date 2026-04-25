@@ -69,7 +69,7 @@ public final class FolderAccessService: FolderAccessServicing {
         var isStale = false
         guard let url = try? URL(
             resolvingBookmarkData: bookmark.data,
-            options: [.withSecurityScope],
+            options: [.withSecurityScope, .withoutUI],
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         ) else {

@@ -173,14 +173,12 @@ public struct BLAKE2bHasher: Sendable {
 
     private static func loadLittleEndian64(from rawBuffer: UnsafeRawBufferPointer, at offset: Int) -> UInt64 {
         let bytes = rawBuffer.bindMemory(to: UInt8.self)
-        return UInt64(bytes[offset])
-            | (UInt64(bytes[offset + 1]) << 8)
-            | (UInt64(bytes[offset + 2]) << 16)
-            | (UInt64(bytes[offset + 3]) << 24)
-            | (UInt64(bytes[offset + 4]) << 32)
-            | (UInt64(bytes[offset + 5]) << 40)
-            | (UInt64(bytes[offset + 6]) << 48)
-            | (UInt64(bytes[offset + 7]) << 56)
+        var value: UInt64 = 0
+        for byteOffset in 0..<8 {
+            let byte = UInt64(bytes[offset + byteOffset])
+            value |= byte << UInt64(byteOffset * 8)
+        }
+        return value
     }
 
     private static func hexString(for bytes: [UInt8]) -> String {
