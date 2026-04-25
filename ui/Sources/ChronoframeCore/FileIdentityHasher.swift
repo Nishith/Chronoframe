@@ -87,14 +87,15 @@ public struct FileIdentityHasher: Sendable {
         var hasher = BLAKE2bHasher()
         hasher.update(Data(String(size).utf8))
 
-        while autoreleasepool(invoking: { () -> Bool in
-            let chunk = handle.readData(ofLength: Self.chunkByteCount)
+        while true {
+            let chunk = autoreleasepool {
+                handle.readData(ofLength: Self.chunkByteCount)
+            }
             if chunk.isEmpty {
-                return false
+                break
             }
             hasher.update(chunk)
-            return true
-        }) { }
+        }
 
         return hasher.finalizeHexDigest()
     }
