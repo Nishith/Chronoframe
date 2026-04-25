@@ -44,9 +44,9 @@ jobs:
             -scheme Chronoframe \
             -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/ChronoframeDerivedData" \
-            -destination "platform=macOS,arch=arm64" \
+            -destination "generic/platform=macOS" \
             CODE_SIGNING_ALLOWED=NO \
-            ARCHS=arm64 \
+            ARCHS=x86_64 \
             ONLY_ACTIVE_ARCH=YES \
             build
       - uses: github/codeql-action/analyze@v4
