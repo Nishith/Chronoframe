@@ -28,6 +28,11 @@ public final class DeduplicateSessionStore: ObservableObject {
 
     private let engine: any DeduplicateEngine
     private var streamTask: Task<Void, Never>?
+    /// Configuration of the most recent scan. Captured so plan previews
+    /// (footer counts, recoverable bytes) and the actual commit always
+    /// agree on which pair-as-unit toggles + similarity thresholds were
+    /// in effect when the clusters were produced.
+    private var lastScanConfiguration: DeduplicateConfiguration?
 
     public init(engine: any DeduplicateEngine) {
         self.engine = engine
@@ -40,12 +45,29 @@ public final class DeduplicateSessionStore: ObservableObject {
         }
     }
 
-    public var totalRecoverableBytes: Int64 {
-        clusters.reduce(0) { partial, cluster in
-            let keepers = Set(decisions.keepersForCluster(cluster))
-            let pruned = cluster.members.filter { !keepers.contains($0.path) }
-            return partial + pruned.reduce(0) { $0 + $1.size }
+    /// The deletion plan the executor would build for the current
+    /// decisions + clusters + active scan configuration. Drives the
+    /// commit footer's pending-count + recoverable-bytes display, so the
+    /// preview matches what actually happens (including pair-expanded
+    /// partners that aren't cluster members).
+    public func currentDeletionPlan() -> DeduplicationPlan {
+        guard let configuration = lastScanConfiguration else {
+            return DeduplicationPlan(items: [])
         }
+        let withSuggestions = applySuggestionsToDecisions()
+        return DeduplicationPlanner.plan(
+            decisions: withSuggestions,
+            clusters: clusters,
+            configuration: configuration
+        )
+    }
+
+    public var totalRecoverableBytes: Int64 {
+        currentDeletionPlan().totalBytes
+    }
+
+    public var pendingDeleteCount: Int {
+        currentDeletionPlan().count
     }
 
     public func startScan(configuration: DeduplicateConfiguration) {
@@ -59,6 +81,7 @@ public final class DeduplicateSessionStore: ObservableObject {
         currentPhase = nil
         phaseCompleted = 0
         phaseTotal = 0
+        lastScanConfiguration = configuration
         decisions = DedupeDecisions(byPath: [:], hardDelete: decisions.hardDelete)
 
         do {

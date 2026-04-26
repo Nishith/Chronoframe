@@ -95,9 +95,9 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertEqual(clusters.first?.suggestedKeeperIDs, ["/dest/a.jpg"])
     }
 
-    // MARK: - DeduplicateExecutor.expandedDeletePaths
+    // MARK: - DeduplicationPlanner
 
-    func testExpandedDeletePathsRespectsPairLocking() {
+    func testPlannerExpandsRawJpegPairWhenToggleEnabled() {
         let raw = candidate(path: "/dest/IMG.CR2", pairedPath: "/dest/IMG.JPG")
         let jpeg = candidate(path: "/dest/IMG.JPG", pairedPath: "/dest/IMG.CR2")
         let other = candidate(path: "/dest/OTHER.JPG")
@@ -108,25 +108,20 @@ final class DeduplicateTests: XCTestCase {
             suggestedKeeperIDs: ["/dest/OTHER.JPG"],
             bytesIfPruned: 200
         )
-        // User explicitly deletes the JPEG, accepts suggested keeper for the
-        // RAW (which means delete it), and keeps OTHER.
         let decisions = DedupeDecisions(byPath: [
             "/dest/IMG.JPG": .delete,
             "/dest/OTHER.JPG": .keep,
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: true)
 
-        let toDelete = DeduplicateExecutor.expandedDeletePaths(
-            decisions: decisions,
-            clusters: [cluster],
-            configuration: config
-        )
-        XCTAssertTrue(toDelete.contains("/dest/IMG.JPG"))
-        XCTAssertTrue(toDelete.contains("/dest/IMG.CR2"), "Pair partner must be deleted alongside")
-        XCTAssertFalse(toDelete.contains("/dest/OTHER.JPG"))
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertTrue(paths.contains("/dest/IMG.JPG"))
+        XCTAssertTrue(paths.contains("/dest/IMG.CR2"), "Pair partner must be deleted alongside")
+        XCTAssertFalse(paths.contains("/dest/OTHER.JPG"))
     }
 
-    func testExpandedDeletePathsRefusesAllDelete() {
+    func testPlannerRefusesAllDelete() {
         let a = candidate(path: "/dest/a.jpg")
         let b = candidate(path: "/dest/b.jpg")
         let cluster = DuplicateCluster(
@@ -139,12 +134,181 @@ final class DeduplicateTests: XCTestCase {
             "/dest/a.jpg": .delete,
             "/dest/b.jpg": .delete,
         ])
-        let toDelete = DeduplicateExecutor.expandedDeletePaths(
+        let plan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
             configuration: DeduplicateConfiguration(destinationPath: "/dest")
         )
-        XCTAssertTrue(toDelete.isEmpty, "Safety rail: never delete every member of a cluster")
+        XCTAssertTrue(plan.items.isEmpty, "Safety rail: never delete every member of a cluster")
+    }
+
+    /// Regression: previously the executor collapsed both pair toggles
+    /// into a single `pairs` boolean, so disabling RAW pairing while
+    /// Live Photo pairing remained enabled still deleted RAW partners.
+    /// With the planner each toggle is honored independently.
+    ///
+    /// To isolate the toggle's effect on *pair expansion* (the partner
+    /// is otherwise outside the cluster), this test uses a setup where
+    /// only the JPEG is a cluster member; the RAW is referenced via
+    /// `pairedPath` only.
+    func testPlannerHonorsPairTogglesIndependently() {
+        let jpeg = candidate(path: "/dest/IMG.JPG", pairedPath: "/dest/IMG.CR2")
+        let other = candidate(path: "/dest/OTHER.JPG", qualityScore: 0.9)
+        let cluster = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [jpeg, other],
+            suggestedKeeperIDs: ["/dest/OTHER.JPG"],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/IMG.JPG": .delete,
+            "/dest/OTHER.JPG": .keep,
+        ])
+
+        // RAW pairing OFF; Live Photo ON. RAW partner must stay.
+        let configRawOff = DeduplicateConfiguration(
+            destinationPath: "/dest",
+            treatRawJpegPairsAsUnit: false,
+            treatLivePhotoPairsAsUnit: true
+        )
+        let planRawOff = DeduplicationPlanner.plan(
+            decisions: decisions,
+            clusters: [cluster],
+            configuration: configRawOff
+        )
+        XCTAssertTrue(Set(planRawOff.pathsToDelete).contains("/dest/IMG.JPG"))
+        XCTAssertFalse(
+            Set(planRawOff.pathsToDelete).contains("/dest/IMG.CR2"),
+            "RAW partner must NOT be expanded when RAW pairing is off"
+        )
+
+        // RAW pairing ON: partner is expanded.
+        let configRawOn = DeduplicateConfiguration(
+            destinationPath: "/dest",
+            treatRawJpegPairsAsUnit: true,
+            treatLivePhotoPairsAsUnit: true
+        )
+        let planRawOn = DeduplicationPlanner.plan(
+            decisions: decisions,
+            clusters: [cluster],
+            configuration: configRawOn
+        )
+        XCTAssertTrue(Set(planRawOn.pathsToDelete).contains("/dest/IMG.CR2"))
+    }
+
+    /// Regression: the executor previously inserted any partner into
+    /// `toDelete` after the safety check, so an explicit Keep on one
+    /// half of a pair could be silently flipped to Delete by the other
+    /// half's decision. Keep wins.
+    func testPlannerKeepWinsOverDeleteOnPairConflict() {
+        let raw = candidate(path: "/dest/IMG.CR2", pairedPath: "/dest/IMG.JPG", isRaw: true)
+        let jpeg = candidate(path: "/dest/IMG.JPG", pairedPath: "/dest/IMG.CR2")
+        let other = candidate(path: "/dest/OTHER.JPG", qualityScore: 0.9)
+        let cluster = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [raw, jpeg, other],
+            suggestedKeeperIDs: ["/dest/OTHER.JPG"],
+            bytesIfPruned: 200
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/IMG.CR2": .keep,    // user explicitly kept the RAW
+            "/dest/IMG.JPG": .delete,  // and (perhaps accidentally) marked the JPEG for deletion
+            "/dest/OTHER.JPG": .keep,
+        ])
+        let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: true)
+
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertFalse(paths.contains("/dest/IMG.CR2"), "Explicit Keep must never be deleted")
+        XCTAssertFalse(paths.contains("/dest/IMG.JPG"), "Pair Keep-wins must protect the partner too")
+        XCTAssertFalse(paths.contains("/dest/OTHER.JPG"))
+    }
+
+    /// Regression: receipt entries were only written for paths that
+    /// were cluster members. Live Photo MOV halves aren't candidates
+    /// (the scanner only enumerates image paths), so they could be
+    /// trashed without a receipt entry — and Run History would then be
+    /// unable to revert them. The plan now carries owning-cluster
+    /// metadata for every mutation.
+    func testPlannerCarriesOwningClusterForLivePhotoSidecar() {
+        let heic = candidate(
+            path: "/dest/IMG.HEIC",
+            pairedPath: "/dest/IMG.MOV",
+            isLivePhotoStill: true
+        )
+        let other = candidate(path: "/dest/OTHER.HEIC", qualityScore: 0.9)
+        let cluster = DuplicateCluster(
+            kind: .burst,
+            members: [heic, other],
+            suggestedKeeperIDs: ["/dest/OTHER.HEIC"],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/IMG.HEIC": .delete,
+            "/dest/OTHER.HEIC": .keep,
+        ])
+        let config = DeduplicateConfiguration(destinationPath: "/dest", treatLivePhotoPairsAsUnit: true)
+
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let movItem = plan.items.first { $0.path == "/dest/IMG.MOV" }
+        XCTAssertNotNil(movItem, "Live Photo MOV partner must be in the plan")
+        XCTAssertEqual(movItem?.owningClusterID, cluster.id, "MOV partner must inherit cluster ownership for receipt")
+        XCTAssertEqual(movItem?.owningClusterKind, .burst)
+        XCTAssertEqual(movItem?.pairOrigin, .livePhoto)
+    }
+
+    // MARK: - Executor preflight
+
+    /// Regression: a receipt-write failure used to be a non-fatal issue
+    /// reported AFTER deletion had completed. The executor now
+    /// preflights the receipt directory; an unwritable destination
+    /// aborts the commit before any file is touched.
+    func testCommitAbortsBeforeMutationWhenReceiptDirectoryIsUnwritable() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let fileURL = temporaryDirectory.appendingPathComponent("victim.jpg")
+        try Data(repeating: 0xAB, count: 16).write(to: fileURL)
+
+        // Block the receipt directory: create `.organize_logs` as a FILE,
+        // so `createDirectory` and `write` both fail.
+        let blockingFileURL = temporaryDirectory.appendingPathComponent(".organize_logs")
+        try Data().write(to: blockingFileURL)
+
+        let plan = DeduplicationPlan(items: [
+            DeduplicationPlan.Item(
+                path: fileURL.path,
+                sizeBytes: 16,
+                owningClusterID: UUID(),
+                owningClusterKind: .burst,
+                pairOrigin: nil
+            )
+        ])
+
+        let executor = DeduplicateExecutor()
+        let stream = executor.commit(
+            plan: plan,
+            destinationRoot: temporaryDirectory.path,
+            hardDelete: true
+        )
+
+        var sawError = false
+        do {
+            for try await _ in stream {
+                XCTFail("Stream should not yield any events when preflight fails")
+            }
+        } catch is ReceiptPreflightError {
+            sawError = true
+        } catch {
+            XCTFail("Expected ReceiptPreflightError, got \(error)")
+        }
+        XCTAssertTrue(sawError, "Commit must fail with ReceiptPreflightError")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: fileURL.path),
+            "Victim file must be untouched when preflight aborts the commit"
+        )
     }
 
     // MARK: - DedupeFeatureCache round-trip
@@ -224,7 +388,9 @@ final class DeduplicateTests: XCTestCase {
         featurePrintData: Data? = nil,
         qualityScore: Double = 0.5,
         size: Int64 = 100,
-        pairedPath: String? = nil
+        pairedPath: String? = nil,
+        isRaw: Bool = false,
+        isLivePhotoStill: Bool = false
     ) -> PhotoCandidate {
         PhotoCandidate(
             path: path,
@@ -234,6 +400,8 @@ final class DeduplicateTests: XCTestCase {
             dhash: dhash,
             featurePrintData: featurePrintData,
             qualityScore: qualityScore,
+            isRaw: isRaw,
+            isLivePhotoStill: isLivePhotoStill,
             pairedPath: pairedPath
         )
     }

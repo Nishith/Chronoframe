@@ -311,6 +311,55 @@ public struct DeduplicateCommitSummary: Sendable, Equatable {
     }
 }
 
+// MARK: - Deletion plan
+
+/// Explicit, fully-resolved description of every filesystem mutation the
+/// executor will perform. Built once by `DeduplicationPlanner.plan` and
+/// consumed by both the commit footer (so previewed counts/bytes match
+/// reality) and the executor (so the audit receipt records every mutation
+/// — including paired partners that aren't cluster members on their own,
+/// like Live Photo MOV halves).
+public struct DeduplicationPlan: Sendable, Equatable {
+    public enum PairOrigin: String, Sendable, Codable, Equatable {
+        case rawJpeg
+        case livePhoto
+    }
+
+    public struct Item: Sendable, Equatable {
+        public let path: String
+        public let sizeBytes: Int64
+        public let owningClusterID: UUID
+        public let owningClusterKind: ClusterKind
+        /// `nil` for direct cluster-member deletions; otherwise the kind of
+        /// pair-as-unit expansion that pulled this path into the plan.
+        public let pairOrigin: PairOrigin?
+
+        public init(
+            path: String,
+            sizeBytes: Int64,
+            owningClusterID: UUID,
+            owningClusterKind: ClusterKind,
+            pairOrigin: PairOrigin? = nil
+        ) {
+            self.path = path
+            self.sizeBytes = sizeBytes
+            self.owningClusterID = owningClusterID
+            self.owningClusterKind = owningClusterKind
+            self.pairOrigin = pairOrigin
+        }
+    }
+
+    public let items: [Item]
+
+    public init(items: [Item]) {
+        self.items = items
+    }
+
+    public var pathsToDelete: [String] { items.map(\.path) }
+    public var totalBytes: Int64 { items.reduce(0) { $0 + $1.sizeBytes } }
+    public var count: Int { items.count }
+}
+
 // MARK: - Audit receipt (revertible)
 
 public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {

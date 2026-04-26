@@ -188,12 +188,20 @@ struct DeduplicateView: View {
     }
 
     private var commitFooter: some View {
-        HStack(spacing: DesignTokens.Spacing.md) {
+        // Single source of truth: ask the session store for the actual
+        // deletion plan the executor would build, so the count + byte
+        // total here include pair-expanded partners (e.g. Live Photo
+        // MOV halves, RAW partners). Previously these only counted
+        // direct cluster-member Delete decisions and could understate
+        // both the file count and the recovered bytes.
+        let plan = sessionStore.currentDeletionPlan()
+        let toDelete = plan.count
+        let bytes = plan.totalBytes
+        return HStack(spacing: DesignTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: 2) {
-                let toDelete = pendingDeleteCount
-                Text("\(toDelete) photo\(toDelete == 1 ? "" : "s") will be \(hardDeleteForThisCommit ? "deleted" : "moved to Trash")")
+                Text("\(toDelete) file\(toDelete == 1 ? "" : "s") will be \(hardDeleteForThisCommit ? "deleted" : "moved to Trash")")
                     .font(.subheadline.weight(.semibold))
-                Text("≈ \(byteCountFormatter.string(fromByteCount: sessionStore.totalRecoverableBytes)) recoverable")
+                Text("≈ \(byteCountFormatter.string(fromByteCount: bytes)) recoverable")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -212,12 +220,12 @@ struct DeduplicateView: View {
             }
             .keyboardShortcut(.return, modifiers: .command)
             .buttonStyle(.borderedProminent)
-            .disabled(pendingDeleteCount == 0 || sessionStore.status == .committing)
+            .disabled(toDelete == 0 || sessionStore.status == .committing)
         }
         .padding(DesignTokens.Spacing.md)
         .background(.ultraThinMaterial)
         .confirmationDialog(
-            hardDeleteForThisCommit ? "Hard-delete \(pendingDeleteCount) photos?" : "Move \(pendingDeleteCount) photos to Trash?",
+            hardDeleteForThisCommit ? "Hard-delete \(toDelete) files?" : "Move \(toDelete) files to Trash?",
             isPresented: $showingCommitConfirmation
         ) {
             Button(hardDeleteForThisCommit ? "Hard Delete" : "Move to Trash", role: .destructive) {
@@ -292,16 +300,6 @@ struct DeduplicateView: View {
     private var focusedCluster: DuplicateCluster? {
         guard let id = focusedClusterID else { return nil }
         return sessionStore.clusters.first { $0.id == id }
-    }
-
-    private var pendingDeleteCount: Int {
-        sessionStore.clusters.reduce(0) { partial, cluster in
-            let pending = cluster.members.filter { member in
-                let decision = sessionStore.decisions.byPath[member.path] ?? (cluster.suggestedKeeperIDs.contains(member.id) ? .keep : .delete)
-                return decision == .delete
-            }
-            return partial + pending.count
-        }
     }
 
     private func ensureInitialFocus() {
