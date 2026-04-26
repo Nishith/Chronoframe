@@ -73,12 +73,14 @@ final class MockOrganizerEngine: OrganizerEngine {
 @MainActor
 final class MockFolderAccessService: FolderAccessServicing {
     var nextChosenFolder: URL?
+    var chooseFolderCalls: [(startingAt: String?, prompt: String)] = []
     var bookmarkURLs: [URL] = []
     var resolvedBookmarks: [String: ResolvedFolderBookmark] = [:]
     var validationFailures: [String: Error] = [:]
 
     func chooseFolder(startingAt path: String?, prompt: String) -> URL? {
-        nextChosenFolder
+        chooseFolderCalls.append((startingAt: path, prompt: prompt))
+        return nextChosenFolder
     }
 
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {

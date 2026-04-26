@@ -41,6 +41,10 @@ public final class PreferencesStore: ObservableObject {
         didSet { persist(lastManualDestinationPath, key: "lastManualDestinationPath") }
     }
 
+    @Published public var lastDeduplicateDestinationPath: String {
+        didSet { persist(lastDeduplicateDestinationPath, key: "lastDeduplicateDestinationPath") }
+    }
+
     @Published public var lastSelectedProfileName: String {
         didSet { persist(lastSelectedProfileName, key: "lastSelectedProfileName") }
     }
@@ -81,6 +85,7 @@ public final class PreferencesStore: ObservableObject {
         self.logBufferCapacity = defaults.object(forKey: "logBufferCapacity") as? Int ?? 2_000
         self.lastManualSourcePath = defaults.string(forKey: "lastManualSourcePath") ?? ""
         self.lastManualDestinationPath = defaults.string(forKey: "lastManualDestinationPath") ?? ""
+        self.lastDeduplicateDestinationPath = defaults.string(forKey: "lastDeduplicateDestinationPath") ?? ""
         self.lastSelectedProfileName = defaults.string(forKey: "lastSelectedProfileName") ?? ""
         let storedStructure = defaults.string(forKey: "folderStructure").flatMap(FolderStructure.init(rawValue:))
         self.folderStructure = storedStructure ?? .yyyyMMDD

@@ -86,6 +86,57 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testBootstrapRestoresDeduplicateFolderBookmark() {
+        let harness = AppStateHarness()
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "deduplicate.destination", path: "/Volumes/OldDedupe", data: Data([0x03]))
+        )
+        harness.folderAccessService.resolvedBookmarks["deduplicate.destination"] = ResolvedFolderBookmark(
+            url: URL(fileURLWithPath: "/Volumes/NewDedupe"),
+            refreshedBookmark: FolderBookmark(key: "deduplicate.destination", path: "/Volumes/NewDedupe", data: Data([0x33]))
+        )
+
+        let appState = harness.makeAppState()
+
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/NewDedupe")
+        XCTAssertEqual(harness.preferencesStore.lastDeduplicateDestinationPath, "/Volumes/NewDedupe")
+        XCTAssertEqual(harness.preferencesStore.bookmark(for: "deduplicate.destination")?.path, "/Volumes/NewDedupe")
+    }
+
+    @MainActor
+    func testDeduplicateFolderPickerStoresIndependentPathAndBookmark() async {
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.folderAccessService.nextChosenFolder = URL(fileURLWithPath: "/Volumes/Dedupe")
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        await appState.chooseDeduplicateDestinationFolder()
+
+        XCTAssertEqual(harness.setupStore.destinationPath, "/Volumes/Organize")
+        XCTAssertEqual(harness.preferencesStore.lastDeduplicateDestinationPath, "/Volumes/Dedupe")
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/Dedupe")
+        XCTAssertEqual(harness.folderAccessService.chooseFolderCalls.last?.startingAt, "/Volumes/Organize")
+        XCTAssertEqual(harness.folderAccessService.chooseFolderCalls.last?.prompt, "Choose Deduplicate Folder")
+        XCTAssertEqual(harness.folderAccessService.bookmarkURLs, [URL(fileURLWithPath: "/Volumes/Dedupe")])
+        XCTAssertEqual(harness.preferencesStore.bookmark(for: "deduplicate.destination")?.path, "/Volumes/Dedupe")
+    }
+
+    @MainActor
+    func testDeduplicateScanUsesDedicatedFolderWhenSetAndFallsBackOtherwise() {
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        appState.startDeduplicateScan()
+        XCTAssertEqual(harness.deduplicateEngine.lastScanConfiguration?.destinationPath, "/Volumes/Organize")
+
+        harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Dedupe"
+        appState.startDeduplicateScan()
+
+        XCTAssertEqual(harness.deduplicateEngine.lastScanConfiguration?.destinationPath, "/Volumes/Dedupe")
+    }
+
+    @MainActor
     func testFacadeForwardsPreviewAndTransferFlows() async {
         let harness = AppStateHarness()
         harness.setupStore.sourcePath = "/tmp/source"

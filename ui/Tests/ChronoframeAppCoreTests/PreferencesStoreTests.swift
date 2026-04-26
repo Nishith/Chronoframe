@@ -27,6 +27,7 @@ final class PreferencesStoreTests: XCTestCase {
         store.verifyCopies = true
         store.lastManualSourcePath = "/tmp/source"
         store.lastManualDestinationPath = "/tmp/destination"
+        store.lastDeduplicateDestinationPath = "/tmp/dedupe"
         store.lastSelectedProfileName = "travel"
 
         let reloaded = PreferencesStore(defaults: defaults)
@@ -36,6 +37,7 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertTrue(reloaded.verifyCopies)
         XCTAssertEqual(reloaded.lastManualSourcePath, "/tmp/source")
         XCTAssertEqual(reloaded.lastManualDestinationPath, "/tmp/destination")
+        XCTAssertEqual(reloaded.lastDeduplicateDestinationPath, "/tmp/dedupe")
         XCTAssertEqual(reloaded.lastSelectedProfileName, "travel")
     }
 

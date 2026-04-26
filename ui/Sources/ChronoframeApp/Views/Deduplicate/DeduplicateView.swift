@@ -58,12 +58,39 @@ struct DeduplicateView: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
 
-                LabeledContent("Destination") {
-                    Text(appState.deduplicateDestinationPath.isEmpty ? "Not set — choose one in Organize → Setup" : appState.deduplicateDestinationPath)
-                        .font(.system(.body, design: .monospaced))
-                        .lineLimit(2)
-                        .truncationMode(.middle)
-                        .foregroundStyle(appState.deduplicateDestinationPath.isEmpty ? DesignTokens.ColorSystem.statusDanger : DesignTokens.ColorSystem.inkPrimary)
+                MeridianSurfaceCard(
+                    style: .inner,
+                    tint: appState.deduplicateDestinationPath.isEmpty ? DesignTokens.ColorSystem.statusDanger : DesignTokens.ColorSystem.statusSuccess
+                ) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 12) {
+                            PathValueView(
+                                title: "Scan Folder",
+                                value: appState.deduplicateDestinationPath,
+                                helper: appState.deduplicateDestinationHelper
+                            )
+
+                            Spacer(minLength: 12)
+
+                            Button("Choose Folder…") {
+                                Task { await appState.chooseDeduplicateDestinationFolder() }
+                            }
+                            .accessibilityHint("Opens a folder picker for Deduplicate scans")
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            PathValueView(
+                                title: "Scan Folder",
+                                value: appState.deduplicateDestinationPath,
+                                helper: appState.deduplicateDestinationHelper
+                            )
+
+                            Button("Choose Folder…") {
+                                Task { await appState.chooseDeduplicateDestinationFolder() }
+                            }
+                            .accessibilityHint("Opens a folder picker for Deduplicate scans")
+                        }
+                    }
                 }
 
                 Divider()

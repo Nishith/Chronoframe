@@ -6,6 +6,8 @@ import Foundation
 
 @MainActor
 final class AppState: ObservableObject {
+    private static let deduplicateDestinationBookmarkKey = "deduplicate.destination"
+
     @Published var selection: SidebarDestination
     @Published var organizeSubSelection: OrganizeSubSection
     @Published var transientErrorMessage: String?
@@ -139,6 +141,7 @@ final class AppState: ObservableObject {
 
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
+            restoreDeduplicateDestinationBookmark()
         }
     }
 
@@ -231,13 +234,51 @@ final class AppState: ObservableObject {
         }
     }
 
-    /// Where dedupe scans run. Reuses the active organized destination
-    /// (either the live setup path or the most recently used history root).
+    /// Where dedupe scans run. A folder chosen from Deduplicate wins; until
+    /// then, the app falls back to the active organized destination.
     var deduplicateDestinationPath: String {
+        if !preferencesStore.lastDeduplicateDestinationPath.isEmpty {
+            return preferencesStore.lastDeduplicateDestinationPath
+        }
         if !setupStore.destinationPath.isEmpty {
             return setupStore.destinationPath
         }
         return historyStore.destinationRoot
+    }
+
+    var hasDedicatedDeduplicateDestinationPath: Bool {
+        !preferencesStore.lastDeduplicateDestinationPath.isEmpty
+    }
+
+    var deduplicateDestinationHelper: String {
+        if hasDedicatedDeduplicateDestinationPath {
+            return "Used only for Deduplicate scans."
+        }
+        if deduplicateDestinationPath.isEmpty {
+            return "Choose the folder to scan for duplicate photos."
+        }
+        return "Using the Organize destination until you choose a Deduplicate folder."
+    }
+
+    func chooseDeduplicateDestinationFolder() async {
+        guard let url = folderAccessService.chooseFolder(
+            startingAt: deduplicateDestinationPath,
+            prompt: "Choose Deduplicate Folder"
+        ) else {
+            return
+        }
+
+        do {
+            try folderAccessService.validateFolder(url, role: .destination)
+        } catch {
+            transientErrorMessage = UserFacingErrorMessage.message(for: error, context: .setup)
+            return
+        }
+
+        preferencesStore.lastDeduplicateDestinationPath = url.path
+        if let bookmark = try? folderAccessService.makeBookmark(for: url, key: Self.deduplicateDestinationBookmarkKey) {
+            preferencesStore.storeBookmark(bookmark)
+        }
     }
 
     func startDeduplicateScan() {
@@ -266,6 +307,20 @@ final class AppState: ObservableObject {
 
     func resetDeduplicate() {
         deduplicateSessionStore.reset()
+    }
+
+    private func restoreDeduplicateDestinationBookmark() {
+        guard
+            let bookmark = preferencesStore.bookmark(for: Self.deduplicateDestinationBookmarkKey),
+            let resolvedBookmark = folderAccessService.resolveBookmark(bookmark)
+        else {
+            return
+        }
+
+        if let refreshedBookmark = resolvedBookmark.refreshedBookmark {
+            preferencesStore.storeBookmark(refreshedBookmark)
+        }
+        preferencesStore.lastDeduplicateDestinationPath = resolvedBookmark.url.path
     }
 
     func openDestination() {

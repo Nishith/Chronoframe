@@ -46,6 +46,7 @@ final class AppStateHarness {
     let folderAccessService: MockFolderAccessService
     let finderService: MockFinderService
     let engine: MockOrganizerEngine
+    let deduplicateEngine: MockDeduplicateEngine
     let runSessionStore: RunSessionStore
     let deduplicateSessionStore: DeduplicateSessionStore
 
@@ -81,11 +82,13 @@ final class AppStateHarness {
             ])
         )
         runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
-        deduplicateSessionStore = DeduplicateSessionStore(engine: NativeDeduplicateEngine())
+        deduplicateEngine = MockDeduplicateEngine()
+        deduplicateSessionStore = DeduplicateSessionStore(engine: deduplicateEngine)
     }
 
     func makeAppState(
         performInitialBootstrap: Bool = true,
+        restoreBookmarksDuringBootstrap: Bool = true,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {}
     ) -> AppState {
         AppState(
@@ -99,7 +102,73 @@ final class AppStateHarness {
             finderService: self.finderService,
             profilesRepository: self.repository,
             performInitialBootstrap: performInitialBootstrap,
+            restoreBookmarksDuringBootstrap: restoreBookmarksDuringBootstrap,
             showSettingsWindowAction: showSettingsWindowAction
         )
+    }
+}
+
+@MainActor
+final class MockDeduplicateEngine: DeduplicateEngine {
+    var clustersToEmit: [DuplicateCluster] = []
+    var summary: DeduplicateSummary = DeduplicateSummary()
+    var commitEvents: [DeduplicateCommitEvent] = []
+    var revertEvents: [DeduplicateCommitEvent] = []
+    var scanError: Error?
+    var lastScanConfiguration: DeduplicateConfiguration?
+    var lastCommitDecisions: DedupeDecisions?
+    var lastCommitClusters: [DuplicateCluster] = []
+    var lastCommitConfiguration: DeduplicateConfiguration?
+
+    func scan(_ configuration: DeduplicateConfiguration) throws -> AsyncThrowingStream<DeduplicateEvent, Error> {
+        lastScanConfiguration = configuration
+        if let scanError {
+            throw scanError
+        }
+        let clusters = clustersToEmit
+        let summary = summary
+        return AsyncThrowingStream { continuation in
+            Task { @MainActor in
+                continuation.yield(.startup)
+                for cluster in clusters {
+                    continuation.yield(.clusterDiscovered(cluster))
+                }
+                continuation.yield(.complete(summary))
+                continuation.finish()
+            }
+        }
+    }
+
+    func cancelCurrentScan() {}
+
+    func commit(
+        decisions: DedupeDecisions,
+        clusters: [DuplicateCluster],
+        configuration: DeduplicateConfiguration
+    ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
+        lastCommitDecisions = decisions
+        lastCommitClusters = clusters
+        lastCommitConfiguration = configuration
+        let events = commitEvents
+        return AsyncThrowingStream { continuation in
+            Task { @MainActor in
+                for event in events {
+                    continuation.yield(event)
+                }
+                continuation.finish()
+            }
+        }
+    }
+
+    func revert(receiptURL: URL) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
+        let events = revertEvents
+        return AsyncThrowingStream { continuation in
+            Task { @MainActor in
+                for event in events {
+                    continuation.yield(event)
+                }
+                continuation.finish()
+            }
+        }
     }
 }
