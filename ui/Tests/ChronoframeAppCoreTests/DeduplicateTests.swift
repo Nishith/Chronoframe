@@ -557,6 +557,54 @@ final class DeduplicateTests: XCTestCase {
         trashed.clear()
     }
 
+    /// Regression for review rec #5: receipt filenames used only
+    /// second-precision timestamps, so two commits within the same
+    /// second produced identical paths. With `data.write(.atomic)`
+    /// the second receipt would silently destroy the first, losing
+    /// the Run History/revert trail. The UUID suffix added in the
+    /// fix must guarantee distinct paths even when both calls happen
+    /// in the same second.
+    func testWriteReceiptProducesUniqueFilenamesForBackToBackCommits() throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeReceiptCollision-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let logsDirectory = try DeduplicateExecutor.preflightReceiptDirectory(destinationRoot: temporaryDirectory.path)
+
+        let item = DeduplicateAuditReceipt.Item(
+            originalPath: temporaryDirectory.appendingPathComponent("a.jpg").path,
+            sizeBytes: 1,
+            trashURL: nil,
+            method: .hardDelete,
+            clusterID: UUID(),
+            clusterKind: .burst
+        )
+
+        var paths: [String] = []
+        for _ in 0..<2 {
+            let receiptPath = try DeduplicateExecutor.writeReceipt(
+                logsDirectory: logsDirectory,
+                destinationRoot: temporaryDirectory.path,
+                items: [item],
+                bytesReclaimed: 1
+            )
+            paths.append(receiptPath)
+        }
+
+        XCTAssertEqual(Set(paths).count, 2, "Two same-second writes must produce distinct receipt filenames")
+        for path in paths {
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: path),
+                "Both receipts must remain on disk; second write must not have replaced the first"
+            )
+        }
+
+        let logsContents = try FileManager.default.contentsOfDirectory(atPath: logsDirectory.path)
+            .filter { $0.hasPrefix("dedupe_audit_receipt_") && $0.hasSuffix(".json") }
+        XCTAssertEqual(logsContents.count, 2, "Logs directory must contain exactly two dedupe receipts")
+    }
+
     // MARK: - DedupeFeatureCache round-trip
 
     func testDedupeFeatureCacheRoundTrip() throws {
