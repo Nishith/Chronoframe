@@ -12,6 +12,14 @@ public final class DeduplicateSessionStore: ObservableObject {
         case readyToReview
         case committing
         case completed
+        /// In-flight restore of a previous dedupe receipt. Distinct from
+        /// `.committing` so the UI can show "Restoring N files from
+        /// Trash…" instead of mistaking an empty cluster list for an
+        /// empty scan.
+        case reverting
+        /// Restore finished. Distinct from `.completed` so the UI can
+        /// say "Restored N files" instead of "Removed N photos".
+        case reverted
         case failed(String)
     }
 
@@ -33,6 +41,10 @@ public final class DeduplicateSessionStore: ObservableObject {
     /// agree on which pair-as-unit toggles + similarity thresholds were
     /// in effect when the clusters were produced.
     private var lastScanConfiguration: DeduplicateConfiguration?
+    /// True while an `engine.revert(...)` stream is being consumed.
+    /// `consumeCommit`'s `.complete` arm uses this to land in
+    /// `.reverted` instead of `.completed`.
+    private var isHandlingRevert = false
 
     public init(engine: any DeduplicateEngine) {
         self.engine = engine
@@ -40,7 +52,7 @@ public final class DeduplicateSessionStore: ObservableObject {
 
     public var isWorking: Bool {
         switch status {
-        case .scanning, .committing: return true
+        case .scanning, .committing, .reverting: return true
         default: return false
         }
     }
@@ -120,7 +132,8 @@ public final class DeduplicateSessionStore: ObservableObject {
     public func revert(receiptURL: URL) {
         cancelStream()
         commitSummary = nil
-        status = .committing
+        isHandlingRevert = true
+        status = .reverting
         do {
             let stream = try engine.revert(receiptURL: receiptURL)
             streamTask = Task { [weak self] in
@@ -146,6 +159,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     public func commit(configuration: DeduplicateConfiguration) {
         cancelStream()
         commitSummary = nil
+        isHandlingRevert = false
         status = .committing
         let commitConfiguration = lastScanConfiguration ?? configuration
         do {
@@ -211,6 +225,7 @@ public final class DeduplicateSessionStore: ObservableObject {
         currentPhase = nil
         phaseCompleted = 0
         phaseTotal = 0
+        isHandlingRevert = false
         decisions = DedupeDecisions(byPath: [:], hardDelete: decisions.hardDelete)
     }
 
@@ -262,7 +277,8 @@ public final class DeduplicateSessionStore: ObservableObject {
             phaseCompleted += 1
         case let .complete(summary):
             commitSummary = summary
-            status = .completed
+            status = isHandlingRevert ? .reverted : .completed
+            isHandlingRevert = false
         }
     }
 

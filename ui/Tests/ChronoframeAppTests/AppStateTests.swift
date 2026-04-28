@@ -165,6 +165,39 @@ final class AppStateTests: XCTestCase {
         XCTAssertFalse(appState.hasDedicatedDeduplicateDestinationPath)
     }
 
+    /// Production-realistic version of the above: `FolderAccessService`
+    /// returns a fallback URL even when the bookmark data is invalid,
+    /// so `resolveBookmark` is non-nil and the prior nil-only guard
+    /// would have silently kept the dead path. The new liveness check
+    /// hits `validateFolder`, which throws for a missing folder, and
+    /// that path must be cleared.
+    @MainActor
+    func testBootstrapClearsDeduplicateDestinationWhenFolderNoLongerExists() {
+        let harness = AppStateHarness()
+        let deadPath = "/Volumes/Vanished"
+        harness.preferencesStore.lastDeduplicateDestinationPath = deadPath
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "deduplicate.destination", path: deadPath, data: Data([0x11]))
+        )
+        // Mock matches production: resolveBookmark returns a fallback
+        // ResolvedFolderBookmark; only validateFolder reveals the
+        // folder is gone.
+        harness.folderAccessService.validationFailures[deadPath] = FolderValidationError.pathDoesNotExist(
+            role: .destination,
+            path: deadPath
+        )
+
+        let appState = harness.makeAppState()
+
+        XCTAssertEqual(
+            harness.preferencesStore.lastDeduplicateDestinationPath,
+            "",
+            "Stale path must clear when validateFolder reports the folder is gone"
+        )
+        XCTAssertNil(harness.preferencesStore.bookmark(for: "deduplicate.destination"))
+        XCTAssertFalse(appState.hasDedicatedDeduplicateDestinationPath)
+    }
+
     /// Review rec #4: explicit "Use Organize Destination" affordance
     /// drops the dedicated dedupe folder and reverts to the fallback.
     @MainActor

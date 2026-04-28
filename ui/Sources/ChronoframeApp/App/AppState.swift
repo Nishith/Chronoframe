@@ -338,12 +338,26 @@ final class AppState: ObservableObject {
             // Never set a Deduplicate folder; nothing to restore.
             return
         }
-        guard let resolvedBookmark = folderAccessService.resolveBookmark(bookmark) else {
-            // Bookmark exists but the folder is gone (deleted, volume
-            // unmounted, app moved). Drop the dead path + bookmark so
+        let resolvedBookmark = folderAccessService.resolveBookmark(bookmark)
+        // FolderAccessService.resolveBookmark returns a fallback URL
+        // built from the stored path when the bookmark data is no
+        // longer valid. That URL may point at a folder that no longer
+        // exists — checking only `resolveBookmark != nil` would leave
+        // a dead path persisted. Validate the resolved URL is still a
+        // readable, writable directory before keeping it.
+        let isLive: Bool = {
+            guard let url = resolvedBookmark?.url else { return false }
+            do {
+                try folderAccessService.validateFolder(url, role: .destination)
+                return true
+            } catch {
+                return false
+            }
+        }()
+        guard let resolvedBookmark, isLive else {
+            // Drop both the path and the bookmark so
             // `deduplicateDestinationPath` falls back to the Organize
-            // destination instead of silently scanning a stale location
-            // — or scanning nothing at all.
+            // destination instead of silently scanning a stale location.
             preferencesStore.removeBookmark(for: Self.deduplicateDestinationBookmarkKey)
             preferencesStore.lastDeduplicateDestinationPath = ""
             return

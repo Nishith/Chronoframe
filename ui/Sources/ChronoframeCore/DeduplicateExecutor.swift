@@ -243,8 +243,12 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         let timestamp = formatter.string(from: Date())
-
-        let receiptURL = logsDirectory.appendingPathComponent("dedupe_audit_receipt_\(timestamp).json")
+        // Plain second-precision timestamps collide when two commits
+        // land in the same second, and `data.write(.atomic)` would
+        // silently replace the prior receipt. Append a short UUID so
+        // back-to-back commits each get their own audit trail.
+        let suffix = UUID().uuidString.prefix(8)
+        let receiptURL = logsDirectory.appendingPathComponent("dedupe_audit_receipt_\(timestamp)_\(suffix).json")
         let receipt = DeduplicateAuditReceipt(
             createdAt: Date(),
             destinationRoot: destinationRoot,

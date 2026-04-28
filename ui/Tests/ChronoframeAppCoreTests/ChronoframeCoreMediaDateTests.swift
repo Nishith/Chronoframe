@@ -14,6 +14,21 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         XCTAssertFalse(MediaLibraryRules.shouldSkipDiscoveredFile(named: "IMG_20240101_120000.jpg"))
     }
 
+    /// Regression for review rec #2: `DeduplicatePairDetector` advertises
+    /// `.cr3` (modern Canon) and `.rw2` (Panasonic Lumix) RAW formats,
+    /// but discovery filters through `photoExtensions` first. If they
+    /// were omitted from the photo set, those files would never become
+    /// dedupe candidates and pair-as-unit handling would be broken for
+    /// the most common modern Canon and all Lumix RAWs.
+    func testPhotoExtensionsCoverModernCanonAndLumixRaw() {
+        XCTAssertTrue(MediaLibraryRules.isPhotoFile(path: "/photos/IMG.CR3"))
+        XCTAssertTrue(MediaLibraryRules.isPhotoFile(path: "/photos/IMG.cr3"))
+        XCTAssertTrue(MediaLibraryRules.isPhotoFile(path: "/photos/P1000001.RW2"))
+        XCTAssertTrue(MediaLibraryRules.isPhotoFile(path: "/photos/P1000001.rw2"))
+        XCTAssertTrue(MediaLibraryRules.isSupportedMediaFile(path: "/photos/IMG.CR3"))
+        XCTAssertTrue(MediaLibraryRules.isSupportedMediaFile(path: "/photos/P1000001.RW2"))
+    }
+
     func testFilenameDateParserMatchesPythonPatterns() {
         XCTAssertEqual(dayString(FilenameDateParser.parse(from: "/photos/IMG_20210417_120000.jpg")), "2021-04-17")
         XCTAssertEqual(dayString(FilenameDateParser.parse(from: "/photos/VID_20200101_235959.mp4")), "2020-01-01")

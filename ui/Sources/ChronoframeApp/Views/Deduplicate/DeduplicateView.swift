@@ -38,6 +38,10 @@ struct DeduplicateView: View {
                 }
             case .completed:
                 completedView
+            case .reverting:
+                revertingView
+            case .reverted:
+                revertedView
             case .failed(let message):
                 failureView(message: message)
             }
@@ -277,6 +281,58 @@ struct DeduplicateView: View {
                 }
                 .buttonStyle(.borderedProminent)
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+
+    /// In-flight Run-History revert. Distinct from `scanningView` so the
+    /// copy can say "Restoring …" instead of "Scanning". The empty
+    /// cluster list intentionally never appears here — revert doesn't
+    /// produce clusters.
+    private var revertingView: some View {
+        VStack(spacing: DesignTokens.Spacing.lg) {
+            ProgressView()
+                .controlSize(.large)
+            VStack(spacing: 6) {
+                Text("Restoring files from Trash…")
+                    .font(.headline)
+                if sessionStore.phaseTotal > 0 {
+                    Text("\(sessionStore.phaseCompleted) of \(sessionStore.phaseTotal)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Run-History revert finished. Distinct from `completedView` —
+    /// dedupe revert restores files, it does not delete them, so the
+    /// copy must not read "Removed N · reclaimed N MB".
+    private var revertedView: some View {
+        VStack(spacing: DesignTokens.Spacing.md) {
+            Image(systemName: "arrow.uturn.backward.circle.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
+            Text("Files restored from Trash")
+                .font(.headline)
+            if let summary = sessionStore.commitSummary {
+                Text("Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(byteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                if summary.failedCount > 0 {
+                    Text("\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see Run History for details.")
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
+                }
+            }
+            Button("Done") {
+                appState.resetDeduplicate()
+            }
+            .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()

@@ -96,6 +96,7 @@
 		AA000000000000000000025D /* ClusterDetailPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000193 /* ClusterDetailPane.swift */; };
 		AA000000000000000000025E /* DeduplicationPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000194 /* DeduplicationPlanner.swift */; };
 		AA000000000000000000025F /* ThumbnailRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000195 /* ThumbnailRenderer.swift */; };
+		AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000196 /* RunHistoryViewTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -208,6 +209,7 @@
 		AA0000000000000000000193 /* ClusterDetailPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterDetailPane.swift; sourceTree = "<group>"; };
 		AA0000000000000000000194 /* DeduplicationPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicationPlanner.swift; sourceTree = "<group>"; };
 		AA0000000000000000000195 /* ThumbnailRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailRenderer.swift; sourceTree = "<group>"; };
+		AA0000000000000000000196 /* RunHistoryViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryViewTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -474,6 +476,7 @@
 				AA0000000000000000000121 /* AppStateTests.swift */,
 				AA0000000000000000000122 /* TestSupport.swift */,
 				AA0000000000000000000133 /* AccessibilityTests.swift */,
+				AA0000000000000000000196 /* RunHistoryViewTests.swift */,
 			);
 			path = ChronoframeAppTests;
 			sourceTree = "<group>";
@@ -760,6 +763,7 @@
 				AA000000000000000000021C /* AppStateTests.swift in Sources */,
 				AA000000000000000000021D /* TestSupport.swift in Sources */,
 				AA000000000000000000022D /* AccessibilityTests.swift in Sources */,
+				AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

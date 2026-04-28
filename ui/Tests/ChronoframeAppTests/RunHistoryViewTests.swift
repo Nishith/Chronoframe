@@ -1,0 +1,75 @@
+import ChronoframeAppCore
+import Foundation
+import XCTest
+@testable import ChronoframeApp
+
+@MainActor
+final class RunHistoryViewTests: XCTestCase {
+    /// Regression for review rec #4: the revert confirmation dialog
+    /// previously hardcoded transfer-revert language ("remove the
+    /// files this receipt copied, but only if their contents still
+    /// match…") for every receipt kind. Dedupe revert RESTORES files
+    /// from the Trash; the wording must reflect that.
+    func testConfirmationCopyBranchesByEntryKindForDedupeReceipts() {
+        let dedupeEntry = makeEntry(kind: .dedupeAuditReceipt)
+
+        XCTAssertEqual(
+            RunHistoryView.confirmationTitle(for: dedupeEntry),
+            "Restore deduplicated files?"
+        )
+        XCTAssertEqual(
+            RunHistoryView.confirmationActionLabel(for: dedupeEntry),
+            "Restore"
+        )
+        let message = RunHistoryView.confirmationMessage(for: dedupeEntry)
+        XCTAssertTrue(
+            message.contains("Trash"),
+            "Dedupe revert message must mention the Trash"
+        )
+        XCTAssertFalse(
+            message.contains("remove the files this receipt copied"),
+            "Dedupe revert message must not reuse transfer-copy language"
+        )
+    }
+
+    /// Negative case: the legacy organize transfer audit receipt must
+    /// still get the original confirmation copy.
+    func testConfirmationCopyKeepsTransferLanguageForAuditReceipts() {
+        let transferEntry = makeEntry(kind: .auditReceipt)
+
+        XCTAssertEqual(
+            RunHistoryView.confirmationTitle(for: transferEntry),
+            "Revert this transfer?"
+        )
+        XCTAssertEqual(
+            RunHistoryView.confirmationActionLabel(for: transferEntry),
+            "Revert"
+        )
+        let message = RunHistoryView.confirmationMessage(for: transferEntry)
+        XCTAssertTrue(message.contains("remove the files this receipt copied"))
+        XCTAssertTrue(message.contains("contents still match"))
+    }
+
+    /// `confirmationTitle(for:)` is also called when no entry is
+    /// pending (the `.confirmationDialog` modifier evaluates the title
+    /// at body construction time). It must default to the transfer
+    /// title so the dialog has a stable label even before a receipt
+    /// is selected.
+    func testConfirmationTitleFallsBackToTransferWhenNoEntryPending() {
+        XCTAssertEqual(
+            RunHistoryView.confirmationTitle(for: nil),
+            "Revert this transfer?"
+        )
+    }
+
+    private func makeEntry(kind: RunHistoryEntryKind) -> RunHistoryEntry {
+        RunHistoryEntry(
+            kind: kind,
+            title: "Receipt",
+            path: "/Volumes/Dest/.organize_logs/receipt.json",
+            relativePath: ".organize_logs/receipt.json",
+            fileSizeBytes: 100,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+    }
+}

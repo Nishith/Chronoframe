@@ -105,14 +105,14 @@ struct RunHistoryView: View {
         .navigationTitle("Run History")
         .searchable(text: $searchText, prompt: "Search artifacts")
         .confirmationDialog(
-            "Revert this transfer?",
+            Self.confirmationTitle(for: pendingRevertEntry),
             isPresented: Binding(
                 get: { pendingRevertEntry != nil },
                 set: { if !$0 { pendingRevertEntry = nil } }
             ),
             presenting: pendingRevertEntry
         ) { entry in
-            Button("Revert", role: .destructive) {
+            Button(Self.confirmationActionLabel(for: entry), role: .destructive) {
                 appState.revertHistoryEntry(entry)
                 pendingRevertEntry = nil
             }
@@ -120,7 +120,39 @@ struct RunHistoryView: View {
                 pendingRevertEntry = nil
             }
         } message: { entry in
-            Text("Chronoframe will remove the files this receipt copied, but only if their contents still match the original transfer. Files modified after the original copy will be preserved.\n\nReceipt: \(entry.relativePath)")
+            Text(Self.confirmationMessage(for: entry))
+        }
+    }
+
+    // MARK: - Confirmation copy
+
+    /// Dedupe revert restores files from the Trash; the prior single
+    /// hardcoded message used transfer-revert language ("remove the
+    /// files this receipt copied, but only if their contents still
+    /// match…") which was wrong for dedupe receipts. Branch by
+    /// `entry.kind` so the dialog matches the actual operation. The
+    /// helpers are static + pure so they can be tested without
+    /// rendering SwiftUI.
+    static func confirmationTitle(for entry: RunHistoryEntry?) -> String {
+        switch entry?.kind {
+        case .dedupeAuditReceipt: return "Restore deduplicated files?"
+        default: return "Revert this transfer?"
+        }
+    }
+
+    static func confirmationActionLabel(for entry: RunHistoryEntry) -> String {
+        switch entry.kind {
+        case .dedupeAuditReceipt: return "Restore"
+        default: return "Revert"
+        }
+    }
+
+    static func confirmationMessage(for entry: RunHistoryEntry) -> String {
+        switch entry.kind {
+        case .dedupeAuditReceipt:
+            return "Chronoframe will move the files this dedupe run sent to the Trash back to their original locations. Files that have since been emptied from the Trash cannot be restored.\n\nReceipt: \(entry.relativePath)"
+        default:
+            return "Chronoframe will remove the files this receipt copied, but only if their contents still match the original transfer. Files modified after the original copy will be preserved.\n\nReceipt: \(entry.relativePath)"
         }
     }
 

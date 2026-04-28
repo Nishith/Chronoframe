@@ -172,4 +172,82 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         )
         XCTAssertEqual(Set(commitPlan.pathsToDelete), Set(previewPlan.pathsToDelete))
     }
+
+    /// Regression for review rec #3: `revert(receiptURL:)` previously
+    /// reused `.committing` and landed in `.completed`, so the dedupe
+    /// view briefly showed "Nothing to deduplicate" mid-revert and
+    /// then "Removed N · reclaimed N MB" — wrong copy for an
+    /// operation that restores trashed files. The new statuses
+    /// `.reverting` and `.reverted` give the view a clean signal.
+    @MainActor
+    func testRevertEntersRevertingThenLandsInReverted() async {
+        let engine = MockDeduplicateEngine(revertEvents: [
+            .started(totalToDelete: 2),
+            .itemTrashed(originalPath: "/dest/IMG.HEIC", trashURL: nil, sizeBytes: 100),
+            .itemTrashed(originalPath: "/dest/IMG.MOV", trashURL: nil, sizeBytes: 200),
+            .complete(DeduplicateCommitSummary(
+                deletedCount: 2,
+                failedCount: 0,
+                bytesReclaimed: 300,
+                receiptPath: nil,
+                hardDelete: false
+            )),
+        ])
+        let store = DeduplicateSessionStore(engine: engine)
+
+        store.revert(receiptURL: URL(fileURLWithPath: "/tmp/receipt.json"))
+        XCTAssertEqual(store.status, .reverting, "revert(...) must enter .reverting immediately, not .committing")
+
+        let landed = await waitForCondition { store.status == .reverted }
+        XCTAssertTrue(landed, "revert stream completion must land in .reverted")
+        XCTAssertEqual(store.commitSummary?.deletedCount, 2)
+    }
+
+    /// Forward-commit regression: the new `isHandlingRevert` flag must
+    /// reset cleanly so a commit that follows a revert still lands in
+    /// `.completed` (not `.reverted`).
+    @MainActor
+    func testCommitStillLandsInCompletedAfterPriorRevert() async {
+        let cluster = DuplicateCluster(
+            kind: .burst,
+            members: [
+                PhotoCandidate(path: "/dest/a.jpg", size: 100, modificationTime: 0, qualityScore: 0.9),
+                PhotoCandidate(path: "/dest/b.jpg", size: 100, modificationTime: 0, qualityScore: 0.4),
+            ],
+            suggestedKeeperIDs: ["/dest/a.jpg"],
+            bytesIfPruned: 100
+        )
+        let engine = MockDeduplicateEngine(
+            clusters: [cluster],
+            commitEvents: [
+                .started(totalToDelete: 1),
+                .itemTrashed(originalPath: "/dest/b.jpg", trashURL: nil, sizeBytes: 100),
+                .complete(DeduplicateCommitSummary(
+                    deletedCount: 1, failedCount: 0, bytesReclaimed: 100,
+                    receiptPath: nil, hardDelete: false
+                )),
+            ],
+            revertEvents: [
+                .started(totalToDelete: 0),
+                .complete(DeduplicateCommitSummary(
+                    deletedCount: 0, failedCount: 0, bytesReclaimed: 0,
+                    receiptPath: nil, hardDelete: false
+                )),
+            ]
+        )
+        let store = DeduplicateSessionStore(engine: engine)
+
+        // First a revert lands in .reverted, then a fresh scan + commit
+        // must still reach .completed (not be sticky on revert).
+        store.revert(receiptURL: URL(fileURLWithPath: "/tmp/r.json"))
+        _ = await waitForCondition { store.status == .reverted }
+
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+        store.commit(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+
+        XCTAssertEqual(store.status, .committing)
+        let completed = await waitForCondition { store.status == .completed }
+        XCTAssertTrue(completed, "Forward commit after a revert must land in .completed")
+    }
 }
