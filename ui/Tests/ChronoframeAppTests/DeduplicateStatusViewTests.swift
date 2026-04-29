@@ -1,3 +1,4 @@
+import ChronoframeAppCore
 import SwiftUI
 import XCTest
 @testable import ChronoframeApp
@@ -48,5 +49,50 @@ final class DeduplicateStatusViewTests: XCTestCase {
             )
             _ = view.body
         }
+    }
+
+    func testCommitFooterCopyDistinguishesTrashFromHardDelete() {
+        XCTAssertEqual(
+            DeduplicateView.commitFooterTitle(fileCount: 2, hardDelete: false),
+            "2 files will be moved to Trash"
+        )
+        XCTAssertEqual(
+            DeduplicateView.commitFooterTitle(fileCount: 1, hardDelete: true),
+            "1 file will be permanently deleted"
+        )
+
+        let trashDetail = DeduplicateView.commitFooterDetail(byteCount: 1_048_576, hardDelete: false)
+        XCTAssertTrue(trashDetail.contains("recoverable"))
+        XCTAssertFalse(trashDetail.contains("permanently"))
+
+        let hardDeleteDetail = DeduplicateView.commitFooterDetail(byteCount: 1_048_576, hardDelete: true)
+        XCTAssertTrue(hardDeleteDetail.contains("permanently removed"))
+        XCTAssertFalse(hardDeleteDetail.contains("recoverable"))
+    }
+
+    func testCompletedStatusCopyKeepsPartialFailuresVisuallySeparate() {
+        let copy = DeduplicateView.completedStatusCopy(for: DeduplicateCommitSummary(
+            deletedCount: 3,
+            failedCount: 1,
+            bytesReclaimed: 1_048_576,
+            receiptPath: "/tmp/receipt.json",
+            hardDelete: false
+        ))
+
+        XCTAssertEqual(copy.message, "Removed 3 files · reclaimed 1 MB")
+        XCTAssertEqual(copy.warning, "1 item failed — see Run History for details.")
+    }
+
+    func testRevertedStatusCopyKeepsPartialFailuresVisuallySeparate() {
+        let copy = DeduplicateView.revertedStatusCopy(for: DeduplicateCommitSummary(
+            deletedCount: 2,
+            failedCount: 3,
+            bytesReclaimed: 1_048_576,
+            receiptPath: "/tmp/receipt.json",
+            hardDelete: false
+        ))
+
+        XCTAssertEqual(copy.message, "Restored 2 files · 1 MB returned to the destination")
+        XCTAssertEqual(copy.warning, "3 items could not be restored — see Run History for details.")
     }
 }

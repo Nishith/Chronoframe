@@ -35,6 +35,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
     let style: Style
     let title: String
     let message: String?
+    let warning: String?
     let detail: String?
     @ViewBuilder let primary: () -> Primary
     @ViewBuilder let secondary: () -> Secondary
@@ -43,6 +44,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
         style: Style,
         title: String,
         message: String? = nil,
+        warning: String? = nil,
         detail: String? = nil,
         @ViewBuilder primary: @escaping () -> Primary,
         @ViewBuilder secondary: @escaping () -> Secondary
@@ -50,6 +52,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
         self.style = style
         self.title = title
         self.message = message
+        self.warning = warning
         self.detail = detail
         self.primary = primary
         self.secondary = secondary
@@ -75,6 +78,14 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
                 Text(message)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            }
+
+            if let warning, !warning.isEmpty {
+                Text(warning)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
                     .padding(.horizontal)
             }
 
@@ -108,6 +119,7 @@ extension DeduplicateStatusView where Secondary == EmptyView {
         style: Style,
         title: String,
         message: String? = nil,
+        warning: String? = nil,
         detail: String? = nil,
         @ViewBuilder primary: @escaping () -> Primary
     ) {
@@ -115,6 +127,7 @@ extension DeduplicateStatusView where Secondary == EmptyView {
             style: style,
             title: title,
             message: message,
+            warning: warning,
             detail: detail,
             primary: primary,
             secondary: { EmptyView() }
@@ -127,12 +140,14 @@ extension DeduplicateStatusView where Primary == EmptyView, Secondary == EmptyVi
         style: Style,
         title: String,
         message: String? = nil,
+        warning: String? = nil,
         detail: String? = nil
     ) {
         self.init(
             style: style,
             title: title,
             message: message,
+            warning: warning,
             detail: detail,
             primary: { EmptyView() },
             secondary: { EmptyView() }

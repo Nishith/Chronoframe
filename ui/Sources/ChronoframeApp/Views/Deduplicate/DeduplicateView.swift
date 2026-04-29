@@ -49,6 +49,11 @@ struct DeduplicateView: View {
         }
         .navigationTitle("Deduplicate")
         .onDisappear { thumbnailLoader.cancelAll() }
+        .onChange(of: preferencesStore.dedupeAllowHardDelete) { allowHardDelete in
+            if !allowHardDelete {
+                hardDeleteForThisCommit = false
+            }
+        }
     }
 
     // MARK: - Idle
@@ -119,8 +124,7 @@ struct DeduplicateView: View {
                 HStack {
                     Spacer()
                     Button {
-                        didOnboardDeduplicate = true
-                        appState.startDeduplicateScan()
+                        startScan()
                     } label: {
                         Label("Start Scan", systemImage: "magnifyingglass")
                             .padding(.horizontal, 4)
@@ -167,7 +171,7 @@ struct DeduplicateView: View {
             },
             primary: {
                 Button("Scan Again") {
-                    appState.startDeduplicateScan()
+                    startScan()
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -212,11 +216,12 @@ struct DeduplicateView: View {
         let plan = sessionStore.currentDeletionPlan()
         let toDelete = plan.count
         let bytes = plan.totalBytes
+        let hardDelete = isHardDeleteSelected
         return HStack(spacing: DesignTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(toDelete) file\(toDelete == 1 ? "" : "s") will be \(hardDeleteForThisCommit ? "deleted" : "moved to Trash")")
+                Text(Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete))
                     .font(.subheadline.weight(.semibold))
-                Text("≈ \(byteCountFormatter.string(fromByteCount: bytes)) recoverable")
+                Text(Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -225,12 +230,13 @@ struct DeduplicateView: View {
                 Menu {
                     Toggle("Permanently delete (skip Trash)", isOn: $hardDeleteForThisCommit)
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Label("Options", systemImage: "ellipsis.circle")
                         .accessibilityLabel("Commit options")
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
+                .help("Commit options, including whether selected files move to Trash or are permanently deleted")
             }
             Button("Accept All Suggestions") {
                 sessionStore.acceptAllSuggestions()
@@ -243,28 +249,28 @@ struct DeduplicateView: View {
             .keyboardShortcut(.return, modifiers: .command)
             .buttonStyle(.borderedProminent)
             .disabled(toDelete == 0 || sessionStore.status == .committing)
-            .accessibilityHint(hardDeleteForThisCommit
+            .accessibilityHint(hardDelete
                 ? "Permanently deletes the selected files after confirmation"
                 : "Moves the selected files to the Trash after confirmation")
         }
         .padding(DesignTokens.Spacing.md)
         .background(.ultraThinMaterial)
         .confirmationDialog(
-            hardDeleteForThisCommit
+            hardDelete
                 ? "Permanently delete \(toDelete) file\(toDelete == 1 ? "" : "s")?"
                 : "Move \(toDelete) file\(toDelete == 1 ? "" : "s") to Trash?",
             isPresented: $showingCommitConfirmation
         ) {
-            Button(hardDeleteForThisCommit ? "Permanently Delete" : "Move to Trash", role: .destructive) {
+            Button(hardDelete ? "Permanently Delete" : "Move to Trash", role: .destructive) {
                 sessionStore.decisions = DedupeDecisions(
                     byPath: sessionStore.decisions.byPath,
-                    hardDelete: hardDeleteForThisCommit
+                    hardDelete: hardDelete
                 )
                 appState.commitDeduplicateDecisions()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text(hardDeleteForThisCommit
+            Text(hardDelete
                 ? "Files will be unlinked from disk immediately and cannot be recovered."
                 : "Files will move to the macOS Trash. The dedupe receipt in Run History can revert this.")
         }
@@ -273,27 +279,21 @@ struct DeduplicateView: View {
     // MARK: - Completed
 
     private var completedView: some View {
-        let summary = sessionStore.commitSummary
-        let bodyText = summary.map { summary -> String in
-            var line = "Removed \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · reclaimed \(byteCountFormatter.string(fromByteCount: summary.bytesReclaimed))"
-            if summary.failedCount > 0 {
-                line += "\n\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see Run History for details."
-            }
-            return line
-        }
+        let copy = Self.completedStatusCopy(for: sessionStore.commitSummary)
         return DeduplicateStatusView(
             style: .success,
             title: "Deduplicate complete",
-            message: bodyText,
+            message: copy.message,
+            warning: copy.warning,
             primary: {
                 Button("Close") {
-                    appState.resetDeduplicate()
+                    resetDeduplicate()
                 }
                 .buttonStyle(.borderedProminent)
             },
             secondary: {
                 Button("Scan Again") {
-                    appState.startDeduplicateScan()
+                    startScan()
                 }
             }
         )
@@ -317,21 +317,15 @@ struct DeduplicateView: View {
     /// dedupe revert restores files, it does not delete them, so the
     /// copy must not read "Removed N · reclaimed N MB".
     private var revertedView: some View {
-        let summary = sessionStore.commitSummary
-        let bodyText = summary.map { summary -> String in
-            var line = "Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(byteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination"
-            if summary.failedCount > 0 {
-                line += "\n\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see Run History for details."
-            }
-            return line
-        }
+        let copy = Self.revertedStatusCopy(for: sessionStore.commitSummary)
         return DeduplicateStatusView(
             style: .restored,
             title: "Files restored from Trash",
-            message: bodyText,
+            message: copy.message,
+            warning: copy.warning,
             primary: {
                 Button("Done") {
-                    appState.resetDeduplicate()
+                    resetDeduplicate()
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -345,7 +339,7 @@ struct DeduplicateView: View {
             message: message,
             primary: {
                 Button("Try Again") {
-                    appState.resetDeduplicate()
+                    resetDeduplicate()
                 }
                 .buttonStyle(.borderedProminent)
             }
@@ -366,6 +360,21 @@ struct DeduplicateView: View {
         }
     }
 
+    private var isHardDeleteSelected: Bool {
+        preferencesStore.dedupeAllowHardDelete && hardDeleteForThisCommit
+    }
+
+    private func startScan() {
+        hardDeleteForThisCommit = false
+        didOnboardDeduplicate = true
+        appState.startDeduplicateScan()
+    }
+
+    private func resetDeduplicate() {
+        hardDeleteForThisCommit = false
+        appState.resetDeduplicate()
+    }
+
     private func formattedDuration(_ seconds: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
@@ -374,6 +383,57 @@ struct DeduplicateView: View {
     }
 
     private var byteCountFormatter: ByteCountFormatter {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter
+    }
+}
+
+struct DeduplicateStatusCopy: Equatable {
+    var message: String?
+    var warning: String?
+}
+
+extension DeduplicateView {
+    static func commitFooterTitle(fileCount: Int, hardDelete: Bool) -> String {
+        "\(fileCount) file\(fileCount == 1 ? "" : "s") will be \(hardDelete ? "permanently deleted" : "moved to Trash")"
+    }
+
+    static func commitFooterDetail(byteCount: Int64, hardDelete: Bool) -> String {
+        let formattedBytes = statusByteCountFormatter.string(fromByteCount: byteCount)
+        return hardDelete
+            ? "≈ \(formattedBytes) will be permanently removed"
+            : "≈ \(formattedBytes) recoverable"
+    }
+
+    static func completedStatusCopy(for summary: DeduplicateCommitSummary?) -> DeduplicateStatusCopy {
+        guard let summary else {
+            return DeduplicateStatusCopy(message: nil, warning: nil)
+        }
+
+        return DeduplicateStatusCopy(
+            message: "Removed \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · reclaimed \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed))",
+            warning: summary.failedCount > 0
+                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see Run History for details."
+                : nil
+        )
+    }
+
+    static func revertedStatusCopy(for summary: DeduplicateCommitSummary?) -> DeduplicateStatusCopy {
+        guard let summary else {
+            return DeduplicateStatusCopy(message: nil, warning: nil)
+        }
+
+        return DeduplicateStatusCopy(
+            message: "Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination",
+            warning: summary.failedCount > 0
+                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see Run History for details."
+                : nil
+        )
+    }
+
+    private static var statusByteCountFormatter: ByteCountFormatter {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB, .useGB]
         formatter.countStyle = .file
