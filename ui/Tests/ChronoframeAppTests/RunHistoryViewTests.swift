@@ -1,5 +1,6 @@
 import ChronoframeAppCore
 import Foundation
+import SwiftUI
 import XCTest
 @testable import ChronoframeApp
 
@@ -48,6 +49,17 @@ final class RunHistoryViewTests: XCTestCase {
         let message = RunHistoryView.confirmationMessage(for: transferEntry)
         XCTAssertTrue(message.contains("remove the files this receipt copied"))
         XCTAssertTrue(message.contains("contents still match"))
+    }
+
+    /// Dedupe restore is affirmative — the primary button must NOT be
+    /// red. Transfer revert remains destructive. Pure helper test; no
+    /// SwiftUI rendering required.
+    func testConfirmationRoleDropsDestructiveForDedupeRestore() {
+        let dedupeEntry = makeEntry(kind: .dedupeAuditReceipt)
+        let transferEntry = makeEntry(kind: .auditReceipt)
+
+        XCTAssertNil(RunHistoryView.confirmationActionRole(for: dedupeEntry))
+        XCTAssertEqual(RunHistoryView.confirmationActionRole(for: transferEntry), .destructive)
     }
 
     /// `confirmationTitle(for:)` is also called when no entry is

@@ -43,7 +43,12 @@ struct SetupView: View {
                 )
 
                 if !didOnboard && setupStore.sourcePath.isEmpty {
-                    OnboardingCard(onDismiss: { didOnboard = true })
+                    OnboardingCard(
+                        title: "Point Chronoframe at your photo source.",
+                        subtitle: "Drag a folder anywhere on this window, or choose one below. Nothing is copied until you say so.",
+                        accessibilitySummary: "Welcome. Point Chronoframe at your photo source.",
+                        onDismiss: { didOnboard = true }
+                    )
                 }
 
                 SetupSourceStepSection(

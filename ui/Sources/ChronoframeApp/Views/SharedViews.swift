@@ -491,6 +491,7 @@ struct PathValueView: View {
                 .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.inkMuted : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(DesignTokens.Layout.pathLineLimit)
                 .truncationMode(.middle)
+                .help(value.isEmpty ? "" : value)
 
             if !helper.isEmpty {
                 Text(helper)

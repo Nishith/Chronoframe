@@ -97,6 +97,8 @@
 		AA000000000000000000025E /* DeduplicationPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000194 /* DeduplicationPlanner.swift */; };
 		AA000000000000000000025F /* ThumbnailRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000195 /* ThumbnailRenderer.swift */; };
 		AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000196 /* RunHistoryViewTests.swift */; };
+		AA0000000000000000000261 /* DeduplicateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000197 /* DeduplicateStatusView.swift */; };
+		AA0000000000000000000262 /* DeduplicateStatusViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -210,6 +212,8 @@
 		AA0000000000000000000194 /* DeduplicationPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicationPlanner.swift; sourceTree = "<group>"; };
 		AA0000000000000000000195 /* ThumbnailRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailRenderer.swift; sourceTree = "<group>"; };
 		AA0000000000000000000196 /* RunHistoryViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryViewTests.swift; sourceTree = "<group>"; };
+		AA0000000000000000000197 /* DeduplicateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateStatusView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateStatusViewTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -477,6 +481,7 @@
 				AA0000000000000000000122 /* TestSupport.swift */,
 				AA0000000000000000000133 /* AccessibilityTests.swift */,
 				AA0000000000000000000196 /* RunHistoryViewTests.swift */,
+				AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */,
 			);
 			path = ChronoframeAppTests;
 			sourceTree = "<group>";
@@ -530,6 +535,7 @@
 				AA0000000000000000000191 /* DedupeThumbnailLoader.swift */,
 				AA0000000000000000000192 /* ClusterListPane.swift */,
 				AA0000000000000000000193 /* ClusterDetailPane.swift */,
+				AA0000000000000000000197 /* DeduplicateStatusView.swift */,
 			);
 			path = Deduplicate;
 			sourceTree = "<group>";
@@ -752,6 +758,7 @@
 				AA000000000000000000025B /* DedupeThumbnailLoader.swift in Sources */,
 				AA000000000000000000025C /* ClusterListPane.swift in Sources */,
 				AA000000000000000000025D /* ClusterDetailPane.swift in Sources */,
+				AA0000000000000000000261 /* DeduplicateStatusView.swift in Sources */,
 
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -764,6 +771,7 @@
 				AA000000000000000000021D /* TestSupport.swift in Sources */,
 				AA000000000000000000022D /* AccessibilityTests.swift in Sources */,
 				AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */,
+				AA0000000000000000000262 /* DeduplicateStatusViewTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
