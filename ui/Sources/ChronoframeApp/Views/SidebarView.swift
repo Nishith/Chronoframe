@@ -10,6 +10,7 @@ struct SidebarView: View {
     @ObservedObject private var runSessionStore: RunSessionStore
     @ObservedObject private var deduplicateSessionStore: DeduplicateSessionStore
     @AppStorage("lastSeenHistoryCount") private var lastSeenHistoryCount: Int = 0
+    @AppStorage("lastSeenDeduplicateAttentionToken") private var lastSeenDeduplicateAttentionToken: String = ""
 
     init(appState: AppState) {
         self.appState = appState
@@ -54,6 +55,15 @@ struct SidebarView: View {
             if selection == .organize && appState.organizeSubSelection == .history {
                 lastSeenHistoryCount = historyStore.entries.count
             }
+            if selection == .deduplicate {
+                markCurrentDeduplicateStatusSeen()
+            }
+        }
+        .onChange(of: deduplicateSessionStore.status) { _ in
+            refreshDeduplicateAttentionMarker()
+        }
+        .onAppear {
+            refreshDeduplicateAttentionMarker()
         }
     }
 
@@ -96,7 +106,10 @@ struct SidebarView: View {
                 || historyStore.entries.count > lastSeenHistoryCount
                 || appState.canStartRun
         case .deduplicate:
-            return false
+            return Self.shouldShowDeduplicateStatusDot(
+                status: deduplicateSessionStore.status,
+                lastSeenToken: lastSeenDeduplicateAttentionToken
+            )
         case .profiles:
             return setupStore.usingProfile
         }
@@ -116,9 +129,70 @@ struct SidebarView: View {
             }
             return DesignTokens.ColorSystem.statusSuccess
         case .deduplicate:
-            return DesignTokens.ColorSystem.inkSecondary
+            switch deduplicateSessionStore.status {
+            case .failed:
+                return DesignTokens.ColorSystem.statusDanger
+            case .completed, .reverted:
+                return DesignTokens.ColorSystem.statusSuccess
+            case .readyToReview:
+                return DesignTokens.ColorSystem.accentAction
+            default:
+                return DesignTokens.ColorSystem.inkSecondary
+            }
         case .profiles:
             return DesignTokens.ColorSystem.accentWaypoint
         }
+    }
+
+    private func markCurrentDeduplicateStatusSeen() {
+        if let token = Self.deduplicateAttentionToken(for: deduplicateSessionStore.status) {
+            lastSeenDeduplicateAttentionToken = token
+        }
+    }
+
+    private func refreshDeduplicateAttentionMarker() {
+        lastSeenDeduplicateAttentionToken = Self.nextDeduplicateLastSeenToken(
+            status: deduplicateSessionStore.status,
+            isSelected: appState.selection == .deduplicate,
+            currentToken: lastSeenDeduplicateAttentionToken
+        )
+    }
+}
+
+extension SidebarView {
+    static func shouldShowDeduplicateStatusDot(
+        status: DeduplicateSessionStore.Status,
+        lastSeenToken: String
+    ) -> Bool {
+        guard let token = deduplicateAttentionToken(for: status) else {
+            return false
+        }
+        return token != lastSeenToken
+    }
+
+    static func deduplicateAttentionToken(for status: DeduplicateSessionStore.Status) -> String? {
+        switch status {
+        case .readyToReview:
+            return "readyToReview"
+        case .completed:
+            return "completed"
+        case .reverted:
+            return "reverted"
+        case .failed:
+            return "failed"
+        case .idle, .scanning, .committing, .reverting:
+            return nil
+        }
+    }
+
+    static func nextDeduplicateLastSeenToken(
+        status: DeduplicateSessionStore.Status,
+        isSelected: Bool,
+        currentToken: String
+    ) -> String {
+        guard let token = deduplicateAttentionToken(for: status) else {
+            return ""
+        }
+        return isSelected ? token : currentToken
     }
 }
