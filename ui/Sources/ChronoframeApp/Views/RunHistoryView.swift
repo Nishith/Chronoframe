@@ -112,7 +112,7 @@ struct RunHistoryView: View {
             ),
             presenting: pendingRevertEntry
         ) { entry in
-            Button(Self.confirmationActionLabel(for: entry), role: .destructive) {
+            Button(Self.confirmationActionLabel(for: entry), role: Self.confirmationActionRole(for: entry)) {
                 appState.revertHistoryEntry(entry)
                 pendingRevertEntry = nil
             }
@@ -144,6 +144,13 @@ struct RunHistoryView: View {
         switch entry.kind {
         case .dedupeAuditReceipt: return "Restore"
         default: return "Revert"
+        }
+    }
+
+    static func confirmationActionRole(for entry: RunHistoryEntry) -> ButtonRole? {
+        switch entry.kind {
+        case .dedupeAuditReceipt: return nil
+        default: return .destructive
         }
     }
 

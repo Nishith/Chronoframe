@@ -69,7 +69,13 @@ private struct ClusterRow: View {
                     )
                     .opacity(decisionFor(member) == .delete ? 0.45 : 1.0)
                     .overlay(alignment: .topTrailing) {
-                        if cluster.suggestedKeeperIDs.contains(member.id) {
+                        // Once the user has touched a decision the
+                        // scanner's suggestion is no longer actionable
+                        // signal — the decision badge / opacity already
+                        // communicate keep vs delete. Hide the seal so
+                        // the thumbnail doesn't carry three signals.
+                        let hasExplicitDecision = decisions.byPath[member.path] != nil
+                        if !hasExplicitDecision && cluster.suggestedKeeperIDs.contains(member.id) {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)

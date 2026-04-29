@@ -13,8 +13,10 @@ struct OrganizeContainerView: View {
         VStack(spacing: 0) {
             Picker("Section", selection: $appState.organizeSubSelection) {
                 ForEach(OrganizeSubSection.allCases) { sub in
-                    Label(sub.title, systemImage: sub.systemImage)
-                        .tag(sub)
+                    // `.segmented` style ignores Label icons on macOS,
+                    // so drop the `systemImage` to match what users
+                    // actually see and avoid misleading code readers.
+                    Text(sub.title).tag(sub)
                 }
             }
             .pickerStyle(.segmented)

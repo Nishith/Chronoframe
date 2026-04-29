@@ -16,6 +16,7 @@ struct DeduplicateView: View {
     @State private var focusedMemberPath: String?
     @State private var showingCommitConfirmation = false
     @State private var hardDeleteForThisCommit = false
+    @AppStorage("didOnboardDeduplicate") private var didOnboardDeduplicate = false
 
     init(appState: AppState) {
         self.appState = appState
@@ -67,12 +68,27 @@ struct DeduplicateView: View {
     private var idleView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Deduplicate")
                         .font(DesignTokens.Typography.title)
-                    Text("Find groups of nearly-identical photos in your destination, pick the keeper, and prune the rest. Suggestions are based on sharpness, faces, and resolution. Files move to the Trash so you can recover them.")
+                    Text("Find similar shots and prune.")
                         .font(DesignTokens.Typography.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                }
+
+                if !didOnboardDeduplicate {
+                    OnboardingCard(
+                        icon: "square.stack.3d.up",
+                        title: "How Deduplicate works",
+                        subtitle: "Three steps before anything moves.",
+                        bullets: [
+                            "We group similar photos.",
+                            "We pick a likely keeper using sharpness, faces, and resolution.",
+                            "You approve; others go to the Trash and can be restored from Run History."
+                        ],
+                        accessibilitySummary: "How Deduplicate works. We group similar photos, suggest a keeper, and you approve.",
+                        onDismiss: { didOnboardDeduplicate = true }
+                    )
                 }
 
                 destinationCard
@@ -82,7 +98,7 @@ struct DeduplicateView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Detection")
                         .font(.headline)
-                    Picker("", selection: $preferencesStore.dedupeSimilarityPreset) {
+                    Picker("Similarity preset", selection: $preferencesStore.dedupeSimilarityPreset) {
                         ForEach(DedupeSimilarityPreset.allCases) { preset in
                             Text(preset.title).tag(preset)
                         }
@@ -103,6 +119,7 @@ struct DeduplicateView: View {
                 HStack {
                     Spacer()
                     Button {
+                        didOnboardDeduplicate = true
                         appState.startDeduplicateScan()
                     } label: {
                         Label("Start Scan", systemImage: "magnifyingglass")
@@ -122,52 +139,39 @@ struct DeduplicateView: View {
     // MARK: - Scanning
 
     private var scanningView: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            ProgressView()
-                .controlSize(.large)
-            VStack(spacing: 6) {
-                Text(sessionStore.currentPhase?.title ?? "Scanning")
-                    .font(.headline)
-                if sessionStore.phaseTotal > 0 {
-                    Text("\(sessionStore.phaseCompleted) of \(sessionStore.phaseTotal)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+        DeduplicateStatusView(
+            style: .progress,
+            title: sessionStore.currentPhase?.title ?? "Scanning",
+            message: sessionStore.clusters.isEmpty
+                ? nil
+                : "Found \(sessionStore.clusters.count) group\(sessionStore.clusters.count == 1 ? "" : "s") so far…",
+            detail: sessionStore.phaseTotal > 0
+                ? "\(sessionStore.phaseCompleted) of \(sessionStore.phaseTotal)"
+                : nil,
+            primary: {
+                Button("Cancel", role: .destructive) {
+                    appState.cancelRun()
                 }
             }
-            if !sessionStore.clusters.isEmpty {
-                Text("Found \(sessionStore.clusters.count) groups so far…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Button("Cancel", role: .destructive) {
-                appState.cancelRun()
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        )
     }
 
     // MARK: - Empty
 
     private var emptyResultsView: some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            Image(systemName: "checkmark.seal")
-                .font(.system(size: 48))
-                .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
-            Text("Nothing to deduplicate")
-                .font(.headline)
-            if let summary = sessionStore.summary {
-                Text("Scanned \(summary.totalCandidatesScanned) photos in \(formattedDuration(summary.scanDuration)). No similar groups found.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+        DeduplicateStatusView(
+            style: .success,
+            title: "Nothing to deduplicate",
+            message: sessionStore.summary.map { summary in
+                "Scanned \(summary.totalCandidatesScanned) file\(summary.totalCandidatesScanned == 1 ? "" : "s") in \(formattedDuration(summary.scanDuration)). No similar groups found."
+            },
+            primary: {
+                Button("Scan Again") {
+                    appState.startDeduplicateScan()
+                }
+                .buttonStyle(.borderedProminent)
             }
-            Button("Scan Again") {
-                appState.startDeduplicateScan()
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        )
     }
 
     // MARK: - Review
@@ -218,28 +222,40 @@ struct DeduplicateView: View {
             }
             Spacer()
             if preferencesStore.dedupeAllowHardDelete {
-                Toggle("Hard delete", isOn: $hardDeleteForThisCommit)
-                    .toggleStyle(.switch)
-                    .controlSize(.small)
+                Menu {
+                    Toggle("Permanently delete (skip Trash)", isOn: $hardDeleteForThisCommit)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .accessibilityLabel("Commit options")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
             }
             Button("Accept All Suggestions") {
                 sessionStore.acceptAllSuggestions()
             }
             .keyboardShortcut(.return, modifiers: [.command, .shift])
+            .accessibilityHint("Marks every cluster's suggested keeper as keep and the rest as delete")
             Button("Commit", role: .destructive) {
                 showingCommitConfirmation = true
             }
             .keyboardShortcut(.return, modifiers: .command)
             .buttonStyle(.borderedProminent)
             .disabled(toDelete == 0 || sessionStore.status == .committing)
+            .accessibilityHint(hardDeleteForThisCommit
+                ? "Permanently deletes the selected files after confirmation"
+                : "Moves the selected files to the Trash after confirmation")
         }
         .padding(DesignTokens.Spacing.md)
         .background(.ultraThinMaterial)
         .confirmationDialog(
-            hardDeleteForThisCommit ? "Hard-delete \(toDelete) files?" : "Move \(toDelete) files to Trash?",
+            hardDeleteForThisCommit
+                ? "Permanently delete \(toDelete) file\(toDelete == 1 ? "" : "s")?"
+                : "Move \(toDelete) file\(toDelete == 1 ? "" : "s") to Trash?",
             isPresented: $showingCommitConfirmation
         ) {
-            Button(hardDeleteForThisCommit ? "Hard Delete" : "Move to Trash", role: .destructive) {
+            Button(hardDeleteForThisCommit ? "Permanently Delete" : "Move to Trash", role: .destructive) {
                 sessionStore.decisions = DedupeDecisions(
                     byPath: sessionStore.decisions.byPath,
                     hardDelete: hardDeleteForThisCommit
@@ -257,33 +273,30 @@ struct DeduplicateView: View {
     // MARK: - Completed
 
     private var completedView: some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
-            Text("Deduplicate complete")
-                .font(.headline)
-            if let summary = sessionStore.commitSummary {
-                Text("Removed \(summary.deletedCount) photos · reclaimed \(byteCountFormatter.string(fromByteCount: summary.bytesReclaimed))")
-                    .foregroundStyle(.secondary)
-                if summary.failedCount > 0 {
-                    Text("\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see Run History for details.")
-                        .font(.caption)
-                        .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
-                }
+        let summary = sessionStore.commitSummary
+        let bodyText = summary.map { summary -> String in
+            var line = "Removed \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · reclaimed \(byteCountFormatter.string(fromByteCount: summary.bytesReclaimed))"
+            if summary.failedCount > 0 {
+                line += "\n\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see Run History for details."
             }
-            HStack {
-                Button("Scan Again") {
-                    appState.startDeduplicateScan()
-                }
+            return line
+        }
+        return DeduplicateStatusView(
+            style: .success,
+            title: "Deduplicate complete",
+            message: bodyText,
+            primary: {
                 Button("Close") {
                     appState.resetDeduplicate()
                 }
                 .buttonStyle(.borderedProminent)
+            },
+            secondary: {
+                Button("Scan Again") {
+                    appState.startDeduplicateScan()
+                }
             }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        )
     }
 
     /// In-flight Run-History revert. Distinct from `scanningView` so the
@@ -291,71 +304,52 @@ struct DeduplicateView: View {
     /// cluster list intentionally never appears here — revert doesn't
     /// produce clusters.
     private var revertingView: some View {
-        VStack(spacing: DesignTokens.Spacing.lg) {
-            ProgressView()
-                .controlSize(.large)
-            VStack(spacing: 6) {
-                Text("Restoring files from Trash…")
-                    .font(.headline)
-                if sessionStore.phaseTotal > 0 {
-                    Text("\(sessionStore.phaseCompleted) of \(sessionStore.phaseTotal)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        DeduplicateStatusView<EmptyView, EmptyView>(
+            style: .progress,
+            title: "Restoring files from Trash…",
+            detail: sessionStore.phaseTotal > 0
+                ? "\(sessionStore.phaseCompleted) of \(sessionStore.phaseTotal)"
+                : nil
+        )
     }
 
     /// Run-History revert finished. Distinct from `completedView` —
     /// dedupe revert restores files, it does not delete them, so the
     /// copy must not read "Removed N · reclaimed N MB".
     private var revertedView: some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            Image(systemName: "arrow.uturn.backward.circle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
-            Text("Files restored from Trash")
-                .font(.headline)
-            if let summary = sessionStore.commitSummary {
-                Text("Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(byteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
-                if summary.failedCount > 0 {
-                    Text("\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see Run History for details.")
-                        .font(.caption)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
-                }
+        let summary = sessionStore.commitSummary
+        let bodyText = summary.map { summary -> String in
+            var line = "Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(byteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination"
+            if summary.failedCount > 0 {
+                line += "\n\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see Run History for details."
             }
-            Button("Done") {
-                appState.resetDeduplicate()
-            }
-            .buttonStyle(.borderedProminent)
+            return line
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        return DeduplicateStatusView(
+            style: .restored,
+            title: "Files restored from Trash",
+            message: bodyText,
+            primary: {
+                Button("Done") {
+                    appState.resetDeduplicate()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        )
     }
 
     private func failureView(message: String) -> some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
-            Text("Deduplicate failed")
-                .font(.headline)
-            Text(message)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
-            Button("Try Again") {
-                appState.resetDeduplicate()
+        DeduplicateStatusView(
+            style: .warning,
+            title: "Deduplicate failed",
+            message: message,
+            primary: {
+                Button("Try Again") {
+                    appState.resetDeduplicate()
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        )
     }
 
     // MARK: - Helpers
@@ -428,15 +422,20 @@ private struct DeduplicateDestinationCardContent: View {
             .accessibilityHint("Opens a folder picker for Deduplicate scans")
 
             if appState.hasDedicatedDeduplicateDestinationPath {
-                Button("Reveal") {
-                    appState.revealDeduplicateDestinationInFinder()
+                Menu {
+                    Button("Reveal in Finder") {
+                        appState.revealDeduplicateDestinationInFinder()
+                    }
+                    Button("Use Organize Destination") {
+                        appState.clearDeduplicateDestinationFolder()
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .accessibilityLabel("More destination actions")
                 }
-                .accessibilityHint("Reveals the Deduplicate folder in Finder")
-
-                Button("Use Organize Destination") {
-                    appState.clearDeduplicateDestinationFolder()
-                }
-                .accessibilityHint("Clears the Deduplicate folder so scans use the Organize destination")
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
             }
         }
     }

@@ -8,6 +8,7 @@ struct SidebarView: View {
     @ObservedObject private var setupStore: SetupStore
     @ObservedObject private var historyStore: HistoryStore
     @ObservedObject private var runSessionStore: RunSessionStore
+    @ObservedObject private var deduplicateSessionStore: DeduplicateSessionStore
     @AppStorage("lastSeenHistoryCount") private var lastSeenHistoryCount: Int = 0
 
     init(appState: AppState) {
@@ -15,6 +16,7 @@ struct SidebarView: View {
         self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
         self._historyStore = ObservedObject(wrappedValue: appState.historyStore)
         self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+        self._deduplicateSessionStore = ObservedObject(wrappedValue: appState.deduplicateSessionStore)
     }
 
     var body: some View {
@@ -30,7 +32,7 @@ struct SidebarView: View {
 
                 Spacer()
 
-                if destination == .organize && runSessionStore.isRunning {
+                if showsProgress(for: destination) {
                     ProgressView()
                         .controlSize(.small)
                 } else if showsStatusDot(for: destination) {
@@ -68,8 +70,21 @@ struct SidebarView: View {
                 return DesignTokens.ColorSystem.statusSuccess
             }
             return DesignTokens.ColorSystem.inkSecondary
-        case .deduplicate, .profiles:
+        case .deduplicate:
+            if deduplicateSessionStore.isWorking {
+                return DesignTokens.ColorSystem.accentAction
+            }
             return DesignTokens.ColorSystem.inkSecondary
+        case .profiles:
+            return DesignTokens.ColorSystem.inkSecondary
+        }
+    }
+
+    private func showsProgress(for destination: SidebarDestination) -> Bool {
+        switch destination {
+        case .organize: return runSessionStore.isRunning
+        case .deduplicate: return deduplicateSessionStore.isWorking
+        case .profiles: return false
         }
     }
 
