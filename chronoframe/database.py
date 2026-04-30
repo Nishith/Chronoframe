@@ -87,9 +87,3 @@ class CacheDB:
             self.conn.execute("DELETE FROM CopyJobs")
             self.conn.commit()
 
-    def clear_all(self):
-        """Nuclear option: clear everything."""
-        with self._lock:
-            self.conn.execute("DELETE FROM FileCache")
-            self.conn.execute("DELETE FROM CopyJobs")
-            self.conn.commit()

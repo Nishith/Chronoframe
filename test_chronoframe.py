@@ -40,7 +40,7 @@ from chronoframe.core import (
     build_dest_index, generate_dry_run_report, generate_audit_receipt,
     load_profile, RunLogger, SEQ_WIDTH, MAX_CONSECUTIVE_FAILURES,
     MAX_TOTAL_FAILURES, DEFAULT_WORKERS, parse_args, revert_receipt,
-    _event_subpath, _format_seq,
+    _event_subpath,
 )
 
 
@@ -371,15 +371,6 @@ class TestCacheDB(TempDirMixin, unittest.TestCase):
         db.clear_jobs()
         self.assertEqual(db.get_pending_jobs(), [])
         self.assertIn("/src.jpg", db.get_cache_dict(1))  # Cache untouched
-        db.close()
-
-    def test_clear_all(self):
-        db = self._make_db()
-        db.save_batch(1, [("/src.jpg", "h1", 10, 1.0)])
-        db.enqueue_jobs([("/src/a.jpg", "/dst/a.jpg", "h1", "PENDING")])
-        db.clear_all()
-        self.assertEqual(db.get_cache_dict(1), {})
-        self.assertEqual(db.get_pending_jobs(), [])
         db.close()
 
     def test_context_manager(self):
@@ -2189,38 +2180,6 @@ class TestIsRetryableError(unittest.TestCase):
         self.assertFalse(_is_retryable_error(Exception("generic")))
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# _format_seq
-# ════════════════════════════════════════════════════════════════════════════
-
-class TestFormatSeq(unittest.TestCase):
-
-    def test_pads_single_digit(self):
-        self.assertEqual(_format_seq(1), "001")
-
-    def test_pads_double_digit(self):
-        self.assertEqual(_format_seq(42), "042")
-
-    def test_pads_to_exact_width(self):
-        self.assertEqual(_format_seq(999), "999")
-
-    def test_widens_at_1000(self):
-        result = _format_seq(1000)
-        self.assertEqual(result, "1000")
-        self.assertGreaterEqual(len(result), SEQ_WIDTH)
-
-    def test_widens_for_large_numbers(self):
-        result = _format_seq(99999)
-        self.assertEqual(result, "99999")
-
-    def test_never_truncates(self):
-        """Overflow must widen, not truncate — no data loss."""
-        for n in [1000, 5000, 10000]:
-            self.assertEqual(_format_seq(n), str(n))
-
-    def test_lexicographic_order_preserved_within_width(self):
-        nums = [_format_seq(i) for i in range(1, 1000)]
-        self.assertEqual(nums, sorted(nums))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -2653,18 +2612,7 @@ class TestSeqOverflowWarning(TempDirMixin, unittest.TestCase):
         self.assertNotIn("mismatch", log_content.lower())
         self.assertNotIn("overflow", log_content.lower())
 
-    def test_format_seq_at_limit(self):
-        self.assertEqual(_format_seq(999), "999")
 
-    def test_format_seq_over_limit_widens(self):
-        self.assertEqual(_format_seq(1000), "1000")
-        self.assertEqual(_format_seq(9999), "9999")
-
-    def test_format_seq_data_not_lost(self):
-        """The number encoded in the filename must always be recoverable."""
-        for n in [1, 42, 999, 1000, 5000, 10000]:
-            result = _format_seq(n)
-            self.assertEqual(int(result), n)
 
 
 # ════════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import argparse
 import concurrent.futures
 import json
@@ -319,12 +318,6 @@ def revert_receipt(receipt_path):
     console.print(f"\n[bold green]Reverted {reverted_count} files[/bold green] ({failed_count} skipped/modified)")
     emit_json("task_complete", task="revert", reverted=reverted_count, skipped=failed_count)
     emit_json("complete", status="reverted")
-
-
-def _format_seq(seq):
-    """Zero-pad sequence number; widens beyond SEQ_WIDTH if needed with a warning marker."""
-    width = max(SEQ_WIDTH, len(str(seq)))
-    return str(seq).zfill(width)
 
 
 _MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
