@@ -117,6 +117,7 @@ public struct DryRunPlanner: Sendable {
         var discoveredSourceCount = 0
         var counts = CopyPlanCounts()
         var sourceSeen: Set<FileIdentity> = []
+        var planningErrors: [String] = []
 
         onEvent?(.phaseStarted(phase: .sourceHashing, total: nil))
 
@@ -165,21 +166,29 @@ public struct DryRunPlanner: Sendable {
             )
 
             if !sourceSeen.insert(identity).inserted {
-                try planningSpool.appendDuplicate(
+                do {
+                    try planningSpool.appendDuplicate(
+                        sourcePath: path,
+                        identity: identity,
+                        dateBucket: dateBucket
+                    )
+                    counts.duplicateCount += 1
+                } catch {
+                    planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
+                }
+                continue
+            }
+
+            do {
+                try planningSpool.appendPrimary(
                     sourcePath: path,
                     identity: identity,
                     dateBucket: dateBucket
                 )
-                counts.duplicateCount += 1
-                continue
+                counts.newCount += 1
+            } catch {
+                planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
             }
-
-            try planningSpool.appendPrimary(
-                sourcePath: path,
-                identity: identity,
-                dateBucket: dateBucket
-            )
-            counts.newCount += 1
         }
 
         try database.saveCacheRecords(sourceUpdates)
@@ -296,11 +305,15 @@ public struct DryRunPlanner: Sendable {
         }
 
         let sortedOverflowDates = overflowDates.sorted()
-        let warningMessages = sortedOverflowDates.isEmpty
-            ? []
+        var warningMessages = sortedOverflowDates.isEmpty
+            ? [String]()
             : [
                 "Sequence overflow on dates (>\(PlanningPathBuilder.maxSequence(for: namingRules.sequenceWidth)) files/day): \(sortedOverflowDates.joined(separator: ", "))",
             ]
+
+        if !planningErrors.isEmpty {
+            warningMessages.append(contentsOf: planningErrors)
+        }
 
         return DryRunPlanningResult(
             discoveredSourceCount: discoveredSourceCount,
@@ -666,8 +679,23 @@ private final class PlanningSpool {
         }
     }
 
+    private func evictHandlesIfNeeded() throws {
+        if primaryHandlesByDateBucket.count + duplicateHandlesByDateBucket.count >= 100 {
+            try closeOpenHandles()
+        }
+    }
+
     private func primaryHandle(for dateBucket: String) throws -> FileHandle {
         if let handle = primaryHandlesByDateBucket[dateBucket] {
+            return handle
+        }
+
+        try evictHandlesIfNeeded()
+
+        if let fileURL = primaryURLsByDateBucket[dateBucket] {
+            let handle = try FileHandle(forWritingTo: fileURL)
+            try handle.seekToEnd()
+            primaryHandlesByDateBucket[dateBucket] = handle
             return handle
         }
 
@@ -681,6 +709,15 @@ private final class PlanningSpool {
 
     private func duplicateHandle(for dateBucket: String) throws -> FileHandle {
         if let handle = duplicateHandlesByDateBucket[dateBucket] {
+            return handle
+        }
+
+        try evictHandlesIfNeeded()
+
+        if let fileURL = duplicateURLsByDateBucket[dateBucket] {
+            let handle = try FileHandle(forWritingTo: fileURL)
+            try handle.seekToEnd()
+            duplicateHandlesByDateBucket[dateBucket] = handle
             return handle
         }
 
