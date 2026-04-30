@@ -766,9 +766,9 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False, w
                         cache_db.update_job_status(src_p, 'FAILED')
                         consecutive_fail += 1
                         total_fail += 1
-                        if consecutive_fail >= MAX_CONSECUTIVE_FAILURES or total_fail >= MAX_TOTAL_FAILURES:
+                        if consecutive_fail >= MAX_CONSECUTIVE_FAILURES:
                             msg = (f"Aborting: {consecutive_fail} consecutive failures "
-                                   f"({total_fail} total out of {count + 1} attempted)")
+                                   f"(out of {count + 1} attempted)")
                             console.print(f"\n[bold red]{msg}[/bold red]")
                             if run_log:
                                 run_log.error(msg)
@@ -795,9 +795,9 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False, w
                     run_log.error(f"Copy failed: {src_p} → {dst_p}: {e}")
                 consecutive_fail += 1
                 total_fail += 1
-                if consecutive_fail >= MAX_CONSECUTIVE_FAILURES or total_fail >= MAX_TOTAL_FAILURES:
+                if consecutive_fail >= MAX_CONSECUTIVE_FAILURES:
                     msg = (f"Aborting: {consecutive_fail} consecutive failures "
-                           f"({total_fail} total out of {count + 1} attempted)")
+                           f"(out of {count + 1} attempted)")
                     console.print(f"\n[bold red]{msg}[/bold red]")
                     if run_log:
                         run_log.error(msg)

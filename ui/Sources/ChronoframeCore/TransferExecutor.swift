@@ -419,14 +419,11 @@ public struct TransferExecutor: Sendable {
         attemptedJobs: Int,
         runLogger: PersistentRunLogger
     ) -> Bool {
-        guard
-            consecutiveFailures >= failureThresholds.consecutive
-                || totalFailures >= failureThresholds.total
-        else {
+        guard consecutiveFailures >= failureThresholds.consecutive else {
             return false
         }
 
-        let message = "Aborting: \(consecutiveFailures) consecutive failures (\(totalFailures) total out of \(attemptedJobs) attempted)"
+        let message = "Aborting: \(consecutiveFailures) consecutive failures (out of \(attemptedJobs) attempted)"
         runLogger.error(message)
         return true
     }

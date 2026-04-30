@@ -204,63 +204,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         XCTAssertEqual(pendingRows.count, 3, "remaining jobs must stay PENDING for resume")
     }
 
-    /// Repeated successes must reset the *consecutive* counter, so a high
-    /// total-failure budget is honored across flapping success/fail patterns.
-    /// We exercise this by using a `total=2` threshold with `consecutive` set
-    /// high — execution stops at the second total failure even though no two
-    /// failures are adjacent.
-    func testRunAbortsAfterTotalFailureThresholdAcrossSuccessfulCopies() throws {
-        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("total", isDirectory: true)
-        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("total_src", isDirectory: true)
-        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
 
-        let database = try OrganizerDatabase(url: destinationRoot.appendingPathComponent(".organize_cache.db"))
-        defer { database.close() }
-
-        // Alternating: good, bad, good, bad, good, bad, good. Total failures = 3.
-        var jobs: [QueuedCopyJob] = []
-        for index in 0..<7 {
-            if index.isMultiple(of: 2) {
-                let src = sourceRoot.appendingPathComponent("good_\(index).jpg")
-                try Data("payload-\(index)".utf8).write(to: src)
-                let hash = try FileIdentityHasher().hashIdentity(at: src).rawValue
-                jobs.append(QueuedCopyJob(
-                    sourcePath: src.path,
-                    destinationPath: destinationRoot.appendingPathComponent("2024/01/01/good_\(index).jpg").path,
-                    hash: hash,
-                    status: .pending
-                ))
-            } else {
-                jobs.append(QueuedCopyJob(
-                    sourcePath: sourceRoot.appendingPathComponent("missing_\(index).jpg").path,
-                    destinationPath: destinationRoot.appendingPathComponent("2024/01/01/missing_\(index).jpg").path,
-                    hash: "0_missing_\(index)",
-                    status: .pending
-                ))
-            }
-        }
-        try database.enqueueQueuedJobs(jobs)
-
-        let logger = PersistentRunLogger(logURL: destinationRoot.appendingPathComponent(".organize_log.txt"))
-        try logger.open()
-        defer { logger.close() }
-
-        let executor = TransferExecutor(
-            failureThresholds: FailureThresholds(consecutive: 999, total: 2)
-        )
-        let result = try executor.execute(
-            queuedJobs: jobs,
-            database: database,
-            destinationRoot: destinationRoot,
-            verifyCopies: false,
-            runLogger: logger
-        )
-
-        XCTAssertEqual(result.failedCount, 2, "executor must stop processing at the 2nd total failure")
-        XCTAssertGreaterThanOrEqual(result.copiedCount, 1)
-        XCTAssertLessThanOrEqual(result.copiedCount, 2)
-    }
 
     // MARK: - Bytes tracking
 
