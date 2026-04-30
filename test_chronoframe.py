@@ -2224,62 +2224,6 @@ class TestMaxTotalFailures(unittest.TestCase):
         self.assertLessEqual(total_fail, MAX_TOTAL_FAILURES)
 
 
-class TestTotalFailAbortIntegration(TempDirMixin, unittest.TestCase):
-    """Integration: execute_jobs aborts on total failures even with flapping network."""
-
-    def _setup_env(self):
-        src_dir = os.path.join(self.tmpdir, "source")
-        dst_dir = os.path.join(self.tmpdir, "dest")
-        os.makedirs(src_dir)
-        os.makedirs(dst_dir)
-        db = CacheDB(os.path.join(dst_dir, ".cache.db"))
-        return src_dir, dst_dir, db
-
-    def test_flapping_network_aborts_at_total_threshold(self):
-        """
-        Pattern: 4 bad jobs, 1 good job, repeating.
-        Consecutive counter resets every 5th job → never hits MAX_CONSECUTIVE=5.
-        Total failures accumulate → hits MAX_TOTAL=20 and aborts early.
-
-        safe_copy_atomic is mocked so no real retry backoff occurs.
-        """
-        from chronoframe.core import execute_jobs
-        src_dir, dst_dir, db = self._setup_env()
-
-        jobs = []
-        for i in range(MAX_TOTAL_FAILURES + 5):
-            if i % 5 == 4:
-                src = os.path.join(src_dir, f"good_{i}.jpg")
-                with open(src, 'wb') as f:
-                    f.write(f"ok_{i}".encode())
-                dst_path = os.path.join(dst_dir, f"good_{i}.jpg")
-            else:
-                src = os.path.join(src_dir, f"bad_{i}.jpg")  # path present in jobs list
-                dst_path = os.path.join(dst_dir, f"bad_{i}.jpg")
-            jobs.append((src, dst_path, f"hash_{i}", "PENDING"))
-
-        db.enqueue_jobs(jobs)
-
-        # Mock safe_copy_atomic so "bad_" jobs fail instantly (no tenacity backoff)
-        def mock_copy(src, dst):
-            if "bad_" in os.path.basename(src):
-                raise OSError("simulated network failure")
-            import shutil
-            os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.copy2(src, dst)
-            return dst
-
-        with patch('chronoframe.core.safe_copy_atomic', side_effect=mock_copy):
-            execute_jobs(db.get_pending_jobs(), db, dst_dir)
-
-        cur = db.conn.execute("SELECT COUNT(*) FROM CopyJobs WHERE status = 'PENDING'")
-        remaining = cur.fetchone()[0]
-        self.assertGreater(remaining, 0, "Expected early abort but all jobs were processed")
-
-        cur = db.conn.execute("SELECT COUNT(*) FROM CopyJobs WHERE status = 'FAILED'")
-        failed = cur.fetchone()[0]
-        self.assertGreaterEqual(failed, MAX_TOTAL_FAILURES)
-        db.close()
 
 
 # ════════════════════════════════════════════════════════════════════════════

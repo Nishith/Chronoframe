@@ -83,11 +83,16 @@ public enum MediaDiscovery {
     }
 
     private static func partitionedChildren(of directoryURL: URL) throws -> (directories: [URL], files: [URL]) {
-        let children = try FileManager.default.contentsOfDirectory(
-            at: directoryURL,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: []
-        )
+        let children: [URL]
+        do {
+            children = try FileManager.default.contentsOfDirectory(
+                at: directoryURL,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: []
+            )
+        } catch {
+            return ([], [])
+        }
 
         var directories: [URL] = []
         var files: [URL] = []
@@ -98,8 +103,15 @@ public enum MediaDiscovery {
                 continue
             }
 
-            let resourceValues = try child.resourceValues(forKeys: [.isDirectoryKey])
-            if resourceValues.isDirectory == true {
+            let isDirectory: Bool
+            do {
+                let resourceValues = try child.resourceValues(forKeys: [.isDirectoryKey])
+                isDirectory = resourceValues.isDirectory == true
+            } catch {
+                continue
+            }
+
+            if isDirectory {
                 directories.append(child)
             } else {
                 files.append(child)
