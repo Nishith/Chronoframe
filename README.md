@@ -1,91 +1,177 @@
 # Chronoframe
 
-**Organize your photos and videos by date — automatically, safely, and with zero risk to your originals.**
+**A safe macOS photo and video organizer for messy libraries, old backups, camera cards, and NAS dumps.**
 
-Built for anyone sitting on years of messy phone dumps, camera cards, and backup drives who just wants their library in order without the stress of manually dragging files around.
+Chronoframe scans an unsorted source folder, resolves capture dates, previews exactly where files will go, and copies them into a clean destination library. Originals are never moved, renamed, edited, or deleted.
 
 | ![Chronoframe setup overview](docs/screenshots/ui-setup-overview.png) | ![Run preview with timeline](docs/screenshots/ui-run-preview.png) |
 | :---: | :---: |
-| Setup — pick a source and destination, choose a folder layout | Run preview — source-date histogram and per-phase progress |
+| Setup - choose source, destination, and layout | Run - preview, review, then transfer |
 
-> [!NOTE]
-> **Meridian Design System:** Chronoframe features a custom "Meridian" visual language — combining photographic precision with a clean timeline-based organizational logic. The hallmark is the amber waypoint dot, representing the exact moment a memory finds its place.
+## Current App
 
----
+Chronoframe is primarily a native macOS SwiftUI app with three top-level workspaces:
 
-## For everyone
+| Workspace | What it does |
+| :--- | :--- |
+| **Organize** | Setup, preview, review, transfer, health checks, history, revert, and destination reorganization |
+| **Deduplicate** | Find exact duplicates, near duplicates, and burst-like similar shots before moving chosen files to Trash |
+| **Profiles** | Save reusable source/destination setups |
 
-### What Chronoframe does
+The app uses a restrained native macOS interface with the Meridian visual language. The amber waypoint dot marks progress and attention states throughout the app.
 
-- **Reads** a folder of unsorted photos and videos — from your phone, camera, NAS, or backup drive.
-- **Figures out the date** of each file from EXIF, the filename, macOS Spotlight, or the file's modified time.
-- **Copies** each file into a clean, date-based folder structure of your choosing — originals are never touched.
-- **Skips duplicates** intelligently by comparing the actual file contents, not just filenames.
-- **Remembers every run** so you can undo it with a single click if you change your mind.
+## What Chronoframe Does
 
-### Why Chronoframe
+- Reads photos and videos from a source folder without modifying the source.
+- Resolves dates from photo metadata, filenames, filesystem creation dates, and filesystem modification dates.
+- Copies files into one of several destination layouts.
+- Detects exact duplicates by file content, not by filename.
+- Lets you review uncertain dates, duplicates, skipped items, and planned paths before transfer.
+- Saves user date and event corrections as Chronoframe planning metadata, not as EXIF edits.
+- Suggests event groupings when enabled, but never applies them automatically.
+- Shows a Library Health dashboard for unknown dates, duplicates, interrupted work, audit safety, and structure drift.
+- Keeps audit receipts so completed organize and dedupe runs can be reverted safely.
 
-- **Your originals are never modified, moved, or deleted.** Chronoframe reads from the source and writes to the destination. That's it.
-- **Duplicates are detected by content, not filename.** Two copies of the same photo named `IMG_1234.jpg` and `image.jpg` are recognized as the same file.
-- **Every run is revertible.** Chronoframe writes an audit receipt for every transfer. If you want to undo a run, it only deletes files whose contents still match — anything you've edited is left alone.
-- **Interrupted runs pick up where they left off.** The plan is saved before copying begins, so a crash, sleep, or yanked USB drive doesn't force you to start over.
+## Safety Guarantees
 
-### Install
+- **Originals are never modified.** Chronoframe only reads source files.
+- **Copies are atomic.** Files are written to a temporary path, flushed, then renamed into place.
+- **No overwrites.** Destination collisions receive a distinct filename.
+- **Duplicates are content-based.** Chronoframe uses BLAKE2b identities instead of filename guesses.
+- **Transfers are planned first.** Preview and transfer use the same override-aware planner path.
+- **Review edits make the preview stale.** Transfer is disabled until the preview is rebuilt.
+- **Revert verifies hashes.** Revert deletes only destination files whose current hash still matches the audit receipt.
+- **Deduplicate defaults to Trash.** Hard delete is available only behind an explicit Settings toggle and confirmation.
+- **Pair handling is conservative.** RAW+JPEG and Live Photo HEIC+MOV pairs can be treated as units, and keep decisions win.
 
-1. Download **`Chronoframe.zip`** from the [Releases page](https://github.com/Nishith/Chronoframe/releases).
-2. Unzip and drag **Chronoframe.app** to your Applications folder.
-3. Open the app.
+## Install
 
-> If macOS blocks the app on first launch, right-click it, choose **Open**, and confirm in the dialog.
+1. Download `Chronoframe.zip` from the [Releases page](https://github.com/Nishith/Chronoframe/releases).
+2. Unzip it.
+3. Drag `Chronoframe.app` to Applications.
+4. Open the app.
 
-### Your first run
+If macOS blocks the app on first launch, right-click `Chronoframe.app`, choose **Open**, then confirm.
 
-1. **Pick a source folder** — where your unsorted files live (drag it onto the window, or use `Cmd+O`).
-2. **Pick a destination folder** — where the organized library should go.
-3. **Click Preview.** Chronoframe scans your files and shows you exactly what will happen. No files are copied yet.
-4. **Click Transfer** when the plan looks right. A live progress view shows files discovered, hashed, and copied.
+## First Run
 
-If something goes sideways, the completion screen offers **Revert Last Run** — every file is deleted only after its hash is verified against the audit receipt, so any files you've since edited are preserved.
+1. Open **Organize > Setup**.
+2. Choose a source folder.
+3. Choose a destination folder.
+4. Pick a folder layout.
+5. Click **Preview**.
+6. Open **Run > Review** to inspect uncertain items, dates, event names, duplicates, and skipped items.
+7. Click **Transfer** once the preview is current and looks right.
 
-### Key features
+If you edit a date or event name in Review, Chronoframe saves that correction to `.organize_cache.db` and marks the preview stale. Rebuild the preview before transfer so the approved plan and actual transfer stay identical.
 
-- **Drag-and-drop source selection** — drop a folder, a mix of files, or an entire volume onto the window.
-- **Four folder layouts** — `YYYY/MM/DD`, `YYYY/MM`, `YYYY`, or `Flat` — picked per run.
-- **Live planning progress** — even on libraries with hundreds of thousands of files, you see progress as the scan happens rather than staring at a spinner.
-- **Preview before you commit** — the plan is built and shown before a single byte is copied.
-- **One-click revert** — undo any completed run, hash-verified so your edits are safe.
-- **Saved profiles** — remember your usual source/destination pairs.
-- **Keyboard shortcuts** — `Cmd+O`, `Shift+Cmd+O`, `Cmd+R`, `Cmd+Return`, `Cmd+L`. (Full list [below](#keyboard-shortcuts).)
-- **Resumes interrupted runs** automatically — the plan is persisted so you never lose work.
+## Organize Features
 
----
+### Setup
 
-## For contributors & power users
+Setup tracks the source, destination, readiness state, selected folder layout, saved profiles, and bookmark-backed folder access.
 
-The sections below document the CLI, architecture, protocols, and dev loop.
+Supported destination layouts:
 
-### Command line
+| Layout | Example |
+| :--- | :--- |
+| `YYYY/MM/DD` | `2024/06/15/2024-06-15_001.jpg` |
+| `YYYY/MM` | `2024/06/2024-06-15_001.jpg` |
+| `YYYY` | `2024/2024-06-15_001.jpg` |
+| `YYYY/Mon/Event` | `2024/Jun/Tahoe Trip/2024-06-15_001.jpg` |
+| `Flat` | `2024-06-15_001.jpg` |
 
-Chronoframe's Python backend is a fully-featured CLI. Everything the macOS app does is available here too.
+`YYYY/Mon/Event` uses an accepted event override when one exists. Without an accepted override, it preserves the existing behavior of using the source file's immediate parent folder as the event segment. Files without a date route to `Unknown_Date/`.
+
+### Preview And Review
+
+Preview scans the source and destination, hashes content, resolves dates, classifies files, writes artifacts, and shows a transfer plan before any copying happens.
+
+The Review tab is built from `.organize_logs/preview_review_*.jsonl` and includes:
+
+- Ready to copy items.
+- Already-in-destination items.
+- Exact duplicates.
+- Unknown dates.
+- Low-confidence dates.
+- Hash or read errors.
+- Planned destination paths.
+- Event suggestions when Smart Events are enabled.
+
+Review supports filters for attention items, unknown dates, low-confidence dates, duplicates, skipped items, ready items, and all items. Inline edits save durable overrides by content identity plus source path.
+
+### Smart Event Suggestions
+
+Smart Events are opt-in from Settings. When enabled, preview suggests event groups using:
+
+- Date buckets.
+- Capture-time proximity.
+- An 8-hour default split threshold.
+- Specific source folder names when useful.
+
+Generic names such as `DCIM`, `Camera`, `Photos`, `Imports`, `Downloads`, and `100APPLE` are ignored. If Chronoframe cannot find a meaningful name, it creates an unnamed group for the user to label. Suggestions are review metadata only until accepted, and accepted suggestions require a preview rebuild before transfer.
+
+### Library Health
+
+The **Organize > Health** tab scans on demand. It does not run background Vision analysis.
+
+Health cards cover:
+
+- Ready to Organize.
+- Unknown Dates in `Unknown_Date/`.
+- Duplicates in `Duplicate/` and cached exact-duplicate hints.
+- Interrupted Work from pending or failed copy jobs.
+- History & Revert Safety from audit receipts.
+- Structure Drift for destination files that do not match the selected Chronoframe layout.
+
+Recommended actions can jump to Preview, Review Unknown Dates, Deduplicate, Run History, Reorganize Destination, or Refresh Destination Index.
+
+### History, Revert, And Reorganize
+
+Run History indexes reports, logs, queue databases, transfer audit receipts, and dedupe audit receipts under `.organize_logs/`.
+
+Transfer receipts can be reverted from History. Revert is hash-verified and leaves edited or missing files alone. Dedupe receipts can also be restored through the Deduplicate workspace.
+
+Reorganize Destination can move existing Chronoframe-organized destination files from one supported layout to another while preserving safety checks.
+
+## Deduplicate Features
+
+The Deduplicate workspace scans the active organize destination by default, or a dedicated dedupe folder if you choose one.
+
+It can find:
+
+- Byte-identical duplicates using BLAKE2b identities.
+- Near-duplicate photos using Vision feature prints.
+- Burst-like groups using capture-time proximity.
+- RAW+JPEG pairs.
+- Live Photo HEIC+MOV pairs.
+
+Settings include strict, balanced, and loose similarity presets, dHash prefilter thresholds, burst-mode behavior, pair-as-unit toggles, exact-duplicate grouping, worker count, and the hard-delete safety toggle.
+
+Deduplicate caches feature prints, dHash values, dimensions, dates, and quality scores in `.organize_cache.db` so later scans are incremental. Commit writes a dedupe audit receipt before mutating anything, then moves selected files to Trash by default.
+
+## Command Line
+
+Chronoframe still ships a Python CLI at the repo root:
 
 ```bash
-# Preview what will happen — nothing is copied
+# Preview only
 python3 chronoframe.py --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
 
-# Run the organizer
+# Copy files
 python3 chronoframe.py --source ~/Photos/Unsorted --dest ~/Photos/Organized
 
-# Undo a run
+# Revert a previous transfer
 python3 chronoframe.py --revert ~/Photos/Organized/.organize_logs/audit_receipt_20260417_103000.json
 ```
 
-Dependencies install automatically on first run, or manually:
+Install Python dependencies manually if needed:
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-#### CLI reference
+CLI flags:
 
 | Flag | Description |
 | :--- | :--- |
@@ -98,159 +184,94 @@ pip3 install -r requirements.txt
 | `--revert PATH` | Undo a previous run using its audit receipt JSON |
 | `--rebuild-cache` | Force a full rebuild of the destination index |
 | `--fast-dest` | Load destination index from cache instead of scanning |
-| `--workers N` | Hashing thread count (default `8`) |
-| `--json` | Emit JSON progress events (used by the GUI) |
-| `-y`, `--yes` | Auto-confirm all prompts |
+| `--workers N` | Hashing thread count |
+| `--json` | Emit JSON progress events |
+| `-y`, `--yes` | Auto-confirm prompts |
 
-### Folder structure options
+The native app is ahead of the CLI for Review editing, Smart Event acceptance, Library Health, and Deduplicate UI workflows. The Python CLI remains compatible with the shared artifacts.
 
-| Option | Example path |
+## Generated Files
+
+Chronoframe writes shared artifacts inside the destination:
+
+| Path | Purpose |
 | :--- | :--- |
-| `YYYY/MM/DD` (default) | `2024/06/15/2024-06-15_001.jpg` |
-| `YYYY/MM` | `2024/06/2024-06-15_001.jpg` |
-| `YYYY` | `2024/2024-06-15_001.jpg` |
-| `YYYY/Mon/Event` | `2014/Apr/Tahoe trip/2014-04-10_001.jpg` |
-| `Flat` | `2024-06-15_001.jpg` |
+| `.organize_cache.db` | SQLite cache, copy queue, dedupe feature cache, and review overrides |
+| `.organize_log.txt` | Plain-text run log |
+| `.organize_logs/dry_run_report_*.csv` | Dry-run plan export |
+| `.organize_logs/preview_review_*.jsonl` | Review data for the app's Review tab |
+| `.organize_logs/audit_receipt_*.json` | Transfer receipt used by revert |
+| `.organize_logs/dedupe_audit_receipt_*.json` | Deduplicate receipt used by dedupe revert |
 
-`YYYY/Mon/Event` uses the file's immediate parent folder as the leaf. A file under `Source/Tahoe trip/` lands in `Dest/YYYY/Mon/Tahoe trip/`, with `YYYY` and `Mon` taken from the photo's date. Nested source trees collapse to the innermost folder (`Source/Trips/Tahoe trip/p.jpg` → `Dest/YYYY/Mon/Tahoe trip/p.jpg`). Files sitting directly at the source root have no event name and go into `Dest/YYYY/Mon/` instead.
+Important SQLite tables:
 
-Files without a recognizable date go into `Unknown_Date/`. Source duplicates (same content, different filename) route to `Duplicate/`.
-
-### Keyboard shortcuts
-
-| Shortcut | Action |
+| Table | Purpose |
 | :--- | :--- |
-| `Cmd+O` | Choose source folder |
-| `Shift+Cmd+O` | Choose destination folder |
-| `Shift+Cmd+P` | Toggle saved-profile field |
-| `Cmd+R` | Start a preview |
-| `Cmd+Return` | Start a transfer |
-| `Cmd+L` | Toggle activity pane |
+| `FileCache` | Source and destination path identity cache |
+| `CopyJobs` | Persisted copy queue for resume |
+| `DedupeFeatures` | Cached Vision feature prints, dHash, dimensions, dates, and quality scores |
+| `ReviewOverrides` | User date and event corrections for future preview and transfer planning |
 
-### Configuration profiles
+## Architecture
 
-Save frequently used source/destination pairs in a `profiles.yaml` at the project root:
+Chronoframe ships both a native macOS app and a Python CLI.
 
-```yaml
-default:
-  source: "/Volumes/MyDrive/Incoming"
-  dest: "/Volumes/MyDrive/Organized_Photos"
-
-mobile_backup:
-  source: "/Volumes/MyDrive/Phone_Imports"
-  dest: "/Volumes/MyDrive/Organized_Photos"
+```text
+Chronoframe/
+  chronoframe.py
+  chronoframe/
+    core.py                 # CLI orchestration, planning, execution, revert
+    database.py             # SQLite cache and queue
+    io.py                   # Atomic copy, retry, hashing, verification
+    metadata.py             # EXIF, filename, mdls, filesystem date resolution
+  ui/
+    Sources/
+      ChronoframeCore/      # Native Swift domain engine
+      ChronoframeAppCore/   # Stores, app services, engine selection
+      ChronoframeApp/       # SwiftUI app and views
+    Tests/
+    Chronoframe.xcodeproj
+  docs/screenshots/
+  script/
 ```
 
-Then run `chronoframe.py --profile mobile_backup`, or pick the profile in the app. If you don't specify `--source`/`--dest`, Chronoframe falls back to the `default` profile.
-
-> `profiles.yaml` is ignored by Git since it contains machine-specific paths.
-
-### Architecture
-
-Chronoframe ships two engines that speak the same JSON event protocol:
-
-```
- ┌────────────────────────┐       ┌────────────────────────┐
- │   macOS app (SwiftUI)  │       │   chronoframe.py CLI   │
- │                        │       │   (Rich terminal UI)   │
- └───────────┬────────────┘       └───────────┬────────────┘
-             │                                │
-             │ JSON events                    │ JSON events
-             ▼                                ▼
- ┌────────────────────────┐       ┌────────────────────────┐
- │   SwiftOrganizerEngine │       │   Python backend       │
- │   (ChronoframeCore)    │       │   (chronoframe/)       │
- │                        │       │                        │
- │  Native, in-process    │       │  EXIF + mdls + SQLite  │
- └────────────────────────┘       └────────────────────────┘
-```
-
-- The **macOS app** uses `SwiftOrganizerEngine` (in `ui/Sources/ChronoframeCore/`) for preview and transfer. Discovery, hashing (BLAKE2b), date resolution, planning, and execution are all native Swift — no Python subprocess on the hot path.
-- The **Python backend** (`chronoframe/`) still powers the `chronoframe.py` CLI and is the implementation of `--revert` — the app shells out via `BackendRunner.swift` when you click **Revert Last Run**.
-- A `HybridOrganizerEngine` in `ui/Sources/ChronoframeAppCore/Services/` selects between the two, so the app can be rebuilt on Python if needed.
-- Both engines produce the same JSON event stream and the same on-disk artifacts (`.organize_cache.db`, `.organize_logs/*.json`), so a run started by one can be inspected or reverted by the other.
-
-The Python package is organized as:
+Native Swift core modules include:
 
 | Module | Responsibility |
 | :--- | :--- |
-| `core.py` | CLI parsing, orchestration, classification, copy planning, execution, revert |
-| `io.py` | Atomic copy, retry policy, disk space checks, hash computation, verification |
-| `metadata.py` | EXIF extraction, filename date parsing, mdls/Spotlight integration |
-| `database.py` | SQLite cache and persistent copy queue |
+| `MediaDiscovery` | Source and destination media discovery |
+| `MediaDateResolver` | Rich date source and confidence resolution |
+| `FileIdentityHasher` / `BLAKE2bHasher` | Content identity hashing |
+| `DryRunPlanner` | Override-aware preview and transfer planning |
+| `CopyPlanBuilder` | Destination routing, sequence allocation, duplicate routing |
+| `TransferExecutor` | Atomic copy execution and verification |
+| `RevertExecutor` | Hash-verified transfer revert |
+| `ReorganizeExecutor` | Destination layout migration |
+| `DeduplicateScanner` | Exact and visual duplicate analysis |
+| `DeduplicationPlanner` | Keep/delete mutation planning |
+| `DeduplicateExecutor` | Trash/delete commit and dedupe revert |
+| `LibraryHealthScanner` | On-demand destination health checks |
 
-### Safety & correctness guarantees
+The app defaults to `SwiftOrganizerEngine` for preview, transfer, revert, and reorganize. `PythonOrganizerEngine` remains available for compatibility and CLI parity work.
 
-- **Source is never modified or deleted.** Chronoframe only reads from the source.
-- **Deduplication by content, not filename.** Files are compared using full-file BLAKE2b hashes.
-- **Atomic writes.** Every copy is staged to `*.tmp`, flushed with `fsync()`, then renamed into place. An interrupted copy never leaves a partial file at the final path.
-- **No overwrites.** If a destination file already exists, the new file is written as `_collision_N` instead.
-- **Verification available.** With `--verify`, each copy is re-hashed after writing. Failed verifications remove the bad copy and mark the job as `FAILED`.
-- **Safe revert.** `--revert` verifies each destination file's hash before deletion — modified files are preserved.
-- **Audit trail.** Every completed run produces a JSON receipt recording source, destination, and hash for each transfer.
+## Date Resolution
 
-### Atomic copy path
+The native app records both the date and how confident Chronoframe is about it.
 
-`safe_copy_atomic()` in `chronoframe/io.py` performs:
+Sources:
 
-1. Ensure the destination directory exists.
-2. Check available disk space (10 MB safety buffer).
-3. Choose a collision-safe final path if needed.
-4. Copy to `final_path.tmp`.
-5. `fsync()` the temporary file.
-6. Rename the temp file into place.
+1. Photo metadata.
+2. Filename patterns.
+3. Filesystem creation date.
+4. Filesystem modification date.
+5. User override.
+6. Unknown.
 
-The native Swift equivalent in `ui/Sources/ChronoframeCore/TransferExecutor.swift` follows the same sequence.
+Confidence values are high, medium, low, or unknown. Unknown dates still route to `Unknown_Date/` unless the user saves an override in Review.
 
-### Concurrency model
+## JSON Event Protocol
 
-- **Hashing is parallel.** `--workers N` (default `8`) controls the thread pool that hashes source files and destination-index files. Hashing is CPU-light and IO-dominated, so raising this rarely helps beyond 8–16.
-- **Copy execution is serial.** A single writer thread consumes the plan. This is intentional — atomic rename semantics depend on one-at-a-time writes to the destination, and the bottleneck in practice is destination IO, not CPU.
-- **Two abort thresholds** protect against flapping storage:
-  - **5 consecutive failures** → abort the run.
-  - **20 total failures** → abort the run.
-
-### Retry & abort policy
-
-Retries use exponential backoff for transient `OSError`s. These errors are treated as **permanent** and fail immediately:
-
-| Error | Meaning |
-| :--- | :--- |
-| `ENOSPC` | No space left on device |
-| `ENOENT` | File not found |
-| `ENOTDIR` | Path component is not a directory |
-| `EISDIR` | Is a directory |
-| `EINVAL` | Invalid argument |
-| `EACCES` | Permission denied |
-| `EPERM` | Operation not permitted |
-
-Permanent failures surface as the original `OSError` (not wrapped in a `RetryError`) via `tenacity`'s `reraise=True`.
-
-### Resume queue
-
-The destination root contains `.organize_cache.db` — a SQLite database in WAL mode with two tables:
-
-| Table | Contents |
-| :--- | :--- |
-| `FileCache` | Source/destination path → hash, size, mtime — avoids re-hashing on subsequent runs |
-| `CopyJobs` | Persisted copy plan with `PENDING`, `COPIED`, or `FAILED` state per file |
-
-The queue is written **before** transfers begin, so an interrupted run can resume without rebuilding the plan. `--rebuild-cache` forces a full re-scan when you want to be absolutely sure the cache isn't stale.
-
-### Date extraction
-
-Date extraction is layered and degrades gracefully:
-
-1. **EXIF** via `exifread` — most accurate for camera files.
-2. **Filename patterns** — e.g. `IMG_20210417_120000.jpg`, `VID_20200101_...`.
-3. **macOS Spotlight** via `mdls` — timezone-aware UTC → local conversion.
-4. **Filesystem `mtime`** — last resort.
-
-Files without a determinable date are routed to `Unknown_Date/`.
-
-### JSON event protocol
-
-When launched with `--json`, the backend emits one JSON object per line. The SwiftUI app consumes this stream to drive its UI; you can consume it from any other tool the same way.
+The Python backend can emit one JSON object per line with `--json`. The app also normalizes native Swift engine events into the same high-level run model.
 
 | Event type | Key fields |
 | :--- | :--- |
@@ -263,52 +284,46 @@ When launched with `--json`, the backend emits one JSON object per line. The Swi
 | `prompt` | `message` |
 | `complete` | `status`, `dest`, `report` |
 
-Example `task_progress` payload during a transfer:
+Example:
 
 ```json
-{"type": "task_progress", "task": "copy", "completed": 412, "total": 8193,
- "bytes_copied": 1824251904, "bytes_total": 35280441344}
+{"type":"task_progress","task":"copy","completed":412,"total":8193,"bytes_copied":1824251904,"bytes_total":35280441344}
 ```
 
-Example terminal `complete` payload:
+## Build From Source
 
-```json
-{"type": "complete", "status": "success",
- "dest": "/Volumes/Photos/Organized",
- "report": ".organize_logs/audit_receipt_20260417_103000.json"}
+### SwiftPM tests
+
+Use a local home and module cache to avoid system cache noise:
+
+```bash
+/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift test --package-path ui"
 ```
 
-### Audit receipt schema
+Meaningful Swift coverage gate:
 
-Every completed transfer writes an audit receipt to `<dest>/.organize_logs/audit_receipt_YYYYMMDD_HHMMSS.json`:
-
-```json
-{
-  "timestamp": "2026-04-17T10:30:00",
-  "total_jobs": 1234,
-  "status": "COMPLETED",
-  "transfers": [
-    {"source": "/Volumes/Incoming/IMG_1234.jpg",
-     "dest":   "/Volumes/Photos/Organized/2024/06/15/2024-06-15_001.jpg",
-     "hash":   "4f3a…"}
-  ]
-}
+```bash
+script/swift_meaningful_coverage.sh
 ```
 
-`--revert` reads this file, re-hashes each destination, and only deletes files whose hash still matches — edited files are preserved. The schema is stable and safe to parse from external tools.
+This gate focuses on deterministic domain logic, planning, hashing, indexing, user-facing formatting, review metadata, and health scanning. It intentionally excludes most SwiftUI view rendering.
 
-### Generated files
+### Xcode build
 
-| File | Purpose |
-| :--- | :--- |
-| `.organize_cache.db` | SQLite cache and persisted copy queue |
-| `.organize_log.txt` | Plain-text run log |
-| `.organize_logs/dry_run_report_*.csv` | Dry-run plan export |
-| `.organize_logs/audit_receipt_*.json` | Transfer receipt (also used for `--revert`) |
+```bash
+xcodebuild \
+  -project ui/Chronoframe.xcodeproj \
+  -scheme Chronoframe \
+  -configuration Debug \
+  -derivedDataPath .tmp/ChronoframeDerivedData \
+  -destination "generic/platform=macOS" \
+  CODE_SIGNING_ALLOWED=NO \
+  build
+```
 
-### Building from source
+The Xcode project is used by CodeQL and app builds. If you add a Swift source file that must compile in the app, keep `ui/Chronoframe.xcodeproj/project.pbxproj` in sync with SwiftPM.
 
-#### macOS app
+### App bundle
 
 ```bash
 cd ui
@@ -316,106 +331,77 @@ cd ui
 open "build/Chronoframe.app"
 ```
 
-For a release archive:
+Release archive:
 
 ```bash
 cd ui
 ./archive.sh
 ```
 
-To validate an existing bundle:
+Validate a bundle:
 
 ```bash
 python3 ui/Packaging/validate_app_bundle.py ui/build/Chronoframe.app
 ```
 
-### Testing
-
-The test suite contains **238 tests** — backend coverage (`test_chronoframe.py`), a packaging smoke test (`test_ui_build.py`), and bundle validator tests (`test_ui_packaging.py`).
+### Python tests
 
 ```bash
 python3 -m unittest test_chronoframe test_ui_build test_ui_packaging -v
 ```
 
-Coverage includes: hashing and cache reuse, atomic copy and collision handling, retry classification, permission-denied fast-fail (EACCES/EPERM), timezone-aware date parsing (MDLS), destination indexing, classification fallback chains, copy execution and abort thresholds, dry-run reports, audit receipts, revert logic, profile loading, and CLI parsing.
+Python coverage:
 
-Specialized test suites:
+```bash
+python3 -m coverage run -m unittest test_chronoframe test_ui_build test_ui_packaging -v
+python3 -m coverage report -m --omit "test_*"
+```
+
+Additional parity and benchmark suites:
 
 | File | Focus |
 | :--- | :--- |
-| `test_parity_fixtures.py` | Swift ↔ Python planning parity |
-| `test_execution_parity_fixtures.py` | Swift ↔ Python execution parity |
-| `test_benchmarks.py` | Hashing/scanning microbenchmarks |
+| `test_parity_fixtures.py` | Swift and Python dry-run planning parity |
+| `test_execution_parity_fixtures.py` | Swift and Python transfer execution parity |
+| `test_benchmarks.py` | Hashing and scanning microbenchmarks |
 
-### Repository layout
+Before committing:
 
-```text
-Chronoframe/
-  chronoframe.py               # Bootstrap wrapper (dependency check + launch)
-  requirements.txt
-  README.md
-  chronoframe/                 # Python backend package
-    __init__.py
-    __main__.py
-    core.py                    # Orchestration, classification, revert
-    database.py                # SQLite cache and queue
-    io.py                      # Atomic copy, retry, hashing
-    metadata.py                # Date extraction (EXIF, filename, mdls)
-  ui/                          # macOS SwiftUI frontend
-    Sources/
-      ChronoframeApp/          # SwiftUI views and app scaffold
-        App/
-        Views/
-      ChronoframeAppCore/      # Stores, services, engine selection
-        Services/
-          OrganizerEngine.swift        # protocol
-          SwiftOrganizerEngine.swift   # native engine
-          PythonOrganizerEngine.swift  # legacy subprocess engine
-          HybridOrganizerEngine.swift  # selects between them
-        Stores/
-      ChronoframeCore/         # Native engine (hashing, discovery, planning)
-        BLAKE2bHasher.swift
-        CopyPlanBuilder.swift
-        MediaDiscovery.swift
-        MediaDateResolver.swift
-        TransferExecutor.swift
-        …
-      BackendRunner.swift      # Python subprocess launcher (revert path)
-      ContentView.swift        # Top-level SwiftUI composition
-      ChronoframeApp.swift     # @main entry
-    Tools/
-      IconGenerator.swift
-    Packaging/
-      validate_app_bundle.py
-      Chronoframe.entitlements
-    Resources/
-      AppIcon.iconset/
-      AppIcon.icns
-    build.sh                   # Dev build script
-    archive.sh                 # Release archive script
-    Chronoframe.xcodeproj
-  docs/
-    screenshots/
-  test_chronoframe.py          # Backend tests
-  test_ui_build.py             # macOS packaging smoke test
-  test_ui_packaging.py         # App-bundle validator tests
+```bash
+git diff --check
 ```
 
-### Contributing
+## Profiles
 
-Dev loop:
+Profiles can be saved in the app or provided to the CLI through `profiles.yaml`:
 
-1. Make changes to the Python backend under `chronoframe/` or the Swift engine under `ui/Sources/`.
-2. Run the test suite: `python3 -m unittest test_chronoframe test_ui_build test_ui_packaging`.
-3. For UI changes, rebuild: `cd ui && ./build.sh && open build/Chronoframe.app`.
-4. To regenerate the app icon from the vector source: run `ui/Tools/IconGenerator.swift`.
+```yaml
+default:
+  source: "/Volumes/MyDrive/Incoming"
+  dest: "/Volumes/MyDrive/Organized_Photos"
 
-When you add a backend feature, add tests in `test_chronoframe.py` alongside the existing suites (look for the nearest `class` matching your area — e.g. `TestAtomicCopy`, `TestRevertReceipt`). Parity fixtures in `test_parity_fixtures.py` and `test_execution_parity_fixtures.py` exist to keep the Swift and Python engines aligned; if you change behavior in one engine, update the other or the fixture.
+mobile_backup:
+  source: "/Volumes/MyDrive/Phone_Imports"
+  dest: "/Volumes/MyDrive/Organized_Photos"
+```
 
-### Notes & tradeoffs
+`profiles.yaml` is ignored by Git because it contains machine-specific paths.
 
-- The destination cache is a performance optimization. Use `--rebuild-cache` when you want a guaranteed fresh index.
-- `--fast-dest` is for repeated previews against a stable destination — don't rely on it indefinitely without a full rebuild.
-- The GUI is macOS-specific, but the Python backend runs on any platform with Python 3.9+.
-- Spotlight-based date extraction (`mdls`) is macOS-only. On other platforms, Chronoframe falls through to EXIF, filename, and `mtime`.
-- There is no automated release pipeline today; releases are built locally with `./archive.sh` and uploaded to GitHub Releases manually.
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+| :--- | :--- |
+| `Cmd+O` | Choose source folder |
+| `Shift+Cmd+O` | Choose destination folder |
+| `Shift+Cmd+P` | Toggle saved-profile field |
+| `Cmd+R` | Start a preview |
+| `Cmd+Return` | Start a transfer |
+| `Cmd+L` | Toggle activity pane |
+
+## Notes
+
+- The GUI is macOS-specific.
+- The Python CLI runs wherever the Python dependencies are available, with macOS-only Spotlight date resolution skipped on other platforms.
+- The destination cache is a performance optimization. Use `--rebuild-cache` when you need a guaranteed fresh destination index.
+- `--fast-dest` is for repeated previews against a stable destination.
+- Releases are currently built locally and uploaded to GitHub Releases manually.
