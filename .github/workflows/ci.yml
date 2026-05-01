@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  whitespace:
+    name: Whitespace check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: git diff --check
+
+  python-tests:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Run Python test suite
+        run: |
+          python -m unittest \
+            test_chronoframe \
+            test_ui_build \
+            test_ui_packaging \
+            test_parity_fixtures \
+            test_execution_parity_fixtures \
+            test_benchmarks \
+            -v
+
+  swiftpm-tests:
+    name: SwiftPM tests
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run SwiftPM tests
+        run: |
+          mkdir -p .tmp/home/Library/Caches .tmp/modulecache
+          HOME="$PWD/.tmp/home" \
+          XDG_CACHE_HOME="$PWD/.tmp/home/Library/Caches" \
+          CLANG_MODULE_CACHE_PATH="$PWD/.tmp/modulecache" \
+          SWIFTPM_MODULECACHE_OVERRIDE="$PWD/.tmp/modulecache" \
+          swift test --package-path ui --disable-sandbox
+
+  meaningful-coverage:
+    name: Meaningful Swift coverage
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run meaningful coverage gate
+        run: script/swift_meaningful_coverage.sh
+
+  xcode-build:
+    name: Xcode build
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build Chronoframe app
+        run: |
+          xcodebuild \
+            -project ui/Chronoframe.xcodeproj \
+            -scheme Chronoframe \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/ChronoframeDerivedData" \
+            -destination "generic/platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  release-archive-smoke:
+    name: Release archive smoke
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build release archive
+        run: |
+          cd ui
+          ./archive.sh
+      - name: Check release archive
+        run: |
+          test -f ui/build/Chronoframe-release.zip
+          shasum -a 256 ui/build/Chronoframe-release.zip

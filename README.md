@@ -1,5 +1,10 @@
 # Chronoframe
 
+[![CI](https://github.com/Nishith/Chronoframe/actions/workflows/ci.yml/badge.svg)](https://github.com/Nishith/Chronoframe/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Nishith/Chronoframe/actions/workflows/codeql.yml/badge.svg)](https://github.com/Nishith/Chronoframe/actions/workflows/codeql.yml)
+[![Release](https://img.shields.io/github/v/release/Nishith/Chronoframe?label=release)](https://github.com/Nishith/Chronoframe/releases/latest)
+[![License](https://img.shields.io/badge/license-source--visible-lightgrey)](LICENSE)
+
 **Bring order to years of scattered photos without risking the originals.**
 
 Most photo libraries do not become messy all at once. They pile up slowly across old phones, camera cards, laptop folders, external drives, shared family backups, and "I'll sort this later" dumps. Chronoframe is for the moment when you want those memories organized, but you do not want to drag thousands of files around by hand or worry that one wrong click will damage the only copy you have.
@@ -398,4 +403,4 @@ mobile_backup:
 - The Python CLI runs wherever the Python dependencies are available, with macOS-only Spotlight date resolution skipped on other platforms.
 - The destination cache is a performance optimization. Use `--rebuild-cache` when you need a guaranteed fresh destination index.
 - `--fast-dest` is for repeated previews against a stable destination.
-- Releases are currently built locally and uploaded to GitHub Releases manually.
+- Releases can be packaged with the Release Package GitHub Actions workflow or locally with `ui/archive.sh`, then uploaded to GitHub Releases with a checksum.
