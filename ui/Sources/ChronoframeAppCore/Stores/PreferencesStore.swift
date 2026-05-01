@@ -57,6 +57,10 @@ public final class PreferencesStore: ObservableObject {
         didSet { persist(folderStructure.rawValue, key: "folderStructure") }
     }
 
+    @Published public var smartEventSuggestionsEnabled: Bool {
+        didSet { persist(smartEventSuggestionsEnabled, key: "smartEventSuggestionsEnabled") }
+    }
+
     @Published public var dedupeTimeWindowSeconds: Int {
         didSet { persist(dedupeTimeWindowSeconds, key: "dedupeTimeWindowSeconds") }
     }
@@ -98,6 +102,7 @@ public final class PreferencesStore: ObservableObject {
         self.lastSelectedProfileName = defaults.string(forKey: "lastSelectedProfileName") ?? ""
         let storedStructure = defaults.string(forKey: "folderStructure").flatMap(FolderStructure.init(rawValue:))
         self.folderStructure = storedStructure ?? .yyyyMMDD
+        self.smartEventSuggestionsEnabled = defaults.object(forKey: "smartEventSuggestionsEnabled") as? Bool ?? false
         self.dedupeTimeWindowSeconds = defaults.object(forKey: "dedupeTimeWindowSeconds") as? Int ?? 30
         self.dedupeBurstModeEnabled = defaults.object(forKey: "dedupeBurstModeEnabled") as? Bool ?? true
         let storedPreset = defaults.string(forKey: "dedupeSimilarityPreset").flatMap(DedupeSimilarityPreset.init(rawValue:))

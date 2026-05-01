@@ -68,6 +68,37 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         XCTAssertEqual(reader.photoMetadataCallCount, 1)
     }
 
+    func testResolvedDateReportsSourceAndConfidence() {
+        let metadataReader = StubMetadataReader(
+            photoDate: makeDate("2023-06-15"),
+            creationDate: makeDate("2020-01-01"),
+            modificationDate: makeDate("2024-01-01")
+        )
+        let metadataResult = FileDateResolver(metadataReader: metadataReader)
+            .resolveResolvedDate(for: "/photos/IMG_20210501_120000.jpg")
+
+        XCTAssertEqual(dayString(metadataResult.date), "2023-06-15")
+        XCTAssertEqual(metadataResult.source, .photoMetadata)
+        XCTAssertEqual(metadataResult.confidence, .high)
+
+        let filenameReader = StubMetadataReader(
+            photoDate: nil,
+            creationDate: makeDate("2020-01-01"),
+            modificationDate: makeDate("2024-01-01")
+        )
+        let filenameResult = FileDateResolver(metadataReader: filenameReader)
+            .resolveResolvedDate(for: "/photos/IMG_20210501_120000.jpg")
+
+        XCTAssertEqual(dayString(filenameResult.date), "2021-05-01")
+        XCTAssertEqual(filenameResult.source, .filename)
+        XCTAssertEqual(filenameResult.confidence, .medium)
+
+        let filesystemResult = FileDateResolver(metadataReader: filenameReader)
+            .resolveResolvedDate(for: "/photos/random_name.jpg")
+        XCTAssertEqual(filesystemResult.source, .fileSystemCreation)
+        XCTAssertEqual(filesystemResult.confidence, .low)
+    }
+
     func testFileDateResolverUsesFilenameWhenMetadataUnavailable() {
         let reader = StubMetadataReader(
             photoDate: nil,

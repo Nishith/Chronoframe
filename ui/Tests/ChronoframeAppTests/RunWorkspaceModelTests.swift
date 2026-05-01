@@ -115,4 +115,33 @@ final class RunWorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.throughputSummaryValue, "12.3 MB/s · 1m 35s")
         XCTAssertNotEqual(model.byteProgressSummaryValue, "Measuring")
     }
+
+    func testStalePreviewReviewDisablesTransfer() {
+        let model = RunWorkspaceModel(
+            context: RunWorkspaceContext(
+                status: .dryRunFinished,
+                currentMode: .preview,
+                currentTaskTitle: "Preview complete",
+                currentPhase: .classification,
+                progress: 1,
+                metrics: RunMetrics(plannedCount: 3),
+                summary: nil,
+                lastErrorMessage: nil,
+                warningCount: 0,
+                errorCount: 0,
+                issueCount: 0,
+                logEntries: [],
+                historyDestinationRoot: "/Volumes/Archive",
+                currentSourceRoot: "/Volumes/Ingest",
+                canStartRun: true,
+                previewReviewIsStale: true,
+                previewReviewSummary: PreviewReviewSummary(totalCount: 3, readyCount: 3),
+                previewReviewPath: "/Volumes/Archive/.organize_logs/preview_review.jsonl"
+            )
+        )
+
+        XCTAssertFalse(model.canStartTransferFromPreview)
+        XCTAssertTrue(model.previewReviewMessage.contains("Rebuild the preview"))
+        XCTAssertEqual(model.tabTitle(.review), "Review")
+    }
 }

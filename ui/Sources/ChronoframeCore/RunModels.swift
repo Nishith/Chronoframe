@@ -256,17 +256,20 @@ public struct RunMetrics: Equatable, Codable, Sendable {
 public struct RunArtifactPaths: Equatable, Codable, Sendable {
     public var destinationRoot: String
     public var reportPath: String?
+    public var previewReviewPath: String?
     public var logFilePath: String?
     public var logsDirectoryPath: String?
 
     public init(
         destinationRoot: String = "",
         reportPath: String? = nil,
+        previewReviewPath: String? = nil,
         logFilePath: String? = nil,
         logsDirectoryPath: String? = nil
     ) {
         self.destinationRoot = destinationRoot
         self.reportPath = reportPath
+        self.previewReviewPath = previewReviewPath
         self.logFilePath = logFilePath
         self.logsDirectoryPath = logsDirectoryPath
     }
@@ -282,6 +285,7 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
     public var parallelTransferEnabled: Bool
     public var workerCount: Int
     public var folderStructure: FolderStructure
+    public var eventSuggestionMode: EventSuggestionMode
 
     public init(
         mode: RunMode,
@@ -292,7 +296,8 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
         verifyCopies: Bool = false,
         parallelTransferEnabled: Bool = false,
         workerCount: Int = 8,
-        folderStructure: FolderStructure = .yyyyMMDD
+        folderStructure: FolderStructure = .yyyyMMDD,
+        eventSuggestionMode: EventSuggestionMode = .off
     ) {
         self.mode = mode
         self.sourcePath = sourcePath
@@ -303,10 +308,11 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
         self.parallelTransferEnabled = parallelTransferEnabled
         self.workerCount = workerCount
         self.folderStructure = folderStructure
+        self.eventSuggestionMode = eventSuggestionMode
     }
 
     private enum CodingKeys: String, CodingKey {
-        case mode, sourcePath, destinationPath, profileName, useFastDestinationScan, verifyCopies, parallelTransferEnabled, workerCount, folderStructure
+        case mode, sourcePath, destinationPath, profileName, useFastDestinationScan, verifyCopies, parallelTransferEnabled, workerCount, folderStructure, eventSuggestionMode
     }
 
     public init(from decoder: Decoder) throws {
@@ -320,6 +326,7 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
         self.parallelTransferEnabled = try container.decodeIfPresent(Bool.self, forKey: .parallelTransferEnabled) ?? false
         self.workerCount = try container.decodeIfPresent(Int.self, forKey: .workerCount) ?? 8
         self.folderStructure = try container.decodeIfPresent(FolderStructure.self, forKey: .folderStructure) ?? .yyyyMMDD
+        self.eventSuggestionMode = try container.decodeIfPresent(EventSuggestionMode.self, forKey: .eventSuggestionMode) ?? .off
     }
 }
 

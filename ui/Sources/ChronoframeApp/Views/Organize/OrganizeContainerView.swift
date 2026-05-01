@@ -39,6 +39,8 @@ struct OrganizeContainerView: View {
             SetupView(appState: appState)
         case .run:
             CurrentRunView(appState: appState)
+        case .health:
+            HealthDashboardView(appState: appState)
         case .history:
             RunHistoryView(appState: appState)
         }

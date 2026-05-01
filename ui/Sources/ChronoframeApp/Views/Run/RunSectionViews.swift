@@ -179,6 +179,17 @@ struct RunPreviewReviewSection: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if model.previewReviewPath != nil {
+                HStack(spacing: 8) {
+                    ForEach(model.previewReviewSummaryTiles) { tile in
+                        Label(tile.value, systemImage: tile.tone == .warning ? "exclamationmark.triangle" : "checkmark.circle")
+                            .font(.caption)
+                            .foregroundStyle(tile.tone.color)
+                            .help(tile.title)
+                    }
+                }
+            }
         }
     }
 
@@ -268,6 +279,7 @@ struct RunWorkspaceShell: View {
     let model: RunWorkspaceModel
     @Binding var workspaceTab: RunWorkspaceTab
     let appState: AppState
+    @ObservedObject var previewReviewStore: PreviewReviewStore
 
     var body: some View {
         MeridianSurfaceCard {
@@ -313,6 +325,12 @@ struct RunWorkspaceShell: View {
                     }
                 }
             }
+        case .review:
+            PreviewReviewPanel(
+                model: model,
+                store: previewReviewStore,
+                appState: appState
+            )
         case .issues:
             RunIssuesPanel(model: model)
         case .console:

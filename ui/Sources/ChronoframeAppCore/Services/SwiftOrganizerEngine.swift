@@ -342,6 +342,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         fastDestination: configuration.useFastDestinationScan,
                         workerCount: max(1, configuration.workerCount),
                         folderStructure: configuration.folderStructure,
+                        eventSuggestionMode: configuration.eventSuggestionMode,
                         onEvent: { continuation.yield($0) }
                     )
 
@@ -500,6 +501,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             fastDestination: configuration.useFastDestinationScan,
             workerCount: max(1, configuration.workerCount),
             folderStructure: configuration.folderStructure,
+            eventSuggestionMode: configuration.eventSuggestionMode,
             onEvent: { continuation.yield($0) }
         )
 
@@ -786,9 +788,11 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
 
         let timestamp = Self.timestampFormatter.string(from: Date())
         let reportURL = logsDirectoryURL.appendingPathComponent("dry_run_report_\(timestamp).csv")
+        let previewReviewURL = logsDirectoryURL.appendingPathComponent("preview_review_\(timestamp).jsonl")
         let logURL = destinationURL.appendingPathComponent(".organize_log.txt")
 
         try writeReport(result.transfers, to: reportURL)
+        try writePreviewReview(result.previewReviewItems, to: previewReviewURL)
         if !FileManager.default.fileExists(atPath: logURL.path) {
             try Data().write(to: logURL)
         }
@@ -796,6 +800,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         return RunArtifactPaths(
             destinationRoot: destinationRoot,
             reportPath: reportURL.path,
+            previewReviewPath: previewReviewURL.path,
             logFilePath: logURL.path,
             logsDirectoryPath: logsDirectoryURL.path
         )
@@ -833,6 +838,34 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
 
     nonisolated private static func csvField(_ value: String) -> String {
         "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    }
+
+    nonisolated private static func writePreviewReview(
+        _ items: [PreviewReviewItem],
+        to url: URL
+    ) throws {
+        let temporaryURL = url.appendingPathExtension("tmp")
+        FileManager.default.createFile(atPath: temporaryURL.path, contents: Data())
+        let handle = try FileHandle(forWritingTo: temporaryURL)
+        let encoder = JSONEncoder()
+
+        do {
+            for item in items {
+                let data = try encoder.encode(item)
+                try handle.write(contentsOf: data)
+                try handle.write(contentsOf: Data("\n".utf8))
+            }
+            try handle.close()
+
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.removeItem(at: url)
+            }
+            try FileManager.default.moveItem(at: temporaryURL, to: url)
+        } catch {
+            try? handle.close()
+            try? FileManager.default.removeItem(at: temporaryURL)
+            throw error
+        }
     }
 
     nonisolated private static let timestampFormatter: DateFormatter = {

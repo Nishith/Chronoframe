@@ -10,6 +10,7 @@ enum PlanningPathBuilder {
         namingRules: PlannerNamingRules,
         folderStructure: FolderStructure = .yyyyMMDD,
         sourceRoot: String? = nil,
+        eventNameOverride: String? = nil,
         minimumSequenceWidth: Int? = nil
     ) -> String {
         let fileExtension = URL(fileURLWithPath: sourcePath).pathExtension
@@ -26,8 +27,12 @@ enum PlanningPathBuilder {
 
         if dateBucket == namingRules.unknownDateDirectoryName {
             path.appendPathComponent(namingRules.unknownDateDirectoryName, isDirectory: true)
-            if folderStructure == .yyyyMonEvent, let sourceRoot {
-                let event = eventSubpath(sourcePath: sourcePath, sourceRoot: sourceRoot)
+            if folderStructure == .yyyyMonEvent {
+                let event = eventSubpath(
+                    sourcePath: sourcePath,
+                    sourceRoot: sourceRoot,
+                    eventNameOverride: eventNameOverride
+                )
                 if !event.isEmpty {
                     path.appendPathComponent(event, isDirectory: true)
                 }
@@ -61,11 +66,13 @@ enum PlanningPathBuilder {
                (1...12).contains(monthInt) {
                 path.appendPathComponent(String(components[0]), isDirectory: true)
                 path.appendPathComponent(monthAbbreviation(monthInt), isDirectory: true)
-                if let sourceRoot {
-                    let event = eventSubpath(sourcePath: sourcePath, sourceRoot: sourceRoot)
-                    if !event.isEmpty {
-                        path.appendPathComponent(event, isDirectory: true)
-                    }
+                let event = eventSubpath(
+                    sourcePath: sourcePath,
+                    sourceRoot: sourceRoot,
+                    eventNameOverride: eventNameOverride
+                )
+                if !event.isEmpty {
+                    path.appendPathComponent(event, isDirectory: true)
                 }
             }
         case .flat:
@@ -88,6 +95,22 @@ enum PlanningPathBuilder {
     /// parent folder name of `sourcePath` relative to `sourceRoot`, or "" when the
     /// file sits directly inside `sourceRoot`.
     static func eventSubpath(sourcePath: String, sourceRoot: String) -> String {
+        eventSubpath(sourcePath: sourcePath, sourceRoot: sourceRoot, eventNameOverride: nil)
+    }
+
+    private static func eventSubpath(
+        sourcePath: String,
+        sourceRoot: String?,
+        eventNameOverride: String?
+    ) -> String {
+        if let eventName = sanitizedEventName(eventNameOverride), !eventName.isEmpty {
+            return eventName
+        }
+
+        guard let sourceRoot else {
+            return ""
+        }
+
         let parentURL = URL(fileURLWithPath: sourcePath)
             .deletingLastPathComponent()
             .standardizedFileURL
@@ -98,6 +121,22 @@ enum PlanningPathBuilder {
             return ""
         }
         return parentURL.lastPathComponent
+    }
+
+    static func sanitizedEventName(_ rawValue: String?) -> String? {
+        guard let rawValue else { return nil }
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let invalid = CharacterSet(charactersIn: "/:")
+            .union(.newlines)
+            .union(.controlCharacters)
+        let parts = trimmed.components(separatedBy: invalid)
+        let sanitized = parts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+        return sanitized.isEmpty ? nil : sanitized
     }
 
     private static let monthAbbreviations = [

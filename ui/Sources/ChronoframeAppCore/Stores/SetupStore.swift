@@ -86,7 +86,8 @@ public final class SetupStore: ObservableObject {
             verifyCopies: preferences.verifyCopies,
             parallelTransferEnabled: preferences.parallelTransferEnabled,
             workerCount: max(1, preferences.workerCount),
-            folderStructure: preferences.folderStructure
+            folderStructure: preferences.folderStructure,
+            eventSuggestionMode: preferences.smartEventSuggestionsEnabled ? .suggest : .off
         )
     }
 }

@@ -138,6 +138,76 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         )
     }
 
+    func testPlannerAppliesReviewOverridesToDateAndEventPath() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("override-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("override-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        let sourceFile = sourceRoot.appendingPathComponent("DCIM/orphan.jpg")
+        try writeMediaFile(at: sourceFile, contents: "override-me")
+        let identity = try FileIdentityHasher().hashIdentity(at: sourceFile)
+        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let database = try OrganizerDatabase(url: databaseURL)
+        try database.saveReviewOverride(
+            ReviewOverride(
+                identity: identity,
+                sourcePath: sourceFile.path,
+                captureDate: makeDate("2024-04-30"),
+                eventName: "April Trip"
+            )
+        )
+        XCTAssertEqual(try database.loadReviewOverrides().map(\.identity), [identity])
+        database.close()
+
+        let result = try DryRunPlanner(
+            dateResolver: FileDateResolver(metadataReader: NoDateMetadataReader())
+        ).plan(
+            sourceRoot: sourceRoot,
+            destinationRoot: destinationRoot,
+            folderStructure: .yyyyMonEvent,
+            eventSuggestionMode: .suggest
+        )
+
+        XCTAssertEqual(result.previewReviewItems.first?.identityRawValue, identity.rawValue)
+        XCTAssertEqual(URL(fileURLWithPath: result.previewReviewItems.first?.sourcePath ?? "").standardizedFileURL.path, sourceFile.standardizedFileURL.path)
+        XCTAssertEqual(
+            result.copyJobs.map(\.destinationPath),
+            [destinationRoot.appendingPathComponent("2024/Apr/April Trip/2024-04-30_001.jpg").path]
+        )
+        let reviewItem = try XCTUnwrap(result.previewReviewItems.first)
+        XCTAssertEqual(reviewItem.dateSource, .userOverride)
+        XCTAssertEqual(reviewItem.dateConfidence, .high)
+        XCTAssertEqual(reviewItem.acceptedEventName, "April Trip")
+        XCTAssertNil(reviewItem.eventSuggestion)
+        XCTAssertEqual(reviewItem.issues, [])
+    }
+
+    func testPlannerAddsSmartEventSuggestionsWithoutApplyingThem() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("event-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("event-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        try writeMediaFile(at: sourceRoot.appendingPathComponent("Beach Day/IMG_20240501_090000.jpg"), contents: "a")
+        try writeMediaFile(at: sourceRoot.appendingPathComponent("Beach Day/IMG_20240501_100000.jpg"), contents: "b")
+
+        let result = try DryRunPlanner().plan(
+            sourceRoot: sourceRoot,
+            destinationRoot: destinationRoot,
+            folderStructure: .yyyyMonEvent,
+            eventSuggestionMode: .suggest
+        )
+
+        XCTAssertEqual(
+            result.copyJobs.map { URL(fileURLWithPath: $0.destinationPath).pathComponents.suffix(2).first },
+            ["Beach Day", "Beach Day"],
+            "Suggestions are review metadata only; existing source-folder event routing remains the applied path until the user saves an override."
+        )
+        XCTAssertEqual(Set(result.previewReviewItems.compactMap(\.eventSuggestion?.suggestedName)), ["Beach Day"])
+        XCTAssertEqual(result.previewReviewSummary.readyCount, 2)
+    }
+
     func testPlannerMultiWorkerOutputMatchesSerialOutputAndCacheRows() throws {
         let serialRoots = try makeConcurrencyScenario(named: "serial")
         let parallelRoots = try makeConcurrencyScenario(named: "parallel")
@@ -319,6 +389,19 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try Data(contents.utf8).write(to: url)
     }
+
+    private func makeDate(_ rawValue: String) -> Date {
+        Self.dayFormatter.date(from: rawValue)!
+    }
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     private func makeConcurrencyScenario(named name: String) throws -> (source: URL, destination: URL) {
         let root = temporaryDirectoryURL.appendingPathComponent("concurrency-\(name)", isDirectory: true)

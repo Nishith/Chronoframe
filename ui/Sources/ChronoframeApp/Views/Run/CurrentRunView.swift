@@ -9,6 +9,7 @@ struct CurrentRunView: View {
     @ObservedObject private var runSessionStore: RunSessionStore
     @ObservedObject private var runLogStore: RunLogStore
     @ObservedObject private var historyStore: HistoryStore
+    @ObservedObject private var previewReviewStore: PreviewReviewStore
     @State private var workspaceTab: RunWorkspaceTab = .overview
 
     init(appState: AppState) {
@@ -16,6 +17,7 @@ struct CurrentRunView: View {
         self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
         self._runLogStore = ObservedObject(wrappedValue: appState.runLogStore)
         self._historyStore = ObservedObject(wrappedValue: appState.historyStore)
+        self._previewReviewStore = ObservedObject(wrappedValue: appState.previewReviewStore)
     }
 
     private var model: RunWorkspaceModel {
@@ -23,7 +25,8 @@ struct CurrentRunView: View {
             runSessionStore: runSessionStore,
             runLogStore: runLogStore,
             historyStore: historyStore,
-            canStartRun: appState.canStartRun
+            canStartRun: appState.canStartRun,
+            previewReviewStore: previewReviewStore
         )
     }
 
@@ -50,7 +53,8 @@ struct CurrentRunView: View {
                 RunWorkspaceShell(
                     model: model,
                     workspaceTab: $workspaceTab,
-                    appState: appState
+                    appState: appState,
+                    previewReviewStore: previewReviewStore
                 )
             }
             .padding(DesignTokens.Layout.contentPadding)
@@ -63,6 +67,12 @@ struct CurrentRunView: View {
             if newValue == .finished {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
             }
+        }
+        .task(id: runSessionStore.summary?.artifacts.previewReviewPath) {
+            await previewReviewStore.load(
+                artifactPath: runSessionStore.summary?.artifacts.previewReviewPath,
+                destinationRoot: runSessionStore.summary?.artifacts.destinationRoot
+            )
         }
     }
 
