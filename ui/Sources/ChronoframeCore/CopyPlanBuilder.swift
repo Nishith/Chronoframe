@@ -4,15 +4,18 @@ public struct PlanningFileCandidate: Equatable, Codable, Sendable {
     public var sourcePath: String
     public var identity: FileIdentity?
     public var capturedAt: Date?
+    public var eventNameOverride: String?
 
     public init(
         sourcePath: String,
         identity: FileIdentity?,
-        capturedAt: Date?
+        capturedAt: Date?,
+        eventNameOverride: String? = nil
     ) {
         self.sourcePath = sourcePath
         self.identity = identity
         self.capturedAt = capturedAt
+        self.eventNameOverride = ReviewOverride.normalizedEventName(eventNameOverride)
     }
 }
 
@@ -175,6 +178,7 @@ public enum CopyPlanBuilder {
                     namingRules: namingRules,
                     folderStructure: folderStructure,
                     sourceRoot: sourceRoot,
+                    eventNameOverride: item.0.eventNameOverride,
                     minimumSequenceWidth: dayWidth
                 )
                 plannedTransfers.append(
@@ -213,6 +217,7 @@ public enum CopyPlanBuilder {
                     namingRules: namingRules,
                     folderStructure: folderStructure,
                     sourceRoot: sourceRoot,
+                    eventNameOverride: item.0.eventNameOverride,
                     minimumSequenceWidth: dayWidth
                 )
                 plannedTransfers.append(
@@ -366,6 +371,7 @@ public enum CopyPlanBuilder {
         namingRules: PlannerNamingRules,
         folderStructure: FolderStructure,
         sourceRoot: String?,
+        eventNameOverride: String?,
         minimumSequenceWidth: Int
     ) -> String {
         PlanningPathBuilder.buildDestinationPath(
@@ -377,6 +383,7 @@ public enum CopyPlanBuilder {
             namingRules: namingRules,
             folderStructure: folderStructure,
             sourceRoot: sourceRoot,
+            eventNameOverride: eventNameOverride,
             minimumSequenceWidth: minimumSequenceWidth
         )
     }

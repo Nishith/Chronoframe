@@ -21,6 +21,7 @@ public final class RunSessionStore: ObservableObject {
     @Published public private(set) var prompt: RunPrompt?
     @Published public private(set) var lastPreflight: RunPreflight?
     @Published public private(set) var lastErrorMessage: String?
+    @Published public private(set) var latestPreviewReviewPath: String?
 
     private let engine: any OrganizerEngine
     private let logStore: RunLogStore
@@ -44,6 +45,7 @@ public final class RunSessionStore: ObservableObject {
         self.prompt = nil
         self.lastPreflight = nil
         self.lastErrorMessage = nil
+        self.latestPreviewReviewPath = nil
     }
 
     public var isRunning: Bool {
@@ -226,6 +228,7 @@ public final class RunSessionStore: ObservableObject {
         prompt = nil
         lastPreflight = nil
         lastErrorMessage = nil
+        latestPreviewReviewPath = nil
         logStore.clear()
         copySpeedLastSampleDate = Date()
         copySpeedLastBytes = 0
@@ -418,6 +421,9 @@ public final class RunSessionStore: ObservableObject {
             metrics = finalMetrics
             artifacts = summary.artifacts
             self.summary = finalSummary
+            if finalSummary.status == .dryRunFinished {
+                latestPreviewReviewPath = finalSummary.artifacts.previewReviewPath
+            }
             // Record this source path in the per-destination "completed sources" log
             // before refreshing, so the refresh re-reads the updated file.
             if finalSummary.status == .finished || finalSummary.status == .nothingToCopy {

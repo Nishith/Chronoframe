@@ -58,6 +58,16 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
                 SchemaColumn(name: "status", type: "TEXT", primaryKeyPosition: 0),
             ]
         )
+        XCTAssertEqual(
+            try schemaColumns(table: "ReviewOverrides", database: rawDatabase),
+            [
+                SchemaColumn(name: "identity", type: "TEXT", primaryKeyPosition: 1),
+                SchemaColumn(name: "source_path", type: "TEXT", primaryKeyPosition: 2),
+                SchemaColumn(name: "capture_date", type: "REAL", primaryKeyPosition: 0),
+                SchemaColumn(name: "event_name", type: "TEXT", primaryKeyPosition: 0),
+                SchemaColumn(name: "updated_at", type: "REAL", primaryKeyPosition: 0),
+            ]
+        )
     }
 
     func testSaveAndLoadCacheRecordsRoundTrip() throws {
@@ -119,6 +129,36 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
 
         XCTAssertEqual(try database.pendingJobCount(), 1)
         XCTAssertEqual(try database.loadCopyJobs(status: .copied).map(\.sourcePath), ["/src/a.jpg"])
+    }
+
+    func testReviewOverridesRoundTripAndDeleteWhenEmpty() throws {
+        let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+
+        let identity = FileIdentity(size: 12, digest: "review-a")
+        let date = Date(timeIntervalSince1970: 1_800_000_000)
+        try database.saveReviewOverride(
+            ReviewOverride(
+                identity: identity,
+                sourcePath: "/src/IMG_0001.jpg",
+                captureDate: date,
+                eventName: "April Trip",
+                updatedAt: Date(timeIntervalSince1970: 1_800_000_100)
+            )
+        )
+
+        let loaded = try XCTUnwrap(database.loadReviewOverride(identity: identity, sourcePath: "/src/IMG_0001.jpg"))
+        XCTAssertEqual(loaded.identity, identity)
+        XCTAssertEqual(loaded.sourcePath, "/src/IMG_0001.jpg")
+        XCTAssertEqual(loaded.captureDate, date)
+        XCTAssertEqual(loaded.eventName, "April Trip")
+        XCTAssertEqual(try database.loadReviewOverrides().count, 1)
+
+        try database.saveReviewOverride(
+            ReviewOverride(identity: identity, sourcePath: "/src/IMG_0001.jpg")
+        )
+
+        XCTAssertNil(try database.loadReviewOverride(identity: identity, sourcePath: "/src/IMG_0001.jpg"))
     }
 
     func testRawQueueAndCacheRowsRoundTripWithoutParsingIdentity() throws {

@@ -62,10 +62,13 @@ private struct LayoutSettingsTab: View {
                 }
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("folderStructurePicker")
+
+                Toggle("Suggest Smart Events During Preview", isOn: $preferencesStore.smartEventSuggestionsEnabled)
+                    .accessibilityIdentifier("smartEventSuggestionsToggle")
             } header: {
                 Text("Default Layout")
             } footer: {
-                Text("Future previews and transfers organize files into this directory layout. Existing files in the destination keep their current location until you reorganize.")
+                Text("Future previews and transfers organize files into this directory layout. Smart Events suggest editable groups in Preview; they are only applied after you accept them and rebuild the preview.")
             }
 
             Section {

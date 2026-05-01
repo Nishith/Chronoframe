@@ -17,6 +17,8 @@ final class AppState: ObservableObject {
     var runLogStore: RunLogStore
     var historyStore: HistoryStore
     var runSessionStore: RunSessionStore
+    var previewReviewStore: PreviewReviewStore
+    var libraryHealthStore: LibraryHealthStore
     var deduplicateSessionStore: DeduplicateSessionStore
 
     private let folderAccessService: any FolderAccessServicing
@@ -89,6 +91,8 @@ final class AppState: ObservableObject {
             engine = PythonOrganizerEngine(profilesRepository: profilesRepository)
         }
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
+        let previewReviewStore = PreviewReviewStore()
+        let libraryHealthStore = LibraryHealthStore()
         let deduplicateEngine = NativeDeduplicateEngine()
         let deduplicateSessionStore = DeduplicateSessionStore(engine: deduplicateEngine)
 
@@ -98,6 +102,8 @@ final class AppState: ObservableObject {
             runLogStore: runLogStore,
             historyStore: historyStore,
             runSessionStore: runSessionStore,
+            previewReviewStore: previewReviewStore,
+            libraryHealthStore: libraryHealthStore,
             deduplicateSessionStore: deduplicateSessionStore,
             folderAccessService: folderAccessService,
             finderService: finderService,
@@ -113,6 +119,8 @@ final class AppState: ObservableObject {
         runLogStore: RunLogStore,
         historyStore: HistoryStore,
         runSessionStore: RunSessionStore,
+        previewReviewStore: PreviewReviewStore? = nil,
+        libraryHealthStore: LibraryHealthStore? = nil,
         deduplicateSessionStore: DeduplicateSessionStore? = nil,
         folderAccessService: any FolderAccessServicing,
         finderService: any FinderServicing,
@@ -132,6 +140,8 @@ final class AppState: ObservableObject {
         self.runLogStore = runLogStore
         self.historyStore = historyStore
         self.runSessionStore = runSessionStore
+        self.previewReviewStore = previewReviewStore ?? PreviewReviewStore()
+        self.libraryHealthStore = libraryHealthStore ?? LibraryHealthStore()
         self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine())
         self.folderAccessService = folderAccessService
         self.finderService = finderService
@@ -204,10 +214,15 @@ final class AppState: ObservableObject {
     }
 
     func startPreview() async {
+        previewReviewStore.reset()
         await runCoordinator.startPreview()
     }
 
     func startTransfer() async {
+        if previewReviewStore.isStale {
+            transientErrorMessage = "Rebuild the preview before transferring so Chronoframe copies exactly the corrected plan."
+            return
+        }
         await runCoordinator.startTransfer()
     }
 
@@ -379,6 +394,31 @@ final class AppState: ObservableObject {
 
     func openLogsDirectory() {
         runCoordinator.openLogsDirectory()
+    }
+
+    func refreshLibraryHealth() async {
+        let destination = setupStore.destinationPath.isEmpty
+            ? historyStore.destinationRoot
+            : setupStore.destinationPath
+        await libraryHealthStore.refresh(
+            sourceRoot: setupStore.sourcePath,
+            destinationRoot: destination,
+            folderStructure: preferencesStore.folderStructure
+        )
+    }
+
+    func performLibraryHealthAction(_ action: LibraryHealthAction) {
+        switch action {
+        case .runPreview, .refreshDestinationIndex, .reviewUnknownDates:
+            navigate(to: .organize(.run))
+            Task { await startPreview() }
+        case .runDeduplicate:
+            selection = .deduplicate
+        case .openHistory:
+            navigate(to: .organize(.history))
+        case .reorganizeDestination:
+            reorganizeDestination(targetStructure: preferencesStore.folderStructure)
+        }
     }
 
     func openSettingsWindow() {

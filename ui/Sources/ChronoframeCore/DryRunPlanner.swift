@@ -5,6 +5,8 @@ public struct DryRunPlanningResult: Equatable, Sendable {
     public var destinationIndexedCount: Int
     public var sourceHashedCount: Int
     public var copyPlan: CopyPlanResult
+    public var previewReviewItems: [PreviewReviewItem]
+    public var previewReviewSummary: PreviewReviewSummary
     public var phaseSequence: [String]
     public var completeStatus: String
 
@@ -13,6 +15,7 @@ public struct DryRunPlanningResult: Equatable, Sendable {
         destinationIndexedCount: Int,
         sourceHashedCount: Int,
         copyPlan: CopyPlanResult,
+        previewReviewItems: [PreviewReviewItem] = [],
         phaseSequence: [String] = Self.pythonReferencePhaseSequence,
         completeStatus: String = Self.dryRunFinishedStatus
     ) {
@@ -20,6 +23,8 @@ public struct DryRunPlanningResult: Equatable, Sendable {
         self.destinationIndexedCount = destinationIndexedCount
         self.sourceHashedCount = sourceHashedCount
         self.copyPlan = copyPlan
+        self.previewReviewItems = previewReviewItems
+        self.previewReviewSummary = PreviewReviewSummary(items: previewReviewItems)
         self.phaseSequence = phaseSequence
         self.completeStatus = completeStatus
     }
@@ -93,6 +98,7 @@ public struct DryRunPlanner: Sendable {
         workerCount: Int = 1,
         namingRules: PlannerNamingRules = .pythonReference,
         folderStructure: FolderStructure = .yyyyMMDD,
+        eventSuggestionMode: EventSuggestionMode = .off,
         /// Called with incremental `RunEvent`s while the walks are in progress.
         /// Allows callers to stream progress to the UI without waiting for `plan()` to return.
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
@@ -112,12 +118,19 @@ public struct DryRunPlanner: Sendable {
         )
 
         let sourceCacheByPath = try loadTypedCacheRecordsByPath(namespace: .source, database: database)
+        let reviewOverrides = try database.loadReviewOverrides()
+        let reviewOverridesByKey = Dictionary(
+            uniqueKeysWithValues: reviewOverrides.map { (Self.reviewOverrideKey(identity: $0.identity, sourcePath: $0.sourcePath), $0) }
+        )
+        let reviewOverridesByIdentity = Dictionary(grouping: reviewOverrides) { $0.identity }
         let planningSpool = try PlanningSpool()
         var sourceUpdates: [FileCacheRecord] = []
         var discoveredSourceCount = 0
         var counts = CopyPlanCounts()
         var sourceSeen: Set<FileIdentity> = []
         var planningErrors: [String] = []
+        var reviewItemsBySourcePath: [String: PreviewReviewItem] = [:]
+        var eventCandidates: [EventSuggestionCandidate] = []
 
         onEvent?(.phaseStarted(phase: .sourceHashing, total: nil))
 
@@ -133,6 +146,7 @@ public struct DryRunPlanner: Sendable {
 
         for (index, path) in sourcePaths.enumerated() {
             let result = sourceResults[index]
+            let resolvedWithoutOverride = dateResolver.resolveResolvedDate(for: path)
 
             if let identity = result.identity, result.wasHashed {
                 sourceUpdates.append(
@@ -152,27 +166,87 @@ public struct DryRunPlanner: Sendable {
 
             guard let identity = result.identity else {
                 counts.hashErrorCount += 1
+                reviewItemsBySourcePath[path] = PreviewReviewItem(
+                    sourcePath: path,
+                    identityRawValue: nil,
+                    resolvedDate: resolvedWithoutOverride.date,
+                    dateSource: resolvedWithoutOverride.source,
+                    dateConfidence: resolvedWithoutOverride.confidence,
+                    plannedDestinationPath: nil,
+                    status: .hashError,
+                    issues: Self.reviewIssues(
+                        for: resolvedWithoutOverride,
+                        status: .hashError
+                    )
+                )
                 continue
             }
 
-            if destinationIndex.snapshot.pathsByIdentity[identity] != nil {
-                counts.alreadyInDestinationCount += 1
-                continue
-            }
-
+            let override = reviewOverridesByKey[Self.reviewOverrideKey(identity: identity, sourcePath: path)]
+                ?? Self.identityOnlyOverride(identity: identity, overridesByIdentity: reviewOverridesByIdentity)
+            let resolvedDate = resolvedWithoutOverride.applying(override)
             let dateBucket = DateClassification.bucket(
-                for: dateResolver.resolveDate(for: path),
+                for: resolvedDate.date,
                 namingRules: namingRules
             )
+            let acceptedEventName = ReviewOverride.normalizedEventName(override?.eventName)
+
+            if eventSuggestionMode == .suggest,
+               let capturedAt = resolvedDate.date,
+               dateBucket != namingRules.unknownDateDirectoryName,
+               acceptedEventName == nil {
+                eventCandidates.append(
+                    EventSuggestionCandidate(
+                        sourcePath: path,
+                        sourceRoot: sourceRoot.path,
+                        capturedAt: capturedAt,
+                        dateBucket: dateBucket
+                    )
+                )
+            }
+
+            if let existingDestinationPath = destinationIndex.snapshot.pathsByIdentity[identity] {
+                counts.alreadyInDestinationCount += 1
+                reviewItemsBySourcePath[path] = PreviewReviewItem(
+                    sourcePath: path,
+                    identityRawValue: identity.rawValue,
+                    resolvedDate: resolvedDate.date,
+                    dateSource: resolvedDate.source,
+                    dateConfidence: resolvedDate.confidence,
+                    plannedDestinationPath: existingDestinationPath,
+                    status: .alreadyInDestination,
+                    issues: Self.reviewIssues(
+                        for: resolvedDate,
+                        status: .alreadyInDestination
+                    ),
+                    acceptedEventName: acceptedEventName
+                )
+                continue
+            }
 
             if !sourceSeen.insert(identity).inserted {
                 do {
                     try planningSpool.appendDuplicate(
                         sourcePath: path,
                         identity: identity,
-                        dateBucket: dateBucket
+                        dateBucket: dateBucket,
+                        eventNameOverride: acceptedEventName
                     )
                     counts.duplicateCount += 1
+                    reviewItemsBySourcePath[path] = PreviewReviewItem(
+                        sourcePath: path,
+                        identityRawValue: identity.rawValue,
+                        resolvedDate: resolvedDate.date,
+                        dateSource: resolvedDate.source,
+                        dateConfidence: resolvedDate.confidence,
+                        plannedDestinationPath: nil,
+                        status: .duplicate,
+                        issues: Self.reviewIssues(
+                            for: resolvedDate,
+                            status: .duplicate
+                        ),
+                        acceptedEventName: acceptedEventName
+                    )
                 } catch {
                     planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
                 }
@@ -183,9 +257,24 @@ public struct DryRunPlanner: Sendable {
                 try planningSpool.appendPrimary(
                     sourcePath: path,
                     identity: identity,
-                    dateBucket: dateBucket
+                    dateBucket: dateBucket,
+                    eventNameOverride: acceptedEventName
                 )
                 counts.newCount += 1
+                reviewItemsBySourcePath[path] = PreviewReviewItem(
+                    sourcePath: path,
+                    identityRawValue: identity.rawValue,
+                    resolvedDate: resolvedDate.date,
+                    dateSource: resolvedDate.source,
+                    dateConfidence: resolvedDate.confidence,
+                    plannedDestinationPath: nil,
+                    status: .ready,
+                    issues: Self.reviewIssues(
+                        for: resolvedDate,
+                        status: .ready
+                    ),
+                    acceptedEventName: acceptedEventName
+                )
             } catch {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
             }
@@ -249,6 +338,7 @@ public struct DryRunPlanner: Sendable {
                             namingRules: namingRules,
                             folderStructure: folderStructure,
                             sourceRoot: sourceRoot.path,
+                            eventNameOverride: record.eventNameOverride,
                             minimumSequenceWidth: dayWidth
                         ),
                         identity: record.identity,
@@ -290,6 +380,7 @@ public struct DryRunPlanner: Sendable {
                             namingRules: namingRules,
                             folderStructure: folderStructure,
                             sourceRoot: sourceRoot.path,
+                            eventNameOverride: duplicate.eventNameOverride,
                             minimumSequenceWidth: dayWidth
                         ),
                         identity: duplicate.identity,
@@ -315,6 +406,23 @@ public struct DryRunPlanner: Sendable {
             warningMessages.append(contentsOf: planningErrors)
         }
 
+        for transfer in transfers {
+            guard var item = reviewItemsBySourcePath[transfer.sourcePath] else { continue }
+            item.plannedDestinationPath = transfer.destinationPath
+            reviewItemsBySourcePath[transfer.sourcePath] = item
+        }
+
+        if eventSuggestionMode == .suggest {
+            let suggestions = EventSuggestionEngine.suggestions(for: eventCandidates)
+            for (sourcePath, suggestion) in suggestions {
+                guard var item = reviewItemsBySourcePath[sourcePath] else { continue }
+                item.eventSuggestion = suggestion
+                reviewItemsBySourcePath[sourcePath] = item
+            }
+        }
+
+        let reviewItems = sourcePaths.compactMap { reviewItemsBySourcePath[$0] }
+
         return DryRunPlanningResult(
             discoveredSourceCount: discoveredSourceCount,
             destinationIndexedCount: destinationIndex.indexedFileCount,
@@ -329,8 +437,45 @@ public struct DryRunPlanner: Sendable {
                 ),
                 infoMessages: infoMessages,
                 dateHistogram: CopyPlanBuilder.dateHistogram(from: transfers, namingRules: namingRules)
-            )
+            ),
+            previewReviewItems: reviewItems
         )
+    }
+
+    private static func reviewOverrideKey(identity: FileIdentity, sourcePath: String) -> String {
+        "\(identity.rawValue)\u{1F}\(sourcePath)"
+    }
+
+    private static func identityOnlyOverride(
+        identity: FileIdentity,
+        overridesByIdentity: [FileIdentity: [ReviewOverride]]
+    ) -> ReviewOverride? {
+        let overrides = overridesByIdentity[identity] ?? []
+        return overrides.count == 1 ? overrides[0] : nil
+    }
+
+    private static func reviewIssues(
+        for resolvedDate: ResolvedMediaDate,
+        status: PreviewReviewStatus
+    ) -> [PreviewReviewIssueKind] {
+        var issues: [PreviewReviewIssueKind] = []
+        if resolvedDate.date == nil {
+            issues.append(.unknownDate)
+        } else if resolvedDate.confidence == .low {
+            issues.append(.lowConfidenceDate)
+        }
+
+        switch status {
+        case .ready:
+            break
+        case .alreadyInDestination:
+            issues.append(.alreadyInDestination)
+        case .duplicate:
+            issues.append(.duplicate)
+        case .hashError:
+            issues.append(.hashError)
+        }
+        return issues
     }
 
     private func buildDestinationIndex(
@@ -568,11 +713,13 @@ private enum PlanningSpoolError: Error {
 private struct PrimaryPlanningRecord {
     var sourcePath: String
     var identity: FileIdentity
+    var eventNameOverride: String?
 }
 
 private struct DuplicatePlanningRecord {
     var sourcePath: String
     var identity: FileIdentity
+    var eventNameOverride: String?
 }
 
 private final class PlanningSpool {
@@ -621,15 +768,25 @@ private final class PlanningSpool {
         duplicateCountsByDateBucket[dateBucket] ?? 0
     }
 
-    func appendPrimary(sourcePath: String, identity: FileIdentity, dateBucket: String) throws {
+    func appendPrimary(
+        sourcePath: String,
+        identity: FileIdentity,
+        dateBucket: String,
+        eventNameOverride: String?
+    ) throws {
         let handle = try primaryHandle(for: dateBucket)
-        try handle.write(contentsOf: encodeLine([sourcePath, identity.rawValue]))
+        try handle.write(contentsOf: encodeLine([sourcePath, identity.rawValue, eventNameOverride ?? ""]))
         primaryCountsByDateBucket[dateBucket, default: 0] += 1
     }
 
-    func appendDuplicate(sourcePath: String, identity: FileIdentity, dateBucket: String) throws {
+    func appendDuplicate(
+        sourcePath: String,
+        identity: FileIdentity,
+        dateBucket: String,
+        eventNameOverride: String?
+    ) throws {
         let handle = try duplicateHandle(for: dateBucket)
-        try handle.write(contentsOf: encodeLine([sourcePath, identity.rawValue]))
+        try handle.write(contentsOf: encodeLine([sourcePath, identity.rawValue, eventNameOverride ?? ""]))
         duplicateCountsByDateBucket[dateBucket, default: 0] += 1
     }
 
@@ -643,14 +800,15 @@ private final class PlanningSpool {
         }
 
         try Self.enumerateLines(at: url) { line in
-            let fields = try decodeFields(from: line, expectedCount: 2)
+            let fields = try decodeFields(from: line, expectedCount: 3)
             guard let identity = FileIdentity(rawValue: fields[1]) else {
                 throw PlanningSpoolError.invalidRecord(line)
             }
             try body(
                 PrimaryPlanningRecord(
                     sourcePath: fields[0],
-                    identity: identity
+                    identity: identity,
+                    eventNameOverride: ReviewOverride.normalizedEventName(fields[2])
                 )
             )
         }
@@ -666,14 +824,15 @@ private final class PlanningSpool {
         }
 
         try Self.enumerateLines(at: url) { line in
-            let fields = try decodeFields(from: line, expectedCount: 2)
+            let fields = try decodeFields(from: line, expectedCount: 3)
             guard let identity = FileIdentity(rawValue: fields[1]) else {
                 throw PlanningSpoolError.invalidRecord(line)
             }
             try body(
                 DuplicatePlanningRecord(
                     sourcePath: fields[0],
-                    identity: identity
+                    identity: identity,
+                    eventNameOverride: ReviewOverride.normalizedEventName(fields[2])
                 )
             )
         }

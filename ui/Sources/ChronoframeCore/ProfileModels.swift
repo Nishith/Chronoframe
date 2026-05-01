@@ -152,6 +152,7 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
 public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Sendable, Codable {
     case setup
     case run
+    case health
     case history
 
     public var id: String { rawValue }
@@ -162,6 +163,8 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
             return "Setup"
         case .run:
             return "Run"
+        case .health:
+            return "Health"
         case .history:
             return "History"
         }
@@ -173,6 +176,8 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
             return "Source, destination, readiness"
         case .run:
             return "Preview, transfer, inspect"
+        case .health:
+            return "Library readiness"
         case .history:
             return "Reports, receipts, logs"
         }
@@ -184,6 +189,8 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
             return "slider.horizontal.3"
         case .run:
             return "bolt.horizontal.circle"
+        case .health:
+            return "heart.text.square"
         case .history:
             return "clock.arrow.circlepath"
         }

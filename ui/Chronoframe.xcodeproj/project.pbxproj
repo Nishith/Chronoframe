@@ -99,6 +99,12 @@
 		AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000196 /* RunHistoryViewTests.swift */; };
 		AA0000000000000000000261 /* DeduplicateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000197 /* DeduplicateStatusView.swift */; };
 		AA0000000000000000000262 /* DeduplicateStatusViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */; };
+		AA0000000000000000000263 /* PreviewReviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000199 /* PreviewReviewModels.swift */; };
+		AA0000000000000000000264 /* LibraryHealthScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019A /* LibraryHealthScanner.swift */; };
+		AA0000000000000000000265 /* PreviewReviewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019B /* PreviewReviewStore.swift */; };
+		AA0000000000000000000266 /* LibraryHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019C /* LibraryHealthStore.swift */; };
+		AA0000000000000000000267 /* PreviewReviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019D /* PreviewReviewPanel.swift */; };
+		AA0000000000000000000268 /* HealthDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019E /* HealthDashboardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -214,6 +220,12 @@
 		AA0000000000000000000196 /* RunHistoryViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryViewTests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000197 /* DeduplicateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateStatusView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateStatusViewTests.swift; sourceTree = "<group>"; };
+		AA0000000000000000000199 /* PreviewReviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewReviewModels.swift; sourceTree = "<group>"; };
+		AA000000000000000000019A /* LibraryHealthScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHealthScanner.swift; sourceTree = "<group>"; };
+		AA000000000000000000019B /* PreviewReviewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewReviewStore.swift; sourceTree = "<group>"; };
+		AA000000000000000000019C /* LibraryHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHealthStore.swift; sourceTree = "<group>"; };
+		AA000000000000000000019D /* PreviewReviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewReviewPanel.swift; sourceTree = "<group>"; };
+		AA000000000000000000019E /* HealthDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDashboardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -363,6 +375,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000104 /* CurrentRunView.swift */,
+				AA000000000000000000019D /* PreviewReviewPanel.swift */,
 				AA000000000000000000013D /* RunSectionViews.swift */,
 				AA000000000000000000013E /* RunWorkspaceModel.swift */,
 				AA0000000000000000000145 /* RunTimelineView.swift */,
@@ -414,6 +427,8 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000113 /* HistoryStore.swift */,
+				AA000000000000000000019C /* LibraryHealthStore.swift */,
+				AA000000000000000000019B /* PreviewReviewStore.swift */,
 				AA0000000000000000000114 /* PreferencesStore.swift */,
 				AA0000000000000000000115 /* RunLogStore.swift */,
 				AA0000000000000000000116 /* RunSessionStore.swift */,
@@ -442,10 +457,12 @@
 				AA000000000000000000012A /* DryRunPlanner.swift */,
 				AA000000000000000000012B /* EngineDomainModels.swift */,
 				AA000000000000000000012C /* FileIdentityHasher.swift */,
+				AA000000000000000000019A /* LibraryHealthScanner.swift */,
 				AA000000000000000000012D /* MediaDateResolver.swift */,
 				AA000000000000000000012E /* MediaDiscovery.swift */,
 					AA000000000000000000012F /* OrganizerDatabase.swift */,
 					AA0000000000000000000130 /* PlanningPathBuilder.swift */,
+					AA0000000000000000000199 /* PreviewReviewModels.swift */,
 					AA0000000000000000000119 /* ProfileModels.swift */,
 					AA000000000000000000014C /* ReorganizeExecutor.swift */,
 					AA000000000000000000014B /* RevertExecutor.swift */,
@@ -522,6 +539,7 @@
 			isa = PBXGroup;
 			children = (
 
+				AA000000000000000000019E /* HealthDashboardView.swift */,
 				AA000000000000000000018F /* OrganizeContainerView.swift */,
 			);
 			path = Organize;
@@ -759,6 +777,12 @@
 				AA000000000000000000025C /* ClusterListPane.swift in Sources */,
 				AA000000000000000000025D /* ClusterDetailPane.swift in Sources */,
 				AA0000000000000000000261 /* DeduplicateStatusView.swift in Sources */,
+				AA0000000000000000000263 /* PreviewReviewModels.swift in Sources */,
+				AA0000000000000000000264 /* LibraryHealthScanner.swift in Sources */,
+				AA0000000000000000000265 /* PreviewReviewStore.swift in Sources */,
+				AA0000000000000000000266 /* LibraryHealthStore.swift in Sources */,
+				AA0000000000000000000267 /* PreviewReviewPanel.swift in Sources */,
+				AA0000000000000000000268 /* HealthDashboardView.swift in Sources */,
 
 			);
 			runOnlyForDeploymentPostprocessing = 0;

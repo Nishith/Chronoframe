@@ -225,51 +225,83 @@ public struct FileDateResolver: Sendable {
     }
 
     public func resolveDate(for path: String) -> Date? {
-        resolveDate(for: path, precomputedPhotoMetadataDate: nil, shouldReadPhotoMetadata: true)
+        resolveResolvedDate(for: path).date
+    }
+
+    public func resolveResolvedDate(for path: String) -> ResolvedMediaDate {
+        resolveResolvedDate(for: path, precomputedPhotoMetadataDate: nil, shouldReadPhotoMetadata: true)
     }
 
     func resolveDate(for path: String, precomputedPhotoMetadataDate: Date?) -> Date? {
-        resolveDate(
+        resolveResolvedDate(
+            for: path,
+            precomputedPhotoMetadataDate: precomputedPhotoMetadataDate,
+            shouldReadPhotoMetadata: !(metadataReader is NativeMediaMetadataDateReader)
+        ).date
+    }
+
+    func resolveResolvedDate(for path: String, precomputedPhotoMetadataDate: Date?) -> ResolvedMediaDate {
+        resolveResolvedDate(
             for: path,
             precomputedPhotoMetadataDate: precomputedPhotoMetadataDate,
             shouldReadPhotoMetadata: !(metadataReader is NativeMediaMetadataDateReader)
         )
     }
 
-    private func resolveDate(
+    private func resolveResolvedDate(
         for path: String,
         precomputedPhotoMetadataDate: Date?,
         shouldReadPhotoMetadata: Bool
-    ) -> Date? {
+    ) -> ResolvedMediaDate {
         let url = URL(fileURLWithPath: path)
 
         if MediaLibraryRules.isPhotoFile(path: path) {
             if let precomputedPhotoMetadataDate,
                !DateClassification.isUnknown(precomputedPhotoMetadataDate) {
-                return precomputedPhotoMetadataDate
+                return ResolvedMediaDate(
+                    date: precomputedPhotoMetadataDate,
+                    source: .photoMetadata,
+                    confidence: .high
+                )
             }
 
             if shouldReadPhotoMetadata,
                let metadataDate = metadataReader.photoMetadataDate(at: url),
                !DateClassification.isUnknown(metadataDate) {
-                return metadataDate
+                return ResolvedMediaDate(
+                    date: metadataDate,
+                    source: .photoMetadata,
+                    confidence: .high
+                )
             }
         }
 
         if let filenameDate = FilenameDateParser.parse(from: path) {
-            return filenameDate
+            return ResolvedMediaDate(
+                date: filenameDate,
+                source: .filename,
+                confidence: .medium
+            )
         }
 
         if let creationDate = metadataReader.fileSystemCreationDate(at: url),
            !DateClassification.isUnknown(creationDate) {
-            return creationDate
+            return ResolvedMediaDate(
+                date: creationDate,
+                source: .fileSystemCreation,
+                confidence: .low
+            )
         }
 
         if let modificationDate = metadataReader.fileSystemModificationDate(at: url),
            !DateClassification.isUnknown(modificationDate) {
-            return modificationDate
+            return ResolvedMediaDate(
+                date: modificationDate,
+                source: .fileSystemModification,
+                confidence: .low
+            )
         }
 
-        return nil
+        return .unknown
     }
 }

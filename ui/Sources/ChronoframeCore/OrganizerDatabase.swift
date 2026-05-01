@@ -186,6 +186,19 @@ public final class OrganizerDatabase {
             CREATE INDEX IF NOT EXISTS idx_copyjobs_status ON CopyJobs(status);
             """
         )
+
+        try execute(
+            """
+            CREATE TABLE IF NOT EXISTS ReviewOverrides (
+                identity TEXT,
+                source_path TEXT,
+                capture_date REAL,
+                event_name TEXT,
+                updated_at REAL,
+                PRIMARY KEY (identity, source_path)
+            );
+            """
+        )
     }
 
     public func journalMode() throws -> String {
@@ -471,6 +484,137 @@ public final class OrganizerDatabase {
 
     public func pendingJobCount() throws -> Int {
         try queuedJobCount(status: .pending)
+    }
+
+    public func loadReviewOverrides() throws -> [ReviewOverride] {
+        let statement = try prepare(
+            "SELECT identity, source_path, capture_date, event_name, updated_at FROM ReviewOverrides ORDER BY source_path"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        var overrides: [ReviewOverride] = []
+        while true {
+            let stepResult = sqlite3_step(statement)
+            if stepResult == SQLITE_DONE {
+                break
+            }
+            guard stepResult == SQLITE_ROW else {
+                throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+            }
+
+            guard
+                let identityRawValue = Self.sqliteString(statement, column: 0),
+                let identity = FileIdentity(rawValue: identityRawValue),
+                let sourcePath = Self.sqliteString(statement, column: 1)
+            else {
+                throw OrganizerDatabaseError.invalidIdentity(Self.sqliteString(statement, column: 0) ?? "")
+            }
+
+            let captureDate: Date?
+            if sqlite3_column_type(statement, 2) == SQLITE_NULL {
+                captureDate = nil
+            } else {
+                captureDate = Date(timeIntervalSince1970: sqlite3_column_double(statement, 2))
+            }
+
+            let eventName = Self.sqliteString(statement, column: 3)
+            let updatedAt = sqlite3_column_type(statement, 4) == SQLITE_NULL
+                ? Date(timeIntervalSince1970: 0)
+                : Date(timeIntervalSince1970: sqlite3_column_double(statement, 4))
+
+            overrides.append(
+                ReviewOverride(
+                    identity: identity,
+                    sourcePath: sourcePath,
+                    captureDate: captureDate,
+                    eventName: eventName,
+                    updatedAt: updatedAt
+                )
+            )
+        }
+
+        return overrides
+    }
+
+    public func loadReviewOverride(identity: FileIdentity, sourcePath: String) throws -> ReviewOverride? {
+        let statement = try prepare(
+            "SELECT identity, source_path, capture_date, event_name, updated_at FROM ReviewOverrides WHERE identity = ? AND source_path = ?"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_text(statement, 1, identity.rawValue, -1, Self.sqliteTransient)
+        sqlite3_bind_text(statement, 2, sourcePath, -1, Self.sqliteTransient)
+
+        let stepResult = sqlite3_step(statement)
+        guard stepResult == SQLITE_ROW else {
+            if stepResult == SQLITE_DONE {
+                return nil
+            }
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+
+        let captureDate: Date?
+        if sqlite3_column_type(statement, 2) == SQLITE_NULL {
+            captureDate = nil
+        } else {
+            captureDate = Date(timeIntervalSince1970: sqlite3_column_double(statement, 2))
+        }
+
+        return ReviewOverride(
+            identity: identity,
+            sourcePath: sourcePath,
+            captureDate: captureDate,
+            eventName: Self.sqliteString(statement, column: 3),
+            updatedAt: sqlite3_column_type(statement, 4) == SQLITE_NULL
+                ? Date(timeIntervalSince1970: 0)
+                : Date(timeIntervalSince1970: sqlite3_column_double(statement, 4))
+        )
+    }
+
+    public func saveReviewOverride(_ override: ReviewOverride) throws {
+        guard override.captureDate != nil || override.eventName != nil else {
+            try deleteReviewOverride(identity: override.identity, sourcePath: override.sourcePath)
+            return
+        }
+
+        let statement = try prepare(
+            """
+            REPLACE INTO ReviewOverrides
+            (identity, source_path, capture_date, event_name, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_text(statement, 1, override.identity.rawValue, -1, Self.sqliteTransient)
+        sqlite3_bind_text(statement, 2, override.sourcePath, -1, Self.sqliteTransient)
+        if let captureDate = override.captureDate {
+            sqlite3_bind_double(statement, 3, captureDate.timeIntervalSince1970)
+        } else {
+            sqlite3_bind_null(statement, 3)
+        }
+        if let eventName = override.eventName {
+            sqlite3_bind_text(statement, 4, eventName, -1, Self.sqliteTransient)
+        } else {
+            sqlite3_bind_null(statement, 4)
+        }
+        sqlite3_bind_double(statement, 5, override.updatedAt.timeIntervalSince1970)
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+    }
+
+    public func deleteReviewOverride(identity: FileIdentity, sourcePath: String) throws {
+        let statement = try prepare("DELETE FROM ReviewOverrides WHERE identity = ? AND source_path = ?")
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_text(statement, 1, identity.rawValue, -1, Self.sqliteTransient)
+        sqlite3_bind_text(statement, 2, sourcePath, -1, Self.sqliteTransient)
+
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
     }
 
     /// Deletes all rows from `CopyJobs` whose status is `.pending`.

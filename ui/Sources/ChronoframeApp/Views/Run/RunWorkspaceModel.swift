@@ -6,6 +6,7 @@ import ChronoframeAppCore
 
 enum RunWorkspaceTab: String, CaseIterable, Identifiable {
     case overview
+    case review
     case issues
     case console
 
@@ -111,6 +112,49 @@ struct RunWorkspaceContext {
     var historyDestinationRoot: String
     var currentSourceRoot: String
     var canStartRun: Bool
+    var previewReviewIsStale: Bool
+    var previewReviewSummary: PreviewReviewSummary
+    var previewReviewPath: String?
+
+    init(
+        status: RunStatus,
+        currentMode: RunMode?,
+        currentTaskTitle: String,
+        currentPhase: RunPhase?,
+        progress: Double,
+        metrics: RunMetrics,
+        summary: RunSummary?,
+        lastErrorMessage: String?,
+        warningCount: Int,
+        errorCount: Int,
+        issueCount: Int,
+        logEntries: [RunWorkspaceLogLine],
+        historyDestinationRoot: String,
+        currentSourceRoot: String,
+        canStartRun: Bool,
+        previewReviewIsStale: Bool = false,
+        previewReviewSummary: PreviewReviewSummary = PreviewReviewSummary(),
+        previewReviewPath: String? = nil
+    ) {
+        self.status = status
+        self.currentMode = currentMode
+        self.currentTaskTitle = currentTaskTitle
+        self.currentPhase = currentPhase
+        self.progress = progress
+        self.metrics = metrics
+        self.summary = summary
+        self.lastErrorMessage = lastErrorMessage
+        self.warningCount = warningCount
+        self.errorCount = errorCount
+        self.issueCount = issueCount
+        self.logEntries = logEntries
+        self.historyDestinationRoot = historyDestinationRoot
+        self.currentSourceRoot = currentSourceRoot
+        self.canStartRun = canStartRun
+        self.previewReviewIsStale = previewReviewIsStale
+        self.previewReviewSummary = previewReviewSummary
+        self.previewReviewPath = previewReviewPath
+    }
 }
 
 struct RunWorkspaceModel {
@@ -121,7 +165,8 @@ struct RunWorkspaceModel {
         runSessionStore: RunSessionStore,
         runLogStore: RunLogStore,
         historyStore: HistoryStore,
-        canStartRun: Bool
+        canStartRun: Bool,
+        previewReviewStore: PreviewReviewStore? = nil
     ) {
         self.init(
             context: RunWorkspaceContext(
@@ -143,7 +188,10 @@ struct RunWorkspaceModel {
                 currentSourceRoot: runSessionStore.lastPreflight?.resolvedSourcePath
                     ?? runSessionStore.lastPreflight?.configuration.sourcePath
                     ?? "",
-                canStartRun: canStartRun
+                canStartRun: canStartRun,
+                previewReviewIsStale: previewReviewStore?.isStale ?? false,
+                previewReviewSummary: previewReviewStore?.summary ?? PreviewReviewSummary(),
+                previewReviewPath: runSessionStore.summary?.artifacts.previewReviewPath
             )
         )
     }
@@ -437,13 +485,57 @@ struct RunWorkspaceModel {
     }
 
     var previewReviewMessage: String {
-        context.metrics.plannedCount > 0
+        if context.previewReviewIsStale {
+            return "Corrections were saved. Rebuild the preview before transfer so the copied files match the reviewed plan."
+        }
+        if context.previewReviewSummary.needsAttentionCount > 0 {
+            return "\(context.previewReviewSummary.needsAttentionCount.formatted()) items need attention before this plan is at its best. Nothing has been copied."
+        }
+        return context.metrics.plannedCount > 0
             ? "Nothing has been copied yet. \(context.metrics.plannedCount.formatted()) files are ready to transfer once the plan looks right."
             : "The preview found nothing new to copy. The destination already contains everything needed."
     }
 
     var canStartTransferFromPreview: Bool {
-        context.metrics.plannedCount > 0 && context.canStartRun
+        context.metrics.plannedCount > 0 && context.canStartRun && !context.previewReviewIsStale
+    }
+
+    var previewReviewPath: String? {
+        context.previewReviewPath
+    }
+
+    var previewReviewSummaryTiles: [RunMetricTileModel] {
+        let summary = context.previewReviewSummary
+        return [
+            RunMetricTileModel(
+                id: "ready-review",
+                title: "Ready",
+                value: abbreviated(summary.readyCount),
+                caption: "Planned main copies.",
+                tone: .ready
+            ),
+            RunMetricTileModel(
+                id: "attention-review",
+                title: "Needs Attention",
+                value: abbreviated(summary.needsAttentionCount),
+                caption: "Unknown, low-confidence, or unreadable items.",
+                tone: summary.needsAttentionCount > 0 ? .warning : .success
+            ),
+            RunMetricTileModel(
+                id: "unknown-review",
+                title: "Unknown Dates",
+                value: abbreviated(summary.unknownDateCount),
+                caption: "Files routed to Unknown_Date unless corrected.",
+                tone: summary.unknownDateCount > 0 ? .warning : .success
+            ),
+            RunMetricTileModel(
+                id: "dupe-review",
+                title: "Duplicates",
+                value: abbreviated(summary.duplicateCount),
+                caption: "Exact source duplicates routed separately.",
+                tone: summary.duplicateCount > 0 ? .warning : .muted
+            ),
+        ]
     }
 
     var metrics: [RunMetricTileModel] {
@@ -523,6 +615,9 @@ struct RunWorkspaceModel {
         switch tab {
         case .overview:
             return "Overview"
+        case .review:
+            let count = context.previewReviewSummary.needsAttentionCount
+            return count > 0 ? "Review (\(count))" : "Review"
         case .issues:
             let count = max(context.warningCount + context.errorCount, context.issueCount)
             return count > 0 ? "Issues (\(count))" : "Issues"
