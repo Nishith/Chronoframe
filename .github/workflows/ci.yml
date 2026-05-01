@@ -60,7 +60,7 @@ jobs:
           XDG_CACHE_HOME="$PWD/.tmp/home/Library/Caches" \
           CLANG_MODULE_CACHE_PATH="$PWD/.tmp/modulecache" \
           SWIFTPM_MODULECACHE_OVERRIDE="$PWD/.tmp/modulecache" \
-          swift test --package-path ui
+          swift test --package-path ui --disable-sandbox
 
   meaningful-coverage:
     name: Meaningful Swift coverage

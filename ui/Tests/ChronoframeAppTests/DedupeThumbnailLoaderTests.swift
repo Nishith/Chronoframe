@@ -79,11 +79,11 @@ final class DedupeThumbnailLoaderTests: XCTestCase {
         let path = "/tmp/stop.png"
         let size = CGSize(width: 64, height: 64)
 
-        let task = Task {
-            await loader.image(for: path, size: size)
+        let task = Task<Void, Never> {
+            _ = await loader.image(for: path, size: size)
         }
         task.cancel()
-        _ = await task.value
+        await task.value
 
         // Allow the cancelled task ample time to (not) populate the cache.
         try await Task.sleep(nanoseconds: 250_000_000)
