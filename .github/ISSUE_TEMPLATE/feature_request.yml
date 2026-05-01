@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest an improvement to Chronoframe.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What real workflow would this help with?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety considerations
+      description: How should Chronoframe keep originals safe and avoid surprising destructive behavior?
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which part of Chronoframe?
+      options:
+        - Organize
+        - Review
+        - Health
+        - Deduplicate
+        - Profiles
+        - Python CLI
+        - Packaging or install
+        - Documentation
+        - Not sure
+    validations:
+      required: true

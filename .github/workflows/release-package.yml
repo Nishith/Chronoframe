@@ -1,0 +1,53 @@
+name: Release Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to package, such as v4.1.0"
+        required: true
+        type: string
+      upload:
+        description: "Upload Chronoframe-release.zip to the GitHub release"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Build and upload release package
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Build release archive
+        run: |
+          cd ui
+          ./archive.sh
+      - name: Create checksum
+        run: |
+          shasum -a 256 ui/build/Chronoframe-release.zip > ui/build/Chronoframe-release.zip.sha256
+          cat ui/build/Chronoframe-release.zip.sha256
+      - name: Ensure release exists
+        if: inputs.upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release view "$RELEASE_TAG" >/dev/null || \
+            gh release create "$RELEASE_TAG" --draft --title "Chronoframe $RELEASE_TAG" --notes "Draft release package for Chronoframe $RELEASE_TAG."
+      - name: Upload release assets
+        if: inputs.upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            ui/build/Chronoframe-release.zip#Chronoframe.zip \
+            ui/build/Chronoframe-release.zip.sha256#Chronoframe.zip.sha256 \
+            --clobber

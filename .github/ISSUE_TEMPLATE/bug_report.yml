@@ -1,0 +1,92 @@
+name: Bug report
+description: Report something that is not working as expected.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Chronoframe. Please do not attach private photos, videos, unsanitized logs, or file lists with personal paths.
+  - type: input
+    id: version
+    attributes:
+      label: Chronoframe version
+      description: Release number, commit, or "main".
+      placeholder: "v4.0.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "macOS 15.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did it happen?
+      options:
+        - Native macOS app
+        - Python CLI
+        - Both
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Storage setup
+      options:
+        - Local disk
+        - External drive
+        - NAS or network share
+        - Cloud-synced folder
+        - Mixed or other
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A concise description of the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use synthetic file names or redacted paths when possible.
+      placeholder: |
+        1. Choose source folder ...
+        2. Preview ...
+        3. Transfer ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Remove personal paths, filenames, and metadata before posting.
+      render: text
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I have not attached private media or unsanitized personal paths.
+          required: true
+        - label: The issue does not describe a private security vulnerability. If it does, I will use the Security reporting flow instead.
+          required: true
