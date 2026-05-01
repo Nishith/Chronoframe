@@ -1,36 +1,30 @@
 # Chronoframe
 
-**A safe macOS photo and video organizer for messy libraries, old backups, camera cards, and NAS dumps.**
+**Bring order to years of scattered photos without risking the originals.**
 
-Chronoframe scans an unsorted source folder, resolves capture dates, previews exactly where files will go, and copies them into a clean destination library. Originals are never moved, renamed, edited, or deleted.
+Most photo libraries do not become messy all at once. They pile up slowly across old phones, camera cards, laptop folders, external drives, shared family backups, and "I'll sort this later" dumps. Chronoframe is for the moment when you want those memories organized, but you do not want to drag thousands of files around by hand or worry that one wrong click will damage the only copy you have.
+
+Chronoframe gives you a calm, reversible way to turn that sprawl into a clean library. It shows you what it plans to do before it copies anything, helps you fix uncertain dates and duplicate photos, and keeps your original files untouched. You stay in control of the decisions that matter, while Chronoframe handles the boring, error-prone work of sorting, naming, checking, and keeping a receipt for what changed.
 
 | ![Chronoframe setup overview](docs/screenshots/ui-setup-overview.png) | ![Run preview with timeline](docs/screenshots/ui-run-preview.png) |
 | :---: | :---: |
 | Setup - choose source, destination, and layout | Run - preview, review, then transfer |
 
-## Current App
+## Who It Helps
 
-Chronoframe is primarily a native macOS SwiftUI app with three top-level workspaces:
+Chronoframe is built for people who have a lot of photos and videos, but do not have a tidy photo library. It is useful when you are consolidating years of phone backups, cleaning up a family archive, preparing a drive before moving to a new app, or trying to make sense of duplicate folders with names like `DCIM`, `Camera Uploads`, `Photos 2`, and `Final Backup Really Final`.
+
+It is also built for caution. Chronoframe does not ask you to trust a black box. You can preview the plan, review anything that looks uncertain, undo completed runs when needed, and keep your source folder untouched the whole time.
+
+## What It Helps You Do
 
 | Workspace | What it does |
 | :--- | :--- |
-| **Organize** | Setup, preview, review, transfer, health checks, history, revert, and destination reorganization |
-| **Deduplicate** | Find exact duplicates, near duplicates, and burst-like similar shots before moving chosen files to Trash |
-| **Profiles** | Save reusable source/destination setups |
-
-The app uses a restrained native macOS interface with the Meridian visual language. The amber waypoint dot marks progress and attention states throughout the app.
-
-## What Chronoframe Does
-
-- Reads photos and videos from a source folder without modifying the source.
-- Resolves dates from photo metadata, filenames, filesystem creation dates, and filesystem modification dates.
-- Copies files into one of several destination layouts.
-- Detects exact duplicates by file content, not by filename.
-- Lets you review uncertain dates, duplicates, skipped items, and planned paths before transfer.
-- Saves user date and event corrections as Chronoframe planning metadata, not as EXIF edits.
-- Suggests event groupings when enabled, but never applies them automatically.
-- Shows a Library Health dashboard for unknown dates, duplicates, interrupted work, audit safety, and structure drift.
-- Keeps audit receipts so completed organize and dedupe runs can be reverted safely.
+| **Organize** | Turn a messy folder into a clean date-based library, with a preview before anything is copied |
+| **Review** | Fix uncertain dates, name events, and understand skipped files before transfer |
+| **Health** | See what needs attention in the destination library, such as unknown dates, duplicate folders, or interrupted work |
+| **Deduplicate** | Find exact copies and similar shots, then choose what to keep |
+| **Profiles** | Save your usual source and destination folders for repeat cleanup sessions |
 
 ## Safety Guarantees
 
