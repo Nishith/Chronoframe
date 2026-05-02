@@ -244,6 +244,45 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         )
     }
 
+    func testPlannerCheckpointsSourceHashesDuringHashingPhase() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("checkpoint-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("checkpoint-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        for index in 1...600 {
+            try writeMediaFile(
+                at: sourceRoot.appendingPathComponent(String(format: "IMG_20240101_%06d.jpg", index)),
+                contents: "checkpoint-\(index)"
+            )
+        }
+
+        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let probe = SourceHashCheckpointProbe(databaseURL: databaseURL, triggerCompletedCount: 600)
+        let result = try DryRunPlanner(
+            dateResolver: FileDateResolver(metadataReader: NoDateMetadataReader())
+        ).plan(
+            sourceRoot: sourceRoot,
+            destinationRoot: destinationRoot,
+            workerCount: 1,
+            onEvent: { event in
+                probe.observe(event)
+            }
+        )
+
+        XCTAssertNil(probe.errorDescription)
+        XCTAssertGreaterThanOrEqual(
+            try XCTUnwrap(probe.sourceRowsAtCheckpoint),
+            512,
+            "Source hashes should be durable before the source-hash phase completes."
+        )
+        XCTAssertEqual(result.sourceHashedCount, 600)
+        XCTAssertEqual(
+            try normalizedCacheRows(namespace: .source, destinationRoot: destinationRoot, sourceRoot: sourceRoot).count,
+            600
+        )
+    }
+
     private func assertScenario(named scenario: String) throws {
         let scenarioRoot = fixtureRoot.appendingPathComponent(scenario, isDirectory: true)
         let manifest = try decode(Manifest.self, from: scenarioRoot.appendingPathComponent("manifest.json"))
@@ -547,6 +586,59 @@ private struct NormalizedCacheRow: Equatable {
     var hash: String
     var size: Int64
     var modificationTime: TimeInterval
+}
+
+private final class SourceHashCheckpointProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let databaseURL: URL
+    private let triggerCompletedCount: Int
+    private var _sourceRowsAtCheckpoint: Int?
+    private var _errorDescription: String?
+
+    init(databaseURL: URL, triggerCompletedCount: Int) {
+        self.databaseURL = databaseURL
+        self.triggerCompletedCount = triggerCompletedCount
+    }
+
+    var sourceRowsAtCheckpoint: Int? {
+        lock.lock()
+        let count = _sourceRowsAtCheckpoint
+        lock.unlock()
+        return count
+    }
+
+    var errorDescription: String? {
+        lock.lock()
+        let description = _errorDescription
+        lock.unlock()
+        return description
+    }
+
+    func observe(_ event: RunEvent) {
+        guard case let .phaseProgress(phase, completed, _, _, _) = event,
+              phase == .sourceHashing,
+              completed >= triggerCompletedCount else {
+            return
+        }
+
+        lock.lock()
+        let alreadyObserved = _sourceRowsAtCheckpoint != nil || _errorDescription != nil
+        lock.unlock()
+        guard !alreadyObserved else { return }
+
+        do {
+            let database = try OrganizerDatabase(url: databaseURL, readOnly: true)
+            defer { database.close() }
+            let count = try database.loadRawCacheRecords(namespace: .source).count
+            lock.lock()
+            _sourceRowsAtCheckpoint = count
+            lock.unlock()
+        } catch {
+            lock.lock()
+            _errorDescription = error.localizedDescription
+            lock.unlock()
+        }
+    }
 }
 
 private struct NoDateMetadataReader: MediaMetadataDateReading {
