@@ -166,6 +166,29 @@ final class RunSessionStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testStartingSecondRunCancelsExistingEngineTask() async {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let firstRunStarted = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(firstRunStarted)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let secondRunStarted = await waitForCondition { engine.startConfigurations.count == 2 }
+        XCTAssertTrue(secondRunStarted)
+
+        XCTAssertEqual(engine.cancelCallCount, 1)
+        XCTAssertEqual(store.status, .running)
+    }
+
+    @MainActor
     func testStartFailureMarksSessionFailed() async {
         let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
         let preflight = RunPreflight(
@@ -545,7 +568,32 @@ final class RunSessionStoreTests: XCTestCase {
     }
 
     @MainActor
-    func testIndeterminateProgressShowsCompletedFileCountWithoutJumpingProgress() async throws {
+    func testHashingProgressShowsTotalAndEstimatedRemainingTime() async throws {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let continuationReady = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(continuationReady)
+        engine.pendingContinuation?.yield(.phaseStarted(phase: .sourceHashing, total: 100))
+        engine.pendingContinuation?.yield(.phaseProgress(phase: .sourceHashing, completed: 42, total: 100, bytesCopied: nil, bytesTotal: nil))
+        let updated = await waitForCondition { store.currentTaskTitle.contains("42 of 100 files") }
+        XCTAssertTrue(updated)
+
+        XCTAssertEqual(store.progress, 0.42, accuracy: 0.000_1)
+        XCTAssertTrue(store.currentTaskTitle.hasPrefix("Hashing source... 42 of 100 files"))
+        XCTAssertTrue(store.currentTaskTitle.contains("remaining"))
+        XCTAssertNotNil(store.metrics.etaSeconds)
+    }
+
+    @MainActor
+    func testIndeterminateProgressStillShowsCompletedFileCountWithoutJumpingProgress() async throws {
         let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
         let preflight = RunPreflight(
             configuration: configuration,
@@ -565,5 +613,6 @@ final class RunSessionStoreTests: XCTestCase {
 
         XCTAssertEqual(store.progress, 0)
         XCTAssertEqual(store.currentTaskTitle, "Hashing source... 42 files…")
+        XCTAssertNil(store.metrics.etaSeconds)
     }
 }

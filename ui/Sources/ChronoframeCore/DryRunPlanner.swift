@@ -99,6 +99,7 @@ public struct DryRunPlanner: Sendable {
         namingRules: PlannerNamingRules = .pythonReference,
         folderStructure: FolderStructure = .yyyyMMDD,
         eventSuggestionMode: EventSuggestionMode = .off,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
         /// Called with incremental `RunEvent`s while the walks are in progress.
         /// Allows callers to stream progress to the UI without waiting for `plan()` to return.
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
@@ -108,12 +109,20 @@ public struct DryRunPlanner: Sendable {
         let database = try OrganizerDatabase(url: organizerDatabaseURL)
         defer { database.close() }
 
+        try Self.throwIfCancelled(isCancelled)
+        onEvent?(.phaseStarted(phase: .discovery, total: nil))
+        let sourcePaths = try MediaDiscovery.discoverMediaFiles(at: sourceRoot, isCancelled: isCancelled)
+        let discoveredSourceCount = sourcePaths.count
+        onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
+        try Self.throwIfCancelled(isCancelled)
+
         let destinationIndex = try buildDestinationIndex(
             destinationRoot: destinationRoot,
             database: database,
             fastDestination: fastDestination,
             workerCount: workerCount,
             namingRules: namingRules,
+            isCancelled: isCancelled,
             onEvent: onEvent
         )
 
@@ -124,28 +133,27 @@ public struct DryRunPlanner: Sendable {
         )
         let reviewOverridesByIdentity = Dictionary(grouping: reviewOverrides) { $0.identity }
         let planningSpool = try PlanningSpool()
-        var discoveredSourceCount = 0
         var counts = CopyPlanCounts()
         var sourceSeen: Set<FileIdentity> = []
         var planningErrors: [String] = []
         var reviewItemsBySourcePath: [String: PreviewReviewItem] = [:]
         var eventCandidates: [EventSuggestionCandidate] = []
 
-        onEvent?(.phaseStarted(phase: .sourceHashing, total: nil))
-
-        let sourcePaths = try MediaDiscovery.discoverMediaFiles(at: sourceRoot)
-        discoveredSourceCount = sourcePaths.count
+        onEvent?(.phaseStarted(phase: .sourceHashing, total: sourcePaths.count))
         let sourceCheckpoint = FileCacheCheckpointWriter(namespace: .source, database: database)
         let sourceResults = try processFiles(
             sourcePaths,
             cachedRowsByPath: sourceCacheByPath,
             workerCount: workerCount,
             phase: .sourceHashing,
+            total: sourcePaths.count,
             checkpoint: sourceCheckpoint,
+            isCancelled: isCancelled,
             onEvent: onEvent
         )
 
         for (index, path) in sourcePaths.enumerated() {
+            try Self.throwIfCancelled(isCancelled)
             let result = sourceResults[index]
             let resolvedWithoutOverride = dateResolver.resolveResolvedDate(for: path)
 
@@ -274,6 +282,7 @@ public struct DryRunPlanner: Sendable {
         var transfers: [PlannedTransfer] = []
 
         for dateBucket in planningSpool.primaryDateBuckets.sorted() {
+            try Self.throwIfCancelled(isCancelled)
             let groupedFileTotal = planningSpool.primaryCount(for: dateBucket)
             let existingMaxSequence = primarySequences[dateBucket] ?? 0
             let startSequence = existingMaxSequence + 1
@@ -306,6 +315,7 @@ public struct DryRunPlanner: Sendable {
             var groupedFileCount = 0
 
             try planningSpool.enumeratePrimaryRecords(for: dateBucket) { record in
+                try Self.throwIfCancelled(isCancelled)
                 groupedFileCount += 1
                 let sequence = startSequence + groupedFileCount - 1
 
@@ -337,6 +347,7 @@ public struct DryRunPlanner: Sendable {
         }
 
         for dateBucket in planningSpool.duplicateDateBuckets.sorted() {
+            try Self.throwIfCancelled(isCancelled)
             let groupedFileCount = planningSpool.duplicateCount(for: dateBucket)
             let existingMaxSequence = duplicateSequences[dateBucket] ?? 0
             let startSequence = existingMaxSequence + 1
@@ -348,6 +359,7 @@ public struct DryRunPlanner: Sendable {
             var plannedCount = 0
 
             try planningSpool.enumerateDuplicateRecords(for: dateBucket) { duplicate in
+                try Self.throwIfCancelled(isCancelled)
                 plannedCount += 1
                 let sequence = startSequence + plannedCount - 1
 
@@ -396,8 +408,10 @@ public struct DryRunPlanner: Sendable {
         }
 
         if eventSuggestionMode == .suggest {
+            try Self.throwIfCancelled(isCancelled)
             let suggestions = EventSuggestionEngine.suggestions(for: eventCandidates)
             for (sourcePath, suggestion) in suggestions {
+                try Self.throwIfCancelled(isCancelled)
                 guard var item = reviewItemsBySourcePath[sourcePath] else { continue }
                 item.eventSuggestion = suggestion
                 reviewItemsBySourcePath[sourcePath] = item
@@ -467,21 +481,24 @@ public struct DryRunPlanner: Sendable {
         fastDestination: Bool,
         workerCount: Int,
         namingRules: PlannerNamingRules,
+        isCancelled: @escaping @Sendable () -> Bool,
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
     ) throws -> DestinationIndexBuildResult {
-        onEvent?(.phaseStarted(phase: .destinationIndexing, total: nil))
-
         if fastDestination {
+            let total = try database.cacheRecordCount(namespace: .destination)
+            onEvent?(.phaseStarted(phase: .destinationIndexing, total: total))
             var snapshotBuilder = DestinationIndexSnapshotBuilder(namingRules: namingRules)
             var indexedCount = 0
             try database.enumerateRawCacheRecordBatches(namespace: .destination) { batch in
+                try Self.throwIfCancelled(isCancelled)
                 indexedCount += batch.count
                 for row in batch {
+                    try Self.throwIfCancelled(isCancelled)
                     snapshotBuilder.consume(path: row.path, identity: row.parsedIdentity)
                 }
-                if indexedCount % Self.planningProgressStride == 0 {
+                if indexedCount % Self.planningProgressStride == 0 || indexedCount == total {
                     onEvent?(.phaseProgress(phase: .destinationIndexing, completed: indexedCount,
-                                            total: 0, bytesCopied: nil, bytesTotal: nil))
+                                            total: total, bytesCopied: nil, bytesTotal: nil))
                 }
             }
             onEvent?(.phaseCompleted(phase: .destinationIndexing, result: RunPhaseResult()))
@@ -495,18 +512,22 @@ public struct DryRunPlanner: Sendable {
         var snapshotBuilder = DestinationIndexSnapshotBuilder(namingRules: namingRules)
         var indexedFileCount = 0
 
-        let destinationPaths = try MediaDiscovery.discoverMediaFiles(at: destinationRoot)
+        let destinationPaths = try MediaDiscovery.discoverMediaFiles(at: destinationRoot, isCancelled: isCancelled)
+        onEvent?(.phaseStarted(phase: .destinationIndexing, total: destinationPaths.count))
         let destinationCheckpoint = FileCacheCheckpointWriter(namespace: .destination, database: database)
         let destinationResults = try processFiles(
             destinationPaths,
             cachedRowsByPath: cachedRowsByPath,
             workerCount: workerCount,
             phase: .destinationIndexing,
+            total: destinationPaths.count,
             checkpoint: destinationCheckpoint,
+            isCancelled: isCancelled,
             onEvent: onEvent
         )
 
         for (index, path) in destinationPaths.enumerated() {
+            try Self.throwIfCancelled(isCancelled)
             indexedFileCount += 1
             let result = destinationResults[index]
             snapshotBuilder.consume(path: path, identity: result.identity)
@@ -525,7 +546,9 @@ public struct DryRunPlanner: Sendable {
         cachedRowsByPath: [String: FileCacheRecord],
         workerCount: Int,
         phase: RunPhase,
+        total: Int,
         checkpoint: FileCacheCheckpointWriter? = nil,
+        isCancelled: @escaping @Sendable () -> Bool,
         onEvent: (@Sendable (RunEvent) -> Void)?
     ) throws -> [ProcessedFileIdentity] {
         guard !paths.isEmpty else {
@@ -537,14 +560,15 @@ public struct DryRunPlanner: Sendable {
             var results: [ProcessedFileIdentity] = []
             results.reserveCapacity(paths.count)
             for (index, path) in paths.enumerated() {
+                try Self.throwIfCancelled(isCancelled)
                 let result = fileHasher.processFile(at: path, cachedRecord: cachedRowsByPath[path])
                 checkpoint?.append(path: path, result: result)
                 try checkpoint?.throwIfNeeded()
                 results.append(result)
                 let completed = index + 1
-                if completed % Self.planningProgressStride == 0 {
+                if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: 0, bytesCopied: nil, bytesTotal: nil))
+                                            total: total, bytesCopied: nil, bytesTotal: nil))
                 }
             }
             try checkpoint?.finish()
@@ -560,21 +584,25 @@ public struct DryRunPlanner: Sendable {
             let cachedRecord = cachedRowsByPath[path]
             let fileHasher = self.fileHasher
             queue.addOperation {
-                guard checkpoint?.hasError != true else { return }
+                guard checkpoint?.hasError != true, !isCancelled() else {
+                    queue.cancelAllOperations()
+                    return
+                }
                 let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
                 checkpoint?.append(path: path, result: result)
-                if checkpoint?.hasError == true {
+                if checkpoint?.hasError == true || isCancelled() {
                     queue.cancelAllOperations()
                 }
                 let completed = results.store(result, at: index)
-                if completed % Self.planningProgressStride == 0 {
+                if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: 0, bytesCopied: nil, bytesTotal: nil))
+                                            total: total, bytesCopied: nil, bytesTotal: nil))
                 }
             }
         }
 
         queue.waitUntilAllOperationsAreFinished()
+        try Self.throwIfCancelled(isCancelled)
         try checkpoint?.finish()
         return results.values()
     }
@@ -592,6 +620,12 @@ public struct DryRunPlanner: Sendable {
             }
         }
         return recordsByPath
+    }
+
+    private static func throwIfCancelled(_ isCancelled: @Sendable () -> Bool) throws {
+        if isCancelled() {
+            throw CancellationError()
+        }
     }
 }
 

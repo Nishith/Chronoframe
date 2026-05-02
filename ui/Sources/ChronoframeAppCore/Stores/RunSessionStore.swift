@@ -29,6 +29,7 @@ public final class RunSessionStore: ObservableObject {
     private var streamTask: Task<Void, Never>?
     private var copySpeedLastSampleDate = Date()
     private var copySpeedLastBytes = 0
+    private var currentPhaseStartDate: Date?
 
     public init(engine: any OrganizerEngine, logStore: RunLogStore, historyStore: HistoryStore) {
         self.engine = engine
@@ -216,6 +217,9 @@ public final class RunSessionStore: ObservableObject {
     }
 
     private func resetSessionState(mode: RunMode) {
+        if streamTask != nil || status == .running {
+            engine.cancelCurrentRun()
+        }
         streamTask?.cancel()
         streamTask = nil
         currentMode = mode
@@ -232,6 +236,7 @@ public final class RunSessionStore: ObservableObject {
         logStore.clear()
         copySpeedLastSampleDate = Date()
         copySpeedLastBytes = 0
+        currentPhaseStartDate = nil
     }
 
     private func clearAllJobs(at destinationPath: String) {
@@ -286,7 +291,17 @@ public final class RunSessionStore: ObservableObject {
 
         case let .phaseStarted(phase, total):
             currentPhase = phase
-            currentTaskTitle = phase.runningTitle
+            currentPhaseStartDate = Date()
+            if Self.usesFileCountETA(phase), let total, total > 0 {
+                currentTaskTitle = Self.formattedFileProgressTitle(
+                    phase: phase,
+                    completed: 0,
+                    total: total,
+                    etaSeconds: nil
+                )
+            } else {
+                currentTaskTitle = phase.runningTitle
+            }
             progress = 0
             metrics.speedMBps = 0
             metrics.etaSeconds = nil
@@ -305,11 +320,23 @@ public final class RunSessionStore: ObservableObject {
                 progress = Double(completed) / Double(total)
                 if phase == .copy {
                     currentTaskTitle = "\(phase.runningTitle) \(completed.formatted()) of \(total.formatted()) files…"
+                } else if Self.usesFileCountETA(phase) {
+                    let etaSeconds = estimatedFileETA(completed: completed, total: total)
+                    metrics.etaSeconds = etaSeconds
+                    currentTaskTitle = Self.formattedFileProgressTitle(
+                        phase: phase,
+                        completed: completed,
+                        total: total,
+                        etaSeconds: etaSeconds
+                    )
                 }
             } else {
                 // total == 0 means indeterminate (count is known, total is not).
                 // Show the running count in the title so the user sees forward progress.
                 currentTaskTitle = "\(phase.runningTitle) \(completed.formatted()) files…"
+                if Self.usesFileCountETA(phase) {
+                    metrics.etaSeconds = nil
+                }
             }
 
             // Keep the Copied metric card updated live during the copy phase
@@ -561,5 +588,43 @@ public final class RunSessionStore: ObservableObject {
         lastErrorMessage = message
         logStore.append("ERROR: \(message)")
         summary = RunSummary(status: .failed, title: "Failed", metrics: metrics, artifacts: artifacts)
+    }
+
+    private func estimatedFileETA(completed: Int, total: Int) -> Double? {
+        guard completed > 0, total > completed, let currentPhaseStartDate else {
+            return nil
+        }
+
+        let elapsed = max(Date().timeIntervalSince(currentPhaseStartDate), 0.001)
+        let averageSecondsPerFile = elapsed / Double(completed)
+        return averageSecondsPerFile * Double(total - completed)
+    }
+
+    private static func usesFileCountETA(_ phase: RunPhase) -> Bool {
+        phase == .sourceHashing || phase == .destinationIndexing
+    }
+
+    private static func formattedFileProgressTitle(
+        phase: RunPhase,
+        completed: Int,
+        total: Int,
+        etaSeconds: Double?
+    ) -> String {
+        let progress = "\(completed.formatted()) of \(total.formatted()) files"
+        guard let etaSeconds, etaSeconds > 0 else {
+            return "\(phase.runningTitle) \(progress)"
+        }
+        return "\(phase.runningTitle) \(progress) · \(formattedRemainingTime(etaSeconds))"
+    }
+
+    private static func formattedRemainingTime(_ seconds: Double) -> String {
+        let totalSeconds = max(1, Int(seconds.rounded()))
+        if totalSeconds < 60 {
+            return "less than 1m remaining"
+        }
+        if totalSeconds < 3_600 {
+            return "\(totalSeconds / 60)m remaining"
+        }
+        return "\(totalSeconds / 3_600)h \((totalSeconds % 3_600) / 60)m remaining"
     }
 }
