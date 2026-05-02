@@ -40,7 +40,7 @@ The app defaults to the native `SwiftOrganizerEngine`. `HybridOrganizerEngine` c
 
 Shared on-disk artifacts include:
 
-- `.organize_cache.db` (now also hosts a `DedupeFeatures` table caching per-photo Vision feature prints, dHash, and quality scores so dedupe re-scans are incremental)
+- `.organize_cache.db` (organize source/destination file identity hashes are checkpointed during planning; also hosts a `DedupeFeatures` table caching per-photo Vision feature prints, dHash, and quality scores so dedupe re-scans are incremental)
 - `.organize_logs/dry_run_report_*.csv`
 - `.organize_logs/audit_receipt_*.json` (organize transfer audit receipt)
 - `.organize_logs/dedupe_audit_receipt_*.json` (Deduplicate run audit receipt — used by Run History → Revert)

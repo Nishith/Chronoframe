@@ -124,7 +124,6 @@ public struct DryRunPlanner: Sendable {
         )
         let reviewOverridesByIdentity = Dictionary(grouping: reviewOverrides) { $0.identity }
         let planningSpool = try PlanningSpool()
-        var sourceUpdates: [FileCacheRecord] = []
         var discoveredSourceCount = 0
         var counts = CopyPlanCounts()
         var sourceSeen: Set<FileIdentity> = []
@@ -136,33 +135,19 @@ public struct DryRunPlanner: Sendable {
 
         let sourcePaths = try MediaDiscovery.discoverMediaFiles(at: sourceRoot)
         discoveredSourceCount = sourcePaths.count
-        let sourceResults = processFiles(
+        let sourceCheckpoint = FileCacheCheckpointWriter(namespace: .source, database: database)
+        let sourceResults = try processFiles(
             sourcePaths,
             cachedRowsByPath: sourceCacheByPath,
             workerCount: workerCount,
             phase: .sourceHashing,
+            checkpoint: sourceCheckpoint,
             onEvent: onEvent
         )
 
         for (index, path) in sourcePaths.enumerated() {
             let result = sourceResults[index]
             let resolvedWithoutOverride = dateResolver.resolveResolvedDate(for: path)
-
-            if let identity = result.identity, result.wasHashed {
-                sourceUpdates.append(
-                    FileCacheRecord(
-                        namespace: .source,
-                        path: path,
-                        identity: identity,
-                        size: result.size,
-                        modificationTime: result.modificationTime
-                    )
-                )
-                if sourceUpdates.count >= 512 {
-                    try database.saveCacheRecords(sourceUpdates)
-                    sourceUpdates.removeAll(keepingCapacity: true)
-                }
-            }
 
             guard let identity = result.identity else {
                 counts.hashErrorCount += 1
@@ -279,8 +264,6 @@ public struct DryRunPlanner: Sendable {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
             }
         }
-
-        try database.saveCacheRecords(sourceUpdates)
 
         onEvent?(.phaseCompleted(phase: .sourceHashing, result: RunPhaseResult(found: discoveredSourceCount)))
 
@@ -510,15 +493,16 @@ public struct DryRunPlanner: Sendable {
 
         let cachedRowsByPath = try loadTypedCacheRecordsByPath(namespace: .destination, database: database)
         var snapshotBuilder = DestinationIndexSnapshotBuilder(namingRules: namingRules)
-        var destinationUpdates: [FileCacheRecord] = []
         var indexedFileCount = 0
 
         let destinationPaths = try MediaDiscovery.discoverMediaFiles(at: destinationRoot)
-        let destinationResults = processFiles(
+        let destinationCheckpoint = FileCacheCheckpointWriter(namespace: .destination, database: database)
+        let destinationResults = try processFiles(
             destinationPaths,
             cachedRowsByPath: cachedRowsByPath,
             workerCount: workerCount,
             phase: .destinationIndexing,
+            checkpoint: destinationCheckpoint,
             onEvent: onEvent
         )
 
@@ -526,25 +510,8 @@ public struct DryRunPlanner: Sendable {
             indexedFileCount += 1
             let result = destinationResults[index]
             snapshotBuilder.consume(path: path, identity: result.identity)
-
-            if let identity = result.identity, result.wasHashed {
-                destinationUpdates.append(
-                    FileCacheRecord(
-                        namespace: .destination,
-                        path: path,
-                        identity: identity,
-                        size: result.size,
-                        modificationTime: result.modificationTime
-                    )
-                )
-                if destinationUpdates.count >= 512 {
-                    try database.saveCacheRecords(destinationUpdates)
-                    destinationUpdates.removeAll(keepingCapacity: true)
-                }
-            }
         }
 
-        try database.saveCacheRecords(destinationUpdates)
         onEvent?(.phaseCompleted(phase: .destinationIndexing, result: RunPhaseResult()))
 
         return DestinationIndexBuildResult(
@@ -558,8 +525,9 @@ public struct DryRunPlanner: Sendable {
         cachedRowsByPath: [String: FileCacheRecord],
         workerCount: Int,
         phase: RunPhase,
+        checkpoint: FileCacheCheckpointWriter? = nil,
         onEvent: (@Sendable (RunEvent) -> Void)?
-    ) -> [ProcessedFileIdentity] {
+    ) throws -> [ProcessedFileIdentity] {
         guard !paths.isEmpty else {
             return []
         }
@@ -569,13 +537,17 @@ public struct DryRunPlanner: Sendable {
             var results: [ProcessedFileIdentity] = []
             results.reserveCapacity(paths.count)
             for (index, path) in paths.enumerated() {
-                results.append(fileHasher.processFile(at: path, cachedRecord: cachedRowsByPath[path]))
+                let result = fileHasher.processFile(at: path, cachedRecord: cachedRowsByPath[path])
+                checkpoint?.append(path: path, result: result)
+                try checkpoint?.throwIfNeeded()
+                results.append(result)
                 let completed = index + 1
                 if completed % Self.planningProgressStride == 0 {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
                                             total: 0, bytesCopied: nil, bytesTotal: nil))
                 }
             }
+            try checkpoint?.finish()
             return results
         }
 
@@ -588,7 +560,12 @@ public struct DryRunPlanner: Sendable {
             let cachedRecord = cachedRowsByPath[path]
             let fileHasher = self.fileHasher
             queue.addOperation {
+                guard checkpoint?.hasError != true else { return }
                 let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
+                checkpoint?.append(path: path, result: result)
+                if checkpoint?.hasError == true {
+                    queue.cancelAllOperations()
+                }
                 let completed = results.store(result, at: index)
                 if completed % Self.planningProgressStride == 0 {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
@@ -598,6 +575,7 @@ public struct DryRunPlanner: Sendable {
         }
 
         queue.waitUntilAllOperationsAreFinished()
+        try checkpoint?.finish()
         return results.values()
     }
 
@@ -620,6 +598,86 @@ public struct DryRunPlanner: Sendable {
 private struct DestinationIndexBuildResult {
     var indexedFileCount: Int
     var snapshot: DestinationIndexSnapshot
+}
+
+private final class FileCacheCheckpointWriter: @unchecked Sendable {
+    private let lock = NSLock()
+    private let namespace: CacheNamespace
+    private let database: OrganizerDatabase
+    private let batchSize: Int
+    private var pending: [FileCacheRecord] = []
+    private var error: Error?
+
+    init(namespace: CacheNamespace, database: OrganizerDatabase, batchSize: Int = 512) {
+        self.namespace = namespace
+        self.database = database
+        self.batchSize = max(1, batchSize)
+        pending.reserveCapacity(self.batchSize)
+    }
+
+    var hasError: Bool {
+        lock.lock()
+        let hasError = error != nil
+        lock.unlock()
+        return hasError
+    }
+
+    func append(path: String, result: ProcessedFileIdentity) {
+        guard let identity = result.identity, result.wasHashed else { return }
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard error == nil else { return }
+
+        pending.append(
+            FileCacheRecord(
+                namespace: namespace,
+                path: path,
+                identity: identity,
+                size: result.size,
+                modificationTime: result.modificationTime
+            )
+        )
+
+        guard pending.count >= batchSize else { return }
+        do {
+            try savePendingLocked()
+        } catch {
+            self.error = error
+        }
+    }
+
+    func throwIfNeeded() throws {
+        lock.lock()
+        let storedError = error
+        lock.unlock()
+        if let storedError {
+            throw storedError
+        }
+    }
+
+    func finish() throws {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let error {
+            throw error
+        }
+
+        do {
+            try savePendingLocked()
+        } catch {
+            self.error = error
+            throw error
+        }
+    }
+
+    private func savePendingLocked() throws {
+        guard !pending.isEmpty else { return }
+        try database.saveCacheRecords(pending)
+        pending.removeAll(keepingCapacity: true)
+    }
 }
 
 private struct DestinationIndexSnapshotBuilder {
