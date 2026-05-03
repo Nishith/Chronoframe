@@ -244,6 +244,115 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         )
     }
 
+    func testPlannerCheckpointsSourceHashesDuringHashingPhase() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("checkpoint-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("checkpoint-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        for index in 1...600 {
+            try writeMediaFile(
+                at: sourceRoot.appendingPathComponent(String(format: "IMG_20240101_%06d.jpg", index)),
+                contents: "checkpoint-\(index)"
+            )
+        }
+
+        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let probe = SourceHashCheckpointProbe(databaseURL: databaseURL, triggerCompletedCount: 600)
+        let result = try DryRunPlanner(
+            dateResolver: FileDateResolver(metadataReader: NoDateMetadataReader())
+        ).plan(
+            sourceRoot: sourceRoot,
+            destinationRoot: destinationRoot,
+            workerCount: 1,
+            onEvent: { event in
+                probe.observe(event)
+            }
+        )
+
+        XCTAssertNil(probe.errorDescription)
+        XCTAssertGreaterThanOrEqual(
+            try XCTUnwrap(probe.sourceRowsAtCheckpoint),
+            512,
+            "Source hashes should be durable before the source-hash phase completes."
+        )
+        XCTAssertEqual(result.sourceHashedCount, 600)
+        XCTAssertEqual(
+            try normalizedCacheRows(namespace: .source, destinationRoot: destinationRoot, sourceRoot: sourceRoot).count,
+            600
+        )
+    }
+
+    func testPlannerEmitsSourceAndDestinationHashTotals() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("total-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("total-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        for index in 1...3 {
+            try writeMediaFile(
+                at: sourceRoot.appendingPathComponent("IMG_20240101_\(index).jpg"),
+                contents: "source-\(index)"
+            )
+        }
+        for index in 1...2 {
+            try writeMediaFile(
+                at: destinationRoot.appendingPathComponent("2024/01/01/2024-01-01_00\(index).jpg"),
+                contents: "destination-\(index)"
+            )
+        }
+
+        let totals = HashProgressTotalsProbe()
+        _ = try DryRunPlanner(
+            dateResolver: FileDateResolver(metadataReader: NoDateMetadataReader())
+        ).plan(
+            sourceRoot: sourceRoot,
+            destinationRoot: destinationRoot,
+            workerCount: 1,
+            onEvent: { event in
+                totals.observe(event)
+            }
+        )
+
+        XCTAssertEqual(totals.sourceProgressTotal, 3)
+        XCTAssertEqual(totals.destinationProgressTotal, 2)
+    }
+
+    func testPlannerStopsWhenCancelledDuringSourceHashing() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("cancel-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("cancel-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        for index in 1...150 {
+            try writeMediaFile(
+                at: sourceRoot.appendingPathComponent(String(format: "IMG_20240101_%06d.jpg", index)),
+                contents: "cancel-\(index)"
+            )
+        }
+
+        let cancellation = CancellationProbe()
+        XCTAssertThrowsError(
+            try DryRunPlanner(
+                dateResolver: FileDateResolver(metadataReader: NoDateMetadataReader())
+            ).plan(
+                sourceRoot: sourceRoot,
+                destinationRoot: destinationRoot,
+                workerCount: 1,
+                isCancelled: { cancellation.isCancelled },
+                onEvent: { event in
+                    if case let .phaseProgress(phase, completed, _, _, _) = event,
+                       phase == .sourceHashing,
+                       completed >= 100 {
+                        cancellation.cancel()
+                    }
+                }
+            )
+        ) { error in
+            XCTAssertTrue(error is CancellationError, "Expected CancellationError, got \(error)")
+        }
+    }
+
     private func assertScenario(named scenario: String) throws {
         let scenarioRoot = fixtureRoot.appendingPathComponent(scenario, isDirectory: true)
         let manifest = try decode(Manifest.self, from: scenarioRoot.appendingPathComponent("manifest.json"))
@@ -547,6 +656,114 @@ private struct NormalizedCacheRow: Equatable {
     var hash: String
     var size: Int64
     var modificationTime: TimeInterval
+}
+
+private final class SourceHashCheckpointProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let databaseURL: URL
+    private let triggerCompletedCount: Int
+    private var _sourceRowsAtCheckpoint: Int?
+    private var _errorDescription: String?
+
+    init(databaseURL: URL, triggerCompletedCount: Int) {
+        self.databaseURL = databaseURL
+        self.triggerCompletedCount = triggerCompletedCount
+    }
+
+    var sourceRowsAtCheckpoint: Int? {
+        lock.lock()
+        let count = _sourceRowsAtCheckpoint
+        lock.unlock()
+        return count
+    }
+
+    var errorDescription: String? {
+        lock.lock()
+        let description = _errorDescription
+        lock.unlock()
+        return description
+    }
+
+    func observe(_ event: RunEvent) {
+        guard case let .phaseProgress(phase, completed, _, _, _) = event,
+              phase == .sourceHashing,
+              completed >= triggerCompletedCount else {
+            return
+        }
+
+        lock.lock()
+        let alreadyObserved = _sourceRowsAtCheckpoint != nil || _errorDescription != nil
+        lock.unlock()
+        guard !alreadyObserved else { return }
+
+        do {
+            let database = try OrganizerDatabase(url: databaseURL, readOnly: true)
+            defer { database.close() }
+            let count = try database.loadRawCacheRecords(namespace: .source).count
+            lock.lock()
+            _sourceRowsAtCheckpoint = count
+            lock.unlock()
+        } catch {
+            lock.lock()
+            _errorDescription = error.localizedDescription
+            lock.unlock()
+        }
+    }
+}
+
+private final class HashProgressTotalsProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _sourceProgressTotal: Int?
+    private var _destinationProgressTotal: Int?
+
+    var sourceProgressTotal: Int? {
+        lock.lock()
+        let total = _sourceProgressTotal
+        lock.unlock()
+        return total
+    }
+
+    var destinationProgressTotal: Int? {
+        lock.lock()
+        let total = _destinationProgressTotal
+        lock.unlock()
+        return total
+    }
+
+    func observe(_ event: RunEvent) {
+        guard case let .phaseProgress(phase, _, total, _, _) = event else {
+            return
+        }
+
+        lock.lock()
+        switch phase {
+        case .sourceHashing:
+            _sourceProgressTotal = total
+        case .destinationIndexing:
+            _destinationProgressTotal = total
+        default:
+            break
+        }
+        lock.unlock()
+    }
+}
+
+private final class CancellationProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isCancelled: Bool {
+        lock.lock()
+        let value = cancelled
+        lock.unlock()
+        return value
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        lock.unlock()
+    }
 }
 
 private struct NoDateMetadataReader: MediaMetadataDateReading {

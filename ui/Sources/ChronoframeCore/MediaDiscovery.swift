@@ -11,9 +11,12 @@ public struct MediaDiscoveryEntry: Equatable, Sendable {
 }
 
 public enum MediaDiscovery {
-    public static func discoverMediaFiles(at rootURL: URL) throws -> [String] {
+    public static func discoverMediaFiles(
+        at rootURL: URL,
+        isCancelled: @Sendable () -> Bool = { false }
+    ) throws -> [String] {
         var results: [String] = []
-        try enumerateMediaFiles(at: rootURL) { path in
+        try enumerateMediaFiles(at: rootURL, isCancelled: isCancelled) { path in
             results.append(path)
         }
         return results
@@ -21,24 +24,31 @@ public enum MediaDiscovery {
 
     public static func enumerateMediaFiles(
         at rootURL: URL,
+        isCancelled: @Sendable () -> Bool = { false },
         _ body: (String) throws -> Void
     ) throws {
-        try walk(directoryURL: rootURL, visitFilePath: body)
+        try walk(directoryURL: rootURL, isCancelled: isCancelled, visitFilePath: body)
     }
 
-    public static func walkEntries(at rootURL: URL) throws -> [MediaDiscoveryEntry] {
+    public static func walkEntries(
+        at rootURL: URL,
+        isCancelled: @Sendable () -> Bool = { false }
+    ) throws -> [MediaDiscoveryEntry] {
         var entries: [MediaDiscoveryEntry] = []
-        try walkEntries(directoryURL: rootURL, entries: &entries)
+        try walkEntries(directoryURL: rootURL, isCancelled: isCancelled, entries: &entries)
         return entries
     }
 
     private static func walk(
         directoryURL: URL,
+        isCancelled: @Sendable () -> Bool,
         visitFilePath: (String) throws -> Void
     ) throws {
+        try throwIfCancelled(isCancelled)
         let partition = try partitionedChildren(of: directoryURL)
 
         for child in partition.files {
+            try throwIfCancelled(isCancelled)
             // Drain Foundation autoreleased temporaries (URL/NSString/NSDictionary bridges,
             // FileHandle, NSRegularExpression results) per-iteration. Without this, the
             // pool only drains when plan()/executeQueuedJobs() returns, which on large
@@ -60,13 +70,20 @@ public enum MediaDiscovery {
         }
 
         for child in partition.directories {
-            try walk(directoryURL: child, visitFilePath: visitFilePath)
+            try throwIfCancelled(isCancelled)
+            try walk(directoryURL: child, isCancelled: isCancelled, visitFilePath: visitFilePath)
         }
     }
 
-    private static func walkEntries(directoryURL: URL, entries: inout [MediaDiscoveryEntry]) throws {
+    private static func walkEntries(
+        directoryURL: URL,
+        isCancelled: @Sendable () -> Bool,
+        entries: inout [MediaDiscoveryEntry]
+    ) throws {
+        try throwIfCancelled(isCancelled)
         let children = try sortedChildren(of: directoryURL)
         for child in children {
+            try throwIfCancelled(isCancelled)
             let name = child.lastPathComponent
             if name.hasPrefix(".") {
                 continue
@@ -77,8 +94,14 @@ public enum MediaDiscovery {
             entries.append(MediaDiscoveryEntry(path: child.path, isDirectory: isDirectory))
 
             if isDirectory {
-                try walkEntries(directoryURL: child, entries: &entries)
+                try walkEntries(directoryURL: child, isCancelled: isCancelled, entries: &entries)
             }
+        }
+    }
+
+    private static func throwIfCancelled(_ isCancelled: @Sendable () -> Bool) throws {
+        if isCancelled() {
+            throw CancellationError()
         }
     }
 
