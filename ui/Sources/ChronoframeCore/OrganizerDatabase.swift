@@ -217,6 +217,19 @@ public final class OrganizerDatabase {
         return rows
     }
 
+    public func cacheRecordCount(namespace: CacheNamespace) throws -> Int {
+        let statement = try prepare("SELECT COUNT(*) FROM FileCache WHERE id = ?")
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_int(statement, 1, Int32(namespace.rawValue))
+
+        guard sqlite3_step(statement) == SQLITE_ROW else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+
+        return Int(sqlite3_column_int64(statement, 0))
+    }
+
     public func enumerateRawCacheRecordBatches(
         namespace: CacheNamespace,
         batchSize: Int = 512,

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+@preconcurrency import UserNotifications
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
@@ -60,7 +61,15 @@ struct ChronoframeApp: App {
 }
 
 @MainActor
-final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate {
+final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+        if let existingApplication = Self.alreadyRunningApplication() {
+            existingApplication.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+            NSApp.terminate(nil)
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         DispatchQueue.main.async {
@@ -75,9 +84,34 @@ final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        await activateFromNotification()
+    }
+
     private func activateMainWindow() {
         let mainWindow = NSApp.windows.first { $0.title == "Chronoframe" } ?? NSApp.windows.first
         mainWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private static func alreadyRunningApplication() -> NSRunningApplication? {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else { return nil }
+        let currentProcessIdentifier = ProcessInfo.processInfo.processIdentifier
+        return NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+            .filter { application in
+                application.processIdentifier != currentProcessIdentifier && !application.isTerminated
+            }
+            .min { lhs, rhs in
+                lhs.processIdentifier < rhs.processIdentifier
+            }
+    }
+
+    private nonisolated func activateFromNotification() async {
+        await MainActor.run {
+            activateMainWindow()
+        }
     }
 }

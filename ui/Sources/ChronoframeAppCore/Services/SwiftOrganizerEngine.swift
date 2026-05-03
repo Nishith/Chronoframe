@@ -11,6 +11,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     private let revertExecutor: RevertExecutor
     private let reorganizeExecutor: ReorganizeExecutor
     private var activeTask: Task<Void, Never>?
+    private var activeRunID: UUID?
 
     public init(
         profilesRepository: any ProfilesRepositorying = ProfilesRepository(),
@@ -77,6 +78,18 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     public func cancelCurrentRun() {
         activeTask?.cancel()
         activeTask = nil
+        activeRunID = nil
+    }
+
+    private func setActiveTask(_ task: Task<Void, Never>, id: UUID) {
+        activeRunID = id
+        activeTask = task
+    }
+
+    private func clearActiveTask(id: UUID) {
+        guard activeRunID == id else { return }
+        activeTask = nil
+        activeRunID = nil
     }
 
     // MARK: - Revert
@@ -100,8 +113,14 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         AsyncThrowingStream { continuation in
             let revertExecutor = self.revertExecutor
             let isCancelledRef = TaskCancellationCheck()
+            let runID = UUID()
 
             let task = Task.detached(priority: .userInitiated) {
+                defer {
+                    Task { @MainActor in
+                        self.clearActiveTask(id: runID)
+                    }
+                }
                 continuation.yield(.startup)
                 continuation.yield(.phaseStarted(phase: .revert, total: receipt.transfers.count))
 
@@ -173,13 +192,9 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     )
                 )
                 continuation.finish()
-
-                Task { @MainActor in
-                    self.activeTask = nil
-                }
             }
 
-            self.activeTask = task
+            self.setActiveTask(task, id: runID)
             continuation.onTermination = { @Sendable _ in
                 isCancelledRef.cancel()
                 task.cancel()
@@ -206,8 +221,14 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         AsyncThrowingStream { continuation in
             let reorganizeExecutor = self.reorganizeExecutor
             let isCancelledRef = TaskCancellationCheck()
+            let runID = UUID()
 
             let task = Task.detached(priority: .userInitiated) {
+                defer {
+                    Task { @MainActor in
+                        self.clearActiveTask(id: runID)
+                    }
+                }
                 continuation.yield(.startup)
 
                 if plan.isEmpty {
@@ -288,13 +309,9 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     )
                 )
                 continuation.finish()
-
-                Task { @MainActor in
-                    self.activeTask = nil
-                }
             }
 
-            self.activeTask = task
+            self.setActiveTask(task, id: runID)
             continuation.onTermination = { @Sendable _ in
                 isCancelledRef.cancel()
                 task.cancel()
@@ -330,7 +347,14 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     private func makePreviewStream(configuration: RunConfiguration) -> AsyncThrowingStream<RunEvent, Error> {
         AsyncThrowingStream { continuation in
             let planner = self.planner
+            let isCancelledRef = TaskCancellationCheck()
+            let runID = UUID()
             let task = Task.detached(priority: .userInitiated) {
+                defer {
+                    Task { @MainActor in
+                        self.clearActiveTask(id: runID)
+                    }
+                }
                 do {
                     // Yield startup immediately so the UI transitions out of "Preparing…"
                     // before the (potentially long) planning walk begins.
@@ -343,10 +367,11 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         workerCount: max(1, configuration.workerCount),
                         folderStructure: configuration.folderStructure,
                         eventSuggestionMode: configuration.eventSuggestionMode,
+                        isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                         onEvent: { continuation.yield($0) }
                     )
 
-                    if Task.isCancelled {
+                    if isCancelledRef.isCancelled || Task.isCancelled {
                         continuation.finish()
                         return
                     }
@@ -376,17 +401,16 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         )
                     )
                     continuation.finish()
+                } catch is CancellationError {
+                    continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
                 }
-
-                Task { @MainActor in
-                    self.activeTask = nil
-                }
             }
 
-            self.activeTask = task
+            self.setActiveTask(task, id: runID)
             continuation.onTermination = { @Sendable _ in
+                isCancelledRef.cancel()
                 task.cancel()
             }
         }
@@ -399,7 +423,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         AsyncThrowingStream { continuation in
             let planner = self.planner
             let transferExecutor = self.transferExecutor
+            let runID = UUID()
             let task = Task.detached(priority: .userInitiated) {
+                defer {
+                    Task { @MainActor in
+                        self.clearActiveTask(id: runID)
+                    }
+                }
                 let destinationURL = URL(fileURLWithPath: configuration.destinationPath, isDirectory: true)
                 let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
                 let logURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.runLogFilename)
@@ -460,13 +490,9 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         continuation.finish(throwing: error)
                     }
                 }
-
-                Task { @MainActor in
-                    self.activeTask = nil
-                }
             }
 
-            self.activeTask = task
+            self.setActiveTask(task, id: runID)
             continuation.onTermination = { @Sendable _ in
                 task.cancel()
             }
@@ -502,6 +528,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             workerCount: max(1, configuration.workerCount),
             folderStructure: configuration.folderStructure,
             eventSuggestionMode: configuration.eventSuggestionMode,
+            isCancelled: { Task.isCancelled },
             onEvent: { continuation.yield($0) }
         )
 
@@ -750,10 +777,6 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         for result: DryRunPlanningResult,
         into continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
     ) {
-        // discovery summary — feeds metrics.discoveredCount in the UI
-        continuation.yield(.phaseStarted(phase: .discovery, total: result.discoveredSourceCount))
-        continuation.yield(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: result.discoveredSourceCount)))
-
         continuation.yield(.phaseStarted(phase: .classification, total: result.counts.newCount))
         continuation.yield(
             .phaseCompleted(
