@@ -217,41 +217,9 @@ struct DeduplicateView: View {
         let toDelete = plan.count
         let bytes = plan.totalBytes
         let hardDelete = isHardDeleteSelected
-        return HStack(spacing: DesignTokens.Spacing.md) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete))
-                    .font(.subheadline.weight(.semibold))
-                Text(Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if preferencesStore.dedupeAllowHardDelete {
-                Menu {
-                    Toggle("Permanently delete (skip Trash)", isOn: $hardDeleteForThisCommit)
-                } label: {
-                    Label("Options", systemImage: "ellipsis.circle")
-                        .accessibilityLabel("Commit options")
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help("Commit options, including whether selected files move to Trash or are permanently deleted")
-            }
-            Button("Accept All Suggestions") {
-                sessionStore.acceptAllSuggestions()
-            }
-            .keyboardShortcut(.return, modifiers: [.command, .shift])
-            .accessibilityHint("Marks every cluster's suggested keeper as keep and the rest as delete")
-            Button("Commit", role: .destructive) {
-                showingCommitConfirmation = true
-            }
-            .keyboardShortcut(.return, modifiers: .command)
-            .buttonStyle(.borderedProminent)
-            .disabled(toDelete == 0 || sessionStore.status == .committing)
-            .accessibilityHint(hardDelete
-                ? "Permanently deletes the selected files after confirmation"
-                : "Moves the selected files to the Trash after confirmation")
+        return ViewThatFits(in: .horizontal) {
+            commitFooterWide(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+            commitFooterCompact(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
         }
         .padding(DesignTokens.Spacing.md)
         .background(.ultraThinMaterial)
@@ -274,6 +242,65 @@ struct DeduplicateView: View {
                 ? "Files will be unlinked from disk immediately and cannot be recovered."
                 : "Files will move to the macOS Trash. The dedupe receipt in Run History can revert this.")
         }
+    }
+
+    private func commitFooterWide(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
+        HStack(spacing: DesignTokens.Spacing.md) {
+            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+            Spacer()
+            commitFooterButtons(toDelete: toDelete, hardDelete: hardDelete)
+        }
+    }
+
+    private func commitFooterCompact(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+            HStack(spacing: DesignTokens.Spacing.sm) {
+                Spacer()
+                commitFooterButtons(toDelete: toDelete, hardDelete: hardDelete)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func commitFooterStatus(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete))
+                .font(.subheadline.weight(.semibold))
+            Text(Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func commitFooterButtons(toDelete: Int, hardDelete: Bool) -> some View {
+        if preferencesStore.dedupeAllowHardDelete {
+            Menu {
+                Toggle("Permanently delete (skip Trash)", isOn: $hardDeleteForThisCommit)
+            } label: {
+                Label("Options", systemImage: "ellipsis.circle")
+                    .accessibilityLabel("Commit options")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Commit options, including whether selected files move to Trash or are permanently deleted")
+        }
+        Button("Accept All Suggestions") {
+            sessionStore.acceptAllSuggestions()
+        }
+        .keyboardShortcut(.return, modifiers: [.command, .shift])
+        .accessibilityHint("Marks every cluster's suggested keeper as keep and the rest as delete")
+        Button("Commit", role: .destructive) {
+            showingCommitConfirmation = true
+        }
+        .keyboardShortcut(.return, modifiers: .command)
+        .buttonStyle(.borderedProminent)
+        .disabled(toDelete == 0 || sessionStore.status == .committing)
+        .accessibilityHint(hardDelete
+            ? "Permanently deletes the selected files after confirmation"
+            : "Moves the selected files to the Trash after confirmation")
     }
 
     // MARK: - Completed
