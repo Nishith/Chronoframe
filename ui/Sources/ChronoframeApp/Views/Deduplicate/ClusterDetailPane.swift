@@ -41,7 +41,7 @@ struct ClusterDetailPane: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if let focused {
                     metadataPanel(for: focused, cluster: cluster)
-                        .frame(width: 240)
+                        .frame(minWidth: 200, idealWidth: 240, maxWidth: 260)
                 }
             }
             .padding(DesignTokens.Spacing.lg)
@@ -58,11 +58,12 @@ struct ClusterDetailPane: View {
                     .padding(.horizontal, DesignTokens.Spacing.md)
                 }
 
-                Spacer()
+                Spacer(minLength: 8)
 
                 Button("Accept Suggestion") {
                     sessionStore.acceptSuggestionsForCluster(cluster)
                 }
+                .fixedSize()
                 .keyboardShortcut(.return, modifiers: [])
                 .padding(.trailing, DesignTokens.Spacing.md)
             }
@@ -208,6 +209,7 @@ struct ClusterDetailPane: View {
 private struct LargePreviewImage: View {
     let path: String
     @State private var image: NSImage?
+    @State private var failed = false
 
     var body: some View {
         Group {
@@ -215,6 +217,10 @@ private struct LargePreviewImage: View {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
+            } else if failed {
+                Image(systemName: "photo")
+                    .font(.system(size: 56))
+                    .foregroundStyle(.secondary)
             } else {
                 ProgressView()
             }
@@ -222,12 +228,17 @@ private struct LargePreviewImage: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: path) {
             image = nil
+            failed = false
             let cgImage = await ThumbnailRenderer.cgImage(
                 for: URL(fileURLWithPath: path),
                 size: CGSize(width: 1200, height: 1200),
                 scale: NSScreen.main?.backingScaleFactor ?? 2.0
             )
-            guard !Task.isCancelled, let cgImage else { return }
+            guard !Task.isCancelled else { return }
+            guard let cgImage else {
+                failed = true
+                return
+            }
             let pixelSize = CGSize(width: cgImage.width, height: cgImage.height)
             image = NSImage(cgImage: cgImage, size: pixelSize)
         }
