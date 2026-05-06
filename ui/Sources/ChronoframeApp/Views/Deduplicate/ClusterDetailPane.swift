@@ -250,17 +250,18 @@ private struct LargePreviewImage: View {
             image = nil
             failed = false
             let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-            let loaded = await Self.loadPreviewImage(at: path, scale: scale)
+            let cgImage = await Self.loadPreviewCGImage(at: path, scale: scale)
             guard !Task.isCancelled else { return }
-            guard let loaded else {
+            guard let cgImage else {
                 failed = true
                 return
             }
-            image = loaded
+            let pixelSize = CGSize(width: cgImage.width, height: cgImage.height)
+            image = NSImage(cgImage: cgImage, size: pixelSize)
         }
     }
 
-    private nonisolated static func loadPreviewImage(at path: String, scale: CGFloat) async -> NSImage? {
+    private nonisolated static func loadPreviewCGImage(at path: String, scale: CGFloat) async -> CGImage? {
         let url = URL(fileURLWithPath: path)
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             return nil
@@ -272,10 +273,6 @@ private struct LargePreviewImage: View {
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
         ]
-        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-            return nil
-        }
-        let pixelSize = CGSize(width: cgImage.width, height: cgImage.height)
-        return NSImage(cgImage: cgImage, size: pixelSize)
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 }
