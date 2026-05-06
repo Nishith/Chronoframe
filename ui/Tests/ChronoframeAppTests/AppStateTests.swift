@@ -232,6 +232,65 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testUseDeduplicateHistoryFolderSelectsAvailableFolderAndClearsStaleBookmark() throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("HistoryFolder-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let harness = AppStateHarness()
+        harness.preferencesStore.storeBookmark(FolderBookmark(
+            key: "deduplicate.destination",
+            path: "/Volumes/Old",
+            data: Data([0x01])
+        ))
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        appState.useDeduplicateHistoryFolder(DeduplicateFolderHistoryRecord(
+            folderPath: temporaryDirectory.path,
+            lastRunAt: Date(),
+            runCount: 1,
+            lastDeletedCount: 2,
+            lastFailedCount: 0,
+            lastBytesReclaimed: 1_024,
+            totalDeletedCount: 2,
+            totalFailedCount: 0,
+            totalBytesReclaimed: 1_024,
+            lastReceiptPath: nil,
+            lastHardDelete: false
+        ))
+
+        XCTAssertEqual(appState.deduplicateDestinationPath, temporaryDirectory.path)
+        XCTAssertNil(harness.preferencesStore.bookmark(for: "deduplicate.destination"))
+        XCTAssertNil(appState.transientErrorMessage)
+    }
+
+    @MainActor
+    func testUseDeduplicateHistoryFolderReportsMissingFolder() {
+        let harness = AppStateHarness()
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        appState.useDeduplicateHistoryFolder(DeduplicateFolderHistoryRecord(
+            folderPath: "/Volumes/Missing-\(UUID().uuidString)",
+            lastRunAt: Date(),
+            runCount: 1,
+            lastDeletedCount: 2,
+            lastFailedCount: 0,
+            lastBytesReclaimed: 1_024,
+            totalDeletedCount: 2,
+            totalFailedCount: 0,
+            totalBytesReclaimed: 1_024,
+            lastReceiptPath: nil,
+            lastHardDelete: false
+        ))
+
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "That Deduplicate folder is no longer available. Choose it again to continue."
+        )
+    }
+
+    @MainActor
     func testDeduplicateScanUsesDedicatedFolderWhenSetAndFallsBackOtherwise() {
         let harness = AppStateHarness()
         harness.setupStore.destinationPath = "/Volumes/Organize"

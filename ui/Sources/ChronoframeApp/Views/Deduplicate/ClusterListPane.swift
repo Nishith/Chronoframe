@@ -10,6 +10,7 @@ import SwiftUI
 struct ClusterListPane: View {
     let clusters: [DuplicateCluster]
     let decisions: DedupeDecisions
+    let deletionPlan: DeduplicationPlan
     @Binding var focusedClusterID: UUID?
     @Binding var focusedMemberPath: String?
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
@@ -30,6 +31,7 @@ struct ClusterListPane: View {
                         ClusterRow(
                             cluster: cluster,
                             decisions: decisions,
+                            recoverableBytes: recoverableBytes(for: cluster),
                             thumbnailLoader: thumbnailLoader
                         )
                         .tag(cluster.id)
@@ -45,11 +47,18 @@ struct ClusterListPane: View {
             focusedMemberPath = cluster.members.first?.path
         }
     }
+
+    private func recoverableBytes(for cluster: DuplicateCluster) -> Int64 {
+        deletionPlan.items
+            .filter { $0.owningClusterID == cluster.id }
+            .reduce(0) { $0 + $1.sizeBytes }
+    }
 }
 
 private struct ClusterRow: View {
     let cluster: DuplicateCluster
     let decisions: DedupeDecisions
+    let recoverableBytes: Int64
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
 
     private static let formatter: ByteCountFormatter = {
@@ -76,7 +85,7 @@ private struct ClusterRow: View {
                         // communicate keep vs delete. Hide the seal so
                         // the thumbnail doesn't carry three signals.
                         let hasExplicitDecision = decisions.byPath[member.path] != nil
-                        if !hasExplicitDecision && cluster.suggestedKeeperIDs.contains(member.id) {
+                        if !hasExplicitDecision && isSuggestedKeeper(member) {
                             Image(systemName: "checkmark.seal.fill")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
@@ -95,7 +104,7 @@ private struct ClusterRow: View {
                     .font(.caption)
                 Text("·")
                     .foregroundStyle(.secondary)
-                Text(Self.formatter.string(fromByteCount: cluster.bytesIfPruned))
+                Text(Self.formatter.string(fromByteCount: recoverableBytes))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -110,10 +119,14 @@ private struct ClusterRow: View {
     }
 
     private func decisionFor(_ member: PhotoCandidate) -> DedupeDecision {
-        decisions.byPath[member.path] ?? (cluster.suggestedKeeperIDs.contains(member.id) ? .keep : .delete)
+        decisions.byPath[member.path] ?? (isSuggestedKeeper(member) ? .keep : .delete)
     }
 
     private var isFullyReviewed: Bool {
         cluster.members.allSatisfy { decisions.byPath[$0.path] != nil }
+    }
+
+    private func isSuggestedKeeper(_ member: PhotoCandidate) -> Bool {
+        cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
     }
 }

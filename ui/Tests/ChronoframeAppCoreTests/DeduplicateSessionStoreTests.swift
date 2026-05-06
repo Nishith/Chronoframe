@@ -4,6 +4,23 @@ import XCTest
 @testable import ChronoframeCore
 
 final class DeduplicateSessionStoreTests: XCTestCase {
+    private var suiteName: String!
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "DeduplicateSessionStoreTests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults = nil
+        suiteName = nil
+        super.tearDown()
+    }
+
     /// The commit footer's "X files will be moved to Trash" + recoverable
     /// bytes are read from `currentDeletionPlan()`. That plan must be the
     /// same one the executor consumes at commit time, so what the user
@@ -114,6 +131,94 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         store.setDecision(.keep, forPath: "/dest/IMG.JPG")
         XCTAssertEqual(store.pendingDeleteCount, 0, "Pair Keep-wins must drop both RAW and JPEG from the plan")
         XCTAssertEqual(store.totalRecoverableBytes, 0)
+    }
+
+    @MainActor
+    func testDefaultSuggestionsKeepOnlyOnePrimaryAndPreservePairWhenEnabled() async throws {
+        let raw = PhotoCandidate(
+            path: "/dest/IMG.CR2",
+            size: 200,
+            modificationTime: 0,
+            qualityScore: 0.9,
+            isRaw: true,
+            pairedPath: "/dest/IMG.JPG"
+        )
+        let jpeg = PhotoCandidate(
+            path: "/dest/IMG.JPG",
+            size: 100,
+            modificationTime: 0,
+            qualityScore: 0.8,
+            pairedPath: "/dest/IMG.CR2"
+        )
+        let other = PhotoCandidate(
+            path: "/dest/OTHER.JPG",
+            size: 50,
+            modificationTime: 0,
+            qualityScore: 0.7
+        )
+        let cluster = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [raw, jpeg, other],
+            suggestedKeeperIDs: [raw.path],
+            bytesIfPruned: 150
+        )
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [cluster]))
+
+        store.startScan(configuration: DeduplicateConfiguration(
+            destinationPath: "/dest",
+            treatRawJpegPairsAsUnit: true
+        ))
+        _ = await waitForCondition { store.status == .readyToReview }
+
+        XCTAssertEqual(store.decisions.byPath[raw.path], .keep)
+        XCTAssertEqual(store.decisions.byPath[jpeg.path], .keep, "Pair partner should be kept with the suggested primary")
+        XCTAssertEqual(store.decisions.byPath[other.path], .delete)
+        XCTAssertEqual(store.pendingDeleteCount, 1)
+        XCTAssertEqual(store.totalRecoverableBytes, 50)
+    }
+
+    @MainActor
+    func testDefaultSuggestionsDeletePairPartnerWhenPairingDisabled() async throws {
+        let raw = PhotoCandidate(
+            path: "/dest/IMG.CR2",
+            size: 200,
+            modificationTime: 0,
+            qualityScore: 0.9,
+            isRaw: true,
+            pairedPath: "/dest/IMG.JPG"
+        )
+        let jpeg = PhotoCandidate(
+            path: "/dest/IMG.JPG",
+            size: 100,
+            modificationTime: 0,
+            qualityScore: 0.8,
+            pairedPath: "/dest/IMG.CR2"
+        )
+        let other = PhotoCandidate(
+            path: "/dest/OTHER.JPG",
+            size: 50,
+            modificationTime: 0,
+            qualityScore: 0.7
+        )
+        let cluster = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [raw, jpeg, other],
+            suggestedKeeperIDs: [raw.path],
+            bytesIfPruned: 150
+        )
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [cluster]))
+
+        store.startScan(configuration: DeduplicateConfiguration(
+            destinationPath: "/dest",
+            treatRawJpegPairsAsUnit: false
+        ))
+        _ = await waitForCondition { store.status == .readyToReview }
+
+        XCTAssertEqual(store.decisions.byPath[raw.path], .keep)
+        XCTAssertEqual(store.decisions.byPath[jpeg.path], .delete)
+        XCTAssertEqual(store.decisions.byPath[other.path], .delete)
+        XCTAssertEqual(store.pendingDeleteCount, 2)
+        XCTAssertEqual(store.totalRecoverableBytes, 150)
     }
 
     /// The footer uses the scan-time configuration captured in
@@ -249,5 +354,85 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.status, .committing)
         let completed = await waitForCondition { store.status == .completed }
         XCTAssertTrue(completed, "Forward commit after a revert must land in .completed")
+    }
+
+    @MainActor
+    func testCommitRecordsDeduplicateFolderHistory() async {
+        let historyStore = UserDefaultsDeduplicateRunHistoryStore(defaults: defaults)
+        let engine = MockDeduplicateEngine(
+            commitEvents: [
+                .started(totalToDelete: 2),
+                .itemTrashed(originalPath: "/dest/a.jpg", trashURL: nil, sizeBytes: 100),
+                .complete(DeduplicateCommitSummary(
+                    deletedCount: 2,
+                    failedCount: 1,
+                    bytesReclaimed: 1_024,
+                    receiptPath: "/dest/.organize_logs/dedupe_audit_receipt.json",
+                    hardDelete: false
+                )),
+            ]
+        )
+        let store = DeduplicateSessionStore(engine: engine, runHistoryStore: historyStore)
+
+        store.commit(configuration: DeduplicateConfiguration(destinationPath: "/Volumes/Dedupe"))
+        _ = await waitForCondition { store.status == .completed }
+
+        XCTAssertEqual(store.runHistory.count, 1)
+        XCTAssertEqual(store.runHistory.first?.folderPath, "/Volumes/Dedupe")
+        XCTAssertEqual(store.runHistory.first?.lastDeletedCount, 2)
+        XCTAssertEqual(store.runHistory.first?.lastFailedCount, 1)
+        XCTAssertEqual(store.runHistory.first?.lastBytesReclaimed, 1_024)
+        XCTAssertEqual(store.runHistory.first?.runCount, 1)
+        XCTAssertEqual(UserDefaultsDeduplicateRunHistoryStore(defaults: defaults).load(), store.runHistory)
+    }
+
+    @MainActor
+    func testDeduplicateFolderHistoryAggregatesAndMovesRecentFolderFirst() {
+        let historyStore = UserDefaultsDeduplicateRunHistoryStore(defaults: defaults, limit: 3)
+        let firstSummary = DeduplicateCommitSummary(
+            deletedCount: 2,
+            failedCount: 0,
+            bytesReclaimed: 2_000,
+            receiptPath: "/a/receipt-1.json",
+            hardDelete: false
+        )
+        let secondSummary = DeduplicateCommitSummary(
+            deletedCount: 3,
+            failedCount: 1,
+            bytesReclaimed: 3_000,
+            receiptPath: "/b/receipt.json",
+            hardDelete: true
+        )
+        let thirdSummary = DeduplicateCommitSummary(
+            deletedCount: 4,
+            failedCount: 0,
+            bytesReclaimed: 4_000,
+            receiptPath: "/a/receipt-2.json",
+            hardDelete: false
+        )
+
+        _ = historyStore.recordRun(
+            destinationPath: " /Volumes/A ",
+            summary: firstSummary,
+            completedAt: Date(timeIntervalSince1970: 1)
+        )
+        _ = historyStore.recordRun(
+            destinationPath: "/Volumes/B",
+            summary: secondSummary,
+            completedAt: Date(timeIntervalSince1970: 2)
+        )
+        let records = historyStore.recordRun(
+            destinationPath: "/Volumes/A",
+            summary: thirdSummary,
+            completedAt: Date(timeIntervalSince1970: 3)
+        )
+
+        XCTAssertEqual(records.map(\.folderPath), ["/Volumes/A", "/Volumes/B"])
+        XCTAssertEqual(records.first?.runCount, 2)
+        XCTAssertEqual(records.first?.lastDeletedCount, 4)
+        XCTAssertEqual(records.first?.totalDeletedCount, 6)
+        XCTAssertEqual(records.first?.totalBytesReclaimed, 6_000)
+        XCTAssertEqual(records.first?.lastReceiptPath, "/a/receipt-2.json")
+        XCTAssertEqual(records[1].lastHardDelete, true)
     }
 }

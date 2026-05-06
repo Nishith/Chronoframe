@@ -14,6 +14,8 @@ struct ClusterDetailPane: View {
     @Binding var focusedMemberPath: String?
     @ObservedObject var sessionStore: DeduplicateSessionStore
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
+    @State private var thumbnailStripHeight = DeduplicateDetailPreviewLayout.defaultThumbnailStripHeight
+    @State private var dragStartThumbnailStripHeight: CGFloat?
 
     var body: some View {
         Group {
@@ -39,43 +41,73 @@ struct ClusterDetailPane: View {
     private func detailContent(for cluster: DuplicateCluster) -> some View {
         let focused = focusedMember(in: cluster)
 
-        VStack(spacing: 0) {
-            ViewThatFits(in: .horizontal) {
-                detailContentWide(focused: focused, cluster: cluster)
-                detailContentCompact(focused: focused, cluster: cluster)
-            }
+        GeometryReader { geometry in
+            let stripHeight = DeduplicateDetailPreviewLayout.clampedThumbnailStripHeight(
+                thumbnailStripHeight,
+                availableHeight: geometry.size.height
+            )
+            let previewHeight = max(
+                0,
+                geometry.size.height - stripHeight - DeduplicateDetailPreviewLayout.resizeHandleHeight
+            )
+            VStack(spacing: 0) {
+                ViewThatFits(in: .horizontal) {
+                    detailContentWide(focused: focused, cluster: cluster)
+                    detailContentCompact(focused: focused, cluster: cluster)
+                }
+                .frame(height: previewHeight)
 
-            Divider()
+                PreviewResizeHandle(
+                    dragChanged: { translation in
+                        resizeThumbnailStrip(by: translation, availableHeight: geometry.size.height)
+                    },
+                    dragEnded: { translation in
+                        finishResizingThumbnailStrip(by: translation, availableHeight: geometry.size.height)
+                    },
+                    adjust: { delta in
+                        thumbnailStripHeight = DeduplicateDetailPreviewLayout.clampedThumbnailStripHeight(
+                            stripHeight + delta,
+                            availableHeight: geometry.size.height
+                        )
+                    }
+                )
 
-            ViewThatFits(in: .horizontal) {
-                memberStripWide(cluster: cluster)
-                memberStripCompact(cluster: cluster)
+                memberStripArea(cluster: cluster, height: stripHeight)
             }
-            .padding(.vertical, DesignTokens.Spacing.sm)
         }
     }
 
-    private func memberStripWide(cluster: DuplicateCluster) -> some View {
+    private func memberStripArea(cluster: DuplicateCluster, height: CGFloat) -> some View {
+        let thumbnailSize = DeduplicateDetailPreviewLayout.thumbnailSize(forStripHeight: height)
+        return ViewThatFits(in: .horizontal) {
+            memberStripWide(cluster: cluster, thumbnailSize: thumbnailSize)
+            memberStripCompact(cluster: cluster, thumbnailSize: thumbnailSize)
+        }
+        .padding(.vertical, DesignTokens.Spacing.sm)
+        .frame(height: height)
+    }
+
+    private func memberStripWide(cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
         HStack(spacing: DesignTokens.Spacing.md) {
-            memberThumbnailStrip(cluster: cluster)
+            memberThumbnailStrip(cluster: cluster, thumbnailSize: thumbnailSize)
             acceptSuggestionButton(for: cluster)
                 .padding(.trailing, DesignTokens.Spacing.md)
         }
     }
 
-    private func memberStripCompact(cluster: DuplicateCluster) -> some View {
+    private func memberStripCompact(cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
         VStack(alignment: .trailing, spacing: DesignTokens.Spacing.sm) {
-            memberThumbnailStrip(cluster: cluster)
+            memberThumbnailStrip(cluster: cluster, thumbnailSize: thumbnailSize)
             acceptSuggestionButton(for: cluster)
                 .padding(.trailing, DesignTokens.Spacing.md)
         }
     }
 
-    private func memberThumbnailStrip(cluster: DuplicateCluster) -> some View {
+    private func memberThumbnailStrip(cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(cluster.members) { member in
-                    memberThumb(member: member, cluster: cluster)
+                    memberThumb(member: member, cluster: cluster, thumbnailSize: thumbnailSize)
                 }
             }
             .padding(.horizontal, DesignTokens.Spacing.md)
@@ -185,7 +217,7 @@ struct ClusterDetailPane: View {
     }
 
     private func decisionControls(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
-        let current = sessionStore.decisions.byPath[member.path] ?? (cluster.suggestedKeeperIDs.contains(member.id) ? .keep : .delete)
+        let current = sessionStore.decisions.byPath[member.path] ?? (isSuggestedKeeper(member, in: cluster) ? .keep : .delete)
         return Picker("Decision", selection: Binding<DedupeDecision>(
             get: { current },
             set: { newValue in sessionStore.setDecision(newValue, forPath: member.path) }
@@ -199,13 +231,13 @@ struct ClusterDetailPane: View {
         .labelsHidden()
     }
 
-    private func memberThumb(member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
-        let decision = sessionStore.decisions.byPath[member.path] ?? (cluster.suggestedKeeperIDs.contains(member.id) ? .keep : .delete)
+    private func memberThumb(member: PhotoCandidate, cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
+        let decision = sessionStore.decisions.byPath[member.path] ?? (isSuggestedKeeper(member, in: cluster) ? .keep : .delete)
         let isFocused = member.path == focusedMemberPath
         return ZStack(alignment: .bottomTrailing) {
             DedupeThumbnailView(
                 path: member.path,
-                size: CGSize(width: 88, height: 88),
+                size: CGSize(width: thumbnailSize, height: thumbnailSize),
                 loader: thumbnailLoader
             )
             .opacity(decision == .delete ? 0.55 : 1.0)
@@ -236,6 +268,28 @@ struct ClusterDetailPane: View {
         return cluster.members.first
     }
 
+    private func isSuggestedKeeper(_ member: PhotoCandidate, in cluster: DuplicateCluster) -> Bool {
+        cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
+    }
+
+    private func resizeThumbnailStrip(by translation: CGFloat, availableHeight: CGFloat) {
+        let currentHeight = DeduplicateDetailPreviewLayout.clampedThumbnailStripHeight(
+            thumbnailStripHeight,
+            availableHeight: availableHeight
+        )
+        let startHeight = dragStartThumbnailStripHeight ?? currentHeight
+        dragStartThumbnailStripHeight = startHeight
+        thumbnailStripHeight = DeduplicateDetailPreviewLayout.clampedThumbnailStripHeight(
+            startHeight - translation,
+            availableHeight: availableHeight
+        )
+    }
+
+    private func finishResizingThumbnailStrip(by translation: CGFloat, availableHeight: CGFloat) {
+        resizeThumbnailStrip(by: translation, availableHeight: availableHeight)
+        dragStartThumbnailStripHeight = nil
+    }
+
     private func dateString(_ date: Date?) -> String {
         guard let date else { return "—" }
         let formatter = DateFormatter()
@@ -249,6 +303,82 @@ struct ClusterDetailPane: View {
         formatter.allowedUnits = [.useKB, .useMB, .useGB]
         formatter.countStyle = .file
         return formatter
+    }
+}
+
+enum DeduplicateDetailPreviewLayout {
+    static let defaultThumbnailStripHeight: CGFloat = 126
+    static let minimumThumbnailStripHeight: CGFloat = 112
+    static let maximumThumbnailStripHeight: CGFloat = 320
+    static let minimumPreviewHeight: CGFloat = 260
+    static let resizeHandleHeight: CGFloat = 10
+    static let minimumThumbnailSize: CGFloat = 88
+    static let maximumThumbnailSize: CGFloat = 240
+    private static let thumbnailVerticalChrome: CGFloat = 38
+
+    static func thumbnailStripHeightBounds(forAvailableHeight availableHeight: CGFloat) -> ClosedRange<CGFloat> {
+        let usableHeight = max(0, availableHeight - resizeHandleHeight)
+        let lowerBound = min(minimumThumbnailStripHeight, usableHeight)
+        let previewMinimum = min(minimumPreviewHeight, max(0, usableHeight - lowerBound))
+        let upperBound = max(lowerBound, min(maximumThumbnailStripHeight, usableHeight - previewMinimum))
+        return lowerBound...upperBound
+    }
+
+    static func clampedThumbnailStripHeight(_ height: CGFloat, availableHeight: CGFloat) -> CGFloat {
+        let bounds = thumbnailStripHeightBounds(forAvailableHeight: availableHeight)
+        return min(max(height, bounds.lowerBound), bounds.upperBound)
+    }
+
+    static func thumbnailSize(forStripHeight stripHeight: CGFloat) -> CGFloat {
+        min(
+            max(stripHeight - thumbnailVerticalChrome, minimumThumbnailSize),
+            maximumThumbnailSize
+        )
+    }
+}
+
+private struct PreviewResizeHandle: View {
+    let dragChanged: (CGFloat) -> Void
+    let dragEnded: (CGFloat) -> Void
+    let adjust: (CGFloat) -> Void
+    @State private var isHovering = false
+
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(DesignTokens.ColorSystem.hairline)
+                .frame(height: 1)
+
+            Capsule(style: .continuous)
+                .fill(isHovering ? DesignTokens.ColorSystem.accentAction : DesignTokens.ColorSystem.hairline.opacity(0.6))
+                .frame(width: 44, height: isHovering ? 4 : 3)
+        }
+        .frame(height: DeduplicateDetailPreviewLayout.resizeHandleHeight)
+        .frame(maxWidth: .infinity)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    dragChanged(value.translation.height)
+                }
+                .onEnded { value in
+                    dragEnded(value.translation.height)
+                }
+        )
+        .onHover { isHovering = $0 }
+        .help("Drag to resize the preview and duplicate thumbnails")
+        .accessibilityLabel("Resize preview and duplicate thumbnails")
+        .accessibilityHint("Drag up to make thumbnails larger, or down to make the preview larger")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                adjust(24)
+            case .decrement:
+                adjust(-24)
+            @unknown default:
+                break
+            }
+        }
     }
 }
 
