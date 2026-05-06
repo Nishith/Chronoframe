@@ -51,6 +51,21 @@ final class DeduplicateStatusViewTests: XCTestCase {
         }
     }
 
+    func testStatusViewRendersPrimaryAndSecondaryActions() {
+        let view = DeduplicateStatusView(
+            style: .success,
+            title: "Nothing to deduplicate",
+            primary: {
+                Button("Scan Again") {}
+            },
+            secondary: {
+                Button("Change Folder") {}
+            }
+        )
+
+        _ = view.body
+    }
+
     func testCommitFooterCopyDistinguishesTrashFromHardDelete() {
         XCTAssertEqual(
             DeduplicateView.commitFooterTitle(fileCount: 2, hardDelete: false),
@@ -99,6 +114,39 @@ final class DeduplicateStatusViewTests: XCTestCase {
         let middle = DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 700)
         XCTAssertGreaterThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMinHeight)
         XCTAssertLessThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMaxHeight)
+    }
+
+    func testDetailPreviewResizeBoundsPreservePreviewSpace() {
+        let availableHeight: CGFloat = 900
+        let bounds = DeduplicateDetailPreviewLayout.thumbnailStripHeightBounds(forAvailableHeight: availableHeight)
+
+        XCTAssertEqual(bounds.lowerBound, DeduplicateDetailPreviewLayout.minimumThumbnailStripHeight, accuracy: 0.5)
+        XCTAssertLessThanOrEqual(bounds.upperBound, DeduplicateDetailPreviewLayout.maximumThumbnailStripHeight)
+        let remainingPreviewHeight = availableHeight - DeduplicateDetailPreviewLayout.resizeHandleHeight - bounds.upperBound
+        XCTAssertGreaterThanOrEqual(
+            remainingPreviewHeight + 0.5,
+            DeduplicateDetailPreviewLayout.minimumPreviewHeight
+        )
+
+        XCTAssertEqual(
+            DeduplicateDetailPreviewLayout.clampedThumbnailStripHeight(10, availableHeight: availableHeight),
+            bounds.lowerBound,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            DeduplicateDetailPreviewLayout.clampedThumbnailStripHeight(1_000, availableHeight: availableHeight),
+            bounds.upperBound,
+            accuracy: 0.5
+        )
+    }
+
+    func testDetailPreviewThumbnailSizeGrowsWithStripHeight() {
+        let compact = DeduplicateDetailPreviewLayout.thumbnailSize(forStripHeight: 126)
+        let expanded = DeduplicateDetailPreviewLayout.thumbnailSize(forStripHeight: 260)
+
+        XCTAssertGreaterThan(expanded, compact)
+        XCTAssertGreaterThanOrEqual(compact, DeduplicateDetailPreviewLayout.minimumThumbnailSize)
+        XCTAssertLessThanOrEqual(expanded, DeduplicateDetailPreviewLayout.maximumThumbnailSize)
     }
 
     func testCompletedStatusCopyKeepsPartialFailuresVisuallySeparate() {

@@ -83,7 +83,10 @@ final class AppStateHarness {
         )
         runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
         deduplicateEngine = MockDeduplicateEngine()
-        deduplicateSessionStore = DeduplicateSessionStore(engine: deduplicateEngine)
+        deduplicateSessionStore = DeduplicateSessionStore(
+            engine: deduplicateEngine,
+            runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: defaults)
+        )
     }
 
     func makeAppState(

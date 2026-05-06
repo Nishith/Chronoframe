@@ -79,7 +79,7 @@ enum UITestAppStateFactory {
                     totalCandidatesScanned: clusters.reduce(0) { $0 + $1.members.count },
                     scanDuration: 4.2
                 )
-            ))
+            ), runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: defaults))
         }
 
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)

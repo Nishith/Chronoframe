@@ -138,15 +138,31 @@ public enum DuplicateClusterer {
     }
 
     static func suggestKeeperIDs(for members: [PhotoCandidate]) -> [String] {
-        guard let best = members.max(by: { $0.qualityScore < $1.qualityScore }) else { return [] }
-        let epsilon = 0.02
-        return members
-            .filter { abs($0.qualityScore - best.qualityScore) <= epsilon }
-            .map(\.id)
+        guard let best = members.sorted(by: isPreferredKeeper).first else { return [] }
+        return [best.id]
+    }
+
+    static func isPreferredKeeper(_ lhs: PhotoCandidate, _ rhs: PhotoCandidate) -> Bool {
+        let lhsArea = pixelArea(for: lhs)
+        let rhsArea = pixelArea(for: rhs)
+        let lhsFace = lhs.faceScore ?? 0
+        let rhsFace = rhs.faceScore ?? 0
+
+        if lhs.qualityScore != rhs.qualityScore { return lhs.qualityScore > rhs.qualityScore }
+        if lhs.sharpness != rhs.sharpness { return lhs.sharpness > rhs.sharpness }
+        if lhs.size != rhs.size { return lhs.size > rhs.size }
+        if lhsArea != rhsArea { return lhsArea > rhsArea }
+        if lhsFace != rhsFace { return lhsFace > rhsFace }
+        if lhs.isRaw != rhs.isRaw { return lhs.isRaw }
+        return lhs.path < rhs.path
     }
 
     static func bytesIfPruned(members: [PhotoCandidate], keeperIDs: Set<String>) -> Int64 {
         members.filter { !keeperIDs.contains($0.id) }.reduce(0) { $0 + $1.size }
+    }
+
+    private static func pixelArea(for candidate: PhotoCandidate) -> Int64 {
+        Int64(max(0, candidate.pixelWidth ?? 0)) * Int64(max(0, candidate.pixelHeight ?? 0))
     }
 
     public static let defaultFeaturePrintDistance: FeaturePrintDistance = { @Sendable lhs, rhs in

@@ -298,6 +298,114 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertEqual(clusters.first?.suggestedKeeperIDs, ["/dest/a.jpg"])
     }
 
+    func testKeeperSuggestionReturnsOnlyOneKeeperForNearTie() {
+        let members = [
+            candidate(path: "/dest/a.jpg", qualityScore: 0.90),
+            candidate(path: "/dest/b.jpg", qualityScore: 0.89),
+            candidate(path: "/dest/c.jpg", qualityScore: 0.88),
+        ]
+
+        let suggested = DuplicateClusterer.suggestKeeperIDs(for: members)
+
+        XCTAssertEqual(suggested, ["/dest/a.jpg"])
+    }
+
+    func testKeeperRankingKeepsQualityAheadOfOtherSignals() {
+        let members = [
+            candidate(path: "/dest/bigger-sharper.jpg", qualityScore: 0.80, sharpness: 1.0, size: 10_000),
+            candidate(path: "/dest/better-quality.jpg", qualityScore: 0.81, sharpness: 0.1, size: 100),
+        ]
+
+        let suggested = DuplicateClusterer.suggestKeeperIDs(for: members)
+
+        XCTAssertEqual(suggested, ["/dest/better-quality.jpg"])
+    }
+
+    func testKeeperRankingUsesSharpnessBeforeFileSize() {
+        let members = [
+            candidate(path: "/dest/large-blurry.jpg", qualityScore: 0.8, sharpness: 0.4, size: 20_000),
+            candidate(path: "/dest/small-sharp.jpg", qualityScore: 0.8, sharpness: 0.7, size: 100),
+        ]
+
+        let suggested = DuplicateClusterer.suggestKeeperIDs(for: members)
+
+        XCTAssertEqual(suggested, ["/dest/small-sharp.jpg"])
+    }
+
+    func testKeeperRankingUsesFileSizeBeforeResolutionAndFaces() {
+        let members = [
+            candidate(
+                path: "/dest/big-file.jpg",
+                qualityScore: 0.8,
+                sharpness: 0.7,
+                size: 20_000,
+                pixelWidth: 800,
+                pixelHeight: 600,
+                faceScore: 0.2
+            ),
+            candidate(
+                path: "/dest/high-res-face.jpg",
+                qualityScore: 0.8,
+                sharpness: 0.7,
+                size: 10_000,
+                pixelWidth: 4000,
+                pixelHeight: 3000,
+                faceScore: 1.0
+            ),
+        ]
+
+        let suggested = DuplicateClusterer.suggestKeeperIDs(for: members)
+
+        XCTAssertEqual(suggested, ["/dest/big-file.jpg"])
+    }
+
+    func testKeeperRankingUsesResolutionFaceRawAndPathTieBreaks() {
+        XCTAssertEqual(
+            DuplicateClusterer.suggestKeeperIDs(for: [
+                candidate(path: "/dest/low-res.jpg", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 800, pixelHeight: 600),
+                candidate(path: "/dest/high-res.jpg", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 4000, pixelHeight: 3000),
+            ]),
+            ["/dest/high-res.jpg"]
+        )
+
+        XCTAssertEqual(
+            DuplicateClusterer.suggestKeeperIDs(for: [
+                candidate(path: "/dest/lower-face.jpg", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 1000, pixelHeight: 1000, faceScore: 0.4),
+                candidate(path: "/dest/higher-face.jpg", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 1000, pixelHeight: 1000, faceScore: 0.8),
+            ]),
+            ["/dest/higher-face.jpg"]
+        )
+
+        XCTAssertEqual(
+            DuplicateClusterer.suggestKeeperIDs(for: [
+                candidate(path: "/dest/jpeg.jpg", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 1000, pixelHeight: 1000, faceScore: 0.8),
+                candidate(path: "/dest/raw.cr3", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 1000, pixelHeight: 1000, faceScore: 0.8, isRaw: true),
+            ]),
+            ["/dest/raw.cr3"]
+        )
+
+        XCTAssertEqual(
+            DuplicateClusterer.suggestKeeperIDs(for: [
+                candidate(path: "/dest/b.jpg", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 1000, pixelHeight: 1000, faceScore: 0.8),
+                candidate(path: "/dest/a.jpg", qualityScore: 0.8, sharpness: 0.7, size: 10_000, pixelWidth: 1000, pixelHeight: 1000, faceScore: 0.8),
+            ]),
+            ["/dest/a.jpg"]
+        )
+    }
+
+    func testExactDuplicateClusterAlsoReturnsSingleKeeperForNearTie() {
+        let identity = FileIdentity(size: 100, digest: "deadbeef")
+        let candidates = [
+            candidate(path: "/dest/a.jpg", qualityScore: 0.90, size: 100),
+            candidate(path: "/dest/b.jpg", qualityScore: 0.89, size: 120),
+        ]
+
+        let clusters = DuplicateClusterer.exactDuplicateClusters(candidatesByIdentity: [identity: candidates])
+
+        XCTAssertEqual(clusters.first?.suggestedKeeperIDs, ["/dest/a.jpg"])
+        XCTAssertEqual(clusters.first?.bytesIfPruned, 120)
+    }
+
     // MARK: - DeduplicationPlanner
 
     func testPlannerExpandsRawJpegPairWhenToggleEnabled() {
@@ -1097,7 +1205,11 @@ final class DeduplicateTests: XCTestCase {
         dhash: UInt64? = nil,
         featurePrintData: Data? = nil,
         qualityScore: Double = 0.5,
+        sharpness: Double = 0,
         size: Int64 = 100,
+        pixelWidth: Int? = nil,
+        pixelHeight: Int? = nil,
+        faceScore: Double? = nil,
         pairedPath: String? = nil,
         isRaw: Bool = false,
         isLivePhotoStill: Bool = false
@@ -1107,9 +1219,13 @@ final class DeduplicateTests: XCTestCase {
             size: size,
             modificationTime: 0,
             captureDate: captureDate,
+            pixelWidth: pixelWidth,
+            pixelHeight: pixelHeight,
             dhash: dhash,
             featurePrintData: featurePrintData,
             qualityScore: qualityScore,
+            sharpness: sharpness,
+            faceScore: faceScore,
             isRaw: isRaw,
             isLivePhotoStill: isLivePhotoStill,
             pairedPath: pairedPath

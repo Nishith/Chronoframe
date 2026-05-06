@@ -311,6 +311,21 @@ final class AppState: ObservableObject {
         preferencesStore.lastDeduplicateDestinationPath = ""
     }
 
+    func useDeduplicateHistoryFolder(_ record: DeduplicateFolderHistoryRecord) {
+        let path = record.folderPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { return }
+
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            transientErrorMessage = "That Deduplicate folder is no longer available. Choose it again to continue."
+            return
+        }
+
+        preferencesStore.removeBookmark(for: Self.deduplicateDestinationBookmarkKey)
+        preferencesStore.lastDeduplicateDestinationPath = path
+        resetDeduplicate()
+    }
+
     /// Open Finder with the active Deduplicate destination selected. Only
     /// meaningful when `hasDedicatedDeduplicateDestinationPath` is true —
     /// the Organize destination already has its own reveal in Setup.

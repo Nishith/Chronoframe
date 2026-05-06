@@ -35,9 +35,10 @@ public enum DeduplicationPlanner {
         }
         var effective: [String: Effective] = [:]
         for cluster in clusters {
+            let suggestedKeepers = Set(cluster.suggestedKeeperIDs.prefix(1))
             for member in cluster.members {
                 let decision = decisions.decision(for: member.path)
-                    ?? (cluster.suggestedKeeperIDs.contains(member.id) ? .keep : .delete)
+                    ?? (suggestedKeepers.contains(member.id) ? .keep : .delete)
                 effective[member.path] = Effective(decision: decision, cluster: cluster, member: member)
             }
         }
@@ -108,7 +109,42 @@ public enum DeduplicationPlanner {
         return DeduplicationPlan(items: planItems.values.sorted { $0.path < $1.path })
     }
 
+    public static func suggestedDecisions(
+        for clusters: [DuplicateCluster],
+        configuration: DeduplicateConfiguration,
+        hardDelete: Bool = false
+    ) -> DedupeDecisions {
+        var byPath: [String: DedupeDecision] = [:]
+        for cluster in clusters {
+            let keepers = Set(cluster.suggestedKeeperIDs.prefix(1))
+            for member in cluster.members {
+                byPath[member.path] = keepers.contains(member.id) ? .keep : .delete
+            }
+        }
+        applyPairKeepWins(to: &byPath, clusters: clusters, configuration: configuration)
+        return DedupeDecisions(byPath: byPath, hardDelete: hardDelete)
+    }
+
     // MARK: - Helpers
+
+    static func applyPairKeepWins(
+        to decisions: inout [String: DedupeDecision],
+        clusters: [DuplicateCluster],
+        configuration: DeduplicateConfiguration
+    ) {
+        for cluster in clusters {
+            for member in cluster.members {
+                guard let partner = member.pairedPath else { continue }
+                guard decisions[member.path] != nil, decisions[partner] != nil else { continue }
+                let kind = pairKind(for: member)
+                if !pairKindEnabled(kind, in: configuration) { continue }
+                if decisions[member.path] == .keep || decisions[partner] == .keep {
+                    decisions[member.path] = .keep
+                    decisions[partner] = .keep
+                }
+            }
+        }
+    }
 
     static func pairKind(for member: PhotoCandidate) -> DeduplicatePairDetector.Pair.Kind {
         if member.isLivePhotoStill { return .livePhoto }

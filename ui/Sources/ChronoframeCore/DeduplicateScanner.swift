@@ -261,14 +261,17 @@ public final class DeduplicateScanner: @unchecked Sendable {
 
                     // 7. Summary.
                     var counts: [ClusterKind: Int] = [:]
-                    var totalBytes: Int64 = 0
                     for cluster in dedupedClusters {
                         counts[cluster.kind, default: 0] += 1
-                        totalBytes += cluster.bytesIfPruned
                     }
+                    let defaultPlan = DeduplicationPlanner.plan(
+                        decisions: DedupeDecisions(),
+                        clusters: dedupedClusters,
+                        configuration: configuration
+                    )
                     continuation.yield(.complete(DeduplicateSummary(
                         clusterCounts: counts,
-                        totalRecoverableBytes: totalBytes,
+                        totalRecoverableBytes: defaultPlan.totalBytes,
                         totalCandidatesScanned: imagePaths.count,
                         scanDuration: Date().timeIntervalSince(started)
                     )))

@@ -88,7 +88,7 @@ struct DeduplicateView: View {
                         subtitle: "Three steps before anything moves.",
                         bullets: [
                             "We group similar photos.",
-                            "We pick a likely keeper using sharpness, faces, and resolution.",
+                            "We pick one likely keeper using sharpness, faces, file size, and resolution.",
                             "You approve; others go to the Trash and can be restored from Run History."
                         ],
                         accessibilitySummary: "How Deduplicate works. We group similar photos, suggest a keeper, and you approve.",
@@ -97,6 +97,10 @@ struct DeduplicateView: View {
                 }
 
                 destinationCard
+
+                pausedReviewSection
+
+                deduplicateRunHistorySection
 
                 Divider()
 
@@ -140,6 +144,44 @@ struct DeduplicateView: View {
         }
     }
 
+    @ViewBuilder
+    private var deduplicateRunHistorySection: some View {
+        if !sessionStore.runHistory.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Recent Deduplicate Folders")
+                        .font(.headline)
+                    Spacer()
+                }
+
+                VStack(spacing: 8) {
+                    ForEach(sessionStore.runHistory.prefix(5)) { record in
+                        DeduplicateRunHistoryRow(record: record) {
+                            appState.useDeduplicateHistoryFolder(record)
+                        }
+                    }
+                }
+            }
+            .accessibilityIdentifier("dedupeFolderHistorySection")
+        }
+    }
+
+    @ViewBuilder
+    private var pausedReviewSection: some View {
+        if sessionStore.hasPausedReview {
+            let canResume = canResumePausedReview
+            PausedDeduplicateReviewCard(
+                groupCount: sessionStore.clusters.count,
+                fileCount: sessionStore.pendingDeleteCount,
+                recoverableBytes: sessionStore.totalRecoverableBytes,
+                settingsChanged: !canResume,
+                resume: resumePausedReview,
+                discard: resetDeduplicate
+            )
+            .accessibilityIdentifier("dedupePausedScanSection")
+        }
+    }
+
     // MARK: - Scanning
 
     private var scanningView: some View {
@@ -174,6 +216,12 @@ struct DeduplicateView: View {
                     startScan()
                 }
                 .buttonStyle(.borderedProminent)
+            },
+            secondary: {
+                Button("Change Folder") {
+                    resetDeduplicate()
+                }
+                .accessibilityIdentifier("dedupeChangeFolderButton")
             }
         )
     }
@@ -224,6 +272,7 @@ struct DeduplicateView: View {
         ClusterListPane(
             clusters: sessionStore.clusters,
             decisions: sessionStore.decisions,
+            deletionPlan: sessionStore.currentDeletionPlan(),
             focusedClusterID: $focusedClusterID,
             focusedMemberPath: $focusedMemberPath,
             thumbnailLoader: thumbnailLoader
@@ -328,6 +377,18 @@ struct DeduplicateView: View {
         density: CommitFooterButtonDensity
     ) -> some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
+            Button(density.changeFolderTitle) {
+                abandonReview()
+            }
+            .accessibilityIdentifier("dedupeReviewChangeFolderButton")
+            .accessibilityHint("Abandons this review and returns to Deduplicate setup")
+
+            Button(density.settingsTitle) {
+                pauseReviewAndOpenSettings()
+            }
+            .accessibilityIdentifier("dedupeReviewSettingsButton")
+            .accessibilityHint("Keeps this scan available and opens Deduplicate settings")
+
             if preferencesStore.dedupeAllowHardDelete {
                 Menu {
                     Toggle("Permanently delete (skip Trash)", isOn: $hardDeleteForThisCommit)
@@ -448,6 +509,17 @@ struct DeduplicateView: View {
         preferencesStore.dedupeAllowHardDelete && hardDeleteForThisCommit
     }
 
+    private var currentDeduplicateConfiguration: DeduplicateConfiguration? {
+        let destination = appState.deduplicateDestinationPath
+        guard !destination.isEmpty else { return nil }
+        return preferencesStore.makeDeduplicateConfiguration(destinationPath: destination)
+    }
+
+    private var canResumePausedReview: Bool {
+        guard let configuration = currentDeduplicateConfiguration else { return false }
+        return sessionStore.pausedReviewMatches(configuration: configuration)
+    }
+
     private func startScan() {
         hardDeleteForThisCommit = false
         didOnboardDeduplicate = true
@@ -457,6 +529,23 @@ struct DeduplicateView: View {
     private func resetDeduplicate() {
         hardDeleteForThisCommit = false
         appState.resetDeduplicate()
+    }
+
+    private func abandonReview() {
+        focusedClusterID = nil
+        focusedMemberPath = nil
+        resetDeduplicate()
+    }
+
+    private func pauseReviewAndOpenSettings() {
+        sessionStore.pauseReview()
+        appState.openSettingsWindow()
+    }
+
+    private func resumePausedReview() {
+        guard canResumePausedReview else { return }
+        sessionStore.resumePausedReview()
+        ensureInitialFocus()
     }
 
     private func formattedDuration(_ seconds: TimeInterval) -> String {
@@ -554,6 +643,20 @@ private enum CommitFooterButtonDensity {
         }
     }
 
+    var changeFolderTitle: String {
+        switch self {
+        case .full: return "Change Folder"
+        case .compact: return "Folder"
+        }
+    }
+
+    var settingsTitle: String {
+        switch self {
+        case .full: return "Adjust Settings"
+        case .compact: return "Settings"
+        }
+    }
+
     var optionsTitle: String {
         switch self {
         case .full: return "Options"
@@ -618,6 +721,209 @@ private struct DeduplicateDestinationCardContent: View {
                 .menuIndicator(.hidden)
                 .fixedSize()
             }
+        }
+    }
+}
+
+private struct PausedDeduplicateReviewCard: View {
+    let groupCount: Int
+    let fileCount: Int
+    let recoverableBytes: Int64
+    let settingsChanged: Bool
+    let resume: () -> Void
+    let discard: () -> Void
+
+    private static let bytesFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter
+    }()
+
+    var body: some View {
+        MeridianSurfaceCard(
+            style: .inner,
+            tint: settingsChanged ? DesignTokens.ColorSystem.statusWarning : DesignTokens.ColorSystem.accentAction
+        ) {
+            ViewThatFits(in: .horizontal) {
+                horizontalLayout
+                verticalLayout
+            }
+        }
+    }
+
+    private var horizontalLayout: some View {
+        HStack(alignment: .center, spacing: 12) {
+            label
+            Spacer(minLength: 16)
+            metrics
+            actions
+        }
+    }
+
+    private var verticalLayout: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            label
+            HStack(alignment: .center, spacing: 12) {
+                metrics
+                Spacer(minLength: 8)
+                actions
+            }
+        }
+    }
+
+    private var label: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: settingsChanged ? "exclamationmark.triangle" : "rectangle.stack")
+                .foregroundStyle(settingsChanged ? DesignTokens.ColorSystem.statusWarning : DesignTokens.ColorSystem.accentAction)
+                .frame(width: 18)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Paused Scan")
+                    .font(.subheadline.weight(.semibold))
+                Text(settingsChanged ? "Settings changed since this scan." : "Ready to review.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var metrics: some View {
+        HStack(spacing: 16) {
+            metric("\(groupCount)", label: groupCount == 1 ? "group" : "groups")
+            metric("\(fileCount)", label: "selected")
+            metric(Self.bytesFormatter.string(fromByteCount: recoverableBytes), label: "recoverable")
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var actions: some View {
+        HStack(spacing: 8) {
+            Button("Discard", role: .destructive) {
+                discard()
+            }
+            Button("Return to Scan") {
+                resume()
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(settingsChanged)
+            .accessibilityIdentifier("dedupeResumePausedScanButton")
+        }
+        .fixedSize()
+    }
+
+    private func metric(_ value: String, label: String) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(value)
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct DeduplicateRunHistoryRow: View {
+    let record: DeduplicateFolderHistoryRecord
+    let useFolder: () -> Void
+
+    private static let bytesFormatter: ByteCountFormatter = {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB, .useTB]
+        formatter.countStyle = .file
+        return formatter
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+
+    var body: some View {
+        MeridianSurfaceCard(style: .inner, tint: DesignTokens.ColorSystem.accentAction) {
+            ViewThatFits(in: .horizontal) {
+                horizontalLayout
+                verticalLayout
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var horizontalLayout: some View {
+        HStack(alignment: .center, spacing: 12) {
+            folderLabel
+            Spacer(minLength: 16)
+            metrics
+            useFolderButton
+        }
+    }
+
+    private var verticalLayout: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            folderLabel
+            HStack {
+                metrics
+                Spacer(minLength: 8)
+                useFolderButton
+            }
+        }
+    }
+
+    private var folderLabel: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "folder")
+                .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+                .frame(width: 18)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(URL(fileURLWithPath: record.folderPath).lastPathComponent)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                Text(record.folderPath)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text("Last run \(Self.dateFormatter.string(from: record.lastRunAt))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var metrics: some View {
+        HStack(spacing: 16) {
+            metric("\(record.lastDeletedCount)", label: "files removed")
+            metric(Self.bytesFormatter.string(fromByteCount: record.lastBytesReclaimed), label: "saved")
+            if record.runCount > 1 {
+                metric("\(record.runCount)", label: "runs")
+            }
+            if record.lastFailedCount > 0 {
+                metric("\(record.lastFailedCount)", label: "failed")
+                    .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
+            }
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var useFolderButton: some View {
+        Button {
+            useFolder()
+        } label: {
+            Label("Use", systemImage: "arrow.turn.down.right")
+        }
+        .controlSize(.small)
+        .accessibilityIdentifier("dedupeUseHistoryFolderButton")
+    }
+
+    private func metric(_ value: String, label: String) -> some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            Text(value)
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }

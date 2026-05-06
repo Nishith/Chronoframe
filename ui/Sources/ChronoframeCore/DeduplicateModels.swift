@@ -195,8 +195,9 @@ public struct DuplicateCluster: Sendable, Identifiable, Equatable {
     public var id: UUID
     public var kind: ClusterKind
     public var members: [PhotoCandidate]
-    /// Subset of `members.id` — the suggested keeper(s). UI pre-selects these
-    /// as Keep and pre-marks the rest as Delete.
+    /// Subset of `members.id` — currently at most one primary suggested
+    /// keeper. UI pre-selects it as Keep and pre-marks the rest as Delete,
+    /// with pair-as-unit safety applied later by the planner/session store.
     public var suggestedKeeperIDs: [String]
     /// Bytes that would be reclaimed if the user accepts the suggestion
     /// (sum of non-keeper sizes including paired partners).
