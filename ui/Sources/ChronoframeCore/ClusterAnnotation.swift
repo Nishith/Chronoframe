@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Confidence
 
-public enum ConfidenceLevel: String, Sendable, Codable, CaseIterable {
+public enum ConfidenceLevel: String, Sendable, Codable, CaseIterable, Hashable {
     case high
     case medium
     case low
