@@ -66,14 +66,14 @@ final class DeduplicateStatusViewTests: XCTestCase {
         _ = view.body
     }
 
-    func testCommitFooterCopyDistinguishesTrashFromHardDelete() {
+    func testCommitFooterCopyAlwaysUsesRecoverableTrashLanguage() {
         XCTAssertEqual(
             DeduplicateView.commitFooterTitle(fileCount: 2, hardDelete: false),
             "2 files will be moved to Trash"
         )
         XCTAssertEqual(
             DeduplicateView.commitFooterTitle(fileCount: 1, hardDelete: true),
-            "1 file will be permanently deleted"
+            "1 file will be moved to Trash"
         )
 
         let trashDetail = DeduplicateView.commitFooterDetail(byteCount: 1_048_576, hardDelete: false)
@@ -81,8 +81,8 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertFalse(trashDetail.contains("permanently"))
 
         let hardDeleteDetail = DeduplicateView.commitFooterDetail(byteCount: 1_048_576, hardDelete: true)
-        XCTAssertTrue(hardDeleteDetail.contains("permanently removed"))
-        XCTAssertFalse(hardDeleteDetail.contains("recoverable"))
+        XCTAssertTrue(hardDeleteDetail.contains("recoverable"))
+        XCTAssertFalse(hardDeleteDetail.contains("permanently"))
     }
 
     func testDeduplicateReviewLayoutSwitchesAtConfiguredBreakpoint() {
