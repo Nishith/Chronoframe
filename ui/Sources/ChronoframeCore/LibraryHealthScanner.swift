@@ -254,6 +254,9 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         var stats = SinglePassStats()
         let unknownComponent = "/" + namingRules.unknownDateDirectoryName + "/"
         let duplicateComponent = "/" + namingRules.duplicateDirectoryName + "/"
+        let destPrefix = destinationURL.path.hasSuffix("/")
+            ? destinationURL.path
+            : destinationURL.path + "/"
 
         guard let enumerator = fileManager.enumerator(
             at: destinationURL,
@@ -267,12 +270,15 @@ public struct LibraryHealthScanner: @unchecked Sendable {
                   values.isRegularFile == true else { continue }
 
             let filePath = fileURL.path
+            let relativePath = filePath.hasPrefix(destPrefix)
+                ? String(filePath.dropFirst(destPrefix.count))
+                : filePath
             let fileSize = Int64(values.fileSize ?? 0)
 
-            if filePath.contains(unknownComponent) {
+            if relativePath.contains(unknownComponent) || relativePath.hasPrefix(namingRules.unknownDateDirectoryName + "/") {
                 stats.unknownCount += 1
                 stats.unknownBytes += fileSize
-            } else if filePath.contains(duplicateComponent) {
+            } else if relativePath.contains(duplicateComponent) || relativePath.hasPrefix(namingRules.duplicateDirectoryName + "/") {
                 stats.duplicateCount += 1
                 stats.duplicateBytes += fileSize
             }

@@ -64,7 +64,7 @@ public enum DuplicateClusterer {
                     let lhs = sorted[idxA]
                     guard let lhsHash = lhs.dhash else { continue }
                     for idxB in groupB {
-                        guard idxB > idxA else { continue }
+                        guard bi != bj || idxB > idxA else { continue }
                         let rhs = sorted[idxB]
 
                         var timeDelta: TimeInterval?
