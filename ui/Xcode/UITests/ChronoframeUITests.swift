@@ -90,9 +90,9 @@ final class ChronoframeUITests: XCTestCase {
                 let footer = Self.element(identifier: "dedupeCommitFooter", in: app)
                 XCTAssertTrue(footer.waitForExistence(timeout: 10), "Commit footer should render for \(scenario.rawValue)")
 
-                let acceptCluster = Self.hittableElement(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
-                let acceptAll = Self.hittableElement(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
-                let commit = Self.hittableElement(identifier: "dedupeCommitButton", in: app)
+                let acceptCluster = Self.hittableButton(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
+                let acceptAll = Self.hittableButton(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
+                let commit = Self.hittableButton(identifier: "dedupeCommitButton", in: app)
 
                 XCTAssertTrue(acceptCluster.isHittable, "Accept Suggestion should stay hittable for \(scenario.rawValue)")
                 XCTAssertTrue(acceptAll.isHittable, "Accept All Suggestions should stay hittable for \(scenario.rawValue)")
@@ -203,8 +203,8 @@ final class ChronoframeUITests: XCTestCase {
     }
 
     @MainActor
-    private static func hittableElement(identifier: String, in app: XCUIApplication) -> XCUIElement {
-        let query = app.descendants(matching: .any).matching(identifier: identifier)
+    private static func hittableButton(identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let query = app.buttons.matching(identifier: identifier)
         let deadline = Date().addingTimeInterval(5)
         while Date() < deadline {
             if let hittable = query.allElementsBoundByIndex.first(where: { $0.exists && $0.isHittable }) {

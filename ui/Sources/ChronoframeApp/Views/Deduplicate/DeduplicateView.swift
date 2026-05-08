@@ -452,6 +452,8 @@ struct DeduplicateView: View {
             sessionStore.acceptAllSuggestions()
         }
         .keyboardShortcut(.return, modifiers: [.command, .shift])
+        .buttonStyle(.bordered)
+        .fixedSize()
         .accessibilityLabel("Accept All Suggestions")
         .accessibilityIdentifier("dedupeAcceptAllSuggestionsButton")
         .accessibilityHint("Marks every cluster's suggested keeper as keep and the rest as delete")
@@ -461,6 +463,7 @@ struct DeduplicateView: View {
         }
         .keyboardShortcut(.return, modifiers: .command)
         .buttonStyle(.borderedProminent)
+        .fixedSize()
         .disabled(toDelete == 0 || sessionStore.status == .committing)
         .accessibilityIdentifier("dedupeCommitButton")
         .accessibilityHint("Moves the selected files to the Trash after confirmation")
