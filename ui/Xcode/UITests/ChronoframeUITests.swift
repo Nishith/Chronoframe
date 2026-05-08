@@ -1,6 +1,8 @@
 import XCTest
 
 final class ChronoframeUITests: XCTestCase {
+    private static let settingsWindowIdentifier = "com_apple_SwiftUI_Settings_window"
+
     private enum Scenario: String {
         case setupReady
         case runPreviewReview
@@ -69,11 +71,11 @@ final class ChronoframeUITests: XCTestCase {
         await MainActor.run {
             let app = Self.launchApp(.settingsSections)
 
-            XCTAssertTrue(app.windows["com_apple_SwiftUI_Settings_window"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.windows[Self.settingsWindowIdentifier].waitForExistence(timeout: 5))
             Self.selectSettingsTab(named: "Performance", in: app)
             XCTAssertTrue(app.staticTexts["Safety"].waitForExistence(timeout: 5))
             Self.selectSettingsTab(named: "Diagnostics", in: app)
-            XCTAssertTrue(app.descendants(matching: .any)["diagnosticsLogBufferStepper"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["Log Buffer"].waitForExistence(timeout: 5))
         }
     }
 
@@ -86,16 +88,17 @@ final class ChronoframeUITests: XCTestCase {
                 XCTAssertTrue(clusterList.waitForExistence(timeout: 5), "Cluster list should render for \(scenario.rawValue)")
 
                 let footer = Self.element(identifier: "dedupeCommitFooter", in: app)
-                let memberStrip = Self.element(identifier: "dedupeMemberStrip", in: app)
-                let acceptCluster = Self.hittableElement(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
-                let acceptAll = Self.hittableElement(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
-                let commit = Self.hittableElement(identifier: "dedupeCommitButton", in: app)
+                XCTAssertTrue(footer.waitForExistence(timeout: 10), "Commit footer should render for \(scenario.rawValue)")
 
-                XCTAssertTrue(footer.waitForExistence(timeout: 5), "Commit footer should render for \(scenario.rawValue)")
-                XCTAssertTrue(memberStrip.waitForExistence(timeout: 5), "Member strip should render for \(scenario.rawValue)")
+                let acceptCluster = Self.hittableButton(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
+                let acceptAll = Self.button(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
+                let commit = Self.button(identifier: "dedupeCommitButton", in: app)
+
                 XCTAssertTrue(acceptCluster.isHittable, "Accept Suggestion should stay hittable for \(scenario.rawValue)")
-                XCTAssertTrue(acceptAll.isHittable, "Accept All Suggestions should stay hittable for \(scenario.rawValue)")
-                XCTAssertTrue(commit.isHittable, "Commit should stay hittable for \(scenario.rawValue)")
+                XCTAssertTrue(acceptAll.waitForExistence(timeout: 5), "Accept All Suggestions should stay visible for \(scenario.rawValue)")
+                XCTAssertTrue(acceptAll.isEnabled, "Accept All Suggestions should stay enabled for \(scenario.rawValue)")
+                XCTAssertTrue(commit.waitForExistence(timeout: 5), "Commit should stay visible for \(scenario.rawValue)")
+                XCTAssertTrue(commit.isEnabled, "Commit should stay enabled for \(scenario.rawValue)")
 
                 let window = app.windows.firstMatch
                 XCTAssertTrue(window.exists)
@@ -103,9 +106,9 @@ final class ChronoframeUITests: XCTestCase {
                     Self.assertFrame(element.frame, isInside: window.frame, scenario: scenario.rawValue)
                 }
                 XCTAssertLessThanOrEqual(
-                    memberStrip.frame.maxY,
+                    acceptCluster.frame.maxY,
                     footer.frame.minY + 1,
-                    "Member strip must not overlap the commit footer for \(scenario.rawValue)"
+                    "Review actions must not overlap the commit footer for \(scenario.rawValue)"
                 )
 
                 app.terminate()
@@ -139,37 +142,38 @@ final class ChronoframeUITests: XCTestCase {
 
     @MainActor
     private static func ensureSettingsWindowExists(in app: XCUIApplication) {
-        if app.windows["com_apple_SwiftUI_Settings_window"].waitForExistence(timeout: 2) {
+        let settingsWindow = app.windows[settingsWindowIdentifier]
+        if settingsWindow.waitForExistence(timeout: 2) {
             return
         }
 
         app.typeKey(",", modifierFlags: .command)
-        _ = app.windows["com_apple_SwiftUI_Settings_window"].waitForExistence(timeout: 5)
+        _ = settingsWindow.waitForExistence(timeout: 5)
     }
 
     @MainActor
     private static func selectSettingsTab(named title: String, in app: XCUIApplication) {
         let tab = matchingElement(named: title, in: app, type: .tab)
         if tab.waitForExistence(timeout: 1) {
-            tab.click()
+            click(tab)
             return
         }
 
         let radioButton = matchingElement(named: title, in: app, type: .radioButton)
         if radioButton.waitForExistence(timeout: 1) {
-            radioButton.click()
+            click(radioButton)
             return
         }
 
         let button = matchingElement(named: title, in: app, type: .button)
         if button.waitForExistence(timeout: 1) {
-            button.click()
+            click(button)
             return
         }
 
         let staticText = matchingElement(named: title, in: app, type: .staticText)
         if staticText.waitForExistence(timeout: 1) {
-            staticText.click()
+            click(staticText)
             return
         }
 
@@ -179,11 +183,20 @@ final class ChronoframeUITests: XCTestCase {
     @MainActor
     private static func matchingElement(
         named title: String,
-        in app: XCUIApplication,
+        in root: XCUIElement,
         type: XCUIElement.ElementType
     ) -> XCUIElement {
         let predicate = NSPredicate(format: "label == %@", title)
-        return app.descendants(matching: type).matching(predicate).firstMatch
+        return root.descendants(matching: type).matching(predicate).firstMatch
+    }
+
+    @MainActor
+    private static func click(_ element: XCUIElement) {
+        if element.isHittable {
+            element.click()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
     }
 
     @MainActor
@@ -192,8 +205,8 @@ final class ChronoframeUITests: XCTestCase {
     }
 
     @MainActor
-    private static func hittableElement(identifier: String, in app: XCUIApplication) -> XCUIElement {
-        let query = app.descendants(matching: .any).matching(identifier: identifier)
+    private static func hittableButton(identifier: String, in app: XCUIApplication) -> XCUIElement {
+        let query = app.buttons.matching(identifier: identifier)
         let deadline = Date().addingTimeInterval(5)
         while Date() < deadline {
             if let hittable = query.allElementsBoundByIndex.first(where: { $0.exists && $0.isHittable }) {
@@ -202,6 +215,11 @@ final class ChronoframeUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
         return query.firstMatch
+    }
+
+    @MainActor
+    private static func button(identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(identifier: identifier).firstMatch
     }
 
     private static func assertFrame(

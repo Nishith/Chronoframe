@@ -324,7 +324,7 @@ struct DeduplicateView: View {
         HStack(spacing: DesignTokens.Spacing.md) {
             commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
             Spacer()
-            commitFooterButtons(toDelete: toDelete, hardDelete: hardDelete, density: .full)
+            commitFooterButtons(toDelete: toDelete, density: .full)
         }
     }
 
@@ -333,7 +333,7 @@ struct DeduplicateView: View {
             commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
             HStack {
                 Spacer(minLength: 0)
-                commitFooterButtons(toDelete: toDelete, hardDelete: hardDelete, density: .full)
+                commitFooterButtons(toDelete: toDelete, density: .full)
             }
         }
     }
@@ -343,7 +343,7 @@ struct DeduplicateView: View {
             commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Spacer(minLength: 0)
-                commitFooterButtons(toDelete: toDelete, hardDelete: hardDelete, density: .compact)
+                commitFooterButtons(toDelete: toDelete, density: .compact)
             }
         }
     }
@@ -361,41 +361,64 @@ struct DeduplicateView: View {
         }
     }
 
+    @ViewBuilder
     private func commitFooterButtons(
         toDelete: Int,
-        hardDelete: Bool,
         density: CommitFooterButtonDensity
     ) -> some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            Button(density.changeFolderTitle) {
-                abandonReview()
-            }
-            .accessibilityIdentifier("dedupeReviewChangeFolderButton")
-            .accessibilityHint("Abandons this review and returns to Deduplicate setup")
+        let highCount = sessionStore.triageBuckets[.high]?.count ?? 0
+        switch density {
+        case .full:
+            VStack(alignment: .trailing, spacing: DesignTokens.Spacing.xs) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    commitFooterSecondaryButtons(highCount: highCount, density: density)
+                }
+                .fixedSize(horizontal: true, vertical: false)
 
-            Button(density.settingsTitle) {
-                pauseReviewAndOpenSettings()
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    commitFooterPrimaryButtons(toDelete: toDelete, density: density)
+                }
+                .fixedSize(horizontal: true, vertical: false)
             }
-            .accessibilityIdentifier("dedupeReviewSettingsButton")
-            .accessibilityHint("Keeps this scan available and opens Deduplicate settings")
+            .fixedSize(horizontal: true, vertical: false)
+        case .compact:
+            VStack(alignment: .trailing, spacing: DesignTokens.Spacing.xs) {
+                HStack(spacing: DesignTokens.Spacing.xs) {
+                    commitFooterSecondaryButtons(highCount: highCount, density: density)
+                }
+                .fixedSize(horizontal: true, vertical: false)
 
+                HStack(spacing: DesignTokens.Spacing.xs) {
+                    commitFooterPrimaryButtons(toDelete: toDelete, density: density)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func commitFooterSecondaryButtons(
+        highCount: Int,
+        density: CommitFooterButtonDensity
+    ) -> some View {
+        Button(density.changeFolderTitle) {
+            abandonReview()
+        }
+        .accessibilityIdentifier("dedupeReviewChangeFolderButton")
+        .accessibilityHint("Abandons this review and returns to Deduplicate setup")
+
+        Button(density.settingsTitle) {
+            pauseReviewAndOpenSettings()
+        }
+        .accessibilityIdentifier("dedupeReviewSettingsButton")
+        .accessibilityHint("Keeps this scan available and opens Deduplicate settings")
+
+        Menu("Review") {
             Button("Quick Review") {
                 showingRapidTriage = true
             }
             .accessibilityIdentifier("dedupeRapidTriageButton")
-            .sheet(isPresented: $showingRapidTriage) {
-                let reviewClusters = sessionStore.clusters.filter {
-                    let level = $0.annotation?.confidence ?? .medium
-                    return level == .medium || level == .low
-                }
-                RapidTriageView(
-                    sessionStore: sessionStore,
-                    thumbnailLoader: thumbnailLoader,
-                    clustersToReview: reviewClusters
-                )
-            }
 
-            let highCount = sessionStore.triageBuckets[.high]?.count ?? 0
             if highCount > 0 {
                 Button("Auto-Accept Safe (\(highCount))") {
                     sessionStore.acceptAllHighConfidence()
@@ -405,22 +428,45 @@ struct DeduplicateView: View {
                 .accessibilityIdentifier("dedupeAcceptHighConfidenceButton")
                 .accessibilityHint("Accepts suggestions for all high-confidence clusters")
             }
-            Button(density.acceptAllTitle) {
-                sessionStore.acceptAllSuggestions()
-            }
-            .keyboardShortcut(.return, modifiers: [.command, .shift])
-            .accessibilityLabel("Accept All Suggestions")
-            .accessibilityIdentifier("dedupeAcceptAllSuggestionsButton")
-            .accessibilityHint("Marks every cluster's suggested keeper as keep and the rest as delete")
-            Button("Move Duplicates to Trash", role: .destructive) {
-                showingCommitConfirmation = true
-            }
-            .keyboardShortcut(.return, modifiers: .command)
-            .buttonStyle(.borderedProminent)
-            .disabled(toDelete == 0 || sessionStore.status == .committing)
-            .accessibilityIdentifier("dedupeCommitButton")
-            .accessibilityHint("Moves the selected files to the Trash after confirmation")
         }
+        .accessibilityIdentifier("dedupeReviewActionsMenu")
+        .sheet(isPresented: $showingRapidTriage) {
+            let reviewClusters = sessionStore.clusters.filter {
+                let level = $0.annotation?.confidence ?? .medium
+                return level == .medium || level == .low
+            }
+            RapidTriageView(
+                sessionStore: sessionStore,
+                thumbnailLoader: thumbnailLoader,
+                clustersToReview: reviewClusters
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func commitFooterPrimaryButtons(
+        toDelete: Int,
+        density: CommitFooterButtonDensity
+    ) -> some View {
+        Button(density.acceptAllTitle) {
+            sessionStore.acceptAllSuggestions()
+        }
+        .keyboardShortcut(.return, modifiers: [.command, .shift])
+        .buttonStyle(.bordered)
+        .fixedSize()
+        .accessibilityLabel("Accept All Suggestions")
+        .accessibilityIdentifier("dedupeAcceptAllSuggestionsButton")
+        .accessibilityHint("Marks every cluster's suggested keeper as keep and the rest as delete")
+
+        Button(density.commitTitle, role: .destructive) {
+            showingCommitConfirmation = true
+        }
+        .keyboardShortcut(.return, modifiers: .command)
+        .buttonStyle(.borderedProminent)
+        .fixedSize()
+        .disabled(toDelete == 0 || sessionStore.status == .committing)
+        .accessibilityIdentifier("dedupeCommitButton")
+        .accessibilityHint("Moves the selected files to the Trash after confirmation")
     }
 
     // MARK: - Completed
@@ -496,8 +542,8 @@ struct DeduplicateView: View {
     // MARK: - Helpers
 
     private var focusedCluster: DuplicateCluster? {
-        guard let id = focusedClusterID else { return nil }
-        return sessionStore.clusters.first { $0.id == id }
+        guard let id = focusedClusterID else { return sessionStore.clusters.first }
+        return sessionStore.clusters.first { $0.id == id } ?? sessionStore.clusters.first
     }
 
     private func ensureInitialFocus() {
@@ -651,6 +697,12 @@ private enum CommitFooterButtonDensity {
         }
     }
 
+    var commitTitle: String {
+        switch self {
+        case .full: return "Move Duplicates to Trash"
+        case .compact: return "Move to Trash"
+        }
+    }
 }
 
 /// Content of the Deduplicate destination card. Hosted twice inside a
