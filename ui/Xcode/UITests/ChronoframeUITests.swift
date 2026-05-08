@@ -75,7 +75,7 @@ final class ChronoframeUITests: XCTestCase {
             Self.selectSettingsTab(named: "Performance", in: app)
             XCTAssertTrue(app.staticTexts["Safety"].waitForExistence(timeout: 5))
             Self.selectSettingsTab(named: "Diagnostics", in: app)
-            XCTAssertTrue(app.descendants(matching: .any)["diagnosticsLogBufferStepper"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["Log Buffer"].waitForExistence(timeout: 5))
         }
     }
 
@@ -141,23 +141,15 @@ final class ChronoframeUITests: XCTestCase {
     private static func ensureSettingsWindowExists(in app: XCUIApplication) {
         let settingsWindow = app.windows[settingsWindowIdentifier]
         if settingsWindow.waitForExistence(timeout: 2) {
-            settingsWindow.click()
             return
         }
 
         app.typeKey(",", modifierFlags: .command)
-        if settingsWindow.waitForExistence(timeout: 5) {
-            settingsWindow.click()
-        }
+        _ = settingsWindow.waitForExistence(timeout: 5)
     }
 
     @MainActor
     private static func selectSettingsTab(named title: String, in app: XCUIApplication) {
-        let settingsWindow = app.windows[settingsWindowIdentifier]
-        if settingsWindow.exists {
-            settingsWindow.click()
-        }
-
         let tab = matchingElement(named: title, in: app, type: .tab)
         if tab.waitForExistence(timeout: 1) {
             click(tab)
