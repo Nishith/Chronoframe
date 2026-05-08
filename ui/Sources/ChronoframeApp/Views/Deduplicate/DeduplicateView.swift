@@ -369,9 +369,16 @@ struct DeduplicateView: View {
         let highCount = sessionStore.triageBuckets[.high]?.count ?? 0
         switch density {
         case .full:
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                commitFooterSecondaryButtons(highCount: highCount, density: density)
-                commitFooterPrimaryButtons(toDelete: toDelete, density: density)
+            VStack(alignment: .trailing, spacing: DesignTokens.Spacing.xs) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    commitFooterSecondaryButtons(highCount: highCount, density: density)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    commitFooterPrimaryButtons(toDelete: toDelete, density: density)
+                }
+                .fixedSize(horizontal: true, vertical: false)
             }
             .fixedSize(horizontal: true, vertical: false)
         case .compact:

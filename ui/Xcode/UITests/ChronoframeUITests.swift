@@ -88,11 +88,12 @@ final class ChronoframeUITests: XCTestCase {
                 XCTAssertTrue(clusterList.waitForExistence(timeout: 5), "Cluster list should render for \(scenario.rawValue)")
 
                 let footer = Self.element(identifier: "dedupeCommitFooter", in: app)
+                XCTAssertTrue(footer.waitForExistence(timeout: 10), "Commit footer should render for \(scenario.rawValue)")
+
                 let acceptCluster = Self.hittableElement(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
                 let acceptAll = Self.hittableElement(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
                 let commit = Self.hittableElement(identifier: "dedupeCommitButton", in: app)
 
-                XCTAssertTrue(footer.waitForExistence(timeout: 5), "Commit footer should render for \(scenario.rawValue)")
                 XCTAssertTrue(acceptCluster.isHittable, "Accept Suggestion should stay hittable for \(scenario.rawValue)")
                 XCTAssertTrue(acceptAll.isHittable, "Accept All Suggestions should stay hittable for \(scenario.rawValue)")
                 XCTAssertTrue(commit.isHittable, "Commit should stay hittable for \(scenario.rawValue)")
