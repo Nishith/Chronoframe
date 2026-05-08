@@ -113,7 +113,6 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     continuation.yield(.phaseStarted(phase: .featureExtraction, total: imagePaths.count))
                     var freshRecords: [DedupeFeatureRecord] = []
                     var candidatesByPath: [String: PhotoCandidate] = [:]
-                    let featureStore = LazyDedupeFeaturePrintStore(database: database)
                     var analysisRequests: [DedupeAnalysisRequest] = []
 
                     // Batch-stat all image files upfront to avoid per-file

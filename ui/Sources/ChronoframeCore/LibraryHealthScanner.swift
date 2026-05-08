@@ -284,27 +284,6 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         return stats
     }
 
-    private func directoryStats(at url: URL) -> (count: Int, bytes: Int64) {
-        guard let enumerator = fileManager.enumerator(
-            at: url,
-            includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return (0, 0)
-        }
-
-        var count = 0
-        var bytes: Int64 = 0
-        for case let fileURL as URL in enumerator {
-            guard MediaLibraryRules.isSupportedMediaFile(path: fileURL.path) else { continue }
-            guard let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
-                  values.isRegularFile == true else { continue }
-            count += 1
-            bytes += Int64(values.fileSize ?? 0)
-        }
-        return (count, bytes)
-    }
-
     private func cachedDuplicateStats(destinationURL: URL) -> (count: Int, bytes: Int64) {
         let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
         guard fileManager.fileExists(atPath: databaseURL.path),
@@ -351,32 +330,6 @@ public struct LibraryHealthScanner: @unchecked Sendable {
             let name = $0.lastPathComponent
             return name.hasPrefix("audit_receipt_") || name.hasPrefix("dedupe_audit_receipt_")
         }.count
-    }
-
-    private func structureDriftCount(
-        destinationURL: URL,
-        folderStructure: FolderStructure,
-        namingRules: PlannerNamingRules
-    ) -> Int {
-        guard let enumerator = fileManager.enumerator(
-            at: destinationURL,
-            includingPropertiesForKeys: [.isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return 0
-        }
-
-        var count = 0
-        for case let fileURL as URL in enumerator {
-            guard MediaLibraryRules.isSupportedMediaFile(path: fileURL.path) else { continue }
-            guard let values = try? fileURL.resourceValues(forKeys: [.isRegularFileKey]),
-                  values.isRegularFile == true else { continue }
-            guard !isChronoframePlannedFile(fileURL.lastPathComponent, namingRules: namingRules) else {
-                continue
-            }
-            count += 1
-        }
-        return count
     }
 
     private func isChronoframePlannedFile(_ filename: String, namingRules: PlannerNamingRules) -> Bool {
