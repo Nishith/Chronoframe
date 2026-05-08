@@ -90,6 +90,8 @@ struct ClusterDetailPane: View {
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
         .frame(height: height)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("dedupeMemberStrip")
     }
 
     private func memberStripWide(cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
@@ -117,7 +119,6 @@ struct ClusterDetailPane: View {
             }
             .padding(.horizontal, DesignTokens.Spacing.md)
         }
-        .accessibilityIdentifier("dedupeMemberStrip")
     }
 
     private func acceptSuggestionButton(for cluster: DuplicateCluster) -> some View {

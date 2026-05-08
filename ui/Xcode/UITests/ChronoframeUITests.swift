@@ -1,6 +1,8 @@
 import XCTest
 
 final class ChronoframeUITests: XCTestCase {
+    private static let settingsWindowIdentifier = "com_apple_SwiftUI_Settings_window"
+
     private enum Scenario: String {
         case setupReady
         case runPreviewReview
@@ -69,7 +71,7 @@ final class ChronoframeUITests: XCTestCase {
         await MainActor.run {
             let app = Self.launchApp(.settingsSections)
 
-            XCTAssertTrue(app.windows["com_apple_SwiftUI_Settings_window"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.windows[Self.settingsWindowIdentifier].waitForExistence(timeout: 5))
             Self.selectSettingsTab(named: "Performance", in: app)
             XCTAssertTrue(app.staticTexts["Safety"].waitForExistence(timeout: 5))
             Self.selectSettingsTab(named: "Diagnostics", in: app)
@@ -139,37 +141,47 @@ final class ChronoframeUITests: XCTestCase {
 
     @MainActor
     private static func ensureSettingsWindowExists(in app: XCUIApplication) {
-        if app.windows["com_apple_SwiftUI_Settings_window"].waitForExistence(timeout: 2) {
+        let settingsWindow = app.windows[settingsWindowIdentifier]
+        if settingsWindow.waitForExistence(timeout: 2) {
+            settingsWindow.click()
             return
         }
 
         app.typeKey(",", modifierFlags: .command)
-        _ = app.windows["com_apple_SwiftUI_Settings_window"].waitForExistence(timeout: 5)
+        if settingsWindow.waitForExistence(timeout: 5) {
+            settingsWindow.click()
+        }
     }
 
     @MainActor
     private static func selectSettingsTab(named title: String, in app: XCUIApplication) {
-        let tab = matchingElement(named: title, in: app, type: .tab)
+        let settingsWindow = app.windows[settingsWindowIdentifier]
+        let searchRoot: XCUIElement = settingsWindow.exists ? settingsWindow : app
+        if settingsWindow.exists {
+            settingsWindow.click()
+        }
+
+        let tab = matchingElement(named: title, in: searchRoot, type: .tab)
         if tab.waitForExistence(timeout: 1) {
-            tab.click()
+            click(tab)
             return
         }
 
-        let radioButton = matchingElement(named: title, in: app, type: .radioButton)
+        let radioButton = matchingElement(named: title, in: searchRoot, type: .radioButton)
         if radioButton.waitForExistence(timeout: 1) {
-            radioButton.click()
+            click(radioButton)
             return
         }
 
-        let button = matchingElement(named: title, in: app, type: .button)
+        let button = matchingElement(named: title, in: searchRoot, type: .button)
         if button.waitForExistence(timeout: 1) {
-            button.click()
+            click(button)
             return
         }
 
-        let staticText = matchingElement(named: title, in: app, type: .staticText)
+        let staticText = matchingElement(named: title, in: searchRoot, type: .staticText)
         if staticText.waitForExistence(timeout: 1) {
-            staticText.click()
+            click(staticText)
             return
         }
 
@@ -179,11 +191,20 @@ final class ChronoframeUITests: XCTestCase {
     @MainActor
     private static func matchingElement(
         named title: String,
-        in app: XCUIApplication,
+        in root: XCUIElement,
         type: XCUIElement.ElementType
     ) -> XCUIElement {
         let predicate = NSPredicate(format: "label == %@", title)
-        return app.descendants(matching: type).matching(predicate).firstMatch
+        return root.descendants(matching: type).matching(predicate).firstMatch
+    }
+
+    @MainActor
+    private static func click(_ element: XCUIElement) {
+        if element.isHittable {
+            element.click()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+        }
     }
 
     @MainActor

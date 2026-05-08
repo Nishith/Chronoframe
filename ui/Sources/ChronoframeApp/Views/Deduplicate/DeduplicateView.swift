@@ -496,8 +496,8 @@ struct DeduplicateView: View {
     // MARK: - Helpers
 
     private var focusedCluster: DuplicateCluster? {
-        guard let id = focusedClusterID else { return nil }
-        return sessionStore.clusters.first { $0.id == id }
+        guard let id = focusedClusterID else { return sessionStore.clusters.first }
+        return sessionStore.clusters.first { $0.id == id } ?? sessionStore.clusters.first
     }
 
     private func ensureInitialFocus() {
