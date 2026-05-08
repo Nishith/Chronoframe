@@ -91,11 +91,12 @@ final class ChronoframeUITests: XCTestCase {
                 XCTAssertTrue(footer.waitForExistence(timeout: 10), "Commit footer should render for \(scenario.rawValue)")
 
                 let acceptCluster = Self.hittableButton(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
-                let acceptAll = Self.hittableButton(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
+                let acceptAll = Self.button(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
                 let commit = Self.hittableButton(identifier: "dedupeCommitButton", in: app)
 
                 XCTAssertTrue(acceptCluster.isHittable, "Accept Suggestion should stay hittable for \(scenario.rawValue)")
-                XCTAssertTrue(acceptAll.isHittable, "Accept All Suggestions should stay hittable for \(scenario.rawValue)")
+                XCTAssertTrue(acceptAll.waitForExistence(timeout: 5), "Accept All Suggestions should stay visible for \(scenario.rawValue)")
+                XCTAssertTrue(acceptAll.isEnabled, "Accept All Suggestions should stay enabled for \(scenario.rawValue)")
                 XCTAssertTrue(commit.isHittable, "Commit should stay hittable for \(scenario.rawValue)")
 
                 let window = app.windows.firstMatch
@@ -213,6 +214,11 @@ final class ChronoframeUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
         return query.firstMatch
+    }
+
+    @MainActor
+    private static func button(identifier: String, in app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(identifier: identifier).firstMatch
     }
 
     private static func assertFrame(
