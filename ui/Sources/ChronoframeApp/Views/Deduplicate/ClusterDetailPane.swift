@@ -134,10 +134,10 @@ struct ClusterDetailPane: View {
     private func detailContentWide(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.lg) {
             preview(for: focused)
-                .frame(minWidth: 280, maxWidth: .infinity, maxHeight: .infinity)
+                .frame(minWidth: 160, maxWidth: .infinity, maxHeight: .infinity)
             if let focused {
                 metadataPanel(for: focused, cluster: cluster)
-                    .frame(minWidth: 200, idealWidth: 240, maxWidth: 260)
+                    .frame(minWidth: 160, idealWidth: 240, maxWidth: 260)
                     .layoutPriority(1)
             }
         }
