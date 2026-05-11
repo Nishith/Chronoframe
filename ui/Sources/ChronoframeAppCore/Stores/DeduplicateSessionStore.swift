@@ -246,6 +246,22 @@ public final class DeduplicateSessionStore: ObservableObject {
         decisions = DedupeDecisions(byPath: byPath)
     }
 
+    public func keepAllInCluster(_ cluster: DuplicateCluster) {
+        var byPath = decisions.byPath
+        for member in cluster.members {
+            byPath[member.path] = .keep
+        }
+        decisions = DedupeDecisions(byPath: byPath)
+    }
+
+    public func deleteAllInCluster(_ cluster: DuplicateCluster) {
+        var byPath = decisions.byPath
+        for member in cluster.members {
+            byPath[member.path] = .delete
+        }
+        decisions = DedupeDecisions(byPath: byPath)
+    }
+
     public func acceptAllSuggestions() {
         var byPath = decisions.byPath
         for (path, decision) in suggestedDecisions(for: clusters).byPath {

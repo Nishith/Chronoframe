@@ -270,7 +270,10 @@ struct DeduplicateView: View {
             deletionPlan: sessionStore.currentDeletionPlan(),
             focusedClusterID: $focusedClusterID,
             focusedMemberPath: $focusedMemberPath,
-            thumbnailLoader: thumbnailLoader
+            thumbnailLoader: thumbnailLoader,
+            onKeepAll: { sessionStore.keepAllInCluster($0) },
+            onAcceptSuggestion: { sessionStore.acceptSuggestionsForCluster($0) },
+            onDeleteAll: { sessionStore.deleteAllInCluster($0) }
         )
     }
 
