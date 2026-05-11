@@ -14,6 +14,7 @@ struct ClusterDetailPane: View {
     @Binding var focusedMemberPath: String?
     @ObservedObject var sessionStore: DeduplicateSessionStore
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
+    var onAcceptAndAdvance: (() -> Void)? = nil
     @State private var thumbnailStripHeight = DeduplicateDetailPreviewLayout.defaultThumbnailStripHeight
     @State private var dragStartThumbnailStripHeight: CGFloat?
     @State private var showingReasonDetail = false
@@ -122,13 +123,15 @@ struct ClusterDetailPane: View {
     }
 
     private func acceptSuggestionButton(for cluster: DuplicateCluster) -> some View {
-        Button("Accept Suggestion") {
+        Button("Accept & Next") {
             sessionStore.acceptSuggestionsForCluster(cluster)
+            onAcceptAndAdvance?()
         }
         .fixedSize()
         .keyboardShortcut(.return, modifiers: [])
         .accessibilityIdentifier("dedupeAcceptClusterSuggestionButton")
-        .accessibilityLabel("Accept Suggestion")
+        .accessibilityLabel("Accept suggestion and move to next group")
+        .accessibilityHint("Confirms the suggested keep and delete choices for this group, then selects the next group")
     }
 
     private func detailContentWide(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {

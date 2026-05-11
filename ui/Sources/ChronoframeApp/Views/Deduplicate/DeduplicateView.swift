@@ -279,7 +279,8 @@ struct DeduplicateView: View {
             cluster: focusedCluster,
             focusedMemberPath: $focusedMemberPath,
             sessionStore: sessionStore,
-            thumbnailLoader: thumbnailLoader
+            thumbnailLoader: thumbnailLoader,
+            onAcceptAndAdvance: advanceToNextCluster
         )
     }
 
@@ -555,6 +556,16 @@ struct DeduplicateView: View {
             focusedClusterID = first.id
             focusedMemberPath = first.members.first?.path
         }
+    }
+
+    private func advanceToNextCluster() {
+        let clusters = sessionStore.clusters
+        guard let currentID = focusedClusterID,
+              let currentIndex = clusters.firstIndex(where: { $0.id == currentID }),
+              currentIndex + 1 < clusters.count else { return }
+        let next = clusters[currentIndex + 1]
+        focusedClusterID = next.id
+        focusedMemberPath = next.members.first?.path
     }
 
     private var currentDeduplicateConfiguration: DeduplicateConfiguration? {
