@@ -365,4 +365,86 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
         XCTAssertEqual(result.missingCount, 0)
         XCTAssertEqual(result.totalTransfers, 0)
     }
+
+    // MARK: - Destination boundary guard
+
+    /// Structural guard for the receipt path-traversal fix: when a
+    /// destinationBoundary is supplied, paths outside it must be refused even
+    /// when the hash matches. Mirrors the Python revert_receipt boundary check.
+    func testRevertRefusesPathsOutsideDestinationBoundary() throws {
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        // File that exists outside the destination boundary.
+        let outsideURL = temporaryDirectoryURL.appendingPathComponent("outside_tax_return.pdf")
+        try Data("important".utf8).write(to: outsideURL)
+        let outsideIdentity = try FileIdentityHasher().hashIdentity(at: outsideURL)
+
+        let receipt = RevertReceipt(
+            transfers: [
+                RevertReceiptTransfer(
+                    source: "/dev/null",
+                    dest: outsideURL.path,
+                    hash: outsideIdentity.rawValue
+                )
+            ]
+        )
+
+        let issues = Recorder<RunIssue>()
+        let result = RevertExecutor().revert(
+            receipt: receipt,
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) }),
+            destinationBoundary: destinationRoot
+        )
+
+        XCTAssertEqual(result.revertedCount, 0)
+        XCTAssertEqual(result.skippedCount, 1)
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: outsideURL.path),
+            "File outside the destination boundary must not be deleted, even on hash match"
+        )
+        XCTAssertTrue(issues.values.first?.message.contains("Refusing to revert path outside destination") == true)
+    }
+
+    func testRevertWithBoundaryStillRemovesFilesInsideTheBoundary() throws {
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: destinationRoot.appendingPathComponent("2024/05"),
+            withIntermediateDirectories: true
+        )
+        let insideURL = destinationRoot.appendingPathComponent("2024/05/photo.jpg")
+        try Data("inside".utf8).write(to: insideURL)
+        let identity = try FileIdentityHasher().hashIdentity(at: insideURL)
+
+        let receipt = RevertReceipt(
+            transfers: [
+                RevertReceiptTransfer(source: "/src/photo.jpg", dest: insideURL.path, hash: identity.rawValue)
+            ]
+        )
+
+        let result = RevertExecutor().revert(receipt: receipt, destinationBoundary: destinationRoot)
+
+        XCTAssertEqual(result.revertedCount, 1)
+        XCTAssertEqual(result.skippedCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: insideURL.path))
+    }
+
+    func testRevertWithoutBoundaryPreservesLegacyBehavior() throws {
+        // When the boundary is nil (legacy/test callers), behavior is unchanged
+        // — the hash check is the only guard.
+        let dstURL = temporaryDirectoryURL.appendingPathComponent("legacy.jpg")
+        try Data("legacy".utf8).write(to: dstURL)
+        let identity = try FileIdentityHasher().hashIdentity(at: dstURL)
+
+        let receipt = RevertReceipt(
+            transfers: [
+                RevertReceiptTransfer(source: "/src/legacy.jpg", dest: dstURL.path, hash: identity.rawValue)
+            ]
+        )
+
+        let result = RevertExecutor().revert(receipt: receipt)
+
+        XCTAssertEqual(result.revertedCount, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dstURL.path))
+    }
 }
