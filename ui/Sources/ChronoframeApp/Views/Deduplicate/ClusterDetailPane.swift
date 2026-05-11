@@ -26,6 +26,15 @@ struct ClusterDetailPane: View {
                 VStack(spacing: 0) {
                     detailContent(for: cluster)
                 }
+                .background {
+                    VStack {
+                        Button("Previous") { navigateMember(by: -1, in: cluster) }
+                            .keyboardShortcut(.leftArrow, modifiers: [])
+                        Button("Next") { navigateMember(by: 1, in: cluster) }
+                            .keyboardShortcut(.rightArrow, modifiers: [])
+                    }
+                    .opacity(0)
+                }
             } else {
                 VStack(spacing: 12) {
                     Image(systemName: "rectangle.on.rectangle.angled")
@@ -446,6 +455,14 @@ struct ClusterDetailPane: View {
             return match
         }
         return cluster.members.first
+    }
+
+    private func navigateMember(by delta: Int, in cluster: DuplicateCluster) {
+        let members = cluster.members
+        guard !members.isEmpty else { return }
+        let currentIndex = members.firstIndex(where: { $0.path == focusedMemberPath }) ?? 0
+        let nextIndex = (currentIndex + delta + members.count) % members.count
+        focusedMemberPath = members[nextIndex].path
     }
 
     private func isSuggestedKeeper(_ member: PhotoCandidate, in cluster: DuplicateCluster) -> Bool {
