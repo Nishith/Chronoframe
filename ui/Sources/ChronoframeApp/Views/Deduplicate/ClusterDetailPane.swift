@@ -274,7 +274,7 @@ struct ClusterDetailPane: View {
         }
     }
 
-    private static func qualityLabel(_ score: Double) -> (Int, String) {
+    static func qualityLabel(_ score: Double) -> (Int, String) {
         switch score {
         case 0.8...: return (5, "Excellent")
         case 0.6..<0.8: return (4, "Good")
@@ -284,7 +284,7 @@ struct ClusterDetailPane: View {
         }
     }
 
-    private static func sharpnessLabel(_ score: Double) -> String {
+    static func sharpnessLabel(_ score: Double) -> String {
         switch score {
         case 0.5...: return "Sharp"
         case 0.25..<0.5: return "Soft"

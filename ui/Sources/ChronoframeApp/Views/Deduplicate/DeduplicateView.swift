@@ -676,7 +676,7 @@ enum DeduplicateReviewLayout {
     }
 }
 
-private enum CommitFooterButtonDensity {
+enum CommitFooterButtonDensity {
     case full
     case compact
 

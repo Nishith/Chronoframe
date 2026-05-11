@@ -100,6 +100,59 @@ final class DeduplicateStatusViewTests: XCTestCase {
         )
     }
 
+    // MARK: - Breakpoint value guard (design-critique fix #3)
+
+    func testReviewLayoutBreakpointIs600SoHorizontalLayoutActivatesOnNarrowWindows() {
+        // The breakpoint was deliberately lowered from 840 → 600 so the
+        // HSplitView list+detail layout is the default at any practical
+        // content-area width (900pt window – 248pt sidebar ≈ 652pt).
+        XCTAssertEqual(DesignTokens.DeduplicateLayout.reviewWideBreakpoint, 600, accuracy: 0.5)
+        XCTAssertEqual(DeduplicateReviewLayout.mode(forWidth: 600), .wide)
+        XCTAssertEqual(DeduplicateReviewLayout.mode(forWidth: 599), .compact)
+    }
+
+    // MARK: - Commit button density (design-critique fix #1)
+
+    func testCommitDensityFullLabelIncludesFileCountForClearerDestructiveAction() {
+        XCTAssertEqual(CommitFooterButtonDensity.full.commitTitle(fileCount: 1), "Move 1 File to Trash")
+        XCTAssertEqual(CommitFooterButtonDensity.full.commitTitle(fileCount: 4), "Move 4 Files to Trash")
+        // Zero files → fallback without count (edge case; button should be disabled)
+        XCTAssertEqual(CommitFooterButtonDensity.full.commitTitle(fileCount: 0), "Move to Trash")
+        // Compact mode always omits the count to save space
+        XCTAssertEqual(CommitFooterButtonDensity.compact.commitTitle(fileCount: 99), "Move to Trash")
+    }
+
+    // MARK: - Quality / sharpness labels (design-critique fix #2)
+
+    func testClusterDetailQualityLabelCoversAllFiveTiersWithCorrectDotCount() {
+        let cases: [(Double, Int, String)] = [
+            (0.85, 5, "Excellent"),
+            (0.80, 5, "Excellent"),  // lower boundary of Excellent
+            (0.70, 4, "Good"),
+            (0.60, 4, "Good"),       // lower boundary of Good
+            (0.50, 3, "Fair"),
+            (0.40, 3, "Fair"),       // lower boundary of Fair
+            (0.30, 2, "Poor"),
+            (0.20, 2, "Poor"),       // lower boundary of Poor
+            (0.10, 1, "Very poor"),
+            (0.00, 1, "Very poor"),
+        ]
+        for (score, expectedDots, expectedLabel) in cases {
+            let (dots, label) = ClusterDetailPane.qualityLabel(score)
+            XCTAssertEqual(dots, expectedDots, "dots for score \(score)")
+            XCTAssertEqual(label, expectedLabel, "label for score \(score)")
+        }
+    }
+
+    func testClusterDetailSharpnessLabelCoversThreeTiersAtBoundaries() {
+        XCTAssertEqual(ClusterDetailPane.sharpnessLabel(0.75), "Sharp")
+        XCTAssertEqual(ClusterDetailPane.sharpnessLabel(0.50), "Sharp")    // lower boundary
+        XCTAssertEqual(ClusterDetailPane.sharpnessLabel(0.35), "Soft")
+        XCTAssertEqual(ClusterDetailPane.sharpnessLabel(0.25), "Soft")     // lower boundary
+        XCTAssertEqual(ClusterDetailPane.sharpnessLabel(0.10), "Motion blur")
+        XCTAssertEqual(ClusterDetailPane.sharpnessLabel(0.00), "Motion blur")
+    }
+
     func testCompactClusterListHeightClampsWithinConfiguredRange() {
         XCTAssertEqual(
             DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 300),

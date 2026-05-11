@@ -253,10 +253,14 @@ struct RunHistoryView: View {
         }
     }
 
+    static func sourceFolderLabel(for sourcePath: String) -> String {
+        URL(fileURLWithPath: sourcePath).lastPathComponent
+    }
+
     private func transferredSourceRow(for record: TransferredSourceRecord) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(URL(fileURLWithPath: record.sourcePath).lastPathComponent)
+                Text(Self.sourceFolderLabel(for: record.sourcePath))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(1)
