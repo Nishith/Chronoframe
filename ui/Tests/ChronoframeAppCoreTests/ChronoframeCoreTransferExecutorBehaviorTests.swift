@@ -131,9 +131,9 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             withIntermediateDirectories: true
         )
 
-        let realFile = destinationRoot.appendingPathComponent("2024/01/01/keeper.jpg")
-        let orphan1 = destinationRoot.appendingPathComponent("2024/01/01/orphan.jpg.tmp")
-        let orphan2 = destinationRoot.appendingPathComponent("2024/01/01/another.mov.tmp")
+        let realFile = destinationRoot.appendingPathComponent("2024/01/01/2024-01-01_001.jpg")
+        let orphan1 = destinationRoot.appendingPathComponent("2024/01/01/2024-01-01_002.jpg.tmp")
+        let orphan2 = destinationRoot.appendingPathComponent("2024/01/01/2024-01-01_003.mov.tmp")
         try Data("real".utf8).write(to: realFile)
         try Data("orphan1".utf8).write(to: orphan1)
         try Data("orphan2".utf8).write(to: orphan2)
@@ -154,6 +154,134 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
 
         XCTAssertEqual(TransferExecutor().cleanupTemporaryFiles(at: destinationRoot), 0)
         XCTAssertTrue(FileManager.default.fileExists(atPath: realFile.path))
+    }
+
+    /// Structural guard for the cleanupTemporaryFiles scope fix: foreign .tmp
+    /// files (DaVinci Resolve scratch, autosaves, etc.) sharing the destination
+    /// with Chronoframe must survive cleanup. Mirrors the Python guard.
+    func testCleanupTemporaryFilesPreservesForeignTmpFiles() throws {
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("mixed", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: destinationRoot.appendingPathComponent("2024/01/01"),
+            withIntermediateDirectories: true
+        )
+
+        let chronoframeOrphan = destinationRoot
+            .appendingPathComponent("2024/01/01/2024-01-01_001.jpg.tmp")
+        let unknownDateOrphan = destinationRoot.appendingPathComponent("Unknown_003.heic.tmp")
+        let collisionOrphan = destinationRoot
+            .appendingPathComponent("2024/01/01/2024-01-01_002_collision_1.jpg.tmp")
+        let uuidSuffixOrphan = destinationRoot
+            .appendingPathComponent("2024/01/01/2024-01-01_004.jpg.8F3A2C1D-8F3A-2C1D-8F3A-2C1D8F3A2C1D.tmp")
+        let foreignResolveScratch = destinationRoot.appendingPathComponent("Timeline_Export.tmp")
+        let foreignEditorAutosave = destinationRoot
+            .appendingPathComponent("2024/01/01/autosave.tmp")
+
+        for url in [
+            chronoframeOrphan,
+            unknownDateOrphan,
+            collisionOrphan,
+            uuidSuffixOrphan,
+            foreignResolveScratch,
+            foreignEditorAutosave,
+        ] {
+            try Data("payload".utf8).write(to: url)
+        }
+
+        let cleaned = TransferExecutor().cleanupTemporaryFiles(at: destinationRoot)
+
+        // Four Chronoframe orphans removed.
+        XCTAssertEqual(cleaned, 4)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: chronoframeOrphan.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: unknownDateOrphan.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: collisionOrphan.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: uuidSuffixOrphan.path))
+        // Foreign tmp files must survive.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: foreignResolveScratch.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: foreignEditorAutosave.path))
+    }
+
+    // MARK: - PersistentRunLogger rotation
+
+    /// When the existing log is past the configured size cap, opening must
+    /// rotate the file to <log>.1 so the active log can't grow without bound.
+    /// Mirrors Python RunLogger.test_rotates_when_log_exceeds_size_cap.
+    func testPersistentRunLoggerRotatesWhenOversized() throws {
+        let logURL = temporaryDirectoryURL.appendingPathComponent("organize_log.txt")
+        // Pre-seed the log past the cap with a single large write.
+        let oversizedPayload = Data(count: Int(PersistentRunLogger.maxLogBytes) + 1024)
+        try oversizedPayload.write(to: logURL)
+
+        let logger = PersistentRunLogger(logURL: logURL)
+        try logger.open()
+        logger.log("post-rotation entry")
+        logger.close()
+
+        let rotatedURL = logURL.appendingPathExtension("1")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: rotatedURL.path),
+            "Oversized log should be rotated to .1"
+        )
+
+        let rotatedAttrs = try FileManager.default.attributesOfItem(atPath: rotatedURL.path)
+        XCTAssertGreaterThan(
+            rotatedAttrs[.size] as? UInt64 ?? 0,
+            PersistentRunLogger.maxLogBytes,
+            "Rotated file should contain the pre-rotation contents"
+        )
+
+        let liveAttrs = try FileManager.default.attributesOfItem(atPath: logURL.path)
+        XCTAssertLessThan(
+            liveAttrs[.size] as? UInt64 ?? UInt64.max,
+            1024,
+            "Active log should be fresh and contain only the new entry"
+        )
+
+        let liveContents = try String(contentsOf: logURL, encoding: .utf8)
+        XCTAssertTrue(liveContents.contains("post-rotation entry"))
+    }
+
+    /// A log file under the size cap must not be rotated.
+    func testPersistentRunLoggerDoesNotRotateBelowCap() throws {
+        let logURL = temporaryDirectoryURL.appendingPathComponent("small_log.txt")
+        try Data("[2024-01-01 00:00:00] small\n".utf8).write(to: logURL)
+
+        let logger = PersistentRunLogger(logURL: logURL)
+        try logger.open()
+        logger.log("appended")
+        logger.close()
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: logURL.appendingPathExtension("1").path),
+            "Small log should not be rotated"
+        )
+    }
+
+    /// Rotating onto a pre-existing .1 (e.g. a previous rotation) must replace
+    /// it rather than aborting. Otherwise a stale rotated log would block
+    /// future rotations and the active log would grow unbounded.
+    func testPersistentRunLoggerReplacesExistingRotatedFile() throws {
+        let logURL = temporaryDirectoryURL.appendingPathComponent("organize_log.txt")
+        let rotatedURL = logURL.appendingPathExtension("1")
+
+        // Existing .1 from a prior rotation.
+        try Data("old rotated contents".utf8).write(to: rotatedURL)
+        // Oversized current log that should rotate.
+        let oversizedPayload = Data(count: Int(PersistentRunLogger.maxLogBytes) + 1024)
+        try oversizedPayload.write(to: logURL)
+
+        let logger = PersistentRunLogger(logURL: logURL)
+        try logger.open()
+        logger.log("new run")
+        logger.close()
+
+        let rotatedAttrs = try FileManager.default.attributesOfItem(atPath: rotatedURL.path)
+        // The .1 file should now hold the previously-active log, not the old contents.
+        XCTAssertGreaterThan(
+            rotatedAttrs[.size] as? UInt64 ?? 0,
+            PersistentRunLogger.maxLogBytes,
+            "Existing .1 should have been replaced by the previously active oversized log"
+        )
     }
 
     // MARK: - Failure thresholds
