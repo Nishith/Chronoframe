@@ -175,6 +175,9 @@ struct ClusterDetailPane: View {
             if let member {
                 LargePreviewImage(path: member.path)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(alignment: .bottomLeading) {
+                        photoStageLabel(for: member)
+                    }
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: 56))
@@ -339,6 +342,16 @@ struct ClusterDetailPane: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .stroke(isFocused ? DesignTokens.ColorSystem.accentWaypoint : Color.white.opacity(0.16), lineWidth: isFocused ? 2 : 0.5)
             )
+            .overlay(alignment: .topLeading) {
+                if isSuggestedKeeper(member, in: cluster) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
+                        .padding(4)
+                        .background(.black.opacity(0.45), in: Circle())
+                        .padding(4)
+                }
+            }
 
             Image(systemName: decision == .keep ? "checkmark.circle.fill" : "xmark.circle.fill")
                 .font(.system(size: 14, weight: .bold))
@@ -353,6 +366,23 @@ struct ClusterDetailPane: View {
             Button("Delete", role: .destructive) { sessionStore.setDecision(.delete, forPath: member.path) }
         }
         .help(URL(fileURLWithPath: member.path).lastPathComponent)
+    }
+
+    private func photoStageLabel(for member: PhotoCandidate) -> some View {
+        HStack(spacing: 7) {
+            Circle()
+                .fill(DesignTokens.ColorSystem.accentWaypoint)
+                .frame(width: 6, height: 6)
+            Text(URL(fileURLWithPath: member.path).lastPathComponent)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(.black.opacity(0.46), in: Capsule())
+        .padding(10)
     }
 
     // MARK: - Warning Banner

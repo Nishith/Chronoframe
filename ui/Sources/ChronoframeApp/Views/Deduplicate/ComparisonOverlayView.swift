@@ -39,8 +39,10 @@ struct ComparisonOverlayView: View {
             Divider()
             comparisonContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(DesignTokens.ColorSystem.imageStage)
         }
         .frame(minWidth: 600, minHeight: 500)
+        .background(DesignTokens.ColorSystem.canvas)
     }
 
     private var toolbar: some View {
@@ -64,6 +66,7 @@ struct ComparisonOverlayView: View {
             }
         }
         .padding(DesignTokens.Spacing.md)
+        .background(.bar)
     }
 
     private var modePicker: some View {
@@ -137,6 +140,12 @@ private struct SliderComparisonView: View {
                     .frame(width: 2)
                     .position(x: geometry.size.width * position, y: geometry.size.height / 2)
                     .shadow(radius: 2)
+
+                comparisonLabel("Keeper", systemImage: "star.fill")
+                    .position(x: 56, y: geometry.size.height - 28)
+
+                comparisonLabel("Compare", systemImage: "circle.dashed")
+                    .position(x: geometry.size.width - 62, y: geometry.size.height - 28)
             }
             .gesture(
                 DragGesture(minimumDistance: 0)
@@ -147,6 +156,15 @@ private struct SliderComparisonView: View {
         }
         .task { leftImage = loadImage(at: leftPath) }
         .task { rightImage = loadImage(at: rightPath) }
+    }
+
+    private func comparisonLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(.black.opacity(0.44), in: Capsule())
     }
 }
 
@@ -180,6 +198,7 @@ private struct DifferenceComparisonView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(DesignTokens.Spacing.lg)
         .task {
             differenceImage = DifferenceImageGenerator.generate(
                 leftURL: URL(fileURLWithPath: leftPath),
@@ -213,13 +232,14 @@ private struct FlickerComparisonView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(DesignTokens.Spacing.lg)
         .overlay(alignment: .bottom) {
             Text(showingLeft ? "A (Keeper)" : "B")
                 .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(.ultraThinMaterial)
-                .clipShape(Capsule())
+                .background(.black.opacity(0.44), in: Capsule())
                 .padding(.bottom, 12)
         }
         .task {

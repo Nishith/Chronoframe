@@ -22,21 +22,20 @@ struct ContactSheetView: View {
     @StateObject private var loader = ContactSheetLoader()
 
     var body: some View {
-        // Fixed cell width keeps the grid's intrinsic footprint predictable —
-        // `.adaptive` packs as many columns as fit in the available width and
-        // wraps the rest, so the contact sheet never extends past the panel.
-        let columns = [GridItem(.adaptive(minimum: cellSize, maximum: cellSize), spacing: 8)]
-
         VStack(alignment: .leading, spacing: 10) {
             if !sourcePath.isEmpty {
                 heroCell
             }
 
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
-                ForEach(gridRange, id: \.self) { index in
-                    cell(at: index)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHGrid(rows: [GridItem(.fixed(cellSize))], spacing: 8) {
+                    ForEach(gridRange, id: \.self) { index in
+                        cell(at: index)
+                    }
                 }
+                .padding(.horizontal, 1)
             }
+            .frame(height: cellSize)
         }
         .padding(10)
         .background(DesignTokens.ColorSystem.imageStage, in: RoundedRectangle(cornerRadius: DesignTokens.Corner.card, style: .continuous))
@@ -77,15 +76,20 @@ struct ContactSheetView: View {
                 }
             }
             .overlay(alignment: .bottomLeading) {
-                Text(URL(fileURLWithPath: sourcePath).lastPathComponent)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(.black.opacity(0.42), in: Capsule())
-                    .padding(10)
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.accentWaypoint)
+                        .frame(width: 6, height: 6)
+                    Text(URL(fileURLWithPath: sourcePath).lastPathComponent)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(.black.opacity(0.46), in: Capsule())
+                .padding(10)
             }
             .frame(maxWidth: .infinity, minHeight: 168, maxHeight: 168)
             .clipped()
@@ -127,10 +131,16 @@ struct ContactSheetThumbnailCell: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .strokeBorder(Color.white.opacity(thumbnail == nil ? 0.08 : 0.18), lineWidth: 0.5)
+                    .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(DesignTokens.ColorSystem.photoEdgeHighlight, lineWidth: thumbnail == nil ? 0 : 0.5)
+                    .blendMode(.screen)
             }
             .frame(width: cellSize, height: cellSize)
             .clipped()
+            .shadow(color: .black.opacity(thumbnail == nil ? 0 : 0.18), radius: 4, x: 0, y: 2)
     }
 }
 

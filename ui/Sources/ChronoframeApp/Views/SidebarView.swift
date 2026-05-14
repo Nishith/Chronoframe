@@ -28,14 +28,18 @@ struct SidebarView: View {
                     appState.selection = destination
                 } label: {
                     HStack(alignment: .top, spacing: 12) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(isSelected ? DesignTokens.ColorSystem.accentAction.opacity(0.16) : DesignTokens.ColorSystem.elevated.opacity(0.52))
-                            Image(systemName: destination.systemImage)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(isSelected ? DesignTokens.ColorSystem.accentAction : iconTint(for: destination))
-                        }
-                        .frame(width: 30, height: 30)
+                        Image(systemName: destination.systemImage)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(isSelected ? DesignTokens.ColorSystem.accentAction : iconTint(for: destination))
+                            .frame(width: 20, height: 22)
+                            .overlay(alignment: .bottomTrailing) {
+                                if isSelected {
+                                    Circle()
+                                        .fill(DesignTokens.ColorSystem.accentWaypoint)
+                                        .frame(width: 5, height: 5)
+                                        .offset(x: 3, y: 1)
+                                }
+                            }
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(destination.title)
@@ -61,16 +65,16 @@ struct SidebarView: View {
                         }
                     }
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(isSelected ? DesignTokens.ColorSystem.accentAction.opacity(0.12) : Color.clear)
+                        Capsule(style: .continuous)
+                            .fill(isSelected ? DesignTokens.ColorSystem.accentAction.opacity(0.10) : Color.clear)
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(isSelected ? DesignTokens.ColorSystem.accentAction.opacity(0.22) : Color.clear, lineWidth: 1)
+                        Capsule(style: .continuous)
+                            .strokeBorder(isSelected ? DesignTokens.ColorSystem.accentAction.opacity(0.18) : Color.clear, lineWidth: 0.5)
                     )
-                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .contentShape(Capsule(style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])

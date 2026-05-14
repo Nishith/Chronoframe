@@ -88,19 +88,31 @@ struct DedupeThumbnailView: View {
 
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(DesignTokens.ColorSystem.panel)
+                .fill(DesignTokens.ColorSystem.imageStage)
             if let image = currentImage(for: identity) {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: size.width, height: size.height)
                     .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .transition(.opacity)
             } else {
                 Image(systemName: "photo")
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .font(.system(size: min(size.width, size.height) * 0.28, weight: .regular))
+                    .foregroundStyle(.white.opacity(0.34))
             }
         }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(DesignTokens.ColorSystem.photoEdgeHighlight, lineWidth: currentImage(for: identity) == nil ? 0 : 0.5)
+                .blendMode(.screen)
+        }
         .frame(width: size.width, height: size.height)
+        .shadow(color: .black.opacity(currentImage(for: identity) == nil ? 0 : 0.18), radius: 4, x: 0, y: 2)
         .task(id: identity) {
             loadedState = nil
             if let image = await loader.image(for: path, size: size, scale: identity.scale) {
