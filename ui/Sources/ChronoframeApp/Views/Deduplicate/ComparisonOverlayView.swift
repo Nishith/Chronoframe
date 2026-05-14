@@ -116,6 +116,8 @@ private struct SliderComparisonView: View {
     @Binding var position: CGFloat
     @State private var leftImage: NSImage?
     @State private var rightImage: NSImage?
+    @State private var leftFinishedLoading = false
+    @State private var rightFinishedLoading = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -134,6 +136,18 @@ private struct SliderComparisonView: View {
                         .clipShape(
                             HorizontalClip(fraction: position)
                         )
+                }
+                if leftFinishedLoading && rightFinishedLoading && leftImage == nil && rightImage == nil {
+                    ComparisonUnavailableView(title: "Could not load comparison images")
+                } else {
+                    if leftFinishedLoading && leftImage == nil {
+                        comparisonStatusLabel("Keeper preview unavailable", systemImage: "photo.badge.exclamationmark")
+                            .position(x: max(104, geometry.size.width * 0.25), y: geometry.size.height / 2)
+                    }
+                    if rightFinishedLoading && rightImage == nil {
+                        comparisonStatusLabel("Compare preview unavailable", systemImage: "photo.badge.exclamationmark")
+                            .position(x: min(geometry.size.width - 112, geometry.size.width * 0.75), y: geometry.size.height / 2)
+                    }
                 }
                 Rectangle()
                     .fill(DesignTokens.ColorSystem.dividerEmphasis)
@@ -154,8 +168,16 @@ private struct SliderComparisonView: View {
                     }
             )
         }
-        .task { leftImage = loadImage(at: leftPath) }
-        .task { rightImage = loadImage(at: rightPath) }
+        .task(id: leftPath) {
+            leftFinishedLoading = false
+            leftImage = loadImage(at: leftPath)
+            leftFinishedLoading = true
+        }
+        .task(id: rightPath) {
+            rightFinishedLoading = false
+            rightImage = loadImage(at: rightPath)
+            rightFinishedLoading = true
+        }
     }
 
     private func comparisonLabel(_ title: String, systemImage: String) -> some View {
@@ -165,6 +187,15 @@ private struct SliderComparisonView: View {
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
             .background(.black.opacity(0.44), in: Capsule())
+    }
+
+    private func comparisonStatusLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white.opacity(0.78))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(.black.opacity(0.36), in: Capsule())
     }
 }
 
@@ -217,6 +248,8 @@ private struct FlickerComparisonView: View {
     @State private var showingLeft = true
     @State private var leftImage: NSImage?
     @State private var rightImage: NSImage?
+    @State private var leftFinishedLoading = false
+    @State private var rightFinishedLoading = false
     @State private var flickerTask: Task<Void, Never>?
 
     var body: some View {
@@ -229,6 +262,14 @@ private struct FlickerComparisonView: View {
                 Image(nsImage: rightImage)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
+            } else if currentSideFinishedLoading {
+                ComparisonUnavailableView(
+                    title: showingLeft ? "Keeper preview unavailable" : "Compare preview unavailable"
+                )
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -242,12 +283,22 @@ private struct FlickerComparisonView: View {
                 .background(.black.opacity(0.44), in: Capsule())
                 .padding(.bottom, 12)
         }
-        .task {
+        .task(id: leftPath) {
+            leftFinishedLoading = false
             leftImage = loadImage(at: leftPath)
+            leftFinishedLoading = true
+        }
+        .task(id: rightPath) {
+            rightFinishedLoading = false
             rightImage = loadImage(at: rightPath)
+            rightFinishedLoading = true
         }
         .onAppear { startFlicker() }
         .onDisappear { flickerTask?.cancel() }
+    }
+
+    private var currentSideFinishedLoading: Bool {
+        showingLeft ? leftFinishedLoading : rightFinishedLoading
     }
 
     private func startFlicker() {
@@ -262,6 +313,23 @@ private struct FlickerComparisonView: View {
 }
 
 // MARK: - Helpers
+
+private struct ComparisonUnavailableView: View {
+    let title: String
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "photo.badge.exclamationmark")
+                .font(.system(size: 34, weight: .light))
+                .foregroundStyle(.white.opacity(0.48))
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+                .multilineTextAlignment(.center)
+        }
+        .padding(DesignTokens.Spacing.lg)
+    }
+}
 
 private func loadImage(at path: String) -> NSImage? {
     NSImage(contentsOfFile: path)
