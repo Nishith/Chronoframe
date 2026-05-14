@@ -113,7 +113,7 @@ struct ContactSheetView: View {
         if loader.didFinishLoading && loader.loadedThumbnailCount == 0 {
             return "Contact sheet preview — no previewable media found in the source."
         }
-        return "Contact sheet showing \(loader.thumbnails.count) of \(cellCount) preview frames from the source."
+        return "Contact sheet showing \(loader.loadedThumbnailCount) of \(cellCount) preview frames from the source."
     }
 
     private var shouldShowHeroCell: Bool {
