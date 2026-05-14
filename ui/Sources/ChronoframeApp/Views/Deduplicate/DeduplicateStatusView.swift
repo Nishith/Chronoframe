@@ -106,10 +106,33 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
                 .controlSize(.large)
         case .success, .restored, .warning:
             if let name = style.systemImage {
-                Image(systemName: name)
-                    .font(.system(size: 48))
-                    .foregroundStyle(style.tint)
+                ZStack {
+                    Circle()
+                        .fill(style.tint.opacity(0.12))
+                        .frame(width: 76, height: 76)
+                    Circle()
+                        .strokeBorder(style.tint.opacity(0.22), lineWidth: 0.5)
+                        .frame(width: 76, height: 76)
+                    Image(systemName: name)
+                        .font(.system(size: 44))
+                        .foregroundStyle(style.tint)
+                    if showsWaypointDot {
+                        Circle()
+                            .fill(DesignTokens.ColorSystem.accentWaypoint)
+                            .frame(width: 7, height: 7)
+                            .offset(x: 24, y: 24)
+                    }
+                }
             }
+        }
+    }
+
+    private var showsWaypointDot: Bool {
+        switch style {
+        case .success:
+            return true
+        case .progress, .restored, .warning:
+            return false
         }
     }
 }

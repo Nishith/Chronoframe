@@ -121,6 +121,18 @@ enum DesignTokens {
             dark: NSColor(srgbRed: 24.0 / 255, green: 25.0 / 255, blue: 29.0 / 255, alpha: 0.82)
         )
 
+        /// Soft highlight used to make thumbnail edges read like image prints.
+        static let photoEdgeHighlight = dynamicColor(
+            light: NSColor.white.withAlphaComponent(0.34),
+            dark: NSColor.white.withAlphaComponent(0.16)
+        )
+
+        /// Hairline over dark image stages.
+        static let imageStageHairline = dynamicColor(
+            light: NSColor.white.withAlphaComponent(0.18),
+            dark: NSColor.white.withAlphaComponent(0.12)
+        )
+
         // Ink (text)
         /// Primary text — headings, metric values.
         static let inkPrimary = dynamicColor(
@@ -294,7 +306,30 @@ extension View {
     /// design language assumes. Use on top-level workspace views.
     func darkroom() -> some View {
         self
-            .background(DesignTokens.ColorSystem.canvas.ignoresSafeArea())
+            .background {
+                ZStack {
+                    DesignTokens.ColorSystem.canvas
+                    ArchiveCanvasTexture()
+                }
+                .ignoresSafeArea()
+            }
             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+    }
+}
+
+private struct ArchiveCanvasTexture: View {
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            let step: CGFloat = 42
+            var y: CGFloat = 0
+            while y <= size.height {
+                path.move(to: CGPoint(x: 0, y: y))
+                path.addLine(to: CGPoint(x: size.width, y: y))
+                y += step
+            }
+            context.stroke(path, with: .color(.white.opacity(0.018)), lineWidth: 0.5)
+        }
+        .allowsHitTesting(false)
     }
 }

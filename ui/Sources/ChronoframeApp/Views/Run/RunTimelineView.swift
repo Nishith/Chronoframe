@@ -71,16 +71,20 @@ struct RunTimelineView: View {
             let totalSpacing = spacing * CGFloat(max(0, buckets.count - 1))
             let barWidth = max(2, (geo.size.width - totalSpacing) / CGFloat(buckets.count))
 
-            HStack(alignment: .bottom, spacing: spacing) {
-                ForEach(Array(buckets.enumerated()), id: \.element.id) { index, bucket in
-                    bar(
-                        for: bucket,
-                        fill: fills[index],
-                        maxCount: maxCount,
-                        width: barWidth,
-                        availableHeight: geo.size.height
-                    )
+            ZStack(alignment: .bottomLeading) {
+                HStack(alignment: .bottom, spacing: spacing) {
+                    ForEach(Array(buckets.enumerated()), id: \.element.id) { index, bucket in
+                        bar(
+                            for: bucket,
+                            fill: fills[index],
+                            maxCount: maxCount,
+                            width: barWidth,
+                            availableHeight: geo.size.height
+                        )
+                    }
                 }
+
+                yearMarkers(width: geo.size.width)
             }
         }
         .frame(height: chartHeight)
@@ -120,6 +124,42 @@ struct RunTimelineView: View {
             return DesignTokens.ColorSystem.accentWaypoint
         }
         return .clear
+    }
+
+    private func yearMarkers(width: CGFloat) -> some View {
+        let markers = yearMarkerEntries
+        return ZStack(alignment: .topLeading) {
+            ForEach(markers, id: \.index) { marker in
+                VStack(alignment: .leading, spacing: 4) {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.14))
+                        .frame(width: 0.5, height: chartHeight - 20)
+                    Text(marker.year)
+                        .font(.system(size: 10, weight: .medium, design: .default))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.white.opacity(0.52))
+                }
+                .offset(x: markerOffset(for: marker.index, width: width), y: 0)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var yearMarkerEntries: [(index: Int, year: String)] {
+        var lastYear: String?
+        return buckets.enumerated().compactMap { index, bucket in
+            guard bucket.key.count >= 4, bucket.key != "Unknown" else { return nil }
+            let year = String(bucket.key.prefix(4))
+            guard year != lastYear else { return nil }
+            lastYear = year
+            return (index, year)
+        }
+    }
+
+    private func markerOffset(for index: Int, width: CGFloat) -> CGFloat {
+        guard buckets.count > 1 else { return 0 }
+        let ratio = CGFloat(index) / CGFloat(max(buckets.count - 1, 1))
+        return min(max(0, ratio * width), max(0, width - 32))
     }
 
     // MARK: - Empty state
@@ -261,6 +301,15 @@ struct RunPhaseStrip: View {
                     }
                 }
                 .mask(Capsule())
+
+                if let currentIndex {
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.accentWaypoint)
+                        .frame(width: 8, height: 8)
+                        .shadow(color: DesignTokens.ColorSystem.accentWaypoint.opacity(0.42), radius: 5)
+                        .offset(x: min(max(0, CGFloat(currentIndex) * segmentWidth + segmentWidth - 4), max(0, width - 8)))
+                        .motion(Motion.mechanical, value: currentIndex)
+                }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Phase progress")
@@ -285,5 +334,9 @@ struct RunPhaseStrip: View {
         let completed = model.phaseEntries.filter { $0.state == .complete }.count
         let total = model.phaseEntries.count
         return "\(completed) of \(total) phases complete"
+    }
+
+    private var currentIndex: Int? {
+        model.phaseEntries.firstIndex { $0.state == .current }
     }
 }

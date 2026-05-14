@@ -281,6 +281,10 @@ struct MeridianStatusBadge: View {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.caption.weight(.semibold))
+            } else {
+                Circle()
+                    .fill(tint)
+                    .frame(width: 5, height: 5)
             }
             Text(title)
                 .font(DesignTokens.Typography.label)
@@ -404,9 +408,16 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
             }
             .padding(.bottom, DesignTokens.Spacing.sm)
             .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(DesignTokens.ColorSystem.hairline)
-                    .frame(height: 0.5)
+                ZStack(alignment: .trailing) {
+                    Rectangle()
+                        .fill(DesignTokens.ColorSystem.hairline)
+                        .frame(height: 0.5)
+
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.accentWaypoint)
+                        .frame(width: 5, height: 5)
+                        .shadow(color: DesignTokens.ColorSystem.accentWaypoint.opacity(0.35), radius: 5)
+                }
             }
         }
     }
@@ -531,7 +542,13 @@ struct EmptyStateView: View {
     var body: some View {
         MeridianSurfaceCard(style: .standard) {
             VStack(spacing: 10) {
-                MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40)
+                ZStack {
+                    EmptyPreviewGrid()
+                        .frame(width: 128, height: 68)
+                        .opacity(0.68)
+
+                    MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40)
+                }
                 Text(title)
                     .font(DesignTokens.Typography.cardTitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
@@ -547,6 +564,23 @@ struct EmptyStateView: View {
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 160)
+        }
+    }
+}
+
+private struct EmptyPreviewGrid: View {
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<4, id: \.self) { index in
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(index == 1 ? DesignTokens.ColorSystem.accentWaypoint.opacity(0.18) : DesignTokens.ColorSystem.hairline.opacity(0.5))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
+                    }
+                    .frame(width: index == 1 ? 34 : 24, height: index == 1 ? 52 : 44)
+                    .offset(y: index == 1 ? 0 : 4)
+            }
         }
     }
 }
