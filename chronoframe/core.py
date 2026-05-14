@@ -54,6 +54,14 @@ class RunLogger:
         self._fh = None
 
     def open(self):
+        # Close any existing handle first to prevent fd leaks
+        if self._fh:
+            try:
+                self._fh.close()
+            except Exception:
+                pass
+            self._fh = None
+
         try:
             if (os.path.exists(self.log_path)
                     and os.path.getsize(self.log_path) > self.MAX_LOG_BYTES):
@@ -497,6 +505,7 @@ def _walk_error_handler(run_log=None):
         path = getattr(error, "filename", "") or "unknown folder"
         msg = f"Chronoframe could not read this folder, so it was skipped: {path}"
         emit_json("warning", message=msg)
+        console.print(f"[yellow]Warning:[/yellow] {msg}")
         if run_log:
             run_log.warn(msg)
     return handle
@@ -543,6 +552,11 @@ def main():
     rebuild = args.rebuild_cache
     workers = max(1, args.workers)
     verify_copies = not args.skip_verify
+
+    if args.skip_verify:
+        console.print("[yellow]WARNING: Copy verification disabled (--skip-verify).[/yellow]")
+        console.print("[yellow]         Files may be corrupted if source is modified during transfer.[/yellow]")
+        run_log.warn("Copy verification disabled; source files must not be modified during transfer")
 
     os.makedirs(dst, exist_ok=True)
 
