@@ -182,7 +182,11 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
                 if data["size"] == st.st_size and abs(data["mtime"] - st.st_mtime) < 0.001:
                     h, size, mtime = data["hash"], data["size"], data["mtime"]
                 else:
-                    h, size, mtime, was_hashed = process_single_file(path, None)
+                    result = process_single_file(path, None)
+                    if len(result) == 5:
+                        h, size, mtime, was_hashed, _ = result
+                    else:
+                        h, size, mtime, was_hashed = result
                     if not h:
                         raise OSError("could not refresh cached file hash")
                     if was_hashed:
@@ -516,7 +520,7 @@ def revert_receipt(receipt_path, dest_root_override=None):
                     console.print(f"[yellow]Warning:[/yellow] Could not verify {dst}: {e}")
             else:
                 # Missing implies trivially reverted
-                emit_json("info", message=f"Already missing: {src_path} → {dst or 'unknown'}")
+                emit_json("info", message=f"Already missing: {item.get('src', 'unknown')} → {dst or 'unknown'}")
 
             progress.advance(task_id)
             emit_json("task_progress", task="revert", completed=reverted_count + failed_count, total=len(transfers))
