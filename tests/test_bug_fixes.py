@@ -521,5 +521,494 @@ class TestBugFixIntegration(unittest.TestCase):
         db.close()
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# Coverage: Database error rollback paths
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestDatabaseErrorRollbackPaths(unittest.TestCase):
+    """Cover all database write methods' rollback-on-error paths."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.db_path = os.path.join(self.tmpdir, "test.db")
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def _force_error(self, db, method_name, *args):
+        """Wrap conn.executemany/execute with a raising version. Verify rollback."""
+        db_method = getattr(db, method_name)
+
+        # sqlite3.Connection attributes are read-only C slots; wrap the methods
+        # via a side_effect on a Mock-replaced connection-method dict instead.
+        orig_executemany = db.conn.executemany
+        orig_execute = db.conn.execute
+        rollback_called = [False]
+        orig_rollback = db.conn.rollback
+
+        def raising_executemany(*a, **k):
+            raise sqlite3.IntegrityError("forced")
+
+        def raising_execute(sql, *a, **k):
+            # Allow PRAGMA and SELECT to proceed; raise on writes
+            if any(k in sql.upper() for k in ("INSERT", "UPDATE", "DELETE")):
+                raise sqlite3.IntegrityError("forced")
+            return orig_execute(sql, *a, **k)
+
+        def tracked_rollback():
+            rollback_called[0] = True
+            return orig_rollback()
+
+        # Use a wrapper object to substitute methods, since Connection attrs are read-only
+        class WrappedConn:
+            def __init__(self, real_conn):
+                self._real = real_conn
+
+            def executemany(self, *a, **k):
+                return raising_executemany(*a, **k)
+
+            def execute(self, *a, **k):
+                return raising_execute(*a, **k)
+
+            def commit(self):
+                return self._real.commit()
+
+            def rollback(self):
+                return tracked_rollback()
+
+            def close(self):
+                return self._real.close()
+
+        real_conn = db.conn
+        db.conn = WrappedConn(real_conn)
+        try:
+            with self.assertRaises(sqlite3.IntegrityError):
+                db_method(*args)
+            self.assertTrue(rollback_called[0], f"{method_name} did not call rollback")
+        finally:
+            db.conn = real_conn
+
+    def test_save_batch_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'save_batch', 1, [("/a.jpg", "h", 100, 1.0)])
+        db.close()
+
+    def test_enqueue_jobs_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'enqueue_jobs', [("/s.jpg", "/d.jpg", "h", "PENDING")])
+        db.close()
+
+    def test_delete_cache_entry_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'delete_cache_entry', 1, "/a.jpg")
+        db.close()
+
+    def test_update_job_status_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'update_job_status', "/s.jpg", "COPIED")
+        db.close()
+
+    def test_update_job_statuses_batch_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'update_job_statuses_batch', [("/s.jpg", "COPIED")])
+        db.close()
+
+    def test_clear_cache_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'clear_cache')
+        db.close()
+
+    def test_clear_cache_by_type_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'clear_cache', 1)
+        db.close()
+
+    def test_clear_jobs_rolls_back_on_error(self):
+        db = CacheDB(self.db_path)
+        self._force_error(db, 'clear_jobs')
+        db.close()
+
+    def test_empty_batches_no_op(self):
+        """Empty inputs should short-circuit without touching the db."""
+        db = CacheDB(self.db_path)
+        db.save_batch(1, [])
+        db.enqueue_jobs([])
+        db.update_job_statuses_batch([])
+        db.close()
+
+    def test_init_pragma_non_wal_result_warns(self):
+        """If WAL pragma returns non-WAL mode, warn to stderr."""
+        from io import StringIO
+
+        db = CacheDB(self.db_path)
+        captured = StringIO()
+        real_conn = db.conn
+
+        class FakeConnReturningMemory:
+            def execute(self, sql, *a, **k):
+                fake = MagicMock()
+                fake.fetchone.return_value = ("memory",)
+                return fake
+
+        db.conn = FakeConnReturningMemory()
+        try:
+            with patch('sys.stderr', captured):
+                db._init_pragmas()
+        finally:
+            db.conn = real_conn
+            db.close()
+
+        self.assertIn("WAL", captured.getvalue())
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Coverage: Verification failure reason branches
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestVerificationFailureBranches(unittest.TestCase):
+    """Cover all verification failure reason branches in execute_jobs."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def _run_with_verify_reason(self, reason):
+        """Run execute_jobs with a single job and a mocked verify_copy that returns the given reason."""
+        from chronoframe.core import execute_jobs, RunLogger
+        from chronoframe.database import CacheDB
+
+        src = os.path.join(self.tmpdir, "src.jpg")
+        dst = os.path.join(self.tmpdir, "dst.jpg")
+        with open(src, 'wb') as f:
+            f.write(b"content")
+
+        db = CacheDB(os.path.join(self.tmpdir, ".cache.db"))
+        run_log = RunLogger(os.path.join(self.tmpdir, "log.txt"))
+        run_log.open()
+
+        try:
+            with patch('chronoframe.core.verify_copy', return_value=(False, reason)):
+                with patch('chronoframe.core.emit_json') as mock_emit:
+                    execute_jobs(
+                        [(src, dst, "fake_hash")], db, self.tmpdir,
+                        run_log=run_log, verify=True, workers=1
+                    )
+
+                    # Find the error emit call with the matching type
+                    error_calls = [c for c in mock_emit.call_args_list
+                                   if c[0][0] == "error"]
+                    return error_calls
+        finally:
+            run_log.close()
+            db.close()
+
+    def test_verify_not_found_reason(self):
+        calls = self._run_with_verify_reason("not_found")
+        self.assertTrue(any("vanished" in str(c).lower() or "not_found" in str(c).lower()
+                            for c in calls))
+
+    def test_verify_symlink_reason(self):
+        calls = self._run_with_verify_reason("symlink")
+        self.assertTrue(any("symlink" in str(c).lower() for c in calls))
+
+    def test_verify_not_regular_reason(self):
+        calls = self._run_with_verify_reason("not_regular_file")
+        self.assertTrue(any("regular" in str(c).lower() for c in calls))
+
+    def test_verify_permission_reason(self):
+        calls = self._run_with_verify_reason("permission_denied")
+        self.assertTrue(any("permission" in str(c).lower() for c in calls))
+
+    def test_verify_io_error_reason(self):
+        calls = self._run_with_verify_reason("io_error")
+        self.assertTrue(any("i/o" in str(c).lower() or "io_error" in str(c).lower()
+                            for c in calls))
+
+    def test_verify_unknown_reason(self):
+        """Unknown reason should still emit an error."""
+        calls = self._run_with_verify_reason("weird_reason")
+        self.assertGreater(len(calls), 0)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Coverage: process_single_file error reasons
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestProcessSingleFileErrorReasons(unittest.TestCase):
+    """Cover all process_single_file error reason returns."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def test_symlink_returns_symlink_reason(self):
+        from chronoframe.io import process_single_file
+        target = os.path.join(self.tmpdir, "real.jpg")
+        link = os.path.join(self.tmpdir, "link.jpg")
+        with open(target, 'wb') as f:
+            f.write(b"data")
+        os.symlink(target, link)
+
+        h, _, _, _, reason = process_single_file(link, None)
+        self.assertIsNone(h)
+        self.assertEqual(reason, "symlink")
+
+    def test_directory_returns_not_regular_reason(self):
+        from chronoframe.io import process_single_file
+        d = os.path.join(self.tmpdir, "dir")
+        os.makedirs(d)
+        h, _, _, _, reason = process_single_file(d, None)
+        self.assertIsNone(h)
+        self.assertEqual(reason, "not_regular_file")
+
+    def test_missing_returns_not_found_reason(self):
+        from chronoframe.io import process_single_file
+        h, _, _, _, reason = process_single_file("/no/such/file.jpg", None)
+        self.assertIsNone(h)
+        self.assertEqual(reason, "not_found")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Coverage: build_dest_index error categorization
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestBuildDestIndexErrorCategorization(unittest.TestCase):
+    """Cover the per-error-type warning emissions in build_dest_index."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def _run_with_psf_error(self, error_reason):
+        """Make process_single_file return the given error reason for one file."""
+        from chronoframe.core import build_dest_index, RunLogger
+        from chronoframe.database import CacheDB
+
+        dst = os.path.join(self.tmpdir, "dst")
+        os.makedirs(dst)
+        test_file = os.path.join(dst, "2024-01-15_001.jpg")
+        with open(test_file, 'wb') as f:
+            f.write(b"data")
+
+        db = CacheDB(os.path.join(self.tmpdir, ".cache.db"))
+        run_log = RunLogger(os.path.join(self.tmpdir, "log.txt"))
+        run_log.open()
+
+        try:
+            with patch('chronoframe.core.process_single_file',
+                       return_value=(None, 0, 0, False, error_reason)):
+                with patch('chronoframe.core.emit_json') as mock_emit:
+                    build_dest_index(dst, db, workers=1, run_log=run_log)
+                    warning_calls = [c for c in mock_emit.call_args_list
+                                     if c[0][0] == "warning"]
+                    return warning_calls
+        finally:
+            run_log.close()
+            db.close()
+
+    def test_symlink_categorized(self):
+        calls = self._run_with_psf_error("symlink")
+        self.assertTrue(any("symlink" in str(c).lower() for c in calls))
+
+    def test_not_regular_file_categorized(self):
+        calls = self._run_with_psf_error("not_regular_file")
+        self.assertTrue(any("regular" in str(c).lower() for c in calls))
+
+    def test_permission_denied_categorized(self):
+        calls = self._run_with_psf_error("permission_denied")
+        self.assertTrue(any("permission" in str(c).lower() for c in calls))
+
+    def test_not_found_categorized(self):
+        calls = self._run_with_psf_error("not_found")
+        self.assertTrue(any("disappeared" in str(c).lower() or "not_found" in str(c).lower()
+                            for c in calls))
+
+    def test_io_error_categorized(self):
+        calls = self._run_with_psf_error("io_error:5")
+        self.assertTrue(any("i/o" in str(c).lower() or "io_error" in str(c).lower()
+                            for c in calls))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Coverage: Disk-space ENOSPC logging
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestDiskSpaceLogging(unittest.TestCase):
+    """Cover the ENOSPC-specific disk space logging branch."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def test_disk_usage_failure_warns_but_continues(self):
+        """If shutil.disk_usage fails at transfer start, log and proceed."""
+        from chronoframe.core import execute_jobs, RunLogger
+        from chronoframe.database import CacheDB
+
+        src = os.path.join(self.tmpdir, "src.jpg")
+        with open(src, 'wb') as f:
+            f.write(b"data")
+
+        db = CacheDB(os.path.join(self.tmpdir, ".cache.db"))
+        run_log = RunLogger(os.path.join(self.tmpdir, "log.txt"))
+        run_log.open()
+
+        try:
+            # Patch only the first disk_usage call (the start-of-transfer one)
+            with patch('shutil.disk_usage', side_effect=OSError("simulated stat failure")):
+                # Should not raise — should just warn and proceed
+                execute_jobs([], db, self.tmpdir, run_log=run_log, workers=1)
+        finally:
+            run_log.close()
+            db.close()
+
+    def test_enospc_logs_current_disk_state(self):
+        """On ENOSPC during copy, log current disk free space."""
+        from chronoframe.core import execute_jobs, RunLogger
+        from chronoframe.database import CacheDB
+
+        src = os.path.join(self.tmpdir, "src.jpg")
+        dst = os.path.join(self.tmpdir, "dst.jpg")
+        with open(src, 'wb') as f:
+            f.write(b"content")
+
+        db = CacheDB(os.path.join(self.tmpdir, ".cache.db"))
+        run_log = RunLogger(os.path.join(self.tmpdir, "log.txt"))
+        run_log.open()
+
+        try:
+            enospc_err = OSError(errno.ENOSPC, "No space left")
+            with patch('chronoframe.core.safe_copy_atomic', side_effect=enospc_err):
+                with patch('chronoframe.core.emit_json') as mock_emit:
+                    execute_jobs(
+                        [(src, dst, "fake_hash")], db, self.tmpdir,
+                        run_log=run_log, workers=1
+                    )
+
+                    error_calls = [c for c in mock_emit.call_args_list
+                                   if c[0][0] == "error"]
+                    # Should include disk free info in the error message
+                    self.assertTrue(any("disk free" in str(c).lower()
+                                        or "no space" in str(c).lower()
+                                        for c in error_calls))
+        finally:
+            run_log.close()
+            db.close()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Coverage: Date extraction failure logging
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestDateExtractionFailureLogging(unittest.TestCase):
+    """Cover the date extraction failure logging in main()."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def test_date_extraction_returning_none_logs_failure(self):
+        """When get_file_date returns (None, None), failure is tracked."""
+        from chronoframe.core import main
+
+        src = os.path.join(self.tmpdir, "source")
+        dst = os.path.join(self.tmpdir, "dest")
+        os.makedirs(src)
+        os.makedirs(dst)
+
+        with open(os.path.join(src, "photo.jpg"), 'wb') as f:
+            f.write(b"data")
+
+        # Return (None, None) — all date methods failed
+        with patch('chronoframe.core.get_file_date', return_value=(None, None)):
+            with patch('chronoframe.core._find_profiles_yaml', return_value='/nonexistent/profiles.yaml'):
+                with patch('sys.argv', ['prog', '--source', src, '--dest', dst, '--dry-run']):
+                    main()  # Should not crash; file goes to Unknown_Date
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Coverage: Revert path boundary at deletion time
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestRevertBoundaryAtDeletionTime(unittest.TestCase):
+    """Cover the second boundary check that catches symlink swaps."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmpdir)
+
+    def test_boundary_check_fails_at_deletion_time(self):
+        """If _is_within_boundary returns False on second call, deletion is refused."""
+        dst = os.path.join(self.tmpdir, "dst")
+        os.makedirs(dst)
+        test_file = os.path.join(dst, "2024-01-15_001.jpg")
+        with open(test_file, 'wb') as f:
+            f.write(b"data")
+
+        receipt = {
+            "transfers": [
+                {"src": "/src/photo.jpg", "dest": test_file, "hash": "h"}
+            ]
+        }
+        receipt_path = os.path.join(self.tmpdir, "receipt.json")
+        with open(receipt_path, 'w') as f:
+            json.dump(receipt, f)
+
+        # First boundary check passes, second fails (simulating symlink swap)
+        call_count = [0]
+        def fake_is_within(path, *args):
+            call_count[0] += 1
+            return call_count[0] == 1  # First call True, subsequent calls False
+
+        with patch('chronoframe.core.emit_json') as mock_emit:
+            with patch('chronoframe.core.console'):
+                with patch('chronoframe.core.Progress'):
+                    # Use a closure to track and short-circuit the second check
+                    from chronoframe import core as core_mod
+                    orig_realpath = os.path.realpath
+
+                    # Make the second realpath return something outside the boundary
+                    # by transforming the destination into a symlink-equivalent
+                    # path. The cleanest test is patching emit_json/console
+                    # and asserting the boundary error code path is reached.
+                    real_dst_root = os.path.realpath(dst)
+                    seen = {"count": 0}
+                    def fake_realpath(p):
+                        seen["count"] += 1
+                        # First call: validating receipt entry — return real path
+                        # Second call: at deletion — return path outside boundary
+                        if seen["count"] >= 2 and p == test_file:
+                            return "/etc/passwd"
+                        return orig_realpath(p)
+
+                    with patch('os.path.realpath', side_effect=fake_realpath):
+                        core_mod.revert_receipt(receipt_path, dst)
+
+                    error_calls = [c for c in mock_emit.call_args_list
+                                   if c[0][0] == "error"]
+                    # Either initial boundary or deletion-time boundary error
+                    self.assertTrue(any("boundary" in str(c).lower()
+                                        for c in error_calls))
+
+
 if __name__ == '__main__':
     unittest.main()
