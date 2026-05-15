@@ -6,6 +6,7 @@
     "event_types": [
       "startup",
       "copy:start",
+      "system_state",
       "task_progress",
       "copy:complete",
       "complete"

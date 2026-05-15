@@ -37,12 +37,34 @@ def fast_hash(path, known_size=None):
 
 
 def verify_copy(src_path, dst_path, expected_hash):
-    """Re-hash the destination file and compare to expected hash. Returns True if match."""
+    """Re-hash the destination file and compare to expected hash.
+
+    Returns: (bool, Optional[str])
+      (True, None) — hashes match
+      (False, "mismatch") — hash differs (data corruption)
+      (False, "not_found") — destination file missing
+      (False, "symlink") — destination is symlink
+      (False, "not_regular_file") — destination is directory or special
+      (False, "permission_denied") — can't read destination
+      (False, "io_error") — disk I/O error
+    """
     try:
+        if not os.path.exists(dst_path):
+            return False, "not_found"
+        if os.path.islink(dst_path):
+            return False, "symlink"
+        st = os.lstat(dst_path)
+        if not stat_module.S_ISREG(st.st_mode):
+            return False, "not_regular_file"
         actual = fast_hash(dst_path)
-        return actual == expected_hash
+        if actual == expected_hash:
+            return True, None
+        else:
+            return False, "mismatch"
+    except PermissionError:
+        return False, "permission_denied"
     except OSError:
-        return False
+        return False, "io_error"
 
 
 def check_disk_space(src_path, dst_dir):
@@ -148,16 +170,27 @@ def safe_copy_atomic(src, dst):
 
 
 def process_single_file(path, cached_data):
-    """Hash a single file, using cache if size+mtime unchanged."""
+    """Hash a single file, using cache if size+mtime unchanged.
+
+    Returns: (hash_or_none, size, mtime, was_recomputed, error_reason_or_none)
+      error_reason: None if success, else "symlink", "not_regular_file", "permission_denied",
+                   "not_found", "io_error", or error message
+    """
     try:
         st = os.lstat(path)
-        if stat_module.S_ISLNK(st.st_mode) or not stat_module.S_ISREG(st.st_mode):
-            return None, 0, 0, False
+        if stat_module.S_ISLNK(st.st_mode):
+            return None, 0, 0, False, "symlink"
+        if not stat_module.S_ISREG(st.st_mode):
+            return None, 0, 0, False, "not_regular_file"
         size = st.st_size
         mtime = st.st_mtime
         if cached_data and cached_data["size"] == size and abs(cached_data["mtime"] - mtime) < 0.001:
-            return cached_data["hash"], size, mtime, False
+            return cached_data["hash"], size, mtime, False, None
         h = fast_hash(path, known_size=size)
-        return h, size, mtime, True
-    except OSError:
-        return None, 0, 0, False
+        return h, size, mtime, True, None
+    except FileNotFoundError:
+        return None, 0, 0, False, "not_found"
+    except PermissionError:
+        return None, 0, 0, False, "permission_denied"
+    except OSError as e:
+        return None, 0, 0, False, f"io_error:{e.errno}"

@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import errno
 import argparse
 import concurrent.futures
 import json
@@ -54,6 +55,14 @@ class RunLogger:
         self._fh = None
 
     def open(self):
+        # Close any existing handle first to prevent fd leaks
+        if self._fh:
+            try:
+                self._fh.close()
+            except Exception:
+                pass
+            self._fh = None
+
         try:
             if (os.path.exists(self.log_path)
                     and os.path.getsize(self.log_path) > self.MAX_LOG_BYTES):
@@ -108,7 +117,16 @@ def parse_args():
     parser.add_argument("--folder-structure", type=str, choices=["YYYY/MM/DD", "YYYY/MM", "YYYY", "YYYY/Mon/Event", "Flat"], default="YYYY/MM/DD", help="Output directory layout")
     parser.add_argument("--fast-dest", action="store_true", help="Bypass destination OS scan and load directly from cache (fast repeated dry runs)")
     parser.add_argument("--revert", type=str, metavar="RECEIPT_JSON", help="Revert a previous run using its audit receipt")
-    return parser.parse_args()
+
+    args = parser.parse_args()
+
+    # Validate argument ranges
+    import multiprocessing
+    max_workers = max(1, multiprocessing.cpu_count() * 2)
+    if args.workers < 1 or args.workers > max_workers:
+        parser.error(f"--workers must be between 1 and {max_workers} (got {args.workers})")
+
+    return args
 
 
 def _find_profiles_yaml():
@@ -138,7 +156,7 @@ def load_profile(profile_name):
 # ── Destination Indexing ────────────────────────────────────────────────────
 
 def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
-                     progress=None, ptask=None, fast_dest=False):
+                     progress=None, ptask=None, fast_dest=False, run_log=None):
     if rebuild:
         cache_db.clear_cache(type_id=2)
 
@@ -164,7 +182,11 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
                 if data["size"] == st.st_size and abs(data["mtime"] - st.st_mtime) < 0.001:
                     h, size, mtime = data["hash"], data["size"], data["mtime"]
                 else:
-                    h, size, mtime, was_hashed = process_single_file(path, None)
+                    result = process_single_file(path, None)
+                    if len(result) == 5:
+                        h, size, mtime, was_hashed, _ = result
+                    else:
+                        h, size, mtime, was_hashed = result
                     if not h:
                         raise OSError("could not refresh cached file hash")
                     if was_hashed:
@@ -242,23 +264,67 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
                 progress.update(ptask, description="[cyan]Validating Dest Hashes...", total=total)
 
         count = 0
+        hash_errors = 0
+        hash_error_breakdown = defaultdict(list)  # error_reason -> [paths]
+
         for future in concurrent.futures.as_completed(futures):
             path = futures[future]
             try:
-                h, size, mtime, was_hashed = future.result()
-                if h:
+                result = future.result()
+                # Handle both old 4-tuple and new 5-tuple returns for backwards compatibility
+                if len(result) == 5:
+                    h, size, mtime, was_hashed, error_reason = result
+                else:
+                    h, size, mtime, was_hashed = result
+                    error_reason = None
+
+                if error_reason:
+                    # File failed hashing with specific reason
+                    hash_errors += 1
+                    hash_error_breakdown[error_reason].append(path)
+                    if error_reason == "symlink":
+                        emit_json("warning", message=f"Skipped symlink in destination: {path}", type="dest_symlink")
+                    elif error_reason == "not_regular_file":
+                        emit_json("warning", message=f"Skipped non-regular file in destination: {path}", type="dest_non_regular")
+                    elif error_reason == "permission_denied":
+                        emit_json("warning", message=f"Permission denied indexing destination file: {path}", type="dest_permission")
+                    elif error_reason == "not_found":
+                        emit_json("warning", message=f"Destination file disappeared during scan: {path}", type="dest_not_found")
+                    elif error_reason.startswith("io_error"):
+                        emit_json("warning", message=f"I/O error indexing destination file: {path}: {error_reason}", type="dest_io_error")
+                    else:
+                        emit_json("warning", message=f"Failed to hash destination file: {path}: {error_reason}", type="dest_hash_error")
+                elif h:
+                    # File successfully hashed
                     hash_index[h] = path
                     if was_hashed:
                         updates.append((path, h, size, mtime))
-            except Exception:
-                pass
+            except Exception as e:
+                hash_errors += 1
+                hash_error_breakdown[type(e).__name__].append(path)
+                emit_json("warning", message=f"Exception hashing destination file: {path}: {e}")
+                console.print(f"[yellow]Warning:[/yellow] Could not hash {path}: {e}")
             count += 1
             if progress is not None and ptask is not None:
                 progress.advance(ptask)
             if total > 0 and count % max(1, total // 100) == 0:
                 emit_json("task_progress", task="dest_hash", completed=count, total=total)
 
-    emit_json("task_complete", task="dest_hash")
+        # Log summary of hash errors by type
+        if hash_errors > 0 and run_log:
+            msg = f"Destination indexing had {hash_errors} issues"
+            run_log.warn(msg)
+            for error_type, paths in sorted(hash_error_breakdown.items()):
+                run_log.warn(f"  {error_type}: {len(paths)} files")
+                for path in paths[:3]:
+                    run_log.warn(f"    {path}")
+                if len(paths) > 3:
+                    run_log.warn(f"    ... and {len(paths) - 3} more")
+
+    emit_json("task_complete", task="dest_hash", errors=hash_errors)
+    emit_json("dest_hash_errors",
+              total=hash_errors,
+              breakdown=dict(hash_error_breakdown))
     cache_db.save_batch(2, updates)
     return hash_index, seq_index, dup_seq_index
 
@@ -359,6 +425,15 @@ def revert_receipt(receipt_path, dest_root_override=None):
     dest_root_real = os.path.realpath(dest_root)
     dest_prefix = os.path.normpath(dest_root_real) + os.sep
 
+    def _is_within_boundary(path, boundary_real, boundary_prefix):
+        """Validate that path is within boundary, using canonical path resolution."""
+        try:
+            path_real = os.path.realpath(path)
+            # Allow exact match or any path starting with boundary prefix
+            return path_real == boundary_real or path_real.startswith(boundary_prefix)
+        except (OSError, ValueError):
+            return False
+
     transfers = data.get("transfers", [])
     if not transfers:
         console.print("[yellow]No transfers to revert.[/yellow]")
@@ -387,9 +462,10 @@ def revert_receipt(receipt_path, dest_root_override=None):
 
             # Refuse paths outside the destination boundary, even if the
             # hash matches. A crafted receipt cannot escape <dest>/.
+            # Note: We validate both before and at deletion time to catch
+            # symlink swaps during the revert operation.
             if dst:
-                dst_abs = os.path.normpath(os.path.realpath(dst))
-                if dst_abs != dest_root_real and not dst_abs.startswith(dest_prefix):
+                if not _is_within_boundary(dst, dest_root_real, dest_prefix):
                     console.print(
                         f"[red]Refusing to revert path outside destination:[/red] {dst}"
                     )
@@ -407,26 +483,44 @@ def revert_receipt(receipt_path, dest_root_override=None):
 
             if dst and os.path.exists(dst):
                 try:
-                    # Optional: Verify it still has the same hash before destroying!
-                    current_hash = fast_hash(dst)
-                    if current_hash == expected_hash:
-                        os.remove(dst)
-                        reverted_count += 1
-
-                        # Clean up directory if empty
-                        d_dir = os.path.dirname(dst)
-                        try:
-                            if not os.listdir(d_dir):
-                                os.rmdir(d_dir)
-                        except OSError:
-                            pass
-                    else:
+                    # Re-validate boundary at deletion time to catch symlink swaps
+                    if not _is_within_boundary(dst, dest_root_real, dest_prefix):
+                        console.print(
+                            f"[red]Refusing to delete (boundary check failed):[/red] {dst}"
+                        )
+                        emit_json("error", message=f"Boundary check failed at deletion time: {dst}")
                         failed_count += 1
-                except OSError:
+                    else:
+                        # Verify it still has the same hash before destroying!
+                        current_hash = fast_hash(dst)
+                        if current_hash == expected_hash:
+                            try:
+                                os.remove(dst)
+                                reverted_count += 1
+                                emit_json("info", message=f"Reverted: {dst}")
+
+                                # Clean up directory if empty
+                                d_dir = os.path.dirname(dst)
+                                try:
+                                    if not os.listdir(d_dir):
+                                        os.rmdir(d_dir)
+                                except OSError:
+                                    pass
+                            except OSError as e:
+                                failed_count += 1
+                                emit_json("warning", message=f"Failed to delete {dst}: {e}")
+                                console.print(f"[yellow]Warning:[/yellow] Failed to delete {dst}: {e}")
+                        else:
+                            failed_count += 1
+                            emit_json("warning", message=f"Hash mismatch for {dst} - file was modified after copy")
+                            console.print(f"[yellow]Warning:[/yellow] Skipped {dst} - hash mismatch (file was modified)")
+                except OSError as e:
                     failed_count += 1
+                    emit_json("warning", message=f"Could not verify hash for {dst}: {e}")
+                    console.print(f"[yellow]Warning:[/yellow] Could not verify {dst}: {e}")
             else:
                 # Missing implies trivially reverted
-                pass
+                emit_json("info", message=f"Already missing: {item.get('src', 'unknown')} → {dst or 'unknown'}")
 
             progress.advance(task_id)
             emit_json("task_progress", task="revert", completed=reverted_count + failed_count, total=len(transfers))
@@ -466,6 +560,7 @@ def _walk_error_handler(run_log=None):
         path = getattr(error, "filename", "") or "unknown folder"
         msg = f"Chronoframe could not read this folder, so it was skipped: {path}"
         emit_json("warning", message=msg)
+        console.print(f"[yellow]Warning:[/yellow] {msg}")
         if run_log:
             run_log.warn(msg)
     return handle
@@ -513,6 +608,10 @@ def main():
     workers = max(1, args.workers)
     verify_copies = not args.skip_verify
 
+    if args.skip_verify:
+        console.print("[yellow]WARNING: Copy verification disabled (--skip-verify).[/yellow]")
+        console.print("[yellow]         Files may be corrupted if source is modified during transfer.[/yellow]")
+
     os.makedirs(dst, exist_ok=True)
 
     console.print(Panel(
@@ -533,6 +632,8 @@ def main():
 
     try:
         run_log.log(f"=== Run started: src={src} dst={dst} dry_run={args.dry_run} workers={workers} ===")
+        if args.skip_verify:
+            run_log.warn("Copy verification disabled; source files must not be modified during transfer")
 
         # Clean up any orphaned .tmp files from previous interrupted copies
         tmp_cleaned = cleanup_tmp_files(dst)
@@ -569,6 +670,7 @@ def main():
 
         # ── Discovery ───────────────────────────────────────────────────────
         src_files = []
+        symlinks_skipped = 0
         emit_json("task_start", task="discovery")
         with console.status("[bold blue]Scanning source directories...", spinner="dots"):
             for root, dirs, fnames in os.walk(src, onerror=_walk_error_handler(run_log)):
@@ -581,10 +683,15 @@ def main():
                         continue
                     path = os.path.join(root, fname)
                     if os.path.islink(path):
+                        symlinks_skipped += 1
                         continue
                     if os.path.splitext(fname)[1].lower() in ALL_EXTS:
                         src_files.append(path)
-        emit_json("task_complete", task="discovery", found=len(src_files))
+        if symlinks_skipped > 0:
+            msg = f"Skipped {symlinks_skipped} symbolic links in source"
+            run_log.log(msg)
+            emit_json("info", message=msg)
+        emit_json("task_complete", task="discovery", found=len(src_files), symlinks_skipped=symlinks_skipped)
 
         if not src_files:
             console.print("[yellow]No valid media files found in source.[/yellow]")
@@ -614,7 +721,8 @@ def main():
 
             task_dest = progress.add_task("[cyan]Scanning Destination Array...", total=None)
             dest_hash_index, dest_seq, dup_seq = build_dest_index(
-                dst, cache_db, rebuild, workers, progress, task_dest, fast_dest=args.fast_dest
+                dst, cache_db, rebuild, workers, progress, task_dest, fast_dest=args.fast_dest,
+                run_log=run_log
             )
 
             task_src = progress.add_task("[magenta]Hashing Source Payload...", total=len(src_files))
@@ -630,7 +738,14 @@ def main():
                 for future in concurrent.futures.as_completed(futures):
                     path = futures[future]
                     try:
-                        h, size, mtime, was_hashed = future.result()
+                        result = future.result()
+                        # Handle both old 4-tuple and new 5-tuple returns for backwards compatibility
+                        if len(result) == 5:
+                            h, size, mtime, was_hashed, error_reason = result
+                        else:
+                            h, size, mtime, was_hashed = result
+                            error_reason = None
+
                         src_hashes[path] = h
                         if h and was_hashed:
                             src_updates.append((path, h, size, mtime))
@@ -671,7 +786,12 @@ def main():
         all_needing_dates = [(p, h) for p, h in new_files] + [(p, h) for p, h in src_dups]
         emit_json("task_start", task="classification", total=len(all_needing_dates))
         file_dates = {}
+        file_date_sources = {}  # path -> source_method
         date_groups = defaultdict(list)
+
+        # Track date extraction sources for observability
+        date_source_counts = defaultdict(int)
+        date_extraction_failures = {}  # path -> error_reason
 
         if all_needing_dates:
             with console.status("[bold yellow]Classifying by date...", spinner="arc"):
@@ -684,14 +804,37 @@ def main():
                     for future in concurrent.futures.as_completed(future_to_path):
                         path = future_to_path[future]
                         try:
-                            file_dates[path] = future.result()
-                        except Exception:
+                            dt, source = future.result()
+                            if dt is None:
+                                # Failed to get any date
+                                date_extraction_failures[path] = "all_methods_failed"
+                                date_source_counts["none"] += 1
+                            elif 1900 <= dt.year <= 2100:
+                                # Valid date
+                                file_dates[path] = dt
+                                file_date_sources[path] = source
+                                if source:
+                                    date_source_counts[source] += 1
+                            else:
+                                # Date out of reasonable range
+                                date_extraction_failures[path] = "year_out_of_range"
+                                date_source_counts["none"] += 1
+                        except Exception as e:
+                            # Exception during date extraction
+                            date_extraction_failures[path] = str(e)
+                            date_source_counts["exception"] += 1
                             try:
-                                file_dates[path] = datetime.fromtimestamp(
+                                # Fallback to mtime
+                                dt = datetime.fromtimestamp(
                                     os.path.getmtime(path), timezone.utc
                                 ).replace(tzinfo=None)
+                                file_dates[path] = dt
+                                file_date_sources[path] = "mtime"
+                                date_source_counts["mtime"] += 1
                             except OSError:
                                 file_dates[path] = None
+                                file_date_sources[path] = None
+                                date_source_counts["none"] += 1
                         done += 1
                         if done % max(1, len(all_needing_dates) // 100) == 0:
                             emit_json("task_progress", task="classification", completed=done, total=len(all_needing_dates))
@@ -701,9 +844,33 @@ def main():
             date_str = dt.strftime('%Y-%m-%d') if (dt and 1900 <= dt.year <= 2100) else "Unknown_Date"
             date_groups[date_str].append((src_path, h))
 
+        # Log date source breakdown for observability
+        date_source_summary = {k: v for k, v in date_source_counts.items() if v > 0}
+        if date_extraction_failures:
+            msg = f"Date extraction had {len(date_extraction_failures)} issues:"
+            run_log.warn(msg)
+            for path, reason in list(date_extraction_failures.items())[:5]:
+                run_log.warn(f"  {path}: {reason}")
+            if len(date_extraction_failures) > 5:
+                run_log.warn(f"  ... and {len(date_extraction_failures) - 5} more")
+
+        run_log.log(f"Date sources: exif={date_source_counts.get('exif', 0)}, "
+                    f"filename={date_source_counts.get('filename', 0)}, "
+                    f"mdls={date_source_counts.get('mdls', 0)}, "
+                    f"mtime={date_source_counts.get('mtime', 0)}, "
+                    f"unknown={date_source_counts.get('none', 0)}")
+
         emit_json("task_complete", task="classification",
                   already_in_dst=already_in_dst, new=len(new_files),
                   dups=len(src_dups), errors=hash_errors)
+
+        emit_json("date_source_breakdown",
+                  exif=date_source_counts.get('exif', 0),
+                  filename=date_source_counts.get('filename', 0),
+                  mdls=date_source_counts.get('mdls', 0),
+                  mtime=date_source_counts.get('mtime', 0),
+                  unknown=date_source_counts.get('none', 0),
+                  extraction_failures=len(date_extraction_failures))
 
         # Year-month histogram of planned files, for the UI's source timeline.
         month_buckets = defaultdict(int)
@@ -902,6 +1069,25 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False,
 
     emit_json("task_start", task="copy", total=len(pending_jobs), bytes_total=bytes_total)
 
+    # Log disk space at start for observability
+    try:
+        import shutil
+        disk_usage = shutil.disk_usage(dst_root)
+        disk_total_gb = disk_usage.total / (1024 ** 3)
+        disk_free_gb = disk_usage.free / (1024 ** 3)
+        disk_used_gb = disk_usage.used / (1024 ** 3)
+        if run_log:
+            run_log.log(f"Destination disk at start: {disk_total_gb:.1f} GB total, "
+                        f"{disk_free_gb:.1f} GB free ({100 * disk_free_gb / disk_total_gb:.0f}%), "
+                        f"{disk_used_gb:.1f} GB used")
+        emit_json("system_state", disk_total_gb=round(disk_total_gb, 1),
+                  disk_free_gb=round(disk_free_gb, 1),
+                  disk_used_gb=round(disk_used_gb, 1),
+                  bytes_to_copy=bytes_total)
+    except Exception as e:
+        if run_log:
+            run_log.warn(f"Could not check destination disk space: {e}")
+
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -955,15 +1141,39 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False,
             try:
                 result = safe_copy_atomic(src_p, dst_p)
                 if verify:
-                    if not verify_copy(src_p, result, h):
+                    match, reason = verify_copy(src_p, result, h)
+                    if not match:
                         try:
                             os.remove(result)
                         except OSError as cleanup_err:
                             if run_log:
                                 run_log.warn(f"Failed to remove unverified copy: {result}: {cleanup_err}")
+
+                        # Log specific reason for verification failure
+                        if reason == "not_found":
+                            msg = f"Verification failed: destination vanished after copy (filesystem race?): {src_p} → {result}"
+                            emit_json("error", message=msg, type="verification_not_found")
+                        elif reason == "symlink":
+                            msg = f"Verification failed: destination became symlink (possible attack?): {src_p} → {result}"
+                            emit_json("error", message=msg, type="verification_symlink")
+                        elif reason == "not_regular_file":
+                            msg = f"Verification failed: destination is not a regular file: {src_p} → {result}"
+                            emit_json("error", message=msg, type="verification_not_regular")
+                        elif reason == "permission_denied":
+                            msg = f"Verification failed: permission denied reading destination (ACL issue?): {src_p} → {result}"
+                            emit_json("error", message=msg, type="verification_permission")
+                        elif reason == "io_error":
+                            msg = f"Verification failed: I/O error reading destination (disk error?): {src_p} → {result}"
+                            emit_json("error", message=msg, type="verification_io_error")
+                        elif reason == "mismatch":
+                            msg = f"Verification failed: hash mismatch (data corruption): {src_p} → {result}"
+                            emit_json("error", message=msg, type="verification_mismatch")
+                        else:
+                            msg = f"Verification failed ({reason}): {src_p} → {result}"
+                            emit_json("error", message=msg, type=f"verification_{reason}")
+
                         if run_log:
-                            run_log.error(f"Verification failed: {src_p} → {result}")
-                        emit_json("error", message=f"Verification failed: {src_p} -> {result}")
+                            run_log.error(msg)
                         verify_failures += 1
                         status_updates.append((src_p, 'FAILED'))
                         consecutive_fail += 1
@@ -1002,9 +1212,21 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False,
                     bytes_copied += st.st_size
             except Exception as e:
                 status_updates.append((src_p, 'FAILED'))
-                emit_json("error", message=f"Copy failed: {src_p} -> {dst_p}: {e}")
+
+                # Check if error is disk space related and log current state
+                error_msg = f"Copy failed: {src_p} -> {dst_p}: {e}"
+                if isinstance(e, OSError) and e.errno == errno.ENOSPC:
+                    try:
+                        import shutil
+                        disk_usage = shutil.disk_usage(dst_root)
+                        disk_free_gb = disk_usage.free / (1024 ** 3)
+                        error_msg += f" (current disk free: {disk_free_gb:.1f} GB)"
+                    except:
+                        pass
+
+                emit_json("error", message=error_msg)
                 if run_log:
-                    run_log.error(f"Copy failed: {src_p} → {dst_p}: {e}")
+                    run_log.error(error_msg)
                 consecutive_fail += 1
                 total_fail += 1
                 if consecutive_fail >= MAX_CONSECUTIVE_FAILURES or total_fail >= MAX_TOTAL_FAILURES:
