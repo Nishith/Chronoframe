@@ -479,4 +479,74 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
         XCTAssertEqual(result.revertedCount, 1)
         XCTAssertFalse(FileManager.default.fileExists(atPath: dstURL.path))
     }
+
+    /// Tests the TOCTOU second boundary check path.
+    ///
+    /// The real attack vector requires a symlink to be swapped between the first
+    /// boundary check and `fileManager.removeItem` — a race that's impossible to
+    /// provoke reliably in a unit test.  The `_boundaryPathResolver` seam lets us
+    /// inject a resolver that returns different values on successive calls, simulating
+    /// the race deterministically:
+    ///   • Call 1 (pre-hash boundary check) → path appears inside boundary → proceeds
+    ///   • Call 2 (post-hash TOCTOU re-check) → path appears outside boundary → skipped
+    func testRevertPostHashBoundaryRecheckRefusesSymlinkSwappedPath() throws {
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        let insideURL = destinationRoot.appendingPathComponent("photo.jpg")
+        try Data("inside".utf8).write(to: insideURL)
+        let identity = try FileIdentityHasher().hashIdentity(at: insideURL)
+
+        let receipt = RevertReceipt(
+            transfers: [
+                RevertReceiptTransfer(
+                    source: "/src/photo.jpg",
+                    dest: insideURL.path,
+                    hash: identity.rawValue
+                )
+            ]
+        )
+
+        let boundaryPath = SafePathContainment.resolvedPath(for: destinationRoot, treatAsDirectory: true)
+        let outsidePath = temporaryDirectoryURL.appendingPathComponent("outside/photo.jpg").path
+        let callCount = AtomicCounter()
+
+        var executor = RevertExecutor()
+        executor._boundaryPathResolver = { _ in
+            let n = callCount.increment()
+            // First call: pre-hash check — return a path inside the boundary so we proceed.
+            // Second call: post-hash re-check — return outside to trigger the TOCTOU guard.
+            return n == 1 ? (boundaryPath + "/photo.jpg") : outsidePath
+        }
+
+        let issues = Recorder<RunIssue>()
+        let result = executor.revert(
+            receipt: receipt,
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) }),
+            destinationBoundary: destinationRoot
+        )
+
+        XCTAssertEqual(result.revertedCount, 0, "File must NOT be deleted when post-hash re-check fails")
+        XCTAssertEqual(result.skippedCount, 1)
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: insideURL.path),
+            "File must be preserved when the TOCTOU re-check detects boundary escape"
+        )
+        XCTAssertTrue(
+            issues.values.first?.message.contains("post-hash re-check") == true,
+            "Observer must receive the TOCTOU-specific warning message"
+        )
+    }
+
+    /// Thread-safe integer counter for tracking injection call sequences in tests.
+    private final class AtomicCounter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _count = 0
+        /// Atomically increment and return the new value.
+        func increment() -> Int {
+            lock.lock(); defer { lock.unlock() }
+            _count += 1
+            return _count
+        }
+    }
 }
