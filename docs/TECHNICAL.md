@@ -4,23 +4,17 @@ This document collects the command-line, architecture, build, and artifact detai
 
 ## Command Line
 
-Chronoframe ships a Python CLI at the repo root:
+Chronoframe ships a SwiftPM CLI executable under `ui/`:
 
 ```bash
 # Preview only
-python3 chronoframe.py --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
+swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
 
 # Copy files
-python3 chronoframe.py --source ~/Photos/Unsorted --dest ~/Photos/Organized
+swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/Photos/Organized
 
 # Revert a previous transfer
-python3 chronoframe.py --revert ~/Photos/Organized/.organize_logs/audit_receipt_20260417_103000.json
-```
-
-Install Python dependencies manually if needed:
-
-```bash
-pip3 install -r requirements.txt
+swift run --package-path ui ChronoframeCLI --revert ~/Photos/Organized/.organize_logs/audit_receipt_20260417_103000.json
 ```
 
 CLI flags:
@@ -32,7 +26,7 @@ CLI flags:
 | `--profile NAME` | Load source and destination from `profiles.yaml` |
 | `--dry-run` | Build the copy plan and write a CSV without copying |
 | `--folder-structure` | Output layout: `YYYY/MM/DD`, `YYYY/MM`, `YYYY`, `YYYY/Mon/Event`, or `Flat` |
-| `--verify` | Re-hash each file after copy to verify integrity |
+| `--verify` / `--skip-verify` | Re-hash each file after copy to verify integrity, or explicitly opt out |
 | `--revert PATH` | Undo a previous run using its audit receipt JSON |
 | `--rebuild-cache` | Force a full rebuild of the destination index |
 | `--fast-dest` | Load destination index from cache instead of scanning |
@@ -40,7 +34,7 @@ CLI flags:
 | `--json` | Emit JSON progress events |
 | `-y`, `--yes` | Auto-confirm prompts |
 
-The native app is ahead of the CLI for Review editing, Smart Event acceptance, Library Health, and Deduplicate UI workflows. The Python CLI remains compatible with shared Chronoframe artifacts.
+The native app is still ahead of the CLI for Review editing, Smart Event acceptance, Library Health, and Deduplicate UI workflows. The CLI covers the important organize, transfer, cache, profile, JSON event, and revert flows through the same Swift engine as the app.
 
 ## Generated Files
 
@@ -66,21 +60,17 @@ Important SQLite tables:
 
 ## Architecture
 
-Chronoframe ships both a native macOS app and a Python CLI.
+Chronoframe ships a native macOS app and a SwiftPM CLI.
 
 ```text
 Chronoframe/
-  chronoframe.py
-  chronoframe/
-    core.py                 # CLI orchestration, planning, execution, revert
-    database.py             # SQLite cache and queue
-    io.py                   # Atomic copy, retry, hashing, verification
-    metadata.py             # EXIF, filename, mdls, filesystem date resolution
   ui/
     Sources/
       ChronoframeCore/      # Native Swift domain engine
-      ChronoframeAppCore/   # Stores, app services, engine selection
+      ChronoframeAppCore/   # Stores and app services
       ChronoframeApp/       # SwiftUI app and views
+      ChronoframeCLIKit/    # Swift CLI parser and runner
+      ChronoframeCLI/       # Swift CLI executable
     Tests/
     Chronoframe.xcodeproj
   docs/screenshots/
@@ -104,7 +94,7 @@ Native Swift core modules include:
 | `DeduplicateExecutor` | Trash commit and dedupe revert |
 | `LibraryHealthScanner` | On-demand destination health checks |
 
-The app defaults to `SwiftOrganizerEngine` for preview, transfer, revert, and reorganize. `PythonOrganizerEngine` remains available for compatibility and CLI parity work.
+The app and CLI use the Swift engine for preview, transfer, revert, and reorganize. The old backend and hybrid adapter have been retired.
 
 ## Organize Details
 
@@ -194,7 +184,7 @@ Confidence values are high, medium, low, or unknown. Unknown dates still route t
 
 ## JSON Event Protocol
 
-The Python backend can emit one JSON object per line with `--json`. The app also normalizes native Swift engine events into the same high-level run model.
+The Swift CLI can emit one JSON object per line with `--json`. The app normalizes native Swift engine events into the same high-level run model.
 
 | Event type | Key fields |
 | :--- | :--- |
@@ -291,29 +281,23 @@ cd ui
 Validate a bundle:
 
 ```bash
-python3 ui/Packaging/validate_app_bundle.py ui/build/Chronoframe.app
+swift run --package-path ui ChronoframePackagingTool ui/build/Chronoframe.app
 ```
 
-### Python Tests
+### Packaging And Tooling Tests
+
+Packaging validation and build-script coverage live in SwiftPM:
 
 ```bash
-python3 -m unittest discover -s tests -t . -v
+swift test --package-path ui --filter ChronoframePackagingTests
 ```
 
-Python coverage:
-
-```bash
-python3 -m coverage run -m unittest discover -s tests -t . -v
-python3 -m coverage report -m --omit "tests/*"
-```
-
-Additional parity and benchmark suites:
+Additional fixture and benchmark suites:
 
 | File | Focus |
 | :--- | :--- |
-| `tests/test_parity_fixtures.py` | Swift and Python dry-run planning parity |
-| `tests/test_execution_parity_fixtures.py` | Swift and Python transfer execution parity |
-| `tests/test_benchmarks.py` | Hashing and scanning microbenchmarks |
+| `ui/Tests/ChronoframeAppCoreTests/ChronoframeCoreDryRunPlannerParityTests.swift` | Swift dry-run planning compatibility fixtures |
+| `ui/Tests/ChronoframeAppCoreTests/ChronoframeCoreTransferExecutorParityTests.swift` | Swift transfer execution compatibility fixtures |
 
 Before committing:
 
@@ -324,7 +308,7 @@ git diff --check
 ## Notes
 
 - The GUI is macOS-specific.
-- The Python CLI runs wherever the Python dependencies are available, with macOS-only Spotlight date resolution skipped on other platforms.
+- The Swift CLI is developed and tested on macOS alongside the app.
 - The destination cache is a performance optimization. Use `--rebuild-cache` when you need a guaranteed fresh destination index.
 - `--fast-dest` is for repeated previews against a stable destination.
 - Releases can be packaged with the Release Package GitHub Actions workflow or locally with `ui/archive.sh`, then uploaded to GitHub Releases with a checksum.

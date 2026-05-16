@@ -1,9 +1,9 @@
 # Chronoframe Native Engine Behavior Spec
 
-This document freezes the Python engine contract that the future native Swift
-engine must match before app cutover. The Python backend remains the behavioral
-reference until parity is proven against these rules and the existing test
-fixtures.
+This document preserves the retired engine contract that the native Swift engine
+was ported against. The old backend is no longer shipped, but these rules and
+fixtures remain useful compatibility guardrails for existing Chronoframe
+artifacts.
 
 ## Stable CLI Surface
 
@@ -18,11 +18,10 @@ fixtures.
   - `-y` / `--yes`
   - `--json`
   - `--fast-dest`
-- `--json` remains the machine-readable progress surface used by the native app
-  adapter. Additive app-only backend entrypoints are allowed, but they must not
-  remove or reinterpret the current CLI contract.
-- `profiles.yaml` remains the shared CLI profile source until a compatibility
-  layer replaces it.
+- `--json` remains the machine-readable progress surface exposed by the Swift
+  CLI. Additive app-only entrypoints are allowed, but they must not remove or
+  reinterpret the current CLI contract.
+- `profiles.yaml` remains the shared CLI profile source.
 
 ## File Identity
 
@@ -151,7 +150,7 @@ fixtures.
 - These limits are behavioral safeguards and must not change without an explicit
   compatibility decision.
 
-## Reference Fixtures And Tests
+## Compatibility Fixtures And Tests
 
 - Planning parity fixtures:
   - `planning_fast_dest_cache_reuse`
@@ -163,14 +162,13 @@ fixtures.
   - `execution_missing_source_abort`
   - `execution_verify_cleanup`
   - `resume_pending_queue`
-- Contract-focused Python tests in `tests/test_chronoframe.py` remain part of the
-  frozen reference surface for CLI flags, SQLite schema, retry behavior, abort
-  thresholds, and artifact generation.
+- Swift tests remain the frozen reference surface for CLI flags, SQLite schema,
+  retry behavior, abort thresholds, and artifact generation.
 
-## Native Port Exit Criteria
+## Swift Port Exit Criteria
 
-- Swift dry-run planning must match Python outputs for counts, duplicate
-  classification, destination paths, queue rows, and generated report contents.
+- Swift dry-run planning must keep matching the frozen fixture outputs for
+  counts, duplicate classification, destination paths, queue rows, and generated
+  report contents.
 - Swift execution must preserve the same database schema, artifact locations,
-  retry behavior, and cleanup guarantees before it becomes the default app
-  engine.
+  retry behavior, and cleanup guarantees.

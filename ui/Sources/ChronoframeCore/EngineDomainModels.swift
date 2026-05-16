@@ -258,7 +258,7 @@ public struct EngineArtifactLayout: Equatable, Codable, Sendable {
         self.auditReceiptPrefix = auditReceiptPrefix
     }
 
-    public static let pythonReference = EngineArtifactLayout(
+    public static let chronoframeDefault = EngineArtifactLayout(
         queueDatabaseFilename: ".organize_cache.db",
         runLogFilename: ".organize_log.txt",
         logsDirectoryName: ".organize_logs",
@@ -298,7 +298,7 @@ public struct PlannerNamingRules: Equatable, Codable, Sendable {
         self.collisionSuffixPrefix = collisionSuffixPrefix
     }
 
-    public static let pythonReference = PlannerNamingRules(
+    public static let chronoframeDefault = PlannerNamingRules(
         sequenceWidth: 3,
         duplicateDirectoryName: "Duplicate",
         unknownDateDirectoryName: "Unknown_Date",
@@ -325,7 +325,7 @@ public struct RetryPolicy: Equatable, Codable, Sendable {
         self.nonRetryableErrnos = nonRetryableErrnos
     }
 
-    public static let pythonReference = RetryPolicy(
+    public static let chronoframeDefault = RetryPolicy(
         maxAttempts: 5,
         minimumBackoffSeconds: 1,
         maximumBackoffSeconds: 10,
@@ -350,5 +350,5 @@ public struct FailureThresholds: Equatable, Codable, Sendable {
         self.total = total
     }
 
-    public static let pythonReference = FailureThresholds(consecutive: 5, total: 20)
+    public static let chronoframeDefault = FailureThresholds(consecutive: 5, total: 20)
 }

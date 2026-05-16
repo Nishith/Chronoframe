@@ -20,7 +20,7 @@ final class ChronoframeCoreFileIdentityHasherTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testHashIdentityMatchesPythonFastHashReference() throws {
+    func testHashIdentityMatchesChronoframeFastHashReference() throws {
         let fileURL = try writeFile(named: "alpha.jpg", contents: "alpha")
 
         let identity = try FileIdentityHasher().hashIdentity(at: fileURL)

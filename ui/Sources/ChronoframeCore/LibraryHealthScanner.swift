@@ -87,7 +87,7 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         sourceRoot: String,
         destinationRoot: String,
         folderStructure: FolderStructure,
-        namingRules: PlannerNamingRules = .pythonReference
+        namingRules: PlannerNamingRules = .chronoframeDefault
     ) -> LibraryHealthSummary {
         let destination = destinationRoot.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !destination.isEmpty else {
@@ -291,7 +291,7 @@ public struct LibraryHealthScanner: @unchecked Sendable {
     }
 
     private func cachedDuplicateStats(destinationURL: URL) -> (count: Int, bytes: Int64) {
-        let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         guard fileManager.fileExists(atPath: databaseURL.path),
               let database = try? OrganizerDatabase(url: databaseURL, readOnly: true) else {
             return (0, 0)
@@ -314,7 +314,7 @@ public struct LibraryHealthScanner: @unchecked Sendable {
     }
 
     private func copyQueueStats(destinationURL: URL) -> (pending: Int, failed: Int) {
-        let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         guard fileManager.fileExists(atPath: databaseURL.path),
               let database = try? OrganizerDatabase(url: databaseURL, readOnly: true) else {
             return (0, 0)
@@ -328,7 +328,7 @@ public struct LibraryHealthScanner: @unchecked Sendable {
     }
 
     private func receiptCount(destinationURL: URL) -> Int {
-        let logsURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.logsDirectoryName, isDirectory: true)
+        let logsURL = destinationURL.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.logsDirectoryName, isDirectory: true)
         guard let contents = try? fileManager.contentsOfDirectory(at: logsURL, includingPropertiesForKeys: nil) else {
             return 0
         }

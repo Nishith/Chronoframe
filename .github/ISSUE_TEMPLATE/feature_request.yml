@@ -34,7 +34,7 @@ body:
         - Health
         - Deduplicate
         - Profiles
-        - Python CLI
+        - Swift CLI
         - Packaging or install
         - Documentation
         - Not sure

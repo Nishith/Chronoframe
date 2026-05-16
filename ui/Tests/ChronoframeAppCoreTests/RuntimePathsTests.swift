@@ -5,7 +5,6 @@ import XCTest
 final class RuntimePathsTests: XCTestCase {
     private var originalProfilesPath: String?
     private var originalRepositoryRoot: String?
-    private var originalAppEngine: String?
     private var originalCurrentDirectory: String!
     private var temporaryDirectoryURL: URL!
 
@@ -13,7 +12,6 @@ final class RuntimePathsTests: XCTestCase {
         try super.setUpWithError()
         originalProfilesPath = ProcessInfo.processInfo.environment["CHRONOFRAME_PROFILES_PATH"]
         originalRepositoryRoot = ProcessInfo.processInfo.environment["CHRONOFRAME_REPOSITORY_ROOT"]
-        originalAppEngine = ProcessInfo.processInfo.environment["CHRONOFRAME_APP_ENGINE"]
         originalCurrentDirectory = FileManager.default.currentDirectoryPath
         temporaryDirectoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("RuntimePathsTests-\(UUID().uuidString)", isDirectory: true)
@@ -37,18 +35,17 @@ final class RuntimePathsTests: XCTestCase {
         XCTAssertEqual(RuntimePaths.profilesFileURL().path, overridePath)
     }
 
-    func testBackendRootUsesRepositoryOverride() throws {
+    func testProfilesFileUsesRepositoryOverride() throws {
         let repoRoot = temporaryDirectoryURL.appendingPathComponent("repo", isDirectory: true)
-        try FileManager.default.createDirectory(at: repoRoot.appendingPathComponent("chronoframe", isDirectory: true), withIntermediateDirectories: true)
-        try "".write(to: repoRoot.appendingPathComponent("chronoframe.py"), atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: repoRoot.appendingPathComponent("ui", isDirectory: true), withIntermediateDirectories: true)
+        try "".write(to: repoRoot.appendingPathComponent("ui/Package.swift"), atomically: true, encoding: .utf8)
 
         setenv("CHRONOFRAME_REPOSITORY_ROOT", repoRoot.path, 1)
 
         XCTAssertEqual(
-            RuntimePaths.backendRootURL()?.resolvingSymlinksInPath().path,
-            repoRoot.resolvingSymlinksInPath().path
+            canonicalPath(RuntimePaths.profilesFileURL()),
+            canonicalPath(repoRoot.appendingPathComponent("profiles.yaml"))
         )
-        XCTAssertEqual(RuntimePaths.backendScriptURL()?.path, repoRoot.appendingPathComponent("chronoframe.py").path)
     }
 
     func testProfilesFallbackUsesApplicationSupportOutsideRepository() {
@@ -63,32 +60,21 @@ final class RuntimePathsTests: XCTestCase {
         XCTAssertEqual(RuntimePaths.profilesFileURL().path, expected)
     }
 
-    func testBackendRootScansUpwardFromCurrentDirectory() throws {
+    func testProfilesFallbackScansUpwardFromCurrentDirectory() throws {
         unsetenv("CHRONOFRAME_REPOSITORY_ROOT")
         let repoRoot = temporaryDirectoryURL.appendingPathComponent("nested-repo", isDirectory: true)
-        let packageDirectory = repoRoot.appendingPathComponent("chronoframe", isDirectory: true)
+        let packageDirectory = repoRoot.appendingPathComponent("ui", isDirectory: true)
         let nestedWorkingDirectory = repoRoot.appendingPathComponent("a/b/c", isDirectory: true)
 
         try FileManager.default.createDirectory(at: packageDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: nestedWorkingDirectory, withIntermediateDirectories: true)
-        try "".write(to: repoRoot.appendingPathComponent("chronoframe.py"), atomically: true, encoding: .utf8)
+        try "".write(to: repoRoot.appendingPathComponent("ui/Package.swift"), atomically: true, encoding: .utf8)
         FileManager.default.changeCurrentDirectoryPath(nestedWorkingDirectory.path)
 
         XCTAssertEqual(
-            RuntimePaths.backendRootURL()?.resolvingSymlinksInPath().path,
-            repoRoot.resolvingSymlinksInPath().path
+            canonicalPath(RuntimePaths.profilesFileURL()),
+            canonicalPath(repoRoot.appendingPathComponent("profiles.yaml"))
         )
-    }
-
-    func testAppEnginePreferenceDefaultsToSwiftAndSupportsPythonKillSwitch() {
-        unsetenv("CHRONOFRAME_APP_ENGINE")
-        XCTAssertEqual(RuntimePaths.appEnginePreference(), .swift)
-
-        setenv("CHRONOFRAME_APP_ENGINE", "python", 1)
-        XCTAssertEqual(RuntimePaths.appEnginePreference(), .python)
-
-        setenv("CHRONOFRAME_APP_ENGINE", "unexpected", 1)
-        XCTAssertEqual(RuntimePaths.appEnginePreference(), .swift)
     }
 
     private func restoreEnvironment() {
@@ -104,10 +90,9 @@ final class RuntimePathsTests: XCTestCase {
             unsetenv("CHRONOFRAME_REPOSITORY_ROOT")
         }
 
-        if let originalAppEngine {
-            setenv("CHRONOFRAME_APP_ENGINE", originalAppEngine, 1)
-        } else {
-            unsetenv("CHRONOFRAME_APP_ENGINE")
-        }
+    }
+
+    private func canonicalPath(_ url: URL) -> String {
+        url.path.replacingOccurrences(of: "/private/var/", with: "/var/")
     }
 }

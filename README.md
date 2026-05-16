@@ -76,6 +76,14 @@ Exact duplicates can be suggested automatically. Similar photos, bursts, RAW+JPE
 - [Troubleshooting](docs/TROUBLESHOOTING.md) for installation, permission, preview, transfer, and dedupe issues.
 - [Technical Documentation](docs/TECHNICAL.md) for command-line use, architecture, generated files, build commands, and developer notes.
 
+## Command Line
+
+Developers can run the Swift CLI through SwiftPM:
+
+```bash
+swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
+```
+
 ## Privacy
 
 Chronoframe works on folders you choose on your Mac. It does not upload your photo library. Its cache, reports, and receipts are stored inside the destination folder so you can inspect or remove them when you no longer need them.

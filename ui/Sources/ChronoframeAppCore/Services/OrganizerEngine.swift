@@ -4,30 +4,21 @@ import ChronoframeCore
 import Foundation
 
 public enum OrganizerEngineError: LocalizedError {
-    case backendUnavailable
-    case pythonUnavailable
     case profileNotFound(String)
     case sourceDoesNotExist(String)
     case destinationMissing
-    case missingDependencies([String])
     case failedToLaunch(String)
     case invalidPreflight(String)
     case invalidOutput(String)
 
     public var errorDescription: String? {
         switch self {
-        case .backendUnavailable:
-            return "Chronoframe could not find the helper it needs to run. Rebuild or reinstall Chronoframe, then try again."
-        case .pythonUnavailable:
-            return "Chronoframe is set to use the Python helper, but this Mac could not start Python 3. Install Python 3, then try again."
         case let .profileNotFound(name):
             return "The saved profile \"\(name)\" no longer exists. Choose another profile or save it again."
         case let .sourceDoesNotExist(path):
             return "The source folder is no longer available. Reconnect the drive or choose the source folder again. Path: \(path)."
         case .destinationMissing:
             return "Choose a destination folder before starting this run."
-        case let .missingDependencies(packages):
-            return "The Python helper is missing required packages: \(packages.joined(separator: ", ")). Install them, then try again."
         case let .failedToLaunch(message):
             return UserFacingErrorMessage.withDetails(
                 "Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe.",

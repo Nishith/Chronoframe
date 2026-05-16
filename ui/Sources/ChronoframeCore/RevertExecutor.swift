@@ -78,7 +78,7 @@ public struct RevertExecutionResult: Equatable, Sendable {
     public var revertedCount: Int
     /// Files preserved due to hash mismatch (user-modified) or OS error during remove.
     public var skippedCount: Int
-    /// Files already missing from disk — Python treats these as "trivially reverted"
+    /// Files already missing from disk are treated as "trivially reverted"
     /// and does not increment either counter. Tracked separately for richer UI.
     public var missingCount: Int
     /// Total receipt entries considered.
@@ -99,7 +99,7 @@ public struct RevertExecutionResult: Equatable, Sendable {
 
 public struct RevertExecutionObserver: Sendable {
     public var onTaskStart: @Sendable (_ total: Int) -> Void
-    /// `completed` mirrors Python's progress: reverted + skipped (NOT including missing).
+    /// `completed` is reverted + skipped, not including missing files.
     public var onTaskProgress: @Sendable (_ completed: Int, _ total: Int) -> Void
     public var onIssue: @Sendable (_ issue: RunIssue) -> Void
 
@@ -159,7 +159,7 @@ public struct RevertExecutor: Sendable {
     /// operations we use; we look it up at call sites to keep the struct Sendable.
     private var fileManager: FileManager { .default }
 
-    /// Load a Python-format audit receipt from disk.
+    /// Load a Chronoframe audit receipt from disk.
     public func loadReceipt(at url: URL) throws -> RevertReceipt {
         guard fileManager.fileExists(atPath: url.path) else {
             throw RevertExecutorError.receiptNotFound(path: url.path)
@@ -237,7 +237,7 @@ public struct RevertExecutor: Sendable {
             }
 
             if !fileManager.fileExists(atPath: destinationPath) {
-                // Python parity: missing destination is counted as trivially reverted
+                // Missing destination is counted as trivially reverted.
                 // and does NOT advance the progress counter (which is reverted+skipped).
                 missingCount += 1
                 continue
@@ -269,8 +269,8 @@ public struct RevertExecutor: Sendable {
                         try fileManager.removeItem(at: destinationURL)
                         revertedCount += 1
 
-                        // Best-effort empty-directory cleanup, matching Python's
-                        // `os.rmdir` swallow-OSError pattern.
+                        // Best-effort empty-directory cleanup.
+                        // Ignore cleanup failures because reverting the file is the important step.
                         let parentURL = destinationURL.deletingLastPathComponent()
                         if let contents = try? fileManager.contentsOfDirectory(
                             atPath: parentURL.path

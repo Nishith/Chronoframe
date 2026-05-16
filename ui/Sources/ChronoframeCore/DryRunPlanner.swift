@@ -16,7 +16,7 @@ public struct DryRunPlanningResult: Equatable, Sendable {
         sourceHashedCount: Int,
         copyPlan: CopyPlanResult,
         previewReviewItems: [PreviewReviewItem] = [],
-        phaseSequence: [String] = Self.pythonReferencePhaseSequence,
+        phaseSequence: [String] = Self.defaultPhaseSequence,
         completeStatus: String = Self.dryRunFinishedStatus
     ) {
         self.discoveredSourceCount = discoveredSourceCount
@@ -59,7 +59,7 @@ public struct DryRunPlanningResult: Equatable, Sendable {
 
     public static let dryRunFinishedStatus = "dry_run_finished"
 
-    public static let pythonReferencePhaseSequence = [
+    public static let defaultPhaseSequence = [
         "startup",
         "discovery:start",
         "discovery:complete",
@@ -95,7 +95,7 @@ public struct DryRunPlanner: Sendable {
         destinationRoot: URL,
         databaseURL: URL? = nil,
         workerCount: Int = 1,
-        namingRules: PlannerNamingRules = .pythonReference,
+        namingRules: PlannerNamingRules = .chronoframeDefault,
         folderStructure: FolderStructure = .yyyyMMDD,
         eventSuggestionMode: EventSuggestionMode = .off,
         isCancelled: @escaping @Sendable () -> Bool = { false },
@@ -104,7 +104,7 @@ public struct DryRunPlanner: Sendable {
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
     ) throws -> DryRunPlanningResult {
         let organizerDatabaseURL = databaseURL
-            ?? destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+            ?? destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         let database = try OrganizerDatabase(url: organizerDatabaseURL)
         defer { database.close() }
 

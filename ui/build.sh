@@ -13,11 +13,20 @@ SCHEME_NAME="Chronoframe"
 PACKAGING_DIR="${SCRIPT_DIR}/Packaging"
 DERIVED_DATA_DIR="${BUILD_DIR}/DerivedData"
 ENTITLEMENTS_PATH="${PACKAGING_DIR}/Chronoframe.entitlements"
-VALIDATOR_PATH="${PACKAGING_DIR}/validate_app_bundle.py"
 TMP_DIR="${TMPDIR:-/tmp}/chronoframe-ui-build"
 MODULE_CACHE_DIR="${TMP_DIR}/module-cache"
+SWIFT_HOME_DIR="${TMP_DIR}/home"
+SWIFT_CACHE_DIR="${SWIFT_HOME_DIR}/Library/Caches"
+VALIDATOR_COMMAND=(
+  env
+  HOME="$SWIFT_HOME_DIR"
+  XDG_CACHE_HOME="$SWIFT_CACHE_DIR"
+  CLANG_MODULE_CACHE_PATH="$MODULE_CACHE_DIR"
+  SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE_DIR"
+  swift run --disable-sandbox --package-path "$SCRIPT_DIR" ChronoframePackagingTool
+)
 
-mkdir -p "$BUILD_DIR" "$MODULE_CACHE_DIR"
+mkdir -p "$BUILD_DIR" "$MODULE_CACHE_DIR" "$SWIFT_CACHE_DIR"
 rm -rf "$APP_DIR"
 rm -rf "$DERIVED_DATA_DIR"
 rm -f "$ZIP_PATH"
@@ -30,11 +39,6 @@ fi
 
 if [ ! -f "$ENTITLEMENTS_PATH" ]; then
   echo "error: expected entitlements file at $ENTITLEMENTS_PATH" >&2
-  exit 1
-fi
-
-if [ ! -f "$VALIDATOR_PATH" ]; then
-  echo "error: expected validator script at $VALIDATOR_PATH" >&2
   exit 1
 fi
 
@@ -76,7 +80,7 @@ else
   codesign --force --deep --sign - "$APP_DIR"
 fi
 
-python3 "$VALIDATOR_PATH" "$APP_DIR"
+"${VALIDATOR_COMMAND[@]}" "$APP_DIR"
 
 echo "🗜️ Creating zip archive..."
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"

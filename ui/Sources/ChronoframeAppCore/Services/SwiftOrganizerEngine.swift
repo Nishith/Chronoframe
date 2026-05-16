@@ -36,8 +36,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             resolvedSourcePath: resolvedConfiguration.sourcePath,
             resolvedDestinationPath: resolvedConfiguration.destinationPath,
             pendingJobCount: pendingJobs,
-            profilesFilePath: profilesRepository.profilesFileURL().path,
-            missingDependencies: []
+            profilesFilePath: profilesRepository.profilesFileURL().path
         )
     }
 
@@ -175,7 +174,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     reportPath: receiptURL.path,
                     logFilePath: nil,
                     logsDirectoryPath: URL(fileURLWithPath: destinationRoot)
-                        .appendingPathComponent(EngineArtifactLayout.pythonReference.logsDirectoryName, isDirectory: true)
+                        .appendingPathComponent(EngineArtifactLayout.chronoframeDefault.logsDirectoryName, isDirectory: true)
                         .path
                 )
 
@@ -440,8 +439,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     }
                 }
                 let destinationURL = URL(fileURLWithPath: configuration.destinationPath, isDirectory: true)
-                let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
-                let logURL = destinationURL.appendingPathComponent(EngineArtifactLayout.pythonReference.runLogFilename)
+                let databaseURL = destinationURL.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
+                let logURL = destinationURL.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.runLogFilename)
                 let runLogger = PersistentRunLogger(logURL: logURL)
 
                 do {
@@ -770,7 +769,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         let pendingJobs = try database.loadQueuedJobs(status: .pending, orderByInsertion: true)
         return CopyPlanBuilder.dateHistogram(
             fromDestinationPaths: pendingJobs.lazy.map { $0.destinationPath },
-            namingRules: .pythonReference
+            namingRules: .chronoframeDefault
         )
     }
 

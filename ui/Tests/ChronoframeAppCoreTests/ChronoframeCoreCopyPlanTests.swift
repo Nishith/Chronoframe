@@ -190,7 +190,7 @@ final class ChronoframeCoreCopyPlanTests: XCTestCase {
                 "/dest/Unknown_Date/Unknown_001.jpg",
                 "/dest/Duplicate/2026/02/14/2026-02-14_001.mov",
             ],
-            namingRules: .pythonReference
+            namingRules: .chronoframeDefault
         )
 
         XCTAssertEqual(
@@ -210,7 +210,7 @@ final class ChronoframeCoreCopyPlanTests: XCTestCase {
                 "/dest/2024-bad/notadate_001.jpg",
                 "/dest/2024/03/15/2024-03-15_001.jpg",
             ],
-            namingRules: .pythonReference
+            namingRules: .chronoframeDefault
         )
 
         XCTAssertEqual(
@@ -222,7 +222,7 @@ final class ChronoframeCoreCopyPlanTests: XCTestCase {
     func testDateHistogramFromDestinationPathsReturnsEmptyForEmptyInput() {
         let buckets = CopyPlanBuilder.dateHistogram(
             fromDestinationPaths: [String](),
-            namingRules: .pythonReference
+            namingRules: .chronoframeDefault
         )
         XCTAssertEqual(buckets, [])
     }

@@ -38,7 +38,7 @@ A: Scanning reads metadata, computes content hashes, and resolves dates. Large l
 
 A: Yes—
 - Use **Settings** → **Performance** to increase worker threads
-- Use `--fast-dest` in CLI mode to skip rescanning the destination
+- Use `--fast-dest` in the Swift CLI to skip rescanning the destination
 - Pre-filter your source folder to smaller batches
 
 ---
@@ -129,17 +129,17 @@ A: Not recommended. It's confusing and risky. Always use a different destination
 
 **Q: Can I use Chronoframe from the command line?**
 
-A: Yes. The Python CLI is at the repo root:
+A: Yes. Use the SwiftPM CLI executable:
 
 ```bash
 # Preview only
-python3 chronoframe.py --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
+swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
 
 # Copy files
-python3 chronoframe.py --source ~/Photos/Unsorted --dest ~/Photos/Organized
+swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/Photos/Organized
 
 # Revert
-python3 chronoframe.py --revert ~/Photos/Organized/.organize_logs/audit_receipt_*.json
+swift run --package-path ui ChronoframeCLI --revert ~/Photos/Organized/.organize_logs/audit_receipt_*.json
 ```
 
 See the [Technical Documentation](./TECHNICAL.md#command-line) for all flags.
