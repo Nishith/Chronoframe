@@ -10,6 +10,7 @@ export CLANG_MODULE_CACHE_PATH="$ROOT_DIR/.tmp/modulecache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT_DIR/.tmp/modulecache"
 
 cd "$ROOT_DIR"
+mkdir -p "$XDG_CACHE_HOME" "$CLANG_MODULE_CACHE_PATH"
 
 swift test --enable-code-coverage --package-path ui --disable-sandbox
 
