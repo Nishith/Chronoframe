@@ -142,7 +142,7 @@ python3 chronoframe.py --source ~/Photos/Unsorted --dest ~/Photos/Organized
 python3 chronoframe.py --revert ~/Photos/Organized/.organize_logs/audit_receipt_*.json
 ```
 
-See the [README](../README.md#command-line) for all flags.
+See the [Technical Documentation](./TECHNICAL.md#command-line) for all flags.
 
 **Q: Can I automate repeated runs?**
 
@@ -158,4 +158,4 @@ You can safely delete these to free space; Chronoframe will recreate them next t
 
 ---
 
-**Still have questions?** Check the full [README](../README.md) or review the [Architecture](../README.md#architecture) section.
+**Still have questions?** Check the [README](../README.md), [Troubleshooting](./TROUBLESHOOTING.md), or [Technical Documentation](./TECHNICAL.md).

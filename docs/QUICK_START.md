@@ -10,9 +10,9 @@ Get your photos organized in 5 minutes.
 
 If macOS blocks the app, right-click it and choose **Open**.
 
-## Your First Organize
+## Organize Photos
 
-This is the basic workflow:
+Use this when you want Chronoframe to copy messy folders into a cleaner date-based library.
 
 ### Step 1: Choose Folders
 
@@ -52,27 +52,31 @@ This is the basic workflow:
 13. You can review the transfer report under **History**
 14. If something went wrong, use **History** → **Revert** to undo the transfer
 
-That's it! Your photos are now organized.
+That's it. Your photos are now organized.
+
+## Deduplicate Photos
+
+Use this when you want Chronoframe to find exact copies and similar shots so you can choose what to keep.
+
+1. Open **Deduplicate**
+2. Choose the folder to scan, or use your Organize destination
+3. Click **Scan**
+4. Review each duplicate group
+5. Mark the files you want to keep and the files you want to remove
+6. Click **Commit** to move selected duplicates to Trash
+
+Chronoframe does not permanently delete files from Deduplicate. It sends selected files to the macOS Trash.
 
 ## Tips
 
 - **Trust the preview.** It shows exactly what will copy before anything happens.
 - **Edit uncertain dates.** If a photo has an unknown date, fix it in Review and Chronoframe will use your correction.
+- **Review duplicate groups carefully.** Exact copies are straightforward, but similar shots still need your judgment.
 - **Don't delete the source yet.** Keep it for a few days to make sure everything looks right.
 - **Keyboard shortcuts** (once you're comfortable):
   - `Cmd+R` to preview
   - `Cmd+Return` to transfer
   - `Cmd+L` to show/hide the activity log
-
-## Deduplicate (Bonus Feature)
-
-Once your photos are organized, you can clean up duplicates:
-
-1. Open **Deduplicate**
-2. Click **Scan**
-3. Chronoframe finds exact copies and similar shots
-4. Review suggested "keep" items in each group
-5. Click **Commit** to move duplicates to Trash
 
 ## Need Help?
 

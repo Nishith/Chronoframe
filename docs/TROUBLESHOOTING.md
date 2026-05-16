@@ -250,7 +250,7 @@ That's it—Chronoframe doesn't install anything system-wide.
 
 If your issue isn't covered here:
 1. Check the [FAQ](./FAQ.md) for general questions
-2. Review the [README](../README.md#architecture) for technical details
+2. Review the [Technical Documentation](./TECHNICAL.md) for command-line and architecture details
 3. Check the [Releases page](https://github.com/Nishith/Chronoframe/releases) for known issues
 4. [Open a GitHub issue](https://github.com/Nishith/Chronoframe/issues) with details about what's happening
 
