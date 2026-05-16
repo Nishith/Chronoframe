@@ -14,10 +14,8 @@ public enum MediaLibraryRules {
     public static let allExtensions = photoExtensions.union(videoExtensions)
 
     public static let skippedFilenames: Set<String> = [
-        "chronoframe.py", "chronoframe_v2.py", "run_organize.sh",
-        "run_new_folder.sh", "reorganize_structure.sh",
-        "profiles.yaml", "requirements.txt", "README.md",
-        "test_chronoframe.py",
+        "run_organize.sh", "run_new_folder.sh", "reorganize_structure.sh",
+        "profiles.yaml", "README.md",
     ]
 
     public static func normalizedExtension(for path: String) -> String {
@@ -125,7 +123,7 @@ public enum DateClassification {
 
     public static func bucket(
         for date: Date?,
-        namingRules: PlannerNamingRules = .pythonReference
+        namingRules: PlannerNamingRules = .chronoframeDefault
     ) -> String {
         guard let date, !isUnknown(date) else {
             return namingRules.unknownDateDirectoryName

@@ -332,22 +332,19 @@ public struct RunPreflight: Equatable, Codable, Sendable {
     public var resolvedDestinationPath: String
     public var pendingJobCount: Int
     public var profilesFilePath: String?
-    public var missingDependencies: [String]
 
     public init(
         configuration: RunConfiguration,
         resolvedSourcePath: String,
         resolvedDestinationPath: String,
         pendingJobCount: Int = 0,
-        profilesFilePath: String? = nil,
-        missingDependencies: [String] = []
+        profilesFilePath: String? = nil
     ) {
         self.configuration = configuration
         self.resolvedSourcePath = resolvedSourcePath
         self.resolvedDestinationPath = resolvedDestinationPath
         self.pendingJobCount = pendingJobCount
         self.profilesFilePath = profilesFilePath
-        self.missingDependencies = missingDependencies
     }
 }
 

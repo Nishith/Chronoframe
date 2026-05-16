@@ -121,7 +121,7 @@ final class RunSessionStoreTests: XCTestCase {
                     configuration: configuration,
                     resolvedSourcePath: configuration.sourcePath,
                     resolvedDestinationPath: configuration.destinationPath,
-                    missingDependencies: ["helper"]
+                    pendingJobCount: 1
                 ))
             ),
             logStore: RunLogStore(capacity: 10),
@@ -129,7 +129,7 @@ final class RunSessionStoreTests: XCTestCase {
         )
 
         await promptStore.requestRun(
-            mode: .preview,
+            mode: .transfer,
             configuration: configuration,
             securityScope: promptTracker.makeScope()
         )
@@ -176,29 +176,6 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertEqual(engine.resumeConfigurations.count, 1)
         XCTAssertEqual(store.status, .finished)
         XCTAssertNil(store.prompt)
-    }
-
-    @MainActor
-    func testMissingDependenciesCreatesBlockingPrompt() async {
-        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
-        let preflight = RunPreflight(
-            configuration: configuration,
-            resolvedSourcePath: configuration.sourcePath,
-            resolvedDestinationPath: configuration.destinationPath,
-            missingDependencies: ["rich", "pyyaml"]
-        )
-        let engine = MockOrganizerEngine(preflightResult: .success(preflight))
-        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
-
-        await store.requestRun(mode: .preview, configuration: configuration)
-
-        XCTAssertEqual(store.status, .preflighting)
-        XCTAssertEqual(store.prompt?.kind, .blockingError)
-        XCTAssertTrue(store.prompt?.message.contains("rich, pyyaml") ?? false)
-
-        store.dismissPrompt()
-        XCTAssertEqual(store.status, .idle)
-        XCTAssertEqual(store.currentTaskTitle, "Idle")
     }
 
     @MainActor

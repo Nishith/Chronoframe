@@ -23,8 +23,6 @@
 		AA000000000000000000020E /* FolderAccessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010E /* FolderAccessService.swift */; };
 		AA000000000000000000020F /* OrganizerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010F /* OrganizerEngine.swift */; };
 		AA0000000000000000000210 /* ProfilesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000110 /* ProfilesRepository.swift */; };
-		AA0000000000000000000211 /* PythonOrganizerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000111 /* PythonOrganizerEngine.swift */; };
-		AA0000000000000000000241 /* HybridOrganizerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014E /* HybridOrganizerEngine.swift */; };
 		AA0000000000000000000212 /* RunHistoryIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000112 /* RunHistoryIndexer.swift */; };
 		AA0000000000000000000213 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000113 /* HistoryStore.swift */; };
 		AA0000000000000000000214 /* PreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000114 /* PreferencesStore.swift */; };
@@ -153,7 +151,6 @@
 		AA000000000000000000010E /* FolderAccessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderAccessService.swift; sourceTree = "<group>"; };
 		AA000000000000000000010F /* OrganizerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerEngine.swift; sourceTree = "<group>"; };
 		AA0000000000000000000110 /* ProfilesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesRepository.swift; sourceTree = "<group>"; };
-		AA0000000000000000000111 /* PythonOrganizerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PythonOrganizerEngine.swift; sourceTree = "<group>"; };
 		AA0000000000000000000112 /* RunHistoryIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryIndexer.swift; sourceTree = "<group>"; };
 		AA0000000000000000000113 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
 		AA0000000000000000000114 /* PreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesStore.swift; sourceTree = "<group>"; };
@@ -208,7 +205,6 @@
 			AA000000000000000000014B /* RevertExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevertExecutor.swift; sourceTree = "<group>"; };
 			AA000000000000000000014C /* ReorganizeExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReorganizeExecutor.swift; sourceTree = "<group>"; };
 			AA000000000000000000014D /* UserFacingErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingErrorMessage.swift; sourceTree = "<group>"; };
-			AA000000000000000000014E /* HybridOrganizerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HybridOrganizerEngine.swift; sourceTree = "<group>"; };
 			AA0000000000000000000181 /* Chronoframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chronoframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 			AA0000000000000000000182 /* ChronoframeAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 			AA0000000000000000000183 /* ChronoframeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -436,8 +432,6 @@
 				AA000000000000000000010E /* FolderAccessService.swift */,
 				AA000000000000000000010F /* OrganizerEngine.swift */,
 				AA0000000000000000000110 /* ProfilesRepository.swift */,
-				AA0000000000000000000111 /* PythonOrganizerEngine.swift */,
-				AA000000000000000000014E /* HybridOrganizerEngine.swift */,
 				AA0000000000000000000127 /* SwiftOrganizerEngine.swift */,
 				AA0000000000000000000112 /* RunHistoryIndexer.swift */,
 				AA0000000000000000000134 /* TransferredSourcesLog.swift */,
@@ -604,7 +598,6 @@
 				AA0000000000000000000401 /* Frameworks */,
 				AA0000000000000000000411 /* Sources */,
 				AA0000000000000000000421 /* Resources */,
-				AA0000000000000000000431 /* Copy Python Backend */,
 			);
 			buildRules = (
 			);
@@ -702,29 +695,6 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		AA0000000000000000000431 /* Copy Python Backend */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(PROJECT_DIR)/../chronoframe.py",
-				"$(PROJECT_DIR)/../requirements.txt",
-				"$(PROJECT_DIR)/../chronoframe",
-			);
-			name = "Copy Python Backend";
-			outputPaths = (
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Backend/chronoframe.py",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Backend/requirements.txt",
-				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/Backend/chronoframe",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\nBACKEND_DIR=\"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Backend\"\nif [ \"${CHRONOFRAME_SKIP_PYTHON_BACKEND:-}\" = \"YES\" ]; then\n  echo \"note: Skipping Python backend (MAS build)\"\n  rm -rf \"$BACKEND_DIR\"\n  exit 0\nfi\nREPO_ROOT=\"$PROJECT_DIR/..\"\nrm -rf \"$BACKEND_DIR\"\nmkdir -p \"$BACKEND_DIR\"\ncp \"$REPO_ROOT/chronoframe.py\" \"$BACKEND_DIR/\"\ncp \"$REPO_ROOT/requirements.txt\" \"$BACKEND_DIR/\"\nditto \"$REPO_ROOT/chronoframe\" \"$BACKEND_DIR/chronoframe\"\nfind \"$BACKEND_DIR/chronoframe\" -type d -name __pycache__ -prune -exec rm -rf {} +\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		AA0000000000000000000411 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -746,8 +716,6 @@
 				AA000000000000000000020E /* FolderAccessService.swift in Sources */,
 				AA000000000000000000020F /* OrganizerEngine.swift in Sources */,
 				AA0000000000000000000210 /* ProfilesRepository.swift in Sources */,
-				AA0000000000000000000211 /* PythonOrganizerEngine.swift in Sources */,
-				AA0000000000000000000241 /* HybridOrganizerEngine.swift in Sources */,
 				AA0000000000000000000221 /* SwiftOrganizerEngine.swift in Sources */,
 				AA0000000000000000000212 /* RunHistoryIndexer.swift in Sources */,
 				AA000000000000000000022E /* TransferredSourcesLog.swift in Sources */,

@@ -90,17 +90,7 @@ final class AppState: ObservableObject {
         )
         let runLogStore = RunLogStore(capacity: preferencesStore.logBufferCapacity)
         let historyStore = HistoryStore()
-        let engine: any OrganizerEngine
-        #if MAS_BUILD
-        engine = SwiftOrganizerEngine(profilesRepository: profilesRepository)
-        #else
-        switch RuntimePaths.appEnginePreference() {
-        case .swift:
-            engine = SwiftOrganizerEngine(profilesRepository: profilesRepository)
-        case .python:
-            engine = PythonOrganizerEngine(profilesRepository: profilesRepository)
-        }
-        #endif
+        let engine: any OrganizerEngine = SwiftOrganizerEngine(profilesRepository: profilesRepository)
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
         let previewReviewStore = PreviewReviewStore()
         let libraryHealthStore = LibraryHealthStore()

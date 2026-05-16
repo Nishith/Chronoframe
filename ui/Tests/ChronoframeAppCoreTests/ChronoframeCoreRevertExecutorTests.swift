@@ -22,7 +22,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
     // MARK: - Receipt decoding
 
-    func testLoadReceiptDecodesPythonAuditReceiptFormat() throws {
+    func testLoadReceiptDecodesChronoframeAuditReceiptFormat() throws {
         let receiptURL = temporaryDirectoryURL.appendingPathComponent("audit_receipt_test.json")
         let json = """
         {
@@ -242,7 +242,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
     }
 
     func testRevertEmitsProgressForRevertedAndSkippedButNotMissing() throws {
-        // 1 reverted, 1 skipped, 1 missing. Python parity: progress only counts reverted+skipped.
+        // 1 reverted, 1 skipped, 1 missing. Progress counts only reverted+skipped.
         let revertableURL = temporaryDirectoryURL.appendingPathComponent("ok.jpg")
         try Data("ok".utf8).write(to: revertableURL)
         let okIdentity = try FileIdentityHasher().hashIdentity(at: revertableURL)
@@ -370,7 +370,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
     /// Structural guard for the receipt path-traversal fix: when a
     /// destinationBoundary is supplied, paths outside it must be refused even
-    /// when the hash matches. Mirrors the Python revert_receipt boundary check.
+    /// when the hash matches.
     func testRevertRefusesPathsOutsideDestinationBoundary() throws {
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
         try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)

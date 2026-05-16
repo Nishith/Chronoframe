@@ -3,11 +3,10 @@ import XCTest
 @testable import ChronoframeCore
 
 /// Unit coverage for `PlanningPathBuilder` — the lowest-level path-construction
-/// helper used by the planner. Phase 1 of the Python migration extends this
-/// builder with new folder layouts; locking down today's behavior here makes
+/// helper used by the planner. Locking down folder-layout behavior here makes
 /// regressions visible the moment they happen.
 final class ChronoframeCorePlanningPathBuilderTests: XCTestCase {
-    private let rules = PlannerNamingRules.pythonReference
+    private let rules = PlannerNamingRules.chronoframeDefault
 
     // MARK: - formatSequence
 
@@ -36,7 +35,7 @@ final class ChronoframeCorePlanningPathBuilderTests: XCTestCase {
 
     // MARK: - buildDestinationPath (current YYYY/MM/DD layout)
 
-    func testBuildDestinationPathProducesPythonReferenceLayoutForKnownDate() {
+    func testBuildDestinationPathProducesChronoframeDefaultLayoutForKnownDate() {
         let path = PlanningPathBuilder.buildDestinationPath(
             for: "/source/IMG_20240214_080000.jpg",
             destinationRoot: "/dest",

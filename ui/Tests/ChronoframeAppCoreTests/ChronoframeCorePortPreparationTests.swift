@@ -8,7 +8,7 @@ final class ChronoframeCorePortPreparationTests: XCTestCase {
         var transfer: PlannedTransfer
     }
 
-    func testFileIdentityRoundTripsPythonReferenceFormat() {
+    func testFileIdentityRoundTripsChronoframeDefaultFormat() {
         let identity = FileIdentity(size: 12, digest: "abc123")
         XCTAssertEqual(identity.rawValue, "12_abc123")
         XCTAssertEqual(FileIdentity(rawValue: identity.rawValue), identity)
@@ -48,25 +48,25 @@ final class ChronoframeCorePortPreparationTests: XCTestCase {
     }
 
     func testPlannerNamingAndArtifactLayoutReferenceValuesRemainStable() {
-        XCTAssertEqual(PlannerNamingRules.pythonReference.sequenceWidth, 3)
-        XCTAssertEqual(PlannerNamingRules.pythonReference.duplicateDirectoryName, "Duplicate")
-        XCTAssertEqual(PlannerNamingRules.pythonReference.unknownDateDirectoryName, "Unknown_Date")
-        XCTAssertEqual(PlannerNamingRules.pythonReference.unknownFilenamePrefix, "Unknown_")
-        XCTAssertEqual(PlannerNamingRules.pythonReference.collisionSuffixPrefix, "_collision_")
+        XCTAssertEqual(PlannerNamingRules.chronoframeDefault.sequenceWidth, 3)
+        XCTAssertEqual(PlannerNamingRules.chronoframeDefault.duplicateDirectoryName, "Duplicate")
+        XCTAssertEqual(PlannerNamingRules.chronoframeDefault.unknownDateDirectoryName, "Unknown_Date")
+        XCTAssertEqual(PlannerNamingRules.chronoframeDefault.unknownFilenamePrefix, "Unknown_")
+        XCTAssertEqual(PlannerNamingRules.chronoframeDefault.collisionSuffixPrefix, "_collision_")
 
-        XCTAssertEqual(EngineArtifactLayout.pythonReference.queueDatabaseFilename, ".organize_cache.db")
-        XCTAssertEqual(EngineArtifactLayout.pythonReference.runLogFilename, ".organize_log.txt")
-        XCTAssertEqual(EngineArtifactLayout.pythonReference.logsDirectoryName, ".organize_logs")
-        XCTAssertEqual(EngineArtifactLayout.pythonReference.dryRunReportPrefix, "dry_run_report_")
-        XCTAssertEqual(EngineArtifactLayout.pythonReference.auditReceiptPrefix, "audit_receipt_")
+        XCTAssertEqual(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename, ".organize_cache.db")
+        XCTAssertEqual(EngineArtifactLayout.chronoframeDefault.runLogFilename, ".organize_log.txt")
+        XCTAssertEqual(EngineArtifactLayout.chronoframeDefault.logsDirectoryName, ".organize_logs")
+        XCTAssertEqual(EngineArtifactLayout.chronoframeDefault.dryRunReportPrefix, "dry_run_report_")
+        XCTAssertEqual(EngineArtifactLayout.chronoframeDefault.auditReceiptPrefix, "audit_receipt_")
     }
 
     func testReferenceRetryAndFailurePoliciesRemainStable() {
-        XCTAssertEqual(RetryPolicy.pythonReference.maxAttempts, 5)
-        XCTAssertEqual(RetryPolicy.pythonReference.minimumBackoffSeconds, 1)
-        XCTAssertEqual(RetryPolicy.pythonReference.maximumBackoffSeconds, 10)
+        XCTAssertEqual(RetryPolicy.chronoframeDefault.maxAttempts, 5)
+        XCTAssertEqual(RetryPolicy.chronoframeDefault.minimumBackoffSeconds, 1)
+        XCTAssertEqual(RetryPolicy.chronoframeDefault.maximumBackoffSeconds, 10)
         XCTAssertEqual(
-            RetryPolicy.pythonReference.nonRetryableErrnos,
+            RetryPolicy.chronoframeDefault.nonRetryableErrnos,
             [
                 Int32(ENOSPC),
                 Int32(ENOENT),
@@ -78,8 +78,8 @@ final class ChronoframeCorePortPreparationTests: XCTestCase {
             ]
         )
 
-        XCTAssertEqual(FailureThresholds.pythonReference.consecutive, 5)
-        XCTAssertEqual(FailureThresholds.pythonReference.total, 20)
+        XCTAssertEqual(FailureThresholds.chronoframeDefault.consecutive, 5)
+        XCTAssertEqual(FailureThresholds.chronoframeDefault.total, 20)
     }
 
     func testSequenceCountersAndPlannedTransfersAreCodableValueTypes() throws {

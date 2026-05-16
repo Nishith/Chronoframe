@@ -6,8 +6,7 @@ import XCTest
 /// parity tests. These tests target individual responsibilities of the executor —
 /// atomic copy lifecycle, failure-threshold abort, byte tracking, verify cleanup,
 /// orphan `.tmp` cleanup, audit receipt structure, and retry-policy data shape —
-/// so that the Python reference implementation can eventually be retired without
-/// loss of confidence.
+/// so that executor behavior stays stable without relying only on broad fixtures.
 final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
     private var temporaryDirectoryURL: URL!
 
@@ -182,7 +181,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
 
     /// Structural guard for the cleanupTemporaryFiles scope fix: foreign .tmp
     /// files (DaVinci Resolve scratch, autosaves, etc.) sharing the destination
-    /// with Chronoframe must survive cleanup. Mirrors the Python guard.
+    /// with Chronoframe must survive cleanup.
     func testCleanupTemporaryFilesPreservesForeignTmpFiles() throws {
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("mixed", isDirectory: true)
         try FileManager.default.createDirectory(
@@ -229,7 +228,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
 
     /// When the existing log is past the configured size cap, opening must
     /// rotate the file to <log>.1 so the active log can't grow without bound.
-    /// Mirrors Python RunLogger.test_rotates_when_log_exceeds_size_cap.
+    /// Covers the historical run-log rotation contract.
     func testPersistentRunLoggerRotatesWhenOversized() throws {
         let logURL = temporaryDirectoryURL.appendingPathComponent("organize_log.txt")
         // Pre-seed the log past the cap with a single large write.
@@ -829,7 +828,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             maxAttempts: 2,
             minimumBackoffSeconds: 0,
             maximumBackoffSeconds: 0,
-            nonRetryableErrnos: RetryPolicy.pythonReference.nonRetryableErrnos
+            nonRetryableErrnos: RetryPolicy.chronoframeDefault.nonRetryableErrnos
         )
 
         let result = try TransferExecutor(retryPolicy: retryPolicy, fileCopyStrategy: strategy).execute(
@@ -890,16 +889,15 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
 
     // MARK: - Retry policy data shape
 
-    /// The default `RetryPolicy.pythonReference` and `FailureThresholds.pythonReference`
-    /// values are load-bearing — they encode the Python implementation's
-    /// historical behavior. Pin them here so accidental constant changes get
+    /// The default `RetryPolicy.chronoframeDefault` and `FailureThresholds.chronoframeDefault`
+    /// values are load-bearing. Pin them here so accidental constant changes get
     /// caught instead of silently changing field behavior.
-    func testPythonReferenceRetryPolicyIsStable() {
-        XCTAssertEqual(RetryPolicy.pythonReference.maxAttempts, 5)
-        XCTAssertEqual(RetryPolicy.pythonReference.minimumBackoffSeconds, 1, accuracy: 0.001)
-        XCTAssertEqual(RetryPolicy.pythonReference.maximumBackoffSeconds, 10, accuracy: 0.001)
+    func testChronoframeDefaultRetryPolicyIsStable() {
+        XCTAssertEqual(RetryPolicy.chronoframeDefault.maxAttempts, 5)
+        XCTAssertEqual(RetryPolicy.chronoframeDefault.minimumBackoffSeconds, 1, accuracy: 0.001)
+        XCTAssertEqual(RetryPolicy.chronoframeDefault.maximumBackoffSeconds, 10, accuracy: 0.001)
 
-        let nonRetryable = Set(RetryPolicy.pythonReference.nonRetryableErrnos)
+        let nonRetryable = Set(RetryPolicy.chronoframeDefault.nonRetryableErrnos)
         XCTAssertTrue(nonRetryable.contains(Int32(ENOSPC)))
         XCTAssertTrue(nonRetryable.contains(Int32(ENOENT)))
         XCTAssertTrue(nonRetryable.contains(Int32(ENOTDIR)))
@@ -909,9 +907,9 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         XCTAssertTrue(nonRetryable.contains(Int32(EPERM)))
     }
 
-    func testPythonReferenceFailureThresholdsAreStable() {
-        XCTAssertEqual(FailureThresholds.pythonReference.consecutive, 5)
-        XCTAssertEqual(FailureThresholds.pythonReference.total, 20)
+    func testChronoframeDefaultFailureThresholdsAreStable() {
+        XCTAssertEqual(FailureThresholds.chronoframeDefault.consecutive, 5)
+        XCTAssertEqual(FailureThresholds.chronoframeDefault.total, 20)
     }
 
     // MARK: - Helpers

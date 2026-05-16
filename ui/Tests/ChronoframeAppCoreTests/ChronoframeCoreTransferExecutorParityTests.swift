@@ -20,7 +20,7 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testExecutionFixturesMatchPythonGoldenOutputs() throws {
+    func testExecutionFixturesMatchCompatibilityGoldenOutputs() throws {
         for scenario in [
             "execution_collision_receipt",
             "execution_missing_source_abort",
@@ -56,7 +56,7 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
             }
         }
 
-        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         let database = try OrganizerDatabase(url: databaseURL)
         defer { database.close() }
 
@@ -74,7 +74,7 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
         try database.enqueueQueuedJobs(seededJobs)
 
         let logger = PersistentRunLogger(
-            logURL: destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.runLogFilename)
+            logURL: destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.runLogFilename)
         )
         try logger.open()
         defer { logger.close() }

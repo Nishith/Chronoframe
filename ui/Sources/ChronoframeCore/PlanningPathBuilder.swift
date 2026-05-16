@@ -91,7 +91,7 @@ enum PlanningPathBuilder {
         Int(pow(10.0, Double(width))) - 1
     }
 
-    /// Mirrors Python `_event_subpath` in `chronoframe/core.py`: returns the immediate
+    /// Returns the immediate event-like segment below the selected source root:
     /// parent folder name of `sourcePath` relative to `sourceRoot`, or "" when the
     /// file sits directly inside `sourceRoot`.
     static func eventSubpath(sourcePath: String, sourceRoot: String) -> String {

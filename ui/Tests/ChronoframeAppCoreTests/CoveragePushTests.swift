@@ -17,7 +17,7 @@ final class CoveragePushTests: XCTestCase {
     }
     
     func testDateClassificationEdgeCases() {
-        let naming = PlannerNamingRules.pythonReference
+        let naming = PlannerNamingRules.chronoframeDefault
         XCTAssertEqual(DateClassification.bucket(for: nil, namingRules: naming), naming.unknownDateDirectoryName)
     }
     
@@ -68,7 +68,7 @@ final class CoveragePushTests: XCTestCase {
     }
     
     func testCopyPlanBuilderHistogramEdgeCases() {
-        let naming = PlannerNamingRules.pythonReference
+        let naming = PlannerNamingRules.chronoframeDefault
         
         let paths = [
             "short",

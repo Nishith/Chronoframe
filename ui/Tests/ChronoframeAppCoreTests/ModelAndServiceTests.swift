@@ -40,12 +40,9 @@ final class ModelAndServiceTests: XCTestCase {
 
     func testOrganizerEngineErrorsExposeDescriptions() {
         let errors: [OrganizerEngineError] = [
-            .backendUnavailable,
-            .pythonUnavailable,
             .profileNotFound("travel"),
             .sourceDoesNotExist("/tmp/source"),
             .destinationMissing,
-            .missingDependencies(["rich"]),
             .failedToLaunch("boom"),
             .invalidPreflight("bad input"),
             .invalidOutput("not json"),

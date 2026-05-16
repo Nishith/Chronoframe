@@ -97,7 +97,7 @@ public enum CopyPlanBuilder {
         sourceFiles: [PlanningFileCandidate],
         destinationSnapshot: DestinationIndexSnapshot,
         destinationRoot: String,
-        namingRules: PlannerNamingRules = .pythonReference,
+        namingRules: PlannerNamingRules = .chronoframeDefault,
         folderStructure: FolderStructure = .yyyyMMDD,
         sourceRoot: String? = nil
     ) -> CopyPlanResult {

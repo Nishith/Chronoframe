@@ -1,31 +1,6 @@
 import Foundation
 
-#if !MAS_BUILD
-public enum AppEnginePreference: String, Equatable, Sendable {
-    case swift
-    case python
-}
-#endif
-
 public enum RuntimePaths {
-    #if !MAS_BUILD
-    public static func backendRootURL() -> URL? {
-        if let bundled = bundledBackendRootURL() {
-            return bundled
-        }
-
-        if let repositoryRoot = repositoryRootURL() {
-            return repositoryRoot
-        }
-
-        return nil
-    }
-
-    public static func backendScriptURL() -> URL? {
-        backendRootURL()?.appendingPathComponent("chronoframe.py")
-    }
-    #endif
-
     public static func profilesFileURL() -> URL {
         let environment = ProcessInfo.processInfo.environment
 
@@ -53,47 +28,30 @@ public enum RuntimePaths {
     }
 
     #if !MAS_BUILD
-    public static func appEnginePreference() -> AppEnginePreference {
-        let environment = ProcessInfo.processInfo.environment
-        let rawValue = environment["CHRONOFRAME_APP_ENGINE"]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-
-        switch rawValue {
-        case AppEnginePreference.python.rawValue:
-            return .python
-        default:
-            return .swift
-        }
-    }
-
-    private static func bundledBackendRootURL() -> URL? {
-        guard let resourceURL = Bundle.main.resourceURL else { return nil }
-        let bundled = resourceURL.appendingPathComponent("Backend", isDirectory: true)
-        if FileManager.default.fileExists(atPath: bundled.appendingPathComponent("chronoframe.py").path) {
-            return bundled
-        }
-        return nil
-    }
-
     private static func repositoryRootURL() -> URL? {
         let environment = ProcessInfo.processInfo.environment
         if let override = environment["CHRONOFRAME_REPOSITORY_ROOT"], !override.isEmpty {
             let url = URL(fileURLWithPath: override)
-            if FileManager.default.fileExists(atPath: url.appendingPathComponent("chronoframe.py").path) {
+            if isRepositoryRoot(url) {
                 return url
             }
         }
 
         var candidate = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         for _ in 0..<8 {
-            let script = candidate.appendingPathComponent("chronoframe.py")
-            let packageDirectory = candidate.appendingPathComponent("chronoframe", isDirectory: true)
-            if FileManager.default.fileExists(atPath: script.path) && FileManager.default.fileExists(atPath: packageDirectory.path) {
+            if isRepositoryRoot(candidate) {
                 return candidate
             }
             candidate.deleteLastPathComponent()
         }
 
         return nil
+    }
+
+    private static func isRepositoryRoot(_ url: URL) -> Bool {
+        FileManager.default.fileExists(
+            atPath: url.appendingPathComponent("ui/Package.swift").path
+        )
     }
     #endif
 }

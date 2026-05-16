@@ -28,7 +28,7 @@ body:
       label: Where did it happen?
       options:
         - Native macOS app
-        - Python CLI
+        - Swift CLI
         - Both
         - Not sure
     validations:

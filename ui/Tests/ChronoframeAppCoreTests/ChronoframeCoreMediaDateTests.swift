@@ -31,7 +31,7 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         XCTAssertTrue(MediaLibraryRules.isSupportedMediaFile(path: "/photos/P1000001.RW2"))
     }
 
-    func testFilenameDateParserMatchesPythonPatterns() {
+    func testFilenameDateParserMatchesChronoframePatterns() {
         XCTAssertEqual(dayString(FilenameDateParser.parse(from: "/photos/IMG_20210417_120000.jpg")), "2021-04-17")
         XCTAssertEqual(dayString(FilenameDateParser.parse(from: "/photos/VID_20200101_235959.mp4")), "2020-01-01")
         XCTAssertEqual(dayString(FilenameDateParser.parse(from: "/photos/PANO_20190615_080000.jpg")), "2019-06-15")

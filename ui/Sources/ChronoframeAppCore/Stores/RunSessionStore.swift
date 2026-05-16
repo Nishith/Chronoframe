@@ -76,16 +76,6 @@ public final class RunSessionStore: ObservableObject {
             let preflight = try await engine.preflight(configuration)
             lastPreflight = preflight
 
-            if !preflight.missingDependencies.isEmpty {
-                prompt = RunPrompt(
-                    kind: .blockingError,
-                    title: "Python Helper Needs Packages",
-                    message: "Chronoframe is set to use the Python helper, but this Mac is missing: \(preflight.missingDependencies.joined(separator: ", ")). Install those packages, then try again. Your files have not been changed.",
-                    preflight: preflight
-                )
-                return
-            }
-
             if mode == .transfer {
                 let promptKind: RunPromptKind = preflight.pendingJobCount > 0 ? .resumePendingJobs : .confirmTransfer
                 let message: String

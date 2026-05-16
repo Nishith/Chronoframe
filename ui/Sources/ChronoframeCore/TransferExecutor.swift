@@ -108,8 +108,7 @@ public final class PersistentRunLogger: @unchecked Sendable {
         )
 
         // Rotate when the existing log is past the cap so the file stays bounded.
-        // We keep at most one prior generation as <log>.1 to mirror the Python
-        // RunLogger behaviour.
+        // Keep at most one prior generation as <log>.1.
         if FileManager.default.fileExists(atPath: logURL.path),
            let attrs = try? FileManager.default.attributesOfItem(atPath: logURL.path),
            let size = attrs[.size] as? UInt64,
@@ -175,7 +174,7 @@ public struct TransferExecutor: Sendable {
     public static let destinationCacheBatchSize = 256
 
     // Matches Chronoframe's own .tmp files only. Update both sides if the
-    // filename convention changes (see chronoframe/io.py _CHRONOFRAME_TMP_RE).
+    // filename convention changes.
     private static let chronoframeTmpPattern: NSRegularExpression? = try? NSRegularExpression(
         pattern: #"^(?:\d{4}-\d{2}-\d{2}|Unknown)_\d+(?:_collision_\d+)?\.[a-zA-Z0-9]+(?:\.[0-9a-fA-F-]{36})?\.tmp$"#
     )
@@ -188,9 +187,9 @@ public struct TransferExecutor: Sendable {
 
     public init(
         fileHasher: FileIdentityHasher = FileIdentityHasher(),
-        retryPolicy: RetryPolicy = .pythonReference,
-        failureThresholds: FailureThresholds = .pythonReference,
-        namingRules: PlannerNamingRules = .pythonReference
+        retryPolicy: RetryPolicy = .chronoframeDefault,
+        failureThresholds: FailureThresholds = .chronoframeDefault,
+        namingRules: PlannerNamingRules = .chronoframeDefault
     ) {
         self.fileHasher = fileHasher
         self.retryPolicy = retryPolicy
@@ -201,9 +200,9 @@ public struct TransferExecutor: Sendable {
 
     init(
         fileHasher: FileIdentityHasher = FileIdentityHasher(),
-        retryPolicy: RetryPolicy = .pythonReference,
-        failureThresholds: FailureThresholds = .pythonReference,
-        namingRules: PlannerNamingRules = .pythonReference,
+        retryPolicy: RetryPolicy = .chronoframeDefault,
+        failureThresholds: FailureThresholds = .chronoframeDefault,
+        namingRules: PlannerNamingRules = .chronoframeDefault,
         fileCopyStrategy: TransferFileCopyStrategy
     ) {
         self.fileHasher = fileHasher
@@ -215,10 +214,10 @@ public struct TransferExecutor: Sendable {
 
     public func artifactPaths(destinationRoot: URL) -> RunArtifactPaths {
         let logsDirectoryURL = destinationRoot.appendingPathComponent(
-            EngineArtifactLayout.pythonReference.logsDirectoryName,
+            EngineArtifactLayout.chronoframeDefault.logsDirectoryName,
             isDirectory: true
         )
-        let logURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.runLogFilename)
+        let logURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.runLogFilename)
 
         return RunArtifactPaths(
             destinationRoot: destinationRoot.path,
@@ -910,12 +909,12 @@ private final class StreamingAuditReceiptWriter {
         self.runID = UUID()
 
         let logsDirectoryURL = destinationRoot.appendingPathComponent(
-            EngineArtifactLayout.pythonReference.logsDirectoryName,
+            EngineArtifactLayout.chronoframeDefault.logsDirectoryName,
             isDirectory: true
         )
         try fileManager.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
 
-        let stem = "\(EngineArtifactLayout.pythonReference.auditReceiptPrefix)\(TransferExecutor.receiptTimestampFormatter.string(from: createdAt))_\(runID.uuidString)"
+        let stem = "\(EngineArtifactLayout.chronoframeDefault.auditReceiptPrefix)\(TransferExecutor.receiptTimestampFormatter.string(from: createdAt))_\(runID.uuidString)"
         self.finalReceiptURL = logsDirectoryURL.appendingPathComponent("\(stem).json")
         self.transferSpoolURL = logsDirectoryURL.appendingPathComponent("\(stem).transfers.tmp")
 

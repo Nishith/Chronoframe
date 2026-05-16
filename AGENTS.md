@@ -6,37 +6,36 @@ This file is project context for future coding agents. Keep it current when arch
 
 Chronoframe is a safe photo/video organizer. It scans an unsorted source folder, resolves each media file's date, and copies files into a date-based destination layout. The central promise is that originals are never modified, moved, or deleted.
 
-Chronoframe ships both:
+Chronoframe is now Swift-first:
 
-- A Python CLI/backend at the repo root, launched with `python3 chronoframe.py`.
 - A native macOS SwiftUI app under `ui/`, using Swift package targets and an Xcode project.
+- A SwiftPM command-line executable, `ChronoframeCLI`, backed by the same Swift organizing engine.
 
 ## Architecture
-
-The Python backend lives in `chronoframe/`.
-
-- `chronoframe/core.py`: CLI orchestration, planning, execution, revert.
-- `chronoframe/io.py`: atomic copy, retry policy, disk checks, hashing, verification.
-- `chronoframe/metadata.py`: EXIF, filename date parsing, Spotlight/mdls integration.
-- `chronoframe/database.py`: SQLite cache and persistent copy queue.
 
 The macOS app lives in `ui/`.
 
 - `ui/Sources/ChronoframeCore/`: native Swift organizing engine.
-- `ui/Sources/ChronoframeAppCore/`: app state, stores, engine selection, user-facing services.
+- `ui/Sources/ChronoframeAppCore/`: app state, stores, and user-facing services.
 - `ui/Sources/ChronoframeApp/`: SwiftUI views and app entry point.
+- `ui/Sources/ChronoframeCLIKit/`: reusable Swift command-line parser and runners.
+- `ui/Sources/ChronoframeCLI/`: SwiftPM CLI executable entry point.
 - `ui/Tests/ChronoframeAppCoreTests/` and `ui/Tests/ChronoframeAppTests/`: Swift tests.
+- `ui/Tests/ChronoframeCLIKitTests/`: Swift CLI tests.
 - `ui/Chronoframe.xcodeproj/`: Xcode project used by CodeQL and app builds.
 
 Swift package targets:
 
 - `ChronoframeCore`
 - `ChronoframeAppCore`
+- `ChronoframeCLIKit`
 - `ChronoframeApp`
+- `ChronoframeCLI`
 - `ChronoframeAppCoreTests`
 - `ChronoframeAppTests`
+- `ChronoframeCLIKitTests`
 
-The app defaults to the native `SwiftOrganizerEngine`. `HybridOrganizerEngine` can select the Python path when needed. The Python backend remains the CLI implementation and is still used by the app for some shell-out flows such as revert.
+The app uses `SwiftOrganizerEngine` for preview, transfer, revert, and reorganize. The retired backend, hybrid engine selector, and shell-out flows have been removed.
 
 Shared on-disk artifacts include:
 
@@ -59,7 +58,7 @@ Do not weaken these unless the user explicitly asks for a product change.
 - Existing destination files are not overwritten. Collisions get a distinct destination name.
 - Deduplication is content-based, using BLAKE2b hashes, not filenames.
 - Dedupe dHash-only similarity is never enough for automatic deletion; non-exact weak matches stay review-only with zero preselected deletions unless explicitly confirmed.
-- `--verify` re-hashes written files and removes a bad copy if verification fails. The Python CLI now verifies by default; use `--skip-verify` only for the explicit speed/integrity tradeoff.
+- Copy verification re-hashes written files and removes a bad copy if verification fails. The Swift CLI and app verify by default; use `--skip-verify` only for the explicit speed/integrity tradeoff.
 - Revert deletes only destination files whose current hash still matches the audit receipt.
 - Organize, dedupe, and reorganize receipts are written before mutation where possible, carry statuses (`PENDING`, `COMPLETED`, `ABORTED`, `FAILED` as applicable), and use collision-proof names.
 - Aborted runs should make it clear that source files were left untouched.
@@ -93,7 +92,7 @@ Recent work improved error handling for nontechnical users. Preserve that tone.
 
 - `ui/Sources/ChronoframeAppCore/Support/UserFacingErrorMessage.swift` is the shared formatter for technical errors.
 - Error text should be plain, specific, action-oriented, and reassuring when appropriate.
-- Avoid surfacing raw `NSError`, POSIX, SQLite, Python traceback, or Swift decoding language directly in the UI.
+- Avoid surfacing raw `NSError`, POSIX, SQLite, shell output, or Swift decoding language directly in the UI.
 - When a run fails, copy should emphasize that originals were left untouched.
 - `RunLogStore.append(issue:)` rewrites backend issue strings before showing them.
 - `HistoryStore` keeps failed cleanup entries visible and reports manual cleanup guidance when automatic cleanup cannot finish.
@@ -140,19 +139,6 @@ CI-like Swift CodeQL build:
 xcodebuild -project ui/Chronoframe.xcodeproj -scheme Chronoframe -configuration Debug -derivedDataPath .tmp/ChronoframeDerivedData-x86 -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES build
 ```
 
-Python tests:
-
-```bash
-python3 -m unittest discover -s tests -t . -v
-```
-
-Python coverage:
-
-```bash
-python3 -m coverage run -m unittest discover -s tests -t . -v
-python3 -m coverage report -m --omit "tests/*"
-```
-
 Before committing, also run:
 
 ```bash
@@ -163,8 +149,6 @@ git diff --check
 
 Be precise when discussing coverage.
 
-- Python production-only coverage was 96% after the April 2026 error-handling/coverage pass.
-- Full Python coverage was 98%.
 - `UserFacingErrorMessage.swift` had 98.2% line coverage.
 - Raw SwiftPM aggregate coverage was around 62% after the April 2026 meaningful coverage pass because SwiftUI view files are counted but are not all exercised by unit tests.
 - `script/swift_meaningful_coverage.sh` enforces 95%+ on deterministic domain algorithms, planning/path building, hashing, indexing, destructive executors, receipt writers, and user-facing formatting. Do not claim project-wide Swift coverage over 95% unless the metric excludes SwiftUI view rendering or includes a broader UI-test coverage story.
@@ -175,7 +159,7 @@ Be precise when discussing coverage.
 - Use `codex/...` branch names for Codex work unless the user asks otherwise.
 - GitHub authentication is configured for `gh` in this workspace.
 - CodeQL workflow is `.github/workflows/codeql.yml`.
-- CodeQL analyzes Python on Ubuntu and Swift on macOS.
+- CodeQL analyzes Swift on macOS.
 - Swift CodeQL uses manual Xcode build mode. The build command currently uses:
 
 ```bash
@@ -204,7 +188,7 @@ As of 2026-04-25:
 - `main` was clean and matched `origin/main`.
 - PR #20 merged user-facing error handling.
 - PR #21 merged coverage improvements.
-- Post-merge CodeQL run `24944239628` passed for both Python and Swift on `main`.
+- Post-merge CodeQL run `24944239628` passed on `main` before the repo became Swift-only.
 
 Verify freshness before relying on these historical details for a new CI/debugging task.
 
@@ -213,8 +197,8 @@ Verify freshness before relying on these historical details for a new CI/debuggi
 - `.codex/environments/environment.toml` is autogenerated. Do not edit it manually.
 - Codex's configured Run action calls `./script/build_and_run.sh`.
 - `ui/archive.sh` defaults to release mode and must fail without Developer ID identity, team ID, notarization credentials, and successful stapling. Use `--local` only for non-release ad hoc archives.
-- `ui/Packaging/validate_app_bundle.py` validates packaged app bundles.
-- `tests/test_ui_packaging.py` uses injectable `codesign_inspector` and `gatekeeper_inspector` hooks so tests stay deterministic.
+- `ChronoframePackagingTool` validates packaged app bundles.
+- `ui/Tests/ChronoframePackagingTests/` uses injectable command runners so signing and Gatekeeper tests stay deterministic.
 
 ## UI And Design Notes
 
@@ -234,8 +218,6 @@ When editing UI:
 - Ignore generated caches and build outputs unless the task explicitly concerns them:
   - `.coverage`
   - `.tmp/`
-  - `.pytest_cache/`
-  - `__pycache__/`
   - `ui/.build/`
   - `ui/build/`
 

@@ -34,7 +34,7 @@ final class ChronoframeCoreLibraryHealthScannerTests: XCTestCase {
         try Data("{}".utf8).write(to: logsURL.appendingPathComponent("audit_receipt_20260430.json"))
 
         let database = try OrganizerDatabase(
-            url: destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+            url: destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         )
         try database.saveCacheRecords(
             [

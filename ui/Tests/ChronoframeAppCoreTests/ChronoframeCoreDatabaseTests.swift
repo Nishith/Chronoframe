@@ -27,7 +27,7 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testOrganizerDatabaseMatchesPythonPragmasAndSchema() throws {
+    func testOrganizerDatabaseMatchesChronoframePragmasAndSchema() throws {
         let databaseURL = temporaryDirectoryURL.appendingPathComponent(".organize_cache.db")
         let database = try OrganizerDatabase(url: databaseURL)
         defer { database.close() }

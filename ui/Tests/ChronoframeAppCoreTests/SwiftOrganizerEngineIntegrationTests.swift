@@ -58,7 +58,6 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         XCTAssertEqual(preflight.resolvedDestinationPath, destinationURL.path)
         XCTAssertEqual(preflight.configuration.folderStructure, .yyyyMonEvent)
         XCTAssertEqual(preflight.pendingJobCount, 1)
-        XCTAssertEqual(preflight.missingDependencies, [])
         XCTAssertEqual(preflight.profilesFilePath, repository.profilesFileURL().path)
     }
 

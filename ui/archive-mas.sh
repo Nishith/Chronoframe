@@ -12,9 +12,18 @@ SCHEME_NAME="Chronoframe"
 PACKAGING_DIR="${SCRIPT_DIR}/Packaging"
 DERIVED_DATA_DIR="${BUILD_DIR}/MASArchiveDerivedData"
 EXPORT_OPTIONS_PLIST="${PACKAGING_DIR}/ExportOptions-MAS.plist"
-VALIDATOR_PATH="${PACKAGING_DIR}/validate_app_bundle.py"
 TMP_DIR="${TMPDIR:-/tmp}/chronoframe-ui-mas-archive"
 MODULE_CACHE_DIR="${TMP_DIR}/module-cache"
+SWIFT_HOME_DIR="${TMP_DIR}/home"
+SWIFT_CACHE_DIR="${SWIFT_HOME_DIR}/Library/Caches"
+VALIDATOR_COMMAND=(
+  env
+  HOME="$SWIFT_HOME_DIR"
+  XDG_CACHE_HOME="$SWIFT_CACHE_DIR"
+  CLANG_MODULE_CACHE_PATH="$MODULE_CACHE_DIR"
+  SWIFTPM_MODULECACHE_OVERRIDE="$MODULE_CACHE_DIR"
+  swift run --disable-sandbox --package-path "$SCRIPT_DIR" ChronoframePackagingTool
+)
 LOCAL_ARCHIVE=0
 
 for arg in "$@"; do
@@ -30,7 +39,7 @@ for arg in "$@"; do
   esac
 done
 
-mkdir -p "$BUILD_DIR" "$EXPORT_DIR" "$MODULE_CACHE_DIR"
+mkdir -p "$BUILD_DIR" "$EXPORT_DIR" "$MODULE_CACHE_DIR" "$SWIFT_CACHE_DIR"
 rm -rf "$ARCHIVE_PATH"
 rm -rf "$EXPORT_DIR"
 rm -rf "$DERIVED_DATA_DIR"
@@ -46,11 +55,6 @@ if [ ! -f "$EXPORT_OPTIONS_PLIST" ]; then
   exit 1
 fi
 
-if [ ! -f "$VALIDATOR_PATH" ]; then
-  echo "error: expected validator script at $VALIDATOR_PATH" >&2
-  exit 1
-fi
-
 echo "📦 Archiving Mac App Store build..."
 XCODEBUILD_ARGS=(
   xcodebuild
@@ -63,7 +67,6 @@ XCODEBUILD_ARGS=(
   CLANG_MODULE_CACHE_PATH="$MODULE_CACHE_DIR"
   SWIFT_MODULECACHE_PATH="$MODULE_CACHE_DIR"
   ENABLE_HARDENED_RUNTIME=YES
-  CHRONOFRAME_SKIP_PYTHON_BACKEND=YES
   "SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD"
 )
 
@@ -87,7 +90,7 @@ fi
 
 BACKEND_DIR="${ARCHIVED_APP_PATH}/Contents/Resources/Backend"
 if [ -d "$BACKEND_DIR" ]; then
-  echo "error: Python backend was included in the MAS build — this will be rejected" >&2
+  echo "error: retired backend resources were included in the MAS build" >&2
   exit 1
 fi
 
@@ -102,7 +105,7 @@ if [ "$LOCAL_ARCHIVE" -eq 0 ]; then
   echo "🧾 Validating exported app..."
   EXPORTED_APP="${EXPORT_DIR}/${APP_NAME}.app"
   if [ -d "$EXPORTED_APP" ]; then
-    python3 "$VALIDATOR_PATH" --app-store "$EXPORTED_APP"
+    "${VALIDATOR_COMMAND[@]}" --app-store "$EXPORTED_APP"
   fi
 
   PKG_FILE=$(find "$EXPORT_DIR" -name "*.pkg" -maxdepth 1 | head -1)
@@ -123,7 +126,7 @@ if [ "$LOCAL_ARCHIVE" -eq 0 ]; then
   fi
 else
   echo "🔏 Local MAS archive (unsigned) — validating bundle structure..."
-  python3 "$VALIDATOR_PATH" --app-store "$ARCHIVED_APP_PATH"
+  "${VALIDATOR_COMMAND[@]}" --app-store "$ARCHIVED_APP_PATH"
   echo "✅ Local Mac App Store archive complete!"
   echo "➡️  Archive bundle: ${ARCHIVE_PATH}"
 fi

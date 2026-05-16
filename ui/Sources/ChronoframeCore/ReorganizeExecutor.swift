@@ -124,7 +124,7 @@ public struct ReorganizeExecutor: Sendable {
     private let hasher: FileIdentityHasher
 
     public init(
-        namingRules: PlannerNamingRules = .pythonReference,
+        namingRules: PlannerNamingRules = .chronoframeDefault,
         hasher: FileIdentityHasher = FileIdentityHasher()
     ) {
         self.namingRules = namingRules
@@ -253,7 +253,7 @@ public struct ReorganizeExecutor: Sendable {
         var failedCount = 0
         let rootURL = URL(fileURLWithPath: plan.destinationRoot, isDirectory: true).standardizedFileURL
         let logsDirectoryURL = rootURL.appendingPathComponent(
-            EngineArtifactLayout.pythonReference.logsDirectoryName,
+            EngineArtifactLayout.chronoframeDefault.logsDirectoryName,
             isDirectory: true
         )
         try fileManager.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
@@ -579,7 +579,7 @@ public struct ReorganizeExecutor: Sendable {
     }
 
     private static func isArtifactFile(filename: String) -> Bool {
-        let layout = EngineArtifactLayout.pythonReference
+        let layout = EngineArtifactLayout.chronoframeDefault
         if filename == layout.queueDatabaseFilename { return true }
         if filename == layout.runLogFilename { return true }
         if filename.hasPrefix(layout.dryRunReportPrefix) { return true }

@@ -20,7 +20,7 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    func testPlanningFixturesMatchPythonGoldenOutputs() throws {
+    func testPlanningFixturesMatchCompatibilityGoldenOutputs() throws {
         for scenario in [
             "planning_mixed_inputs",
             "planning_sequence_overflow",
@@ -146,7 +146,7 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         let sourceFile = sourceRoot.appendingPathComponent("DCIM/orphan.jpg")
         try writeMediaFile(at: sourceFile, contents: "override-me")
         let identity = try FileIdentityHasher().hashIdentity(at: sourceFile)
-        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         let database = try OrganizerDatabase(url: databaseURL)
         try database.saveReviewOverride(
             ReviewOverride(
@@ -256,7 +256,7 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
             )
         }
 
-        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+        let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         let probe = SourceHashCheckpointProbe(databaseURL: databaseURL, triggerCompletedCount: 600)
         let result = try DryRunPlanner(
             dateResolver: FileDateResolver(metadataReader: NoDateMetadataReader())
@@ -379,7 +379,7 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         }
 
         if let seedRows = manifest.seedDestinationCache {
-            let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename)
+            let databaseURL = destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
             let database = try OrganizerDatabase(url: databaseURL)
             defer { database.close() }
 
@@ -542,7 +542,7 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         sourceRoot: URL
     ) throws -> [NormalizedCacheRow] {
         let database = try OrganizerDatabase(
-            url: destinationRoot.appendingPathComponent(EngineArtifactLayout.pythonReference.queueDatabaseFilename),
+            url: destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename),
             readOnly: true
         )
         defer { database.close() }

@@ -41,14 +41,14 @@ public struct DestinationIndexSnapshot: Equatable, Sendable {
 
     public static func fromCacheRecords(
         _ records: [FileCacheRecord],
-        namingRules: PlannerNamingRules = .pythonReference
+        namingRules: PlannerNamingRules = .chronoframeDefault
     ) -> DestinationIndexSnapshot {
         fromRawCacheRecords(records.map(RawFileCacheRecord.init(cacheRecord:)), namingRules: namingRules)
     }
 
     public static func fromRawCacheRecords(
         _ records: [RawFileCacheRecord],
-        namingRules: PlannerNamingRules = .pythonReference
+        namingRules: PlannerNamingRules = .chronoframeDefault
     ) -> DestinationIndexSnapshot {
         fromIndexedPaths(
             records
@@ -60,7 +60,7 @@ public struct DestinationIndexSnapshot: Equatable, Sendable {
 
     static func fromIndexedPaths(
         _ records: [(path: String, identity: FileIdentity?)],
-        namingRules: PlannerNamingRules = .pythonReference
+        namingRules: PlannerNamingRules = .chronoframeDefault
     ) -> DestinationIndexSnapshot {
         let filenamePattern = try? NSRegularExpression(pattern: #"^(\d{4}-\d{2}-\d{2}|Unknown)_(\d+)"#)
 
@@ -346,6 +346,21 @@ public final class OrganizerDatabase {
 
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+    }
+
+    public func clearCache(namespace: CacheNamespace? = nil) throws {
+        if let namespace {
+            let statement = try prepare("DELETE FROM FileCache WHERE id = ?")
+            defer { sqlite3_finalize(statement) }
+
+            sqlite3_bind_int(statement, 1, Int32(namespace.rawValue))
+
+            guard sqlite3_step(statement) == SQLITE_DONE else {
+                throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+            }
+        } else {
+            try execute("DELETE FROM FileCache")
         }
     }
 
@@ -656,7 +671,7 @@ public final class OrganizerDatabase {
 
     /// Truncates the entire `CopyJobs` table.
     /// Call this before a "Start Fresh" transfer so that stale records left by
-    /// a previous run (including foreign entries from the Python backend) do not
+    /// a previous run (including entries from older backend implementations) do not
     /// block `enqueuePlannedTransfers`'s `INSERT OR IGNORE` logic.
     public func clearAllJobs() throws {
         try execute("DELETE FROM CopyJobs")
@@ -675,7 +690,7 @@ public final class OrganizerDatabase {
     }
 
     public func destinationIndexSnapshot(
-        namingRules: PlannerNamingRules = .pythonReference
+        namingRules: PlannerNamingRules = .chronoframeDefault
     ) throws -> DestinationIndexSnapshot {
         DestinationIndexSnapshot.fromRawCacheRecords(
             try loadRawCacheRecords(namespace: .destination),

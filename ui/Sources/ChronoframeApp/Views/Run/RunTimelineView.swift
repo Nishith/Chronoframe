@@ -11,7 +11,7 @@ import SwiftUI
 /// `copiedCount` advances, giving the "frames finding their place" moment
 /// while also showing the actual shape of the user's library.
 ///
-/// Source: `RunMetrics.dateHistogram`, populated from the Python engine's
+/// Source: `RunMetrics.dateHistogram`, populated from the organizer engine's
 /// `date_histogram` event after the classification phase completes.
 struct RunTimelineView: View {
     let model: RunWorkspaceModel

@@ -10,7 +10,11 @@ let package = Package(
     products: [
         .library(name: "ChronoframeCore", targets: ["ChronoframeCore"]),
         .library(name: "ChronoframeAppCore", targets: ["ChronoframeAppCore"]),
+        .library(name: "ChronoframeCLIKit", targets: ["ChronoframeCLIKit"]),
+        .library(name: "ChronoframePackaging", targets: ["ChronoframePackaging"]),
         .executable(name: "ChronoframeApp", targets: ["ChronoframeApp"]),
+        .executable(name: "ChronoframeCLI", targets: ["ChronoframeCLI"]),
+        .executable(name: "ChronoframePackagingTool", targets: ["ChronoframePackagingTool"]),
     ],
     targets: [
         .target(
@@ -23,9 +27,24 @@ let package = Package(
             name: "ChronoframeAppCore",
             dependencies: ["ChronoframeCore"]
         ),
+        .target(
+            name: "ChronoframeCLIKit",
+            dependencies: ["ChronoframeAppCore", "ChronoframeCore"]
+        ),
+        .target(
+            name: "ChronoframePackaging"
+        ),
         .executableTarget(
             name: "ChronoframeApp",
             dependencies: ["ChronoframeAppCore"]
+        ),
+        .executableTarget(
+            name: "ChronoframeCLI",
+            dependencies: ["ChronoframeCLIKit"]
+        ),
+        .executableTarget(
+            name: "ChronoframePackagingTool",
+            dependencies: ["ChronoframePackaging"]
         ),
         .testTarget(
             name: "ChronoframeAppCoreTests",
@@ -37,6 +56,16 @@ let package = Package(
             name: "ChronoframeAppTests",
             dependencies: ["ChronoframeApp"],
             path: "Tests/ChronoframeAppTests"
+        ),
+        .testTarget(
+            name: "ChronoframeCLIKitTests",
+            dependencies: ["ChronoframeCLIKit"],
+            path: "Tests/ChronoframeCLIKitTests"
+        ),
+        .testTarget(
+            name: "ChronoframePackagingTests",
+            dependencies: ["ChronoframePackaging"],
+            path: "Tests/ChronoframePackagingTests"
         ),
     ]
 )
