@@ -135,8 +135,24 @@ public enum RevertExecutorError: LocalizedError, Equatable {
 public struct RevertExecutor: Sendable {
     private let hasher: FileIdentityHasher
 
+    /// Testability seam: overrides the path resolver used in both the pre-hash and
+    /// post-hash boundary checks.  Production callers leave this nil, which falls
+    /// through to the real `SafePathContainment.resolvedPath` call.  Tests inject a
+    /// closure that can return different values on successive calls to simulate a
+    /// symlink-swap race (TOCTOU) without needing OS-level timing control.
+    var _boundaryPathResolver: (@Sendable (URL) -> String)?
+
     public init(hasher: FileIdentityHasher = FileIdentityHasher()) {
         self.hasher = hasher
+        self._boundaryPathResolver = nil
+    }
+
+    /// Resolve the canonical path for a destination file URL.
+    /// Uses the injected resolver when set (tests only); otherwise delegates to
+    /// `SafePathContainment.resolvedPath` which follows symlinks via the real FS.
+    private func resolveDestPath(_ url: URL) -> String {
+        _boundaryPathResolver.map { $0(url) }
+            ?? SafePathContainment.resolvedPath(for: url, treatAsDirectory: false)
     }
 
     /// FileManager.default is process-wide and thread-safe for the read/remove
@@ -204,7 +220,7 @@ public struct RevertExecutor: Sendable {
             let destinationURL = URL(fileURLWithPath: destinationPath)
 
             if let boundaryPath {
-                let resolvedPath = SafePathContainment.resolvedPath(for: destinationURL, treatAsDirectory: false)
+                let resolvedPath = resolveDestPath(destinationURL)
                 let isInside = resolvedPath == boundaryPath
                     || resolvedPath.hasPrefix(boundaryPath + "/")
                 if !isInside {
@@ -230,6 +246,25 @@ public struct RevertExecutor: Sendable {
             do {
                 let currentIdentity = try hasher.hashIdentity(at: destinationURL)
                 if currentIdentity.rawValue == transfer.hash {
+                    // Second containment check: close the TOCTOU window between
+                    // the first boundary check and removeItem. A symlink swap in
+                    // that interval could redirect the delete outside the boundary.
+                    if let boundaryPath {
+                        let recheckPath = resolveDestPath(destinationURL)
+                        let isStillInside = recheckPath == boundaryPath
+                            || recheckPath.hasPrefix(boundaryPath + "/")
+                        if !isStillInside {
+                            skippedCount += 1
+                            observer.onIssue(
+                                RunIssue(
+                                    severity: .warning,
+                                    message: "Refusing to revert path outside destination (post-hash re-check): \(destinationPath)"
+                                )
+                            )
+                            observer.onTaskProgress(revertedCount + skippedCount, transfers.count)
+                            continue
+                        }
+                    }
                     do {
                         try fileManager.removeItem(at: destinationURL)
                         revertedCount += 1

@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import signal
 import errno
 import argparse
 import concurrent.futures
@@ -108,14 +109,12 @@ def parse_args():
     parser.add_argument("--profile", type=str, default=None, help="Use paths from profiles.yaml")
     parser.add_argument("--dry-run", action="store_true", help="Generate CSV report without copying")
     parser.add_argument("--rebuild-cache", action="store_true", help="Force database re-index")
-    parser.add_argument("--verify", action="store_true", help="Re-hash each file after copy to verify integrity (default)")
-    parser.add_argument("--skip-verify", action="store_true", help="Skip post-copy verification for faster transfers")
+    parser.add_argument("--skip-verify", action="store_true", help="Skip post-copy verification for faster transfers (verification is on by default)")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS,
                         help=f"Thread pool size for hashing (default {DEFAULT_WORKERS})")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompts (unattended)")
     parser.add_argument("--json", action="store_true", help="Output progress as JSON instead of Rich text (for GUI backend usage)")
     parser.add_argument("--folder-structure", type=str, choices=["YYYY/MM/DD", "YYYY/MM", "YYYY", "YYYY/Mon/Event", "Flat"], default="YYYY/MM/DD", help="Output directory layout")
-    parser.add_argument("--fast-dest", action="store_true", help="Bypass destination OS scan and load directly from cache (fast repeated dry runs)")
     parser.add_argument("--revert", type=str, metavar="RECEIPT_JSON", help="Revert a previous run using its audit receipt")
 
     args = parser.parse_args()
@@ -156,7 +155,7 @@ def load_profile(profile_name):
 # ── Destination Indexing ────────────────────────────────────────────────────
 
 def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
-                     progress=None, ptask=None, fast_dest=False, run_log=None):
+                     progress=None, ptask=None, run_log=None):
     if rebuild:
         cache_db.clear_cache(type_id=2)
 
@@ -167,57 +166,7 @@ def build_dest_index(dst_dir, cache_db, rebuild=False, workers=DEFAULT_WORKERS,
 
     hash_index = {}
 
-    if fast_dest:
-        if progress is not None and ptask is not None:
-            progress.update(ptask, description="[cyan]Fast Dest: Validating cache...", total=len(cache))
-        emit_json("task_start", task="dest_hash", total=len(cache))
-
-        invalidated = 0
-        updates = []
-        for index, (path, data) in enumerate(cache.items(), start=1):
-            try:
-                st = os.lstat(path)
-                if os.path.islink(path) or not os.path.isfile(path):
-                    raise OSError("not a regular file")
-                if data["size"] == st.st_size and abs(data["mtime"] - st.st_mtime) < 0.001:
-                    h, size, mtime = data["hash"], data["size"], data["mtime"]
-                else:
-                    result = process_single_file(path, None)
-                    if len(result) == 5:
-                        h, size, mtime, was_hashed, _ = result
-                    else:
-                        h, size, mtime, was_hashed = result
-                    if not h:
-                        raise OSError("could not refresh cached file hash")
-                    if was_hashed:
-                        updates.append((path, h, size, mtime))
-                hash_index[h] = path
-                fname = os.path.basename(path)
-                m = _SEQ_PATTERN.match(fname)
-                if m:
-                    prefix = m.group(1)
-                    date_str = "Unknown_Date" if prefix == "Unknown" else prefix
-                    seq = int(m.group(2))
-                    if path.startswith(dup_dir):
-                        if seq > dup_seq_index[date_str]:
-                            dup_seq_index[date_str] = seq
-                    else:
-                        if seq > seq_index[date_str]:
-                            seq_index[date_str] = seq
-            except OSError:
-                invalidated += 1
-                cache_db.delete_cache_entry(2, path)
-            if progress is not None and ptask is not None:
-                progress.update(ptask, completed=index)
-
-        cache_db.save_batch(2, updates)
-
-        if progress is not None and ptask is not None:
-            progress.update(ptask, completed=len(cache))
-        emit_json("task_complete", task="dest_hash", invalidated=invalidated)
-        return hash_index, seq_index, dup_seq_index
-
-    # ── Standard Validation (Network Scan) — walk and hash concurrently ──
+    # ── Standard Validation — walk and hash concurrently ──
     updates = []
 
     if progress is not None and ptask is not None:
@@ -378,6 +327,7 @@ def generate_audit_receipt(
         "attempted_jobs": attempted_count if attempted_count is not None else len(jobs_executed),
         "failed_jobs": failed_count,
         "status": status,
+        "destRoot": os.path.abspath(dest_path),
         "verification": {"enabled": verify},
         "transfers": [{"source": src, "dest": dst, "hash": h} for src, dst, h in jobs_executed]
     }
@@ -413,15 +363,40 @@ def revert_receipt(receipt_path, dest_root_override=None):
         sys.exit(1)
 
     # Derive the destination root that bounds permissible deletions.
-    # Receipts normally live at <dest>/.organize_logs/audit_receipt_*.json so
-    # the dest root is two levels up from the receipt path. Callers can
-    # override this by passing --dest (e.g. when the receipt has been moved).
+    # Only TRUSTED sources are accepted: an explicit --dest flag supplied by
+    # the operator, or the receipt's own filesystem location (two levels up
+    # from <dest>/.organize_logs/).
+    #
+    # The destRoot field embedded in the receipt is intentionally NOT used
+    # here.  It comes from the same untrusted JSON blob as `transfers`, so a
+    # crafted receipt with "destRoot": "/" would widen the boundary to the
+    # entire filesystem and let the boundary check pass for arbitrary paths
+    # (provided hashes match).  The field is retained for audit / display
+    # purposes only.
     if dest_root_override:
         dest_root = os.path.abspath(dest_root_override)
     else:
         receipt_abs = os.path.abspath(receipt_path)
         logs_dir = os.path.dirname(receipt_abs)
         dest_root = os.path.dirname(logs_dir)
+        # Warn if the receipt claims a different root — most likely it was
+        # moved from its original location.  In that case the operator must
+        # pass --dest so the correct boundary can be established from a
+        # trusted source.
+        claimed = data.get("destRoot")
+        if claimed and os.path.realpath(claimed) != os.path.realpath(dest_root):
+            console.print(
+                "[yellow]Warning:[/yellow] Receipt's destRoot field does not match "
+                "the path derived from the receipt's location. "
+                "If this receipt was moved, re-run with --dest to set the correct boundary."
+            )
+            emit_json(
+                "warning",
+                message=(
+                    "destRoot mismatch: receipt may have been moved. "
+                    "Use --dest to specify the correct deletion boundary."
+                ),
+            )
     dest_root_real = os.path.realpath(dest_root)
     dest_prefix = os.path.normpath(dest_root_real) + os.sep
 
@@ -435,6 +410,10 @@ def revert_receipt(receipt_path, dest_root_override=None):
             return False
 
     transfers = data.get("transfers", [])
+    if not isinstance(transfers, list):
+        console.print("[red]Error:[/red] Malformed receipt: 'transfers' field must be a list.")
+        emit_json("error", message="Malformed receipt: 'transfers' field must be a list.")
+        sys.exit(1)
     if not transfers:
         console.print("[yellow]No transfers to revert.[/yellow]")
         emit_json("complete", status="revert_empty")
@@ -569,6 +548,11 @@ def _walk_error_handler(run_log=None):
 # ── Main ────────────────────────────────────────────────────────────────────
 
 def main():
+    # Honour SIGTERM the same way we honour KeyboardInterrupt: exit with the
+    # conventional 128+signal status so callers (including the Swift engine)
+    # can distinguish a graceful stop from a crash.
+    signal.signal(signal.SIGTERM, lambda sig, frame: sys.exit(128 + sig))
+
     args = parse_args()
     run_started_at = datetime.now()
 
@@ -721,7 +705,7 @@ def main():
 
             task_dest = progress.add_task("[cyan]Scanning Destination Array...", total=None)
             dest_hash_index, dest_seq, dup_seq = build_dest_index(
-                dst, cache_db, rebuild, workers, progress, task_dest, fast_dest=args.fast_dest,
+                dst, cache_db, rebuild, workers, progress, task_dest,
                 run_log=run_log
             )
 
@@ -1120,6 +1104,7 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False,
                     status_updates.append((src_p, 'SKIPPED'))
                     progress.advance(task_id)
                     count += 1
+                    consecutive_fail = 0  # skips are not copy failures
                     if len(status_updates) >= _STATUS_BATCH_SIZE:
                         cache_db.update_job_statuses_batch(status_updates)
                         status_updates = []
@@ -1133,6 +1118,7 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False,
                     status_updates.append((src_p, 'SKIPPED'))
                     progress.advance(task_id)
                     count += 1
+                    consecutive_fail = 0  # skips are not copy failures
                     if len(status_updates) >= _STATUS_BATCH_SIZE:
                         cache_db.update_job_statuses_batch(status_updates)
                         status_updates = []
@@ -1221,7 +1207,7 @@ def execute_jobs(pending_jobs, cache_db, dst_root, run_log=None, verify=False,
                         disk_usage = shutil.disk_usage(dst_root)
                         disk_free_gb = disk_usage.free / (1024 ** 3)
                         error_msg += f" (current disk free: {disk_free_gb:.1f} GB)"
-                    except:
+                    except Exception:
                         pass
 
                 emit_json("error", message=error_msg)
