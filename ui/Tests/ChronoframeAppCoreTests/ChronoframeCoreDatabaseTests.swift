@@ -342,4 +342,87 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
         }
         return columns
     }
+
+    // MARK: - Schema versioning & migrations
+
+    func testFreshDatabaseRecordsCurrentSchemaVersion() throws {
+        let dbURL = temporaryDirectoryURL.appendingPathComponent(".organize_cache.db")
+        let database = try OrganizerDatabase(url: dbURL)
+        defer { database.close() }
+
+        XCTAssertEqual(try database.schemaVersion(), OrganizerDatabase.currentSchemaVersion)
+    }
+
+    func testRunPendingMigrationsIsIdempotentOnExistingDatabase() throws {
+        let dbURL = temporaryDirectoryURL.appendingPathComponent(".organize_cache.db")
+        // First open: initial migration runs.
+        let firstOpen = try OrganizerDatabase(url: dbURL)
+        XCTAssertEqual(try firstOpen.schemaVersion(), OrganizerDatabase.currentSchemaVersion)
+        firstOpen.close()
+
+        // Second open: migrations are already applied — runPendingMigrations
+        // detects the recorded version equals the target and returns without
+        // touching the database.
+        let reopened = try OrganizerDatabase(url: dbURL)
+        defer { reopened.close() }
+        try reopened.runPendingMigrations()
+        XCTAssertEqual(try reopened.schemaVersion(), OrganizerDatabase.currentSchemaVersion)
+    }
+
+    func testLegacyDatabaseWithoutMetaTableIsMigratedToCurrentVersion() throws {
+        // Simulate a database that pre-dates the Meta table by creating one
+        // via raw SQL that only carries the legacy tables. After opening
+        // through OrganizerDatabase, the Meta table must exist and report
+        // the current schema version — without dropping or rewriting any of
+        // the legacy table data.
+        let dbURL = temporaryDirectoryURL.appendingPathComponent(".organize_cache.db")
+
+        var rawDatabase: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(dbURL.path, &rawDatabase, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, nil),
+            SQLITE_OK
+        )
+        // `.source` namespace is rawValue == 1 (see CacheNamespace).
+        let legacySQL = """
+            CREATE TABLE FileCache (
+                id INTEGER, path TEXT, hash TEXT, size INTEGER, mtime REAL,
+                PRIMARY KEY (id, path)
+            );
+            INSERT INTO FileCache VALUES (1, '/legacy/a.jpg', '5_legacyhash', 5, 1.0);
+        """
+        XCTAssertEqual(sqlite3_exec(rawDatabase, legacySQL, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(rawDatabase)
+
+        let database = try OrganizerDatabase(url: dbURL)
+        defer { database.close() }
+
+        XCTAssertEqual(try database.schemaVersion(), OrganizerDatabase.currentSchemaVersion)
+        // Legacy row must still be present — migration is non-destructive.
+        XCTAssertEqual(try database.cacheRecordCount(namespace: .source), 1)
+    }
+
+    // MARK: - WAL checkpoint
+
+    func testCheckpointSucceedsOnIdleDatabase() throws {
+        let dbURL = temporaryDirectoryURL.appendingPathComponent(".organize_cache.db")
+        let database = try OrganizerDatabase(url: dbURL)
+        defer { database.close() }
+
+        // Idle checkpoint must succeed and leave the WAL bounded. There is
+        // no concurrent reader, so checkpoint can truncate fully.
+        XCTAssertNoThrow(try database.checkpoint())
+    }
+
+    func testCheckpointThrowsWhenDatabaseClosed() throws {
+        let dbURL = temporaryDirectoryURL.appendingPathComponent(".organize_cache.db")
+        let database = try OrganizerDatabase(url: dbURL)
+        database.close()
+
+        XCTAssertThrowsError(try database.checkpoint()) { error in
+            guard case OrganizerDatabaseError.databaseClosed = error else {
+                XCTFail("Expected databaseClosed, got \(error)")
+                return
+            }
+        }
+    }
 }

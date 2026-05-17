@@ -65,4 +65,44 @@ final class PreferencesStoreTests: XCTestCase {
         store.removeBookmark(for: "manual.source")
         XCTAssertNil(store.bookmark(for: "manual.source"))
     }
+
+    // MARK: - Schema migration framework
+
+    func testInitOnFreshDefaultsStampsCurrentSchemaVersion() {
+        XCTAssertEqual(PreferencesStore.storedSchemaVersion(in: defaults), 0)
+        _ = PreferencesStore(defaults: defaults)
+        XCTAssertEqual(
+            PreferencesStore.storedSchemaVersion(in: defaults),
+            PreferencesStore.currentPreferencesSchemaVersion
+        )
+    }
+
+    func testRunPendingMigrationsIsIdempotentOnAlreadyCurrentDefaults() {
+        // First init writes the version.
+        _ = PreferencesStore(defaults: defaults)
+        // Second invocation is a no-op (current == target).
+        PreferencesStore.runPendingMigrations(in: defaults)
+        XCTAssertEqual(
+            PreferencesStore.storedSchemaVersion(in: defaults),
+            PreferencesStore.currentPreferencesSchemaVersion
+        )
+    }
+
+    func testLegacyDefaultsWithoutVersionAreMigratedWithoutLosingValues() {
+        // Simulate a pre-versioning install: stored values exist but the
+        // schema-version key is absent. Construction must seed the
+        // version while leaving every existing value intact.
+        defaults.set(20, forKey: "workerCount")
+        defaults.set("/legacy/source", forKey: "lastManualSourcePath")
+        XCTAssertEqual(PreferencesStore.storedSchemaVersion(in: defaults), 0)
+
+        let store = PreferencesStore(defaults: defaults)
+
+        XCTAssertEqual(
+            PreferencesStore.storedSchemaVersion(in: defaults),
+            PreferencesStore.currentPreferencesSchemaVersion
+        )
+        XCTAssertEqual(store.workerCount, 20)
+        XCTAssertEqual(store.lastManualSourcePath, "/legacy/source")
+    }
 }

@@ -2,8 +2,16 @@ import ChronoframeCore
 import Foundation
 
 public enum JSONLineEmitter {
+    /// Version of the wire format produced by `line(for:)`. Downstream
+    /// consumers (CI scripts, log shippers) can branch on this when the
+    /// schema evolves. Existing keys MUST keep their meaning across minor
+    /// version bumps; only new optional keys may be added. Removing or
+    /// renaming a key requires a major bump and is a breaking change.
+    public static let eventVersion: Int = 1
+
     public static func line(for event: RunEvent) throws -> String {
-        let payload = payload(for: event)
+        var payload = payload(for: event)
+        payload["event_version"] = eventVersion
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
     }

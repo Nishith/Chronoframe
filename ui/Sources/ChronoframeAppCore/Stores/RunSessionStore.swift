@@ -31,6 +31,14 @@ public final class RunSessionStore: ObservableObject {
     private var copySpeedLastSampleDate = Date()
     private var copySpeedLastBytes = 0
     private var currentPhaseStartDate: Date?
+    /// Monotonic token used to drop events from cancelled or replaced
+    /// stream tasks. A long-running engine task may yield one more event
+    /// after `cancel()` is called but before its `for try await` loop
+    /// reaches the next checkpoint, and that yield can race with a new
+    /// run the user has just started. Each `streamTask` captures the
+    /// epoch value at start; `consumeIfCurrent` drops events whose epoch
+    /// no longer matches.
+    private var currentRunEpoch: UInt64 = 0
 
     public init(engine: any OrganizerEngine, logStore: RunLogStore, historyStore: HistoryStore) {
         self.engine = engine
@@ -120,14 +128,17 @@ public final class RunSessionStore: ObservableObject {
                 .appendingPathComponent(".organize_logs", isDirectory: true).path
         )
 
+        let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
                 for try await event in stream {
+                    guard self.currentRunEpoch == epoch else { return }
                     self.consume(event)
                 }
             } catch {
+                guard self.currentRunEpoch == epoch else { return }
                 self.handleFailure(error: error)
             }
         }
@@ -147,6 +158,7 @@ public final class RunSessionStore: ObservableObject {
         currentTaskTitle = "Reorganizing…"
         artifacts = RunArtifactPaths(destinationRoot: destinationRoot)
 
+        let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
@@ -155,9 +167,11 @@ public final class RunSessionStore: ObservableObject {
                     targetStructure: targetStructure
                 )
                 for try await event in stream {
+                    guard self.currentRunEpoch == epoch else { return }
                     self.consume(event)
                 }
             } catch {
+                guard self.currentRunEpoch == epoch else { return }
                 self.handleFailure(error: error)
             }
         }
@@ -180,6 +194,7 @@ public final class RunSessionStore: ObservableObject {
                 .appendingPathComponent(".organize_logs", isDirectory: true).path
         )
 
+        let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
             do {
@@ -187,12 +202,14 @@ public final class RunSessionStore: ObservableObject {
                 let observer = ReorganizeExecutionObserver(
                     onTaskStart: { total in
                         Task { @MainActor [weak self] in
-                            self?.consume(.phaseStarted(phase: .reorganize, total: total))
+                            guard let self, self.currentRunEpoch == epoch else { return }
+                            self.consume(.phaseStarted(phase: .reorganize, total: total))
                         }
                     },
                     onTaskProgress: { completed, total in
                         Task { @MainActor [weak self] in
-                            self?.consume(.phaseProgress(
+                            guard let self, self.currentRunEpoch == epoch else { return }
+                            self.consume(.phaseProgress(
                                 phase: .reorganize,
                                 completed: completed,
                                 total: total,
@@ -203,11 +220,13 @@ public final class RunSessionStore: ObservableObject {
                     },
                     onIssue: { issue in
                         Task { @MainActor [weak self] in
-                            self?.consume(.issue(issue))
+                            guard let self, self.currentRunEpoch == epoch else { return }
+                            self.consume(.issue(issue))
                         }
                     }
                 )
                 let result = try executor.revert(receiptURL: receiptURL, observer: observer)
+                guard self.currentRunEpoch == epoch else { return }
                 consume(.phaseCompleted(
                     phase: .reorganize,
                     result: RunPhaseResult(
@@ -228,6 +247,7 @@ public final class RunSessionStore: ObservableObject {
                     artifacts: artifacts
                 )))
             } catch {
+                guard self.currentRunEpoch == epoch else { return }
                 self.handleFailure(error: error)
             }
         }
@@ -278,6 +298,7 @@ public final class RunSessionStore: ObservableObject {
         engine.cancelCurrentRun()
         streamTask?.cancel()
         streamTask = nil
+        currentRunEpoch &+= 1
 
         if isRunning {
             status = .cancelled
@@ -300,6 +321,7 @@ public final class RunSessionStore: ObservableObject {
         }
         streamTask?.cancel()
         streamTask = nil
+        currentRunEpoch &+= 1
         closeSecurityScope()
         currentMode = mode
         currentPhase = nil
@@ -345,6 +367,7 @@ public final class RunSessionStore: ObservableObject {
             logsDirectoryPath: URL(fileURLWithPath: preflight.resolvedDestinationPath).appendingPathComponent(".organize_logs", isDirectory: true).path
         )
 
+        let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
 
@@ -354,9 +377,11 @@ public final class RunSessionStore: ObservableObject {
                     : engine.start(preflight.configuration)
 
                 for try await event in stream {
+                    guard self.currentRunEpoch == epoch else { return }
                     self.consume(event)
                 }
             } catch {
+                guard self.currentRunEpoch == epoch else { return }
                 self.handleFailure(error: error)
             }
         }

@@ -939,6 +939,67 @@ final class DeduplicateTests: XCTestCase {
         )
     }
 
+    /// `pairKeepOverrides` lets the user preserve a singleton pair partner
+    /// (the common case is a Live Photo MOV that is not itself a cluster
+    /// member). Without the override, deleting the paired HEIC would
+    /// expand into a MOV delete via step 5; with the override, the MOV is
+    /// preserved while the HEIC still goes.
+    func testPlannerHonorsPairKeepOverridesForSingletonPartner() {
+        let heic = candidate(
+            path: "/dest/IMG.HEIC",
+            pairedPath: "/dest/IMG.MOV",
+            isLivePhotoStill: true
+        )
+        let other = candidate(path: "/dest/OTHER.HEIC", qualityScore: 0.9)
+        let cluster = DuplicateCluster(
+            kind: .burst,
+            members: [heic, other],
+            suggestedKeeperIDs: ["/dest/OTHER.HEIC"],
+            bytesIfPruned: 100
+        )
+        let config = DeduplicateConfiguration(
+            destinationPath: "/dest",
+            treatRawJpegPairsAsUnit: true,
+            treatLivePhotoPairsAsUnit: true
+        )
+
+        // Baseline: no override, the MOV partner is expanded into the plan.
+        let baselineDecisions = DedupeDecisions(byPath: [
+            "/dest/IMG.HEIC": .delete,
+            "/dest/OTHER.HEIC": .keep,
+        ])
+        let baselinePlan = DeduplicationPlanner.plan(
+            decisions: baselineDecisions,
+            clusters: [cluster],
+            configuration: config
+        )
+        XCTAssertTrue(
+            Set(baselinePlan.pathsToDelete).contains("/dest/IMG.MOV"),
+            "Without override, MOV must be expanded — guards the regression direction"
+        )
+
+        // With the override on the singleton MOV partner, only the HEIC is
+        // deleted; the user's explicit Keep on the MOV wins.
+        let overrideDecisions = DedupeDecisions(
+            byPath: [
+                "/dest/IMG.HEIC": .delete,
+                "/dest/OTHER.HEIC": .keep,
+            ],
+            pairKeepOverrides: ["/dest/IMG.MOV"]
+        )
+        let overridePlan = DeduplicationPlanner.plan(
+            decisions: overrideDecisions,
+            clusters: [cluster],
+            configuration: config
+        )
+        let overridePaths = Set(overridePlan.pathsToDelete)
+        XCTAssertTrue(overridePaths.contains("/dest/IMG.HEIC"))
+        XCTAssertFalse(
+            overridePaths.contains("/dest/IMG.MOV"),
+            "pairKeepOverrides must prevent MOV partner expansion"
+        )
+    }
+
     /// Both pair toggles off: pairs are completely independent, no
     /// expansion of any kind. Whatever the user (or the suggestion
     /// engine) decided per path is what happens.

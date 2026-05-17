@@ -19,7 +19,7 @@ permissions:
 jobs:
   package:
     name: Build and upload release package
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 45
     environment: production
     steps:

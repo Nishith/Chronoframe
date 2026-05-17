@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 public enum SafePathContainment {
@@ -183,6 +184,37 @@ public struct RevertExecutor: Sendable {
         }
     }
 
+    /// Move a corrupt receipt out of the way so it stops appearing as a
+    /// revertable history entry. The original file is preserved (renamed
+    /// rather than deleted) for diagnostics. The new name strips the `.json`
+    /// extension, which means `RunHistoryIndexer.classifyArtifact` no longer
+    /// recognises it as a receipt or generic JSON artifact.
+    ///
+    /// Returns the quarantined URL on success, or nil when no rename is
+    /// possible (file already moved, destination exists, sandbox denial).
+    /// Errors are swallowed: quarantine is best-effort, never a hard failure.
+    @discardableResult
+    public func quarantineCorruptReceipt(at url: URL) -> URL? {
+        guard fileManager.fileExists(atPath: url.path) else { return nil }
+
+        let baseName = url.deletingPathExtension().lastPathComponent
+        let directory = url.deletingLastPathComponent()
+        var candidate = directory.appendingPathComponent("\(baseName).corrupt")
+
+        if fileManager.fileExists(atPath: candidate.path) {
+            // Collision: tag with seconds-since-epoch to keep both copies.
+            let suffix = Int(Date().timeIntervalSince1970)
+            candidate = directory.appendingPathComponent("\(baseName).corrupt.\(suffix)")
+        }
+
+        do {
+            try fileManager.moveItem(at: url, to: candidate)
+            return candidate
+        } catch {
+            return nil
+        }
+    }
+
     /// Revert every transfer in `receipt`. Honors the same hash-guard contract as
     /// `chronoframe.core.revert_receipt`: a destination file is removed only when
     /// its current BLAKE2b identity still matches the value recorded at copy time.
@@ -243,66 +275,23 @@ public struct RevertExecutor: Sendable {
                 continue
             }
 
-            do {
-                let currentIdentity = try hasher.hashIdentity(at: destinationURL)
-                if currentIdentity.rawValue == transfer.hash {
-                    // Second containment check: close the TOCTOU window between
-                    // the first boundary check and removeItem. A symlink swap in
-                    // that interval could redirect the delete outside the boundary.
-                    if let boundaryPath {
-                        let recheckPath = resolveDestPath(destinationURL)
-                        let isStillInside = recheckPath == boundaryPath
-                            || recheckPath.hasPrefix(boundaryPath + "/")
-                        if !isStillInside {
-                            skippedCount += 1
-                            observer.onIssue(
-                                RunIssue(
-                                    severity: .warning,
-                                    message: "Refusing to revert path outside destination (post-hash re-check): \(destinationPath)"
-                                )
-                            )
-                            observer.onTaskProgress(revertedCount + skippedCount, transfers.count)
-                            continue
-                        }
-                    }
-                    do {
-                        try fileManager.removeItem(at: destinationURL)
-                        revertedCount += 1
-
-                        // Best-effort empty-directory cleanup.
-                        // Ignore cleanup failures because reverting the file is the important step.
-                        let parentURL = destinationURL.deletingLastPathComponent()
-                        if let contents = try? fileManager.contentsOfDirectory(
-                            atPath: parentURL.path
-                        ), contents.isEmpty {
-                            try? fileManager.removeItem(at: parentURL)
-                        }
-                    } catch {
-                        skippedCount += 1
-                        observer.onIssue(
-                            RunIssue(
-                                severity: .warning,
-                                message: "Could not remove \(destinationPath): \(error.localizedDescription)"
-                            )
-                        )
-                    }
-                } else {
-                    skippedCount += 1
-                    observer.onIssue(
-                        RunIssue(
-                            severity: .info,
-                            message: "Preserved (modified since copy): \(destinationPath)"
-                        )
-                    )
-                }
-            } catch {
+            // Open the destination once with O_NOFOLLOW; hash through that fd
+            // and unlink via the parent directory fd, gated on the entry's
+            // inode still matching the fd we hashed. This collapses the
+            // pre-existing race window where a symlink swap between
+            // `hashIdentity(at:)` and `removeItem(at:)` could redirect the
+            // unlink to a path outside the destination boundary.
+            switch safeRevert(
+                destinationPath: destinationPath,
+                expectedHash: transfer.hash,
+                boundaryPath: boundaryPath,
+                destinationURL: destinationURL
+            ) {
+            case .reverted:
+                revertedCount += 1
+            case let .skipped(issue):
                 skippedCount += 1
-                observer.onIssue(
-                    RunIssue(
-                        severity: .warning,
-                        message: "Could not re-hash \(destinationPath): \(error.localizedDescription)"
-                    )
-                )
+                observer.onIssue(issue)
             }
 
             observer.onTaskProgress(revertedCount + skippedCount, transfers.count)
@@ -314,5 +303,168 @@ public struct RevertExecutor: Sendable {
             missingCount: missingCount,
             totalTransfers: transfers.count
         )
+    }
+
+    // MARK: - Safe revert (TOCTOU-resistant)
+
+    enum SafeRevertOutcome {
+        case reverted
+        case skipped(RunIssue)
+    }
+
+    /// Test seam: invoked just after `open()` succeeds and just before the
+    /// fd-based hash starts. Tests inject this to simulate a symlink/inode
+    /// swap inside the window so the post-hash inode re-check can be
+    /// exercised deterministically. Production callers leave it nil.
+    var _postOpenRaceHook: (@Sendable (Int32, String) -> Void)?
+
+    func safeRevert(
+        destinationPath: String,
+        expectedHash: String,
+        boundaryPath: String?,
+        destinationURL: URL
+    ) -> SafeRevertOutcome {
+        // 1. Open the entry with O_NOFOLLOW so a symlink in place of the
+        // intended file is refused outright (ELOOP).
+        let fd = destinationPath.withCString { ptr in
+            Darwin.open(ptr, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+        }
+        guard fd >= 0 else {
+            let code = errno
+            if code == ELOOP {
+                return .skipped(RunIssue(
+                    severity: .warning,
+                    message: "Refusing to revert symlink at destination: \(destinationPath)"
+                ))
+            }
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Could not open \(destinationPath): \(String(cString: strerror(code)))"
+            ))
+        }
+        var didClose = false
+        defer { if !didClose { _ = Darwin.close(fd) } }
+
+        // 2. fstat the fd. Must be a regular file (defensive — O_NOFOLLOW
+        // already rules out symlinks, but the descriptor could still be a
+        // FIFO/socket/device that snuck in via a stale path).
+        var fdStat = stat()
+        guard fstat(fd, &fdStat) == 0 else {
+            let code = errno
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Could not stat \(destinationPath): \(String(cString: strerror(code)))"
+            ))
+        }
+        guard (fdStat.st_mode & S_IFMT) == S_IFREG else {
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Refusing to revert non-regular file at destination: \(destinationPath)"
+            ))
+        }
+
+        _postOpenRaceHook?(fd, destinationPath)
+
+        // 3. Hash via the open fd so the hash and the unlink can only ever
+        // agree about the *same inode*.
+        let identity: FileIdentity
+        do {
+            identity = try hasher.hashIdentity(descriptor: fd, size: Int64(fdStat.st_size))
+        } catch {
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Could not re-hash \(destinationPath): \(error.localizedDescription)"
+            ))
+        }
+
+        guard identity.rawValue == expectedHash else {
+            return .skipped(RunIssue(
+                severity: .info,
+                message: "Preserved (modified since copy): \(destinationPath)"
+            ))
+        }
+
+        // 4. Optional second boundary check on the path (defence in depth).
+        // The inode-match check below is the real safety net.
+        if let boundaryPath {
+            let recheckPath = resolveDestPath(destinationURL)
+            let isStillInside = recheckPath == boundaryPath
+                || recheckPath.hasPrefix(boundaryPath + "/")
+            if !isStillInside {
+                return .skipped(RunIssue(
+                    severity: .warning,
+                    message: "Refusing to revert path outside destination (post-hash re-check): \(destinationPath)"
+                ))
+            }
+        }
+
+        // 5. Open the parent directory and `fstatat` the basename with
+        // `AT_SYMLINK_NOFOLLOW`. If a swap happened between hash and unlink,
+        // the directory entry's inode no longer matches the fd we hashed —
+        // refuse the unlink.
+        let parentURL = destinationURL.deletingLastPathComponent()
+        let parentPath = parentURL.path
+        let baseName = destinationURL.lastPathComponent
+
+        let dirFd = parentPath.withCString { ptr in
+            Darwin.open(ptr, O_DIRECTORY | O_RDONLY | O_CLOEXEC)
+        }
+        guard dirFd >= 0 else {
+            let code = errno
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Could not open parent directory of \(destinationPath): \(String(cString: strerror(code)))"
+            ))
+        }
+        defer { _ = Darwin.close(dirFd) }
+
+        var entryStat = stat()
+        let statRC = baseName.withCString { ptr in
+            fstatat(dirFd, ptr, &entryStat, AT_SYMLINK_NOFOLLOW)
+        }
+        guard statRC == 0 else {
+            let code = errno
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Could not re-stat \(destinationPath): \(String(cString: strerror(code)))"
+            ))
+        }
+        guard entryStat.st_ino == fdStat.st_ino, entryStat.st_dev == fdStat.st_dev else {
+            // The directory entry was replaced (possibly by a symlink or a
+            // different file) after we opened it. Do not unlink — that would
+            // remove something other than what we hashed.
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Refusing to revert: destination entry changed during revert: \(destinationPath)"
+            ))
+        }
+
+        // 6. Unlink the directory entry by name. `unlinkat` with flags=0 does
+        // not follow symlinks on macOS, so even if the entry were
+        // concurrently swapped for a symlink pointing outside the boundary,
+        // we would only ever remove the symlink itself — never its target.
+        let unlinkRC = baseName.withCString { ptr in
+            unlinkat(dirFd, ptr, 0)
+        }
+        guard unlinkRC == 0 else {
+            let code = errno
+            return .skipped(RunIssue(
+                severity: .warning,
+                message: "Could not remove \(destinationPath): \(String(cString: strerror(code)))"
+            ))
+        }
+
+        // Close the data fd explicitly so the empty-parent cleanup below
+        // does not hold it open across a possible rmdir.
+        _ = Darwin.close(fd)
+        didClose = true
+
+        // 7. Best-effort empty-parent cleanup, unchanged in spirit.
+        if let contents = try? fileManager.contentsOfDirectory(atPath: parentPath),
+           contents.isEmpty {
+            try? fileManager.removeItem(at: parentURL)
+        }
+
+        return .reverted
     }
 }
