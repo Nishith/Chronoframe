@@ -80,6 +80,41 @@ final class DryRunPlannerExtraTests: XCTestCase {
         let resultFlat = try planner.plan(sourceRoot: sourceDir, destinationRoot: destDir, folderStructure: .flat)
         XCTAssertFalse(resultFlat.transfers.first?.destinationPath.contains("/2023/") ?? true)
     }
+
+    func testDryRunPlannerParallelProcessingPlansAllFiles() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DryRunPlannerParallelTest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let sourceDir = temporaryDirectory.appendingPathComponent("source")
+        let destDir = temporaryDirectory.appendingPathComponent("dest")
+        try FileManager.default.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
+
+        try Data("first".utf8).write(to: sourceDir.appendingPathComponent("IMG_20240101_120000.jpg"))
+        try Data("second".utf8).write(to: sourceDir.appendingPathComponent("IMG_20240102_120000.jpg"))
+
+        let planner = DryRunPlanner()
+        let events = LockedEvents()
+        let result = try planner.plan(
+            sourceRoot: sourceDir,
+            destinationRoot: destDir,
+            workerCount: 2,
+            onEvent: { event in
+                events.append(event)
+            }
+        )
+
+        XCTAssertEqual(result.counts.newCount, 2)
+        XCTAssertEqual(result.transfers.count, 2)
+        XCTAssertTrue(events.snapshot.contains { event in
+            if case let .phaseProgress(phase, completed, total, _, _) = event {
+                return phase == .sourceHashing && completed == 2 && total == 2
+            }
+            return false
+        })
+    }
     
     func testDryRunPlannerEventSuggestions() async throws {
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -156,5 +191,22 @@ final class DryRunPlannerExtraTests: XCTestCase {
         let planner = DryRunPlanner()
         let result = try planner.plan(sourceRoot: temporaryDirectory, destinationRoot: temporaryDirectory)
         XCTAssertEqual(result.transfers.count, 0)
+    }
+}
+
+private final class LockedEvents: @unchecked Sendable {
+    private let lock = NSLock()
+    private var events: [RunEvent] = []
+
+    var snapshot: [RunEvent] {
+        lock.lock()
+        defer { lock.unlock() }
+        return events
+    }
+
+    func append(_ event: RunEvent) {
+        lock.lock()
+        events.append(event)
+        lock.unlock()
     }
 }
