@@ -203,6 +203,41 @@ final class RunSessionStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testLateEventsFromCancelledStreamAreDroppedSilently() async {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        _ = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(store.isRunning)
+        XCTAssertEqual(store.metrics.discoveredCount, 0)
+
+        // Capture the continuation BEFORE cancelling so the cancel path doesn't
+        // null it out before we can simulate the late yield.
+        let continuation = engine.pendingContinuation
+        store.cancelCurrentRun()
+        _ = await waitForCondition { store.status == .cancelled }
+
+        // Simulate an in-flight event that the engine yields after cancel but
+        // before its stream loop reaches the next checkpoint. Without the
+        // runEpoch gate this would still race in via `consume` and update the
+        // metrics on a cancelled session.
+        continuation?.yield(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: 999)))
+        continuation?.finish()
+
+        // Give MainActor a chance to process the late event.
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(store.metrics.discoveredCount, 0, "Late events from a cancelled stream must not mutate the new session state")
+        XCTAssertEqual(store.status, .cancelled)
+    }
+
+    @MainActor
     func testStartingSecondRunCancelsExistingEngineTask() async {
         let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
         let preflight = RunPreflight(

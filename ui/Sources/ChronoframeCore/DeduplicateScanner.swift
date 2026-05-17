@@ -114,6 +114,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     var freshRecords: [DedupeFeatureRecord] = []
                     var candidatesByPath: [String: PhotoCandidate] = [:]
                     var analysisRequests: [DedupeAnalysisRequest] = []
+                    var cacheHits = 0
+                    var cacheMisses = 0
 
                     // Batch-stat all image files upfront to avoid per-file
                     // FileManager.attributesOfItem calls in the loop below.
@@ -148,6 +150,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         if let cached = Self.cachedFeatureRecord(for: path, in: cache),
                            cached.size == size,
                            abs(cached.modificationTime - mtime) < 0.001 {
+                            cacheHits += 1
                             let quality = PhotoQualityScorer.expressionAwareScore(
                                 sharpness: cached.sharpness,
                                 faceScore: cached.faceScore,
@@ -186,6 +189,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                             continue
                         }
 
+                        cacheMisses += 1
                         analysisRequests.append(
                             DedupeAnalysisRequest(
                                 offset: offset,
@@ -330,7 +334,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         clusterCounts: counts,
                         totalRecoverableBytes: defaultPlan.totalBytes,
                         totalCandidatesScanned: imagePaths.count,
-                        scanDuration: Date().timeIntervalSince(started)
+                        scanDuration: Date().timeIntervalSince(started),
+                        cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses)
                     )))
                     continuation.finish()
                 } catch {

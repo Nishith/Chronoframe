@@ -133,6 +133,13 @@ public enum DeduplicationPlanner {
                    partnerEffective.source.blocksPairDeletion {
                     continue
                 }
+                // Explicit per-pair Keep override. Lets the user preserve a
+                // singleton partner (typically the Live Photo MOV half) that
+                // isn't a cluster member and therefore has no slot in the
+                // `effective` decision map for step 2 to act on.
+                if decisions.pairKeepOverrides.contains(partner) {
+                    continue
+                }
                 if planItems[partner] != nil { continue }
                 let partnerSize = effective[partner]?.member.size ?? fileSize(at: partner)
                 planItems[partner] = DeduplicationPlan.Item(

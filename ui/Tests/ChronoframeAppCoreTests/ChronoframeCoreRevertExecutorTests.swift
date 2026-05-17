@@ -109,6 +109,197 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
         )
     }
 
+    // MARK: - Corrupt-receipt quarantine
+
+    func testQuarantineRenamesCorruptReceiptStrippingJSONExtension() throws {
+        let receiptURL = temporaryDirectoryURL.appendingPathComponent("audit_receipt_20260413.json")
+        try Data("{not valid json".utf8).write(to: receiptURL)
+
+        let quarantined = RevertExecutor().quarantineCorruptReceipt(at: receiptURL)
+
+        XCTAssertNotNil(quarantined)
+        XCTAssertEqual(quarantined?.lastPathComponent, "audit_receipt_20260413.corrupt")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: receiptURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: quarantined!.path))
+        XCTAssertEqual(quarantined?.pathExtension, "corrupt")
+    }
+
+    func testQuarantinePreservesOriginalContentForDiagnostics() throws {
+        let receiptURL = temporaryDirectoryURL.appendingPathComponent("audit_receipt_diag.json")
+        let originalBytes = Data("{truncated...".utf8)
+        try originalBytes.write(to: receiptURL)
+
+        let quarantined = try XCTUnwrap(RevertExecutor().quarantineCorruptReceipt(at: receiptURL))
+
+        XCTAssertEqual(try Data(contentsOf: quarantined), originalBytes)
+    }
+
+    func testQuarantineReturnsNilWhenSourceMissing() {
+        let missingURL = temporaryDirectoryURL.appendingPathComponent("does_not_exist.json")
+        XCTAssertNil(RevertExecutor().quarantineCorruptReceipt(at: missingURL))
+    }
+
+    // MARK: - TOCTOU: inode-mismatch safety net
+
+    func testSafeRevertRefusesWhenDirectoryEntryIsSwappedAfterHash() throws {
+        // Realistic crafted scenario: the destination file is hashed via its
+        // open fd, then before unlinkat fires, an attacker (simulated by the
+        // post-open race hook) replaces the directory entry by removing the
+        // original and creating a new file with the same name but different
+        // inode. The fd-held hash still matches the receipt, but the
+        // directory entry's inode no longer matches the fd. The unlink must
+        // be refused.
+        let sourcePath = "/src/photo.jpg"
+        let destURL = temporaryDirectoryURL.appendingPathComponent("victim.jpg")
+        let originalContent = Data("original bytes that hash to a known value".utf8)
+        try originalContent.write(to: destURL)
+
+        // Compute the legitimate hash so the receipt matches the open fd.
+        let receiptHash = try FileIdentityHasher().hashIdentity(at: destURL).rawValue
+
+        var executor = RevertExecutor()
+        executor._postOpenRaceHook = { _, _ in
+            // Simulate a swap: delete the entry and recreate it with new
+            // content (and therefore a different inode) — but the executor
+            // is still holding the original fd via O_NOFOLLOW open.
+            try? FileManager.default.removeItem(at: destURL)
+            try? Data("imposter content".utf8).write(to: destURL)
+        }
+
+        let receipt = RevertReceipt(transfers: [
+            RevertReceiptTransfer(source: sourcePath, dest: destURL.path, hash: receiptHash)
+        ])
+        let issues = Recorder<RunIssue>()
+
+        let result = executor.revert(
+            receipt: receipt,
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+        )
+
+        XCTAssertEqual(result.revertedCount, 0)
+        XCTAssertEqual(result.skippedCount, 1)
+        XCTAssertTrue(
+            issues.values.first?.message.contains("destination entry changed") == true,
+            "Expected inode-swap refusal, got: \(issues.values.first?.message ?? "<no issue>")"
+        )
+        // The (swapped-in) imposter file must remain — we refused to touch it.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: destURL.path))
+    }
+
+    func testSafeRevertSurfacesPosixErrorWhenEntryDisappearsBetweenHashAndUnlink() throws {
+        // Hook removes the directory entry after the fd is open. The fd we
+        // hashed remains valid (open(2) holds an inode reference), but the
+        // subsequent `fstatat` on the basename fails with ENOENT and we
+        // surface a clear warning rather than blindly issuing unlinkat.
+        let destURL = temporaryDirectoryURL.appendingPathComponent("vanishing.jpg")
+        let content = Data("transient content".utf8)
+        try content.write(to: destURL)
+        let receiptHash = try FileIdentityHasher().hashIdentity(at: destURL).rawValue
+
+        var executor = RevertExecutor()
+        executor._postOpenRaceHook = { _, _ in
+            try? FileManager.default.removeItem(at: destURL)
+        }
+
+        let receipt = RevertReceipt(transfers: [
+            RevertReceiptTransfer(source: "/src/v.jpg", dest: destURL.path, hash: receiptHash)
+        ])
+        let issues = Recorder<RunIssue>()
+
+        let result = executor.revert(
+            receipt: receipt,
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+        )
+
+        XCTAssertEqual(result.revertedCount, 0)
+        XCTAssertEqual(result.skippedCount, 1)
+        // Either the fstatat re-stat fails (ENOENT) or the inode mismatch
+        // path triggers — both are correct behaviours. Assert we did NOT
+        // accidentally unlink anything.
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destURL.path))
+        XCTAssertTrue(
+            (issues.values.first?.message.contains("Could not re-stat") == true) ||
+            (issues.values.first?.message.contains("destination entry changed") == true),
+            "Got: \(issues.values.first?.message ?? "<no issue>")"
+        )
+    }
+
+    func testSafeRevertSurfacesUserFacingMessageForUnreadableDestination() throws {
+        // A path that exists (passes the pre-check) but cannot be opened by
+        // the current process: simulate by chmod 000. Opens with O_NOFOLLOW
+        // and gets EACCES, which our safeRevert surfaces with the POSIX
+        // strerror text rather than the legacy ELOOP-specific message.
+        let destURL = temporaryDirectoryURL.appendingPathComponent("locked.jpg")
+        try Data("locked content".utf8).write(to: destURL)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: destURL.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: destURL.path)
+        }
+
+        let receipt = RevertReceipt(transfers: [
+            RevertReceiptTransfer(source: "/src/locked.jpg", dest: destURL.path, hash: "anything")
+        ])
+        let issues = Recorder<RunIssue>()
+
+        let result = RevertExecutor().revert(
+            receipt: receipt,
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+        )
+
+        XCTAssertEqual(result.skippedCount, 1)
+        XCTAssertTrue(
+            issues.values.first?.message.contains("Could not open") == true,
+            "Got: \(issues.values.first?.message ?? "<no issue>")"
+        )
+    }
+
+    func testSafeRevertRefusesSymlinkAtDestination() throws {
+        // A symlink at the destination path (rather than the regular file
+        // recorded by the receipt) must be refused outright. Opening with
+        // O_NOFOLLOW returns ELOOP and we surface a clear warning.
+        let targetURL = temporaryDirectoryURL.appendingPathComponent("outside.jpg")
+        try Data("victim outside dest".utf8).write(to: targetURL)
+        let linkURL = temporaryDirectoryURL.appendingPathComponent("symlink.jpg")
+        try FileManager.default.createSymbolicLink(at: linkURL, withDestinationURL: targetURL)
+
+        let receipt = RevertReceipt(transfers: [
+            RevertReceiptTransfer(source: "/src/symlink.jpg", dest: linkURL.path, hash: "ignored")
+        ])
+        let issues = Recorder<RunIssue>()
+
+        let result = RevertExecutor().revert(
+            receipt: receipt,
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+        )
+
+        XCTAssertEqual(result.skippedCount, 1)
+        XCTAssertEqual(result.revertedCount, 0)
+        XCTAssertTrue(
+            issues.values.first?.message.contains("symlink") == true,
+            "Got: \(issues.values.first?.message ?? "<no issue>")"
+        )
+        // The symlink and its target must both be untouched.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: linkURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: targetURL.path))
+    }
+
+    // MARK: - Quarantine (continued)
+
+    func testQuarantineDisambiguatesWhenDestinationExists() throws {
+        let receiptURL = temporaryDirectoryURL.appendingPathComponent("audit_receipt_dup.json")
+        let collisionURL = temporaryDirectoryURL.appendingPathComponent("audit_receipt_dup.corrupt")
+        try Data("{bad".utf8).write(to: receiptURL)
+        try Data("previously quarantined".utf8).write(to: collisionURL)
+
+        let quarantined = try XCTUnwrap(RevertExecutor().quarantineCorruptReceipt(at: receiptURL))
+
+        // Existing collision is preserved, new file gets a timestamp suffix.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: collisionURL.path))
+        XCTAssertNotEqual(quarantined.path, collisionURL.path)
+        XCTAssertTrue(quarantined.lastPathComponent.hasPrefix("audit_receipt_dup.corrupt"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: receiptURL.path))
+    }
+
     // MARK: - Revert behavior
 
     func testRevertDeletesFilesWhoseHashStillMatches() throws {
@@ -178,7 +369,13 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
         XCTAssertEqual(result.skippedCount, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: directoryURL.path))
-        XCTAssertTrue(issues.values.first?.message.contains("Could not re-hash") == true)
+        // The fd-based safe revert path catches non-regular destinations
+        // (directories, FIFOs, sockets) via `fstat` before attempting to hash,
+        // producing a clearer message than the legacy path.
+        XCTAssertTrue(
+            issues.values.first?.message.contains("non-regular file") == true,
+            "Got: \(issues.values.first?.message ?? "<no issue>")"
+        )
     }
 
     func testRevertCountsMissingFilesSeparatelyButDoesNotFail() throws {

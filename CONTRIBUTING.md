@@ -18,7 +18,7 @@ Useful bug reports include:
 
 - Chronoframe version or commit.
 - macOS version.
-- Whether you used the native app or Python CLI.
+- Whether you used the native app or the SwiftPM CLI (`ChronoframeCLI`).
 - Source and destination storage type, such as local disk, external drive, NAS, or cloud-synced folder.
 - A small synthetic reproduction case when possible.
 - What you expected, what happened, and whether the source files were left untouched.
@@ -39,11 +39,7 @@ Pull requests should:
 
 ## Local Validation
 
-Run the checks that match your change:
-
-```bash
-python3 -m unittest discover -s tests -t . -v
-```
+Run the checks that match your change. Chronoframe is Swift-only — there is no Python test suite.
 
 ```bash
 /bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift test --package-path ui"

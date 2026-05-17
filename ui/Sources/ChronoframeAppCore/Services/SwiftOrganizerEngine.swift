@@ -96,7 +96,19 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     public func revert(receiptURL: URL, destinationRoot: String) throws -> AsyncThrowingStream<RunEvent, Error> {
         // Validate the receipt up front so we can throw synchronously and let
         // the caller surface a clean error before kicking off any async work.
-        let receipt = try revertExecutor.loadReceipt(at: receiptURL)
+        let receipt: RevertReceipt
+        do {
+            receipt = try revertExecutor.loadReceipt(at: receiptURL)
+        } catch let error as RevertExecutorError {
+            // A malformed receipt blocks this revert action and would keep
+            // surfacing if we left the file in place. Quarantine it so the
+            // next history refresh stops listing it as revertable, then
+            // re-throw the original error for the user.
+            if case .invalidReceipt = error {
+                revertExecutor.quarantineCorruptReceipt(at: receiptURL)
+            }
+            throw error
+        }
         return makeRevertStream(
             receipt: receipt,
             destinationRoot: destinationRoot,

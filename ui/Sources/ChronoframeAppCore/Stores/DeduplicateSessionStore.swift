@@ -40,6 +40,10 @@ public final class DeduplicateSessionStore: ObservableObject {
     private let runHistoryStore: any DeduplicateRunHistoryStoring
     private var streamTask: Task<Void, Never>?
     private var securityScope: SecurityScopedFolderAccess?
+    /// Monotonic token: each new stream task captures the current epoch.
+    /// `cancelStream` bumps it, so any event hopping back onto MainActor
+    /// from a cancelled or replaced task is dropped silently.
+    private var currentRunEpoch: UInt64 = 0
     /// Configuration of the most recent scan. Captured so plan previews
     /// (footer counts, recoverable bytes) and the actual commit always
     /// agree on which pair-as-unit toggles + similarity thresholds were
@@ -133,18 +137,21 @@ public final class DeduplicateSessionStore: ObservableObject {
                 clusters: reviewedClusters,
                 configuration: commitConfiguration
             )
+            let epoch = currentRunEpoch
             streamTask = Task { [weak self] in
                 do {
                     for try await event in stream {
                         await MainActor.run { [weak self] in
-                            self?.consumeCommit(event)
+                            guard let self, self.currentRunEpoch == epoch else { return }
+                            self.consumeCommit(event)
                         }
                     }
                 } catch {
                     await MainActor.run { [weak self] in
-                        self?.status = .failed(error.localizedDescription)
-                        self?.lastErrorMessage = error.localizedDescription
-                        self?.closeSecurityScope()
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.status = .failed(error.localizedDescription)
+                        self.lastErrorMessage = error.localizedDescription
+                        self.closeSecurityScope()
                     }
                 }
             }
@@ -188,19 +195,22 @@ public final class DeduplicateSessionStore: ObservableObject {
 
         do {
             let stream = try engine.scan(configuration)
+            let epoch = currentRunEpoch
             streamTask = Task { [weak self] in
                 do {
                     for try await event in stream {
                         await MainActor.run { [weak self] in
-                            self?.consume(event)
+                            guard let self, self.currentRunEpoch == epoch else { return }
+                            self.consume(event)
                         }
                     }
                 } catch {
                     await MainActor.run { [weak self] in
-                        self?.status = .failed(error.localizedDescription)
-                        self?.lastErrorMessage = error.localizedDescription
-                        self?.activeCommitConfiguration = nil
-                        self?.closeSecurityScope()
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.status = .failed(error.localizedDescription)
+                        self.lastErrorMessage = error.localizedDescription
+                        self.activeCommitConfiguration = nil
+                        self.closeSecurityScope()
                     }
                 }
             }
@@ -237,18 +247,21 @@ public final class DeduplicateSessionStore: ObservableObject {
         status = .reverting
         do {
             let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
+            let epoch = currentRunEpoch
             streamTask = Task { [weak self] in
                 do {
                     for try await event in stream {
                         await MainActor.run { [weak self] in
-                            self?.consumeCommit(event)
+                            guard let self, self.currentRunEpoch == epoch else { return }
+                            self.consumeCommit(event)
                         }
                     }
                 } catch {
                     await MainActor.run { [weak self] in
-                        self?.status = .failed(error.localizedDescription)
-                        self?.lastErrorMessage = error.localizedDescription
-                        self?.closeSecurityScope()
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.status = .failed(error.localizedDescription)
+                        self.lastErrorMessage = error.localizedDescription
+                        self.closeSecurityScope()
                     }
                 }
             }
@@ -276,18 +289,21 @@ public final class DeduplicateSessionStore: ObservableObject {
                 clusters: clusters,
                 configuration: commitConfiguration
             )
+            let epoch = currentRunEpoch
             streamTask = Task { [weak self] in
                 do {
                     for try await event in stream {
                         await MainActor.run { [weak self] in
-                            self?.consumeCommit(event)
+                            guard let self, self.currentRunEpoch == epoch else { return }
+                            self.consumeCommit(event)
                         }
                     }
                 } catch {
                     await MainActor.run { [weak self] in
-                        self?.status = .failed(error.localizedDescription)
-                        self?.lastErrorMessage = error.localizedDescription
-                        self?.closeSecurityScope()
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.status = .failed(error.localizedDescription)
+                        self.lastErrorMessage = error.localizedDescription
+                        self.closeSecurityScope()
                     }
                 }
             }
@@ -417,6 +433,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     private func cancelStream() {
         streamTask?.cancel()
         streamTask = nil
+        currentRunEpoch &+= 1
         closeSecurityScope()
     }
 

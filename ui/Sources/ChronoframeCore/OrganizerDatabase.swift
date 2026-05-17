@@ -141,7 +141,14 @@ public final class OrganizerDatabase {
             try execute("PRAGMA busy_timeout=30000;")
             try execute("PRAGMA journal_mode=WAL;")
             try execute("PRAGMA synchronous=NORMAL;")
+            // The SQLite default is 1000 pages; making it explicit prevents
+            // surprises if a future change to the open-time PRAGMA order
+            // accidentally disables auto-checkpointing on long-running
+            // organize scans where the WAL can otherwise grow large enough
+            // to matter on small destination volumes.
+            try execute("PRAGMA wal_autocheckpoint=1000;")
             try initializeSchema()
+            try runPendingMigrations()
         }
     }
 
@@ -199,6 +206,109 @@ public final class OrganizerDatabase {
             );
             """
         )
+
+        // Schema-version registry. Future structural changes register a
+        // migration in `Self.migrations` keyed by the target version and
+        // bump `currentSchemaVersion`; on next open the missing migrations
+        // run inside a single transaction.
+        try execute(
+            """
+            CREATE TABLE IF NOT EXISTS Meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+            """
+        )
+    }
+
+    // MARK: - Schema versioning
+
+    /// Bump this when adding a new entry to `Self.migrations`. Existing
+    /// databases will run every migration whose key is `> oldVersion &&
+    /// <= currentSchemaVersion` on next open.
+    public static let currentSchemaVersion: Int = 1
+
+    /// Migrations keyed by *target* version. v1 introduces the Meta table
+    /// itself; the bare `CREATE TABLE IF NOT EXISTS` calls in
+    /// `initializeSchema` are already idempotent, so v1 is a marker
+    /// migration (no data transformation). Future changes append entries.
+    ///
+    /// `nonisolated(unsafe)` is used because the closures are pure (they
+    /// only mutate the `OrganizerDatabase` passed in) and the table itself
+    /// is read-only. Database access is already serialized by the
+    /// per-connection lock the SQLite handle holds.
+    private nonisolated(unsafe) static let migrations: [Int: (OrganizerDatabase) throws -> Void] = [
+        1: { _ in
+            // Marker migration: present-day schema is v1. Older databases
+            // had no Meta table; reaching this point means they have it
+            // now (initializeSchema just created it) and are version-managed.
+        },
+    ]
+
+    /// Returns the current schema version recorded in `Meta`. Returns 0 if
+    /// no row is present (legacy database, or a freshly created one before
+    /// the first migration applies).
+    public func schemaVersion() throws -> Int {
+        let statement = try prepare("SELECT value FROM Meta WHERE key = 'schema_version'")
+        defer { sqlite3_finalize(statement) }
+        let step = sqlite3_step(statement)
+        if step == SQLITE_DONE { return 0 }
+        guard step == SQLITE_ROW else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+        return Int(Self.sqliteString(statement, column: 0) ?? "0") ?? 0
+    }
+
+    /// Apply every migration whose key is greater than the recorded
+    /// version, inside a single immediate transaction. Either all pending
+    /// migrations land and the version row is bumped, or nothing changes
+    /// and an `OrganizerDatabaseError` is thrown — there is no "half
+    /// migrated" intermediate state for callers to handle.
+    public func runPendingMigrations() throws {
+        let current = try schemaVersion()
+        let target = Self.currentSchemaVersion
+        guard current < target else { return }
+
+        try execute("BEGIN IMMEDIATE TRANSACTION;")
+        do {
+            for next in (current + 1)...target {
+                if let migration = Self.migrations[next] {
+                    try migration(self)
+                }
+            }
+            try writeSchemaVersion(target)
+            try execute("COMMIT;")
+        } catch {
+            try? execute("ROLLBACK;")
+            throw error
+        }
+    }
+
+    private func writeSchemaVersion(_ version: Int) throws {
+        let statement = try prepare(
+            "INSERT INTO Meta(key, value) VALUES ('schema_version', ?)" +
+            " ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        )
+        defer { sqlite3_finalize(statement) }
+        let versionString = String(version)
+        sqlite3_bind_text(statement, 1, versionString, -1, Self.sqliteTransient)
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+    }
+
+    /// Run a passive WAL checkpoint with truncation. Callers invoke this
+    /// after a large batch of writes so the WAL file is bounded — important
+    /// on small destination volumes where the WAL is otherwise only
+    /// auto-checkpointed at the 1000-page threshold and on connection close.
+    /// Errors are surfaced rather than swallowed so callers can decide
+    /// whether to retry or proceed.
+    public func checkpoint() throws {
+        guard let database else { throw OrganizerDatabaseError.databaseClosed }
+        let rc = sqlite3_wal_checkpoint_v2(database, nil, SQLITE_CHECKPOINT_TRUNCATE, nil, nil)
+        guard rc == SQLITE_OK else {
+            throw OrganizerDatabaseError.executionFailed(lastErrorMessage())
+        }
     }
 
     public func journalMode() throws -> String {

@@ -90,14 +90,30 @@ public struct FileIdentityHasher: Sendable {
             _ = Darwin.close(descriptor)
         }
 
+        return try Self.hashDigest(descriptor: descriptor, size: size, path: path)
+    }
+
+    /// Hash the contents of an already-open file descriptor. The descriptor
+    /// must be positioned at the start (callers typically open with
+    /// `O_RDONLY|O_NOFOLLOW|O_CLOEXEC` immediately before calling). Used by
+    /// `RevertExecutor.safeUnlink` so the hash and the destructive unlink
+    /// both operate on the *same* inode — closing the TOCTOU race where a
+    /// path-based remove could be redirected by a symlink swap between
+    /// hashing and unlinking.
+    public func hashIdentity(descriptor: Int32, size: Int64) throws -> FileIdentity {
+        let digest = try Self.hashDigest(descriptor: descriptor, size: size, path: "<fd:\(descriptor)>")
+        return FileIdentity(size: size, digest: digest)
+    }
+
+    private static func hashDigest(descriptor: Int32, size: Int64, path: String) throws -> String {
         var hasher = BLAKE2bHasher()
         hasher.update(Data(String(size).utf8))
-        var buffer = [UInt8](repeating: 0, count: Self.chunkByteCount)
+        var buffer = [UInt8](repeating: 0, count: chunkByteCount)
 
         while true {
-            let readResult = Self.readChunk(from: descriptor, into: &buffer)
+            let readResult = readChunk(from: descriptor, into: &buffer)
             if let errorCode = readResult.errorCode {
-                throw Self.posixReadError(code: errorCode, path: path, operation: "read")
+                throw posixReadError(code: errorCode, path: path, operation: "read")
             }
             if readResult.byteCount == 0 {
                 break

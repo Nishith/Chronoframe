@@ -322,17 +322,46 @@ public struct DeduplicateSummary: Sendable, Equatable {
     public var totalRecoverableBytes: Int64
     public var totalCandidatesScanned: Int
     public var scanDuration: TimeInterval
+    /// Diagnostic snapshot of the feature-extraction cache. Useful to spot
+    /// regressions where a code change accidentally invalidates the cache
+    /// on every scan, or where a destination's database has lost its
+    /// dedupe metadata and is silently re-extracting Vision feature prints.
+    public var cacheMetrics: DedupeCacheMetrics
 
     public init(
         clusterCounts: [ClusterKind: Int] = [:],
         totalRecoverableBytes: Int64 = 0,
         totalCandidatesScanned: Int = 0,
-        scanDuration: TimeInterval = 0
+        scanDuration: TimeInterval = 0,
+        cacheMetrics: DedupeCacheMetrics = DedupeCacheMetrics()
     ) {
         self.clusterCounts = clusterCounts
         self.totalRecoverableBytes = totalRecoverableBytes
         self.totalCandidatesScanned = totalCandidatesScanned
         self.scanDuration = scanDuration
+        self.cacheMetrics = cacheMetrics
+    }
+}
+
+/// Snapshot of the feature-extraction cache's behaviour across one scan.
+/// `hits + misses == totalCandidatesScanned` whenever the scan completes —
+/// misses incur a Vision feature print + dHash + quality score computation,
+/// hits read the prior row from the DedupeFeatures table.
+public struct DedupeCacheMetrics: Sendable, Equatable {
+    public var hits: Int
+    public var misses: Int
+
+    public init(hits: Int = 0, misses: Int = 0) {
+        self.hits = hits
+        self.misses = misses
+    }
+
+    /// Fraction of considered files served from cache. Returns 0 when no
+    /// files were considered so callers can render the value safely.
+    public var hitRate: Double {
+        let total = hits + misses
+        guard total > 0 else { return 0 }
+        return Double(hits) / Double(total)
     }
 }
 
@@ -349,10 +378,22 @@ public struct DedupeDecisions: Sendable, Equatable {
     /// Retained for backward-compatible decoding and older tests. Production
     /// commits always move files to the macOS Trash.
     public var hardDelete: Bool
+    /// Paths the user explicitly wants preserved that are **not** members of
+    /// any duplicate cluster. The common case is a Live Photo MOV partner
+    /// whose paired HEIC is in a cluster but whose own MOV file is not. Step
+    /// 5 of `DeduplicationPlanner.plan` (pair expansion) consults this set
+    /// before fanning out a delete to such partners, so the user can keep a
+    /// singleton partner even when its cluster sibling is being deleted.
+    public var pairKeepOverrides: Set<String>
 
-    public init(byPath: [String: DedupeDecision] = [:], hardDelete: Bool = false) {
+    public init(
+        byPath: [String: DedupeDecision] = [:],
+        hardDelete: Bool = false,
+        pairKeepOverrides: Set<String> = []
+    ) {
         self.byPath = byPath
         self.hardDelete = false
+        self.pairKeepOverrides = pairKeepOverrides
     }
 
     public func decision(for path: String) -> DedupeDecision? {

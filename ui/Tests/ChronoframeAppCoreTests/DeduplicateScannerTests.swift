@@ -153,6 +153,12 @@ final class DeduplicateScannerTests: XCTestCase {
         XCTAssertEqual(analyzer.callCount, 0)
         let summary = try XCTUnwrap(finalSummary)
         XCTAssertEqual(summary.clusterCounts[.exactDuplicate], 1)
+        // Both files served from cache → 2 hits, 0 misses. Surfaces a
+        // direct regression signal if a code change accidentally
+        // invalidates the cache key on every scan.
+        XCTAssertEqual(summary.cacheMetrics.hits, 2)
+        XCTAssertEqual(summary.cacheMetrics.misses, 0)
+        XCTAssertEqual(summary.cacheMetrics.hitRate, 1.0)
         let member = try XCTUnwrap(discoveredCluster?.members.first)
         XCTAssertEqual(member.eyesOpenScore, 0.9)
         XCTAssertEqual(member.smileScore, 0.7)

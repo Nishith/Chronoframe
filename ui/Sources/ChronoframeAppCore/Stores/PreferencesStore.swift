@@ -8,6 +8,47 @@ public final class PreferencesStore: ObservableObject {
     public static let minimumLogCapacity = 250
     public static let maximumLogCapacity = 10_000
 
+    /// Bump this when a stored UserDefaults key is renamed, removed, or
+    /// changes shape. Add a closure to `Self.migrations` keyed by the new
+    /// target version that rewrites or seeds the affected keys. On next
+    /// app launch, every pending migration runs in order before the
+    /// individual `@Published` properties read their defaults — so the
+    /// store always observes the post-migration layout.
+    ///
+    /// Bumping the version without adding a corresponding migration is
+    /// harmless: the framework records the new version and moves on.
+    public static let currentPreferencesSchemaVersion: Int = 1
+
+    /// Migrations keyed by *target* version. Each closure may read or
+    /// rewrite UserDefaults entries. v1 is the baseline — present-day key
+    /// names are v1 — so the migration is a marker only. Future renames
+    /// register e.g. `2: { defaults in defaults.set(defaults.string(forKey: "old"), forKey: "new"); defaults.removeObject(forKey: "old") }`.
+    private nonisolated(unsafe) static let migrations: [Int: (UserDefaults) -> Void] = [
+        1: { _ in },
+    ]
+
+    private static let schemaVersionDefaultsKey = "chronoframe.prefsSchemaVersion"
+
+    /// Run every pending migration whose key is greater than the recorded
+    /// version, in order. Records the new version after the last one
+    /// succeeds. Public so tests can drive the framework against a fresh
+    /// `UserDefaults(suiteName:)` instance.
+    public static func runPendingMigrations(in defaults: UserDefaults) {
+        let current = defaults.object(forKey: schemaVersionDefaultsKey) as? Int ?? 0
+        let target = currentPreferencesSchemaVersion
+        guard current < target else { return }
+        for next in (current + 1)...target {
+            migrations[next]?(defaults)
+        }
+        defaults.set(target, forKey: schemaVersionDefaultsKey)
+    }
+
+    /// Snapshot of the stored schema version. Returns 0 for fresh
+    /// `UserDefaults` instances that have never been written to.
+    public static func storedSchemaVersion(in defaults: UserDefaults) -> Int {
+        defaults.object(forKey: schemaVersionDefaultsKey) as? Int ?? 0
+    }
+
     private let defaults: UserDefaults
 
     @Published public var workerCount: Int {
@@ -92,6 +133,12 @@ public final class PreferencesStore: ObservableObject {
     }
 
     public init(defaults: UserDefaults = .standard) {
+        // Run any pending key migrations *before* the @Published properties
+        // read their stored values, so the store always sees the current
+        // schema layout. v1 is the baseline marker; future bumps register a
+        // closure in `Self.migrations` that rewrites the affected keys.
+        Self.runPendingMigrations(in: defaults)
+
         self.defaults = defaults
         self.workerCount = defaults.object(forKey: "workerCount") as? Int ?? 8
         self.verifyCopies = defaults.object(forKey: "verifyCopies") as? Bool ?? true
