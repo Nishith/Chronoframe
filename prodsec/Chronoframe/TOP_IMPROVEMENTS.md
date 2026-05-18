@@ -31,7 +31,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 2. `script/swift_meaningful_coverage.sh` regex silently shrinks; 95% gate is partially fictional
+### 2. `script/swift_meaningful_coverage.sh` regex silently shrinks; 95% gate is partially fictional ✅ FIXED (commit `3eb2647`)
 
 - **Category:** testing / release safety
 - **Priority:** **P0**
@@ -68,7 +68,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 4. `HistoryStore.refresh` wipes `destinationRoot` before validating input
+### 4. `HistoryStore.refresh` wipes `destinationRoot` before validating input ✅ FIXED
 
 - **Category:** data integrity / state correctness
 - **Priority:** **P0**
@@ -90,7 +90,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 5. `FolderAccessService.resolveBookmark` silently fabricates a URL when bookmark resolution fails
+### 5. `FolderAccessService.resolveBookmark` silently fabricates a URL when bookmark resolution fails ✅ FIXED
 
 - **Category:** sandbox correctness / reliability
 - **Priority:** **P0**
@@ -105,7 +105,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 6. `RevertExecutor` ignores receipt `schemaVersion` — forward-compat hazard, no-op on unknown formats
+### 6. `RevertExecutor` ignores receipt `schemaVersion` — forward-compat hazard, no-op on unknown formats ✅ FIXED
 
 - **Category:** data integrity / release safety
 - **Priority:** **P0**
@@ -119,7 +119,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 7. Dedupe per-item receipt write failure after successful Trash leaves files unrevertable
+### 7. Dedupe per-item receipt write failure after successful Trash leaves files unrevertable ✅ FIXED
 
 - **Category:** data integrity / reliability
 - **Priority:** **P1**
@@ -133,7 +133,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 8. Cross-folder dedup makes revert impossible: containment check rejects `additionalSources` paths
+### 8. Cross-folder dedup makes revert impossible: containment check rejects `additionalSources` paths ✅ FIXED
 
 - **Category:** data integrity
 - **Priority:** **P1**
@@ -147,7 +147,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 9. `MediaDiscovery.enumerateManifest` walks drop-manifest paths without symlink/package/containment checks
+### 9. `MediaDiscovery.enumerateManifest` walks drop-manifest paths without symlink/package/containment checks ✅ FIXED
 
 - **Category:** safety invariant
 - **Priority:** **P1**
@@ -162,7 +162,7 @@ Recent in-flight commit `4ee99dd` ("Avoid quarantining unreadable revert receipt
 
 ---
 
-### 10. "Accept all suggestions" and the commit footer leak weak-match preselections into the deletion plan
+### 10. "Accept all suggestions" and the commit footer leak weak-match preselections into the deletion plan ✅ FIXED
 
 - **Category:** safety invariant / UX
 - **Priority:** **P1**

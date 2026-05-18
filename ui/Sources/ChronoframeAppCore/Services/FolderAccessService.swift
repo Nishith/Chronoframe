@@ -107,7 +107,14 @@ public final class FolderAccessService: FolderAccessServicing {
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         ) else {
-            return ResolvedFolderBookmark(url: URL(fileURLWithPath: bookmark.path))
+            // Phase 1 finding #5: returning a fabricated `URL(fileURLWithPath:
+            // bookmark.path)` here used to silently degrade to a plain path
+            // that never had `startAccessingSecurityScopedResource` called
+            // on it. Sandboxed runs then hit `EPERM` deep in file enumeration
+            // and reported a generic permission error. Returning nil lets
+            // callers explicitly handle the "bookmark no longer resolves"
+            // case — drop it from preferences and prompt the user to re-pick.
+            return nil
         }
 
         let refreshedBookmark = isStale ? try? makeBookmark(for: url, key: bookmark.key) : nil

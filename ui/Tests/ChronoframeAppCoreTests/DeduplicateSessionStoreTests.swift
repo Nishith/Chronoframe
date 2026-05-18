@@ -332,6 +332,60 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.decisions.byPath["/dest/medium-b.jpg"], .keep)
     }
 
+    /// Phase 1 finding #10 regression: `acceptAllSuggestions` used to
+    /// approve every cluster regardless of confidence, so a user
+    /// clicking this single button would commit low/medium-confidence
+    /// preselects on commit — violating the AGENTS.md invariant that
+    /// non-exact / weak matches stay review-only until the user
+    /// explicitly approves them. The fix scopes "Accept all" to the
+    /// high-confidence bucket only.
+    @MainActor
+    func testAcceptAllSuggestionsOnlyApprovesHighConfidenceClusters() async throws {
+        let high = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/auto-a.jpg", size: 100, modificationTime: 0, qualityScore: 0.9),
+                PhotoCandidate(path: "/dest/auto-b.jpg", size: 100, modificationTime: 0, qualityScore: 0.4),
+            ],
+            suggestedKeeperIDs: ["/dest/auto-a.jpg"],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .exactDuplicate))
+        )
+        let medium = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/weak-a.jpg", size: 100, modificationTime: 0, qualityScore: 0.9),
+                PhotoCandidate(path: "/dest/weak-b.jpg", size: 100, modificationTime: 0, qualityScore: 0.4),
+            ],
+            suggestedKeeperIDs: ["/dest/weak-a.jpg"],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .medium, matchReason: MatchReason(kind: .nearDuplicate))
+        )
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [high, medium]))
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+
+        store.acceptAllSuggestions()
+
+        XCTAssertTrue(store.approvedClusterIDs.contains(high.id),
+            "High-confidence cluster should be approved by Accept All.")
+        XCTAssertFalse(store.approvedClusterIDs.contains(medium.id),
+            "Medium-confidence cluster must stay review-only after Accept All.")
+        XCTAssertEqual(store.decisions.byPath["/dest/auto-b.jpg"], .delete,
+            "High-confidence non-keeper should be marked Delete.")
+        // The weak cluster's preselects exist in `decisions.byPath`
+        // (set at scan completion by `suggestedDecisions`) but the
+        // cluster is NOT approved, so the *reviewed* deletion plan —
+        // which is what the executor actually consumes — must not
+        // include weak-cluster items.
+        let reviewedPaths = Set(store.reviewedDeletionPlan().items.map(\.path))
+        XCTAssertTrue(reviewedPaths.contains("/dest/auto-b.jpg"))
+        XCTAssertFalse(reviewedPaths.contains("/dest/weak-a.jpg"),
+            "Weak cluster member must NOT be in the reviewed deletion plan.")
+        XCTAssertFalse(reviewedPaths.contains("/dest/weak-b.jpg"),
+            "Weak cluster member must NOT be in the reviewed deletion plan.")
+    }
+
     @MainActor
     func testPauseReviewPreservesScanAndOnlyResumesForMatchingConfiguration() async throws {
         let keeper = PhotoCandidate(

@@ -60,9 +60,16 @@ final class BookmarkPathResolver {
 
     func resolveBookmarkedPath(for role: FolderRole, profileName: String?) -> String? {
         let key = bookmarkKey(for: role, profileName: profileName)
-        guard let bookmark = preferencesStore.bookmark(for: key),
-              let resolvedBookmark = folderAccessService.resolveBookmark(bookmark)
-        else {
+        guard let bookmark = preferencesStore.bookmark(for: key) else {
+            return nil
+        }
+        // Phase 1 finding #5: when the cached bookmark no longer
+        // resolves (volume gone, app re-installed, sandbox metadata
+        // wiped), drop it from preferences instead of leaving it to
+        // re-fail every launch. Mirrors the AppState dedupe-destination
+        // bootstrap behavior.
+        guard let resolvedBookmark = folderAccessService.resolveBookmark(bookmark) else {
+            preferencesStore.removeBookmark(for: key)
             return nil
         }
 
