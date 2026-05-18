@@ -59,7 +59,11 @@ let package = Package(
         ),
         .testTarget(
             name: "ChronoframeCLIKitTests",
-            dependencies: ["ChronoframeCLIKit"],
+            // Depending on the executable target forces SwiftPM to
+            // build the CLI binary as part of `swift test`, which lets
+            // the subprocess-boundary regression tests exec it directly
+            // (PHASE2_FINDINGS.md NEW15).
+            dependencies: ["ChronoframeCLIKit", "ChronoframeCLI"],
             path: "Tests/ChronoframeCLIKitTests"
         ),
         .testTarget(

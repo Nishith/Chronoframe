@@ -50,11 +50,30 @@ public enum MediaDiscovery {
         onDirectoryIssue: (@Sendable (DirectoryIssue) -> Void)? = nil,
         _ body: (String) throws -> Void
     ) throws {
-        if let manifest = dropManifest(at: rootURL) {
+        switch readDropManifest(at: rootURL) {
+        case let .present(manifest):
             try enumerateManifest(manifest, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body)
             return
+        case let .corrupt(manifestURL, error):
+            // The staging directory only contains the manifest; falling
+            // through to `walk()` would silently report "0 files to
+            // organize". Surface a DirectoryIssue instead so the caller
+            // can show the user something actionable.
+            onDirectoryIssue?(DirectoryIssue(
+                path: manifestURL.path,
+                message: "Drop manifest could not be read: \(error.localizedDescription)"
+            ))
+            return
+        case .absent:
+            break
         }
         try walk(directoryURL: rootURL, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body)
+    }
+
+    private enum DropManifestLookup {
+        case present(DropManifest)
+        case corrupt(URL, Error)
+        case absent
     }
 
     public static func walkEntries(
@@ -198,10 +217,22 @@ public enum MediaDiscovery {
         return partition.directories + partition.files
     }
 
-    private static func dropManifest(at rootURL: URL) -> DropManifest? {
+    private static func readDropManifest(at rootURL: URL) -> DropManifestLookup {
         let manifestURL = rootURL.appendingPathComponent(dropManifestFilename)
-        guard let data = try? Data(contentsOf: manifestURL) else { return nil }
-        return try? JSONDecoder().decode(DropManifest.self, from: data)
+        // Distinguish "manifest is absent" (no `.chronoframe_drop_manifest.json`
+        // → fall back to filesystem walk) from "manifest is present but
+        // unreadable / undecodable" (surface a DirectoryIssue so the
+        // user gets a real diagnosis instead of a silent empty result).
+        guard FileManager.default.fileExists(atPath: manifestURL.path) else {
+            return .absent
+        }
+        do {
+            let data = try Data(contentsOf: manifestURL)
+            let manifest = try JSONDecoder().decode(DropManifest.self, from: data)
+            return .present(manifest)
+        } catch {
+            return .corrupt(manifestURL, error)
+        }
     }
 
     private static func enumerateManifest(

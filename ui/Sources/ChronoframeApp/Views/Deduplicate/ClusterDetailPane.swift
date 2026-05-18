@@ -613,6 +613,18 @@ private struct DeduplicatePhotoKeyNavigationView: NSViewRepresentable {
                 .subtracting(.numericPad)
             guard modifiers.isEmpty else { return event }
 
+            // Skip when a text-input responder owns focus. The monitor
+            // is process-local, so without this check the cluster
+            // arrow-navigation shortcut would eat arrow keys app-wide,
+            // including inside any text field on screen (the field
+            // editor for an NSTextField is an `NSText`, and an
+            // SwiftUI TextField wraps that).
+            if let firstResponder = event.window?.firstResponder,
+               firstResponder is NSText
+            {
+                return event
+            }
+
             switch event.keyCode {
             case 123:
                 moveToPrevious()

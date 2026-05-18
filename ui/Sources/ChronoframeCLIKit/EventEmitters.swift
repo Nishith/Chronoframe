@@ -16,6 +16,22 @@ public enum JSONLineEmitter {
         return String(decoding: data, as: UTF8.self)
     }
 
+    /// Renders a CLI error as a JSON event so pipeline consumers in
+    /// `--json` mode never have to parse free-form English on stdout.
+    /// `kind` is one of "usage" (caller-side argument problem) or
+    /// "operational" (engine-side failure).
+    public static func errorLine(kind: String, message: String) -> String {
+        let payload: [String: Any] = [
+            "type": "error",
+            "event_version": eventVersion,
+            "kind": kind,
+            "message": message,
+        ]
+        let data = (try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]))
+            ?? Data("{\"type\":\"error\",\"event_version\":1,\"kind\":\"\(kind)\",\"message\":\"\"}".utf8)
+        return String(decoding: data, as: UTF8.self)
+    }
+
     private static func payload(for event: RunEvent) -> [String: Any] {
         switch event {
         case .startup:

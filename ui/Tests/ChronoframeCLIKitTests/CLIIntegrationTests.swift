@@ -312,6 +312,43 @@ final class CLIIntegrationTests: XCTestCase {
             "Stdout must NOT contain a human-language prompt")
         XCTAssertFalse(joined.contains("Continue?"),
             "Stdout must NOT contain a human-language prompt")
+        // NEW12: in --json mode, errors are emitted as JSON events.
+        let errorLine = try XCTUnwrap(
+            recorder.lines.first { $0.contains("\"type\":\"error\"") },
+            "Expected a JSON error event line on stdout"
+        )
+        let parsed = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: Data(errorLine.utf8)) as? [String: Any]
+        )
+        XCTAssertEqual(parsed["type"] as? String, "error")
+        XCTAssertEqual(parsed["event_version"] as? Int, 1)
+        XCTAssertEqual(parsed["kind"] as? String, "usage")
+    }
+
+    /// NEW12 regression: parse errors in --json mode must emit a JSON
+    /// error event, not a free-form English line.
+    @MainActor
+    func testJSONParseErrorEmitsJSONErrorEventOnStdout() async throws {
+        let recorder = LineRecorder()
+        let exitCode = await ChronoframeCLI.run(
+            arguments: ["--json", "--workers", "not-an-int"],
+            output: recorder.append,
+            input: { nil }
+        )
+        XCTAssertEqual(exitCode, 2)
+        let errorLine = try XCTUnwrap(
+            recorder.lines.first { $0.contains("\"type\":\"error\"") },
+            "Expected a JSON error event line on stdout"
+        )
+        let parsed = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: Data(errorLine.utf8)) as? [String: Any]
+        )
+        XCTAssertEqual(parsed["type"] as? String, "error")
+        XCTAssertEqual(parsed["event_version"] as? Int, 1)
+        XCTAssertEqual(parsed["kind"] as? String, "usage")
+        let message = try XCTUnwrap(parsed["message"] as? String)
+        XCTAssertTrue(message.contains("--workers"),
+            "Error message should reference the offending flag")
     }
 
     private func makeDirectory(_ name: String) throws -> URL {

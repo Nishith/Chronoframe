@@ -269,7 +269,12 @@ struct DeduplicateView: View {
             clusters: sessionStore.clusters,
             decisions: sessionStore.decisions,
             approvedClusterIDs: sessionStore.approvedClusterIDs,
-            deletionPlan: sessionStore.currentDeletionPlan(),
+            // Use the reviewed-only plan: clusters the user hasn't
+            // approved yet shouldn't contribute preselected-delete
+            // counts to the per-cluster recoverable-bytes column. This
+            // matches the AGENTS.md invariant that non-exact / weak
+            // matches stay review-only until the user confirms.
+            deletionPlan: sessionStore.reviewedDeletionPlan(),
             focusedClusterID: $focusedClusterID,
             focusedMemberPath: $focusedMemberPath,
             thumbnailLoader: thumbnailLoader,
@@ -290,13 +295,13 @@ struct DeduplicateView: View {
     }
 
     private var commitFooter: some View {
-        // Single source of truth: ask the session store for the actual
-        // deletion plan the executor would build, so the count + byte
-        // total here include pair-expanded partners (e.g. Live Photo
-        // MOV halves, RAW partners). Previously these only counted
-        // direct cluster-member Delete decisions and could understate
-        // both the file count and the recovered bytes.
-        let plan = sessionStore.currentDeletionPlan()
+        // Show the count + bytes the user can actually commit RIGHT
+        // NOW (clusters they've reviewed and approved). Including
+        // unreviewed clusters here used to overstate the headline by
+        // counting weak-match preselects the executor would skip until
+        // approval — the AGENTS.md invariant says non-exact / weak
+        // matches stay review-only until the user confirms.
+        let plan = sessionStore.reviewedDeletionPlan()
         let toDelete = plan.count
         let bytes = plan.totalBytes
         let hardDelete = false

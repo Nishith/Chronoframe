@@ -69,7 +69,12 @@ struct HealthDashboardView: View {
         .darkroom()
         .navigationTitle("Health")
         .task {
-            if healthStore.summary == nil {
+            // Only auto-refresh on first reach when there's no prior
+            // outcome to display. A previous refresh that failed should
+            // surface its error and let the user retry explicitly via
+            // the "Check Library" button, not silently re-fire on every
+            // navigation tap.
+            if healthStore.summary == nil && healthStore.errorMessage == nil {
                 await appState.refreshLibraryHealth()
             }
         }

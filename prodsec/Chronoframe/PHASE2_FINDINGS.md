@@ -50,61 +50,61 @@ The Phase 1 review at [TOP_IMPROVEMENTS.md](TOP_IMPROVEMENTS.md) raised 10 findi
 - **Suggested fix:** Use `passRetained`/`takeRetainedValue` paired with a `context.release` callback that releases the unmanaged reference, or `dispatch_sync(self.queue) {}` after `Invalidate` to flush.
 - **Status:** Fixed. `FSEventStreamContext` now installs top-level `fileSystemMonitorRetainCallback` / `fileSystemMonitorReleaseCallback` so the stream holds a +1 retain on `self` for its lifetime. The `takeUnretainedValue` in the FSEvents callback is now safe — the retained reference holds the floor until `FSEventStreamRelease` runs the release callback at `stop()` time. Regression test `testFileSystemMonitorReleasesItselfCleanlyWhenDroppedMidStream` holds a `weak var` and asserts the monitor is deallocated after the stream consumer drops.
 
-### NEW6 — `RunHistoryView.HistorySection.id = UUID()` regenerates on every render → animation/scroll state resets
+### NEW6 — `RunHistoryView.HistorySection.id = UUID()` regenerates on every render → animation/scroll state resets ✅ FIXED
 
 - **Surface:** `RunHistoryView.swift:65-69, 573-587, 446`
 - **Failure scenario:** Each call to the computed `groupedEntries` builds new `HistorySection` structs with fresh `UUID()` identities. `ForEach(id: \.element.id)` rebuilds every section subtree. Hover/animation state resets, scroll position can jump on filter or search changes.
 - **Suggested fix:** Use the section date as the identity: `let id: Date` set in the initializer.
 
-### NEW7 — `PreviewReviewPanel` row `@State` never refreshes after Save → UI displays stale event name and date
+### NEW7 — `PreviewReviewPanel` row `@State` never refreshes after Save → UI displays stale event name and date ✅ FIXED
 
 - **Surface:** `Views/Run/PreviewReviewPanel.swift:108-120`
 - **Failure scenario:** User edits event name → clicks Save → store rebuilds the item with `acceptedEventName` set. Row identity (`item.id`) does not change, so SwiftUI does NOT re-init `@State`. DatePicker/TextField still bind to the old `_selectedDate` / `_eventName`. The visible state diverges from the persisted state until that row scrolls off-screen or the filter clears identities.
 - **Suggested fix:** Either move date/eventName into the store keyed by `item.id`, or add `.onChange(of: item) { selectedDate = ...; eventName = ... }` to resync.
 
-### NEW8 — `ClusterDetailPane` `NSEvent.addLocalMonitorForEvents` swallows arrow keys app-wide
+### NEW8 — `ClusterDetailPane` `NSEvent.addLocalMonitorForEvents` swallows arrow keys app-wide ✅ FIXED
 
 - **Surface:** `ClusterDetailPane.swift:555-628` (esp. `:595-625`)
 - **Failure scenario:** When the Deduplicate detail pane is on screen, ANY left/right arrow press in the window (text fields, scrollers, cluster list table) hits the monitor and is consumed via `return nil`. SwiftUI first-responder never sees the event. Users can't arrow-navigate in input fields while the pane is visible.
 - **Suggested fix:** Gate on `NSApp.keyWindow?.firstResponder` being the host or its descendant, or switch to `.onKeyPress(.leftArrow)` / `.onKeyPress(.rightArrow)` in SwiftUI 14+.
 
-### NEW9 — `SliderComparisonView` / `FlickerComparisonView` synchronously load multi-MB NSImage on the main actor
+### NEW9 — `SliderComparisonView` / `FlickerComparisonView` synchronously load multi-MB NSImage on the main actor ✅ FIXED
 
 - **Surface:** `ComparisonOverlayView.swift:171-180, 286-295` — `loadImage(at:)` is synchronous; called inside a MainActor-isolated `.task`.
 - **Failure scenario:** Comparing two ~60MB RAW/HEIC files blocks the UI thread for hundreds of ms to seconds. The loading spinner is never visible.
 - **Suggested fix:** `let image = await Task.detached { NSImage(contentsOfFile: path) }.value`, or route through the existing `ThumbnailRenderer.cgImage` helper (already used by `LargePreviewImage`).
 
-### NEW10 — `DifferenceImageGenerator.generate` runs Core Image pipeline on the main actor
+### NEW10 — `DifferenceImageGenerator.generate` runs Core Image pipeline on the main actor ✅ FIXED
 
 - **Surface:** `Views/Deduplicate/DifferenceImageGenerator.swift:6-7` and call site `ComparisonOverlayView.swift:233-239`
 - **Failure scenario:** `@MainActor static func generate(...)` calls `CIImage` decode + `CIDifferenceBlendMode` + `CIExposureAdjust` + `CIContext.createCGImage` synchronously on the main thread. For multi-megapixel inputs this blocks scrolling and animations for seconds.
 - **Suggested fix:** Drop `@MainActor`; run on a background queue; hop back to the main actor only to assign `differenceImage`.
 
-### NEW11 — CLI `requireValue` rejects any value starting with `-`
+### NEW11 — CLI `requireValue` rejects any value starting with `-` ✅ FIXED
 
 - **Surface:** `ChronoframeCLIKit/CLI.swift:111-118`
 - **Failure scenario:** `chronoframe --source "-my-photos"`, `--dest "/Volumes/-Backup"`, or `--workers -4` is misreported as `"Missing value for --source."` There is no `--` end-of-options sentinel and no `--flag=value` form, so a user with a destination path that legitimately starts with `-` cannot run Chronoframe at all.
 - **Suggested fix:** Drop the `hasPrefix("-")` check, accept the next argument as a value verbatim. Add `--flag=value` form and `--` terminator.
 
-### NEW12 — CLI `--json` mode prints CLI errors as plain text
+### NEW12 — CLI `--json` mode prints CLI errors as plain text ✅ FIXED
 
 - **Surface:** `ChronoframeCLIKit/CLI.swift:209-222`
 - **Failure scenario:** With `--json`, errors come out as free-form English (e.g. `"Unknown option: --workrs."`) on stdout. JSON line consumers hit `JSONDecodeError`. `event_version` is also absent on every error path — explicitly contradicting `EventEmitterTests.swift:30-34` which asserts the field is always present.
 - **Suggested fix:** Once `--json` is parsed early from argv, emit failures as `{"type":"error","event_version":1,"kind":"usage|operational","message":"…"}` to stderr.
 
-### NEW13 — CLI `--revert` silently accepts and ignores `--skip-verify` / `--folder-structure`
+### NEW13 — CLI `--revert` silently accepts and ignores `--skip-verify` / `--folder-structure` ✅ FIXED
 
 - **Surface:** `ChronoframeCLIKit/CLI.swift:175-180`
 - **Failure scenario:** The error message advertises only `--dest`, `--json`, `--workers`, `--yes` as combinable with `--revert`, but the guard only rejects six specific other flags. `chronoframe --revert R --skip-verify` and `--folder-structure YYYY` pass validation and are silently ignored. The user believes they configured the revert; nothing changes.
 - **Suggested fix:** Replace the explicit-deny list with a positive whitelist: reject any field outside `{destinationPath, jsonOutput, workerCount, assumeYes}`.
 
-### NEW14 — CLI lacks path normalization (no `~` expansion, no NFC/NFD handling)
+### NEW14 — CLI lacks path normalization (no `~` expansion, no NFC/NFD handling) ✅ FIXED
 
 - **Surface:** `ChronoframeCLIKit/CLI.swift:127-129, 155, 308`
 - **Failure scenario:** Scripts that pass `~/Photos` via `execve` (no shell expansion) — including launchd jobs and Codex's environment — store a literal `~` directory. Equally, `readdir` returns NFD-decomposed filenames on APFS while CLI consumers often pass NFC paths; the CLI doesn't normalize, so path comparisons can disagree across runs.
 - **Suggested fix:** After parsing, apply `(path as NSString).expandingTildeInPath` and `precomposedStringWithCanonicalMapping` to source/dest/revert paths.
 
-### NEW15 — CLI integration tests bypass the actual process boundary
+### NEW15 — CLI integration tests bypass the actual process boundary ✅ FIXED
 
 - **Surface:** `ChronoframeCLIKitTests/CLIIntegrationTests.swift:39-48` (and every other in-process test)
 - **Failure scenario:** Every test invokes `ChronoframeCLI.run(arguments:output:)` in-process. The real `main.swift`, `CommandLine.arguments` parser, `Foundation.exit`, stdout/stderr separation, signal handling, and `print` buffering semantics are never exercised. The `requireValue` bug (NEW11) and the JSON/prompt mixing (NEW2) are invisible to the test suite.
@@ -114,34 +114,34 @@ The Phase 1 review at [TOP_IMPROVEMENTS.md](TOP_IMPROVEMENTS.md) raised 10 findi
 
 ## P2 — Quality
 
-### NEW16 — `ContactSheetLoader.load` races stale results across source-folder changes
+### NEW16 — `ContactSheetLoader.load` races stale results across source-folder changes ✅ FIXED
 `ContactSheetView.swift:253-283` — no `Task.isCancelled` checks between awaits. The slower task wins when the user picks a new source quickly.
 
-### NEW17 — `RapidTriageView` stacks two `.keyboardShortcut` modifiers; only one survives
+### NEW17 — `RapidTriageView` stacks two `.keyboardShortcut` modifiers; only one survives ✅ FIXED
 `RapidTriageView.swift:184-186` — `.keyboardShortcut(.rightArrow)` is silently dropped because `.keyboardShortcut(.return)` is applied after. Right-arrow does nothing despite the affordance text saying "→ Accept".
 
-### NEW18 — `FlickerComparisonView` leaks toggle Tasks on mode switch
+### NEW18 — `FlickerComparisonView` leaks toggle Tasks on mode switch ✅ FIXED
 `ComparisonOverlayView.swift:296-312` — `startFlicker()` reassigns `flickerTask` without cancelling the previous one; orphaned tasks continue toggling.
 
-### NEW19 — `MediaDiscovery.dropManifest` silently swallows malformed JSON
+### NEW19 — `MediaDiscovery.dropManifest` silently swallows malformed JSON ✅ FIXED
 `MediaDiscovery.swift:201-205` — if the manifest file exists but decode fails, the function returns nil and discovery falls through to a `walk()` that finds zero media in the staging dir. User sees "0 files to organize" with no explanation.
 
-### NEW20 — `DroppedItemStager.stage` doc-comment is stale ("symlink directory")
+### NEW20 — `DroppedItemStager.stage` doc-comment is stale ("symlink directory") ✅ FIXED
 `DroppedItemStager.swift:90-92, 141-142` — implementation is manifest-based and works correctly. Phase 1 open question resolved as a doc bug, not a data bug.
 
-### NEW21 — Dedupe footer count uses `currentDeletionPlan()` (includes weak-match preselects)
+### NEW21 — Dedupe footer count uses `currentDeletionPlan()` (includes weak-match preselects) ✅ FIXED
 **Phase 1 open question resolved**: `DeduplicateView.swift:272, 299` and `RapidTriageView.swift:27` call `currentDeletionPlan()`, not `reviewedDeletionPlan()`. Only the reviewed-only confirmation dialog title (`DeduplicateView.swift:341`) uses the filtered plan. This makes Phase 1 Finding #10 a real user-visible overcount, not just an internal artifact.
 
-### NEW22 — CLI has no signal handling
+### NEW22 — CLI has no signal handling ✅ FIXED
 SIGINT mid-run aborts without notifying the engine. Exit code is 130 (runtime default) — distinct from the documented "user cancelled" semantics. No SIGTERM handler either.
 
-### NEW23 — `FileSystemMonitor` does not surface watched-directory unmount
+### NEW23 — `FileSystemMonitor` does not surface watched-directory unmount ✅ FIXED
 `FileSystemMonitor.swift:103-119` — when the watched volume is unmounted, polling continues emitting "removed" events for every previously-seen path (a flood) and never reports the root-disappearance.
 
-### NEW24 — `ClusterListPane.recoverableBytes(for:)` is O(plan.items) per visible row per render
+### NEW24 — `ClusterListPane.recoverableBytes(for:)` is O(plan.items) per visible row per render ✅ FIXED
 `ClusterListPane.swift:107-111` — for large dedupe sessions, tens of thousands of comparisons per body. Pre-bucket once in the parent.
 
-### NEW25 — `HealthDashboardView` retry-loops on a previously-failed refresh
+### NEW25 — `HealthDashboardView` retry-loops on a previously-failed refresh ✅ FIXED
 `HealthDashboardView.swift:71-75` — `.task` re-fires `refreshLibraryHealth()` every time the user navigates to Health if `summary == nil`, regardless of error state.
 
 ---
