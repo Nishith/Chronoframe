@@ -121,6 +121,21 @@ enum UITestAppStateFactory {
             deduplicateSessionStore.startScan(configuration: preferencesStore.makeDeduplicateConfiguration(
                 destinationPath: setupStore.destinationPath
             ))
+            // Pre-approve the suggested keepers so the commit footer's
+            // reviewed-only plan is non-empty at launch. The reviewed
+            // plan is used by `DeduplicateView` for the headline
+            // count, which gates the commit button's `isEnabled`
+            // state. Without this seeding the Wide-scenario UI test
+            // would see the button disabled until a human clicks
+            // "Accept Suggestion" — which is not what the test is
+            // exercising (it asserts that the actions stay visible
+            // and enabled regardless of window size).
+            Task { @MainActor in
+                while deduplicateSessionStore.status != .readyToReview {
+                    try? await Task.sleep(nanoseconds: 10_000_000)
+                }
+                deduplicateSessionStore.acceptAllSuggestions()
+            }
         }
 
         return appState
@@ -262,7 +277,11 @@ enum UITestAppStateFactory {
                 kind: kind,
                 members: members,
                 suggestedKeeperIDs: [members[0].id],
-                bytesIfPruned: members.dropFirst().reduce(Int64(0)) { $0 + $1.size }
+                bytesIfPruned: members.dropFirst().reduce(Int64(0)) { $0 + $1.size },
+                annotation: ClusterAnnotation(
+                    confidence: .high,
+                    matchReason: MatchReason(kind: kind)
+                )
             ))
         }
         return clusters
