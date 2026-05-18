@@ -243,14 +243,26 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         ?? URL(fileURLWithPath: receipt.destinationRoot, isDirectory: true)
                     // Phase 1 finding #8: cross-folder dedup writes
                     // items whose `originalPath` is outside
-                    // `destinationRoot`. Accept any of the
-                    // additionalSourceRoots recorded in the receipt as
-                    // a valid containment boundary, in addition to the
-                    // primary one inferred above.
-                    let allBoundaries: [URL] = [primaryBoundaryURL]
-                        + receipt.additionalSourceRoots.map {
-                            URL(fileURLWithPath: $0, isDirectory: true)
+                    // `destinationRoot`. Accept the
+                    // `additionalSourceRoots` recorded in the receipt
+                    // as additional containment boundaries — BUT
+                    // validate each one before trusting it (Codex
+                    // P1 review). The receipt lives on disk inside
+                    // the destination, so a tampered or corrupt
+                    // receipt could otherwise inject `/` as a root
+                    // and let revert restore Trash items to
+                    // arbitrary paths.
+                    let extraBoundaries = receipt.additionalSourceRoots.compactMap { rootPath -> URL? in
+                        guard Self.isPlausibleSourceRoot(rootPath, near: primaryBoundaryURL) else {
+                            continuation.yield(.itemFailed(
+                                originalPath: rootPath,
+                                errorMessage: "Receipt named an additional source root that is not safe to restore into; that subset of items will be skipped."
+                            ))
+                            return nil
                         }
+                        return URL(fileURLWithPath: rootPath, isDirectory: true)
+                    }
+                    let allBoundaries: [URL] = [primaryBoundaryURL] + extraBoundaries
                     var deletedCount = 0
                     var failedCount = 0
                     var bytesReclaimed: Int64 = 0
@@ -329,6 +341,89 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         let logsDirectory = receiptURL.deletingLastPathComponent()
         guard logsDirectory.lastPathComponent == ".organize_logs" else { return nil }
         return logsDirectory.deletingLastPathComponent()
+    }
+
+    /// Validates an `additionalSourceRoots` entry from a dedupe
+    /// receipt before trusting it as a revert containment boundary.
+    ///
+    /// The receipt lives on disk inside the destination, so a
+    /// tampered/corrupt receipt could otherwise inject a broad root
+    /// (`/`, `/etc`, `/Library`) and let `revert(...)` move Trash
+    /// items into arbitrary writable locations. Restrict accepted
+    /// roots to plausible photo-library parents via a positive
+    /// allowlist — anything outside the trusted neighborhood is
+    /// rejected without further analysis:
+    ///
+    /// - descendants of the primary destination's parent directory
+    ///   (covers typical setups where the destination and additional
+    ///   sources live next to each other in the same folder);
+    /// - descendants of `$HOME` (covers `~/Pictures/...` style
+    ///   sources);
+    /// - paths under `/Volumes/<name>/` (covers external drives, but
+    ///   never `/Volumes` itself).
+    ///
+    /// Each candidate must additionally resolve to an existing
+    /// directory at the time of revert. Both the candidate and every
+    /// trusted parent are resolved through
+    /// `standardizedFileURL.resolvingSymlinksInPath()` first so
+    /// platform symlinks (e.g., macOS's `/var` → `/private/var`)
+    /// don't accidentally land inside or outside the allow set.
+    static func isPlausibleSourceRoot(_ rootPath: String, near destinationURL: URL) -> Bool {
+        let trimmed = rootPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        let candidate = URL(fileURLWithPath: trimmed, isDirectory: true)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+        let candidatePath = candidate.path
+
+        // Require an existing directory on disk.
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: candidatePath, isDirectory: &isDirectory),
+              isDirectory.boolValue
+        else {
+            return false
+        }
+
+        // Build the trusted-parents allowlist. Each parent is
+        // standardized + symlink-resolved so the prefix comparison
+        // below matches identical canonical paths.
+        let homeDirectory = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+        let destinationParent = destinationURL
+            .deletingLastPathComponent()
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+        var trustedParents: Set<String> = [homeDirectory]
+        if !destinationParent.isEmpty, destinationParent != "/" {
+            trustedParents.insert(destinationParent)
+        }
+
+        // Accept descendants of any trusted parent. We don't accept
+        // the parent itself — that would let a single-element
+        // `additionalSourceRoots: ["/Users/x"]` cover the whole home.
+        for parent in trustedParents {
+            if candidatePath.hasPrefix(parent + "/") { return true }
+        }
+
+        // Special-case `/Volumes/<name>/...` (external drives).
+        // `/Volumes` itself is rejected — must have at least one
+        // path component below it.
+        if candidatePath.hasPrefix("/Volumes/") {
+            let suffix = candidatePath.dropFirst("/Volumes/".count)
+            // Require a non-empty volume name (at least one
+            // component before any sub-path).
+            if !suffix.isEmpty,
+               !suffix.hasPrefix("/")
+            {
+                return true
+            }
+        }
+
+        return false
     }
 
     static func makeReceiptURL(

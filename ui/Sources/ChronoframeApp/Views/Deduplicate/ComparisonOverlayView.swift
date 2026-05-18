@@ -345,6 +345,7 @@ private struct ComparisonUnavailableView: View {
 /// thread (Data is Sendable), then hand them to `NSImage(data:)` back
 /// on the main actor — keeps the heavy I/O off the main thread without
 /// dragging non-Sendable `NSImage` across an actor boundary.
+@MainActor
 private func loadImage(at path: String) async -> NSImage? {
     let data = await Task.detached(priority: .userInitiated) {
         try? Data(contentsOf: URL(fileURLWithPath: path))
