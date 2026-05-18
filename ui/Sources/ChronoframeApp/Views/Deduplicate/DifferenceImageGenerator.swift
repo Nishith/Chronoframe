@@ -11,6 +11,7 @@ enum DifferenceImageGenerator {
     /// pipeline can cross the actor boundary under Swift 6 strict
     /// concurrency. Callers wrap it as `NSImage(cgImage:size:)` on
     /// the main actor.
+    @MainActor
     static func generate(
         leftURL: URL,
         rightURL: URL,

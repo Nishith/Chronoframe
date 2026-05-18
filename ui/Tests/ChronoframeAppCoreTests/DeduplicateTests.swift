@@ -1733,6 +1733,111 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: outsideOriginal.path))
     }
 
+    /// Codex P1 review: a tampered receipt can specify
+    /// `additionalSourceRoots: ["/"]` (or `/etc`, `/System`, …) to make
+    /// the revert containment check pass for arbitrary `originalPath`
+    /// values and exfiltrate Trash items into system locations. The
+    /// reader now validates each entry against a trusted-parents
+    /// allowlist before honoring it.
+    func testRevertRejectsAdditionalSourceRootsPointingAtSystemPaths() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeRootInjection-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        // The attacker's target: a path the legitimate destination
+        // would never accept (the destination's grandparent's
+        // parent — outside the trusted neighborhood).
+        let outsideOriginal = URL(fileURLWithPath: "/etc/chronoframe-injected-\(UUID().uuidString).jpg")
+        let fakeTrashURL = temporaryDirectory.appendingPathComponent("fake-trash.jpg")
+        try Data([0xCC]).write(to: fakeTrashURL)
+
+        // Forged receipt: claims `/` as an additional source root so
+        // every `originalPath` would "match" containment.
+        let receipt = DeduplicateAuditReceipt(
+            status: "COMPLETED",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            destinationRoot: temporaryDirectory.path,
+            additionalSourceRoots: ["/", "/etc"],
+            items: [
+                DeduplicateAuditReceipt.Item(
+                    originalPath: outsideOriginal.path,
+                    sizeBytes: 1,
+                    trashURL: fakeTrashURL.absoluteString,
+                    method: .trash,
+                    clusterID: UUID(),
+                    clusterKind: .burst
+                )
+            ],
+            bytesReclaimed: 1
+        )
+        let receiptURL = temporaryDirectory.appendingPathComponent("forged.json")
+        try JSONEncoder.dedupe.encode(receipt).write(to: receiptURL)
+
+        var failures: [(path: String, message: String)] = []
+        var summary: DeduplicateCommitSummary?
+        for try await event in DeduplicateExecutor().revert(receiptURL: receiptURL) {
+            switch event {
+            case let .itemFailed(path, message):
+                failures.append((path, message))
+            case let .complete(revertSummary):
+                summary = revertSummary
+            default:
+                break
+            }
+        }
+
+        // Both injected roots must be reported as unsafe BEFORE any
+        // item is processed.
+        XCTAssertTrue(failures.contains { $0.path == "/" })
+        XCTAssertTrue(failures.contains { $0.path == "/etc" })
+        // The actual revert item must fail with the standard
+        // out-of-boundary error since neither injected root made it
+        // into `allBoundaries`.
+        XCTAssertTrue(
+            failures.contains {
+                $0.path == outsideOriginal.path
+                    && $0.message.contains("outside the dedupe destination")
+            },
+            "Revert must refuse to restore into a system path even when the receipt names that path's parent as a source root."
+        )
+        // The trash URL must remain untouched and the system path
+        // must not exist (the attack was blocked).
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fakeTrashURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outsideOriginal.path))
+        XCTAssertEqual(summary?.deletedCount, 0)
+    }
+
+    /// Sibling-folder dedupe (e.g., destination at
+    /// `/Users/x/Photos/Library`, additional source at
+    /// `/Users/x/Photos/Archive`) is the legitimate use case the
+    /// `additionalSourceRoots` field exists for, so the allowlist
+    /// must NOT reject paths that share the destination's parent.
+    func testRevertAcceptsAdditionalSourceRootThatLivesNextToDestination() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeSibling-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let destination = temporaryDirectory.appendingPathComponent("dest", isDirectory: true)
+        let siblingSource = temporaryDirectory.appendingPathComponent("sibling", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: siblingSource, withIntermediateDirectories: true)
+        // The candidate root must EXIST — the validator rejects
+        // missing roots.
+        XCTAssertTrue(DeduplicateExecutor.isPlausibleSourceRoot(
+            siblingSource.path,
+            near: destination
+        ))
+
+        // And blocklisted paths are always refused, even when they
+        // appear to be in the same neighborhood.
+        XCTAssertFalse(DeduplicateExecutor.isPlausibleSourceRoot("/", near: destination))
+        XCTAssertFalse(DeduplicateExecutor.isPlausibleSourceRoot("/etc", near: destination))
+        XCTAssertFalse(DeduplicateExecutor.isPlausibleSourceRoot("/System", near: destination))
+        XCTAssertFalse(DeduplicateExecutor.isPlausibleSourceRoot("/Volumes", near: destination))
+    }
+
     func testRevertUsesCallerBoundaryInsteadOfReceiptDestinationRoot() async throws {
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("DedupeCallerBoundary-\(UUID().uuidString)")
