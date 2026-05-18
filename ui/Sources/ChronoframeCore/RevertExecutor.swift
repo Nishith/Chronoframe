@@ -39,17 +39,26 @@ public struct RevertReceiptTransfer: Equatable, Codable, Sendable {
 }
 
 public struct RevertReceipt: Equatable, Codable, Sendable {
+    /// Highest schemaVersion this reader understands. The writer emits
+    /// `"schemaVersion": 2` today. Receipts that omit the field
+    /// (legacy v1 shape, no `status`) are accepted because every field
+    /// the reader cares about is optional or unchanged.
+    public static let maxSupportedSchemaVersion: Int = 2
+
+    public let schemaVersion: Int?
     public let timestamp: String?
     public let status: String?
     public let totalJobs: Int?
     public let transfers: [RevertReceiptTransfer]
 
     public init(
+        schemaVersion: Int? = nil,
         timestamp: String? = nil,
         status: String? = nil,
         totalJobs: Int? = nil,
         transfers: [RevertReceiptTransfer]
     ) {
+        self.schemaVersion = schemaVersion
         self.timestamp = timestamp
         self.status = status
         self.totalJobs = totalJobs
@@ -57,6 +66,7 @@ public struct RevertReceipt: Equatable, Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case schemaVersion
         case timestamp
         case status
         case totalJobs = "total_jobs"
@@ -65,6 +75,7 @@ public struct RevertReceipt: Equatable, Codable, Sendable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion)
         self.timestamp = try container.decodeIfPresent(String.self, forKey: .timestamp)
         self.status = try container.decodeIfPresent(String.self, forKey: .status)
         self.totalJobs = try container.decodeIfPresent(Int.self, forKey: .totalJobs)
@@ -121,6 +132,7 @@ public enum RevertExecutorError: LocalizedError, Equatable {
     case receiptNotFound(path: String)
     case receiptUnreadable(path: String, reason: String)
     case invalidReceipt(reason: String)
+    case unsupportedSchema(version: Int)
 
     public var errorDescription: String? {
         switch self {
@@ -130,6 +142,8 @@ public enum RevertExecutorError: LocalizedError, Equatable {
             return "Chronoframe could not open this revert receipt. Check that the file is still available and try again. Receipt: \(path). Details: \(reason)"
         case let .invalidReceipt(reason):
             return "Chronoframe could not read this revert receipt. Choose a different receipt or run a new transfer. Details: \(reason)"
+        case let .unsupportedSchema(version):
+            return "This revert receipt was created by a newer version of Chronoframe (schema v\(version)). Update Chronoframe to revert it."
         }
     }
 }
@@ -179,13 +193,25 @@ public struct RevertExecutor: Sendable {
             )
         }
 
+        let receipt: RevertReceipt
         do {
-            return try JSONDecoder().decode(RevertReceipt.self, from: data)
+            receipt = try JSONDecoder().decode(RevertReceipt.self, from: data)
         } catch {
             throw RevertExecutorError.invalidReceipt(
                 reason: "Malformed JSON: \(error.localizedDescription)"
             )
         }
+
+        // Phase 1 finding #6: reject receipts whose schemaVersion is
+        // greater than this reader understands. The previous decoder
+        // silently dropped the unknown field and treated everything as
+        // v2 — a future writer change that altered `hash` semantics
+        // would silently mis-revert. Receipts without a schemaVersion
+        // (legacy v1 shape) are still accepted.
+        if let version = receipt.schemaVersion, version > RevertReceipt.maxSupportedSchemaVersion {
+            throw RevertExecutorError.unsupportedSchema(version: version)
+        }
+        return receipt
     }
 
     /// Move a corrupt receipt out of the way so it stops appearing as a

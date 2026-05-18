@@ -357,12 +357,22 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func acceptAllSuggestions() {
+        // Phase 1 finding #10: scope this to *automatically eligible*
+        // clusters (high-confidence) only, matching the AGENTS.md
+        // invariant that non-exact / weak matches stay review-only
+        // until the user explicitly approves them. The previous
+        // implementation approved every cluster regardless of
+        // confidence, so a user clicking "Accept all suggestions"
+        // would silently commit low/medium-confidence preselects on
+        // commit.
+        let eligibleClusters = clusters.filter(DeduplicationPlanner.isAutomaticCommitEligible)
+        guard !eligibleClusters.isEmpty else { return }
         var byPath = decisions.byPath
-        for (path, decision) in suggestedDecisions(for: clusters).byPath {
+        for (path, decision) in suggestedDecisions(for: eligibleClusters).byPath {
             byPath[path] = decision
         }
         decisions = DedupeDecisions(byPath: byPath)
-        approvedClusterIDs.formUnion(clusters.map(\.id))
+        approvedClusterIDs.formUnion(eligibleClusters.map(\.id))
     }
 
     // MARK: - Confidence Triage
@@ -481,9 +491,24 @@ public final class DeduplicateSessionStore: ObservableObject {
             phaseTotal = total
         case .itemTrashed:
             phaseCompleted += 1
+        case let .itemTrashedReceiptStale(_, _, _, message):
+            // Phase 1 finding #7: the file IS in Trash but the
+            // per-item receipt write failed. Surface a warning rather
+            // than an error — the user's intent succeeded; only the
+            // audit trail is stale. Still advances the progress counter
+            // so the UI doesn't appear stuck.
+            issues.append(DeduplicateIssue(
+                severity: .warning,
+                message: "File was moved to Trash, but the audit receipt could not be updated: \(message)"
+            ))
+            phaseCompleted += 1
         case let .itemFailed(_, message):
             issues.append(DeduplicateIssue(severity: .error, message: message))
             phaseCompleted += 1
+        case let .criticalReceiptFailure(message):
+            // End-of-run finalize failure. Surfaces once per run with
+            // no per-item path attached.
+            issues.append(DeduplicateIssue(severity: .error, message: message))
         case let .complete(summary):
             commitSummary = summary
             if !isHandlingRevert, let destinationPath = activeCommitConfiguration?.destinationPath {

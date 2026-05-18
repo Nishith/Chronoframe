@@ -85,7 +85,13 @@ public final class PreviewReviewStore: ObservableObject {
             return
         }
 
-        guard artifactPath != self.artifactPath else {
+        // Phase 1: when the user edits a preview item and clicks Save,
+        // the preview is rebuilt to the SAME artifact path (same dry-run
+        // CSV name when parameters are unchanged). `isStale` is the
+        // signal that the on-disk artifact has fresh content even though
+        // the path didn't change. Without this guard, the short-circuit
+        // skips the reload and the UI keeps showing pre-edit items.
+        guard artifactPath != self.artifactPath || isStale else {
             self.destinationRoot = destinationRoot
             return
         }

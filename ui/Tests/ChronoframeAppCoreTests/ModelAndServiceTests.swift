@@ -60,12 +60,20 @@ final class ModelAndServiceTests: XCTestCase {
         service.revealInFinder("")
     }
 
+    /// Phase 1 finding #5 regression: a corrupt bookmark used to
+    /// produce a fabricated `URL(fileURLWithPath: bookmark.path)`
+    /// fallback that callers couldn't tell apart from a real resolution.
+    /// `startAccessingSecurityScopedResource` returned false on that
+    /// URL, so sandboxed runs hit `EPERM` deep in file enumeration with
+    /// no clear diagnosis. `resolveBookmark` now returns `nil` instead,
+    /// letting callers explicitly drop the stale bookmark and prompt
+    /// for a re-pick.
     @MainActor
-    func testFolderAccessServiceFallsBackForInvalidBookmark() {
+    func testFolderAccessServiceReturnsNilForInvalidBookmark() {
         let service = FolderAccessService()
         let bookmark = FolderBookmark(key: "manual.source", path: "/tmp/fallback", data: Data([0x00, 0x01]))
 
-        XCTAssertEqual(service.resolveBookmark(bookmark)?.url.path, "/tmp/fallback")
+        XCTAssertNil(service.resolveBookmark(bookmark))
     }
 
     @MainActor

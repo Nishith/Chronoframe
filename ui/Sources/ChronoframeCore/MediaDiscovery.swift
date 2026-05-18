@@ -217,6 +217,18 @@ public enum MediaDiscovery {
         return partition.directories + partition.files
     }
 
+    /// Returns true when `url` should NOT participate in drop-manifest
+    /// traversal: it's a symbolic link, an app bundle, a package, or
+    /// otherwise outside what the filesystem walk would accept as a
+    /// child. Mirrors the children-filter in `partitionedChildren` so
+    /// the drop-intake path enforces the same documented invariant.
+    private static func isManifestEntryFiltered(url: URL) -> Bool {
+        let resourceValues = try? url.resourceValues(forKeys: [.isSymbolicLinkKey, .isPackageKey])
+        if resourceValues?.isSymbolicLink == true { return true }
+        if resourceValues?.isPackage == true { return true }
+        return false
+    }
+
     private static func readDropManifest(at rootURL: URL) -> DropManifestLookup {
         let manifestURL = rootURL.appendingPathComponent(dropManifestFilename)
         // Distinguish "manifest is absent" (no `.chronoframe_drop_manifest.json`
@@ -246,6 +258,24 @@ public enum MediaDiscovery {
             try throwIfCancelled(isCancelled)
             let url = URL(fileURLWithPath: item.path).standardizedFileURL
             guard seen.insert(url.path).inserted else { continue }
+
+            // Phase 1 finding #9: apply the same filter the
+            // filesystem walk applies to its children. `walk()` only
+            // filters CHILDREN — not the root it was given — so
+            // without an explicit check here, a manifest entry like
+            // `~/Pictures/Photos Library.photoslibrary` (a package /
+            // photo library) is descended into and library-internal
+            // masters get queued as source files. The documented
+            // invariant in AGENTS.md is that traversal must not
+            // follow packages or photo libraries.
+            if isManifestEntryFiltered(url: url) {
+                onDirectoryIssue?(DirectoryIssue(
+                    path: url.path,
+                    message: "Skipped: drop targets cannot be symlinks, app bundles, packages, or photo libraries."
+                ))
+                continue
+            }
+
             if item.isDirectory {
                 try walk(directoryURL: url, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: visitFilePath)
             } else if !url.lastPathComponent.hasPrefix("."),

@@ -158,6 +158,27 @@ final class HistoryStoreTests: XCTestCase {
         )
     }
 
+    /// Phase 1 finding #4 regression: `refresh("")` (called on
+    /// profile-clear and similar setup-clearing flows) must NOT wipe a
+    /// previously-loaded valid `destinationRoot`. Downstream callers
+    /// (revert, transferred-sources log) treat
+    /// `historyStore.destinationRoot` as the implicit "where receipts
+    /// live" handle and break when it's silently zeroed.
+    func testRefreshDoesNotWipePreviouslyLoadedDestinationRootForEmptyInput() {
+        let indexer = MockRunHistoryIndexer(result: .success([
+            RunHistoryEntry(kind: .runLog, title: "Run Log", path: "/tmp/run.log", createdAt: .distantPast)
+        ]))
+        let store = HistoryStore(indexer: indexer)
+        store.refresh(destinationRoot: "/Volumes/Archive")
+        XCTAssertEqual(store.destinationRoot, "/Volumes/Archive")
+
+        // Both empty and whitespace-only inputs must be no-ops.
+        store.refresh(destinationRoot: "")
+        XCTAssertEqual(store.destinationRoot, "/Volumes/Archive")
+        store.refresh(destinationRoot: "   ")
+        XCTAssertEqual(store.destinationRoot, "/Volumes/Archive")
+    }
+
     func testRefreshRecordsIndexerFailures() {
         let indexer = MockRunHistoryIndexer(result: .failure(MockRunHistoryIndexer.Error.sample))
         let store = HistoryStore(

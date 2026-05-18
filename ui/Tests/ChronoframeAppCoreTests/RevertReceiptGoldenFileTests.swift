@@ -128,23 +128,36 @@ final class RevertReceiptGoldenFileTests: XCTestCase {
     }
     """#
 
-    /// Documents Finding #6: a future writer (schemaVersion 99) emits unknown
-    /// fields. The current reader silently drops them and decodes the receipt
-    /// as if it were v2. If `identityScheme` semantics change so that "hash"
-    /// is no longer BLAKE2b, an in-the-wild v2 reader will mis-revert (hashes
-    /// will never match, every transfer becomes "preserved").
-    ///
-    /// When the schemaVersion gate lands, change this test to assert a typed
-    /// `unsupportedSchema(version: 99)` error and remove the documentation.
-    func testCurrentDecoderSilentlyAcceptsUnknownFutureSchemaVersion() throws {
+    /// Finding #6 is now FIXED. `RevertExecutor.loadReceipt` rejects
+    /// receipts whose `schemaVersion` is higher than this reader
+    /// understands. The decoder itself still accepts the raw JSON
+    /// (forward-compatible field-dropping is the right Codable
+    /// behavior) — the gate lives at the executor level where it can
+    /// be reported with a user-actionable error.
+    func testLoadReceiptRejectsFutureSchemaVersionWithUnsupportedSchemaError() throws {
+        let tmpURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("v99-receipt-\(UUID().uuidString).json")
+        try Self.v99Receipt.data(using: .utf8)!.write(to: tmpURL)
+        defer { try? FileManager.default.removeItem(at: tmpURL) }
+
+        let executor = RevertExecutor()
+        XCTAssertThrowsError(try executor.loadReceipt(at: tmpURL)) { error in
+            guard case let RevertExecutorError.unsupportedSchema(version) = error else {
+                XCTFail("Expected unsupportedSchema, got \(error)")
+                return
+            }
+            XCTAssertEqual(version, 99)
+        }
+    }
+
+    /// Sanity: the raw decoder still parses v99 JSON and surfaces the
+    /// version. Only the executor-level gate rejects it, so unit-level
+    /// inspection (e.g. for telemetry / migration tooling) still works.
+    func testRawDecoderExposesSchemaVersionField() throws {
         let data = Self.v99Receipt.data(using: .utf8)!
         let receipt = try JSONDecoder().decode(RevertReceipt.self, from: data)
-        XCTAssertEqual(
-            receipt.status, "COMPLETED",
-            "Today's decoder silently treats v99 as decodable. Finding #6: this is the bug."
-        )
+        XCTAssertEqual(receipt.schemaVersion, 99)
         XCTAssertEqual(receipt.transfers.count, 1)
-        XCTAssertEqual(receipt.transfers[0].hash, "1024_future_hash_with_different_algorithm")
     }
 
     // MARK: Malformed shapes the decoder must reject

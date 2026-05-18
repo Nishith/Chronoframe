@@ -42,6 +42,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         return commit(
             plan: plan,
             destinationRoot: configuration.destinationPath,
+            additionalSourceRoots: configuration.additionalSources.map(\.path),
             hardDelete: false
         )
     }
@@ -52,9 +53,14 @@ public final class DeduplicateExecutor: @unchecked Sendable {
     /// event, and every successful mutation contributes a receipt entry
     /// (using its plan-attached cluster ownership — Live Photo MOV halves
     /// and other paired partners are no longer dropped).
+    ///
+    /// `additionalSourceRoots` records any cross-folder scan roots so
+    /// revert can accept items whose `originalPath` lives outside
+    /// `destinationRoot` (Phase 1 finding #8).
     public func commit(
         plan: DeduplicationPlan,
         destinationRoot: String,
+        additionalSourceRoots: [String] = [],
         hardDelete: Bool
     ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         cancelFlag.set(false)
@@ -95,6 +101,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         createdAt: startedAt,
                         finishedAt: nil,
                         destinationRoot: destinationRoot,
+                        additionalSourceRoots: additionalSourceRoots,
                         items: receiptItems,
                         bytesReclaimed: 0,
                         abortReason: nil
@@ -116,12 +123,28 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                     }
                     let url = URL(fileURLWithPath: planItem.path)
 
+                    // Phase 1 finding #7: split trash from receipt write
+                    // so a successful trash + failed receipt update
+                    // doesn't get double-reported as `itemFailed` for
+                    // the SAME path (a false negative: the file is
+                    // really in Trash). Use a distinct event class for
+                    // "trashed but receipt is stale".
+                    let trashedURL: URL?
                     do {
-                        let trashURL = try fileOperations.trashItem(at: url)
-                        deletedCount += 1
-                        bytesReclaimed += planItem.sizeBytes
-                        continuation.yield(.itemTrashed(originalPath: planItem.path, trashURL: trashURL, sizeBytes: planItem.sizeBytes))
-                        receiptItems[index].trashURL = trashURL?.absoluteString
+                        trashedURL = try fileOperations.trashItem(at: url)
+                    } catch {
+                        failedCount += 1
+                        continuation.yield(.itemFailed(
+                            originalPath: planItem.path,
+                            errorMessage: error.localizedDescription
+                        ))
+                        continue
+                    }
+
+                    deletedCount += 1
+                    bytesReclaimed += planItem.sizeBytes
+                    receiptItems[index].trashURL = trashedURL?.absoluteString
+                    do {
                         try Self.writeReceipt(
                             receiptURL: receiptURL,
                             runID: runID,
@@ -129,13 +152,26 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                             createdAt: startedAt,
                             finishedAt: nil,
                             destinationRoot: destinationRoot,
+                            additionalSourceRoots: additionalSourceRoots,
                             items: receiptItems,
                             bytesReclaimed: bytesReclaimed,
                             abortReason: nil
                         )
+                        continuation.yield(.itemTrashed(
+                            originalPath: planItem.path,
+                            trashURL: trashedURL,
+                            sizeBytes: planItem.sizeBytes
+                        ))
                     } catch {
-                        failedCount += 1
-                        continuation.yield(.itemFailed(originalPath: planItem.path, errorMessage: error.localizedDescription))
+                        // File IS in Trash; only the receipt update
+                        // failed. Surface the distinction so the UI
+                        // doesn't tell the user "this file failed".
+                        continuation.yield(.itemTrashedReceiptStale(
+                            originalPath: planItem.path,
+                            trashURL: trashedURL,
+                            sizeBytes: planItem.sizeBytes,
+                            errorMessage: error.localizedDescription
+                        ))
                     }
                 }
 
@@ -149,14 +185,19 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         createdAt: startedAt,
                         finishedAt: Date(),
                         destinationRoot: destinationRoot,
+                        additionalSourceRoots: additionalSourceRoots,
                         items: receiptItems,
                         bytesReclaimed: bytesReclaimed,
                         abortReason: abortReason
                     )
                 } catch {
                     receiptError = error
-                    continuation.yield(.itemFailed(
-                        originalPath: "",
+                    // Phase 1 finding #7: emit a dedicated event for a
+                    // finalize-failure. The previous code reused
+                    // `.itemFailed(originalPath: "", …)` which made any
+                    // listener that treats itemFailed as "this path
+                    // failed" render a phantom row for the empty path.
+                    continuation.yield(.criticalReceiptFailure(
                         errorMessage: "Critical: dedupe audit receipt could not be finalized. The last pending receipt remains in Run History. Details: \(error.localizedDescription)"
                     ))
                 }
@@ -197,9 +238,19 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                     }
                     continuation.yield(.started(totalToDelete: receipt.items.count))
 
-                    let boundaryURL = destinationBoundary
+                    let primaryBoundaryURL = destinationBoundary
                         ?? Self.inferredDestinationBoundary(for: receiptURL)
                         ?? URL(fileURLWithPath: receipt.destinationRoot, isDirectory: true)
+                    // Phase 1 finding #8: cross-folder dedup writes
+                    // items whose `originalPath` is outside
+                    // `destinationRoot`. Accept any of the
+                    // additionalSourceRoots recorded in the receipt as
+                    // a valid containment boundary, in addition to the
+                    // primary one inferred above.
+                    let allBoundaries: [URL] = [primaryBoundaryURL]
+                        + receipt.additionalSourceRoots.map {
+                            URL(fileURLWithPath: $0, isDirectory: true)
+                        }
                     var deletedCount = 0
                     var failedCount = 0
                     var bytesReclaimed: Int64 = 0
@@ -216,10 +267,10 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                             continue
                         }
                         let originalURL = URL(fileURLWithPath: item.originalPath)
-                        guard SafePathContainment.isContained(
-                            originalURL,
-                            in: boundaryURL
-                        ) else {
+                        let isContained = allBoundaries.contains { boundary in
+                            SafePathContainment.isContained(originalURL, in: boundary)
+                        }
+                        guard isContained else {
                             failedCount += 1
                             continuation.yield(.itemFailed(originalPath: item.originalPath, errorMessage: "Receipt path is outside the dedupe destination."))
                             continue
@@ -300,6 +351,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         createdAt: Date,
         finishedAt: Date?,
         destinationRoot: String,
+        additionalSourceRoots: [String] = [],
         items: [DeduplicateAuditReceipt.Item],
         bytesReclaimed: Int64,
         abortReason: String?
@@ -310,6 +362,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
             createdAt: createdAt,
             finishedAt: finishedAt,
             destinationRoot: destinationRoot,
+            additionalSourceRoots: additionalSourceRoots,
             items: items,
             bytesReclaimed: bytesReclaimed,
             abortReason: abortReason

@@ -85,9 +85,84 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
         paths.map(normalize)
     }
 
+    /// Phase 1 finding #9 regression: the drop-manifest path used to
+    /// descend into any directory the manifest named — including
+    /// symbolic links, app bundles, and `.photoslibrary` packages —
+    /// because `walk()` only filtered the children, not the root it
+    /// was given. The fix applies the same symlink/package screen to
+    /// each manifest entry and emits a `DirectoryIssue` for skipped
+    /// ones.
+    func testDropManifestSkipsPackageDirectoriesAndEmitsDirectoryIssue() throws {
+        // Build a fake `.photoslibrary` package containing a JPEG that
+        // would be discovered if the manifest were honored blindly.
+        let library = temporaryDirectoryURL.appendingPathComponent("Fake Library.photoslibrary", isDirectory: true)
+        let originals = library.appendingPathComponent("originals", isDirectory: true)
+        try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
+        try Data("payload".utf8).write(
+            to: originals.appendingPathComponent("IMG_20240101_010101.jpg")
+        )
+
+        // Stage a manifest pointing at the package as a directory.
+        let stagingDir = temporaryDirectoryURL.appendingPathComponent("stage", isDirectory: true)
+        try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+        let manifest: [String: Any] = [
+            "items": [
+                ["path": library.path, "isDirectory": true]
+            ]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: manifest)
+        try data.write(to: stagingDir.appendingPathComponent(".chronoframe_drop_manifest.json"))
+
+        var issues: [MediaDiscovery.DirectoryIssue] = []
+        let discovered = try MediaDiscovery.discoverMediaFiles(
+            at: stagingDir,
+            onDirectoryIssue: { issue in
+                Task { @MainActor in /* keep signature sendable; no-op store */ }
+                _ = issue
+            }
+        )
+        XCTAssertTrue(discovered.isEmpty,
+            "Package entries in the drop manifest must not produce discovered files")
+
+        // Re-run with a synchronous collector to verify the issue is emitted.
+        let collected = LockedIssues()
+        _ = try MediaDiscovery.discoverMediaFiles(
+            at: stagingDir,
+            onDirectoryIssue: { collected.append($0) }
+        )
+        let issuePaths = collected.values.map(\.path)
+        XCTAssertTrue(
+            issuePaths.contains { $0.hasSuffix("Fake Library.photoslibrary") },
+            "Expected a DirectoryIssue for the skipped .photoslibrary; got \(issuePaths)"
+        )
+        XCTAssertTrue(
+            collected.values.allSatisfy { $0.message.contains("package") || $0.message.contains("symlink") || $0.message.contains("photo libraries") },
+            "Issue message should explain why the entry was skipped"
+        )
+        _ = issues // silence unused warning
+    }
+
     private func normalize(_ path: String) -> String {
         let absolute = URL(fileURLWithPath: path).standardizedFileURL.path
         let root = temporaryDirectoryURL.standardizedFileURL.path + "/"
         return absolute.replacingOccurrences(of: root, with: "")
+    }
+}
+
+/// Thread-safe issue collector for the @Sendable callback boundary.
+private final class LockedIssues: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [MediaDiscovery.DirectoryIssue] = []
+
+    var values: [MediaDiscovery.DirectoryIssue] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    func append(_ issue: MediaDiscovery.DirectoryIssue) {
+        lock.lock()
+        storage.append(issue)
+        lock.unlock()
     }
 }

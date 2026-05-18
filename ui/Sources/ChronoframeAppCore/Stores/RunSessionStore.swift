@@ -312,6 +312,17 @@ public final class RunSessionStore: ObservableObject {
                 artifacts: artifacts
             )
         }
+        // Phase 1: a pending confirm-prompt was previously left in
+        // place when the user cancelled from the Run workspace, so the
+        // confirm dialog would stay modal over an already-cancelled
+        // run. Clear it so the UI resets cleanly. Also drop the
+        // preflight status if we were sitting on it — the prior path
+        // only cleared status when `isRunning` was already true.
+        prompt = nil
+        if status == .preflighting {
+            status = .idle
+            currentTaskTitle = ""
+        }
         closeSecurityScope()
     }
 

@@ -65,16 +65,22 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
         ])
         let stream = executor.commit(plan: plan, destinationRoot: dst.path, hardDelete: false)
 
-        var trashedPaths: [String] = []
+        var trashedSuccessPaths: [String] = []
+        var trashedStalePaths: [(path: String, message: String)] = []
         var failedEvents: [(path: String, message: String)] = []
+        var criticalReceiptMessages: [String] = []
         var summary: DeduplicateCommitSummary?
         do {
             for try await event in stream {
                 switch event {
                 case let .itemTrashed(originalPath, _, _):
-                    trashedPaths.append(originalPath)
+                    trashedSuccessPaths.append(originalPath)
+                case let .itemTrashedReceiptStale(originalPath, _, _, message):
+                    trashedStalePaths.append((originalPath, message))
                 case let .itemFailed(originalPath, message):
                     failedEvents.append((originalPath, message))
+                case let .criticalReceiptFailure(message):
+                    criticalReceiptMessages.append(message)
                 case .complete(let s):
                     summary = s
                 default: break
@@ -84,30 +90,32 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
             // Receipt finalize also fails; expected when logs dir is revoked.
         }
 
-        XCTAssertEqual(trashedPaths, [target.path], "the trash itself succeeded once for the real path")
-
-        // Finding #7 (extended shape): the executor emits TWO itemFailed
-        // events for a single trashed file when the logs directory becomes
-        // unwritable mid-run:
-        //   1. The per-item catch fires with originalPath=<victim path>,
-        //      even though the trash itself succeeded.
-        //   2. The finalize catch fires with originalPath="" — a phantom
-        //      failure event for no specific file. UI listeners that treat
-        //      `itemFailed` as "this file failed" will render a ghost row.
-        XCTAssertEqual(failedEvents.count, 2,
-            "Finding #7: receipt-revocation produces a per-item false-negative AND a phantom empty-path event.")
-        XCTAssertTrue(
-            failedEvents.contains(where: { $0.path == target.path }),
-            "First itemFailed should re-tag the already-trashed file as failed (false negative)."
-        )
-        XCTAssertTrue(
-            failedEvents.contains(where: { $0.path == "" && $0.message.contains("Critical") }),
-            "Second itemFailed is the finalize-failure event with originalPath=\"\"."
-        )
+        // Phase 1 finding #7 (now FIXED): the trash succeeded, so we
+        // never emit a false-negative `itemFailed` for the victim path.
+        // Instead the executor emits a dedicated
+        // `itemTrashedReceiptStale` event so UI listeners can show "in
+        // Trash, receipt stale" rather than "this file failed". The
+        // finalize-failure also gets its own event class
+        // (`criticalReceiptFailure`) — no more phantom empty-path
+        // itemFailed rows.
+        XCTAssertTrue(trashedSuccessPaths.isEmpty,
+            "Trash should NOT be reported as a clean success when the receipt write failed.")
+        XCTAssertEqual(trashedStalePaths.count, 1,
+            "Trash success + receipt failure should produce one itemTrashedReceiptStale event.")
+        XCTAssertEqual(trashedStalePaths.first?.path, target.path)
+        XCTAssertTrue(failedEvents.isEmpty,
+            "Should NOT emit itemFailed for a path whose trash succeeded.")
+        XCTAssertEqual(criticalReceiptMessages.count, 1,
+            "Finalize failure should produce exactly one criticalReceiptFailure event.")
+        XCTAssertTrue(criticalReceiptMessages[0].contains("Critical"))
 
         let s = try XCTUnwrap(summary)
-        XCTAssertEqual(s.deletedCount, 1, "deletedCount correctly counts the real trash")
-        XCTAssertEqual(s.failedCount, 2, "failedCount double-counts: 1 false-negative + 1 finalize")
+        XCTAssertEqual(s.deletedCount, 1)
+        // failedCount no longer double-counts. The receipt finalize
+        // failure still increments by 1 (legacy behavior preserved so
+        // callers that read the summary see "something went wrong"),
+        // but it's accounted exactly once.
+        XCTAssertEqual(s.failedCount, 1)
 
         // Restore permissions so tearDown can clean up.
         try? chmod(dst.appendingPathComponent(".organize_logs").path, 0o755)

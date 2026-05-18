@@ -405,6 +405,17 @@ public enum DeduplicateCommitEvent: Sendable {
     case started(totalToDelete: Int)
     case itemTrashed(originalPath: String, trashURL: URL?, sizeBytes: Int64)
     case itemFailed(originalPath: String, errorMessage: String)
+    /// The file WAS moved to Trash, but the per-item receipt update
+    /// failed (e.g., logs directory became unwritable mid-run). The
+    /// file is in Trash; the on-disk receipt is now stale relative to
+    /// reality. Distinct from `itemFailed` so UI listeners don't
+    /// render this as "this file failed" — that's a false negative.
+    /// Phase 1 finding #7.
+    case itemTrashedReceiptStale(originalPath: String, trashURL: URL?, sizeBytes: Int64, errorMessage: String)
+    /// Receipt could not be finalized at end-of-run. Distinct from
+    /// `itemFailed` (which used to be emitted with `originalPath: ""`)
+    /// so consumers don't render a ghost row for an empty path.
+    case criticalReceiptFailure(errorMessage: String)
     case complete(DeduplicateCommitSummary)
 }
 
@@ -520,6 +531,12 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
     public var createdAt: Date
     public var finishedAt: Date?
     public var destinationRoot: String
+    /// Phase 1 finding #8: when the scan ran with `additionalSources`,
+    /// some items in `items` will have `originalPath` outside
+    /// `destinationRoot`. Persist the additional root paths so revert
+    /// can accept any of them as a valid containment boundary.
+    /// Optional / absent in legacy (v2 and earlier) receipts.
+    public var additionalSourceRoots: [String]
     public var items: [Item]
     public var bytesReclaimed: Int64
     public var abortReason: String?
@@ -533,19 +550,21 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         case createdAt
         case finishedAt
         case destinationRoot
+        case additionalSourceRoots
         case items
         case bytesReclaimed
         case abortReason
     }
 
     public init(
-        schemaVersion: Int = 2,
+        schemaVersion: Int = 3,
         runID: UUID = UUID(),
         operation: String = "deduplicate",
         status: String = "PENDING",
         createdAt: Date,
         finishedAt: Date? = nil,
         destinationRoot: String,
+        additionalSourceRoots: [String] = [],
         items: [Item],
         bytesReclaimed: Int64,
         abortReason: String? = nil
@@ -558,6 +577,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         self.createdAt = createdAt
         self.finishedAt = finishedAt
         self.destinationRoot = destinationRoot
+        self.additionalSourceRoots = additionalSourceRoots
         self.items = items
         self.bytesReclaimed = bytesReclaimed
         self.abortReason = abortReason
@@ -573,6 +593,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
         self.finishedAt = try container.decodeIfPresent(Date.self, forKey: .finishedAt)
         self.destinationRoot = try container.decode(String.self, forKey: .destinationRoot)
+        self.additionalSourceRoots = try container.decodeIfPresent([String].self, forKey: .additionalSourceRoots) ?? []
         self.items = try container.decodeIfPresent([Item].self, forKey: .items) ?? []
         self.bytesReclaimed = try container.decodeIfPresent(Int64.self, forKey: .bytesReclaimed) ?? 0
         self.abortReason = try container.decodeIfPresent(String.self, forKey: .abortReason)

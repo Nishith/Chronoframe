@@ -33,13 +33,20 @@ public final class HistoryStore: ObservableObject {
     }
 
     public func refresh(destinationRoot: String) {
-        self.destinationRoot = destinationRoot
+        // Validate the incoming root BEFORE clobbering the prior state.
+        // Phase 1 finding #4: the previous order set `self.destinationRoot
+        // = destinationRoot` first, so calling `refresh("")` (which
+        // happens on profile-clear / setup-clear flows) wiped a
+        // previously-loaded valid root and broke downstream callers that
+        // rely on `historyStore.destinationRoot` as the implicit "where
+        // receipts live" handle.
+        let trimmed = destinationRoot.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        self.destinationRoot = trimmed
         self.entries = []
         self.transferredSources = []
         self.lastRefreshError = nil
-
-        let trimmed = destinationRoot.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
 
         do {
             entries = try indexer.index(destinationRoot: trimmed)
