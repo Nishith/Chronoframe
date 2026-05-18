@@ -104,21 +104,55 @@ public enum CLIParser {
       -h, --help
     """
 
+    /// Recognised flag names. `requireValue` consults this to tell
+    /// "user supplied a value that starts with `-`" (legitimate — paths
+    /// like `/Volumes/-Backup` exist) apart from "user forgot the value
+    /// and the parser would otherwise consume the next flag as a path".
+    private static let knownFlags: Set<String> = [
+        "-h", "--help",
+        "--source", "--dest", "--profile",
+        "--dry-run", "--rebuild-cache", "--skip-verify",
+        "--workers", "-y", "--yes",
+        "--json",
+        "--folder-structure",
+        "--revert",
+        "--start-fresh",
+    ]
+
     public static func parse(_ arguments: [String]) throws -> CLIOptions {
         var options = CLIOptions()
         var index = 0
 
         func requireValue(after flag: String) throws -> String {
             let valueIndex = index + 1
-            guard valueIndex < arguments.count, !arguments[valueIndex].hasPrefix("-") else {
+            guard valueIndex < arguments.count else {
                 throw CLIError.usage("Missing value for \(flag).")
             }
+            let value = arguments[valueIndex]
+            // Reject only when the next arg is itself a known flag — paths
+            // and identifiers that legitimately start with `-` (for example
+            // `/Volumes/-Backup` or a receipt path the user named with a
+            // leading dash) are accepted as values verbatim.
+            if knownFlags.contains(value) {
+                throw CLIError.usage("Missing value for \(flag); got \(value).")
+            }
             index = valueIndex
-            return arguments[valueIndex]
+            return value
         }
 
         while index < arguments.count {
             let argument = arguments[index]
+
+            // Support `--flag=value` form so values containing arbitrary
+            // characters (including a leading `-`) can be passed
+            // unambiguously.
+            if argument.hasPrefix("--"), let eq = argument.firstIndex(of: "=") {
+                let flagName = String(argument[..<eq])
+                let value = String(argument[argument.index(after: eq)...])
+                try applyInlineValue(flagName: flagName, value: value, into: &options)
+                index += 1
+                continue
+            }
 
             switch argument {
             case "-h", "--help":
@@ -162,8 +196,57 @@ public enum CLIParser {
             index += 1
         }
 
+        normalizePaths(&options)
         try validate(options)
         return options
+    }
+
+    /// Applies tilde expansion and Unicode NFC normalization to every
+    /// path option after parsing. Scripts launched outside a shell
+    /// (`launchd`, the Codex environment) pass `~/Photos` verbatim
+    /// rather than the expanded path; APFS returns NFD-decomposed
+    /// filenames while CLI consumers commonly pass NFC — both cases
+    /// produce silently-wrong destinations without normalization.
+    private static func normalizePaths(_ options: inout CLIOptions) {
+        options.sourcePath = options.sourcePath.map(normalizedPath)
+        options.destinationPath = options.destinationPath.map(normalizedPath)
+        options.revertReceiptPath = options.revertReceiptPath.map(normalizedPath)
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        let expanded = (path as NSString).expandingTildeInPath
+        return expanded.precomposedStringWithCanonicalMapping
+    }
+
+    /// Routes a `--flag=value` parse step through the same option-
+    /// assignment path the bare `--flag value` form uses. Throws
+    /// `CLIError.usage` for flags that don't take a value.
+    private static func applyInlineValue(
+        flagName: String,
+        value: String,
+        into options: inout CLIOptions
+    ) throws {
+        switch flagName {
+        case "--source": options.sourcePath = value
+        case "--dest": options.destinationPath = value
+        case "--profile": options.profileName = value
+        case "--workers":
+            guard let workerCount = Int(value) else {
+                throw CLIError.usage("--workers must be an integer.")
+            }
+            options.workerCount = workerCount
+        case "--folder-structure":
+            guard let folderStructure = FolderStructure(rawValue: value) else {
+                throw CLIError.usage("Unsupported folder structure: \(value).")
+            }
+            options.folderStructure = folderStructure
+        case "--revert": options.revertReceiptPath = value
+        case "-h", "--help", "--dry-run", "--rebuild-cache", "--skip-verify",
+             "-y", "--yes", "--json", "--start-fresh":
+            throw CLIError.usage("\(flagName) does not take a value.")
+        default:
+            throw CLIError.usage("Unknown option: \(flagName).")
+        }
     }
 
     private static func validate(_ options: CLIOptions) throws {
@@ -173,8 +256,23 @@ public enum CLIParser {
         }
 
         if options.revertReceiptPath != nil {
-            if options.sourcePath != nil || options.profileName != nil || options.dryRun || options.rebuildCache || options.startFresh {
-                throw CLIError.usage("--revert can be combined only with --dest, --json, --workers, and --yes.")
+            // Positive whitelist: `--revert` is compatible only with the
+            // explicitly-listed flags. The previous deny-list missed
+            // `--skip-verify` and `--folder-structure`, which the revert
+            // path silently ignored.
+            var rejected: [String] = []
+            if options.sourcePath != nil { rejected.append("--source") }
+            if options.profileName != nil { rejected.append("--profile") }
+            if options.dryRun { rejected.append("--dry-run") }
+            if options.rebuildCache { rejected.append("--rebuild-cache") }
+            if options.startFresh { rejected.append("--start-fresh") }
+            if !options.verifyCopies { rejected.append("--skip-verify") }
+            if options.folderStructure != .default { rejected.append("--folder-structure") }
+            if !rejected.isEmpty {
+                throw CLIError.usage(
+                    "--revert can be combined only with --dest, --json, --workers, and --yes. "
+                        + "Incompatible flag(s): \(rejected.joined(separator: ", "))."
+                )
             }
             return
         }
@@ -202,22 +300,47 @@ public struct ChronoframeCLI {
         output: Output = { print($0) },
         input: Input = { readLine() }
     ) async -> Int32 {
+        // Detect `--json` before parsing so error output can be formatted
+        // as a JSON line in every failure mode (including parse errors
+        // for malformed argv). Pipeline consumers in --json mode used to
+        // receive free-form English on stdout, corrupting the parse.
+        let jsonRequested = arguments.contains("--json")
         do {
             let options = try CLIParser.parse(arguments)
             try await run(options: options, output: output, input: input)
             return 0
         } catch let error as CLIError {
             if case .help = error {
+                // --help intentionally bypasses JSON formatting: the help
+                // text is meant for humans and is rendered through the
+                // same channel either way.
                 output(error.localizedDescription)
                 return 0
-            } else if case .usage = error {
-                output(error.localizedDescription)
+            }
+            // PHASE2_FINDINGS.md NEW22 — `.cancelled` deserves its own
+            // exit code so callers can tell "user said no at the prompt"
+            // apart from "argument parse failed". Both used to return 2.
+            if case .cancelled = error {
+                if jsonRequested {
+                    output(JSONLineEmitter.errorLine(kind: "cancelled", message: error.localizedDescription))
+                } else {
+                    output(error.localizedDescription)
+                }
+                return 3
+            }
+            if jsonRequested {
+                output(JSONLineEmitter.errorLine(kind: "usage", message: error.localizedDescription))
             } else {
                 output(error.localizedDescription)
             }
             return 2
         } catch {
-            output(UserFacingErrorMessage.message(for: error))
+            let message = UserFacingErrorMessage.message(for: error)
+            if jsonRequested {
+                output(JSONLineEmitter.errorLine(kind: "operational", message: message))
+            } else {
+                output(message)
+            }
             return 1
         }
     }

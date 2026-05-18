@@ -63,7 +63,11 @@ private enum HistoryFilter: String, CaseIterable, Identifiable {
 }
 
 private struct HistorySection: Identifiable {
-    let id = UUID()
+    // Identify by `date` rather than a fresh UUID per instance, so that
+    // when `groupedEntries` rebuilds (a search-text change, a filter
+    // flip, a store refresh) SwiftUI sees the same identity for an
+    // unchanged section and preserves animation/scroll/hover state.
+    var id: Date { date }
     let date: Date
     let entries: [RunHistoryEntry]
 }

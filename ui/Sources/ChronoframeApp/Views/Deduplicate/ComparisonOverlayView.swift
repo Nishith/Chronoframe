@@ -170,12 +170,12 @@ private struct SliderComparisonView: View {
         }
         .task(id: leftPath) {
             leftFinishedLoading = false
-            leftImage = loadImage(at: leftPath)
+            leftImage = await loadImage(at: leftPath)
             leftFinishedLoading = true
         }
         .task(id: rightPath) {
             rightFinishedLoading = false
-            rightImage = loadImage(at: rightPath)
+            rightImage = await loadImage(at: rightPath)
             rightFinishedLoading = true
         }
     }
@@ -231,7 +231,7 @@ private struct DifferenceComparisonView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(DesignTokens.Spacing.lg)
         .task {
-            differenceImage = DifferenceImageGenerator.generate(
+            differenceImage = await DifferenceImageGenerator.generate(
                 leftURL: URL(fileURLWithPath: leftPath),
                 rightURL: URL(fileURLWithPath: rightPath)
             )
@@ -285,12 +285,12 @@ private struct FlickerComparisonView: View {
         }
         .task(id: leftPath) {
             leftFinishedLoading = false
-            leftImage = loadImage(at: leftPath)
+            leftImage = await loadImage(at: leftPath)
             leftFinishedLoading = true
         }
         .task(id: rightPath) {
             rightFinishedLoading = false
-            rightImage = loadImage(at: rightPath)
+            rightImage = await loadImage(at: rightPath)
             rightFinishedLoading = true
         }
         .onAppear { startFlicker() }
@@ -302,6 +302,13 @@ private struct FlickerComparisonView: View {
     }
 
     private func startFlicker() {
+        // Cancel any previous task before starting a new one. SwiftUI may
+        // call `.onAppear` again before `.onDisappear` runs the
+        // cancellation, and a parent re-evaluation can also drop and
+        // re-create this body — both situations would otherwise leak an
+        // orphaned task that keeps toggling `showingLeft` and doubles
+        // the visible flicker rate.
+        flickerTask?.cancel()
         flickerTask = Task {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
@@ -331,6 +338,13 @@ private struct ComparisonUnavailableView: View {
     }
 }
 
-private func loadImage(at path: String) -> NSImage? {
-    NSImage(contentsOfFile: path)
+/// Asynchronous image loader for the comparison overlays. `NSImage(contentsOfFile:)`
+/// is blocking and can take hundreds of milliseconds to seconds for
+/// multi-megapixel RAW/HEIC inputs; running it inside a MainActor-isolated
+/// `.task { … }` would freeze the UI. Hop to a detached background task
+/// and return the result back to the main actor.
+private func loadImage(at path: String) async -> NSImage? {
+    await Task.detached(priority: .userInitiated) {
+        NSImage(contentsOfFile: path)
+    }.value
 }

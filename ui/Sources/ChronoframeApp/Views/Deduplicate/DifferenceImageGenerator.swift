@@ -3,8 +3,22 @@ import AppKit
 import Foundation
 
 enum DifferenceImageGenerator {
-    @MainActor
-    static func generate(leftURL: URL, rightURL: URL, boostFactor: Double = 3.0) -> NSImage? {
+    /// Asynchronous entry point. Runs the Core Image pipeline on a
+    /// detached background task so multi-megapixel inputs don't block
+    /// the main thread while the spinner is supposed to be visible.
+    static func generate(
+        leftURL: URL,
+        rightURL: URL,
+        boostFactor: Double = 3.0
+    ) async -> NSImage? {
+        await Task.detached(priority: .userInitiated) {
+            generateBlocking(leftURL: leftURL, rightURL: rightURL, boostFactor: boostFactor)
+        }.value
+    }
+
+    /// Synchronous body — package-internal for direct testing without a
+    /// concurrency layer. Production code should call `generate(...)`.
+    static func generateBlocking(leftURL: URL, rightURL: URL, boostFactor: Double = 3.0) -> NSImage? {
         guard let leftCI = CIImage(contentsOf: leftURL),
               let rightCI = CIImage(contentsOf: rightURL) else {
             return nil

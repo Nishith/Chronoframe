@@ -313,6 +313,42 @@ final class FileSystemMonitorTests: XCTestCase {
         monitor.stop()
     }
 
+    /// Regression for PHASE2_FINDINGS.md NEW23 — when a watched root
+    /// disappears (volume ejected, parent dir deleted), the naive diff
+    /// would emit one `isRemoved` event per previously-seen descendant.
+    /// Collapsed flood: single `isRemoved` event on the root itself.
+    func testPollingEventsCollapsesRootDisappearanceIntoOneRemovedEvent() {
+        let previous: [String: Bool] = [
+            "/Volumes/Drive": false,
+            "/Volumes/Drive/photo1.jpg": true,
+            "/Volumes/Drive/photo2.jpg": true,
+            "/Volumes/Drive/nested": false,
+            "/Volumes/Drive/nested/photo3.jpg": true,
+        ]
+        let current: [String: Bool] = [:]  // entire root unmounted
+        let events = FileSystemMonitor.pollingEvents(
+            previous: previous,
+            current: current,
+            roots: ["/Volumes/Drive"]
+        )
+        XCTAssertEqual(events.count, 1, "Disappeared-root flood must collapse")
+        XCTAssertEqual(events[0].path, "/Volumes/Drive")
+        XCTAssertTrue(events[0].isRemoved)
+    }
+
+    /// Sanity: when `roots` isn't passed, behavior matches the
+    /// pre-NEW23 contract — every removed path produces an event.
+    func testPollingEventsWithoutRootsHintProducesPerPathRemovals() {
+        let previous: [String: Bool] = [
+            "/a/file1.jpg": true,
+            "/a/file2.jpg": true,
+        ]
+        let current: [String: Bool] = [:]
+        let events = FileSystemMonitor.pollingEvents(previous: previous, current: current)
+        XCTAssertEqual(events.count, 2)
+        XCTAssertTrue(events.allSatisfy { $0.isRemoved })
+    }
+
     func testPollingEventsReturnsNoEventsForUnchangedSnapshot() {
         let snapshot = [
             "/tmp/folder": false,

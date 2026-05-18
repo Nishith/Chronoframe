@@ -182,8 +182,19 @@ struct RapidTriageView: View {
                 Label("Accept", systemImage: "checkmark.circle")
             }
             .buttonStyle(.borderedProminent)
-            .keyboardShortcut(.rightArrow, modifiers: [])
             .keyboardShortcut(.return, modifiers: [])
+
+            // Stacked `.keyboardShortcut` modifiers on a single Button
+            // collapse to the last one wins, so the right-arrow binding
+            // used to be silently dropped. Use an invisible second
+            // button to register the second shortcut.
+            Button(action: acceptCurrent) {
+                EmptyView()
+            }
+            .keyboardShortcut(.rightArrow, modifiers: [])
+            .opacity(0)
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
         }
         .padding(DesignTokens.Spacing.md)
     }

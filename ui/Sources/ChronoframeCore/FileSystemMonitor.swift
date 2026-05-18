@@ -206,7 +206,11 @@ public final class FileSystemMonitor: @unchecked Sendable {
                 guard let self else { return }
 
                 let nextSnapshot = Self.pollingSnapshot(paths: self.paths)
-                let events = Self.pollingEvents(previous: snapshot, current: nextSnapshot)
+                let events = Self.pollingEvents(
+                    previous: snapshot,
+                    current: nextSnapshot,
+                    roots: self.paths
+                )
                 if !events.isEmpty {
                     let continuation = self.withState { self.continuation }
                     continuation?.yield(events)
@@ -217,9 +221,26 @@ public final class FileSystemMonitor: @unchecked Sendable {
         self.withState { self.pollingTask = task }
     }
 
-    static func pollingEvents(previous: [String: Bool], current: [String: Bool]) -> [FileSystemEvent] {
+    static func pollingEvents(
+        previous: [String: Bool],
+        current: [String: Bool],
+        roots: [String] = []
+    ) -> [FileSystemEvent] {
         let oldPaths = Set(previous.keys)
         let newPaths = Set(current.keys)
+
+        // Detect watched roots that disappeared this tick (volume
+        // ejected, parent directory deleted). The naive diff would
+        // emit one `isRemoved` event per previously-seen descendant —
+        // tens of thousands of bogus events. Collapse the flood into
+        // a single `isRemoved` event on the root itself.
+        let standardizedRoots = roots.map { URL(fileURLWithPath: $0).standardizedFileURL.path }
+        var disappearedRoots: Set<String> = []
+        for root in standardizedRoots {
+            if oldPaths.contains(root) && !newPaths.contains(root) {
+                disappearedRoots.insert(root)
+            }
+        }
 
         var events: [FileSystemEvent] = []
         for path in newPaths.subtracting(oldPaths).sorted() {
@@ -231,6 +252,14 @@ public final class FileSystemMonitor: @unchecked Sendable {
         }
 
         for path in oldPaths.subtracting(newPaths).sorted() {
+            // If this removed path is a descendant of a root that just
+            // disappeared, suppress it — the synthesized root-removed
+            // event covers the whole subtree.
+            let isUnderDisappearedRoot = disappearedRoots.contains { root in
+                path != root && path.hasPrefix(root + "/")
+            }
+            if isUnderDisappearedRoot { continue }
+
             events.append(FileSystemEvent(
                 path: path,
                 isFile: previous[path, default: false],

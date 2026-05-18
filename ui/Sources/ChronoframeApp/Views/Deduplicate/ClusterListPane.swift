@@ -53,6 +53,20 @@ struct ClusterListPane: View {
         }
     }
 
+    /// Pre-aggregate `deletionPlan.items` into a per-cluster byte total
+    /// so each row's recoverable-bytes lookup is O(1) instead of
+    /// O(plan.items). For large dedupe sessions the previous scan-per-
+    /// row approach turned into tens of thousands of comparisons on
+    /// every body re-evaluation.
+    private var recoverableBytesByCluster: [DuplicateCluster.ID: Int64] {
+        var totals: [DuplicateCluster.ID: Int64] = [:]
+        totals.reserveCapacity(clusters.count)
+        for item in deletionPlan.items {
+            totals[item.owningClusterID, default: 0] += item.sizeBytes
+        }
+        return totals
+    }
+
     private func bucketCount(_ filter: ConfidenceFilter) -> Int {
         switch filter {
         case .all: return clusters.count
@@ -75,6 +89,9 @@ struct ClusterListPane: View {
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, DesignTokens.Spacing.xs)
 
+            // Compute the per-cluster aggregate ONCE per body, not
+            // once per visible row. See `recoverableBytesByCluster`.
+            let bytesByCluster = recoverableBytesByCluster
             List(selection: $focusedClusterID) {
                 ForEach(grouped, id: \.0) { kind, list in
                     Section(header: Text("\(kind.title) (\(list.count))")) {
@@ -83,7 +100,7 @@ struct ClusterListPane: View {
                                 cluster: cluster,
                                 decisions: decisions,
                                 isApproved: approvedClusterIDs.contains(cluster.id),
-                                recoverableBytes: recoverableBytes(for: cluster),
+                                recoverableBytes: bytesByCluster[cluster.id] ?? 0,
                                 thumbnailLoader: thumbnailLoader,
                                 onKeepAll: { onKeepAll(cluster) },
                                 onAcceptSuggestion: { onAcceptSuggestion(cluster) },
@@ -104,11 +121,6 @@ struct ClusterListPane: View {
         }
     }
 
-    private func recoverableBytes(for cluster: DuplicateCluster) -> Int64 {
-        deletionPlan.items
-            .filter { $0.owningClusterID == cluster.id }
-            .reduce(0) { $0 + $1.sizeBytes }
-    }
 }
 
 private struct ClusterRow: View {

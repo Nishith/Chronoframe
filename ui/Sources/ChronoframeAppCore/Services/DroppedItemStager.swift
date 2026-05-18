@@ -87,13 +87,17 @@ public struct DroppedItemStager {
         return candidate == root || candidate.hasPrefix(root + "/")
     }
 
-    /// Stages a set of dropped URLs into a fresh symlink directory. If
-    /// exactly one directory was dropped, returns it directly without
-    /// creating a staging directory.
+    /// Stages a set of dropped URLs by writing a JSON manifest into a
+    /// fresh staging directory. `MediaDiscovery.enumerateMediaFiles`
+    /// detects the manifest and walks the listed paths in place of the
+    /// staging directory itself, so the dropped items participate in
+    /// the regular pipeline without our having to copy or symlink them.
+    /// If exactly one directory was dropped, returns it directly
+    /// without creating a staging directory.
     ///
     /// The caller is responsible for passing the result to `setupStore`
-    /// (and optionally calling `cleanupExistingStagingDirectories()` on
-    /// app launch to reclaim disk space from previous sessions).
+    /// (and optionally calling `cleanupAllStagingDirectories()` on app
+    /// launch to reclaim disk space from previous sessions).
     public func stage(urls: [URL], at date: Date = Date()) throws -> StagedDrop {
         let unique = dedupedResolved(urls: urls)
         guard !unique.isEmpty else { throw DroppedItemStagerError.noItems }
@@ -138,7 +142,7 @@ public struct DroppedItemStager {
     }
 
     /// Removes *all* previous staging directories. Safe to call on app
-    /// launch; leftover staging symlink dirs are never needed across
+    /// launch; leftover staging manifest dirs are never needed across
     /// sessions (the source transfers already happened, or were never
     /// committed).
     public func cleanupAllStagingDirectories() {

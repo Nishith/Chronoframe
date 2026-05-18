@@ -265,6 +265,12 @@ private final class ContactSheetLoader: ObservableObject {
         phase = .loading
         let urls = await Self.findMediaFiles(in: trimmed, limit: ContactSheetThumbnailPipeline.candidateLimit(for: count))
 
+        // Bail if the user moved on to a different source while the
+        // file enumeration was running. Without this check, a slow
+        // walk over the old source can publish stale thumbnails on top
+        // of the new source's grid.
+        guard trimmed == lastSource, !Task.isCancelled else { return }
+
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let size = CGSize(width: cellSize * 2, height: cellSize * 2)
         let imageData = await ContactSheetThumbnailPipeline.loadThumbnailData(
@@ -273,6 +279,9 @@ private final class ContactSheetLoader: ObservableObject {
             size: size,
             scale: scale
         )
+
+        // And again after the thumbnail pipeline completes.
+        guard trimmed == lastSource, !Task.isCancelled else { return }
 
         for (index, data) in imageData.prefix(count).enumerated() {
             if let image = NSImage(data: data) {
