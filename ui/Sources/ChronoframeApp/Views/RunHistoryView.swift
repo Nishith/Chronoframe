@@ -1,6 +1,7 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import Charts
 import SwiftUI
 
 private enum HistoryFilter: String, CaseIterable, Identifiable {
@@ -95,6 +96,10 @@ struct RunHistoryView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                 headerStrip
+
+                if !heroStripIsEmpty {
+                    heroStrip
+                }
 
                 if let error = historyStore.lastRefreshError, !error.isEmpty {
                     refreshErrorStrip(error)
@@ -208,6 +213,125 @@ struct RunHistoryView: View {
                 : "Run a preview or transfer to build the first entries in this archive."
         }
         return "\(historyStore.entries.count) artifacts · \(historyStore.transferredSources.count) reusable sources."
+    }
+
+    // MARK: - Hero strip (P1.3)
+
+    /// Returns true when there isn't enough archive data to render a meaningful
+    /// hero strip — e.g. no completed transfers yet. Keeps the empty
+    /// destination state quiet rather than showing "0 frames archived".
+    private var heroStripIsEmpty: Bool {
+        receiptEntries.isEmpty && totalFramesArchived == 0
+    }
+
+    private var heroStrip: some View {
+        DarkroomPanel(variant: .panel) {
+            HStack(alignment: .center, spacing: DesignTokens.Spacing.lg) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(totalFramesArchived.formatted())
+                        .font(DesignTokens.Typography.display)
+                        .monospacedDigit()
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                        .contentTransition(.numericText())
+
+                    Text("frames archived")
+                        .font(DesignTokens.Typography.label)
+                        .tracking(0.8)
+                        .textCase(.uppercase)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+
+                    Text(sinceLabel)
+                        .font(DesignTokens.Typography.body)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                }
+                .frame(maxWidth: 220, alignment: .leading)
+
+                Divider()
+                    .frame(height: 84)
+
+                sparkline
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(receiptEntries.count) runs.")
+    }
+
+    /// Cumulative count of completed-run receipts over time. Renders an area
+    /// chart on top of a line for visual weight; uses the muted accent action
+    /// tone so it doesn't compete with the destination filter pills below.
+    private var sparkline: some View {
+        let points = sparklinePoints
+        return Chart {
+            ForEach(points) { point in
+                AreaMark(
+                    x: .value("Date", point.date),
+                    y: .value("Runs", point.cumulative)
+                )
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            DesignTokens.ColorSystem.accentAction.opacity(0.35),
+                            DesignTokens.ColorSystem.accentAction.opacity(0.04)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                LineMark(
+                    x: .value("Date", point.date),
+                    y: .value("Runs", point.cumulative)
+                )
+                .interpolationMethod(.monotone)
+                .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+                .lineStyle(StrokeStyle(lineWidth: 1.5))
+            }
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartPlotStyle { plot in
+            plot.padding(.vertical, 4)
+        }
+        .frame(height: 84)
+    }
+
+    private var totalFramesArchived: Int {
+        historyStore.transferredSources.reduce(0) { $0 + $1.totalCopiedCount }
+    }
+
+    private var sinceLabel: String {
+        guard let earliest = receiptEntries.last?.createdAt else {
+            return "—"
+        }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        return "Since \(formatter.string(from: earliest)) · \(receiptEntries.count) run\(receiptEntries.count == 1 ? "" : "s")"
+    }
+
+    private var receiptEntries: [RunHistoryEntry] {
+        historyStore.entries
+            .filter {
+                $0.kind == .auditReceipt
+                    || $0.kind == .dedupeAuditReceipt
+                    || $0.kind == .reorganizeAuditReceipt
+            }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    private var sparklinePoints: [SparklinePoint] {
+        // Process oldest -> newest so the cumulative line trends up.
+        let chronological = receiptEntries.sorted { $0.createdAt < $1.createdAt }
+        var cumulative = 0
+        return chronological.map { entry in
+            cumulative += 1
+            return SparklinePoint(date: entry.createdAt, cumulative: cumulative)
+        }
+    }
+
+    private struct SparklinePoint: Identifiable {
+        let date: Date
+        let cumulative: Int
+        var id: Date { date }
     }
 
     private func refreshErrorStrip(_ message: String) -> some View {
@@ -484,7 +608,13 @@ struct RunHistoryView: View {
     }
 
     private func artifactRow(for entry: RunHistoryEntry) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
+        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
+            Circle()
+                .fill(ribbonTint(for: entry.kind))
+                .frame(width: 6, height: 6)
+                .padding(.top, 4)
+                .accessibilityHidden(true)
+
             Image(systemName: entry.kind.systemImage)
                 .font(.system(size: 14))
                 .foregroundStyle(tint(for: entry.kind))
@@ -602,6 +732,20 @@ struct RunHistoryView: View {
             return DesignTokens.ColorSystem.accentWaypoint
         case .queueDatabase:
             return DesignTokens.ColorSystem.statusActive
+        }
+    }
+
+    /// Status-tinted dot for the artifact ribbon. Green for completed
+    /// transfers/dedupe/reorganize that wrote a receipt; amber for in-flight
+    /// or partial states (previews, logs); muted for everything else.
+    private func ribbonTint(for kind: RunHistoryEntryKind) -> SwiftUI.Color {
+        switch kind {
+        case .auditReceipt, .dedupeAuditReceipt, .reorganizeAuditReceipt:
+            return DesignTokens.ColorSystem.statusSuccess
+        case .dryRunReport, .csvArtifact, .jsonArtifact:
+            return DesignTokens.ColorSystem.accentAction
+        case .runLog, .queueDatabase:
+            return DesignTokens.ColorSystem.inkMuted
         }
     }
 }
