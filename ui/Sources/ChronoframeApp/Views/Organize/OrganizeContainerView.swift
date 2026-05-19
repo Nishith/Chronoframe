@@ -21,19 +21,36 @@ struct OrganizeContainerView: View {
         self._deduplicateSessionStore = ObservedObject(wrappedValue: appState.deduplicateSessionStore)
     }
 
+    private var setupIsIncomplete: Bool {
+        setupStore.sourcePath.isEmpty || setupStore.destinationPath.isEmpty
+    }
+
+    /// On the Setup tab the hero card already states the next setup step, so
+    /// the banner repeats guidance and adds a competing blue CTA. Hide it there
+    /// while setup is incomplete; keep it everywhere else so users moving
+    /// between Run/Health/History still see "Next: …" cues.
+    private var showsNextActionBanner: Bool {
+        !(appState.organizeSubSelection == .setup && setupIsIncomplete)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: DesignTokens.Spacing.md) {
-                OrganizeNextActionBanner(
-                    sourcePath: setupStore.sourcePath,
-                    destinationPath: setupStore.destinationPath,
-                    runStatus: runSessionStore.status,
-                    previewIsStale: previewReviewStore.isStale,
-                    deduplicateStatus: deduplicateSessionStore.status,
-                    navigate: appState.navigate(to:),
-                    startPreview: { Task { await appState.startPreview() } }
-                )
-                .layoutPriority(1)
+                if showsNextActionBanner {
+                    OrganizeNextActionBanner(
+                        sourcePath: setupStore.sourcePath,
+                        destinationPath: setupStore.destinationPath,
+                        runStatus: runSessionStore.status,
+                        previewIsStale: previewReviewStore.isStale,
+                        deduplicateStatus: deduplicateSessionStore.status,
+                        navigate: appState.navigate(to:),
+                        startPreview: { Task { await appState.startPreview() } }
+                    )
+                    .layoutPriority(1)
+                } else {
+                    Spacer(minLength: 0)
+                        .layoutPriority(1)
+                }
 
                 Picker("Section", selection: $appState.organizeSubSelection) {
                     ForEach(OrganizeSubSection.allCases) { sub in

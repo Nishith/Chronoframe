@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// A single-line inline ticker replacing the metric tile grid on the Run view.
-/// Six figures separated by middots, monospaced digits so numbers don't
-/// shimmy while updating live. Designed for the quiet-darkroom aesthetic:
-/// the data is the information; no tiles, no tints, no captions.
+/// A row of live metric figures with two visual treatments:
+/// - `.inline`: middot-separated single line — quiet, suited for footers.
+/// - `.tiles`: each metric is a tile with a large `Typography.metric` value and
+///   an uppercase eyebrow label — used at the Run hero where the numbers
+///   carry the weight of the moment.
+/// Monospaced digits in both styles so numbers don't shimmy while updating.
 struct TickerRow: View {
     struct Entry: Identifiable {
         let id: String
@@ -19,9 +21,24 @@ struct TickerRow: View {
         case success
     }
 
+    enum Style {
+        case inline
+        case tiles
+    }
+
     let entries: [Entry]
+    var style: Style = .inline
 
     var body: some View {
+        switch style {
+        case .inline:
+            inlineBody
+        case .tiles:
+            tilesBody
+        }
+    }
+
+    private var inlineBody: some View {
         ViewThatFits(in: .horizontal) {
             horizontalLayout
             wrappedLayout
@@ -41,6 +58,18 @@ struct TickerRow: View {
                 .fill(DesignTokens.ColorSystem.hairline)
                 .frame(height: 0.5)
         }
+    }
+
+    private var tilesBody: some View {
+        FlowLayout(horizontalSpacing: DesignTokens.Spacing.lg, verticalSpacing: DesignTokens.Spacing.md) {
+            ForEach(entries) { entry in
+                tileView(entry)
+            }
+        }
+        .monospacedDigit()
+        .padding(.horizontal, DesignTokens.Spacing.md)
+        .padding(.vertical, DesignTokens.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var horizontalLayout: some View {
@@ -72,6 +101,22 @@ struct TickerRow: View {
             Text(entry.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.label): \(entry.value)")
+    }
+
+    private func tileView(_ entry: Entry) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(entry.value)
+                .font(DesignTokens.Typography.metric)
+                .foregroundStyle(color(for: entry.tone))
+                .contentTransition(.numericText())
+            Text(entry.label.uppercased())
+                .font(DesignTokens.Typography.label)
+                .tracking(0.8)
+                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+        }
+        .frame(minWidth: DesignTokens.Layout.narrowMetricMinWidth, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(entry.label): \(entry.value)")
     }
