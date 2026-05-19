@@ -307,17 +307,49 @@ extension View {
     func darkroom() -> some View {
         self
             .background {
-                ZStack {
-                    DesignTokens.ColorSystem.canvas
-                    ArchiveCanvasTexture()
-                }
-                .ignoresSafeArea()
+                DarkroomCanvasBackground()
+                    .ignoresSafeArea()
             }
             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
     }
 }
 
+private struct DarkroomCanvasBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            DesignTokens.ColorSystem.canvas
+            ArchiveCanvasVignette(colorScheme: colorScheme)
+            ArchiveCanvasTexture(colorScheme: colorScheme)
+            if colorScheme == .dark {
+                ArchiveCanvasGrain()
+            }
+        }
+    }
+}
+
+private struct ArchiveCanvasVignette: View {
+    let colorScheme: ColorScheme
+
+    var body: some View {
+        GeometryReader { geo in
+            let edgeOpacity: Double = colorScheme == .dark ? 0.12 : 0.04
+            let maxDimension = max(geo.size.width, geo.size.height)
+            RadialGradient(
+                colors: [.black.opacity(0), .black.opacity(edgeOpacity)],
+                center: .center,
+                startRadius: maxDimension * 0.20,
+                endRadius: maxDimension * 0.75
+            )
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 private struct ArchiveCanvasTexture: View {
+    let colorScheme: ColorScheme
+
     var body: some View {
         Canvas { context, size in
             var path = Path()
@@ -328,8 +360,51 @@ private struct ArchiveCanvasTexture: View {
                 path.addLine(to: CGPoint(x: size.width, y: y))
                 y += step
             }
-            context.stroke(path, with: .color(.white.opacity(0.018)), lineWidth: 0.5)
+            let opacity: Double = colorScheme == .dark ? 0.04 : 0.018
+            context.stroke(path, with: .color(.white.opacity(opacity)), lineWidth: 0.5)
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// Sparse, deterministic noise grain rendered only in dark mode.
+/// Points are seeded from a fixed RNG so the texture stays stable across redraws.
+private struct ArchiveCanvasGrain: View {
+    var body: some View {
+        Canvas { context, size in
+            let points = Self.grainPoints
+            for point in points {
+                let x = point.x * size.width
+                let y = point.y * size.height
+                let dot = Path(ellipseIn: CGRect(x: x, y: y, width: 1, height: 1))
+                context.fill(dot, with: .color(.white.opacity(0.02)))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+
+    /// 1,400 deterministic points in unit space, generated once at first access.
+    private static let grainPoints: [CGPoint] = {
+        var rng = SeededRandomNumberGenerator(seed: 0x436872_6F6E_6F00) // "Chrono"
+        return (0..<1_400).map { _ in
+            CGPoint(
+                x: CGFloat.random(in: 0..<1, using: &rng),
+                y: CGFloat.random(in: 0..<1, using: &rng)
+            )
+        }
+    }()
+}
+
+/// Splitmix64-based deterministic RNG — small, dependency-free, good enough
+/// for static grain placement.
+private struct SeededRandomNumberGenerator: RandomNumberGenerator {
+    private var state: UInt64
+    init(seed: UInt64) { self.state = seed }
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z &>> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z &>> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z &>> 31)
     }
 }

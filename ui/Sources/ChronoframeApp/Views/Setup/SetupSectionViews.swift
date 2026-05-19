@@ -19,7 +19,7 @@ struct SetupHeroSection: View {
     }
 
     private var useBrandMark: Bool {
-        model.heroTone == .idle
+        model.heroTone == .idle || model.heroTone == .ready
     }
 
     var body: some View {
@@ -39,15 +39,35 @@ struct SetupHeroSection: View {
                 SummaryLine(title: "Next", value: model.nextStepSummary, valueColor: model.heroTone.color)
             }
         } actions: {
-            Button(action: primaryAction) {
-                Label(model.primaryAction.title, systemImage: model.primaryAction.systemImage)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(model.primaryActionDisabled)
-            .accessibilityLabel(model.primaryAction.title)
-            .accessibilityHint(model.primaryActionDisabled ? "Choose both folders to continue" : "Continues to the next setup step")
+            heroPrimaryButton
+        }
+    }
+
+    /// When the next step is a "choose source/destination" action the
+    /// per-section button already leads the eye. Keep the hero's button
+    /// quieter (.bordered) so there's a single prominent blue button on the
+    /// screen — the sticky-footer Preview/Transfer. Only escalate to
+    /// `.borderedProminent` when the hero IS the place to act (preview ready).
+    @ViewBuilder
+    private var heroPrimaryButton: some View {
+        let isChooseStep = model.primaryAction == .chooseSource
+            || model.primaryAction == .chooseDestination
+        let button = Button(action: primaryAction) {
+            Label(model.primaryAction.title, systemImage: model.primaryAction.systemImage)
+                .frame(maxWidth: .infinity)
+        }
+        .disabled(model.primaryActionDisabled)
+        .accessibilityLabel(model.primaryAction.title)
+        .accessibilityHint(model.primaryActionDisabled ? "Choose both folders to continue" : "Continues to the next setup step")
+
+        if isChooseStep {
+            button
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+        } else {
+            button
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
         }
     }
 }
@@ -450,41 +470,123 @@ struct SetupDropZone: View {
     @Binding var isTargeted: Bool
     let onDrop: ([NSItemProvider]) -> Bool
 
+    @State private var isHovering = false
+
     var body: some View {
         MeridianSurfaceCard(style: .inner, tint: isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.cloud) {
-            VStack(spacing: 10) {
-                MeridianLeadIcon(
-                    systemImage: isActive ? "photo.on.rectangle.angled" : "square.and.arrow.down.on.square",
-                    tint: isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted
-                )
-
-                if isActive {
-                    Text(droppedSourceLabel ?? "Dropped items ready")
-                        .font(.headline)
-                        .foregroundStyle(DesignTokens.Color.inkPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                } else {
-                    Text(isTargeted ? "Release to use as source" : "Drop a folder to begin")
-                        .font(.headline)
-                        .foregroundStyle(isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkPrimary)
+            ZStack {
+                if !isActive {
+                    DropZonePlaceholderFrames(emphasized: isHovering || isTargeted)
+                        .accessibilityHidden(true)
                 }
+
+                VStack(spacing: 10) {
+                    MeridianLeadIcon(
+                        systemImage: isActive ? "photo.on.rectangle.angled" : "square.and.arrow.down.on.square",
+                        tint: isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted
+                    )
+
+                    if isActive {
+                        Text(droppedSourceLabel ?? "Dropped items ready")
+                            .font(.headline)
+                            .foregroundStyle(DesignTokens.Color.inkPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } else {
+                        Text(isTargeted ? "Release to use as source" : "Drop a folder to begin")
+                            .font(.headline)
+                            .foregroundStyle(isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkPrimary)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Corner.innerCard, style: .continuous)
                     .strokeBorder(
-                        isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted.opacity(0.35),
-                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                        isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted.opacity(0.30),
+                        style: StrokeStyle(lineWidth: 1, dash: [10, 6])
                     )
             )
         }
         .contentShape(RoundedRectangle(cornerRadius: DesignTokens.Corner.innerCard, style: .continuous))
+        .onHover { hovering in
+            isHovering = hovering
+        }
         .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
             onDrop(providers)
         }
         .accessibilityLabel("Drop photos, videos, or folders to use as source")
         .accessibilityIdentifier("dropZone")
+    }
+}
+
+/// A barely-perceptible montage of placeholder "film frames" that drift on a
+/// 12-second cycle. Foreground label + dashed border still own the layout;
+/// this layer reads as a light-table the user is about to place photos on.
+private struct DropZonePlaceholderFrames: View {
+    let emphasized: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let frames: [PlaceholderFrame] = [
+        .init(unitX: 0.10, unitY: 0.20, width: 64, height: 44, rotation: -4, phase: 0.0),
+        .init(unitX: 0.28, unitY: 0.66, width: 58, height: 58, rotation: 3, phase: 1.1),
+        .init(unitX: 0.46, unitY: 0.28, width: 72, height: 48, rotation: -2, phase: 2.3),
+        .init(unitX: 0.62, unitY: 0.74, width: 50, height: 66, rotation: 5, phase: 3.0),
+        .init(unitX: 0.78, unitY: 0.32, width: 66, height: 44, rotation: -3, phase: 4.2),
+        .init(unitX: 0.92, unitY: 0.68, width: 52, height: 52, rotation: 2, phase: 5.0),
+        .init(unitX: 0.15, unitY: 0.85, width: 56, height: 38, rotation: 1, phase: 6.1)
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { timeline in
+                let t = timeline.date.timeIntervalSinceReferenceDate
+                let period: Double = 12
+                let omega = 2 * .pi / period
+                Canvas(opaque: false) { context, _ in
+                    let baseOpacity = emphasized ? 0.20 : 0.10
+                    for frame in Self.frames {
+                        let phase = t * omega + frame.phase
+                        let dx = CGFloat(cos(phase)) * 4
+                        let dy = CGFloat(sin(phase * 0.8)) * 3
+                        let x = frame.unitX * geo.size.width + dx
+                        let y = frame.unitY * geo.size.height + dy
+                        let rect = CGRect(
+                            x: x - frame.width / 2,
+                            y: y - frame.height / 2,
+                            width: frame.width,
+                            height: frame.height
+                        )
+                        let path = Path(roundedRect: rect, cornerRadius: 4)
+                        var transformed = context
+                        transformed.translateBy(x: x, y: y)
+                        transformed.rotate(by: .degrees(frame.rotation))
+                        transformed.translateBy(x: -x, y: -y)
+                        transformed.fill(
+                            path,
+                            with: .color(DesignTokens.ColorSystem.imageStage.opacity(baseOpacity))
+                        )
+                        transformed.stroke(
+                            path,
+                            with: .color(DesignTokens.ColorSystem.photoEdgeHighlight.opacity(baseOpacity * 2.4)),
+                            lineWidth: 0.5
+                        )
+                    }
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .animation(Motion.filmic, value: emphasized)
+    }
+
+    private struct PlaceholderFrame {
+        let unitX: Double
+        let unitY: Double
+        let width: CGFloat
+        let height: CGFloat
+        let rotation: Double
+        let phase: Double
     }
 }

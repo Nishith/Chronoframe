@@ -294,6 +294,7 @@ struct MeridianStatusBadge: View {
         .foregroundStyle(tint)
         .background(tint.opacity(0.15), in: Capsule())
         .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
+        .motion(Motion.instant, value: title)
     }
 }
 
@@ -382,7 +383,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                         systemImage: systemImage,
                         tint: tint,
                         usesBrandMark: usesBrandMark,
-                        size: 36
+                        size: usesBrandMark ? DesignTokens.Layout.heroIconSize : 36
                     )
 
                     VStack(alignment: .leading, spacing: 4) {

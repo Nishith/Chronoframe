@@ -8,6 +8,9 @@ struct RunHeroSection: View {
     @Binding var workspaceTab: RunWorkspaceTab
     let appState: AppState
 
+    @State private var washOpacity: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         DetailHeroCard(
             title: model.heroState.title,
@@ -31,6 +34,23 @@ struct RunHeroSection: View {
         } actions: {
             if let action = model.heroState.primaryAction {
                 heroPrimaryButton(for: action)
+            }
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: DesignTokens.Corner.hero, style: .continuous)
+                .fill(DesignTokens.ColorSystem.statusSuccess.opacity(washOpacity))
+                .allowsHitTesting(false)
+                .blendMode(.plusLighter)
+        }
+        .onChange(of: model.context.status) { newValue in
+            guard newValue == .finished, !reduceMotion else { return }
+            withAnimation(Motion.wash) {
+                washOpacity = 0.18
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + Motion.Duration.wash * 0.55) {
+                withAnimation(Motion.wash) {
+                    washOpacity = 0
+                }
             }
         }
     }
@@ -228,7 +248,7 @@ struct RunTickerSection: View {
     let model: RunWorkspaceModel
 
     var body: some View {
-        TickerRow(entries: entries)
+        TickerRow(entries: entries, style: .tiles)
     }
 
     private var entries: [TickerRow.Entry] {
