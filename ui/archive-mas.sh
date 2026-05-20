@@ -26,6 +26,7 @@ VALIDATOR_COMMAND=(
   swift run --disable-sandbox --package-path "$SCRIPT_DIR" ChronoframePackagingTool
 )
 LOCAL_ARCHIVE=0
+ALLOW_PROVISIONING_UPDATES="${CHRONOFRAME_ALLOW_PROVISIONING_UPDATES:-1}"
 
 for arg in "$@"; do
   case "$arg" in
@@ -72,6 +73,9 @@ XCODEBUILD_ARGS=(
 )
 
 if [ "$LOCAL_ARCHIVE" -eq 0 ]; then
+  if [ "$ALLOW_PROVISIONING_UPDATES" != "0" ]; then
+    XCODEBUILD_ARGS+=(-allowProvisioningUpdates)
+  fi
   XCODEBUILD_ARGS+=(
     CODE_SIGN_STYLE=Automatic
   )
@@ -97,11 +101,17 @@ fi
 
 if [ "$LOCAL_ARCHIVE" -eq 0 ]; then
   echo "📤 Exporting for App Store upload..."
-  xcodebuild -exportArchive \
-    -archivePath "$ARCHIVE_PATH" \
-    -exportPath "$EXPORT_DIR" \
-    -exportOptionsPlist "$EXPORT_OPTIONS_PLIST" \
-    >/dev/null
+  EXPORT_ARCHIVE_ARGS=(
+    xcodebuild
+    -exportArchive
+    -archivePath "$ARCHIVE_PATH"
+    -exportPath "$EXPORT_DIR"
+    -exportOptionsPlist "$EXPORT_OPTIONS_PLIST"
+  )
+  if [ "$ALLOW_PROVISIONING_UPDATES" != "0" ]; then
+    EXPORT_ARCHIVE_ARGS+=(-allowProvisioningUpdates)
+  fi
+  "${EXPORT_ARCHIVE_ARGS[@]}" >/dev/null
 
   echo "🧾 Validating exported app..."
   EXPORTED_APP="${EXPORT_DIR}/${APP_NAME}.app"
