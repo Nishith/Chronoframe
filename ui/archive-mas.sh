@@ -127,7 +127,7 @@ if [ "$LOCAL_ARCHIVE" -eq 0 ]; then
   fi
 else
   echo "🔏 Local MAS archive (unsigned) — validating bundle structure..."
-  "${VALIDATOR_COMMAND[@]}" --app-store "$ARCHIVED_APP_PATH"
+  "${VALIDATOR_COMMAND[@]}" --structure-only "$ARCHIVED_APP_PATH"
   echo "✅ Local Mac App Store archive complete!"
   echo "➡️  Archive bundle: ${ARCHIVE_PATH}"
 fi

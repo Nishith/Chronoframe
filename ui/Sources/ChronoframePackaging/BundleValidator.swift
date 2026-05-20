@@ -182,6 +182,7 @@ public enum BundleValidator {
         appURL: URL,
         requireDistributionSigning: Bool = false,
         appStore: Bool = false,
+        structureOnly: Bool = false,
         codesignInspector: ((URL) -> SignatureInspection)? = nil,
         gatekeeperInspector: ((URL) -> GatekeeperInspection)? = nil,
         runner: ShellCommandRunner = .live
@@ -254,6 +255,16 @@ public enum BundleValidator {
         let retiredBackendURL = appURL.appendingPathComponent("Contents/Resources/Backend")
         if fileManager.fileExists(atPath: retiredBackendURL.path) {
             result.errors.append("App bundle must not include retired backend resources: \(retiredBackendURL.path)")
+        }
+
+        let privacyManifestURL = appURL.appendingPathComponent("Contents/Resources/PrivacyInfo.xcprivacy")
+        if !fileManager.fileExists(atPath: privacyManifestURL.path) {
+            result.errors.append("Missing privacy manifest: \(privacyManifestURL.path)")
+        }
+
+        if structureOnly {
+            result.distributionReady = result.errors.isEmpty
+            return result
         }
 
         let signature = codesignInspector?(appURL) ?? inspectCodesign(appURL: appURL, runner: runner)
@@ -355,6 +366,7 @@ public enum BundleValidatorCLI {
         var emitJSON = false
         var requireDistributionSigning = false
         var appStore = false
+        var structureOnly = false
         var appPath: String?
 
         var iterator = arguments.makeIterator()
@@ -366,6 +378,8 @@ public enum BundleValidatorCLI {
                 requireDistributionSigning = true
             case "--app-store":
                 appStore = true
+            case "--structure-only":
+                structureOnly = true
             case "-h", "--help":
                 output(Self.helpText)
                 return 0
@@ -394,6 +408,7 @@ public enum BundleValidatorCLI {
             appURL: URL(fileURLWithPath: appPath),
             requireDistributionSigning: requireDistributionSigning,
             appStore: appStore,
+            structureOnly: structureOnly,
             runner: runner
         )
 
@@ -407,7 +422,7 @@ public enum BundleValidatorCLI {
     }
 
     public static let helpText = """
-    Usage: ChronoframePackagingTool [--json] [--require-distribution-signing] [--app-store] APP_PATH
+    Usage: ChronoframePackagingTool [--json] [--structure-only] [--require-distribution-signing] [--app-store] APP_PATH
     Validate a packaged Chronoframe macOS app bundle.
     """
 

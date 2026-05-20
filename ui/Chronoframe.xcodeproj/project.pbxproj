@@ -70,13 +70,13 @@
 		AA000000000000000000023E /* TickerRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000144 /* TickerRow.swift */; };
 		AA000000000000000000023F /* RunTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000145 /* RunTimelineView.swift */; };
 		AA0000000000000000000240 /* NowCopyingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000146 /* NowCopyingCard.swift */; };
-			AA0000000000000000000247 /* OnboardingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000147 /* OnboardingCard.swift */; };
-			AA0000000000000000000248 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000148 /* HelpView.swift */; };
-			AA0000000000000000000249 /* AboutPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000149 /* AboutPanel.swift */; };
-			AA000000000000000000024A /* RunConfiguration+Profiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014A /* RunConfiguration+Profiles.swift */; };
-			AA000000000000000000024B /* RevertExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014B /* RevertExecutor.swift */; };
-			AA000000000000000000024C /* ReorganizeExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014C /* ReorganizeExecutor.swift */; };
-			AA000000000000000000024D /* UserFacingErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014D /* UserFacingErrorMessage.swift */; };
+		AA0000000000000000000247 /* OnboardingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000147 /* OnboardingCard.swift */; };
+		AA0000000000000000000248 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000148 /* HelpView.swift */; };
+		AA0000000000000000000249 /* AboutPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000149 /* AboutPanel.swift */; };
+		AA000000000000000000024A /* RunConfiguration+Profiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014A /* RunConfiguration+Profiles.swift */; };
+		AA000000000000000000024B /* RevertExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014B /* RevertExecutor.swift */; };
+		AA000000000000000000024C /* ReorganizeExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014C /* ReorganizeExecutor.swift */; };
+		AA000000000000000000024D /* UserFacingErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014D /* UserFacingErrorMessage.swift */; };
 		AA000000000000000000024E /* DeduplicateModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000184 /* DeduplicateModels.swift */; };
 		AA000000000000000000024F /* DeduplicateScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000185 /* DeduplicateScanner.swift */; };
 		AA0000000000000000000250 /* DeduplicateExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000186 /* DeduplicateExecutor.swift */; };
@@ -116,6 +116,7 @@
 		AA000000000000000000090B /* DifferenceImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000080B /* DifferenceImageGenerator.swift */; };
 		AA000000000000000000090C /* MatchReasonFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000080C /* MatchReasonFormatter.swift */; };
 		AA000000000000000000090E /* RapidTriageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000080E /* RapidTriageView.swift */; };
+		AA0000000000000000000A01 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000A00 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -199,16 +200,16 @@
 		AA0000000000000000000144 /* TickerRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TickerRow.swift; sourceTree = "<group>"; };
 		AA0000000000000000000145 /* RunTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTimelineView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000146 /* NowCopyingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowCopyingCard.swift; sourceTree = "<group>"; };
-			AA0000000000000000000147 /* OnboardingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCard.swift; sourceTree = "<group>"; };
-			AA0000000000000000000148 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
-			AA0000000000000000000149 /* AboutPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPanel.swift; sourceTree = "<group>"; };
-			AA000000000000000000014A /* RunConfiguration+Profiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RunConfiguration+Profiles.swift"; sourceTree = "<group>"; };
-			AA000000000000000000014B /* RevertExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevertExecutor.swift; sourceTree = "<group>"; };
-			AA000000000000000000014C /* ReorganizeExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReorganizeExecutor.swift; sourceTree = "<group>"; };
-			AA000000000000000000014D /* UserFacingErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingErrorMessage.swift; sourceTree = "<group>"; };
-			AA0000000000000000000181 /* Chronoframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chronoframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
-			AA0000000000000000000182 /* ChronoframeAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-			AA0000000000000000000183 /* ChronoframeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000147 /* OnboardingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCard.swift; sourceTree = "<group>"; };
+		AA0000000000000000000148 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000149 /* AboutPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPanel.swift; sourceTree = "<group>"; };
+		AA000000000000000000014A /* RunConfiguration+Profiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RunConfiguration+Profiles.swift"; sourceTree = "<group>"; };
+		AA000000000000000000014B /* RevertExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevertExecutor.swift; sourceTree = "<group>"; };
+		AA000000000000000000014C /* ReorganizeExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReorganizeExecutor.swift; sourceTree = "<group>"; };
+		AA000000000000000000014D /* UserFacingErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingErrorMessage.swift; sourceTree = "<group>"; };
+		AA0000000000000000000181 /* Chronoframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chronoframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000182 /* ChronoframeAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000183 /* ChronoframeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000184 /* DeduplicateModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateModels.swift; sourceTree = "<group>"; };
 		AA0000000000000000000185 /* DeduplicateScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateScanner.swift; sourceTree = "<group>"; };
 		AA0000000000000000000186 /* DeduplicateExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateExecutor.swift; sourceTree = "<group>"; };
@@ -248,6 +249,7 @@
 		AA000000000000000000080B /* DifferenceImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DifferenceImageGenerator.swift; sourceTree = "<group>"; };
 		AA000000000000000000080C /* MatchReasonFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchReasonFormatter.swift; sourceTree = "<group>"; };
 		AA000000000000000000080E /* RapidTriageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RapidTriageView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000A00 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -277,6 +279,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		65AB3FE42FBD7990008264F7 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000126 /* XCTest.framework */,
+			);
+			name = "Recovered References";
+			sourceTree = "<group>";
+		};
 		AA0000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
@@ -286,6 +296,7 @@
 				AA000000000000000000001D /* Resources */,
 				AA000000000000000000001E /* Packaging */,
 				AA0000000000000000000003 /* Products */,
+				65AB3FE42FBD7990008264F7 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -352,25 +363,149 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000024 /* Help */ = {
+		AA0000000000000000000014 /* ChronoframeAppCore */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000148 /* HelpView.swift */,
+				AA000000000000000000010C /* Exports.swift */,
+				AA0000000000000000000015 /* Services */,
+				AA0000000000000000000016 /* Stores */,
+				AA0000000000000000000017 /* Support */,
 			);
-			path = Help;
+			path = ChronoframeAppCore;
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000023 /* Components */ = {
+		AA0000000000000000000015 /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000142 /* PathControl.swift */,
-				AA0000000000000000000143 /* ContactSheetView.swift */,
-				AA0000000000000000000144 /* TickerRow.swift */,
-				AA0000000000000000000147 /* OnboardingCard.swift */,
-				AA0000000000000000000195 /* ThumbnailRenderer.swift */,
-				AA000000000000000000019F /* WorkspaceTabStrip.swift */,
+				AA000000000000000000010D /* FinderService.swift */,
+				AA000000000000000000010E /* FolderAccessService.swift */,
+				AA000000000000000000010F /* OrganizerEngine.swift */,
+				AA0000000000000000000110 /* ProfilesRepository.swift */,
+				AA0000000000000000000127 /* SwiftOrganizerEngine.swift */,
+				AA0000000000000000000112 /* RunHistoryIndexer.swift */,
+				AA0000000000000000000134 /* TransferredSourcesLog.swift */,
+				AA0000000000000000000135 /* DroppedItemStager.swift */,
+				AA000000000000000000018D /* DeduplicateEngine.swift */,
 			);
-			path = Components;
+			path = Services;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000016 /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000113 /* HistoryStore.swift */,
+				AA000000000000000000019C /* LibraryHealthStore.swift */,
+				AA000000000000000000019B /* PreviewReviewStore.swift */,
+				AA0000000000000000000114 /* PreferencesStore.swift */,
+				AA0000000000000000000115 /* RunLogStore.swift */,
+				AA0000000000000000000116 /* RunSessionStore.swift */,
+				AA0000000000000000000117 /* SetupStore.swift */,
+				AA000000000000000000018E /* DeduplicateSessionStore.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000017 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				AA000000000000000000014A /* RunConfiguration+Profiles.swift */,
+				AA0000000000000000000118 /* RuntimePaths.swift */,
+				AA000000000000000000014D /* UserFacingErrorMessage.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000018 /* ChronoframeCore */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000128 /* BLAKE2bHasher.swift */,
+				AA0000000000000000000129 /* CopyPlanBuilder.swift */,
+				AA000000000000000000012A /* DryRunPlanner.swift */,
+				AA000000000000000000012B /* EngineDomainModels.swift */,
+				AA000000000000000000012C /* FileIdentityHasher.swift */,
+				AA0000000000000000000800 /* ClusterAnnotation.swift */,
+				AA0000000000000000000801 /* ClusterAnnotator.swift */,
+				AA0000000000000000000802 /* ClusterConfidenceScorer.swift */,
+				AA0000000000000000000804 /* FaceExpressionAnalyzer.swift */,
+				AA0000000000000000000805 /* FileSystemMonitor.swift */,
+				AA0000000000000000000806 /* FingerprintIndex.swift */,
+				AA0000000000000000000808 /* SafetyWarningDetector.swift */,
+				AA000000000000000000019A /* LibraryHealthScanner.swift */,
+				AA000000000000000000012D /* MediaDateResolver.swift */,
+				AA000000000000000000012E /* MediaDiscovery.swift */,
+				AA000000000000000000012F /* OrganizerDatabase.swift */,
+				AA0000000000000000000130 /* PlanningPathBuilder.swift */,
+				AA0000000000000000000199 /* PreviewReviewModels.swift */,
+				AA0000000000000000000119 /* ProfileModels.swift */,
+				AA000000000000000000014C /* ReorganizeExecutor.swift */,
+				AA000000000000000000014B /* RevertExecutor.swift */,
+				AA000000000000000000011A /* RunModels.swift */,
+				AA0000000000000000000131 /* TransferExecutor.swift */,
+				AA0000000000000000000184 /* DeduplicateModels.swift */,
+				AA0000000000000000000185 /* DeduplicateScanner.swift */,
+				AA0000000000000000000186 /* DeduplicateExecutor.swift */,
+				AA0000000000000000000187 /* DeduplicatePairDetector.swift */,
+				AA0000000000000000000188 /* DuplicateClusterer.swift */,
+				AA0000000000000000000189 /* DedupeFeatureCache.swift */,
+				AA000000000000000000018A /* PerceptualHash.swift */,
+				AA000000000000000000018B /* VisionFeaturePrinter.swift */,
+				AA000000000000000000018C /* PhotoQualityScorer.swift */,
+				AA0000000000000000000194 /* DeduplicationPlanner.swift */,
+			);
+			path = ChronoframeCore;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000019 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				AA000000000000000000001A /* ChronoframeAppTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000001A /* ChronoframeAppTests */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000121 /* AppStateTests.swift */,
+				AA0000000000000000000122 /* TestSupport.swift */,
+				AA0000000000000000000133 /* AccessibilityTests.swift */,
+				AA0000000000000000000196 /* RunHistoryViewTests.swift */,
+				AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */,
+			);
+			path = ChronoframeAppTests;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000001B /* Xcode */ = {
+			isa = PBXGroup;
+			children = (
+				AA000000000000000000001C /* UITests */,
+			);
+			path = Xcode;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000001C /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000123 /* ChronoframeUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000001D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000124 /* Assets.xcassets */,
+				AA0000000000000000000A00 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000001E /* Packaging */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000125 /* Chronoframe.entitlements */,
+			);
+			path = Packaging;
 			sourceTree = "<group>";
 		};
 		AA000000000000000000001F /* Coordinators */ = {
@@ -417,157 +552,30 @@
 			path = Setup;
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000014 /* ChronoframeAppCore */ = {
+		AA0000000000000000000023 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				AA000000000000000000010C /* Exports.swift */,
-				AA0000000000000000000015 /* Services */,
-				AA0000000000000000000016 /* Stores */,
-				AA0000000000000000000017 /* Support */,
+				AA0000000000000000000142 /* PathControl.swift */,
+				AA0000000000000000000143 /* ContactSheetView.swift */,
+				AA0000000000000000000144 /* TickerRow.swift */,
+				AA0000000000000000000147 /* OnboardingCard.swift */,
+				AA0000000000000000000195 /* ThumbnailRenderer.swift */,
+				AA000000000000000000019F /* WorkspaceTabStrip.swift */,
 			);
-			path = ChronoframeAppCore;
+			path = Components;
 			sourceTree = "<group>";
 		};
-		AA0000000000000000000015 /* Services */ = {
+		AA0000000000000000000024 /* Help */ = {
 			isa = PBXGroup;
 			children = (
-				AA000000000000000000010D /* FinderService.swift */,
-				AA000000000000000000010E /* FolderAccessService.swift */,
-				AA000000000000000000010F /* OrganizerEngine.swift */,
-				AA0000000000000000000110 /* ProfilesRepository.swift */,
-				AA0000000000000000000127 /* SwiftOrganizerEngine.swift */,
-				AA0000000000000000000112 /* RunHistoryIndexer.swift */,
-				AA0000000000000000000134 /* TransferredSourcesLog.swift */,
-				AA0000000000000000000135 /* DroppedItemStager.swift */,
-				AA000000000000000000018D /* DeduplicateEngine.swift */,
-
+				AA0000000000000000000148 /* HelpView.swift */,
 			);
-			path = Services;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000016 /* Stores */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000113 /* HistoryStore.swift */,
-				AA000000000000000000019C /* LibraryHealthStore.swift */,
-				AA000000000000000000019B /* PreviewReviewStore.swift */,
-				AA0000000000000000000114 /* PreferencesStore.swift */,
-				AA0000000000000000000115 /* RunLogStore.swift */,
-				AA0000000000000000000116 /* RunSessionStore.swift */,
-				AA0000000000000000000117 /* SetupStore.swift */,
-				AA000000000000000000018E /* DeduplicateSessionStore.swift */,
-
-			);
-			path = Stores;
-			sourceTree = "<group>";
-		};
-			AA0000000000000000000017 /* Support */ = {
-				isa = PBXGroup;
-				children = (
-					AA000000000000000000014A /* RunConfiguration+Profiles.swift */,
-					AA0000000000000000000118 /* RuntimePaths.swift */,
-					AA000000000000000000014D /* UserFacingErrorMessage.swift */,
-				);
-				path = Support;
-				sourceTree = "<group>";
-			};
-		AA0000000000000000000018 /* ChronoframeCore */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000128 /* BLAKE2bHasher.swift */,
-				AA0000000000000000000129 /* CopyPlanBuilder.swift */,
-				AA000000000000000000012A /* DryRunPlanner.swift */,
-				AA000000000000000000012B /* EngineDomainModels.swift */,
-				AA000000000000000000012C /* FileIdentityHasher.swift */,
-				AA0000000000000000000800 /* ClusterAnnotation.swift */,
-				AA0000000000000000000801 /* ClusterAnnotator.swift */,
-				AA0000000000000000000802 /* ClusterConfidenceScorer.swift */,
-				AA0000000000000000000804 /* FaceExpressionAnalyzer.swift */,
-				AA0000000000000000000805 /* FileSystemMonitor.swift */,
-				AA0000000000000000000806 /* FingerprintIndex.swift */,
-				AA0000000000000000000808 /* SafetyWarningDetector.swift */,
-				AA000000000000000000019A /* LibraryHealthScanner.swift */,
-				AA000000000000000000012D /* MediaDateResolver.swift */,
-				AA000000000000000000012E /* MediaDiscovery.swift */,
-					AA000000000000000000012F /* OrganizerDatabase.swift */,
-					AA0000000000000000000130 /* PlanningPathBuilder.swift */,
-					AA0000000000000000000199 /* PreviewReviewModels.swift */,
-					AA0000000000000000000119 /* ProfileModels.swift */,
-					AA000000000000000000014C /* ReorganizeExecutor.swift */,
-					AA000000000000000000014B /* RevertExecutor.swift */,
-					AA000000000000000000011A /* RunModels.swift */,
-					AA0000000000000000000131 /* TransferExecutor.swift */,
-				AA0000000000000000000184 /* DeduplicateModels.swift */,
-				AA0000000000000000000185 /* DeduplicateScanner.swift */,
-				AA0000000000000000000186 /* DeduplicateExecutor.swift */,
-				AA0000000000000000000187 /* DeduplicatePairDetector.swift */,
-				AA0000000000000000000188 /* DuplicateClusterer.swift */,
-				AA0000000000000000000189 /* DedupeFeatureCache.swift */,
-				AA000000000000000000018A /* PerceptualHash.swift */,
-				AA000000000000000000018B /* VisionFeaturePrinter.swift */,
-				AA000000000000000000018C /* PhotoQualityScorer.swift */,
-				AA0000000000000000000194 /* DeduplicationPlanner.swift */,
-
-				);
-				path = ChronoframeCore;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000019 /* Tests */ = {
-			isa = PBXGroup;
-			children = (
-				AA000000000000000000001A /* ChronoframeAppTests */,
-			);
-			path = Tests;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000001A /* ChronoframeAppTests */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000121 /* AppStateTests.swift */,
-				AA0000000000000000000122 /* TestSupport.swift */,
-				AA0000000000000000000133 /* AccessibilityTests.swift */,
-				AA0000000000000000000196 /* RunHistoryViewTests.swift */,
-				AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */,
-			);
-			path = ChronoframeAppTests;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000001B /* Xcode */ = {
-			isa = PBXGroup;
-			children = (
-				AA000000000000000000001C /* UITests */,
-			);
-			path = Xcode;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000001C /* UITests */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000123 /* ChronoframeUITests.swift */,
-			);
-			path = UITests;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000001D /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000124 /* Assets.xcassets */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
-		AA000000000000000000001E /* Packaging */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000125 /* Chronoframe.entitlements */,
-			);
-			path = Packaging;
+			path = Help;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000025 /* Organize */ = {
 			isa = PBXGroup;
 			children = (
-
 				AA000000000000000000019E /* HealthDashboardView.swift */,
 				AA000000000000000000018F /* OrganizeContainerView.swift */,
 			);
@@ -577,7 +585,6 @@
 		AA0000000000000000000026 /* Deduplicate */ = {
 			isa = PBXGroup;
 			children = (
-
 				AA0000000000000000000190 /* DeduplicateView.swift */,
 				AA0000000000000000000191 /* DedupeThumbnailLoader.swift */,
 				AA0000000000000000000192 /* ClusterListPane.swift */,
@@ -693,6 +700,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000000000000000000021B /* Assets.xcassets in Resources */,
+				AA0000000000000000000A01 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -733,14 +741,14 @@
 				AA0000000000000000000213 /* HistoryStore.swift in Sources */,
 				AA0000000000000000000214 /* PreferencesStore.swift in Sources */,
 				AA0000000000000000000215 /* RunLogStore.swift in Sources */,
-					AA0000000000000000000216 /* RunSessionStore.swift in Sources */,
-					AA0000000000000000000217 /* SetupStore.swift in Sources */,
-					AA000000000000000000024A /* RunConfiguration+Profiles.swift in Sources */,
-					AA0000000000000000000218 /* RuntimePaths.swift in Sources */,
-					AA000000000000000000024D /* UserFacingErrorMessage.swift in Sources */,
-					AA0000000000000000000237 /* RunSectionViews.swift in Sources */,
-					AA0000000000000000000238 /* RunWorkspaceModel.swift in Sources */,
-					AA0000000000000000000239 /* SetupSectionViews.swift in Sources */,
+				AA0000000000000000000216 /* RunSessionStore.swift in Sources */,
+				AA0000000000000000000217 /* SetupStore.swift in Sources */,
+				AA000000000000000000024A /* RunConfiguration+Profiles.swift in Sources */,
+				AA0000000000000000000218 /* RuntimePaths.swift in Sources */,
+				AA000000000000000000024D /* UserFacingErrorMessage.swift in Sources */,
+				AA0000000000000000000237 /* RunSectionViews.swift in Sources */,
+				AA0000000000000000000238 /* RunWorkspaceModel.swift in Sources */,
+				AA0000000000000000000239 /* SetupSectionViews.swift in Sources */,
 				AA000000000000000000023A /* SetupScreenModel.swift in Sources */,
 				AA0000000000000000000222 /* BLAKE2bHasher.swift in Sources */,
 				AA0000000000000000000223 /* CopyPlanBuilder.swift in Sources */,
@@ -750,13 +758,13 @@
 				AA0000000000000000000227 /* MediaDateResolver.swift in Sources */,
 				AA0000000000000000000228 /* MediaDiscovery.swift in Sources */,
 				AA0000000000000000000229 /* OrganizerDatabase.swift in Sources */,
-					AA000000000000000000022A /* PlanningPathBuilder.swift in Sources */,
-					AA0000000000000000000219 /* ProfileModels.swift in Sources */,
-					AA000000000000000000024C /* ReorganizeExecutor.swift in Sources */,
-					AA000000000000000000024B /* RevertExecutor.swift in Sources */,
-					AA000000000000000000021A /* RunModels.swift in Sources */,
-					AA000000000000000000022B /* TransferExecutor.swift in Sources */,
-					AA000000000000000000022C /* DesignTokens.swift in Sources */,
+				AA000000000000000000022A /* PlanningPathBuilder.swift in Sources */,
+				AA0000000000000000000219 /* ProfileModels.swift in Sources */,
+				AA000000000000000000024C /* ReorganizeExecutor.swift in Sources */,
+				AA000000000000000000024B /* RevertExecutor.swift in Sources */,
+				AA000000000000000000021A /* RunModels.swift in Sources */,
+				AA000000000000000000022B /* TransferExecutor.swift in Sources */,
+				AA000000000000000000022C /* DesignTokens.swift in Sources */,
 				AA0000000000000000000249 /* AboutPanel.swift in Sources */,
 				AA000000000000000000023B /* Motion.swift in Sources */,
 				AA000000000000000000023C /* PathControl.swift in Sources */,
@@ -803,7 +811,6 @@
 				AA0000000000000000000267 /* PreviewReviewPanel.swift in Sources */,
 				AA0000000000000000000268 /* HealthDashboardView.swift in Sources */,
 				AA0000000000000000000269 /* WorkspaceTabStrip.swift in Sources */,
-
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -889,10 +896,11 @@
 				CODE_SIGN_ENTITLEMENTS = Packaging/Chronoframe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
-				ENABLE_TESTABILITY = YES;
+				DEVELOPMENT_TEAM = EB2YPF68XZ;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Packaging/Chronoframe-Info.plist;
+				INFOPLIST_FILE = "Packaging/Chronoframe-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -919,9 +927,10 @@
 				CODE_SIGN_ENTITLEMENTS = Packaging/Chronoframe.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = EB2YPF68XZ;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Packaging/Chronoframe-Info.plist;
+				INFOPLIST_FILE = "Packaging/Chronoframe-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -993,7 +1002,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = com.nishith.chronoframe.ui-tests;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.nishith.chronoframe.ui-tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
 				TEST_TARGET_NAME = ChronoframeApp;
@@ -1011,7 +1020,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.nishith.chronoframe.ui-tests;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.nishith.chronoframe.ui-tests";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 6.0;
 				TEST_TARGET_NAME = ChronoframeApp;

@@ -181,23 +181,16 @@ private struct HelpPrivacySection: View {
 private struct HelpCreditsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
-            Text("Chronoframe is built on a small set of open-source libraries. Their licenses require attribution; the full notices are reproduced here.")
+            Text("Chronoframe is a native macOS app built with Swift, SwiftUI, AppKit, Vision, Quick Look, and SQLite.")
                 .font(DesignTokens.Typography.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-
-            HelpListPanel(title: "Bundled components") {
-                CreditRow(name: "ExifRead",  version: "3.5.1",  license: "BSD 3-Clause", url: "https://github.com/ianare/exif-py")
-                CreditRow(name: "Tenacity",  version: "9.1.4",  license: "Apache 2.0",   url: "https://github.com/jd/tenacity")
-                CreditRow(name: "Rich",      version: "15.0.0", license: "MIT",          url: "https://github.com/Textualize/rich")
-                CreditRow(name: "PyYAML",    version: "6.0.3",  license: "MIT",          url: "https://pyyaml.org")
-            }
 
             HelpListPanel(title: "Chronoframe") {
                 Text("Copyright © 2026 Nishith Nand. All rights reserved.")
                     .font(DesignTokens.Typography.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                Text("Use of this software is governed by the Chronoframe Proprietary Software License included with the application.")
+                Text("Use of this software is governed by the Licensed Application End User License Agreement for the store where you obtained Chronoframe.")
                     .font(DesignTokens.Typography.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
@@ -324,34 +317,6 @@ private struct PathRow: View {
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Reveal \(label) in Finder")
-        }
-    }
-}
-
-private struct CreditRow: View {
-    let name: String
-    let version: String
-    let license: String
-    let url: String
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(DesignTokens.Typography.body)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                if let link = URL(string: url) {
-                    Link(url, destination: link)
-                        .font(DesignTokens.Typography.subtitle)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                }
-            }
-
-            Spacer(minLength: DesignTokens.Spacing.sm)
-
-            Text("\(license) · \(version)")
-                .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
         }
     }
 }
