@@ -294,6 +294,9 @@ struct MeridianStatusBadge: View {
         .foregroundStyle(tint)
         .background(tint.opacity(0.15), in: Capsule())
         .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
+        // Status pills are precision instruments — snap to their new state
+        // rather than cross-fading slowly.
+        .motion(Motion.instant, value: title)
     }
 }
 
@@ -382,7 +385,9 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                         systemImage: systemImage,
                         tint: tint,
                         usesBrandMark: usesBrandMark,
-                        size: 36
+                        // The brand mark is the app's identity — render it at hero
+                        // scale. Semantic SF Symbols stay compact at 36pt.
+                        size: usesBrandMark ? DesignTokens.Layout.heroIconSize : 36
                     )
 
                     VStack(alignment: .leading, spacing: 4) {

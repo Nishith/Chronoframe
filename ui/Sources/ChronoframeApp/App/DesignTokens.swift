@@ -304,12 +304,17 @@ private func dynamicColor(light: NSColor, dark: NSColor) -> SwiftUI.Color {
 extension View {
     /// Applies the canvas background + default ink color that the Darkroom
     /// design language assumes. Use on top-level workspace views.
+    ///
+    /// The canvas is built in layers so it reads like a viewing surface rather
+    /// than flat paper: the base tone, archival rules + film grain, then a soft
+    /// vignette that settles the edges and lets content float.
     func darkroom() -> some View {
         self
             .background {
                 ZStack {
                     DesignTokens.ColorSystem.canvas
                     ArchiveCanvasTexture()
+                    DarkroomCanvasVignette()
                 }
                 .ignoresSafeArea()
             }
@@ -318,8 +323,13 @@ extension View {
 }
 
 private struct ArchiveCanvasTexture: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         Canvas { context, size in
+            // Archival horizontal rules — stronger in dark mode where they read
+            // as a subtle light-table grid; near-invisible on fragile cream.
+            let lineOpacity = colorScheme == .dark ? 0.045 : 0.02
             var path = Path()
             let step: CGFloat = 42
             var y: CGFloat = 0
@@ -328,8 +338,60 @@ private struct ArchiveCanvasTexture: View {
                 path.addLine(to: CGPoint(x: size.width, y: y))
                 y += step
             }
-            context.stroke(path, with: .color(.white.opacity(0.018)), lineWidth: 0.5)
+            context.stroke(path, with: .color(.white.opacity(lineOpacity)), lineWidth: 0.5)
+
+            // Dark-mode film grain: sparse, deterministic flecks (fixed seed, so
+            // they don't shimmer on redraw) for a quiet film-stock texture.
+            if colorScheme == .dark {
+                var rng = SeededGenerator(seed: 0x9E37_79B9_7F4A_7C15)
+                let count = Int((size.width * size.height) / 1_400)
+                for _ in 0..<count {
+                    let x = CGFloat(rng.nextUnit()) * size.width
+                    let gy = CGFloat(rng.nextUnit()) * size.height
+                    let dot = Path(ellipseIn: CGRect(x: x, y: gy, width: 1, height: 1))
+                    context.fill(dot, with: .color(.white.opacity(0.022)))
+                }
+            }
         }
         .allowsHitTesting(false)
+    }
+}
+
+/// A soft radial vignette that darkens the canvas edges so content reads as
+/// floating on a viewing surface. Deeper in dark mode, barely there in light.
+private struct DarkroomCanvasVignette: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        GeometryReader { geo in
+            let maxDim = max(geo.size.width, geo.size.height)
+            RadialGradient(
+                gradient: Gradient(colors: [
+                    .clear,
+                    .black.opacity(colorScheme == .dark ? 0.16 : 0.05),
+                ]),
+                center: .center,
+                startRadius: maxDim * 0.28,
+                endRadius: maxDim * 0.72
+            )
+            .blendMode(.multiply)
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// Tiny deterministic PRNG (LCG) for stable decorative textures.
+private struct SeededGenerator {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed }
+
+    mutating func next() -> UInt64 {
+        state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+        return state
+    }
+
+    /// Returns a value in [0, 1).
+    mutating func nextUnit() -> Double {
+        Double(next() >> 11) / Double(UInt64(1) << 53)
     }
 }

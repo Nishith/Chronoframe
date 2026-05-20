@@ -19,9 +19,37 @@ struct TickerRow: View {
         case success
     }
 
+    /// Presentation of the metric run.
+    enum Style {
+        /// Quiet single line, middot-separated. The original treatment.
+        case inline
+        /// Metric tiles — each figure rendered large with an eyebrow label, so
+        /// the numbers read with the dignity of a pro tool's readout.
+        case tiles
+    }
+
     let entries: [Entry]
+    var style: Style = .inline
 
     var body: some View {
+        Group {
+            switch style {
+            case .inline: inlineBody
+            case .tiles: tilesBody
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { hairline }
+        .overlay(alignment: .bottom) { hairline }
+    }
+
+    private var hairline: some View {
+        Rectangle()
+            .fill(DesignTokens.ColorSystem.hairline)
+            .frame(height: 0.5)
+    }
+
+    private var inlineBody: some View {
         ViewThatFits(in: .horizontal) {
             horizontalLayout
             wrappedLayout
@@ -30,17 +58,35 @@ struct TickerRow: View {
         .monospacedDigit()
         .padding(.horizontal, DesignTokens.Spacing.md)
         .padding(.vertical, DesignTokens.Spacing.sm)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(DesignTokens.ColorSystem.hairline)
-                .frame(height: 0.5)
+    }
+
+    private var tilesBody: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: DesignTokens.Spacing.xl) {
+                ForEach(entries) { tileView($0) }
+            }
+            FlowLayout(horizontalSpacing: DesignTokens.Spacing.xl, verticalSpacing: DesignTokens.Spacing.md) {
+                ForEach(entries) { tileView($0) }
+            }
         }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(DesignTokens.ColorSystem.hairline)
-                .frame(height: 0.5)
+        .padding(.horizontal, DesignTokens.Spacing.md)
+        .padding(.vertical, DesignTokens.Spacing.md)
+    }
+
+    private func tileView(_ entry: Entry) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(entry.value)
+                .font(DesignTokens.Typography.metric)
+                .monospacedDigit()
+                .foregroundStyle(color(for: entry.tone))
+                .contentTransition(.numericText())
+            Text(entry.label.uppercased())
+                .font(DesignTokens.Typography.label)
+                .tracking(0.6)
+                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.label): \(entry.value)")
     }
 
     private var horizontalLayout: some View {

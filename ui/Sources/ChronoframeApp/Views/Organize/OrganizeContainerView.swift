@@ -24,16 +24,20 @@ struct OrganizeContainerView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: DesignTokens.Spacing.md) {
-                OrganizeNextActionBanner(
-                    sourcePath: setupStore.sourcePath,
-                    destinationPath: setupStore.destinationPath,
-                    runStatus: runSessionStore.status,
-                    previewIsStale: previewReviewStore.isStale,
-                    deduplicateStatus: deduplicateSessionStore.status,
-                    navigate: appState.navigate(to:),
-                    startPreview: { Task { await appState.startPreview() } }
-                )
-                .layoutPriority(1)
+                if showsNextActionBanner {
+                    OrganizeNextActionBanner(
+                        sourcePath: setupStore.sourcePath,
+                        destinationPath: setupStore.destinationPath,
+                        runStatus: runSessionStore.status,
+                        previewIsStale: previewReviewStore.isStale,
+                        deduplicateStatus: deduplicateSessionStore.status,
+                        navigate: appState.navigate(to:),
+                        startPreview: { Task { await appState.startPreview() } }
+                    )
+                    .layoutPriority(1)
+                } else {
+                    Spacer(minLength: 0)
+                }
 
                 Picker("Section", selection: $appState.organizeSubSelection) {
                     ForEach(OrganizeSubSection.allCases) { sub in
@@ -53,6 +57,15 @@ struct OrganizeContainerView: View {
             content
         }
         .navigationTitle("Organize")
+    }
+
+    /// On the Setup tab the hero card already spells out "finish setup," so the
+    /// banner's "Go to Setup" prompt is redundant noise. Suppress it there while
+    /// setup is incomplete; keep it everywhere else (and once setup is complete,
+    /// where it advances the user to Preview / Review / History).
+    private var showsNextActionBanner: Bool {
+        let setupIncomplete = setupStore.sourcePath.isEmpty || setupStore.destinationPath.isEmpty
+        return !(appState.organizeSubSelection == .setup && setupIncomplete)
     }
 
     @ViewBuilder

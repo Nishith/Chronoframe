@@ -33,6 +33,10 @@ struct RunHeroSection: View {
                 heroPrimaryButton(for: action)
             }
         }
+        .modifier(DevelopingWashOverlay(
+            isActive: model.context.status == .finished,
+            tint: model.heroState.tone.color
+        ))
     }
 
     @ViewBuilder
@@ -101,6 +105,42 @@ struct RunHeroSection: View {
             .buttonStyle(.borderedProminent)
             .accessibilityHint("Opens the issues tab below to review warnings and errors")
         }
+    }
+}
+
+/// A one-shot "developing wash" — a soft diagonal band of the success tint that
+/// sweeps across the hero once, the moment a transfer finishes. Evokes a print
+/// coming up in the developer tray. Idle the band rests off-screen; Reduce Motion
+/// suppresses it entirely.
+private struct DevelopingWashOverlay: ViewModifier {
+    let isActive: Bool
+    let tint: Color
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var phase: CGFloat = 1.6  // off-screen right == invisible at rest
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                GeometryReader { geo in
+                    LinearGradient(
+                        colors: [.clear, tint.opacity(0.16), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(width: geo.size.width * 0.45)
+                    .rotationEffect(.degrees(18))
+                    .offset(x: phase * geo.size.width)
+                    .blendMode(.plusLighter)
+                    .allowsHitTesting(false)
+                }
+                .clipped()
+            }
+            .onChange(of: isActive) { active in
+                guard active, !reduceMotion else { return }
+                phase = -1.6
+                withAnimation(Motion.wash) { phase = 1.6 }
+            }
     }
 }
 
@@ -228,7 +268,7 @@ struct RunTickerSection: View {
     let model: RunWorkspaceModel
 
     var body: some View {
-        TickerRow(entries: entries)
+        TickerRow(entries: entries, style: .tiles)
     }
 
     private var entries: [TickerRow.Entry] {

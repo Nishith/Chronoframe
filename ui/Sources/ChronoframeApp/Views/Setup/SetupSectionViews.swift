@@ -19,7 +19,10 @@ struct SetupHeroSection: View {
     }
 
     private var useBrandMark: Bool {
-        model.heroTone == .idle
+        // Carry the brand mark through the calm states (nothing chosen yet, or
+        // everything ready) so Chronoframe's identity anchors the hero. The
+        // transitional "warning" state keeps its actionable folder glyph.
+        model.heroTone == .idle || model.heroTone == .ready
     }
 
     var body: some View {
@@ -39,16 +42,32 @@ struct SetupHeroSection: View {
                 SummaryLine(title: "Next", value: model.nextStepSummary, valueColor: model.heroTone.color)
             }
         } actions: {
-            Button(action: primaryAction) {
-                Label(model.primaryAction.title, systemImage: model.primaryAction.systemImage)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(model.primaryActionDisabled)
-            .accessibilityLabel(model.primaryAction.title)
-            .accessibilityHint(model.primaryActionDisabled ? "Choose both folders to continue" : "Continues to the next setup step")
+            heroActionButton
         }
+    }
+
+    /// The hero's primary action. We reserve the filled, prominent treatment for
+    /// the terminal "Preview Plan" action so the screen has a single visual lead;
+    /// the per-step "Choose Source/Destination…" buttons own those moments, so the
+    /// hero stays quiet (`.bordered`) while setup is still incomplete.
+    @ViewBuilder
+    private var heroActionButton: some View {
+        if model.primaryAction == .preview {
+            heroActionButtonBase.buttonStyle(.borderedProminent)
+        } else {
+            heroActionButtonBase.buttonStyle(.bordered)
+        }
+    }
+
+    private var heroActionButtonBase: some View {
+        Button(action: primaryAction) {
+            Label(model.primaryAction.title, systemImage: model.primaryAction.systemImage)
+                .frame(maxWidth: .infinity)
+        }
+        .controlSize(.large)
+        .disabled(model.primaryActionDisabled)
+        .accessibilityLabel(model.primaryAction.title)
+        .accessibilityHint(model.primaryActionDisabled ? "Choose both folders to continue" : "Continues to the next setup step")
     }
 }
 
@@ -470,13 +489,22 @@ struct SetupDropZone: View {
                         .foregroundStyle(isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkPrimary)
                 }
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 104)
             .padding(.vertical, 8)
+            .background {
+                // A photo tool should feel like a light table even when empty.
+                // Behind the prompt sits a quiet, slowly drifting montage of
+                // placeholder frames — no real photos until a source is chosen.
+                if !isActive {
+                    DropZoneFilmMontage(intensity: isTargeted ? 0.22 : 0.12)
+                        .allowsHitTesting(false)
+                }
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: DesignTokens.Corner.innerCard, style: .continuous)
                     .strokeBorder(
-                        isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted.opacity(0.35),
-                        style: StrokeStyle(lineWidth: 1.5, dash: [6, 4])
+                        isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted.opacity(0.32),
+                        style: StrokeStyle(lineWidth: 1, dash: [8, 6])
                     )
             )
         }
@@ -486,5 +514,70 @@ struct SetupDropZone: View {
         }
         .accessibilityLabel("Drop photos, videos, or folders to use as source")
         .accessibilityIdentifier("dropZone")
+    }
+}
+
+/// A decorative, low-opacity montage of placeholder "film frames" that sits
+/// behind the empty drop zone. The frames drift on a long, gentle loop so the
+/// surface feels alive — a light table waiting for photos — without distracting
+/// from the prompt. Honors Reduce Motion (frames hold still).
+private struct DropZoneFilmMontage: View {
+    /// Overall opacity of the montage; brightens slightly while drag-targeted.
+    let intensity: Double
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drift = false
+
+    private struct Frame: Identifiable {
+        let id = UUID()
+        let anchor: UnitPoint
+        let size: CGSize
+        let rotation: Double
+        let driftY: CGFloat
+        let highlight: Bool
+    }
+
+    // Deterministic layout — scattered like prints laid out on a table.
+    private let frames: [Frame] = [
+        Frame(anchor: UnitPoint(x: 0.10, y: 0.34), size: CGSize(width: 56, height: 42), rotation: -8, driftY: 5, highlight: false),
+        Frame(anchor: UnitPoint(x: 0.27, y: 0.66), size: CGSize(width: 44, height: 58), rotation: 6, driftY: -4, highlight: false),
+        Frame(anchor: UnitPoint(x: 0.44, y: 0.30), size: CGSize(width: 60, height: 46), rotation: 3, driftY: 6, highlight: true),
+        Frame(anchor: UnitPoint(x: 0.62, y: 0.68), size: CGSize(width: 50, height: 50), rotation: -5, driftY: -5, highlight: false),
+        Frame(anchor: UnitPoint(x: 0.78, y: 0.36), size: CGSize(width: 46, height: 60), rotation: 7, driftY: 4, highlight: false),
+        Frame(anchor: UnitPoint(x: 0.90, y: 0.64), size: CGSize(width: 54, height: 40), rotation: -4, driftY: -6, highlight: false),
+    ]
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ForEach(frames) { frame in
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(
+                            frame.highlight
+                                ? DesignTokens.ColorSystem.accentWaypoint.opacity(0.16)
+                                : DesignTokens.ColorSystem.imageStage.opacity(0.5)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .strokeBorder(DesignTokens.ColorSystem.photoEdgeHighlight, lineWidth: 0.5)
+                        )
+                        .frame(width: frame.size.width, height: frame.size.height)
+                        .rotationEffect(.degrees(frame.rotation))
+                        .position(x: geo.size.width * frame.anchor.x,
+                                  y: geo.size.height * frame.anchor.y)
+                        .offset(y: drift ? frame.driftY : -frame.driftY)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+        }
+        .opacity(intensity)
+        .animation(Motion.filmic, value: intensity)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 12).repeatForever(autoreverses: true)) {
+                drift = true
+            }
+        }
     }
 }
