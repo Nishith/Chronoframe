@@ -12,10 +12,6 @@ Chronoframe is a macOS app for people with years of photos and videos spread acr
 
 Chronoframe always shows you a plan before it changes anything. Your source folder is read-only, transfers can be reviewed before copying, and dedupe choices move files to the macOS Trash instead of permanently deleting them.
 
-| ![Organize setup](docs/screenshots/ui-organize-setup-2026-05.png) | ![Organize preview](docs/screenshots/ui-organize-run-preview-2026-05.png) |
-| :---: | :---: |
-| Choose folders and layout | Preview before copying |
-
 ## What You Can Do
 
 | Need | Use Chronoframe to |
@@ -37,6 +33,8 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 - **Receipts are kept.** History records what happened so you can inspect or revert supported runs.
 
 ## Install
+
+Chronoframe is being prepared for Mac App Store distribution. Until that release is live:
 
 1. Download `Chronoframe.zip` from the [Releases page](https://github.com/Nishith/Chronoframe/releases).
 2. Unzip it.
@@ -87,3 +85,5 @@ swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/P
 ## Privacy
 
 Chronoframe works on folders you choose on your Mac. It does not upload your photo library. Its cache, reports, and receipts are stored inside the destination folder so you can inspect or remove them when you no longer need them.
+
+See the [privacy policy](docs/PRIVACY_POLICY.md) and [Mac App Store release checklist](docs/APP_STORE_RELEASE.md) for release-readiness details.

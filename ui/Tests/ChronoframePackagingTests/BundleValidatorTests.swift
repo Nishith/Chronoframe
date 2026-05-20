@@ -70,6 +70,19 @@ final class BundleValidatorTests: XCTestCase {
         XCTAssertTrue(result.errors.contains { $0.contains("Assets.car") })
     }
 
+    func testValidationReportsMissingPrivacyManifest() throws {
+        let appURL = try makeMinimalAppBundle()
+        try FileManager.default.removeItem(at: appURL.appendingPathComponent("Contents/Resources/PrivacyInfo.xcprivacy"))
+
+        let result = BundleValidator.validateAppBundle(
+            appURL: appURL,
+            codesignInspector: { _ in .adhoc },
+            gatekeeperInspector: { _ in .accepted }
+        )
+
+        XCTAssertTrue(result.errors.contains { $0.contains("PrivacyInfo.xcprivacy") })
+    }
+
     func testInspectCodesignParsesDeveloperIDOutput() {
         let output = [
             "Identifier=com.nishith.chronoframe",
@@ -355,6 +368,27 @@ final class BundleValidatorTests: XCTestCase {
         XCTAssertFalse(result.errors.contains { $0.contains("retired backend") })
     }
 
+    func testStructureOnlyValidationSkipsSigningAndGatekeeperChecks() throws {
+        let result = BundleValidator.validateAppBundle(
+            appURL: try makeMinimalAppBundle(),
+            appStore: true,
+            structureOnly: true,
+            codesignInspector: { _ in
+                XCTFail("Structure-only validation must not inspect signing")
+                return .unsignedUnavailable
+            },
+            gatekeeperInspector: { _ in
+                XCTFail("Structure-only validation must not inspect Gatekeeper")
+                return .unavailable
+            }
+        )
+
+        XCTAssertEqual(result.errors, [])
+        XCTAssertTrue(result.distributionReady)
+        XCTAssertNil(result.signature)
+        XCTAssertNil(result.gatekeeper)
+    }
+
     func testInspectCodesignClassifiesAppleDistributionAuthorities() {
         let appleOutput = """
         Identifier=com.nishith.chronoframe
@@ -430,6 +464,13 @@ final class BundleValidatorTests: XCTestCase {
         // Asset catalog stand-in — the real bundle ships a compiled
         // `Assets.car` produced by `actool` from the .xcassets source.
         try "catalog".write(to: resourcesURL.appendingPathComponent("Assets.car"), atomically: true, encoding: .utf8)
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict/>
+        </plist>
+        """.write(to: resourcesURL.appendingPathComponent("PrivacyInfo.xcprivacy"), atomically: true, encoding: .utf8)
         return appURL
     }
 
