@@ -117,13 +117,33 @@ public enum DeduplicatePairDetector {
     /// Read the Apple Content Identifier from a QuickTime movie's metadata.
     /// Returns nil if the file is not the .mov half of a Live Photo.
     public static func livePhotoIdentifier(forMovieAt url: URL) -> String? {
+        let result = LockedMetadataResult()
+        let semaphore = DispatchSemaphore(value: 0)
+        Task.detached {
+            result.value = await livePhotoIdentifierForMovie(at: url)
+            semaphore.signal()
+        }
+        semaphore.wait()
+        return result.value
+    }
+
+    private static func livePhotoIdentifierForMovie(at url: URL) async -> String? {
         let asset = AVURLAsset(url: url)
-        for item in asset.metadata {
-            if item.identifier?.rawValue == "mdta/com.apple.quicktime.content.identifier",
-               let value = item.value as? String {
+        guard let metadata = try? await asset.load(.metadata) else { return nil }
+        for item in metadata {
+            guard
+                item.identifier?.rawValue == "mdta/com.apple.quicktime.content.identifier"
+            else {
+                continue
+            }
+            if let value = try? await item.load(.stringValue) {
                 return value
             }
         }
         return nil
     }
+}
+
+private final class LockedMetadataResult: @unchecked Sendable {
+    var value: String?
 }
