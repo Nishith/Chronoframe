@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chronoframe — Safe photo organizer for Mac</title>
+  <meta name="description" content="Organize messy photo and video folders without changing the originals, then review and remove duplicates safely through Trash. On-device, sandboxed, no uploads." />
+  <meta property="og:title" content="Chronoframe — Safe photo organizer for Mac" />
+  <meta property="og:description" content="Organize messy photo folders without changing your source files, then clean up duplicates safely through Trash." />
+  <meta property="og:type" content="website" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="container">
+      <a class="brand" href="index.html"><span class="dot"></span> Chronoframe</a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#safety">Safety</a>
+        <a href="support.html">Support</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="container">
+      <p class="eyebrow">For Mac · macOS 13 and later</p>
+      <h1>Organize messy photo folders. Keep every original.</h1>
+      <p class="lede">Chronoframe sorts years of scattered photos and videos into a clean date-based library, then helps you remove duplicates safely &mdash; without ever touching your source files.</p>
+      <div class="cta-row">
+        <!-- Replace href with the Mac App Store product URL once the listing is live. -->
+        <a class="btn btn-primary" href="#">Download on the Mac App Store</a>
+        <a class="btn btn-secondary" href="https://github.com/Nishith/Chronoframe">View on GitHub</a>
+      </div>
+      <p class="note">On-device and sandboxed. No account, no uploads, no tracking.</p>
+    </div>
+  </header>
+
+  <section id="features">
+    <div class="container">
+      <h2>Two jobs, done safely</h2>
+      <p class="section-lede">Chronoframe always shows you a plan before it changes anything.</p>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="icon">&#128193;</div>
+          <h3>Organize</h3>
+          <p>Copy scattered media into folders like <code>2024/06/15</code>. Chronoframe resolves each file's date from metadata, filename, and filesystem &mdash; and lets you review uncertain dates before anything is copied. Your source folder stays read-only.</p>
+        </div>
+        <div class="card">
+          <div class="icon">&#128269;</div>
+          <h3>Deduplicate</h3>
+          <p>Find exact copies by content, not filename, plus near-duplicates, bursts, RAW+JPEG pairs, and Live Photos. You choose what to keep. Selected files move to the macOS Trash &mdash; never a hard delete.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="safety">
+    <div class="container">
+      <h2>Safety first, by design</h2>
+      <p class="section-lede">The whole point of Chronoframe is that you can trust it with an irreplaceable library.</p>
+      <ul class="safety-list">
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>Originals stay untouched</strong>Chronoframe reads your source folder but never moves, renames, edits, or deletes source files.</span>
+        </li>
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>You approve the plan</strong>Organize shows what will copy before transfer. Deduplicate shows what moves to Trash before commit.</span>
+        </li>
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>No overwrites</strong>If a destination filename already exists, Chronoframe creates a distinct name instead of replacing it.</span>
+        </li>
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>Copies are verified</strong>Transfers are written atomically and re-hashed by default to confirm every copy is intact.</span>
+        </li>
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>Trash, not hard delete</strong>Deduplicate sends selected files to the macOS Trash so you can recover them.</span>
+        </li>
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>Receipts and revert</strong>History records what happened, and supported runs can be reverted when the files still match the receipt.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="container">
+      <h2>How it works</h2>
+      <p class="section-lede">From a messy folder to an organized library in a few clear steps.</p>
+      <div class="steps">
+        <div class="step"><span class="num"></span><div><strong>Choose your folders.</strong> Pick the messy source and a separate destination, then a folder layout.</div></div>
+        <div class="step"><span class="num"></span><div><strong>Preview the plan.</strong> Chronoframe scans, resolves dates, and shows exactly what will copy.</div></div>
+        <div class="step"><span class="num"></span><div><strong>Review what needs attention.</strong> Fix unknown or low-confidence dates before you commit.</div></div>
+        <div class="step"><span class="num"></span><div><strong>Transfer, then clean up.</strong> Copy into place, then deduplicate to Trash when you're ready.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="strip">
+    <div class="container">
+      <h2>Requirements</h2>
+      <div class="pills">
+        <span class="pill">macOS 13.0 or later</span>
+        <span class="pill">Apple Silicon &amp; Intel</span>
+        <span class="pill">Works offline</span>
+        <span class="pill">No account required</span>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="support.html">Support</a>
+        <a href="mailto:support@nishithnand.com">support@nishithnand.com</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

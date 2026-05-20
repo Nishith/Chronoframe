@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support — Chronoframe</title>
+  <meta name="description" content="Chronoframe support: getting started, frequently asked questions, troubleshooting, and how to contact us." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="container">
+      <a class="brand" href="index.html"><span class="dot"></span> Chronoframe</a>
+      <div class="nav-links">
+        <a href="index.html#features">Features</a>
+        <a href="index.html#safety">Safety</a>
+        <a href="support.html">Support</a>
+        <a href="privacy.html">Privacy</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="doc">
+    <div class="container">
+      <a class="back" href="index.html">&larr; Back to Chronoframe</a>
+      <h1>Support</h1>
+      <p class="updated">Getting started, common questions, and how to reach us.</p>
+
+      <h2>Getting started</h2>
+      <h3>Organize photos</h3>
+      <ul>
+        <li>Open <strong>Organize</strong> and choose the folder with your unsorted photos and videos.</li>
+        <li>Choose a separate destination folder and pick a folder layout.</li>
+        <li>Click <strong>Preview</strong>, review anything that needs attention (such as unknown dates), then click <strong>Transfer</strong>.</li>
+        <li>Your source folder is never changed. Review the run under <strong>History</strong>, and use <strong>Revert</strong> if needed.</li>
+      </ul>
+      <h3>Deduplicate photos</h3>
+      <ul>
+        <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or use your Organize destination.</li>
+        <li>Click <strong>Scan</strong>, review each duplicate group, and choose what to keep.</li>
+        <li>Click <strong>Commit</strong> to move the selected duplicates to the macOS Trash.</li>
+      </ul>
+
+      <h2>Frequently asked questions</h2>
+
+      <div class="qa">
+        <p class="q">Will Chronoframe delete or modify my original photos?</p>
+        <p class="a">No. Chronoframe only reads your source folder. Your originals are never moved, modified, or deleted. You control when, and whether, to delete the source folder yourself.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Can I undo an organize transfer?</p>
+        <p class="a">Yes. Open <strong>Organize &rarr; History</strong>, select the transfer, and click <strong>Revert</strong>. Chronoframe deletes only the files it copied, and only when their content still matches the receipt &mdash; it won't touch files that already existed or were changed afterward.</p>
+      </div>
+      <div class="qa">
+        <p class="q">What are the system requirements?</p>
+        <p class="a">macOS 13.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p>
+      </div>
+      <div class="qa">
+        <p class="q">How does Chronoframe figure out photo dates?</p>
+        <p class="a">It checks photo metadata (EXIF capture time) first, then filename date patterns, then file creation and modification dates &mdash; and always defers to any date you set yourself in Review. Photos with an unknown date go to an <code>Unknown_Date</code> folder unless you provide one.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>
+        <p class="a">Exact-duplicate detection compares file content, not filenames, so two files match only when their bytes are identical. Photos saved with different compression, metadata, or formats won't be exact matches &mdash; use the similar-photos review to compare them, and adjust the similarity strictness in Deduplicate settings.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Does Chronoframe work with cloud drives like iCloud or OneDrive?</p>
+        <p class="a">Yes, but more slowly &mdash; cloud drives aren't optimized for the file operations Chronoframe performs. Make sure originals are downloaded locally, and use local or external drives for the best performance.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Where does Chronoframe store its data?</p>
+        <p class="a">Inside your destination folder, in <code>.organize_cache.db</code> and <code>.organize_logs/</code>. You can safely delete these to free space; Chronoframe recreates them as needed.</p>
+      </div>
+      <div class="qa">
+        <p class="q">How do I uninstall Chronoframe?</p>
+        <p class="a">Quit the app, then move <strong>Chronoframe</strong> from your Applications folder to the Trash. Chronoframe doesn't install anything system-wide.</p>
+      </div>
+
+      <h2>Troubleshooting</h2>
+
+      <div class="qa">
+        <p class="q">The first scan or preview is taking a long time.</p>
+        <p class="a">Large libraries (50,000+ files) can take several minutes on the first run because Chronoframe reads metadata, computes content hashes, and resolves dates. Subsequent runs are faster thanks to the on-disk cache.</p>
+      </div>
+      <div class="qa">
+        <p class="q">A transfer stopped partway through.</p>
+        <p class="a">Check that you have write access and enough free space on the destination, and that no other app is locking the files. You can safely retry &mdash; Chronoframe skips files already in the destination and copies the rest. Your originals are untouched.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Chronoframe is asking for permission to access a folder.</p>
+        <p class="a">macOS requires apps to ask before reading folders outside your home directory, including external drives. Choose <strong>Allow</strong> and select the folder in the picker.</p>
+      </div>
+      <div class="qa">
+        <p class="q">My external drive isn't showing up in the picker.</p>
+        <p class="a">Make sure the drive is mounted in Finder (try unplugging and reconnecting it). If it's encrypted, unlock it first.</p>
+      </div>
+      <div class="qa">
+        <p class="q">The Commit button in Deduplicate is grayed out.</p>
+        <p class="a">Commit activates once you've made keep/delete choices for at least one duplicate group. Select a group and mark what to keep and what to remove.</p>
+      </div>
+
+      <h2>Contact us</h2>
+      <p>Still stuck, or have a question that isn't covered here? Email <a href="mailto:support@nishithnand.com">support@nishithnand.com</a>. When reporting a problem, it helps to include your macOS version and Mac model, what you were doing, and any error message you saw.</p>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="support.html">Support</a>
+        <a href="mailto:support@nishithnand.com">support@nishithnand.com</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
