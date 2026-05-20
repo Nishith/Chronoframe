@@ -115,6 +115,9 @@ struct RunWorkspaceContext {
     var previewReviewIsStale: Bool
     var previewReviewSummary: PreviewReviewSummary
     var previewReviewPath: String?
+    /// Active source file URL during the transfer phase. Drives the
+    /// NowCopyingCard's live QuickLook thumbnail; `nil` outside copy.
+    var currentFileURL: URL?
 
     init(
         status: RunStatus,
@@ -134,7 +137,8 @@ struct RunWorkspaceContext {
         canStartRun: Bool,
         previewReviewIsStale: Bool = false,
         previewReviewSummary: PreviewReviewSummary = PreviewReviewSummary(),
-        previewReviewPath: String? = nil
+        previewReviewPath: String? = nil,
+        currentFileURL: URL? = nil
     ) {
         self.status = status
         self.currentMode = currentMode
@@ -154,6 +158,7 @@ struct RunWorkspaceContext {
         self.previewReviewIsStale = previewReviewIsStale
         self.previewReviewSummary = previewReviewSummary
         self.previewReviewPath = previewReviewPath
+        self.currentFileURL = currentFileURL
     }
 }
 
@@ -191,7 +196,8 @@ struct RunWorkspaceModel {
                 canStartRun: canStartRun,
                 previewReviewIsStale: previewReviewStore?.isStale ?? false,
                 previewReviewSummary: previewReviewStore?.summary ?? PreviewReviewSummary(),
-                previewReviewPath: runSessionStore.summary?.artifacts.previewReviewPath
+                previewReviewPath: runSessionStore.summary?.artifacts.previewReviewPath,
+                currentFileURL: runSessionStore.currentFileURL
             )
         )
     }

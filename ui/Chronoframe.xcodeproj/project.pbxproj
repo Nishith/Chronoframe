@@ -104,6 +104,7 @@
 		AA0000000000000000000266 /* LibraryHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019C /* LibraryHealthStore.swift */; };
 		AA0000000000000000000267 /* PreviewReviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019D /* PreviewReviewPanel.swift */; };
 		AA0000000000000000000268 /* HealthDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019E /* HealthDashboardView.swift */; };
+		AA0000000000000000000269 /* WorkspaceTabStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019F /* WorkspaceTabStrip.swift */; };
 		AA0000000000000000000900 /* ClusterAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000800 /* ClusterAnnotation.swift */; };
 		AA0000000000000000000901 /* ClusterAnnotator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000801 /* ClusterAnnotator.swift */; };
 		AA0000000000000000000902 /* ClusterConfidenceScorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000802 /* ClusterConfidenceScorer.swift */; };
@@ -235,6 +236,7 @@
 		AA000000000000000000019C /* LibraryHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHealthStore.swift; sourceTree = "<group>"; };
 		AA000000000000000000019D /* PreviewReviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewReviewPanel.swift; sourceTree = "<group>"; };
 		AA000000000000000000019E /* HealthDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDashboardView.swift; sourceTree = "<group>"; };
+		AA000000000000000000019F /* WorkspaceTabStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabStrip.swift; sourceTree = "<group>"; };
 		AA0000000000000000000800 /* ClusterAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterAnnotation.swift; sourceTree = "<group>"; };
 		AA0000000000000000000801 /* ClusterAnnotator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterAnnotator.swift; sourceTree = "<group>"; };
 		AA0000000000000000000802 /* ClusterConfidenceScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterConfidenceScorer.swift; sourceTree = "<group>"; };
@@ -366,6 +368,7 @@
 				AA0000000000000000000144 /* TickerRow.swift */,
 				AA0000000000000000000147 /* OnboardingCard.swift */,
 				AA0000000000000000000195 /* ThumbnailRenderer.swift */,
+				AA000000000000000000019F /* WorkspaceTabStrip.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -799,6 +802,7 @@
 				AA0000000000000000000266 /* LibraryHealthStore.swift in Sources */,
 				AA0000000000000000000267 /* PreviewReviewPanel.swift in Sources */,
 				AA0000000000000000000268 /* HealthDashboardView.swift in Sources */,
+				AA0000000000000000000269 /* WorkspaceTabStrip.swift in Sources */,
 
 			);
 			runOnlyForDeploymentPostprocessing = 0;
