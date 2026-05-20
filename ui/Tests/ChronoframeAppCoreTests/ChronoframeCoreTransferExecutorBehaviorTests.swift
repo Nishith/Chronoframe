@@ -430,7 +430,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
             runLogger: env.logger,
-            observer: TransferExecutionObserver(onPhaseProgress: { completed, total, _, _ in
+            observer: TransferExecutionObserver(onPhaseProgress: { completed, total, _, _, _ in
                 progress.append((completed, total))
             }),
             isCancelled: { true }
@@ -486,7 +486,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             verifyCopies: false,
             runLogger: env.logger,
             observer: TransferExecutionObserver(
-                onPhaseProgress: { completed, total, _, _ in
+                onPhaseProgress: { completed, total, _, _, _ in
                     progress.append((completed, total))
                 }
             )
@@ -623,7 +623,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             verifyCopies: false,
             runLogger: env.logger,
             maxConcurrentCopies: 2,
-            observer: TransferExecutionObserver(onPhaseProgress: { completed, _, _, _ in
+            observer: TransferExecutionObserver(onPhaseProgress: { completed, _, _, _, _ in
                 progress.append(completed)
             })
         )

@@ -1,21 +1,25 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import AppKit
 import SwiftUI
 
 /// A compact, quiet card that surfaces what Chronoframe is doing right now.
-/// During a transfer this shows the current task title ("Copying IMG_0421.HEIC
-/// → 2021/08/14") and an icon placeholder. A per-file URL and QuickLook
-/// thumbnail are intentionally not wired yet — the engine does not stream
-/// the active file path today, and adding that channel is an engine change
-/// (out of scope per the plan's non-goals).
+/// During a transfer this shows the current task title and a live
+/// QuickLook thumbnail of the file currently being copied. When the engine
+/// has not reported a path (between phases, idle, etc.) it falls back to a
+/// status icon tinted by the workspace tone.
 struct NowCopyingCard: View {
     let model: RunWorkspaceModel
 
     var body: some View {
         DarkroomPanel(variant: .inset) {
             HStack(alignment: .center, spacing: DesignTokens.Spacing.md) {
-                thumbnail
+                NowCopyingThumbnail(
+                    fileURL: model.context.currentFileURL,
+                    fallbackSymbol: heroSymbol,
+                    fallbackTone: model.heroState.tone.color
+                )
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Now")
@@ -38,17 +42,6 @@ struct NowCopyingCard: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Now: \(model.context.currentTaskTitle)")
-    }
-
-    private var thumbnail: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(DesignTokens.ColorSystem.hairline.opacity(0.6))
-            .frame(width: 44, height: 44)
-            .overlay {
-                Image(systemName: heroSymbol)
-                    .font(.system(size: 18, weight: .regular))
-                    .foregroundStyle(model.heroState.tone.color)
-            }
     }
 
     private var tonePill: some View {
@@ -75,6 +68,74 @@ struct NowCopyingCard: View {
         case .revertEmpty: return "tray"
         case .reorganized: return "rectangle.3.offgrid.fill"
         case .idle: return "circle.dashed"
+        }
+    }
+}
+
+/// 44×44 live thumbnail tile. Renders QuickLook output for the active
+/// source file when one is present; otherwise shows a tone-tinted status
+/// glyph. Cross-fades between successive files using `Motion.instant`.
+private struct NowCopyingThumbnail: View {
+    let fileURL: URL?
+    let fallbackSymbol: String
+    let fallbackTone: Color
+
+    @State private var image: NSImage?
+    @State private var renderedPath: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(DesignTokens.ColorSystem.imageStage)
+
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .transition(.opacity)
+            } else {
+                Image(systemName: fallbackSymbol)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(fallbackTone)
+            }
+        }
+        .frame(width: 44, height: 44)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(DesignTokens.ColorSystem.photoEdgeHighlight, lineWidth: 0.5)
+        }
+        .motion(Motion.instant, value: renderedPath)
+        .onChange(of: fileURL?.path) { _ in
+            loadThumbnail()
+        }
+        .onAppear { loadThumbnail() }
+    }
+
+    private func loadThumbnail() {
+        guard let url = fileURL else {
+            image = nil
+            renderedPath = nil
+            return
+        }
+        let path = url.path
+        guard path != renderedPath else { return }
+        renderedPath = path
+        Task.detached(priority: .utility) {
+            let cg = await ThumbnailRenderer.cgImage(
+                for: url,
+                size: CGSize(width: 88, height: 88),
+                scale: 2.0
+            )
+            await MainActor.run {
+                guard renderedPath == path else { return }
+                if let cg {
+                    image = NSImage(cgImage: cg, size: NSSize(width: 44, height: 44))
+                } else {
+                    image = nil
+                }
+            }
         }
     }
 }
