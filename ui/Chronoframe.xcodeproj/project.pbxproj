@@ -3,119 +3,19 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 60;
+	objectVersion = 70;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AA0000000000000000000201 /* AppCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000101 /* AppCommands.swift */; };
-		AA0000000000000000000202 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000102 /* AppState.swift */; };
-		AA0000000000000000000203 /* ChronoframeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000103 /* ChronoframeApp.swift */; };
-		AA0000000000000000000204 /* CurrentRunView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000104 /* CurrentRunView.swift */; };
-		AA0000000000000000000205 /* ProfilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000105 /* ProfilesView.swift */; };
-		AA0000000000000000000206 /* RootSplitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000106 /* RootSplitView.swift */; };
-		AA0000000000000000000207 /* RunHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000107 /* RunHistoryView.swift */; };
-		AA0000000000000000000208 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000108 /* SettingsView.swift */; };
-		AA0000000000000000000209 /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000109 /* SetupView.swift */; };
-		AA000000000000000000020A /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010A /* SharedViews.swift */; };
-		AA000000000000000000020B /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010B /* SidebarView.swift */; };
-		AA000000000000000000020C /* Exports.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010C /* Exports.swift */; };
-		AA000000000000000000020D /* FinderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010D /* FinderService.swift */; };
-		AA000000000000000000020E /* FolderAccessService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010E /* FolderAccessService.swift */; };
-		AA000000000000000000020F /* OrganizerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000010F /* OrganizerEngine.swift */; };
-		AA0000000000000000000210 /* ProfilesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000110 /* ProfilesRepository.swift */; };
-		AA0000000000000000000212 /* RunHistoryIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000112 /* RunHistoryIndexer.swift */; };
-		AA0000000000000000000213 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000113 /* HistoryStore.swift */; };
-		AA0000000000000000000214 /* PreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000114 /* PreferencesStore.swift */; };
-		AA0000000000000000000215 /* RunLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000115 /* RunLogStore.swift */; };
-		AA0000000000000000000216 /* RunSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000116 /* RunSessionStore.swift */; };
-		AA0000000000000000000217 /* SetupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000117 /* SetupStore.swift */; };
-		AA0000000000000000000218 /* RuntimePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000118 /* RuntimePaths.swift */; };
-		AA0000000000000000000219 /* ProfileModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000119 /* ProfileModels.swift */; };
-		AA000000000000000000021A /* RunModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000011A /* RunModels.swift */; };
 		AA000000000000000000021B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000124 /* Assets.xcassets */; };
 		AA000000000000000000021C /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000121 /* AppStateTests.swift */; };
 		AA000000000000000000021D /* TestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000122 /* TestSupport.swift */; };
 		AA000000000000000000021E /* ChronoframeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000123 /* ChronoframeUITests.swift */; };
 		AA000000000000000000021F /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000126 /* XCTest.framework */; };
 		AA0000000000000000000220 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000126 /* XCTest.framework */; };
-		AA0000000000000000000221 /* SwiftOrganizerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000127 /* SwiftOrganizerEngine.swift */; };
-		AA0000000000000000000222 /* BLAKE2bHasher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000128 /* BLAKE2bHasher.swift */; };
-		AA0000000000000000000223 /* CopyPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000129 /* CopyPlanBuilder.swift */; };
-		AA0000000000000000000224 /* DryRunPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012A /* DryRunPlanner.swift */; };
-		AA0000000000000000000225 /* EngineDomainModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012B /* EngineDomainModels.swift */; };
-		AA0000000000000000000226 /* FileIdentityHasher.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012C /* FileIdentityHasher.swift */; };
-		AA0000000000000000000227 /* MediaDateResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012D /* MediaDateResolver.swift */; };
-		AA0000000000000000000228 /* MediaDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012E /* MediaDiscovery.swift */; };
-		AA0000000000000000000229 /* OrganizerDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000012F /* OrganizerDatabase.swift */; };
-		AA000000000000000000022A /* PlanningPathBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000130 /* PlanningPathBuilder.swift */; };
-		AA000000000000000000022B /* TransferExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000131 /* TransferExecutor.swift */; };
-		AA000000000000000000022C /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000132 /* DesignTokens.swift */; };
 		AA000000000000000000022D /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000133 /* AccessibilityTests.swift */; };
-		AA000000000000000000022E /* TransferredSourcesLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000134 /* TransferredSourcesLog.swift */; };
-		AA000000000000000000022F /* DroppedItemStager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000135 /* DroppedItemStager.swift */; };
-		AA0000000000000000000230 /* BookmarkPathResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000136 /* BookmarkPathResolver.swift */; };
-		AA0000000000000000000231 /* HistoryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000137 /* HistoryCoordinator.swift */; };
-		AA0000000000000000000232 /* RunCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000138 /* RunCoordinator.swift */; };
-		AA0000000000000000000233 /* SetupCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000139 /* SetupCoordinator.swift */; };
-		AA0000000000000000000234 /* UITestAppStateFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013A /* UITestAppStateFactory.swift */; };
-		AA0000000000000000000235 /* UITestDoubles.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013B /* UITestDoubles.swift */; };
-		AA0000000000000000000236 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013C /* UITestScenario.swift */; };
-		AA0000000000000000000237 /* RunSectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013D /* RunSectionViews.swift */; };
-		AA0000000000000000000238 /* RunWorkspaceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013E /* RunWorkspaceModel.swift */; };
-		AA0000000000000000000239 /* SetupSectionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000013F /* SetupSectionViews.swift */; };
-		AA000000000000000000023A /* SetupScreenModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000140 /* SetupScreenModel.swift */; };
-		AA000000000000000000023B /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000141 /* Motion.swift */; };
-		AA000000000000000000023C /* PathControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000142 /* PathControl.swift */; };
-		AA000000000000000000023D /* ContactSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000143 /* ContactSheetView.swift */; };
-		AA000000000000000000023E /* TickerRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000144 /* TickerRow.swift */; };
-		AA000000000000000000023F /* RunTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000145 /* RunTimelineView.swift */; };
-		AA0000000000000000000240 /* NowCopyingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000146 /* NowCopyingCard.swift */; };
-		AA0000000000000000000247 /* OnboardingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000147 /* OnboardingCard.swift */; };
-		AA0000000000000000000248 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000148 /* HelpView.swift */; };
-		AA0000000000000000000249 /* AboutPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000149 /* AboutPanel.swift */; };
-		AA000000000000000000024A /* RunConfiguration+Profiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014A /* RunConfiguration+Profiles.swift */; };
-		AA000000000000000000024B /* RevertExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014B /* RevertExecutor.swift */; };
-		AA000000000000000000024C /* ReorganizeExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014C /* ReorganizeExecutor.swift */; };
-		AA000000000000000000024D /* UserFacingErrorMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000014D /* UserFacingErrorMessage.swift */; };
-		AA000000000000000000024E /* DeduplicateModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000184 /* DeduplicateModels.swift */; };
-		AA000000000000000000024F /* DeduplicateScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000185 /* DeduplicateScanner.swift */; };
-		AA0000000000000000000250 /* DeduplicateExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000186 /* DeduplicateExecutor.swift */; };
-		AA0000000000000000000251 /* DeduplicatePairDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000187 /* DeduplicatePairDetector.swift */; };
-		AA0000000000000000000252 /* DuplicateClusterer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000188 /* DuplicateClusterer.swift */; };
-		AA0000000000000000000253 /* DedupeFeatureCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000189 /* DedupeFeatureCache.swift */; };
-		AA0000000000000000000254 /* PerceptualHash.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000018A /* PerceptualHash.swift */; };
-		AA0000000000000000000255 /* VisionFeaturePrinter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000018B /* VisionFeaturePrinter.swift */; };
-		AA0000000000000000000256 /* PhotoQualityScorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000018C /* PhotoQualityScorer.swift */; };
-		AA0000000000000000000257 /* DeduplicateEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000018D /* DeduplicateEngine.swift */; };
-		AA0000000000000000000258 /* DeduplicateSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000018E /* DeduplicateSessionStore.swift */; };
-		AA0000000000000000000259 /* OrganizeContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000018F /* OrganizeContainerView.swift */; };
-		AA000000000000000000025A /* DeduplicateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000190 /* DeduplicateView.swift */; };
-		AA000000000000000000025B /* DedupeThumbnailLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000191 /* DedupeThumbnailLoader.swift */; };
-		AA000000000000000000025C /* ClusterListPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000192 /* ClusterListPane.swift */; };
-		AA000000000000000000025D /* ClusterDetailPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000193 /* ClusterDetailPane.swift */; };
-		AA000000000000000000025E /* DeduplicationPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000194 /* DeduplicationPlanner.swift */; };
-		AA000000000000000000025F /* ThumbnailRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000195 /* ThumbnailRenderer.swift */; };
 		AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000196 /* RunHistoryViewTests.swift */; };
-		AA0000000000000000000261 /* DeduplicateStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000197 /* DeduplicateStatusView.swift */; };
 		AA0000000000000000000262 /* DeduplicateStatusViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */; };
-		AA0000000000000000000263 /* PreviewReviewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000199 /* PreviewReviewModels.swift */; };
-		AA0000000000000000000264 /* LibraryHealthScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019A /* LibraryHealthScanner.swift */; };
-		AA0000000000000000000265 /* PreviewReviewStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019B /* PreviewReviewStore.swift */; };
-		AA0000000000000000000266 /* LibraryHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019C /* LibraryHealthStore.swift */; };
-		AA0000000000000000000267 /* PreviewReviewPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019D /* PreviewReviewPanel.swift */; };
-		AA0000000000000000000268 /* HealthDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019E /* HealthDashboardView.swift */; };
-		AA0000000000000000000269 /* WorkspaceTabStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000019F /* WorkspaceTabStrip.swift */; };
-		AA0000000000000000000900 /* ClusterAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000800 /* ClusterAnnotation.swift */; };
-		AA0000000000000000000901 /* ClusterAnnotator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000801 /* ClusterAnnotator.swift */; };
-		AA0000000000000000000902 /* ClusterConfidenceScorer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000802 /* ClusterConfidenceScorer.swift */; };
-		AA0000000000000000000904 /* FaceExpressionAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000804 /* FaceExpressionAnalyzer.swift */; };
-		AA0000000000000000000905 /* FileSystemMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000805 /* FileSystemMonitor.swift */; };
-		AA0000000000000000000906 /* FingerprintIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000806 /* FingerprintIndex.swift */; };
-		AA0000000000000000000908 /* SafetyWarningDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000808 /* SafetyWarningDetector.swift */; };
-		AA000000000000000000090A /* ComparisonOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000080A /* ComparisonOverlayView.swift */; };
-		AA000000000000000000090B /* DifferenceImageGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000080B /* DifferenceImageGenerator.swift */; };
-		AA000000000000000000090C /* MatchReasonFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000080C /* MatchReasonFormatter.swift */; };
-		AA000000000000000000090E /* RapidTriageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000080E /* RapidTriageView.swift */; };
 		AA0000000000000000000A01 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000A00 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -137,120 +37,26 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		AA0000000000000000000101 /* AppCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppCommands.swift; sourceTree = "<group>"; };
-		AA0000000000000000000102 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
-		AA0000000000000000000103 /* ChronoframeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChronoframeApp.swift; sourceTree = "<group>"; };
-		AA0000000000000000000104 /* CurrentRunView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentRunView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000105 /* ProfilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000106 /* RootSplitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootSplitView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000107 /* RunHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000108 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000109 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
-		AA000000000000000000010A /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedViews.swift; sourceTree = "<group>"; };
-		AA000000000000000000010B /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
-		AA000000000000000000010C /* Exports.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Exports.swift; sourceTree = "<group>"; };
-		AA000000000000000000010D /* FinderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinderService.swift; sourceTree = "<group>"; };
-		AA000000000000000000010E /* FolderAccessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderAccessService.swift; sourceTree = "<group>"; };
-		AA000000000000000000010F /* OrganizerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerEngine.swift; sourceTree = "<group>"; };
-		AA0000000000000000000110 /* ProfilesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesRepository.swift; sourceTree = "<group>"; };
-		AA0000000000000000000112 /* RunHistoryIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryIndexer.swift; sourceTree = "<group>"; };
-		AA0000000000000000000113 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
-		AA0000000000000000000114 /* PreferencesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesStore.swift; sourceTree = "<group>"; };
-		AA0000000000000000000115 /* RunLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunLogStore.swift; sourceTree = "<group>"; };
-		AA0000000000000000000116 /* RunSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunSessionStore.swift; sourceTree = "<group>"; };
-		AA0000000000000000000117 /* SetupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupStore.swift; sourceTree = "<group>"; };
-		AA0000000000000000000118 /* RuntimePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimePaths.swift; sourceTree = "<group>"; };
-		AA0000000000000000000119 /* ProfileModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileModels.swift; sourceTree = "<group>"; };
-		AA000000000000000000011A /* RunModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunModels.swift; sourceTree = "<group>"; };
 		AA0000000000000000000121 /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000122 /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
 		AA0000000000000000000123 /* ChronoframeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChronoframeUITests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000124 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA0000000000000000000125 /* Chronoframe.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Chronoframe.entitlements; sourceTree = "<group>"; };
 		AA0000000000000000000126 /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
-		AA0000000000000000000127 /* SwiftOrganizerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftOrganizerEngine.swift; sourceTree = "<group>"; };
-		AA0000000000000000000128 /* BLAKE2bHasher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLAKE2bHasher.swift; sourceTree = "<group>"; };
-		AA0000000000000000000129 /* CopyPlanBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CopyPlanBuilder.swift; sourceTree = "<group>"; };
-		AA000000000000000000012A /* DryRunPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DryRunPlanner.swift; sourceTree = "<group>"; };
-		AA000000000000000000012B /* EngineDomainModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineDomainModels.swift; sourceTree = "<group>"; };
-		AA000000000000000000012C /* FileIdentityHasher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileIdentityHasher.swift; sourceTree = "<group>"; };
-		AA000000000000000000012D /* MediaDateResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDateResolver.swift; sourceTree = "<group>"; };
-		AA000000000000000000012E /* MediaDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaDiscovery.swift; sourceTree = "<group>"; };
-		AA000000000000000000012F /* OrganizerDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizerDatabase.swift; sourceTree = "<group>"; };
-		AA0000000000000000000130 /* PlanningPathBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanningPathBuilder.swift; sourceTree = "<group>"; };
-		AA0000000000000000000131 /* TransferExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferExecutor.swift; sourceTree = "<group>"; };
-		AA0000000000000000000132 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
 		AA0000000000000000000133 /* AccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTests.swift; sourceTree = "<group>"; };
-		AA0000000000000000000134 /* TransferredSourcesLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferredSourcesLog.swift; sourceTree = "<group>"; };
-		AA0000000000000000000135 /* DroppedItemStager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DroppedItemStager.swift; sourceTree = "<group>"; };
-		AA0000000000000000000136 /* BookmarkPathResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkPathResolver.swift; sourceTree = "<group>"; };
-		AA0000000000000000000137 /* HistoryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCoordinator.swift; sourceTree = "<group>"; };
-		AA0000000000000000000138 /* RunCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunCoordinator.swift; sourceTree = "<group>"; };
-		AA0000000000000000000139 /* SetupCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupCoordinator.swift; sourceTree = "<group>"; };
-		AA000000000000000000013A /* UITestAppStateFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestAppStateFactory.swift; sourceTree = "<group>"; };
-		AA000000000000000000013B /* UITestDoubles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestDoubles.swift; sourceTree = "<group>"; };
-		AA000000000000000000013C /* UITestScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestScenario.swift; sourceTree = "<group>"; };
-		AA000000000000000000013D /* RunSectionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunSectionViews.swift; sourceTree = "<group>"; };
-		AA000000000000000000013E /* RunWorkspaceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunWorkspaceModel.swift; sourceTree = "<group>"; };
-		AA000000000000000000013F /* SetupSectionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupSectionViews.swift; sourceTree = "<group>"; };
-		AA0000000000000000000140 /* SetupScreenModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupScreenModel.swift; sourceTree = "<group>"; };
-		AA0000000000000000000141 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
-		AA0000000000000000000142 /* PathControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathControl.swift; sourceTree = "<group>"; };
-		AA0000000000000000000143 /* ContactSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactSheetView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000144 /* TickerRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TickerRow.swift; sourceTree = "<group>"; };
-		AA0000000000000000000145 /* RunTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunTimelineView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000146 /* NowCopyingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowCopyingCard.swift; sourceTree = "<group>"; };
-		AA0000000000000000000147 /* OnboardingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCard.swift; sourceTree = "<group>"; };
-		AA0000000000000000000148 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000149 /* AboutPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPanel.swift; sourceTree = "<group>"; };
-		AA000000000000000000014A /* RunConfiguration+Profiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RunConfiguration+Profiles.swift"; sourceTree = "<group>"; };
-		AA000000000000000000014B /* RevertExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevertExecutor.swift; sourceTree = "<group>"; };
-		AA000000000000000000014C /* ReorganizeExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReorganizeExecutor.swift; sourceTree = "<group>"; };
-		AA000000000000000000014D /* UserFacingErrorMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingErrorMessage.swift; sourceTree = "<group>"; };
 		AA0000000000000000000181 /* Chronoframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chronoframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000182 /* ChronoframeAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000183 /* ChronoframeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA0000000000000000000184 /* DeduplicateModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateModels.swift; sourceTree = "<group>"; };
-		AA0000000000000000000185 /* DeduplicateScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateScanner.swift; sourceTree = "<group>"; };
-		AA0000000000000000000186 /* DeduplicateExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateExecutor.swift; sourceTree = "<group>"; };
-		AA0000000000000000000187 /* DeduplicatePairDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicatePairDetector.swift; sourceTree = "<group>"; };
-		AA0000000000000000000188 /* DuplicateClusterer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateClusterer.swift; sourceTree = "<group>"; };
-		AA0000000000000000000189 /* DedupeFeatureCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DedupeFeatureCache.swift; sourceTree = "<group>"; };
-		AA000000000000000000018A /* PerceptualHash.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerceptualHash.swift; sourceTree = "<group>"; };
-		AA000000000000000000018B /* VisionFeaturePrinter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionFeaturePrinter.swift; sourceTree = "<group>"; };
-		AA000000000000000000018C /* PhotoQualityScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoQualityScorer.swift; sourceTree = "<group>"; };
-		AA000000000000000000018D /* DeduplicateEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateEngine.swift; sourceTree = "<group>"; };
-		AA000000000000000000018E /* DeduplicateSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateSessionStore.swift; sourceTree = "<group>"; };
-		AA000000000000000000018F /* OrganizeContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizeContainerView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000190 /* DeduplicateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateView.swift; sourceTree = "<group>"; };
-		AA0000000000000000000191 /* DedupeThumbnailLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DedupeThumbnailLoader.swift; sourceTree = "<group>"; };
-		AA0000000000000000000192 /* ClusterListPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterListPane.swift; sourceTree = "<group>"; };
-		AA0000000000000000000193 /* ClusterDetailPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterDetailPane.swift; sourceTree = "<group>"; };
-		AA0000000000000000000194 /* DeduplicationPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicationPlanner.swift; sourceTree = "<group>"; };
-		AA0000000000000000000195 /* ThumbnailRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailRenderer.swift; sourceTree = "<group>"; };
 		AA0000000000000000000196 /* RunHistoryViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryViewTests.swift; sourceTree = "<group>"; };
-		AA0000000000000000000197 /* DeduplicateStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateStatusView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateStatusViewTests.swift; sourceTree = "<group>"; };
-		AA0000000000000000000199 /* PreviewReviewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewReviewModels.swift; sourceTree = "<group>"; };
-		AA000000000000000000019A /* LibraryHealthScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHealthScanner.swift; sourceTree = "<group>"; };
-		AA000000000000000000019B /* PreviewReviewStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewReviewStore.swift; sourceTree = "<group>"; };
-		AA000000000000000000019C /* LibraryHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryHealthStore.swift; sourceTree = "<group>"; };
-		AA000000000000000000019D /* PreviewReviewPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewReviewPanel.swift; sourceTree = "<group>"; };
-		AA000000000000000000019E /* HealthDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDashboardView.swift; sourceTree = "<group>"; };
-		AA000000000000000000019F /* WorkspaceTabStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceTabStrip.swift; sourceTree = "<group>"; };
-		AA0000000000000000000800 /* ClusterAnnotation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterAnnotation.swift; sourceTree = "<group>"; };
-		AA0000000000000000000801 /* ClusterAnnotator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterAnnotator.swift; sourceTree = "<group>"; };
-		AA0000000000000000000802 /* ClusterConfidenceScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClusterConfidenceScorer.swift; sourceTree = "<group>"; };
-		AA0000000000000000000804 /* FaceExpressionAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceExpressionAnalyzer.swift; sourceTree = "<group>"; };
-		AA0000000000000000000805 /* FileSystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemMonitor.swift; sourceTree = "<group>"; };
-		AA0000000000000000000806 /* FingerprintIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FingerprintIndex.swift; sourceTree = "<group>"; };
-		AA0000000000000000000808 /* SafetyWarningDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyWarningDetector.swift; sourceTree = "<group>"; };
-		AA000000000000000000080A /* ComparisonOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonOverlayView.swift; sourceTree = "<group>"; };
-		AA000000000000000000080B /* DifferenceImageGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DifferenceImageGenerator.swift; sourceTree = "<group>"; };
-		AA000000000000000000080C /* MatchReasonFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchReasonFormatter.swift; sourceTree = "<group>"; };
-		AA000000000000000000080E /* RapidTriageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RapidTriageView.swift; sourceTree = "<group>"; };
 		AA0000000000000000000A00 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		AA00000000000000000000F1 /* ChronoframeApp */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = ChronoframeApp; sourceTree = "<group>"; };
+		AA00000000000000000000F2 /* ChronoframeAppCore */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = ChronoframeAppCore; sourceTree = "<group>"; };
+		AA00000000000000000000F3 /* ChronoframeCore */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = ChronoframeCore; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		AA0000000000000000000401 /* Frameworks */ = {
@@ -313,146 +119,11 @@
 		AA0000000000000000000010 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				AA0000000000000000000011 /* ChronoframeApp */,
-				AA0000000000000000000014 /* ChronoframeAppCore */,
-				AA0000000000000000000018 /* ChronoframeCore */,
+				AA00000000000000000000F1 /* ChronoframeApp */,
+				AA00000000000000000000F2 /* ChronoframeAppCore */,
+				AA00000000000000000000F3 /* ChronoframeCore */,
 			);
 			path = Sources;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000011 /* ChronoframeApp */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000012 /* App */,
-				AA0000000000000000000013 /* Views */,
-			);
-			path = ChronoframeApp;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000012 /* App */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000149 /* AboutPanel.swift */,
-				AA0000000000000000000101 /* AppCommands.swift */,
-				AA0000000000000000000102 /* AppState.swift */,
-				AA0000000000000000000103 /* ChronoframeApp.swift */,
-				AA0000000000000000000132 /* DesignTokens.swift */,
-				AA0000000000000000000141 /* Motion.swift */,
-				AA000000000000000000001F /* Coordinators */,
-				AA0000000000000000000020 /* UITesting */,
-			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000013 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000105 /* ProfilesView.swift */,
-				AA0000000000000000000106 /* RootSplitView.swift */,
-				AA0000000000000000000107 /* RunHistoryView.swift */,
-				AA0000000000000000000108 /* SettingsView.swift */,
-				AA000000000000000000010A /* SharedViews.swift */,
-				AA000000000000000000010B /* SidebarView.swift */,
-				AA0000000000000000000023 /* Components */,
-				AA0000000000000000000024 /* Help */,
-				AA0000000000000000000022 /* Setup */,
-				AA0000000000000000000021 /* Run */,
-				AA0000000000000000000025 /* Organize */,
-				AA0000000000000000000026 /* Deduplicate */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000014 /* ChronoframeAppCore */ = {
-			isa = PBXGroup;
-			children = (
-				AA000000000000000000010C /* Exports.swift */,
-				AA0000000000000000000015 /* Services */,
-				AA0000000000000000000016 /* Stores */,
-				AA0000000000000000000017 /* Support */,
-			);
-			path = ChronoframeAppCore;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000015 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				AA000000000000000000010D /* FinderService.swift */,
-				AA000000000000000000010E /* FolderAccessService.swift */,
-				AA000000000000000000010F /* OrganizerEngine.swift */,
-				AA0000000000000000000110 /* ProfilesRepository.swift */,
-				AA0000000000000000000127 /* SwiftOrganizerEngine.swift */,
-				AA0000000000000000000112 /* RunHistoryIndexer.swift */,
-				AA0000000000000000000134 /* TransferredSourcesLog.swift */,
-				AA0000000000000000000135 /* DroppedItemStager.swift */,
-				AA000000000000000000018D /* DeduplicateEngine.swift */,
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000016 /* Stores */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000113 /* HistoryStore.swift */,
-				AA000000000000000000019C /* LibraryHealthStore.swift */,
-				AA000000000000000000019B /* PreviewReviewStore.swift */,
-				AA0000000000000000000114 /* PreferencesStore.swift */,
-				AA0000000000000000000115 /* RunLogStore.swift */,
-				AA0000000000000000000116 /* RunSessionStore.swift */,
-				AA0000000000000000000117 /* SetupStore.swift */,
-				AA000000000000000000018E /* DeduplicateSessionStore.swift */,
-			);
-			path = Stores;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000017 /* Support */ = {
-			isa = PBXGroup;
-			children = (
-				AA000000000000000000014A /* RunConfiguration+Profiles.swift */,
-				AA0000000000000000000118 /* RuntimePaths.swift */,
-				AA000000000000000000014D /* UserFacingErrorMessage.swift */,
-			);
-			path = Support;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000018 /* ChronoframeCore */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000128 /* BLAKE2bHasher.swift */,
-				AA0000000000000000000129 /* CopyPlanBuilder.swift */,
-				AA000000000000000000012A /* DryRunPlanner.swift */,
-				AA000000000000000000012B /* EngineDomainModels.swift */,
-				AA000000000000000000012C /* FileIdentityHasher.swift */,
-				AA0000000000000000000800 /* ClusterAnnotation.swift */,
-				AA0000000000000000000801 /* ClusterAnnotator.swift */,
-				AA0000000000000000000802 /* ClusterConfidenceScorer.swift */,
-				AA0000000000000000000804 /* FaceExpressionAnalyzer.swift */,
-				AA0000000000000000000805 /* FileSystemMonitor.swift */,
-				AA0000000000000000000806 /* FingerprintIndex.swift */,
-				AA0000000000000000000808 /* SafetyWarningDetector.swift */,
-				AA000000000000000000019A /* LibraryHealthScanner.swift */,
-				AA000000000000000000012D /* MediaDateResolver.swift */,
-				AA000000000000000000012E /* MediaDiscovery.swift */,
-				AA000000000000000000012F /* OrganizerDatabase.swift */,
-				AA0000000000000000000130 /* PlanningPathBuilder.swift */,
-				AA0000000000000000000199 /* PreviewReviewModels.swift */,
-				AA0000000000000000000119 /* ProfileModels.swift */,
-				AA000000000000000000014C /* ReorganizeExecutor.swift */,
-				AA000000000000000000014B /* RevertExecutor.swift */,
-				AA000000000000000000011A /* RunModels.swift */,
-				AA0000000000000000000131 /* TransferExecutor.swift */,
-				AA0000000000000000000184 /* DeduplicateModels.swift */,
-				AA0000000000000000000185 /* DeduplicateScanner.swift */,
-				AA0000000000000000000186 /* DeduplicateExecutor.swift */,
-				AA0000000000000000000187 /* DeduplicatePairDetector.swift */,
-				AA0000000000000000000188 /* DuplicateClusterer.swift */,
-				AA0000000000000000000189 /* DedupeFeatureCache.swift */,
-				AA000000000000000000018A /* PerceptualHash.swift */,
-				AA000000000000000000018B /* VisionFeaturePrinter.swift */,
-				AA000000000000000000018C /* PhotoQualityScorer.swift */,
-				AA0000000000000000000194 /* DeduplicationPlanner.swift */,
-			);
-			path = ChronoframeCore;
 			sourceTree = "<group>";
 		};
 		AA0000000000000000000019 /* Tests */ = {
@@ -508,96 +179,6 @@
 			path = Packaging;
 			sourceTree = "<group>";
 		};
-		AA000000000000000000001F /* Coordinators */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000136 /* BookmarkPathResolver.swift */,
-				AA0000000000000000000137 /* HistoryCoordinator.swift */,
-				AA0000000000000000000138 /* RunCoordinator.swift */,
-				AA0000000000000000000139 /* SetupCoordinator.swift */,
-			);
-			path = Coordinators;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000020 /* UITesting */ = {
-			isa = PBXGroup;
-			children = (
-				AA000000000000000000013A /* UITestAppStateFactory.swift */,
-				AA000000000000000000013B /* UITestDoubles.swift */,
-				AA000000000000000000013C /* UITestScenario.swift */,
-			);
-			path = UITesting;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000021 /* Run */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000104 /* CurrentRunView.swift */,
-				AA000000000000000000019D /* PreviewReviewPanel.swift */,
-				AA000000000000000000013D /* RunSectionViews.swift */,
-				AA000000000000000000013E /* RunWorkspaceModel.swift */,
-				AA0000000000000000000145 /* RunTimelineView.swift */,
-				AA0000000000000000000146 /* NowCopyingCard.swift */,
-			);
-			path = Run;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000022 /* Setup */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000109 /* SetupView.swift */,
-				AA000000000000000000013F /* SetupSectionViews.swift */,
-				AA0000000000000000000140 /* SetupScreenModel.swift */,
-			);
-			path = Setup;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000023 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000142 /* PathControl.swift */,
-				AA0000000000000000000143 /* ContactSheetView.swift */,
-				AA0000000000000000000144 /* TickerRow.swift */,
-				AA0000000000000000000147 /* OnboardingCard.swift */,
-				AA0000000000000000000195 /* ThumbnailRenderer.swift */,
-				AA000000000000000000019F /* WorkspaceTabStrip.swift */,
-			);
-			path = Components;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000024 /* Help */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000148 /* HelpView.swift */,
-			);
-			path = Help;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000025 /* Organize */ = {
-			isa = PBXGroup;
-			children = (
-				AA000000000000000000019E /* HealthDashboardView.swift */,
-				AA000000000000000000018F /* OrganizeContainerView.swift */,
-			);
-			path = Organize;
-			sourceTree = "<group>";
-		};
-		AA0000000000000000000026 /* Deduplicate */ = {
-			isa = PBXGroup;
-			children = (
-				AA0000000000000000000190 /* DeduplicateView.swift */,
-				AA0000000000000000000191 /* DedupeThumbnailLoader.swift */,
-				AA0000000000000000000192 /* ClusterListPane.swift */,
-				AA0000000000000000000193 /* ClusterDetailPane.swift */,
-				AA000000000000000000080A /* ComparisonOverlayView.swift */,
-				AA000000000000000000080B /* DifferenceImageGenerator.swift */,
-				AA000000000000000000080C /* MatchReasonFormatter.swift */,
-				AA000000000000000000080E /* RapidTriageView.swift */,
-				AA0000000000000000000197 /* DeduplicateStatusView.swift */,
-			);
-			path = Deduplicate;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -612,6 +193,11 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				AA00000000000000000000F1 /* ChronoframeApp */,
+				AA00000000000000000000F2 /* ChronoframeAppCore */,
+				AA00000000000000000000F3 /* ChronoframeCore */,
 			);
 			name = ChronoframeApp;
 			productName = Chronoframe;
@@ -711,106 +297,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA0000000000000000000201 /* AppCommands.swift in Sources */,
-				AA0000000000000000000202 /* AppState.swift in Sources */,
-				AA0000000000000000000203 /* ChronoframeApp.swift in Sources */,
-				AA0000000000000000000204 /* CurrentRunView.swift in Sources */,
-				AA0000000000000000000205 /* ProfilesView.swift in Sources */,
-				AA0000000000000000000206 /* RootSplitView.swift in Sources */,
-				AA0000000000000000000207 /* RunHistoryView.swift in Sources */,
-				AA0000000000000000000208 /* SettingsView.swift in Sources */,
-				AA0000000000000000000209 /* SetupView.swift in Sources */,
-				AA000000000000000000020A /* SharedViews.swift in Sources */,
-				AA000000000000000000020B /* SidebarView.swift in Sources */,
-				AA000000000000000000020C /* Exports.swift in Sources */,
-				AA000000000000000000020D /* FinderService.swift in Sources */,
-				AA000000000000000000020E /* FolderAccessService.swift in Sources */,
-				AA000000000000000000020F /* OrganizerEngine.swift in Sources */,
-				AA0000000000000000000210 /* ProfilesRepository.swift in Sources */,
-				AA0000000000000000000221 /* SwiftOrganizerEngine.swift in Sources */,
-				AA0000000000000000000212 /* RunHistoryIndexer.swift in Sources */,
-				AA000000000000000000022E /* TransferredSourcesLog.swift in Sources */,
-				AA000000000000000000022F /* DroppedItemStager.swift in Sources */,
-				AA0000000000000000000230 /* BookmarkPathResolver.swift in Sources */,
-				AA0000000000000000000231 /* HistoryCoordinator.swift in Sources */,
-				AA0000000000000000000232 /* RunCoordinator.swift in Sources */,
-				AA0000000000000000000233 /* SetupCoordinator.swift in Sources */,
-				AA0000000000000000000234 /* UITestAppStateFactory.swift in Sources */,
-				AA0000000000000000000235 /* UITestDoubles.swift in Sources */,
-				AA0000000000000000000236 /* UITestScenario.swift in Sources */,
-				AA0000000000000000000213 /* HistoryStore.swift in Sources */,
-				AA0000000000000000000214 /* PreferencesStore.swift in Sources */,
-				AA0000000000000000000215 /* RunLogStore.swift in Sources */,
-				AA0000000000000000000216 /* RunSessionStore.swift in Sources */,
-				AA0000000000000000000217 /* SetupStore.swift in Sources */,
-				AA000000000000000000024A /* RunConfiguration+Profiles.swift in Sources */,
-				AA0000000000000000000218 /* RuntimePaths.swift in Sources */,
-				AA000000000000000000024D /* UserFacingErrorMessage.swift in Sources */,
-				AA0000000000000000000237 /* RunSectionViews.swift in Sources */,
-				AA0000000000000000000238 /* RunWorkspaceModel.swift in Sources */,
-				AA0000000000000000000239 /* SetupSectionViews.swift in Sources */,
-				AA000000000000000000023A /* SetupScreenModel.swift in Sources */,
-				AA0000000000000000000222 /* BLAKE2bHasher.swift in Sources */,
-				AA0000000000000000000223 /* CopyPlanBuilder.swift in Sources */,
-				AA0000000000000000000224 /* DryRunPlanner.swift in Sources */,
-				AA0000000000000000000225 /* EngineDomainModels.swift in Sources */,
-				AA0000000000000000000226 /* FileIdentityHasher.swift in Sources */,
-				AA0000000000000000000227 /* MediaDateResolver.swift in Sources */,
-				AA0000000000000000000228 /* MediaDiscovery.swift in Sources */,
-				AA0000000000000000000229 /* OrganizerDatabase.swift in Sources */,
-				AA000000000000000000022A /* PlanningPathBuilder.swift in Sources */,
-				AA0000000000000000000219 /* ProfileModels.swift in Sources */,
-				AA000000000000000000024C /* ReorganizeExecutor.swift in Sources */,
-				AA000000000000000000024B /* RevertExecutor.swift in Sources */,
-				AA000000000000000000021A /* RunModels.swift in Sources */,
-				AA000000000000000000022B /* TransferExecutor.swift in Sources */,
-				AA000000000000000000022C /* DesignTokens.swift in Sources */,
-				AA0000000000000000000249 /* AboutPanel.swift in Sources */,
-				AA000000000000000000023B /* Motion.swift in Sources */,
-				AA000000000000000000023C /* PathControl.swift in Sources */,
-				AA000000000000000000023D /* ContactSheetView.swift in Sources */,
-				AA000000000000000000023E /* TickerRow.swift in Sources */,
-				AA000000000000000000023F /* RunTimelineView.swift in Sources */,
-				AA0000000000000000000240 /* NowCopyingCard.swift in Sources */,
-				AA0000000000000000000247 /* OnboardingCard.swift in Sources */,
-				AA0000000000000000000248 /* HelpView.swift in Sources */,
-				AA000000000000000000024E /* DeduplicateModels.swift in Sources */,
-				AA000000000000000000024F /* DeduplicateScanner.swift in Sources */,
-				AA0000000000000000000250 /* DeduplicateExecutor.swift in Sources */,
-				AA0000000000000000000251 /* DeduplicatePairDetector.swift in Sources */,
-				AA0000000000000000000252 /* DuplicateClusterer.swift in Sources */,
-				AA0000000000000000000253 /* DedupeFeatureCache.swift in Sources */,
-				AA0000000000000000000254 /* PerceptualHash.swift in Sources */,
-				AA0000000000000000000255 /* VisionFeaturePrinter.swift in Sources */,
-				AA0000000000000000000256 /* PhotoQualityScorer.swift in Sources */,
-				AA0000000000000000000900 /* ClusterAnnotation.swift in Sources */,
-				AA0000000000000000000901 /* ClusterAnnotator.swift in Sources */,
-				AA0000000000000000000902 /* ClusterConfidenceScorer.swift in Sources */,
-				AA0000000000000000000904 /* FaceExpressionAnalyzer.swift in Sources */,
-				AA0000000000000000000905 /* FileSystemMonitor.swift in Sources */,
-				AA0000000000000000000906 /* FingerprintIndex.swift in Sources */,
-				AA0000000000000000000908 /* SafetyWarningDetector.swift in Sources */,
-				AA000000000000000000025E /* DeduplicationPlanner.swift in Sources */,
-				AA000000000000000000025F /* ThumbnailRenderer.swift in Sources */,
-				AA0000000000000000000257 /* DeduplicateEngine.swift in Sources */,
-				AA0000000000000000000258 /* DeduplicateSessionStore.swift in Sources */,
-				AA0000000000000000000259 /* OrganizeContainerView.swift in Sources */,
-				AA000000000000000000025A /* DeduplicateView.swift in Sources */,
-				AA000000000000000000025B /* DedupeThumbnailLoader.swift in Sources */,
-				AA000000000000000000025C /* ClusterListPane.swift in Sources */,
-				AA000000000000000000025D /* ClusterDetailPane.swift in Sources */,
-				AA000000000000000000090A /* ComparisonOverlayView.swift in Sources */,
-				AA000000000000000000090B /* DifferenceImageGenerator.swift in Sources */,
-				AA000000000000000000090C /* MatchReasonFormatter.swift in Sources */,
-				AA000000000000000000090E /* RapidTriageView.swift in Sources */,
-				AA0000000000000000000261 /* DeduplicateStatusView.swift in Sources */,
-				AA0000000000000000000263 /* PreviewReviewModels.swift in Sources */,
-				AA0000000000000000000264 /* LibraryHealthScanner.swift in Sources */,
-				AA0000000000000000000265 /* PreviewReviewStore.swift in Sources */,
-				AA0000000000000000000266 /* LibraryHealthStore.swift in Sources */,
-				AA0000000000000000000267 /* PreviewReviewPanel.swift in Sources */,
-				AA0000000000000000000268 /* HealthDashboardView.swift in Sources */,
-				AA0000000000000000000269 /* WorkspaceTabStrip.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
