@@ -174,6 +174,10 @@ private struct HelpPrivacySection: View {
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .padding(.top, DesignTokens.Spacing.xs)
             }
+
+            Link("Read the full privacy policy", destination: ChronoframeLinks.privacy)
+                .font(DesignTokens.Typography.body)
+                .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
         }
     }
 }
