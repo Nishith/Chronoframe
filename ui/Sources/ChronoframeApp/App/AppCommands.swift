@@ -4,6 +4,12 @@ import ChronoframeAppCore
 import AppKit
 import SwiftUI
 
+enum ChronoframeLinks {
+    static let website = URL(string: "https://chronoframe.app/")!
+    static let privacy = URL(string: "https://chronoframe.app/privacy.html")!
+    static let support = URL(string: "https://chronoframe.app/support.html")!
+}
+
 struct AppCommands: Commands {
     let appState: AppState
     @ObservedObject private var setupStore: SetupStore
@@ -71,6 +77,20 @@ struct AppCommands: Commands {
 
             Button("Keyboard Shortcuts") {
                 openWindow(id: ChronoframeApp.helpWindowID)
+            }
+
+            Divider()
+
+            Button("Chronoframe Website") {
+                NSWorkspace.shared.open(ChronoframeLinks.website)
+            }
+
+            Button("Privacy Policy") {
+                NSWorkspace.shared.open(ChronoframeLinks.privacy)
+            }
+
+            Button("Support") {
+                NSWorkspace.shared.open(ChronoframeLinks.support)
             }
 
             Divider()
