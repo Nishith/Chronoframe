@@ -5,9 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chronoframe — Safe photo organizer for Mac</title>
   <meta name="description" content="Organize messy photo and video folders without changing the originals, then review and remove duplicates safely through Trash. On-device, sandboxed, no uploads." />
+  <meta name="theme-color" content="#161618" />
+  <link rel="canonical" href="https://chronoframe.app/" />
   <meta property="og:title" content="Chronoframe — Safe photo organizer for Mac" />
   <meta property="og:description" content="Organize messy photo folders without changing your source files, then clean up duplicates safely through Trash." />
   <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://chronoframe.app/" />
+  <meta property="og:image" content="https://chronoframe.app/apple-touch-icon.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Chronoframe — Safe photo organizer for Mac" />
+  <meta name="twitter:description" content="Organize messy photo folders without changing your source files, then clean up duplicates safely through Trash." />
+  <meta name="twitter:image" content="https://chronoframe.app/apple-touch-icon.png" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
   <link rel="stylesheet" href="styles.css" />
@@ -19,6 +27,7 @@
       <div class="nav-links">
         <a href="#features">Features</a>
         <a href="#safety">Safety</a>
+        <a href="#faq">FAQ</a>
         <a href="support.html">Support</a>
         <a href="privacy.html">Privacy</a>
       </div>
@@ -28,13 +37,14 @@
   <header class="hero">
     <div class="container">
       <p class="eyebrow">For Mac · macOS 13 and later</p>
-      <h1>Organize messy photo folders. Keep every original.</h1>
-      <p class="lede">Chronoframe sorts years of scattered photos and videos into a clean date-based library, then helps you remove duplicates safely &mdash; without ever touching your source files.</p>
+      <h1>Finally, every photo in its place &mdash; and not one original lost.</h1>
+      <p class="lede">Years of photos and videos scattered across phones, drives, and old backups? Chronoframe gathers them into one clean, date-based library &mdash; and never changes a single original along the way.</p>
       <div class="cta-row">
-        <!-- Replace href with the Mac App Store product URL once the listing is live. -->
-        <a class="btn btn-primary" href="#">Download on the Mac App Store</a>
+        <!-- Swap this span for an <a href="…App Store URL…"> once the listing is live. -->
+        <span class="btn btn-primary is-pending" role="button" aria-disabled="true">Coming soon to the Mac App Store</span>
         <a class="btn btn-secondary" href="https://github.com/Nishith/Chronoframe">View on GitHub</a>
       </div>
+      <p class="price-note">One-time purchase &middot; $14.99 introductory price &middot; No subscription.</p>
       <p class="note">On-device and sandboxed. No account, no uploads, no tracking.</p>
     </div>
   </header>
@@ -60,32 +70,32 @@
 
   <section id="safety">
     <div class="container">
-      <h2>Safety first, by design</h2>
-      <p class="section-lede">The whole point of Chronoframe is that you can trust it with an irreplaceable library.</p>
+      <h2>Built so you never have to worry</h2>
+      <p class="section-lede">Your photos are irreplaceable. Every decision in Chronoframe starts from that.</p>
       <ul class="safety-list">
         <li>
           <span class="check">&#10003;</span>
-          <span><strong>Originals stay untouched</strong>Chronoframe reads your source folder but never moves, renames, edits, or deletes source files.</span>
+          <span><strong>Your originals never change</strong>Chronoframe only reads your source folder. It never moves, renames, edits, or deletes a single original.</span>
         </li>
         <li>
           <span class="check">&#10003;</span>
-          <span><strong>You approve the plan</strong>Organize shows what will copy before transfer. Deduplicate shows what moves to Trash before commit.</span>
+          <span><strong>Nothing happens until you say go</strong>You see exactly what will be copied, and exactly what will move to Trash, before anything changes.</span>
         </li>
         <li>
           <span class="check">&#10003;</span>
-          <span><strong>No overwrites</strong>If a destination filename already exists, Chronoframe creates a distinct name instead of replacing it.</span>
+          <span><strong>Nothing gets overwritten</strong>If a file with the same name is already there, Chronoframe keeps both &mdash; it never replaces one of yours.</span>
         </li>
         <li>
           <span class="check">&#10003;</span>
-          <span><strong>Copies are verified</strong>Transfers are written atomically and re-hashed by default to confirm every copy is intact.</span>
+          <span><strong>Every copy is double-checked</strong>Each file is written safely and re-verified, so you know the copy is identical to the original.</span>
         </li>
         <li>
           <span class="check">&#10003;</span>
-          <span><strong>Trash, not hard delete</strong>Deduplicate sends selected files to the macOS Trash so you can recover them.</span>
+          <span><strong>Change your mind anytime</strong>Duplicates you remove go to the macOS Trash, so you can pull anything back if you need it.</span>
         </li>
         <li>
           <span class="check">&#10003;</span>
-          <span><strong>Receipts and revert</strong>History records what happened, and supported runs can be reverted when the files still match the receipt.</span>
+          <span><strong>Undo a whole run</strong>Chronoframe keeps a record of every run, so you can revert one as long as the files still match.</span>
         </li>
       </ul>
     </div>
@@ -104,6 +114,36 @@
     </div>
   </section>
 
+  <section id="faq">
+    <div class="container">
+      <h2>The questions people ask first</h2>
+      <p class="section-lede">If you're trusting an app with a lifetime of photos, you deserve straight answers.</p>
+      <div class="faq-list">
+        <div class="qa">
+          <p class="q">Will Chronoframe change or delete my original photos?</p>
+          <p class="a">No. Chronoframe only reads your source folder. Your originals are never moved, renamed, edited, or deleted &mdash; you decide if and when to clean up the source yourself.</p>
+        </div>
+        <div class="qa">
+          <p class="q">What happens if a transfer is interrupted?</p>
+          <p class="a">Each file is written safely to a temporary spot and only then put into place, so an interrupted run can't leave a half-written photo. Your originals stay untouched, and you can simply run it again.</p>
+        </div>
+        <div class="qa">
+          <p class="q">Can I undo it?</p>
+          <p class="a">Yes. History records every run, and Revert removes only the files Chronoframe copied &mdash; and only when they still match the record, so it never touches anything you added or changed afterward.</p>
+        </div>
+        <div class="qa">
+          <p class="q">Do my photos ever leave my Mac?</p>
+          <p class="a">Never. Everything runs on-device. There's no account, no uploads, no analytics, and no tracking of any kind.</p>
+        </div>
+        <div class="qa">
+          <p class="q">What does Chronoframe cost?</p>
+          <p class="a">A single one-time purchase &mdash; $14.99 as an introductory price. No subscription, ever.</p>
+        </div>
+      </div>
+      <p class="faq-more">More questions? See the <a href="support.html">full support page</a>.</p>
+    </div>
+  </section>
+
   <section class="strip">
     <div class="container">
       <h2>Requirements</h2>
@@ -113,6 +153,18 @@
         <span class="pill">Works offline</span>
         <span class="pill">No account required</span>
       </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="container">
+      <h2>Give your library the home it deserves.</h2>
+      <p class="section-lede">Start with a single folder and see the plan before anything moves. Your originals never change &mdash; so there's nothing to undo if you change your mind.</p>
+      <div class="cta-row">
+        <span class="btn btn-primary is-pending" role="button" aria-disabled="true">Coming soon to the Mac App Store</span>
+        <a class="btn btn-secondary" href="https://github.com/Nishith/Chronoframe">View on GitHub</a>
+      </div>
+      <p class="price-note">One-time purchase &middot; $14.99 introductory price &middot; No subscription.</p>
     </div>
   </section>
 
