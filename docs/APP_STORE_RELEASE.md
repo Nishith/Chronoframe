@@ -24,9 +24,9 @@ Recommended initial listing:
 - Category: Photo & Video
 - Price: USD 14.99 introductory; move to USD 19.99 after launch reviews accumulate.
 - Copyright: 2026 Nishith Nand
-- Privacy policy URL: publish `docs/PRIVACY_POLICY.md` as a web page before submission.
-- Support URL: publish FAQ and troubleshooting pages from `docs/`.
-- Marketing URL: product page with screenshots, demo video, pricing, privacy promise, and support links.
+- Privacy policy URL: https://chronoframe.app/privacy.html (live, verified 2026-05-23).
+- Support URL: https://chronoframe.app/support.html (live, verified 2026-05-23).
+- Marketing URL: https://chronoframe.app/ (live, verified 2026-05-23).
 
 Short description:
 
@@ -74,8 +74,8 @@ Run these against the signed App Store build:
 
 ## Launch Tasks
 
-- Publish privacy policy, support, FAQ, and troubleshooting pages.
-- Build a landing page around the safety promise: originals untouched, preview before changes, Trash-only dedupe, on-device processing.
+- Publish privacy policy, support, FAQ, and troubleshooting pages. (Done: privacy and support pages live at https://chronoframe.app/privacy.html and https://chronoframe.app/support.html, verified 2026-05-23.)
+- Build a landing page around the safety promise: originals untouched, preview before changes, Trash-only dedupe, on-device processing. (Done: https://chronoframe.app/ live, verified 2026-05-23.)
 - Record a 60-second demo video.
 - Recruit 20-50 TestFlight users with messy real-world libraries before public launch.
 - Prepare launch posts for Mac utility communities, photography groups, and personal archive workflows.
