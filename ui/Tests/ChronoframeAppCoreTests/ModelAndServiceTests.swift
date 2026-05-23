@@ -77,6 +77,18 @@ final class ModelAndServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testFolderAccessServiceStartsPickerAtParentOfSavedFolder() {
+        XCTAssertEqual(
+            FolderAccessService.initialPanelDirectoryURL(startingAt: "/Volumes/Photos/Large Library").path,
+            "/Volumes/Photos"
+        )
+        XCTAssertEqual(
+            FolderAccessService.initialPanelDirectoryURL(startingAt: "  ").path,
+            FileManager.default.homeDirectoryForCurrentUser.path
+        )
+    }
+
+    @MainActor
     func testFolderAccessServiceValidatesDirectoryCapabilities() throws {
         let service = FolderAccessService()
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString, isDirectory: true)
