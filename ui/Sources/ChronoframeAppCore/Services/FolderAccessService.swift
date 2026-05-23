@@ -86,12 +86,24 @@ public final class FolderAccessService: FolderAccessServicing {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = prompt
-
-        if let path, !path.isEmpty {
-            panel.directoryURL = URL(fileURLWithPath: path)
-        }
+        panel.directoryURL = Self.initialPanelDirectoryURL(startingAt: path)
 
         return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    public static func initialPanelDirectoryURL(startingAt path: String?) -> URL {
+        guard let path = path?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.isEmpty
+        else {
+            return FileManager.default.homeDirectoryForCurrentUser
+        }
+
+        let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        let parent = url.deletingLastPathComponent()
+        guard parent.path != url.path, !parent.path.isEmpty else {
+            return url
+        }
+        return parent
     }
 
     public func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {

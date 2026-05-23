@@ -47,7 +47,7 @@ h1, h2, h3 { color: var(--ink-primary); line-height: 1.2; letter-spacing: -0.01e
 }
 .nav .container { display: flex; align-items: center; justify-content: space-between; height: 56px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--ink-primary); font-size: 17px; }
-.brand .dot { width: 12px; height: 12px; border-radius: 4px; background: linear-gradient(135deg, var(--waypoint), var(--action)); }
+.brand-icon { width: 28px; height: 28px; border-radius: 7px; display: block; }
 .nav-links { display: flex; gap: 24px; }
 .nav-links a { color: var(--ink-secondary); font-size: 15px; }
 .nav-links a:hover { color: var(--ink-primary); text-decoration: none; }
