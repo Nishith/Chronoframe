@@ -8,6 +8,17 @@ final class BuildPipelineTests: XCTestCase {
         let sourcesRoot = packageRoot.appendingPathComponent("Sources", isDirectory: true)
         let project = try String(contentsOf: projectFile, encoding: .utf8)
 
+        // PBXFileSystemSynchronizedRootGroup targets are auto-discovered by Xcode at build time;
+        // individual files are never listed in project.pbxproj, so skip the filename check for them.
+        let syncedTargets: Set<String> = Set(
+            project.components(separatedBy: "\n").compactMap { line -> String? in
+                guard line.contains("PBXFileSystemSynchronizedRootGroup"),
+                      let pathStart = line.range(of: "path = "),
+                      let pathEnd = line[pathStart.upperBound...].range(of: ";") else { return nil }
+                return String(line[pathStart.upperBound..<pathEnd.lowerBound])
+            }
+        )
+
         let enumerator = FileManager.default.enumerator(
             at: sourcesRoot,
             includingPropertiesForKeys: [.isRegularFileKey],
@@ -20,6 +31,9 @@ final class BuildPipelineTests: XCTestCase {
             let relative = url.path.replacingOccurrences(of: sourcesRoot.path + "/", with: "")
             let topLevelTarget = relative.split(separator: "/").first.map(String.init)
             if ["ChronoframeCLI", "ChronoframeCLIKit", "ChronoframePackaging", "ChronoframePackagingTool", "ChronoframeIconTool"].contains(topLevelTarget) {
+                continue
+            }
+            if let target = topLevelTarget, syncedTargets.contains(target) {
                 continue
             }
             if !project.contains(url.lastPathComponent) {
