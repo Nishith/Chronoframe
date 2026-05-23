@@ -19,6 +19,9 @@ htmlcov/
 .tmp/
 .swift-home/
 .claude/
+SESSION_HANDOFF.md
+*.xcuserstate
+xcuserdata/
 profiles.yaml
 ui/build/
 ui/.build/
