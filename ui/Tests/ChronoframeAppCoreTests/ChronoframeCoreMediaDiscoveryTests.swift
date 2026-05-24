@@ -140,6 +140,50 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
         )
     }
 
+    func testDropManifestRejectsEntriesOutsideSelectedRootByDefault() throws {
+        let outsideDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ChronoframeMediaDiscoveryOutside-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outsideDirectory) }
+
+        let outsideImage = outsideDirectory.appendingPathComponent("IMG_20240101_010101.jpg")
+        try Data("outside".utf8).write(to: outsideImage)
+
+        let manifest: [String: Any] = [
+            "items": [
+                ["path": outsideImage.path, "isDirectory": false]
+            ]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: manifest)
+        try data.write(to: temporaryDirectoryURL.appendingPathComponent(".chronoframe_drop_manifest.json"))
+
+        let collected = LockedIssues()
+        let discovered = try MediaDiscovery.discoverMediaFiles(
+            at: temporaryDirectoryURL,
+            onDirectoryIssue: { collected.append($0) }
+        )
+
+        XCTAssertTrue(discovered.isEmpty)
+        XCTAssertEqual(collected.values.map(\.path), [outsideImage.path])
+        XCTAssertTrue(collected.values[0].message.contains("outside source root"))
+    }
+
+    func testDropManifestReportsCorruptJSONInsteadOfSilentlyReturningEmptyWalk() throws {
+        let manifestURL = temporaryDirectoryURL.appendingPathComponent(".chronoframe_drop_manifest.json")
+        try Data("{ nope".utf8).write(to: manifestURL)
+
+        let collected = LockedIssues()
+        let discovered = try MediaDiscovery.discoverMediaFiles(
+            at: temporaryDirectoryURL,
+            onDirectoryIssue: { collected.append($0) }
+        )
+
+        XCTAssertTrue(discovered.isEmpty)
+        XCTAssertEqual(collected.values.count, 1)
+        XCTAssertEqual(collected.values[0].path, manifestURL.path)
+        XCTAssertTrue(collected.values[0].message.contains("Drop manifest could not be read"))
+    }
+
     private func normalize(_ path: String) -> String {
         let absolute = URL(fileURLWithPath: path).standardizedFileURL.path
         let root = temporaryDirectoryURL.standardizedFileURL.path + "/"

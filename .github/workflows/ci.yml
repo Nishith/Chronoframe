@@ -66,7 +66,7 @@ jobs:
             if [ -z "$diagnostic" ]; then
               diagnostic=$(tail -80 .tmp/swiftpm-tests.log)
             fi
-            message=$(printf '%s' "$diagnostic" | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            message=$(printf '%s' "$diagnostic" | perl -0pe 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
             echo "::error title=SwiftPM tests failed::$message"
           fi
           exit "$status"
@@ -104,7 +104,7 @@ jobs:
             if [ -z "$diagnostic" ]; then
               diagnostic=$(tail -80 .tmp/meaningful-coverage.log)
             fi
-            message=$(printf '%s' "$diagnostic" | sed ':a;N;$!ba;s/%/%25/g;s/\r/%0D/g;s/\n/%0A/g')
+            message=$(printf '%s' "$diagnostic" | perl -0pe 's/%/%25/g; s/\r/%0D/g; s/\n/%0A/g')
             echo "::error title=Meaningful coverage failed::$message"
           fi
           exit "$status"
