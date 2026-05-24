@@ -43,31 +43,63 @@ final class SetupCoordinator {
             bookmarkPathResolver.restoreManualPaths(into: setupStore)
         }
         refreshProfiles()
-        historyStore.refresh(destinationRoot: setupStore.destinationPath)
+        reloadHistory(destinationRoot: setupStore.destinationPath)
+    }
+
+    /// Records the destination synchronously (so the UI reflects it at once)
+    /// and offloads the run-history disk scan so a slow/network destination
+    /// can't freeze the main thread.
+    private func reloadHistory(destinationRoot: String) {
+        historyStore.setDestinationRoot(destinationRoot)
+        let store = historyStore
+        Task { await store.loadEntries() }
     }
 
     func chooseSourceFolder() async {
-        guard let url = folderAccessService.chooseFolder(
+        let chosen = folderAccessService.chooseFolder(
             startingAt: setupStore.sourcePath,
             prompt: "Choose Source Folder"
-        ) else {
+        )
+        guard let url = chosen else {
             return
         }
 
-        do {
-            try folderAccessService.validateFolder(url, role: .source)
-        } catch {
-            setTransientErrorMessage(UserFacingErrorMessage.message(for: error, context: .setup))
+        await selectSourceFolder(url)
+    }
+
+    func selectSourceFolder(_ url: URL) async {
+        // Hold security-scoped access across the off-main validation and
+        // bookmark creation below, then release on return. (Open-panel URLs are
+        // already granted via Powerbox, so this is a harmless no-op for them.)
+        let didAccess = url.startAccessingSecurityScopedResource()
+        defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+
+        if let message = await validationMessage(for: url, role: .source) {
+            setTransientErrorMessage(message)
             return
         }
 
         setupStore.sourcePath = url.path
         setupStore.clearDroppedSource()
         preferencesStore.lastManualSourcePath = url.path
-        bookmarkPathResolver.persistBookmark(for: url, role: .source, profileName: nil)
+        await bookmarkPathResolver.persistBookmark(for: url, role: .source, profileName: nil)
         if !setupStore.usingProfile {
             preferencesStore.lastSelectedProfileName = ""
         }
+    }
+
+    /// Runs the blocking filesystem validation off the main actor and returns
+    /// a user-facing message when the folder is unusable, or nil when valid.
+    private func validationMessage(for url: URL, role: FolderRole) async -> String? {
+        let service = folderAccessService
+        return await Task.detached(priority: .userInitiated) { () -> String? in
+            do {
+                try service.validateFolder(url, role: role)
+                return nil
+            } catch {
+                return UserFacingErrorMessage.message(for: error, context: .setup)
+            }
+        }.value
     }
 
     func applyDrop(urls: [URL]) async {
@@ -103,17 +135,23 @@ final class SetupCoordinator {
             return
         }
 
-        do {
-            try folderAccessService.validateFolder(url, role: .destination)
-        } catch {
-            setTransientErrorMessage(UserFacingErrorMessage.message(for: error, context: .setup))
+        await selectDestinationFolder(url)
+    }
+
+    func selectDestinationFolder(_ url: URL) async {
+        let didAccess = url.startAccessingSecurityScopedResource()
+        defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+
+        if let message = await validationMessage(for: url, role: .destination) {
+            setTransientErrorMessage(message)
             return
         }
 
         setupStore.destinationPath = url.path
         preferencesStore.lastManualDestinationPath = url.path
-        bookmarkPathResolver.persistBookmark(for: url, role: .destination, profileName: nil)
-        historyStore.refresh(destinationRoot: url.path)
+        await bookmarkPathResolver.persistBookmark(for: url, role: .destination, profileName: nil)
+        // Scope is still held here, so the destination scan can read it.
+        await historyStore.refresh(destinationRoot: url.path)
         if !setupStore.usingProfile {
             preferencesStore.lastSelectedProfileName = ""
         }
@@ -125,9 +163,9 @@ final class SetupCoordinator {
 
         if let activeProfile = setupStore.activeProfile {
             bookmarkPathResolver.restoreProfilePaths(named: activeProfile.name, into: setupStore)
-            historyStore.refresh(destinationRoot: setupStore.destinationPath)
+            reloadHistory(destinationRoot: setupStore.destinationPath)
         } else if !setupStore.usingProfile {
-            historyStore.refresh(destinationRoot: setupStore.destinationPath)
+            reloadHistory(destinationRoot: setupStore.destinationPath)
         }
     }
 
@@ -135,7 +173,7 @@ final class SetupCoordinator {
         setupStore.clearProfileSelection()
         preferencesStore.lastSelectedProfileName = ""
         bookmarkPathResolver.restoreManualPaths(into: setupStore)
-        historyStore.refresh(destinationRoot: setupStore.destinationPath)
+        reloadHistory(destinationRoot: setupStore.destinationPath)
     }
 
     func refreshProfiles() {

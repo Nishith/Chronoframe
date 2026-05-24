@@ -35,7 +35,7 @@ public struct TransferredSourceRecord: Identifiable, Codable, Equatable, Sendabl
 /// Reads and writes `.organize_transferred_sources.json` at a destination
 /// root. The file records every source path a user has successfully
 /// transferred into this destination so it can be displayed in the UI.
-public struct TransferredSourcesLog {
+public struct TransferredSourcesLog: @unchecked Sendable {
     public static let fileName = ".organize_transferred_sources.json"
 
     private let fileManager: FileManager

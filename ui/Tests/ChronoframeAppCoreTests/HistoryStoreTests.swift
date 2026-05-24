@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class HistoryStoreTests: XCTestCase {
-    func testRefreshUsesIndexerResults() {
+    func testRefreshUsesIndexerResults() async {
         let entries = [
             RunHistoryEntry(
                 kind: .queueDatabase,
@@ -26,7 +26,7 @@ final class HistoryStoreTests: XCTestCase {
         let indexer = MockRunHistoryIndexer(result: .success(entries))
 
         let store = HistoryStore(indexer: indexer)
-        store.refresh(destinationRoot: "/tmp/run")
+        await store.refresh(destinationRoot: "/tmp/run")
 
         XCTAssertEqual(store.entries, entries)
         XCTAssertEqual(store.destinationRoot, "/tmp/run")
@@ -165,22 +165,22 @@ final class HistoryStoreTests: XCTestCase {
     /// (revert, transferred-sources log) treat
     /// `historyStore.destinationRoot` as the implicit "where receipts
     /// live" handle and break when it's silently zeroed.
-    func testRefreshDoesNotWipePreviouslyLoadedDestinationRootForEmptyInput() {
+    func testRefreshDoesNotWipePreviouslyLoadedDestinationRootForEmptyInput() async {
         let indexer = MockRunHistoryIndexer(result: .success([
             RunHistoryEntry(kind: .runLog, title: "Run Log", path: "/tmp/run.log", createdAt: .distantPast)
         ]))
         let store = HistoryStore(indexer: indexer)
-        store.refresh(destinationRoot: "/Volumes/Archive")
+        await store.refresh(destinationRoot: "/Volumes/Archive")
         XCTAssertEqual(store.destinationRoot, "/Volumes/Archive")
 
         // Both empty and whitespace-only inputs must be no-ops.
-        store.refresh(destinationRoot: "")
+        await store.refresh(destinationRoot: "")
         XCTAssertEqual(store.destinationRoot, "/Volumes/Archive")
-        store.refresh(destinationRoot: "   ")
+        await store.refresh(destinationRoot: "   ")
         XCTAssertEqual(store.destinationRoot, "/Volumes/Archive")
     }
 
-    func testRefreshRecordsIndexerFailures() {
+    func testRefreshRecordsIndexerFailures() async {
         let indexer = MockRunHistoryIndexer(result: .failure(MockRunHistoryIndexer.Error.sample))
         let store = HistoryStore(
             entries: [
@@ -189,7 +189,7 @@ final class HistoryStoreTests: XCTestCase {
             indexer: indexer
         )
 
-        store.refresh(destinationRoot: "/tmp/run")
+        await store.refresh(destinationRoot: "/tmp/run")
 
         XCTAssertEqual(store.entries, [])
         XCTAssertEqual(store.destinationRoot, "/tmp/run")
@@ -200,7 +200,7 @@ final class HistoryStoreTests: XCTestCase {
     }
 }
 
-private struct MockRunHistoryIndexer: RunHistoryIndexing {
+private struct MockRunHistoryIndexer: RunHistoryIndexing, @unchecked Sendable {
     enum Error: LocalizedError {
         case sample
 

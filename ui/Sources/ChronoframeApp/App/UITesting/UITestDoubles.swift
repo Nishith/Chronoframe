@@ -138,14 +138,14 @@ final class MockDeduplicateEngine: DeduplicateEngine {
 final class MockFolderAccessService: FolderAccessServicing {
     var nextChosenFolder: URL?
     var chooseFolderCalls: [(startingAt: String?, prompt: String)] = []
-    var bookmarkURLs: [URL] = []
+    nonisolated(unsafe) var bookmarkURLs: [URL] = []
     var resolvedBookmarks: [String: ResolvedFolderBookmark] = [:]
-    var validationFailures: [String: Error] = [:]
+    nonisolated(unsafe) var validationFailures: [String: Error] = [:]
     /// Force `makeBookmark` to throw the next time it is called for any
     /// of these bookmark keys. Used to verify that the dedupe folder
     /// picker surfaces a transient error instead of silently swallowing
     /// `try?`.
-    var bookmarkCreationFailures: [String: Error] = [:]
+    nonisolated(unsafe) var bookmarkCreationFailures: [String: Error] = [:]
     /// Force `resolveBookmark` to return `nil` for any of these keys.
     /// Used to verify that bootstrap clears the stale path when the
     /// stored bookmark no longer resolves.
@@ -156,7 +156,7 @@ final class MockFolderAccessService: FolderAccessServicing {
         return nextChosenFolder
     }
 
-    func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
+    nonisolated func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
         if let error = bookmarkCreationFailures[key] {
             throw error
         }
@@ -175,7 +175,7 @@ final class MockFolderAccessService: FolderAccessServicing {
         SecurityScopedFolderAccess()
     }
 
-    func validateFolder(_ url: URL, role: FolderRole) throws {
+    nonisolated func validateFolder(_ url: URL, role: FolderRole) throws {
         if let error = validationFailures[url.path] {
             throw error
         }

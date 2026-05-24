@@ -153,7 +153,7 @@ struct MeridianSurfaceCard<Content: View>: View {
                 backgroundView
                     .clipShape(shape)
             }
-            .overlay(shape.strokeBorder(borderColor, lineWidth: 0.5))
+            .overlay(shape.strokeBorder(borderColor, lineWidth: 0.5).allowsHitTesting(false))
     }
 
     @ViewBuilder

@@ -12,7 +12,6 @@ enum AboutPanel {
         [
             .applicationName: "Chronoframe",
             .applicationVersion: versionString,
-            .version: buildString,
             .credits: creditsAttributedString,
             NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): copyrightString,
         ]
@@ -20,10 +19,6 @@ enum AboutPanel {
 
     private static var versionString: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-    }
-
-    private static var buildString: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
     private static var copyrightString: String {

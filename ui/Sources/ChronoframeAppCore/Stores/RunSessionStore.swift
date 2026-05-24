@@ -598,10 +598,17 @@ public final class RunSessionStore: ObservableObject {
                     )
                 }
             }
-            historyStore.refresh(destinationRoot: finalSummary.artifacts.destinationRoot)
+            let refreshRoot = finalSummary.artifacts.destinationRoot
+            historyStore.setDestinationRoot(refreshRoot)
+            let completionEpoch = currentRunEpoch
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                await self.historyStore.loadEntries()
+                guard self.currentRunEpoch == completionEpoch else { return }
+                self.closeSecurityScope()
+            }
             logStore.append("Finished: \(finalSummary.title)")
             postRunCompletionNotification(summary: finalSummary)
-            closeSecurityScope()
         }
     }
 

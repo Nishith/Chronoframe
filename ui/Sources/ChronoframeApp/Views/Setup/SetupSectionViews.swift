@@ -1,8 +1,53 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#endif
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
 import UniformTypeIdentifiers
+
+#if canImport(AppKit)
+private struct SetupFolderChooserButton: NSViewRepresentable {
+    let title: String
+    let accessibilityIdentifier: String
+    let action: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(action: action)
+    }
+
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(title: title, target: context.coordinator, action: #selector(Coordinator.performAction))
+        button.bezelStyle = .rounded
+        button.controlSize = .regular
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        button.identifier = NSUserInterfaceItemIdentifier(accessibilityIdentifier)
+        button.setAccessibilityIdentifier(accessibilityIdentifier)
+        return button
+    }
+
+    func updateNSView(_ button: NSButton, context: Context) {
+        context.coordinator.action = action
+        button.title = title
+        button.identifier = NSUserInterfaceItemIdentifier(accessibilityIdentifier)
+        button.setAccessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    final class Coordinator: NSObject {
+        var action: () -> Void
+
+        init(action: @escaping () -> Void) {
+            self.action = action
+        }
+
+        @objc func performAction() {
+            action()
+        }
+    }
+}
+#endif
 
 struct SetupHeroSection: View {
     let model: SetupScreenModel
@@ -68,25 +113,6 @@ struct SetupHeroSection: View {
             button
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-        }
-    }
-}
-
-struct SetupContactSheetSection: View {
-    let sourcePath: String
-
-    var body: some View {
-        MeridianSurfaceCard(style: .section) {
-            VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
-                SectionHeading(
-                    title: "Source Contact Sheet",
-                    message: sourcePath.isEmpty
-                        ? "A contact sheet of the first frames will appear here once you choose a source."
-                        : "A quick visual read of the frames Chronoframe will organize."
-                )
-
-                ContactSheetView(sourcePath: sourcePath)
-            }
         }
     }
 }
@@ -227,7 +253,12 @@ struct SetupSourceStepSection: View {
 
                             Spacer(minLength: 12)
 
-                            Button("Choose Source…", action: chooseSource)
+                            SetupFolderChooserButton(
+                                title: "Choose Source...",
+                                accessibilityIdentifier: "chooseSourceButton",
+                                action: chooseSource
+                            )
+                                .accessibilityIdentifier("chooseSourceButton")
                                 .accessibilityHint("Opens a folder picker to choose the source library")
                         }
 
@@ -238,7 +269,12 @@ struct SetupSourceStepSection: View {
                                 helper: model.sourcePathHelper
                             )
 
-                            Button("Choose Source…", action: chooseSource)
+                            SetupFolderChooserButton(
+                                title: "Choose Source...",
+                                accessibilityIdentifier: "chooseSourceButton",
+                                action: chooseSource
+                            )
+                                .accessibilityIdentifier("chooseSourceButton")
                                 .accessibilityHint("Opens a folder picker to choose the source library")
                         }
                     }
@@ -294,7 +330,12 @@ struct SetupDestinationStepSection: View {
 
                             Spacer(minLength: 12)
 
-                            Button("Choose Destination…", action: chooseDestination)
+                            SetupFolderChooserButton(
+                                title: "Choose Destination...",
+                                accessibilityIdentifier: "chooseDestinationButton",
+                                action: chooseDestination
+                            )
+                                .accessibilityIdentifier("chooseDestinationButton")
                                 .accessibilityHint("Opens a folder picker to choose where organized copies will be written")
                         }
 
@@ -305,7 +346,12 @@ struct SetupDestinationStepSection: View {
                                 helper: model.destinationPathHelper
                             )
 
-                            Button("Choose Destination…", action: chooseDestination)
+                            SetupFolderChooserButton(
+                                title: "Choose Destination...",
+                                accessibilityIdentifier: "chooseDestinationButton",
+                                action: chooseDestination
+                            )
+                                .accessibilityIdentifier("chooseDestinationButton")
                                 .accessibilityHint("Opens a folder picker to choose where organized copies will be written")
                         }
                     }

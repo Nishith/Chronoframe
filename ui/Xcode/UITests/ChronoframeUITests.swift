@@ -25,6 +25,8 @@ final class ChronoframeUITests: XCTestCase {
             XCTAssertTrue(app.buttons["previewButton"].exists)
             XCTAssertTrue(app.staticTexts["1. Source"].exists)
             XCTAssertTrue(app.staticTexts["2. Destination"].exists)
+            XCTAssertTrue(Self.hittableButton(identifier: "chooseSourceButton", in: app).isHittable)
+            XCTAssertTrue(Self.hittableButton(identifier: "chooseDestinationButton", in: app).isHittable)
             XCTAssertTrue(app.staticTexts["Run"].exists)
         }
     }

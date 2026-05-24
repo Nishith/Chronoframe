@@ -88,10 +88,8 @@ private struct HelpHeader: View {
     }
 
     private var versionString: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = info?["CFBundleVersion"] as? String ?? ""
-        return build.isEmpty ? "Version \(short)" : "Version \(short) (\(build))"
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        return "Version \(short)"
     }
 }
 
