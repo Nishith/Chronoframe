@@ -77,7 +77,9 @@ final class ModelAndServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testFolderAccessServiceAvoidsExternalVolumeStartDirectories() {
+    func testFolderAccessServiceAvoidsStaleVolumePaths() {
+        // A /Volumes/ path that doesn't exist (stale bookmark, ejected drive,
+        // or network mount that isn't currently available) falls back to home.
         XCTAssertEqual(
             FolderAccessService.initialPanelDirectoryURL(startingAt: "/Volumes/Photos/Large Library").path,
             FileManager.default.homeDirectoryForCurrentUser.path

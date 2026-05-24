@@ -99,7 +99,18 @@ public final class FolderAccessService: FolderAccessServicing {
         }
 
         let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
-        if url.path.hasPrefix("/Volumes/") {
+
+        if FileManager.default.fileExists(atPath: url.path) {
+            // Path exists — ask the OS whether the volume is local. Non-local
+            // volumes (SMB, NFS, AFP, WebDAV) can be slow or unresponsive, so
+            // drop back to home rather than hanging the open panel.
+            if let values = try? url.resourceValues(forKeys: [.volumeIsLocalKey]),
+               values.volumeIsLocal == false {
+                return homeDirectory
+            }
+        } else if url.path.hasPrefix("/Volumes/") {
+            // Path no longer exists but looks like an external/network mount
+            // (stale bookmark, ejected drive). Avoid it.
             return homeDirectory
         }
 
