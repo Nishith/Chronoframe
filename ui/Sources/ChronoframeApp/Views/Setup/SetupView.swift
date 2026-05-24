@@ -64,10 +64,6 @@ struct SetupView: View {
                 )
                 .id("destinationSection")
 
-                if !setupStore.sourcePath.isEmpty {
-                    SetupContactSheetSection(sourcePath: setupStore.sourcePath)
-                }
-
                 SetupSavedSetupSection(
                     model: screenModel,
                     setupStore: setupStore,

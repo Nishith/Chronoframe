@@ -117,25 +117,6 @@ struct SetupHeroSection: View {
     }
 }
 
-struct SetupContactSheetSection: View {
-    let sourcePath: String
-
-    var body: some View {
-        MeridianSurfaceCard(style: .section) {
-            VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
-                SectionHeading(
-                    title: "Source Contact Sheet",
-                    message: sourcePath.isEmpty
-                        ? "A contact sheet of the first frames will appear here once you choose a source."
-                        : "A quick visual read of the frames Chronoframe will organize."
-                )
-
-                ContactSheetView(sourcePath: sourcePath)
-            }
-        }
-    }
-}
-
 struct SetupSavedSetupSection: View {
     let model: SetupScreenModel
     @ObservedObject var setupStore: SetupStore
