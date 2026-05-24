@@ -78,7 +78,7 @@ if [ -n "${CHRONOFRAME_CODESIGN_IDENTITY:-}" ]; then
     "$APP_DIR"
 else
   echo "🔏 Applying ad hoc signature for local validation..."
-  codesign --force --deep --sign - "$APP_DIR"
+  codesign --force --deep --sign - --entitlements "$ENTITLEMENTS_PATH" "$APP_DIR"
 fi
 
 "${VALIDATOR_COMMAND[@]}" "$APP_DIR"
