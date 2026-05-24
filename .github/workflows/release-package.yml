@@ -27,6 +27,11 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           fetch-depth: 0 # full history so the version stamp's commit count is monotonic
+      - name: Validate tag is reachable from main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main \
+            || { echo "::error::Tag does not point to a commit on main"; exit 1; }
       - name: Select Swift 6 toolchain
         run: |
           swift6_developer_dir=""
@@ -49,7 +54,6 @@ jobs:
           CHRONOFRAME_DEVELOPMENT_TEAM: ${{ secrets.CHRONOFRAME_DEVELOPMENT_TEAM }}
           CHRONOFRAME_NOTARY_PROFILE: ${{ secrets.CHRONOFRAME_NOTARY_PROFILE }}
           CHRONOFRAME_NOTARY_APPLE_ID: ${{ secrets.CHRONOFRAME_NOTARY_APPLE_ID }}
-          CHRONOFRAME_NOTARY_PASSWORD: ${{ secrets.CHRONOFRAME_NOTARY_PASSWORD }}
         run: |
           cd ui
           ./archive.sh

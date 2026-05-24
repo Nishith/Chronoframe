@@ -1,4 +1,5 @@
 import AppKit
+#if DEBUG
 import Foundation
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
@@ -306,3 +307,4 @@ private enum UITestSettingsWindowPresenter {
         settingsWindow = window
     }
 }
+#endif

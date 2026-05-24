@@ -1,3 +1,4 @@
+#if DEBUG
 import Foundation
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
@@ -232,3 +233,4 @@ final class MockProfilesRepository: ProfilesRepositorying {
         profiles.removeAll { $0.name == name }
     }
 }
+#endif

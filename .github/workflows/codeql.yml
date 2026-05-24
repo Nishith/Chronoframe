@@ -81,8 +81,3 @@ jobs:
       - uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4
         with:
           category: "/language:swift"
-          # Code scanning is not currently enabled for this repository, so
-          # SARIF uploads fail after analysis succeeds. Keep the CodeQL build
-          # and analysis gate active for compiler/extraction failures, and
-          # re-enable uploads after code scanning is turned on in repo settings.
-          upload: never

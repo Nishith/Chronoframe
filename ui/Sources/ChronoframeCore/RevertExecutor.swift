@@ -259,7 +259,7 @@ public struct RevertExecutor: Sendable {
     public func revert(
         receipt: RevertReceipt,
         observer: RevertExecutionObserver = RevertExecutionObserver(),
-        destinationBoundary: URL? = nil,
+        destinationBoundary: URL?,
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) -> RevertExecutionResult {
         let transfers = receipt.transfers

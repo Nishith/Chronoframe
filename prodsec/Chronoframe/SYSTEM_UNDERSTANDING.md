@@ -1,149 +1,265 @@
-# Chronoframe — System Understanding
+# System Understanding: Chronoframe
+
+_Generated: 2026-05-24. Pass type: REFRESH (prior review artifacts exist; code has changed since prior pass). This review supersedes prior documents in this directory._
+
+---
 
 ## Overview
 
-Chronoframe is a native macOS SwiftUI photo/video organizer with two destructive workflows (Organize, Deduplicate) and a non-destructive Reorganize. Its core promise is that **source files are never modified, moved, or deleted**, and every destructive action (copies into the destination, dedupe trashing) is logged in an audit receipt so it can be reverted from the in-app Run History. It ships as a sandboxed Developer ID app and a SwiftPM CLI (`ChronoframeCLI`).
+Chronoframe is a native macOS SwiftUI photo/video organizer distributed on the Mac App Store and via Developer ID notarization. Its central promise: **source files are never modified, moved, or deleted**. It scans an unsorted source folder, resolves each file's date, copies files into a date-structured destination, and provides audited revert. A parallel CLI (`ChronoframeCLI`) is backed by the same engine.
+
+The user base is individual macOS users managing personal, often irreplaceable photo libraries. The primary risk class is **accidental permanent data loss**, not remote attacker exfiltration.
+
+---
 
 ## High-Level Architecture
 
 ```
-ui/Sources/
-  ChronoframeCore/        # Pure Swift engine: hashing, planning, executors, SQLite
-  ChronoframeAppCore/     # App services + @Published stores (MainActor for most)
-  ChronoframeApp/         # SwiftUI views + entry point
-  ChronoframeCLIKit/      # Reusable arg parser + runners
-  ChronoframeCLI/         # SwiftPM CLI executable
-  ChronoframePackaging/   # Bundle validator used by archive scripts
+┌───────────────────────────────────────────────────────────────┐
+│  ChronoframeApp  (SwiftUI, @MainActor)                        │
+│  Views · AppState · Coordinators (Setup/Run/History/Dedupe)   │
+└────────────────┬──────────────────────────────────────────────┘
+                 │ OrganizerEngine protocol
+┌────────────────▼──────────────────────────────────────────────┐
+│  ChronoframeAppCore                                           │
+│  SwiftOrganizerEngine · Stores · Services · FolderAccess      │
+│  RunSessionStore · HistoryStore · DeduplicateSessionStore     │
+│  PreviewReviewStore · SetupStore · PreferencesStore           │
+└────────────────┬──────────────────────────────────────────────┘
+                 │ pure Swift calls, no AppKit
+┌────────────────▼──────────────────────────────────────────────┐
+│  ChronoframeCore  (stateless domain engine)                   │
+│  MediaDiscovery · MediaDateResolver · DryRunPlanner           │
+│  CopyPlanBuilder · TransferExecutor · RevertExecutor          │
+│  ReorganizeExecutor · DeduplicateScanner                      │
+│  DeduplicationPlanner · DeduplicateExecutor                   │
+│  OrganizerDatabase (SQLite cache) · BLAKE2bHasher             │
+└───────────────────────────────────────────────────────────────┘
+
+ChronoframeCLI / ChronoframeCLIKit  ──►  ChronoframeCore (shared)
 ```
 
-Engine components form a planner → executor pipeline:
+**Layer boundaries:**
+- `ChronoframeCore` — no AppKit; fully testable with SwiftPM unit tests. Pure domain algorithms.
+- `ChronoframeAppCore` — `@MainActor` stores, `OrganizerEngine` protocol, `SwiftOrganizerEngine` concrete implementation, security-scoped bookmark management.
+- `ChronoframeApp` — SwiftUI views, `AppState` root object, coordinators.
 
-- `MediaDiscovery` walks the source tree (skipping symlinks, packages, photo libraries, hidden files).
-- `MediaDateResolver` derives a canonical date per file from EXIF / mtime / filename.
-- `CopyPlanBuilder` + `PlanningPathBuilder` produce destination paths.
-- `FileIdentityHasher` (BLAKE2b 512-bit, 128-byte block) hashes contents.
-- `TransferExecutor` writes to `<dest>.tmp` (UUID-suffixed in parallel mode), `F_FULLFSYNC`s the file, then `renamex_np(RENAME_EXCL)` atomically. Verifies by re-hashing.
-- `DeduplicateScanner` → `DuplicateClusterer` → `ClusterAnnotator` → `ClusterConfidenceScorer` produce clusters of duplicate candidates.
-- `DeduplicationPlanner.plan` is the **single source of truth** for "what files will the executor mutate", consumed both by the commit footer and `DeduplicateExecutor`.
-- `DeduplicateExecutor` preflights `.organize_logs/`, writes a PENDING JSON receipt, moves files to Trash incrementally, finalizes COMPLETED.
-- `RevertExecutor` re-hashes destination files, only unlinks/trashes when hash matches the receipt (per-fd, `O_NOFOLLOW`, inode-pinned).
-- `OrganizerDatabase` (SQLite, WAL, single connection w/ FULLMUTEX) hosts the organize cache, dedupe feature-print cache, and run-job rows.
+**External dependencies:** Zero (no third-party Swift packages). All cryptographic and image-analysis code is first-party (custom BLAKE2b-512, Vision framework, Photos framework).
 
-App layer:
-
-- `SwiftOrganizerEngine` is the bridge between MainActor stores and the engine's detached Tasks. Streams `RunEvent` back via `AsyncStream`.
-- Stores: `RunSessionStore`, `DeduplicateSessionStore`, `HistoryStore`, `SetupStore`, `PreferencesStore`, `PreviewReviewStore`, `LibraryHealthStore`, `RunLogStore`. Most are `@MainActor` (a few are not — see findings).
-- `FolderAccessService` resolves security-scoped bookmarks for the source/destination/dedupe folders and starts/stops the scope around runs.
+---
 
 ## Core Flows
 
-**Organize.** User picks source + destination → preview produces a dry-run CSV → user confirms → `TransferExecutor.executeQueuedJobs` walks the SQLite job queue, copies, verifies, writes audit receipt at end. UI streams `RunEvent` for progress.
+### Organize flow (main path)
 
-**Deduplicate.** User chooses scan root (defaults to organize destination, may pick a dedicated folder) → scanner produces clusters with confidence (high/medium/low) → user reviews + approves clusters → `commitReviewed` builds a `DeduplicationPlan` and the executor trashes the non-keepers, writing per-item receipt updates. Cluster ownership in the receipt lets Revert restore everything (including pair partners that aren't cluster members themselves).
+```
+1. User picks source + destination → security-scoped bookmarks stored
+2. RunCoordinator.startPreview()
+3. SwiftOrganizerEngine.preview():
+   a. MediaDiscovery: walk source (no symlinks, no packages, no bundles)
+   b. MediaDateResolver: EXIF → filename → mtime fallback
+   c. DryRunPlanner: hash source files (O_RDONLY|O_NOFOLLOW), check destination
+      → OrganizerDatabase caches hashes (size+mtime invalidation)
+   d. CopyPlanBuilder: assign destination paths, handle collisions (_1, _2…)
+4. User reviews plan in Preview tab
+5. RunCoordinator.startTransfer()
+6. SwiftOrganizerEngine.execute():
+   a. StreamingAuditReceiptWriter writes PENDING receipt BEFORE first copy
+   b. TransferExecutor.executeQueuedJobs():
+      - clonefile → copyfile fallback → F_FULLFSYNC → renamex_np(RENAME_EXCL)
+      - Optional hash verify: re-hashes destination, deletes on mismatch
+        ⚠️ uses try? — throw falsely triggers deletion (finding #1)
+      - Spool file updated after each successful copy
+   c. Failure threshold: 5 consecutive OR 20 total → abort
+   d. Receipt finalized: removeItem(PENDING) then moveItem(tmp→final)
+      ⚠️ crash window between the two leaves no receipt (finding #5)
+7. RunHistoryIndexer indexes receipt into HistoryStore
+```
 
-**Reorganize.** Hash every file under destination → plan path moves → execute moves → write receipt. No source involvement.
+### Revert flow
 
-**Revert.** Read `audit_receipt_*.json` / `dedupe_audit_receipt_*.json` / `reorganize_audit_receipt_*.json`. For each entry, hash current target; if it matches the receipt's recorded hash, restore (delete destination for organize/dedupe, move-back for reorganize). Mismatches preserve the file.
+```
+1. User selects run in History → HistoryCoordinator.revertHistoryEntry()
+2. SwiftOrganizerEngine.revert():
+   a. RevertExecutor.safeRevert() per destination file:
+      - O_NOFOLLOW open
+      - BLAKE2b hash of open fd
+      - fstatat(AT_SYMLINK_NOFOLLOW) inode check
+      - Compare hash against receipt
+      - unlinkat() only if match
+   b. Boundary check: file must be inside destinationBoundary
+      ⚠️ boundary defaults to nil; nil skips containment check (finding #7)
+   c. Source is never touched
+```
+
+### Dedup flow
+
+```
+1. DeduplicateScanner: walk destination, compute BLAKE2b, Vision prints, dHash, quality
+   → Cache in OrganizerDatabase.DedupeFeatures
+2. DeduplicationPlanner.plan():
+   a. Cluster by exact hash → by feature print → by dHash
+   b. Select keeper (quality-based auto-suggest for high confidence)
+   c. Apply pair-as-unit rules (RAW+JPEG, Live Photo HEIC+MOV)
+   d. Keep-wins: if either half has Keep, neither is deleted
+3. User reviews clusters
+4. DeduplicateExecutor.commit():
+   a. Preflight .organize_logs/ → ReceiptPreflightError if unwritable
+   b. Write PENDING receipt
+   c. NSFileManager.trashItem() only (no hard delete)
+   d. Update full receipt JSON after each trash (O(N²) I/O — finding #6)
+      ⚠️ crash between trash and receipt update strands file (finding P0-1)
+   e. Finalize to COMPLETED/ABORTED
+```
+
+### Reorganize flow
+
+```
+1. ReorganizeExecutor: walk destination, re-resolve dates, plan moves
+2. Write PENDING receipt before loop
+3. Move + checkpoint receipt every 25 files
+   ⚠️ up to 24 moves unrecorded on crash (finding P0-2)
+4. Revert: hash-checked moves back to original location
+```
+
+---
 
 ## Data Model and Data Lifecycle
 
-- **`.organize_cache.db`** — SQLite. Tables: organize sources, organize destinations, organize jobs, `DedupeFeatures` (per-photo Vision feature print, dHash, quality score, size, mtime).
-- **Receipts** under `<destination>/.organize_logs/`:
-  - `audit_receipt_<ts>_<uuid>.json` (organize). Schema v2. Carries source path, dest path, hash.
-  - `dedupe_audit_receipt_<ts>_<uuid>.json`. Carries trashURL, owning cluster id/kind, pair origin.
-  - `reorganize_audit_receipt_<ts>_<uuid>.json`. Carries pre/post path + hash.
-- **Streaming spool**: `<receipt-name>.transfers.tmp` is written incrementally during a long organize run and consolidated at `finish()`.
-- **`.organize_log.txt`** — append-only human-readable run log.
-- Hashes are BLAKE2b-512 today. There is **no algorithm tag** in the receipt schema.
+### On-disk artifacts (all inside the destination folder)
+
+| Path | Purpose |
+|------|---------|
+| `.organize_cache.db` | SQLite: FileCache, CopyJobs, DedupeFeatures, ReviewOverrides |
+| `.organize_logs/audit_receipt_*.json` | Organize transfer receipt (revert + history) |
+| `.organize_logs/dedupe_audit_receipt_*.json` | Deduplicate receipt (revert + history) |
+| `.organize_logs/reorganize_audit_receipt_*.json` | Reorganize receipt (revert + history) |
+| `.organize_logs/dry_run_report_*.csv` | Dry-run plan export |
+
+**Sensitive data:** Receipts and DB contain full filesystem paths of user photos. No content is exfiltrated — everything stays local. No network calls, no telemetry.
+
+---
 
 ## Security Model
 
-**Trust boundaries.** App is sandboxed; reads via security-scoped bookmarks stored in `UserDefaults`. The CLI runs unsandboxed but is the same Swift code. There is no network surface and no IPC — Chronoframe is a single-user desktop tool.
+### Trust boundaries
 
-**Authentication / authorization.** None — local user only.
+| Boundary | What is trusted |
+|----------|----------------|
+| User ↔ App | Full trust (single-user app) |
+| App ↔ Filesystem | Security-scoped bookmarks (App Sandbox). Must call `startAccessingSecurityScopedResource` before any read/write to user-selected folders |
+| Source folder | Read-only. `O_RDONLY|O_NOFOLLOW` always |
+| Drop manifest | **Untrusted** — JSON file in source that lists paths to copy. ⚠️ No containment check (finding #4) |
+| `.organize_cache.db` | Cache only; hash+size+mtime validated before use |
+| Receipts | Trusted at revert; hash-guarded before deletion |
 
-**Secrets.** Notarization credentials live in the developer's keychain or CI secrets, read by `ui/archive.sh` at release time. No secrets are bundled.
+### Safety-critical invariants and enforcement points
 
-**Data classification.** User's personal photos and videos. Sensitive by user expectation, not regulated (no HIPAA/PCI).
+1. **Source read-only** — `O_RDONLY|O_NOFOLLOW` in `FileIdentityHasher.hashDigest()`. `TransferExecutor` never writes to `sourcePath`.
+2. **Atomic copy, no overwrites** — `renamex_np(RENAME_EXCL)` in `TransferExecutor.performCopy()`.
+3. **Copy verification** — `FileIdentityHasher.hashIdentity()` post-copy. ⚠️ `try?` — throws falsely trigger deletion (finding #1).
+4. **Receipt before mutation** — `StreamingAuditReceiptWriter` writes PENDING before first copy. ⚠️ Dedupe executor does NOT use streaming — full re-encode after each trash (finding P0-1).
+5. **Revert hash-check** — `RevertExecutor.safeRevert()` — O_NOFOLLOW + fd hash + inode check + `unlinkat`. Strongest component in the codebase.
+6. **Trash-only delete** — `DeduplicateExecutor.commit()` uses only `NSFileManager.trashItem()`.
+7. **Pair-as-unit / Keep-wins** — `DeduplicationPlanner.plan()` enforces before emitting plan.
+8. **No symlink following** — checked in `MediaDiscovery`, `DeduplicateScanner`, and `FileIdentityHasher` (`O_NOFOLLOW`).
 
-**Security-critical invariants (enforced where stated, or NOT enforced — flagged in findings):**
-
-1. The source folder is read-only from Chronoframe's perspective. Enforced by code shape: no code path writes/deletes/renames inside the configured source root. **Holds in core engine; weakened by `MediaDiscovery.enumerateManifest` which walks arbitrary manifest paths without symlink/package containment checks** (see finding #9).
-2. Copies are temp-then-rename, fsynced, hashed-verified. Enforced in `TransferExecutor.safeCopyAtomicOnce` / `prepareAtomicCopy`. **Durability gap**: parent-directory fsync after rename is missing (see finding ranked-out below — durability is acceptable today on APFS but not crash-perfect).
-3. Existing destination files are not overwritten. Enforced by `renamex_np(RENAME_EXCL)` + collision-resolved naming.
-4. Revert deletes only destination files whose current hash matches the receipt. Enforced in `RevertExecutor.safeRevert` via `O_NOFOLLOW` + inode-pinning + re-hash.
-5. Deduplicate moves to Trash only. Enforced — `commit(plan:hardDelete: false)` is the only call site, and `DedupeDecisions.init` overrides any non-false `hardDelete` argument to `false` (curious but defense-in-depth).
-6. dHash-only similarity is never automatic deletion. Mostly enforced via `ClusterConfidenceScorer` requiring `visionDistance < 0.10` for `.high`. **Leak**: `currentDeletionPlan()` and `acceptAllSuggestions` include all clusters, so preselected weak-match deletions appear in the footer and can be committed if the user uses the "accept all" affordance (see findings #4, #10).
-7. Pair-as-unit is Keep-wins. **Violated**: a default-keep partner does not block pair-induced deletion in the planner (see finding #1).
-8. Receipt preflight before any mutation. Enforced on the initial PENDING write only; per-item incremental writes are not preflight-guarded (see finding #7).
-9. Receipts versioned and status-aware. Schema version is written but not read (see finding #6).
-10. Failure thresholds: 5 consecutive / 20 total. Implemented; `consecutiveFailures` is not reset by skips (P2 semantic ambiguity).
+---
 
 ## Reliability and Operational Model
 
-- Single SQLite connection with `SQLITE_OPEN_FULLMUTEX` + WAL + 30s busy timeout. Migrations in single transaction.
-- File writes use `F_FULLFSYNC`. Parent-dir fsync after rename is **absent** (durability hole).
-- Crashed organize run produces **no audit receipt** (only a `.transfers.tmp` spool which `deinit` may delete; if SIGKILL/power, it stays orphaned). User has no in-app revert affordance for partially-completed runs (see finding #3).
-- Cancellation: `SwiftOrganizerEngine.cancelCurrentRun` cancels the Swift Task but does not flip the in-engine `TaskCancellationCheck` flag, so long-running synchronous bodies don't see the signal until they yield (see finding flagged in app-layer report, ranked P1).
-- Single-instance is enforced in `applicationWillFinishLaunching`. Cross-instance file races are still theoretically possible during launch overlap (P2).
-- Observability: structured log lines via `RunEvent` + `.organize_log.txt`. No metrics/tracing.
+### Failure modes
+
+| Failure | Current behavior | Gap |
+|---------|-----------------|-----|
+| App crash mid-transfer | PENDING receipt on disk; `recoverInterruptedRuns` recovers on relaunch | Robust |
+| App crash mid-dedupe | Receipt updated in-place; crash between trash and receipt write strands file in Trash with no revert path | **P0** |
+| App crash mid-reorganize | Checkpoint every 25 moves; up to 24 moves not in receipt | **P0** |
+| Receipt finalization crash | `removeItem` + `moveItem` window: neither receipt exists | **P1** |
+| Hash I/O error during verify | `try?` → falsely deletes the just-written copy | **P1** |
+| Reorganize triggered during active transfer | `resetSessionState` silently aborts the transfer | **P1** |
+| PreviewReview override saved after scope close | `EPERM` in sandbox, override silently discarded | **P1** |
+| IssueCounter under parallel transfer | Data race; failure threshold may fire incorrectly | **P1** |
+
+### Failure thresholds
+
+5 consecutive OR 20 total failures abort a transfer run. Implemented in `BatchTransferState` in `TransferExecutor`.
+
+### Observability
+
+- `RunLogStore` provides per-run structured logs surfaced in the UI.
+- No external telemetry, crash reporting, or metrics.
+- The audit receipt is the primary operational record.
+
+---
 
 ## Performance and Capacity Posture
 
-- Hash + verify dominates a transfer run. BLAKE2b is correct; chunk loop verified.
-- `ReorganizeExecutor` writes the FULL receipt JSON after every move (O(N²) in bytes). For 50k moves this is hours of redundant I/O (P1).
-- Dedupe feature print cache is keyed on `(path, size, mtime)` and is incremental. Cache invalidation is correct.
+- **Dedup receipt I/O:** O(N²) writes — full JSON re-encode for every item in N-item run. 10,000 files ≈ ~1 GB of receipt writes. Serializes the trash loop on slow volumes.
+- **BLAKE2b hashing:** Pure-Swift; not benchmarked against `CommonCrypto` baseline.
+- **Vision feature prints:** CPU-bound; batched with configurable concurrency.
+- **NSCache countLimit=256** in `DedupeThumbnailLoader` — reasonable steady-state ceiling.
+- SQLite is sufficient for the data volume. No horizontal scaling required.
+
+---
 
 ## Testing and Quality Posture
 
-- SwiftPM unit tests under `ui/Tests/Chronoframe*Tests/` are the authoritative coverage lane.
-- `script/swift_meaningful_coverage.sh` enforces 95% on an **allowlisted** set of "meaningful" files. **The allowlist drifts silently**: it currently references three files that don't exist in the source tree (`BackgroundDedupeMonitor`, `EditVariantDetector`, `ImportDuplicateChecker`) and does not include several safety-critical files (`OrganizerDatabase`, `FileIdentityHasher`, `DeduplicateScanner`, `MediaDateResolver`, `FileSystemMonitor`, `BookmarkPathResolver`, `BundleValidator`). The gate is **passable while leaving critical code uncovered** (see finding #2).
-- Dedupe commit/revert tests use a `MockDeduplicateFileOperations` whose `trashItem` is `moveItem` — real `FileManager.trashItem` semantics are not exercised.
+- **Unit tests (authoritative):** SwiftPM tests; 95%+ meaningful coverage on domain code.
+- **Fault injection:** `DeduplicateExecutorFaultInjectionTests` — comprehensive for dedupe. No equivalent for `TransferExecutor` receipt-directory failure.
+- **AGENTS-INVARIANT tags:** Safety invariant tests are tagged. ⚠️ `script/check_agents_invariants_have_tests.sh` is **not called in any CI workflow**.
+- **CodeQL:** Runs but `upload: never` — findings are silently discarded.
+
+### Critical gaps
+- No test: `TransferExecutor` receipt directory unwritable mid-run.
+- No test: BLAKE2b RFC 7693 reference vectors.
+- No test: Drop manifest entries outside source root.
+- No test: `RevertExecutor` with `destinationBoundary: nil`.
+- No CI gate: invariant check script never called.
+- No CI gate: CodeQL findings never persist.
+
+---
 
 ## Dependency and Supply-Chain Posture
 
-- `ui/Package.swift` has **zero external `.package(...)` deps**. No `Package.resolved` committed (benign today, will matter the moment the first dep lands).
-- Build pipeline: SwiftPM for tests/coverage; Xcode project for the app build + CodeQL. AGENTS.md flags that adding a new Swift file requires updating `project.pbxproj` to keep CodeQL building.
-- CodeQL **does not run on pull requests** (`.github/workflows/codeql.yml:14` `if: github.event_name != 'pull_request'`). This was a deliberate disablement to dodge timeouts but defeats the gate.
-- `archive.sh` notarization passes `--password "$CHRONOFRAME_NOTARY_PASSWORD"` as argv to `xcrun notarytool`, visible via `ps -ef`. Same script does `TMP_DIR="${TMPDIR:-/tmp}/chronoframe-ui-archive"` which becomes `/chronoframe-ui-archive` if `TMPDIR` is set-but-empty.
+**Zero external Swift package dependencies.** Exceptionally clean supply-chain posture. All GitHub Actions pinned to full 40-character SHA hashes. Dependabot configured. The only "supply chain" risk is the hand-rolled BLAKE2b implementation — absence of reference-vector tests means a silent regression would not be caught.
+
+---
 
 ## Known Risks and Fragile Areas
 
-- Dedupe planner pair-rescue depends on `DecisionSource` tagging — `defaultKeep` was silently treated as not-blocking, which is the single most consequential bug surfaced by this sweep.
-- Receipt format has no `schemaVersion` field on the reader side. A future writer change is a runtime hazard.
-- Crashed-run recovery: no PENDING organize receipt persists, so a power-lossed transfer leaves files in the destination with no in-app revert path.
-- The 95% coverage gate is gameable through allowlist drift — every CI green is partially fictional.
-- Sandbox: `FolderAccessService.resolveBookmark` falls back to a synthesized URL if bookmark resolution fails, letting the engine proceed against a path it has no scoped access to. Some callsites (dedupe bootstrap) compensate; manual source/destination paths do not.
+1. **Dedupe receipt atomicity** — single most fragile area; crash during large dedupe commits can strand files in Trash.
+2. **Reorganize checkpoint gap** — 24-move window where completed moves are unrecorded.
+3. **TransferExecutor `try?` verify** — silently deletes valid copies on transient I/O errors.
+4. **Receipt finalization atomicity** — `removeItem` + `moveItem` crash window.
+5. **IssueCounter data race** — unsynchronized under parallel transfer.
+6. **Invariant check not in CI** — safety regression can merge undetected.
+7. **CodeQL results discarded** — vulnerability detection is theater.
 
-## Important Files
-
-- `ui/Sources/ChronoframeCore/TransferExecutor.swift` — atomic copy + verify + receipt writer. Most safety-critical file in the repo.
-- `ui/Sources/ChronoframeCore/DeduplicationPlanner.swift` — single source of truth for dedupe mutations. Bug here = data loss.
-- `ui/Sources/ChronoframeCore/RevertExecutor.swift` — hash-pinned restore. Decoder shape decides forward-compat.
-- `ui/Sources/ChronoframeAppCore/Services/FolderAccessService.swift` — sandbox-scoped access lifecycle.
-- `ui/Sources/ChronoframeAppCore/Stores/HistoryStore.swift` — destinationRoot is the implicit handle for "where to find receipts".
-- `script/swift_meaningful_coverage.sh` — the gate that's supposed to keep the bar at 95%.
+---
 
 ## Breadth Coverage Table
 
-| Top-level dir / area | Status | Notes |
-|---|---|---|
-| `ui/Sources/ChronoframeCore` | **REVIEWED** | Engine, hashing, planners, executors. All findings sourced here verified file-by-file. |
-| `ui/Sources/ChronoframeAppCore/Services` | **REVIEWED** | FolderAccessService, SwiftOrganizerEngine, DroppedItemStager, ProfilesRepository, TransferredSourcesLog, RunHistoryIndexer. |
-| `ui/Sources/ChronoframeAppCore/Stores` | **REVIEWED** | All 8 stores read end-to-end by app-layer agent. |
-| `ui/Sources/ChronoframeApp/Views` | **SKIMMED** | View bodies — checked only for state-mutation hazards from MainActor invariants. |
-| `ui/Sources/ChronoframeApp/App` | **SKIMMED** | App entry, AppState. Spot-checked for security scope lifecycle. |
-| `ui/Sources/ChronoframeCLI` / `ChronoframeCLIKit` | **SKIMMED** | Same engine as app; CLI-specific paths not deeply traced. |
-| `ui/Sources/ChronoframePackaging` / `ChronoframePackagingTool` | **SKIMMED** | Bundle validator — not user-data-mutating. |
-| `ui/Tests/*` | **REVIEWED** | Tests/CI agent specifically checked for mock-boundary theater. |
-| `.github/workflows/*` | **REVIEWED** | CI, CodeQL, release workflows read in full. |
-| `ui/build.sh`, `ui/archive.sh`, `ui/archive-mas.sh`, `script/build_and_run.sh` | **REVIEWED** | Shell scripts inspected for argv injection / TMPDIR / password leakage. |
-| `docs/` | **SKIMMED** | Read FAQ + TECHNICAL.md to cross-check against code; flagged drift in DroppedItemStager doc-comment. |
-| `tests/fixtures` | **DEFERRED** | Fixture media files, not code. No findings expected. |
-| `ui/Resources` | **DEFERRED** | Asset bundles. |
+| Directory | Status | Notes |
+|-----------|--------|-------|
+| `ui/Sources/ChronoframeCore/` | REVIEWED | All 32 files read |
+| `ui/Sources/ChronoframeAppCore/` | REVIEWED | All stores, services, engine read |
+| `ui/Sources/ChronoframeApp/` | REVIEWED | App entry, coordinators, key views read |
+| `ui/Sources/ChronoframeCLIKit/` | REVIEWED | CLI.swift and runners read |
+| `ui/Sources/ChronoframePackaging/` | REVIEWED | BundleValidator read |
+| `ui/Sources/ChronoframeIconTool/` | SKIMMED | Procedural icon renderer; no security surface |
+| `ui/Tests/` | REVIEWED | All test targets read |
+| `.github/workflows/` | REVIEWED | All 4 workflow files read |
+| `script/` | REVIEWED | All 3 scripts read |
+| `ui/Packaging/` | REVIEWED | Entitlements, export options, scripts read |
+| `site/` | SKIMMED | Static marketing site; no app code |
+| `docs/` | SKIMMED | Release checklist, privacy policy |
+
+---
 
 ## Open Questions
 
-- Is the `currentDeletionPlan()`-vs-`reviewedDeletionPlan()` footer choice intentional? The user-facing impact (footer overcounts) depends on which the UI calls. Verification needed in the View layer to confirm whether the leak (finding #10) is a real "user sees inflated number" bug or merely an internal artifact.
-- Is `DroppedItemStager.stage` missing the actual symlink creation (data bug), or is the doc-comment stale (cosmetic)? Verify by reading `DryRunPlanner`'s drop-manifest consumer.
-- The 5/20 failure threshold semantics for skipped jobs — intended to count or not count toward consecutive failures? AGENTS.md doesn't specify.
+1. Does `DeduplicateConfiguration` carry a `hardDelete` field? If yes, stale `UserDefaults` could bypass the `PreferencesStore` guard.
+2. Is `CHRONOFRAME_PROFILES_PATH` intentionally accepted in Developer ID builds, or is it development-only?
+3. What is the exact GitHub account handle? `CODEOWNERS` uses `@Nishith` — if the handle differs, required reviews are silently not requested.
+4. Is the `production` GitHub environment configured with required reviewers? The release pipeline depends on this gate; if not configured, any maintainer can cut a release from any commit.

@@ -519,6 +519,19 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         )
                     }
 
+                    let recoveredDedupe = DeduplicateExecutor.recoverInterruptedRuns(at: destinationURL)
+                    if recoveredDedupe > 0 {
+                        runLogger.warn("Recovered \(recoveredDedupe) interrupted deduplicate receipt(s) from prior session(s)")
+                        continuation.yield(
+                            .issue(
+                                RunIssue(
+                                    severity: .info,
+                                    message: "Recovered \(recoveredDedupe) interrupted deduplicate run\(recoveredDedupe == 1 ? "" : "s") from a previous session. They appear in Run History as ABORTED and can be reverted."
+                                )
+                            )
+                        )
+                    }
+
                     continuation.yield(.startup)
 
                     if resumePendingJobs {
@@ -968,10 +981,15 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
 }
 
 private final class IssueCounter: @unchecked Sendable {
-    private(set) var value = 0
+    private let lock = NSLock()
+    private var _value = 0
+
+    var value: Int {
+        lock.withLock { _value }
+    }
 
     func increment() {
-        value += 1
+        lock.withLock { _value += 1 }
     }
 }
 

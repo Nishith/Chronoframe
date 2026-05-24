@@ -106,7 +106,9 @@ struct RootSplitView: View {
             Text(appState.transientErrorMessage ?? "")
         }
         .onAppear {
+            #if DEBUG
             UITestScenario.configureCurrentWindow(for: UITestScenario.current())
+            #endif
         }
     }
 

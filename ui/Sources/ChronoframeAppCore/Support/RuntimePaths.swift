@@ -4,9 +4,11 @@ public enum RuntimePaths {
     public static func profilesFileURL() -> URL {
         let environment = ProcessInfo.processInfo.environment
 
+        #if DEBUG
         if let override = environment["CHRONOFRAME_PROFILES_PATH"], !override.isEmpty {
             return URL(fileURLWithPath: override)
         }
+        #endif
 
         #if !MAS_BUILD
         if let repositoryRoot = repositoryRootURL() {

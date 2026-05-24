@@ -39,6 +39,7 @@ public struct RunHistoryIndexer: RunHistoryIndexing {
                 at: logsDirectoryURL,
                 includingPropertiesForKeys: [
                     .isRegularFileKey,
+                    .isSymbolicLinkKey,
                     .contentModificationDateKey,
                     .creationDateKey,
                     .fileSizeKey,
@@ -88,15 +89,20 @@ public struct RunHistoryIndexer: RunHistoryIndexing {
         let values = try? url.resourceValues(
             forKeys: [
                 .isRegularFileKey,
+                .isSymbolicLinkKey,
                 .contentModificationDateKey,
                 .creationDateKey,
                 .fileSizeKey,
             ]
         )
 
+        guard values?.isSymbolicLink != true else { return nil }
         guard values?.isRegularFile ?? true else { return nil }
 
-        let createdAt = values?.contentModificationDate ?? values?.creationDate ?? .distantPast
+        let createdAt = timestampFromFilename(url.lastPathComponent)
+            ?? values?.contentModificationDate
+            ?? values?.creationDate
+            ?? .distantPast
         let fileSizeBytes = values?.fileSize.map(Int64.init)
 
         return RunHistoryEntry(
@@ -108,6 +114,34 @@ public struct RunHistoryIndexer: RunHistoryIndexing {
             createdAt: createdAt
         )
     }
+
+    private func timestampFromFilename(_ filename: String) -> Date? {
+        let prefixes = [
+            "dry_run_report_",
+            "dedupe_audit_receipt_",
+            "reorganize_audit_receipt_",
+            "audit_receipt_",
+        ]
+        guard let prefix = prefixes.first(where: { filename.hasPrefix($0) }) else {
+            return nil
+        }
+        let remainder = filename.dropFirst(prefix.count)
+        guard remainder.count >= 15 else { return nil }
+        let timestamp = String(remainder.prefix(15))
+        guard timestamp.range(of: #"^\d{8}_\d{6}$"#, options: .regularExpression) != nil else {
+            return nil
+        }
+        return Self.receiptTimestampFormatter.date(from: timestamp)
+    }
+
+    private static let receiptTimestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        return formatter
+    }()
 
     private func title(for url: URL, kind: RunHistoryEntryKind) -> String {
         switch kind {

@@ -27,6 +27,13 @@ public enum OrganizerDatabaseError: LocalizedError, Sendable {
     }
 }
 
+extension OrganizerDatabaseError {
+    var isDuplicateColumnName: Bool {
+        guard case let .executionFailed(message) = self else { return false }
+        return message.localizedCaseInsensitiveContains("duplicate column name:")
+    }
+}
+
 public struct DestinationIndexSnapshot: Equatable, Sendable {
     public var pathsByIdentity: [FileIdentity: String]
     public var sequenceState: SequenceCounterState

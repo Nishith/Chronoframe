@@ -45,7 +45,19 @@ public final class PreviewReviewStore: ObservableObject {
     @Published public private(set) var errorMessage: String?
     @Published public var filter: PreviewReviewFilter = .needsAttention
 
-    public init() {}
+    private var makeDestinationScope: @MainActor @Sendable (String) -> SecurityScopedFolderAccess?
+
+    public init(
+        makeDestinationScope: @escaping @MainActor @Sendable (String) -> SecurityScopedFolderAccess? = { _ in nil }
+    ) {
+        self.makeDestinationScope = makeDestinationScope
+    }
+
+    public func setDestinationScopeProvider(
+        _ makeDestinationScope: @escaping @MainActor @Sendable (String) -> SecurityScopedFolderAccess?
+    ) {
+        self.makeDestinationScope = makeDestinationScope
+    }
 
     public var summary: PreviewReviewSummary {
         PreviewReviewSummary(items: items)
@@ -140,7 +152,7 @@ public final class PreviewReviewStore: ObservableObject {
         )
 
         do {
-            try await Self.persistOverride(override, destinationRoot: destinationRoot)
+            try await persistOverride(override, destinationRoot: destinationRoot)
             updateLocalItem(item.sourcePath) { current in
                 current.resolvedDate = captureDate ?? current.resolvedDate
                 if captureDate != nil {
@@ -203,10 +215,12 @@ public final class PreviewReviewStore: ObservableObject {
         }.value
     }
 
-    private nonisolated static func persistOverride(
+    private func persistOverride(
         _ override: ReviewOverride,
         destinationRoot: String
     ) async throws {
+        let scope = makeDestinationScope(destinationRoot)
+        defer { scope?.close() }
         try await Task.detached(priority: .utility) {
             let databaseURL = URL(fileURLWithPath: destinationRoot, isDirectory: true)
                 .appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)

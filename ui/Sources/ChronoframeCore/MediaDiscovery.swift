@@ -23,6 +23,7 @@ public enum MediaDiscovery {
 
     private struct DropManifest: Decodable {
         var items: [Item]
+        var allowsExternalItems: Bool?
 
         struct Item: Decodable {
             var path: String
@@ -52,7 +53,7 @@ public enum MediaDiscovery {
     ) throws {
         switch readDropManifest(at: rootURL) {
         case let .present(manifest):
-            try enumerateManifest(manifest, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body)
+            try enumerateManifest(manifest, rootURL: rootURL, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body)
             return
         case let .corrupt(manifestURL, error):
             // The staging directory only contains the manifest; falling
@@ -249,6 +250,7 @@ public enum MediaDiscovery {
 
     private static func enumerateManifest(
         _ manifest: DropManifest,
+        rootURL: URL,
         isCancelled: @Sendable () -> Bool,
         onDirectoryIssue: (@Sendable (DirectoryIssue) -> Void)?,
         visitFilePath: (String) throws -> Void
@@ -258,6 +260,14 @@ public enum MediaDiscovery {
             try throwIfCancelled(isCancelled)
             let url = URL(fileURLWithPath: item.path).standardizedFileURL
             guard seen.insert(url.path).inserted else { continue }
+            if manifest.allowsExternalItems != true,
+               !SafePathContainment.isContained(url, in: rootURL) {
+                onDirectoryIssue?(DirectoryIssue(
+                    path: url.path,
+                    message: "Skipped: manifest entry outside source root, package, symlink, or photo library."
+                ))
+                continue
+            }
 
             // Phase 1 finding #9: apply the same filter the
             // filesystem walk applies to its children. `walk()` only

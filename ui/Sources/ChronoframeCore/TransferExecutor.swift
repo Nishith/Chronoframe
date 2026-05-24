@@ -606,13 +606,23 @@ public struct TransferExecutor: Sendable {
                 requestedDestinationPath: job.destinationPath
             )
 
+            var verifiedHash: String?
             if verifyCopies {
-                let verifiedIdentity = try? fileHasher.hashIdentity(at: URL(fileURLWithPath: actualDestinationPath))
-                if verifiedIdentity?.rawValue != job.hash {
-                    removeUnverifiedCopyIfNeeded(atPath: actualDestinationPath, runLogger: runLogger)
+                do {
+                    let verifiedIdentity = try fileHasher.hashIdentity(at: URL(fileURLWithPath: actualDestinationPath))
+                    verifiedHash = verifiedIdentity.rawValue
+                    if verifiedIdentity.rawValue != job.hash {
+                        removeUnverifiedCopyIfNeeded(atPath: actualDestinationPath, runLogger: runLogger)
+                        return .failed(
+                            message: "Verification failed: \(job.sourcePath) -> \(actualDestinationPath)",
+                            logMessage: "Verification failed: \(job.sourcePath) → \(actualDestinationPath)"
+                        )
+                    }
+                } catch {
+                    runLogger.warn("Verification could not read copied file; copy retained but not marked complete: \(actualDestinationPath): \(error.localizedDescription)")
                     return .failed(
-                        message: "Verification failed: \(job.sourcePath) -> \(actualDestinationPath)",
-                        logMessage: "Verification failed: \(job.sourcePath) → \(actualDestinationPath)"
+                        message: "Verification could not read the copied file, so Chronoframe left it in place but did not mark it complete: \(actualDestinationPath)",
+                        logMessage: "Verification hash error after copy: \(job.sourcePath) → \(actualDestinationPath): \(error.localizedDescription)"
                     )
                 }
             }
@@ -621,7 +631,8 @@ public struct TransferExecutor: Sendable {
             return .copied(
                 destinationPath: actualDestinationPath,
                 size: (fileAttributes[.size] as? NSNumber)?.int64Value ?? 0,
-                modificationTime: (fileAttributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+                modificationTime: (fileAttributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0,
+                verifiedHash: verifiedHash
             )
         } catch {
             return .failed(
@@ -653,18 +664,28 @@ public struct TransferExecutor: Sendable {
                 requestedDestinationPath: job.destinationPath
             )
 
+            var verifiedHash: String?
             if verifyCopies {
-                let verifiedIdentity = try? fileHasher.hashIdentity(at: URL(fileURLWithPath: temporaryPath))
-                if verifiedIdentity?.rawValue != job.hash {
-                    removeUnverifiedCopyIfNeeded(atPath: temporaryPath, runLogger: runLogger)
+                do {
+                    let verifiedIdentity = try fileHasher.hashIdentity(at: URL(fileURLWithPath: temporaryPath))
+                    verifiedHash = verifiedIdentity.rawValue
+                    if verifiedIdentity.rawValue != job.hash {
+                        removeUnverifiedCopyIfNeeded(atPath: temporaryPath, runLogger: runLogger)
+                        return .failed(
+                            message: "Verification failed: \(job.sourcePath) -> \(job.destinationPath)",
+                            logMessage: "Verification failed: \(job.sourcePath) → \(job.destinationPath)"
+                        )
+                    }
+                } catch {
+                    runLogger.warn("Verification could not read prepared copy; temp copy retained for cleanup: \(temporaryPath): \(error.localizedDescription)")
                     return .failed(
-                        message: "Verification failed: \(job.sourcePath) -> \(job.destinationPath)",
-                        logMessage: "Verification failed: \(job.sourcePath) → \(job.destinationPath)"
+                        message: "Verification could not read the prepared copy, so Chronoframe did not finalize it: \(job.destinationPath)",
+                        logMessage: "Verification hash error before finalize: \(job.sourcePath) → \(job.destinationPath): \(error.localizedDescription)"
                     )
                 }
             }
 
-            return .prepared(temporaryPath: temporaryPath)
+            return .prepared(temporaryPath: temporaryPath, verifiedHash: verifiedHash)
         } catch {
             return .failed(
                 message: "Copy failed: \(job.sourcePath) -> \(job.destinationPath): \(error.localizedDescription)",
@@ -986,8 +1007,8 @@ private enum TransferExecutionStopSignal: Error {
 }
 
 fileprivate enum TransferJobOutcome: Sendable {
-    case prepared(temporaryPath: String)
-    case copied(destinationPath: String, size: Int64, modificationTime: TimeInterval)
+    case prepared(temporaryPath: String, verifiedHash: String?)
+    case copied(destinationPath: String, size: Int64, modificationTime: TimeInterval, verifiedHash: String?)
     case failed(message: String, logMessage: String)
     case skipped(message: String, logMessage: String)
 }
@@ -1019,7 +1040,7 @@ private final class ParallelTransferOutcomes: @unchecked Sendable {
         lock.unlock()
 
         for outcome in remaining {
-            guard case let .prepared(temporaryPath) = outcome else {
+            guard case let .prepared(temporaryPath, _) = outcome else {
                 continue
             }
             executor.removeUnverifiedCopyIfNeeded(atPath: temporaryPath, runLogger: runLogger)
@@ -1149,16 +1170,20 @@ private final class StreamingAuditReceiptWriter {
             try receiptHandle.write(contentsOf: Data("\n  ]\n}\n".utf8))
             try receiptHandle.close()
 
-            // Phase 1 finding #3: a PENDING receipt header was written
-            // at init() so a crashed run is recoverable. At finalize
-            // time, replace that PENDING receipt with the final one
-            // atomically. `moveItem` refuses to overwrite, so remove
-            // the existing receipt first; the temp+rename below makes
-            // the swap appear atomic to readers.
-            if fileManager.fileExists(atPath: finalReceiptURL.path) {
-                try fileManager.removeItem(at: finalReceiptURL)
+            let renameResult: Int32 = temporaryReceiptURL.withUnsafeFileSystemRepresentation { sourcePointer in
+                finalReceiptURL.withUnsafeFileSystemRepresentation { destinationPointer in
+                    guard let sourcePointer, let destinationPointer else { return -1 }
+                    return Darwin.rename(sourcePointer, destinationPointer)
+                }
             }
-            try fileManager.moveItem(at: temporaryReceiptURL, to: finalReceiptURL)
+            if renameResult != 0 {
+                let code = errno
+                throw NSError(
+                    domain: NSPOSIXErrorDomain,
+                    code: Int(code),
+                    userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(code))]
+                )
+            }
             // Phase 1 finding: fsync the receipt's parent directory so
             // the new entry survives power loss. F_FULLFSYNC on the
             // file alone doesn't durably persist the directory's inode
@@ -1290,10 +1315,10 @@ private final class TransferExecutionContext {
         attemptedJobs: Int
     ) throws -> Bool {
         var emittedProgress = false
-        var completedCopy: (destinationPath: String, actualSize: Int64, actualModificationDate: TimeInterval)?
+        var completedCopy: (destinationPath: String, actualSize: Int64, actualModificationDate: TimeInterval, verifiedHash: String?)?
 
         switch outcome {
-        case let .prepared(temporaryPath):
+        case let .prepared(temporaryPath, verifiedHash):
             do {
                 let finalizedCopy = try executor.finalizePreparedCopy(
                     temporaryPath: temporaryPath,
@@ -1303,7 +1328,8 @@ private final class TransferExecutionContext {
                 completedCopy = (
                     destinationPath: finalizedCopy.destinationPath,
                     actualSize: finalizedCopy.size,
-                    actualModificationDate: finalizedCopy.modificationTime
+                    actualModificationDate: finalizedCopy.modificationTime,
+                    verifiedHash: verifiedHash
                 )
             } catch {
                 executor.removeUnverifiedCopyIfNeeded(atPath: temporaryPath, runLogger: runLogger)
@@ -1330,12 +1356,13 @@ private final class TransferExecutionContext {
                 }
             }
 
-        case let .copied(destinationPath, size, modificationTime):
+        case let .copied(destinationPath, size, modificationTime, verifiedHash):
             try database.updateJobStatus(sourcePath: job.sourcePath, status: .copied)
             completedCopy = (
                 destinationPath: destinationPath,
                 actualSize: size,
-                actualModificationDate: modificationTime
+                actualModificationDate: modificationTime,
+                verifiedHash: verifiedHash
             )
 
         case let .failed(message, logMessage):
@@ -1377,7 +1404,7 @@ private final class TransferExecutionContext {
             RawFileCacheRecord(
                 namespace: .destination,
                 path: completedCopy.destinationPath,
-                hash: job.hash,
+                hash: completedCopy.verifiedHash ?? job.hash,
                 size: completedCopy.actualSize,
                 modificationTime: completedCopy.actualModificationDate
             )
@@ -1390,7 +1417,7 @@ private final class TransferExecutionContext {
         try receiptWriter.appendTransfer(
             sourcePath: job.sourcePath,
             destinationPath: completedCopy.destinationPath,
-            hash: job.hash
+            hash: completedCopy.verifiedHash ?? job.hash
         )
         bytesCopied += executor.safeFileSize(atPath: job.sourcePath) ?? completedCopy.actualSize
         consecutiveFailures = 0
@@ -1451,7 +1478,7 @@ private final class TransferExecutionContext {
 }
 
 private func isTrustedPlannedIdentity(_ rawValue: String) -> Bool {
-    guard let identity = FileIdentity(rawValue: rawValue), identity.digest.count >= 64 else {
+    guard let identity = FileIdentity(rawValue: rawValue), identity.digest.count == 128 else {
         return false
     }
     return identity.digest.allSatisfy { character in

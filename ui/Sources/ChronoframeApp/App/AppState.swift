@@ -73,6 +73,9 @@ final class AppState: ObservableObject {
         navigate: { [weak self] route in
             self?.navigate(to: route)
         },
+        reportTransientError: { [weak self] message in
+            self?.transientErrorMessage = message
+        },
         makeSecurityScopeForDestination: { [weak self] destinationRoot in
             self?.destinationSecurityScope(destinationRoot: destinationRoot)
         }
@@ -92,7 +95,6 @@ final class AppState: ObservableObject {
         let historyStore = HistoryStore()
         let engine: any OrganizerEngine = SwiftOrganizerEngine(profilesRepository: profilesRepository)
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
-        let previewReviewStore = PreviewReviewStore()
         let libraryHealthStore = LibraryHealthStore()
         let deduplicateEngine = NativeDeduplicateEngine()
         let deduplicateSessionStore = DeduplicateSessionStore(engine: deduplicateEngine)
@@ -103,7 +105,7 @@ final class AppState: ObservableObject {
             runLogStore: runLogStore,
             historyStore: historyStore,
             runSessionStore: runSessionStore,
-            previewReviewStore: previewReviewStore,
+            previewReviewStore: nil,
             libraryHealthStore: libraryHealthStore,
             deduplicateSessionStore: deduplicateSessionStore,
             folderAccessService: folderAccessService,
@@ -150,6 +152,9 @@ final class AppState: ObservableObject {
         self.profilesRepository = profilesRepository
         self.droppedItemStager = droppedItemStager
         self.showSettingsWindowAction = showSettingsWindowAction
+        self.previewReviewStore.setDestinationScopeProvider { [weak self] destinationRoot in
+            self?.destinationSecurityScope(destinationRoot: destinationRoot)
+        }
 
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
@@ -483,6 +488,11 @@ final class AppState: ObservableObject {
     /// Reorganize the current destination so its folder layout matches the
     /// preferred `FolderStructure`. Streams progress through the Run workspace.
     func reorganizeDestination(targetStructure: FolderStructure) {
+        guard !runSessionStore.isRunning, !deduplicateSessionStore.isWorking else {
+            transientErrorMessage = "Stop the current run before reorganizing."
+            return
+        }
+
         let destination = historyStore.destinationRoot.isEmpty
             ? setupStore.destinationPath
             : historyStore.destinationRoot

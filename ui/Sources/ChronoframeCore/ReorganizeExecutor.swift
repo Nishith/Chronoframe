@@ -119,9 +119,62 @@ public enum ReorganizeExecutorError: LocalizedError, Equatable {
 
 // MARK: - Executor
 
+protocol ReorganizeFileOperations: Sendable {
+    func fileExists(atPath path: String) -> Bool
+    func fileExists(atPath path: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool
+    func createDirectory(at url: URL, withIntermediateDirectories createIntermediates: Bool) throws
+    func moveItem(at sourceURL: URL, to destinationURL: URL) throws
+    func contentsOfDirectory(atPath path: String) throws -> [String]
+    func removeItem(at url: URL) throws
+    func enumerator(
+        at url: URL,
+        includingPropertiesForKeys keys: [URLResourceKey]?,
+        options mask: FileManager.DirectoryEnumerationOptions
+    ) -> FileManager.DirectoryEnumerator?
+}
+
+private struct FileManagerReorganizeFileOperations: ReorganizeFileOperations {
+    func fileExists(atPath path: String) -> Bool {
+        FileManager.default.fileExists(atPath: path)
+    }
+
+    func fileExists(atPath path: String, isDirectory: UnsafeMutablePointer<ObjCBool>?) -> Bool {
+        FileManager.default.fileExists(atPath: path, isDirectory: isDirectory)
+    }
+
+    func createDirectory(at url: URL, withIntermediateDirectories createIntermediates: Bool) throws {
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: createIntermediates)
+    }
+
+    func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
+        try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
+    }
+
+    func contentsOfDirectory(atPath path: String) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: path)
+    }
+
+    func removeItem(at url: URL) throws {
+        try FileManager.default.removeItem(at: url)
+    }
+
+    func enumerator(
+        at url: URL,
+        includingPropertiesForKeys keys: [URLResourceKey]?,
+        options mask: FileManager.DirectoryEnumerationOptions
+    ) -> FileManager.DirectoryEnumerator? {
+        FileManager.default.enumerator(
+            at: url,
+            includingPropertiesForKeys: keys,
+            options: mask
+        )
+    }
+}
+
 public struct ReorganizeExecutor: Sendable {
     private let namingRules: PlannerNamingRules
     private let hasher: FileIdentityHasher
+    private let fileOperations: any ReorganizeFileOperations
 
     public init(
         namingRules: PlannerNamingRules = .chronoframeDefault,
@@ -129,9 +182,18 @@ public struct ReorganizeExecutor: Sendable {
     ) {
         self.namingRules = namingRules
         self.hasher = hasher
+        self.fileOperations = FileManagerReorganizeFileOperations()
     }
 
-    private var fileManager: FileManager { .default }
+    init(
+        namingRules: PlannerNamingRules = .chronoframeDefault,
+        hasher: FileIdentityHasher = FileIdentityHasher(),
+        fileOperations: any ReorganizeFileOperations
+    ) {
+        self.namingRules = namingRules
+        self.hasher = hasher
+        self.fileOperations = fileOperations
+    }
 
     /// Walk the destination root and produce a plan that describes every file
     /// that needs to move under `targetStructure`. Pure: makes no filesystem
@@ -142,11 +204,11 @@ public struct ReorganizeExecutor: Sendable {
         destinationRoot: URL,
         targetStructure: FolderStructure
     ) throws -> ReorganizePlan {
-        guard fileManager.fileExists(atPath: destinationRoot.path) else {
+        guard fileOperations.fileExists(atPath: destinationRoot.path) else {
             throw ReorganizeExecutorError.destinationNotFound(path: destinationRoot.path)
         }
         var isDir: ObjCBool = false
-        fileManager.fileExists(atPath: destinationRoot.path, isDirectory: &isDir)
+        _ = fileOperations.fileExists(atPath: destinationRoot.path, isDirectory: &isDir)
         guard isDir.boolValue else {
             throw ReorganizeExecutorError.destinationNotADirectory(path: destinationRoot.path)
         }
@@ -156,7 +218,7 @@ public struct ReorganizeExecutor: Sendable {
         var unchanged = 0
         var unrecognized = 0
 
-        let enumerator = fileManager.enumerator(
+        let enumerator = fileOperations.enumerator(
             at: rootURL,
             includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey, .isPackageKey],
             options: [.skipsPackageDescendants]
@@ -256,7 +318,7 @@ public struct ReorganizeExecutor: Sendable {
             EngineArtifactLayout.chronoframeDefault.logsDirectoryName,
             isDirectory: true
         )
-        try fileManager.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
+        try fileOperations.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
 
         var executableMoves: [ReorganizeMove] = []
         var receiptItems: [ReorganizeAuditReceipt.Item] = []
@@ -270,13 +332,13 @@ public struct ReorganizeExecutor: Sendable {
                 observer.onTaskProgress(movedCount + skippedCount + failedCount, plan.moves.count)
                 continue
             }
-            guard fileManager.fileExists(atPath: move.sourcePath) else {
+            guard fileOperations.fileExists(atPath: move.sourcePath) else {
                 skippedCount += 1
                 observer.onIssue(RunIssue(severity: .warning, message: "Source no longer exists: \(move.sourcePath)"))
                 observer.onTaskProgress(movedCount + skippedCount + failedCount, plan.moves.count)
                 continue
             }
-            guard !fileManager.fileExists(atPath: move.destinationPath) else {
+            guard !fileOperations.fileExists(atPath: move.destinationPath) else {
                 skippedCount += 1
                 observer.onIssue(RunIssue(severity: .warning, message: "Destination exists, skipping: \(move.destinationPath)"))
                 observer.onTaskProgress(movedCount + skippedCount + failedCount, plan.moves.count)
@@ -316,14 +378,11 @@ public struct ReorganizeExecutor: Sendable {
 
         var abortReason: String?
 
-        // Phase 1 finding: previously the per-move loop rewrote the
-        // entire receipt JSON after EVERY move (O(N²) bytes written
-        // for N moves). Cap the rewrite cadence at every K moves —
-        // on crash, up to K-1 completed moves may be missing from
-        // the on-disk receipt (the files are at their new locations;
-        // revert simply leaves them alone). Always flush after the
-        // loop and on cancellation so the final state is durable.
-        let receiptCheckpointInterval = 25
+        // Checkpoint after every move so an interrupted reorganize receipt
+        // faithfully records each completed rename. This reintroduces a
+        // full-receipt write per move; a future append-only spool can optimize
+        // large reorganizes without weakening crash fidelity.
+        let receiptCheckpointInterval = 1
 
         for (index, move) in executableMoves.enumerated() {
             if isCancelled() {
@@ -345,11 +404,11 @@ public struct ReorganizeExecutor: Sendable {
                 if let liveHash = try? hasher.hashIdentity(at: sourceURL) {
                     receiptItems[index].hash = liveHash.rawValue
                 }
-                try fileManager.createDirectory(
+                try fileOperations.createDirectory(
                     at: destinationURL.deletingLastPathComponent(),
                     withIntermediateDirectories: true
                 )
-                try fileManager.moveItem(at: sourceURL, to: destinationURL)
+                try fileOperations.moveItem(at: sourceURL, to: destinationURL)
                 movedCount += 1
                 receiptItems[index].completed = true
                 let shouldCheckpoint = (movedCount % receiptCheckpointInterval == 0)
@@ -369,10 +428,10 @@ public struct ReorganizeExecutor: Sendable {
                 // Best-effort empty-directory cleanup.
                 let parentURL = sourceURL.deletingLastPathComponent()
                 if Self.isContained(parentURL, in: rootURL),
-                   let contents = try? fileManager.contentsOfDirectory(
+                   let contents = try? fileOperations.contentsOfDirectory(
                     atPath: parentURL.path
                 ), contents.isEmpty {
-                    try? fileManager.removeItem(at: parentURL)
+                    try? fileOperations.removeItem(at: parentURL)
                 }
             } catch {
                 failedCount += 1
@@ -434,13 +493,13 @@ public struct ReorganizeExecutor: Sendable {
                 observer.onTaskProgress(movedCount + skippedCount + failedCount, completedItems.count)
                 continue
             }
-            guard fileManager.fileExists(atPath: item.destinationPath) else {
+            guard fileOperations.fileExists(atPath: item.destinationPath) else {
                 skippedCount += 1
                 observer.onIssue(RunIssue(severity: .warning, message: "Moved file is no longer present: \(item.destinationPath)"))
                 observer.onTaskProgress(movedCount + skippedCount + failedCount, completedItems.count)
                 continue
             }
-            guard !fileManager.fileExists(atPath: item.sourcePath) else {
+            guard !fileOperations.fileExists(atPath: item.sourcePath) else {
                 skippedCount += 1
                 observer.onIssue(RunIssue(severity: .warning, message: "Original path already exists, skipping: \(item.sourcePath)"))
                 observer.onTaskProgress(movedCount + skippedCount + failedCount, completedItems.count)
@@ -455,8 +514,8 @@ public struct ReorganizeExecutor: Sendable {
                     observer.onTaskProgress(movedCount + skippedCount + failedCount, completedItems.count)
                     continue
                 }
-                try fileManager.createDirectory(at: originalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try fileManager.moveItem(at: currentURL, to: originalURL)
+                try fileOperations.createDirectory(at: originalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try fileOperations.moveItem(at: currentURL, to: originalURL)
                 movedCount += 1
             } catch {
                 failedCount += 1

@@ -57,11 +57,13 @@ struct SettingsView: View {
                 .tabItem {
                     Label("Diagnostics", systemImage: "stethoscope")
                 }
-                .tag(SettingsTab.diagnostics)
+        .tag(SettingsTab.diagnostics)
         }
         .frame(minWidth: 620, idealWidth: 760, minHeight: 520)
         .onAppear {
+            #if DEBUG
             UITestScenario.configureCurrentWindow(for: UITestScenario.current(), isSettings: true)
+            #endif
         }
         .navigationTitle("Settings")
     }

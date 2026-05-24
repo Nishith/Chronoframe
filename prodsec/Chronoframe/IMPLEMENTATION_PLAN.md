@@ -1,291 +1,486 @@
 # Chronoframe — Implementation Plans for Top 3
 
-Execution-grade plans for the three highest-leverage findings. Each plans the structural guard FIRST so the regression surface is locked before the fix lands.
+_Generated: 2026-05-24. Supersedes prior documents in this directory._
+
+Plans for the three findings with the highest SEV × LIK × BLAST × LEV scores:
+1. Invariant check script not wired to CI (score: 400)
+2. DeduplicateExecutor crash strands files in Trash (score: 240)
+3. Receipt finalization: remove-then-rename atomicity gap (score: 160)
 
 ---
 
-## Plan 1 — Fix Pair-as-Unit "Keep wins" bypass (Finding #1)
+## Plan 1: Wire `check_agents_invariants_have_tests.sh` to CI
 
-### Objective
+### A. Objective
 
-Restore the documented Keep-wins invariant: if either half of a `treatRawJpegPairsAsUnit` / `treatLivePhotoPairsAsUnit` pair has an effective Keep, neither half goes to Trash, regardless of whether that Keep is explicit, automatic, or default. Success: a parameterized test matrix covering `(low|medium|high confidence) × (RAW+JPEG | Live Photo HEIC+MOV) × (user marks half Delete | user marks half Keep | user marks neither)` finds zero unmarked-partner deletions.
+Add the invariant-tag check as a required CI job so that any PR that removes or fails to add a `// AGENTS-INVARIANT: N` test tag fails CI before merge.
 
-### Current State
+**Success criteria:**
+- A PR that removes a `// AGENTS-INVARIANT: N` tag from any test file causes the new CI job to fail.
+- The job completes in under 60 seconds on a `ubuntu-latest` runner.
+- The job is listed as a required status check in branch protection rules.
 
-- `DeduplicationPlanner.swift:42-49` defines `DecisionSource.blocksPairDeletion`. `.explicit` and `.automatic` return `true`; `.defaultKeep` returns `false`.
-- Step 2 (lines 84-95) only flips a `Delete` back to `Keep` if `partnerInfo.source.blocksPairDeletion`.
-- Step 5 (lines 131-135) only short-circuits pair-fanout if `partnerEffective.source.blocksPairDeletion`.
-- In low-confidence clusters, `canAutoSelectDeletes == false` → both members get `(decision=.keep, source=.defaultKeep)`. User marks one Delete → other stays `.defaultKeep` → both steps fail to rescue → both trashed.
+### B. Current State
 
-### Target State
+`script/check_agents_invariants_have_tests.sh` exists and is correct. It parses `AGENTS.md` for invariant bullets and greps test files for `// AGENTS-INVARIANT: N` tags. It returns exit code 1 if any invariant lacks a test. It is called in `CLAUDE.md` and `AGENTS.md` as a required gate but is not referenced from any GitHub Actions workflow.
 
-- Pair rescue triggers whenever the partner's effective decision is `.keep`, irrespective of source.
-- `DecisionSource` retains semantic meaning for other purposes (UI badges, telemetry) but no longer gates safety decisions.
+### C. Target State
 
-### Detailed Design
+A new `invariants-check` job in `.github/workflows/ci.yml` runs on every pull request and push to `main`. It runs `script/check_agents_invariants_have_tests.sh` on an Ubuntu runner. The job is added to the branch protection required-status-checks list.
 
-Choice A (minimal): change `.defaultKeep.blocksPairDeletion` to return `true`.
+### D. Detailed Design
 
-Choice B (clearer): remove `blocksPairDeletion` entirely; pair rescue keys directly on `effective[partner].decision == .keep`.
+No code changes required. One workflow file change only:
 
-Recommend **Choice B** — `blocksPairDeletion` was added to distinguish "explicit Keep" from "default Keep" for a UX reason that has since been dropped. The current code shape is a footgun. Removing the indirection makes the invariant obvious to readers.
+`.github/workflows/ci.yml` — add after the existing jobs:
 
-Code shape after fix in `DeduplicationPlanner.swift`:
-
-```swift
-// Step 2
-switch (info.decision, partnerInfo.decision) {
-case (.keep, .delete):
-    effective[partner]?.decision = .keep
-case (.delete, .keep):
-    effective[path]?.decision = .keep
-default:
-    break
-}
-
-// Step 5
-if let partnerEffective = effective[partner], partnerEffective.decision == .keep {
-    continue
-}
+```yaml
+invariants-check:
+  name: AGENTS-INVARIANT tag check
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+    - name: Check all AGENTS-INVARIANT bullets have tagged tests
+      run: script/check_agents_invariants_have_tests.sh
 ```
 
-Keep `DecisionSource` enum (it's used in tests and may be useful for diagnostics).
+The script uses only `bash`, `awk`, and `grep` — available on all Ubuntu runners with no setup step.
 
-### Execution Plan
+### E. Step-by-Step Execution Plan
 
-**Phase 0 — Land structural guard (failing test).**
+**Phase 1 — Add the job (PR ~15 minutes):**
+1. Edit `.github/workflows/ci.yml` to add the `invariants-check` job above.
+2. Open PR. The new job runs. Verify it passes on the current main state.
+3. Merge.
 
-- File: `ui/Tests/ChronoframeCoreTests/DeduplicationPlannerTests.swift` (or wherever planner tests live; check `DeduplicateTests`).
-- Add `func testPairKeepWinsAcrossDecisionSources()` that builds three clusters (high/medium/low confidence), populates `pairedPath` mutually for each member, applies `decisions = [oneHalf: .delete]`, and asserts `DeduplicationPlanner.plan(...).items` contains zero entries for the partner across all configurations.
-- Land as `xfail`-equivalent (test is `@MainActor func`; XCTest doesn't have xfail — use `XCTExpectFailure(...) { ... }` and remove the expectation when fix lands, OR land the test in the same PR as the fix).
-- Recommended: land in a single PR. The test failing without the fix proves the bug; the test passing with the fix proves the fix.
+**Phase 2 — Make it a required check (~5 minutes):**
+1. Navigate to GitHub repo → Settings → Branches → Branch protection rules → `main` → Edit.
+2. Under "Require status checks to pass before merging", add `AGENTS-INVARIANT tag check`.
+3. Save.
 
-**Phase 1 — Apply fix.**
+**Phase 3 — Document in AGENTS.md (~5 minutes):**
+1. Update the "CI" section of `AGENTS.md` to note that the invariant check runs automatically on every PR.
 
-- Edit `DeduplicationPlanner.swift:84-95` and `DeduplicationPlanner.swift:131-135` per shape above.
-- Run the existing dedupe test suite: `swift test --package-path ui --filter DeduplicateTests`.
-- Confirm no other tests regress.
+### F. Testing Strategy
 
-**Phase 2 — Update AGENTS.md** if the wording "explicit Keep" was the source of confusion — restate as "effective Keep".
+- **Regression test:** After merging, create a test PR that removes one `// AGENTS-INVARIANT:` tag from a test file. Verify the CI job fails on that PR. Then close the PR.
+- **No unit tests required** for the workflow change itself.
 
-### Testing Strategy
+### G. Operational Plan
 
-- Unit: the new `testPairKeepWinsAcrossDecisionSources` matrix.
-- Regression: full `DeduplicateTests` suite; confirm executor commit/revert tests still pass.
-- Property: optional — generate random cluster shapes with `Fuzz`-style helper and assert "no partner of a Keep is ever in the plan".
+- No metrics, alerts, or dashboards needed.
+- If the script produces false positives (e.g., a new AGENTS.md bullet without a test), the correct response is to add the test, not to bypass the CI job.
 
-### Operational Plan
+### H. Risks and Mitigations
 
-- No metrics/observability change. This is a pure planner bug.
-- Release: ships in the next normal release. No migration. Receipts written before the fix remain decodable.
+- **Risk:** Script has a parsing bug that falsely fails CI on clean code. **Mitigation:** The script was already written and used locally; verify on current `main` before merging.
+- **Risk:** Ubuntu runner doesn't have a required shell utility. **Mitigation:** The script uses only `bash`, `awk`, `grep` — universally available.
 
-### Risks and Mitigations
+### I. Resourcing and Sequencing
 
-- Risk: removing `blocksPairDeletion` might unbreak existing tests that asserted the bug as feature.
-  - Mitigation: read the existing tests first — if any expect the partner to be deleted, the test was codifying the bug; update it.
-- Risk: Choice B is slightly larger surface. Mitigation: it's still <20 LOC.
-
-### Resourcing and Sequencing
-
-- One engineer, half a day including test review.
+- Single engineer, 30 minutes total (including Phase 2 repository settings change).
 - No cross-team dependencies.
 
-### Definition of Done
+### J. Definition of Done
 
-- New parameterized test passes.
-- Existing `DeduplicateTests` suite passes.
-- `script/swift_meaningful_coverage.sh` still ≥95% (DeduplicationPlanner is on the allowlist).
-- PR description references AGENTS.md "Pair-as-unit conflict resolution is Keep-wins" invariant.
+- `invariants-check` job passes on all open PRs.
+- The job is a required status check on `main`.
+- Removing any `// AGENTS-INVARIANT: N` tag causes the job to fail.
 
 ---
 
-## Plan 2 — Fix `swift_meaningful_coverage.sh` allowlist drift (Finding #2)
+## Plan 2: Fix DeduplicateExecutor Crash-Between-Trash-and-Receipt
 
-### Objective
+### A. Objective
 
-Make the meaningful coverage gate verifiable: no phantom allowlist entries, no critical safety files outside the gate. Success: the script preflight-fails when any allowlisted basename has zero matches in `ui/Sources`, and the next CI run after the fix exercises `OrganizerDatabase`, `FileIdentityHasher`, `DeduplicateScanner`, `DeduplicatePairDetector`, `MediaDateResolver`, `FileSystemMonitor`, `BookmarkPathResolver`, `BundleValidator`, `EngineDomainModels`.
+Eliminate the crash window in `DeduplicateExecutor.commit()` where a file is moved to Trash but its `trashURL` is never written to the receipt, leaving the file unrecoverable via Run History → Revert. As a side effect, eliminate the O(N²) receipt I/O.
 
-### Current State
+**Success criteria:**
+- A simulated app crash (fault injection) after the K-th trash produces a receipt with correct `trashURL` entries for all K trashed items.
+- A 10,000-item dedupe run writes ≤ N+2 receipt-file operations (not N²).
+- All existing dedupe executor tests continue to pass.
+- `script/check_agents_invariants_have_tests.sh` passes with a new `// AGENTS-INVARIANT: 13` test.
 
-- `script/swift_meaningful_coverage.sh:31` is an allowlist regex.
-- It references `BackgroundDedupeMonitor`, `EditVariantDetector`, `ImportDuplicateChecker` — files that don't exist.
-- It omits the files listed above. The 95% threshold is computed only over what matched, so it stays green while critical code is untested.
+### B. Current State
 
-### Target State
+`DeduplicateExecutor.commit()` (DeduplicateExecutor.swift ~lines 100–210):
 
-Choice A: keep the allowlist, add a preflight that fails on phantom entries, and add the missing critical files.
-
-Choice B: invert to a denylist (UI bodies, app entry, OS wrapper) and require the denied set to be enumerated explicitly.
-
-Recommend **Choice A** as a one-PR fix; track Choice B as a follow-up if denylist coverage proves easier to maintain.
-
-### Detailed Design
-
-Add to `swift_meaningful_coverage.sh` before line 31:
-
-```bash
-MEANINGFUL_BASENAMES=(
-  BLAKE2bHasher CopyPlanBuilder DryRunPlanner MediaDiscovery PlanningPathBuilder
-  DeduplicationPlanner PerceptualHash UserFacingErrorMessage RunHistoryIndexer
-  TransferExecutor RevertExecutor DeduplicateExecutor ReorganizeExecutor
-  DedupeFeatureCache PreviewReviewModels LibraryHealthScanner ClusterAnnotator
-  ClusterConfidenceScorer DuplicateClusterer FingerprintIndex PhotoQualityScorer
-  SafetyWarningDetector FaceExpressionAnalyzer
-  # Newly added, previously outside the gate:
-  OrganizerDatabase FileIdentityHasher DeduplicateScanner DeduplicatePairDetector
-  MediaDateResolver FileSystemMonitor BookmarkPathResolver BundleValidator
-  EngineDomainModels
-)
-for f in "${MEANINGFUL_BASENAMES[@]}"; do
-  if ! find ui/Sources -name "${f}.swift" -print -quit | grep -q .; then
-    echo "Phantom allowlist entry: ${f}" >&2
-    exit 2
-  fi
-done
-MEANINGFUL_REGEX="/($(IFS='|'; echo "${MEANINGFUL_BASENAMES[*]}"))\\.swift\$"
+```
+for each item to trash:
+    1. trashItem(originalURL) → trashURL
+    2. update receiptItems[i].trashURL = trashURL
+    3. writeReceipt(all receiptItems)  ← full JSON encode + atomic write
 ```
 
-Replace the literal `MEANINGFUL_REGEX` assignment with this generated one.
+This is O(N²) in total bytes written. More critically, if the process is killed between step 1 and step 3, the receipt on disk still has `trashURL: nil` for the just-trashed item. `DeduplicateExecutor.revert()` then skips that item with "Receipt is missing the Trash URL".
 
-`RunConfiguration+Profiles.swift` contains a `+` which the basename loop needs to handle — special-case it or keep it out of the array and grep separately. Simpler: drop `RunConfiguration\+Profiles` from the array and add it to a `MEANINGFUL_EXTRA_REGEX` string concatenated at the end.
+### C. Target State
 
-### Execution Plan
+```
+Before the loop:
+    1. Write PENDING receipt with all items as trashURL: nil
+    2. Open a spool file for appending
 
-**Phase 0 — Land the preflight only (no new basenames).** This PR purely surfaces the phantom entries currently in the regex. CI will fail on `BackgroundDedupeMonitor` etc. Fix by removing those three entries from the array. Land. Now the script is honest about what's covered.
+For each item to trash:
+    1. trashItem(originalURL) → trashURL
+    2. Append spool line: "{originalPath}\t{trashURL}\n"  ← one write, not a full encode
 
-**Phase 1 — Add the missing safety-critical files to the allowlist, one PR at a time.** Each addition will surface uncovered lines in the corresponding file; add targeted tests as needed to clear the 95% bar. Recommended order: `OrganizerDatabase` (highest leverage), `FileIdentityHasher`, `MediaDateResolver`, `DeduplicateScanner`, `DeduplicatePairDetector`, `FileSystemMonitor`, `BookmarkPathResolver`, `BundleValidator`, `EngineDomainModels`. Each PR may need to land tests first before the coverage line can pass.
+After the loop:
+    3. Read spool, assemble final receipt JSON
+    4. Atomic rename spool→final receipt (NOT removeItem + moveItem)
+    5. Delete spool file
 
-### Testing Strategy
+On app relaunch:
+    recoverInterruptedDedupeRuns():
+        - Find PENDING dedupe receipts with associated spool files
+        - Consolidate: mark items found in spool as completed with trashURL
+        - Update receipt status to ABORTED (we can't know if the run was complete)
+        - Make available in Run History for partial Revert
+```
 
-- The script's own preflight is the test for phantom entries.
-- For each newly-allowlisted file, add unit tests that bring it ≥95% before flipping the gate on (or use the script's per-file output to identify uncovered ranges).
+### D. Detailed Design
 
-### Operational Plan
+#### D1. Spool format
 
-- Run `script/swift_meaningful_coverage.sh` locally before each PR; confirm threshold met.
-- CI workflow `.github/workflows/ci.yml` already invokes the script — no workflow change needed.
+A spool file lives alongside the receipt: `dedupe_audit_receipt_<uuid>_spool.tsv`
 
-### Risks and Mitigations
+Each line: `<originalPath>\t<trashURL>\n` (tab-separated, newline-terminated)
 
-- Risk: adding files to the gate causes CI red. Mitigation: per-PR rollout; each PR includes tests.
-- Risk: maintainers may revert the preflight if it blocks a hot fix. Mitigation: add a comment explaining the cost of regressing it; reference this plan in the script.
+Tab-separated with no escaping is sufficient because:
+- macOS paths cannot contain tab characters (the VFS rejects them)
+- `trashURL` is a `file://` URL from `NSFileManager.trashItem`, which also cannot contain tabs
 
-### Resourcing and Sequencing
+#### D2. Changes to `DeduplicateExecutor.swift`
 
-- Phase 0: 1 hour.
-- Phase 1: per file, 0.5-2 days for test writing. Roughly 1.5-2 engineer-weeks total over multiple PRs.
+```swift
+// New: write PENDING receipt before loop
+try Self.writeReceipt(
+    receiptURL: pendingReceiptURL,
+    status: .pending,
+    items: allItems.map { item in
+        DeduplicateReceiptItem(originalPath: item.originalPath, trashURL: nil, ...)
+    }
+)
 
-### Definition of Done
+// Open spool file for appending
+let spoolURL = pendingReceiptURL.deletingPathExtension()
+    .appendingPathExtension("spool.tsv")
+let spoolFD = open(spoolURL.path, O_WRONLY | O_CREAT | O_APPEND, 0o600)
+guard spoolFD >= 0 else { throw DeduplicateExecutorError.spoolOpenFailed(errno: errno) }
+defer { close(spoolFD) }
 
-- Phase 0 PR: preflight gates phantom entries; the three phantom basenames are removed.
-- Phase 1 PRs: all 9 newly-listed files appear in the script's "Meaningful files" output with ≥95% individually contributing to a ≥95% aggregate.
+for item in itemsToTrash {
+    let (_, trashURL) = try fileOperations.trashItem(at: item.originalURL)
+    // Append to spool — one write syscall, not a full encode
+    let line = "\(item.originalURL.path)\t\(trashURL.absoluteString)\n"
+    line.withCString { ptr in
+        _ = Darwin.write(spoolFD, ptr, strlen(ptr))
+    }
+}
 
----
+// After the loop: assemble final receipt from spool
+let spoolLines = try String(contentsOf: spoolURL, encoding: .utf8)
+    .split(separator: "\n", omittingEmptySubsequences: true)
+let trashURLsByPath: [String: URL] = Dictionary(
+    uniqueKeysWithValues: spoolLines.compactMap { line -> (String, URL)? in
+        let parts = line.split(separator: "\t", maxSplits: 1)
+        guard parts.count == 2, let url = URL(string: String(parts[1])) else { return nil }
+        return (String(parts[0]), url)
+    }
+)
 
-## Plan 3 — Persist PENDING organize receipt for crash recovery (Finding #3)
+let finalItems = allItems.map { item in
+    DeduplicateReceiptItem(
+        originalPath: item.originalPath,
+        trashURL: trashURLsByPath[item.originalPath],
+        ...
+    )
+}
 
-### Objective
+// Atomic rename: spool→finalReceipt (not removeItem+moveItem)
+let finalReceiptURL = ... // UUID-stamped final path
+try Self.writeReceipt(receiptURL: tmpReceiptURL, status: .completed, items: finalItems)
+let renameResult = tmpReceiptURL.withUnsafeFileSystemRepresentation { src in
+    finalReceiptURL.withUnsafeFileSystemRepresentation { dst in
+        src.flatMap { s in dst.map { d in Darwin.rename(s, d) } } ?? -1
+    }
+}
+guard renameResult == 0 else { throw DeduplicateExecutorError.finalizationFailed(errno: errno) }
 
-A power-loss or SIGKILL during organize leaves a recoverable PENDING receipt on disk that lists every transfer completed before the crash, so the user can revert from Run History after restart. Success: a fault-injection test that aborts the executor mid-run produces a `audit_receipt_*.json` with `status: "PENDING"` containing all completed-and-verified transfers, and Run History → Revert restores them all.
+// Remove spool and pending receipt (best-effort cleanup)
+try? FileManager.default.removeItem(at: spoolURL)
+try? FileManager.default.removeItem(at: pendingReceiptURL)
+```
 
-### Current State
+#### D3. New `recoverInterruptedDedupeRuns()` in `SwiftOrganizerEngine.swift`
 
-- `TransferExecutor.executeQueuedJobs` instantiates `StreamingAuditReceiptWriter`, which appends transfers to a `<receipt>.transfers.tmp` spool.
-- The actual JSON receipt is written only in `finish()` (`TransferExecutor.swift:959-984`), at end-of-run.
-- `deinit` calls `discardUnfinishedFiles()` which removes the spool.
-- On SIGKILL/power loss, deinit doesn't run; the spool stays orphaned with no metadata, and there's no `audit_receipt_*.json` for the run.
-- `chronoframeTmpPattern` cleanup at startup doesn't sweep `.transfers.tmp`.
-- `ReorganizeExecutor` and `DeduplicateExecutor` already follow the correct PENDING pattern — use them as templates.
+Called at app launch alongside `recoverInterruptedRuns()`:
 
-### Target State
+```swift
+func recoverInterruptedDedupeRuns(destinationRoot: URL) {
+    let logsDir = destinationRoot.appendingPathComponent(
+        EngineArtifactLayout.chronoframeDefault.logsDirectoryName
+    )
+    let fm = FileManager.default
+    guard let contents = try? fm.contentsOfDirectory(at: logsDir,
+        includingPropertiesForKeys: nil) else { return }
 
-- At run start, write `audit_receipt_<ts>_<uuid>.json` with `status: "PENDING"`, empty `transfers: []`, and a `schemaVersion: 2`.
-- After every successful transfer, append to the receipt's `transfers` array via an atomic rewrite (or sidecar that the JSON points to — see design choice below) and fsync.
-- On clean finish, mutate status to `COMPLETED` and write final tally.
-- On abort/failure, mutate status to `ABORTED` / `FAILED`.
-- At app startup, scan for `audit_receipt_*.json` with `status: "PENDING"` AND no in-flight Chronoframe process owning them; treat them as "recoverable run" entries in Run History.
+    for pendingReceiptURL in contents where pendingReceiptURL.lastPathComponent
+        .hasPrefix("dedupe_audit_receipt_") &&
+        pendingReceiptURL.lastPathComponent.hasSuffix("_PENDING.json") {
 
-### Detailed Design
+        let spoolURL = pendingReceiptURL.deletingPathExtension()
+            .appendingPathExtension("spool.tsv")
+        guard fm.fileExists(atPath: spoolURL.path) else { continue }
 
-**Decision: rewrite-receipt-on-every-transfer vs. append-only sidecar.**
-
-`ReorganizeExecutor` rewrites the whole receipt on every move — clean shape but O(N²) bytes. For organize, N can be 50k+. Recommend a hybrid:
-
-- Keep the `<receipt>.transfers.tmp` spool as the durable append-only record (fsync after each append).
-- Maintain a small `audit_receipt_<ts>_<uuid>.json` with `status` + run metadata + a `transfersSpoolPath` reference.
-- At `finish()`, consolidate the spool into the JSON's `transfers` array and unlink the spool.
-- Crash recovery: if a PENDING receipt exists referencing a still-present spool, treat as recoverable; the recovery routine consolidates the spool at startup.
-
-Schema changes (this is why Plan 6 / Finding #6 must land first — the reader must understand `schemaVersion` before any new format ships):
-
-```json
-{
-  "schemaVersion": 3,
-  "status": "PENDING",  // PENDING | COMPLETED | ABORTED | FAILED
-  "runId": "...",
-  "startedAt": "...",
-  "destinationRoot": "...",
-  "identityScheme": "blake2b-v1",
-  "transfersSpoolPath": ".organize_logs/audit_receipt_<ts>_<uuid>.transfers.tmp",
-  "transfers": []  // populated on finalize; reader falls back to spool if empty + status==PENDING
+        // Consolidate: mark spool entries as trashed, finalize as ABORTED
+        // (we cannot know if the run completed — use ABORTED conservatively)
+        DeduplicateExecutor.consolidatePendingReceipt(
+            pendingReceiptURL: pendingReceiptURL,
+            spoolURL: spoolURL
+        )
+    }
 }
 ```
 
-### Execution Plan
+#### D4. `DeduplicateExecutor.revert()` — no changes needed
 
-**Phase 0 — Land structural guard (failing test) FIRST.**
+Once the receipt has correct `trashURL` entries (even from a recovered spool), the existing revert logic works unchanged. The only change is that previously-stranded items now have valid `trashURL` entries.
 
-- Test: `func testCrashedRunLeavesPendingReceiptWithCompletedTransfers()`.
-- Strategy: instantiate `TransferExecutor` with a fault-injected `prepareAtomicCopy` that throws after N transfers (or wire a `Task.cancel()` after N progress events).
-- Assert: a single `audit_receipt_*.json` exists in `.organize_logs/`, `status` is `"PENDING"` or `"ABORTED"`, and its consolidated `transfers` list contains exactly N entries with valid hashes pointing at the on-disk destination files.
+### E. Step-by-Step Execution Plan
 
-**Phase 1 — Schema versioning (depends on Plan for Finding #6).** Ship `schemaVersion` decoding first so the new shape doesn't break old binaries in-flight.
+**Phase 1 — Structural guard (failing test) [~1 day]:**
 
-**Phase 2 — Implement PENDING writer.**
+1. Add `DeduplicateExecutorFaultInjectionTests.testCrashBetweenTrashAndReceiptPreservesTrashURL`:
+   - Configure executor with a `MockFileOperations` that throws after the 3rd `trashItem` call.
+   - Run `commit()` — expect throw.
+   - Read the on-disk receipt (or spool).
+   - Assert all 3 trashed items have a non-nil `trashURL` in the spool file.
+   - Tag: `// AGENTS-INVARIANT: 13`
+   - This test **fails** on the current code (the spool doesn't exist yet). That's the point.
 
-- Add `StreamingAuditReceiptWriter.writeInitialPendingReceipt()` called from the executor before the first transfer.
-- Add `StreamingAuditReceiptWriter.updateStatus(to:)` for COMPLETED/ABORTED/FAILED transitions.
-- Replace the existing end-of-run-only JSON write with a consolidation step that reads the spool and writes final JSON.
+2. Run `script/check_agents_invariants_have_tests.sh` — confirm it now reports the new tag.
 
-**Phase 3 — Crash recovery on startup.**
+**Phase 2 — Implement spool writer [~2 days]:**
 
-- Add to `RunHistoryIndexer` a step that loads receipts with `status: "PENDING"` and surfaces them in Run History tagged as "Recovered run — completed N of M before interruption".
-- Revert path consumes the same receipt format.
+1. Add `DeduplicateExecutor.SpoolWriter` (private inner type or free function).
+2. Modify `commit()` to open spool, append after each trash, close.
+3. Modify `finish()` to assemble final receipt from spool + atomic rename.
+4. Run the Phase 1 test — it should now pass.
+5. Run all existing `DeduplicateExecutorFaultInjectionTests` — all should pass.
+6. Run `script/swift_meaningful_coverage.sh` — confirm ≥95%.
 
-**Phase 4 — Sweep orphaned `.transfers.tmp` files** whose parent JSON is `COMPLETED` or missing. Add to engine startup.
+**Phase 3 — Implement `recoverInterruptedDedupeRuns` [~1 day]:**
 
-### Testing Strategy
+1. Add `DeduplicateExecutor.consolidatePendingReceipt(pendingReceiptURL:spoolURL:)`.
+2. Call it from `SwiftOrganizerEngine` at app launch after `recoverInterruptedRuns`.
+3. Add test: `DeduplicateExecutorFaultInjectionTests.testInterruptedRunIsRecoverableAfterRelaunch`.
 
-- Unit: `testCrashedRunLeavesPendingReceiptWithCompletedTransfers` (Phase 0).
-- Unit: receipt status state machine (PENDING → COMPLETED, PENDING → ABORTED, PENDING → FAILED).
-- Integration: full organize run with `Task.cancel()` injected at 30%; assert revert restores the 30%.
-- Migration: read a v2 receipt (current shape) and confirm it decodes; write a v3 receipt and confirm a v2 reader produces a clear `unsupportedSchema` error (depends on Plan 6 landing first).
+**Phase 4 — Integration and cleanup [~0.5 days]:**
 
-### Operational Plan
+1. Remove the old per-item `writeReceipt` call from the loop.
+2. Remove the old `receiptItems` accumulation array (replaced by spool).
+3. Run full test suite.
+4. Build app and do a manual smoke test: small dedupe run, verify receipt correct.
+5. Merge.
 
-- New log line at run start: "Wrote PENDING receipt at …". Helps support diagnose crash recovery.
-- Run History UI: tag recovered runs visibly so the user knows the run didn't complete normally.
-- Rollback: if the new receipt format ships and is wrong, the v3 schema sentinel will at least cause clean refusal rather than silent corruption — combined with Plan 6's `unsupportedSchema`.
+### F. Testing Strategy
 
-### Risks and Mitigations
+- **New fault injection tests** (Phase 1 + 3): kill after K trashes, verify receipt/spool integrity.
+- **Existing tests:** All existing `DeduplicateExecutorFaultInjectionTests` must continue to pass.
+- **Property test (optional):** For N in {1, 10, 100, 1000}, verify total bytes written scales O(N) not O(N²).
+- **Regression test:** Large dedupe run (1,000+ items) completes without errors; receipt has all items; Revert restores all items.
 
-- Risk: per-transfer fsync of the spool degrades throughput on slow devices. Mitigation: batched fsync (every K transfers + on finish). Measure on representative workloads first.
-- Risk: a v3 reader fails to decode a partially-written v3 receipt from an in-flight crash. Mitigation: the JSON header is small + written atomically before any transfers; only the spool grows.
-- Risk: orphan-spool cleanup deletes a spool from a still-running process. Mitigation: include the owning process's UUID in the receipt; only sweep spools whose parent JSON is COMPLETED or whose UUID is not present in any other extant PENDING receipt.
+### G. Operational Plan
 
-### Resourcing and Sequencing
+- No new metrics or alerts required.
+- The receipt file format is unchanged (same JSON schema). Only the write pattern changes.
+- If the spool file is present at next launch without a PENDING receipt (unusual), it is silently ignored (best-effort cleanup).
 
-- Phase 0: 1 day (test scaffolding for fault injection).
-- Phase 1: blocked on Plan 6, 1-2 days.
-- Phase 2: 3-4 days.
-- Phase 3: 2 days.
-- Phase 4: 1 day.
-- Total: ~2 engineer-weeks with sequencing on Plan 6.
+### H. Risks and Mitigations
 
-### Definition of Done
+- **Risk:** Spool append fails mid-run (disk full). **Mitigation:** Treat spool write failure as a fatal executor error — abort the run, do not continue trashing files without a spool. The PENDING receipt is left on disk for manual inspection.
+- **Risk:** Spool file is corrupted (truncated line). **Mitigation:** `consolidatePendingReceipt` skips any line that doesn't parse as a valid `path\tURL` pair. Only complete entries are included in the recovery receipt.
+- **Risk:** This changes behavior for existing PENDING dedupe receipts (from the old code). **Mitigation:** On relaunch, a PENDING receipt without a spool file is treated as before (run reported as interrupted, no recovery). The new recovery path only activates when a spool file is present.
 
-- Fault-injected test passes; revert restores all completed transfers from a PENDING receipt.
-- v2 receipts still decode and revert correctly.
-- Orphan sweep runs at startup and doesn't touch live PENDING receipts.
-- AGENTS.md updated to document the PENDING-receipt invariant on the organize path.
-- Run History UI shows recovered runs with a distinguishable tag.
+### I. Resourcing and Sequencing
+
+- Single engineer, ~4–5 days.
+- No cross-team dependencies.
+- Can be worked in parallel with plans 1 and 3.
+
+### J. Definition of Done
+
+- `testCrashBetweenTrashAndReceiptPreservesTrashURL` passes (AGENTS-INVARIANT: 13 tagged).
+- `testInterruptedRunIsRecoverableAfterRelaunch` passes.
+- All existing `DeduplicateExecutorFaultInjectionTests` pass.
+- `script/check_agents_invariants_have_tests.sh` passes.
+- `script/swift_meaningful_coverage.sh` passes (≥95%).
+- A manual 1,000-item dedupe run produces a receipt with all correct `trashURL` entries.
+- A manual "kill app after 100 trashes and relaunch" produces a recovery receipt with 100 correct entries.
+
+---
+
+## Plan 3: Fix Receipt Finalization Atomicity Gap
+
+### A. Objective
+
+Replace the non-atomic `removeItem(PENDING) + moveItem(tmp→final)` two-step in `StreamingAuditReceiptWriter.finish()` with a single atomic `rename(2)` call, eliminating the crash window where neither receipt exists.
+
+**Success criteria:**
+- After any simulated crash during `finish()`, exactly one of {PENDING receipt, COMPLETED receipt} exists on disk.
+- Existing receipt-recovery tests continue to pass.
+- No regression in `RunHistoryIndexer` (it reads both PENDING and COMPLETED receipt names).
+
+### B. Current State
+
+`StreamingAuditReceiptWriter.finish()` (TransferExecutor.swift lines 1155–1162):
+
+```swift
+// Problem: crash between these two lines leaves no receipt
+if fileManager.fileExists(atPath: finalReceiptURL.path) {
+    try fileManager.removeItem(at: finalReceiptURL)
+}
+try fileManager.moveItem(at: temporaryReceiptURL, to: finalReceiptURL)
+```
+
+The comment at line 1152 explains the intent: `moveItem` refuses to overwrite, so the existing PENDING receipt is removed first. But if the process is killed between `removeItem` and `moveItem`, neither receipt exists. `recoverInterruptedRuns` scans for PENDING receipts — but it was just deleted.
+
+### C. Target State
+
+```swift
+// Single atomic rename: replaces the target atomically on APFS/HFS+
+let result = temporaryReceiptURL.withUnsafeFileSystemRepresentation { src in
+    finalReceiptURL.withUnsafeFileSystemRepresentation { dst in
+        guard let s = src, let d = dst else { return Int32(-1) }
+        return Darwin.rename(s, d)
+    }
+}
+guard result == 0 else {
+    throw AuditReceiptError.finalizationFailed(
+        message: "Could not finalize receipt",
+        underlyingErrno: errno
+    )
+}
+```
+
+On macOS, `rename(2)` is guaranteed atomic on the same filesystem. Both `temporaryReceiptURL` and `finalReceiptURL` are always inside `.organize_logs` on the destination volume — same filesystem guaranteed.
+
+### D. Detailed Design
+
+#### D1. Why `rename(2)` instead of `FileManager.replaceItem`
+
+`FileManager.replaceItem(at:withItemAt:...)` is the Apple-sanctioned "safe save" API. However it:
+- Internally creates a backup copy (extra I/O)
+- Can fail on volumes that don't support the backup mechanism
+- Returns `resultingItemURL` rather than throwing on partial success — adds error handling complexity
+
+`rename(2)` is a single POSIX syscall, atomic at the VFS layer on all Apple filesystems (APFS, HFS+). It has been used elsewhere in this codebase (`renamex_np(RENAME_EXCL)` in `TransferExecutor.performCopy`). Using it here is consistent with the existing low-level I/O style.
+
+#### D2. Error case
+
+If `rename` returns -1, the temporary receipt still exists (the rename is all-or-nothing). Log the errno and throw. The caller (`StreamingAuditReceiptWriter`) already has a `deinit` path (`discardUnfinishedFiles`) that removes the temporary receipt on cleanup. The PENDING receipt is still on disk. `recoverInterruptedRuns` will find it on next launch and treat it as an interrupted run — which is the correct behavior.
+
+#### D3. Files affected
+
+- `ui/Sources/ChronoframeCore/TransferExecutor.swift` — lines 1155–1162: replace `removeItem` + `moveItem` with `rename(2)`.
+- No changes to `StreamingAuditReceiptWriter` public interface.
+- No changes to `recoverInterruptedRuns` — it already handles PENDING receipts correctly.
+
+### E. Step-by-Step Execution Plan
+
+**Phase 1 — Structural guard (failing test) [~2 hours]:**
+
+1. Add test `StreamingAuditReceiptWriterTests.testFinalizationCrashWindowLeavesAtLeastOneReceipt`:
+   - Create a mock that throws `FileManager.moveItem` (or equivalent) after `removeItem` succeeds.
+   - Call `finish()`.
+   - Assert that either the PENDING receipt or the final receipt exists (not neither).
+   - This test **fails** on the current code (neither exists when moveItem fails after removeItem).
+   - Tag: `// AGENTS-INVARIANT: 9` (receipts carry status; receipt-before-mutation)
+
+**Phase 2 — Implement fix [~1 hour]:**
+
+1. Edit `TransferExecutor.swift` lines 1155–1162:
+   - Remove the `removeItem` call.
+   - Replace `moveItem` with `Darwin.rename(src, dst)`.
+   - Add errno-based error throw.
+
+2. Run the Phase 1 test — should now pass.
+
+3. Run all `ChronoframeCoreTransferExecutorBehaviorTests` — all should pass.
+
+**Phase 3 — Verify edge cases [~1 hour]:**
+
+1. Verify that `recoverInterruptedRuns` still correctly processes PENDING receipts (no behavior change — the PENDING receipt path is unaffected by this fix; the PENDING receipt is now atomically replaced by the final receipt, not removed first).
+2. Run `script/swift_meaningful_coverage.sh`.
+
+**Phase 4 — Merge [~30 minutes]:**
+
+1. Open PR with the test (Phase 1) and the fix (Phase 2) as separate commits.
+2. Verify CI passes.
+3. Merge.
+
+### F. Testing Strategy
+
+- **New test** (Phase 1): fault-injected `moveItem`/`rename` failure asserts receipt invariant.
+- **Existing tests:** All existing `ChronoframeCoreTransferExecutorBehaviorTests` must pass unchanged.
+- **Manual smoke test:** Run a small transfer, interrupt it, verify PENDING receipt is on disk. Run again, verify it completes to COMPLETED receipt. Run History shows both entries.
+
+### G. Operational Plan
+
+- No new metrics or alerts required.
+- The receipt filename convention is unchanged (same PENDING/COMPLETED naming). `RunHistoryIndexer` continues to work without changes.
+
+### H. Risks and Mitigations
+
+- **Risk:** `rename(2)` fails on network volumes that don't support atomic rename. **Mitigation:** Network volumes are not the primary use case (local Photos library is). If `rename` fails, the PENDING receipt is still on disk — the user sees an interrupted run in history, not data loss. Log the errno clearly.
+- **Risk:** On a case-insensitive filesystem (HFS+, common external drives), two receipts with the same base name could collide. **Mitigation:** Receipt names include a UUID suffix, making collisions cryptographically negligible.
+- **Risk:** The change is in a safety-critical path. **Mitigation:** The fix is a mechanical replacement of two syscalls with one. The logic (write temp → rename to final) is unchanged.
+
+### I. Resourcing and Sequencing
+
+- Single engineer, ~4 hours total.
+- No cross-team dependencies.
+- Can be done in parallel with plans 1 and 2.
+- **Land this before Plan 2**, since Plan 2 (dedupe) mirrors this pattern for its own finalization.
+
+### J. Definition of Done
+
+- `testFinalizationCrashWindowLeavesAtLeastOneReceipt` passes (AGENTS-INVARIANT: 9 tagged).
+- All existing executor tests pass.
+- `script/check_agents_invariants_have_tests.sh` passes.
+- Manual smoke test: interrupted run leaves PENDING receipt; completed run produces COMPLETED receipt (via atomic rename).
+
+---
+
+## Recommended Execution Order
+
+```
+Week 1 (Quick wins — all can be done in parallel):
+  ├── Plan 1: Wire invariant check to CI              [30 min]
+  ├── Plan 3: Fix receipt finalization atomicity       [4 hours]
+  ├── Fix try? in verify path (TOP #6)                [1 hour]
+  ├── Fix IssueCounter data race (TOP #7)             [30 min]
+  ├── Fix reorganize aborts transfer (TOP #8)         [1 hour]
+  ├── Enable CodeQL uploads (TOP #3)                  [10 min]
+  └── Housekeeping: SECURITY.md, remove notary secret [30 min]
+
+Week 2–3 (Plan 2: Dedupe spool pattern):
+  ├── Phase 1: Structural guard test                  [1 day]
+  ├── Phase 2: Spool writer implementation            [2 days]
+  ├── Phase 3: recoverInterruptedDedupeRuns           [1 day]
+  └── Phase 4: Integration + smoke test              [0.5 days]
+
+Week 3 (Parallel, while Plan 2 is in review):
+  ├── Fix reorganize checkpoint gap (TOP #5)          [1 day]
+  ├── Fix PreviewReviewStore scope (TOP #9)           [1 day]
+  └── Add TransferExecutor fault injection tests (#10) [2 days]
+
+Week 4 (Hardening):
+  ├── Add BLAKE2b reference-vector tests
+  ├── Fix RevertExecutor nil boundary default
+  ├── Fix drop manifest containment check
+  └── Fix RunHistoryIndexer mtime sort key
+```
+
+**Front-load the structural guards.** Plans 1, 3, and the quick fixes (try?, IssueCounter, reorganize abort) all land their guards first. By end of Week 1, every subsequent fix has a regression-proof test gate already in CI.

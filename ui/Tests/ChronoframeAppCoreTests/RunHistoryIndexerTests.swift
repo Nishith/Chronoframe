@@ -51,27 +51,27 @@ final class RunHistoryIndexerTests: XCTestCase {
         let entries = try indexer.index(destinationRoot: temporaryDirectoryURL.path)
 
         XCTAssertEqual(entries.map(\.kind), [
-            .jsonArtifact,
-            .csvArtifact,
             .auditReceipt,
             .dryRunReport,
+            .jsonArtifact,
+            .csvArtifact,
             .queueDatabase,
             .runLog,
         ])
 
         XCTAssertEqual(entries.map(\.relativePath), [
-            ".organize_logs/queue_summary.json",
-            ".organize_logs/hash_stats.csv",
             ".organize_logs/audit_receipt_20260413_121500.json",
             ".organize_logs/dry_run_report_20260413_120000.csv",
+            ".organize_logs/queue_summary.json",
+            ".organize_logs/hash_stats.csv",
             ".organize_cache.db",
             ".organize_log.txt",
         ])
 
-        XCTAssertEqual(entries.first?.title, "Queue Summary")
-        XCTAssertEqual(entries[1].title, "Hash Stats")
+        XCTAssertEqual(entries.first?.title, "Audit Receipt")
+        XCTAssertEqual(entries[1].title, "Dry Run Report")
         XCTAssertEqual(entries[4].title, "Queue Database")
-        XCTAssertEqual(entries.first?.fileSizeBytes, 16)
+        XCTAssertEqual(entries[2].fileSizeBytes, 16)
         XCTAssertEqual(entries.last?.fileSizeBytes, 7)
     }
 

@@ -91,7 +91,11 @@ extension OrganizerDatabase {
             ("subject_blur", "REAL"),
             ("folder_root", "TEXT"),
         ] {
-            try? execute("ALTER TABLE DedupeFeatures ADD COLUMN \(column.0) \(column.1);")
+            do {
+                try execute("ALTER TABLE DedupeFeatures ADD COLUMN \(column.0) \(column.1);")
+            } catch let error as OrganizerDatabaseError where error.isDuplicateColumnName {
+                // Expected on re-open after an additive migration has already run.
+            }
         }
     }
 

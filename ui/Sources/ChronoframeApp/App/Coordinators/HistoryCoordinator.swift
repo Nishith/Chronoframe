@@ -12,6 +12,7 @@ final class HistoryCoordinator {
     private let deduplicateSessionStore: DeduplicateSessionStore
     private let finderService: any FinderServicing
     private let navigate: @MainActor (AppRoute) -> Void
+    private let reportTransientError: @MainActor (String) -> Void
     private let makeSecurityScopeForDestination: @MainActor (String) -> SecurityScopedFolderAccess?
 
     init(
@@ -22,6 +23,7 @@ final class HistoryCoordinator {
         deduplicateSessionStore: DeduplicateSessionStore,
         finderService: any FinderServicing,
         navigate: @escaping @MainActor (AppRoute) -> Void,
+        reportTransientError: @escaping @MainActor (String) -> Void = { _ in },
         makeSecurityScopeForDestination: @escaping @MainActor (String) -> SecurityScopedFolderAccess? = { _ in nil }
     ) {
         self.preferencesStore = preferencesStore
@@ -31,6 +33,7 @@ final class HistoryCoordinator {
         self.deduplicateSessionStore = deduplicateSessionStore
         self.finderService = finderService
         self.navigate = navigate
+        self.reportTransientError = reportTransientError
         self.makeSecurityScopeForDestination = makeSecurityScopeForDestination
     }
 
@@ -39,6 +42,11 @@ final class HistoryCoordinator {
     /// receipts go through the Deduplicate workspace which already owns
     /// its own commit-progress surface.
     func revertHistoryEntry(_ entry: RunHistoryEntry) {
+        guard !runSessionStore.isRunning, !deduplicateSessionStore.isWorking else {
+            reportTransientError("Stop the current run before reverting history.")
+            return
+        }
+
         switch entry.kind {
         case .auditReceipt:
             let destinationRoot = receiptDestinationRoot(for: entry)

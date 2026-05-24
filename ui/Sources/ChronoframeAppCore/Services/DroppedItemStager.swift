@@ -44,6 +44,7 @@ public enum DroppedItemStagerError: Error, LocalizedError {
 public struct DroppedItemStager {
     private struct Manifest: Codable {
         var items: [Item]
+        var allowsExternalItems = true
 
         struct Item: Codable {
             var path: String

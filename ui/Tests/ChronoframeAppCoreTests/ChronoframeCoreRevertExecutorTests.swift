@@ -178,7 +178,8 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
         let result = executor.revert(
             receipt: receipt,
-            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) }),
+            destinationBoundary: nil
         )
 
         XCTAssertEqual(result.revertedCount, 0)
@@ -213,7 +214,8 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
         let result = executor.revert(
             receipt: receipt,
-            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) }),
+            destinationBoundary: nil
         )
 
         XCTAssertEqual(result.revertedCount, 0)
@@ -248,7 +250,8 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
         let result = RevertExecutor().revert(
             receipt: receipt,
-            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) }),
+            destinationBoundary: nil
         )
 
         XCTAssertEqual(result.skippedCount, 1)
@@ -275,7 +278,8 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
         let result = RevertExecutor().revert(
             receipt: receipt,
-            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) }),
+            destinationBoundary: nil
         )
 
         XCTAssertEqual(result.skippedCount, 1)
@@ -319,7 +323,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
             ]
         )
 
-        let result = RevertExecutor().revert(receipt: receipt)
+        let result = RevertExecutor().revert(receipt: receipt, destinationBoundary: nil)
 
         XCTAssertEqual(result.revertedCount, 1)
         XCTAssertEqual(result.skippedCount, 0)
@@ -344,7 +348,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
         let issues = Recorder<RunIssue>()
         let observer = RevertExecutionObserver(onIssue: { issues.append($0) })
-        let result = RevertExecutor().revert(receipt: receipt, observer: observer)
+        let result = RevertExecutor().revert(receipt: receipt, observer: observer, destinationBoundary: nil)
 
         XCTAssertEqual(result.revertedCount, 0)
         XCTAssertEqual(result.skippedCount, 1)
@@ -370,7 +374,8 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
         let result = RevertExecutor().revert(
             receipt: receipt,
-            observer: RevertExecutionObserver(onIssue: { issues.append($0) })
+            observer: RevertExecutionObserver(onIssue: { issues.append($0) }),
+            destinationBoundary: nil
         )
 
         XCTAssertEqual(result.skippedCount, 1)
@@ -395,7 +400,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
             ]
         )
 
-        let result = RevertExecutor().revert(receipt: receipt)
+        let result = RevertExecutor().revert(receipt: receipt, destinationBoundary: nil)
 
         XCTAssertEqual(result.revertedCount, 0)
         XCTAssertEqual(result.skippedCount, 0)
@@ -416,7 +421,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
             ]
         )
 
-        _ = RevertExecutor().revert(receipt: receipt)
+        _ = RevertExecutor().revert(receipt: receipt, destinationBoundary: nil)
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: dstURL.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: nestedDir.path), "Empty parent directory should be removed")
@@ -437,7 +442,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
             ]
         )
 
-        _ = RevertExecutor().revert(receipt: receipt)
+        _ = RevertExecutor().revert(receipt: receipt, destinationBoundary: nil)
 
         XCTAssertFalse(FileManager.default.fileExists(atPath: dstA.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: dstB.path))
@@ -472,7 +477,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
             onTaskProgress: { completed, total in progressEvents.append((completed, total)) }
         )
 
-        let result = RevertExecutor().revert(receipt: receipt, observer: observer)
+        let result = RevertExecutor().revert(receipt: receipt, observer: observer, destinationBoundary: nil)
 
         XCTAssertEqual(startTotal.value, 3)
         XCTAssertEqual(result.revertedCount, 1)
@@ -505,6 +510,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
         let result = RevertExecutor().revert(
             receipt: receipt,
             observer: observer,
+            destinationBoundary: nil,
             isCancelled: { flag.value }
         )
 
@@ -561,7 +567,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
     }
 
     func testRevertHandlesEmptyTransfersList() {
-        let result = RevertExecutor().revert(receipt: RevertReceipt(transfers: []))
+        let result = RevertExecutor().revert(receipt: RevertReceipt(transfers: []), destinationBoundary: nil)
 
         XCTAssertEqual(result.revertedCount, 0)
         XCTAssertEqual(result.skippedCount, 0)
@@ -677,7 +683,7 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
             ]
         )
 
-        let result = RevertExecutor().revert(receipt: receipt)
+        let result = RevertExecutor().revert(receipt: receipt, destinationBoundary: nil)
 
         XCTAssertEqual(result.revertedCount, 1)
         XCTAssertFalse(FileManager.default.fileExists(atPath: dstURL.path))

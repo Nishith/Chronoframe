@@ -19,7 +19,7 @@ Helpful reports include:
 
 - The Chronoframe version or commit.
 - macOS version and storage setup.
-- Whether the issue affects the native app, Python CLI, or both.
+- Whether the issue affects the native macOS app, SwiftPM CLI (ChronoframeCLI), or both.
 - Clear reproduction steps using synthetic files when possible.
 - Any relevant log excerpt with personal paths and metadata removed.
 

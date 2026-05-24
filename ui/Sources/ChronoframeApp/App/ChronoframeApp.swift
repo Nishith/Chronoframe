@@ -13,11 +13,16 @@ struct ChronoframeApp: App {
     private let uiTestScenario: UITestScenario?
 
     init() {
+        #if DEBUG
         let scenario = UITestScenario.current()
         self.uiTestScenario = scenario
         self._appState = StateObject(
             wrappedValue: scenario.map { UITestAppStateFactory.make(scenario: $0) } ?? AppState()
         )
+        #else
+        self.uiTestScenario = nil
+        self._appState = StateObject(wrappedValue: AppState())
+        #endif
         RunSessionStore.requestNotificationPermission()
     }
 
@@ -113,7 +118,11 @@ final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate, UNUserNotif
     }
 
     private static var isRunningUITestScenario: Bool {
+        #if DEBUG
         ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_SCENARIO"] != nil
+        #else
+        false
+        #endif
     }
 
     private nonisolated func activateFromNotification() async {

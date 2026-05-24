@@ -82,6 +82,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                 let runID = UUID()
                 let startedAt = Date()
                 let receiptURL: URL
+                let spoolURL: URL
                 var receiptItems = plan.items.map { planItem in
                     DeduplicateAuditReceipt.Item(
                         originalPath: planItem.path,
@@ -94,6 +95,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                 }
                 do {
                     receiptURL = try Self.makeReceiptURL(logsDirectory: logsDirectory, runID: runID, createdAt: startedAt)
+                    spoolURL = Self.spoolURL(for: receiptURL)
                     try Self.writeReceipt(
                         receiptURL: receiptURL,
                         runID: runID,
@@ -106,9 +108,22 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         bytesReclaimed: 0,
                         abortReason: nil
                     )
+                    FileManager.default.createFile(atPath: spoolURL.path, contents: Data())
                 } catch {
                     continuation.finish(throwing: ReceiptPreflightError(underlying: error))
                     return
+                }
+
+                let spoolHandle: FileHandle
+                do {
+                    spoolHandle = try FileHandle(forWritingTo: spoolURL)
+                    try spoolHandle.seekToEnd()
+                } catch {
+                    continuation.finish(throwing: ReceiptPreflightError(underlying: error))
+                    return
+                }
+                defer {
+                    try? spoolHandle.close()
                 }
 
                 var deletedCount = 0
@@ -141,43 +156,42 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         continue
                     }
 
+                    do {
+                        try Self.appendSpoolRecord(
+                            DeduplicateSpoolRecord(
+                                originalPath: planItem.path,
+                                trashURL: trashedURL?.absoluteString
+                            ),
+                            to: spoolHandle
+                        )
+                    } catch {
+                        failedCount += 1
+                        abortReason = "Deduplicate stopped because the audit spool could not be updated after a file moved to Trash."
+                        continuation.yield(.criticalReceiptFailure(
+                            errorMessage: "Critical: a file moved to Trash but Chronoframe could not update the recovery spool. Details: \(error.localizedDescription)"
+                        ))
+                        break
+                    }
+
                     deletedCount += 1
                     bytesReclaimed += planItem.sizeBytes
                     receiptItems[index].trashURL = trashedURL?.absoluteString
-                    do {
-                        try Self.writeReceipt(
-                            receiptURL: receiptURL,
-                            runID: runID,
-                            status: "PENDING",
-                            createdAt: startedAt,
-                            finishedAt: nil,
-                            destinationRoot: destinationRoot,
-                            additionalSourceRoots: additionalSourceRoots,
-                            items: receiptItems,
-                            bytesReclaimed: bytesReclaimed,
-                            abortReason: nil
-                        )
-                        continuation.yield(.itemTrashed(
-                            originalPath: planItem.path,
-                            trashURL: trashedURL,
-                            sizeBytes: planItem.sizeBytes
-                        ))
-                    } catch {
-                        // File IS in Trash; only the receipt update
-                        // failed. Surface the distinction so the UI
-                        // doesn't tell the user "this file failed".
-                        continuation.yield(.itemTrashedReceiptStale(
-                            originalPath: planItem.path,
-                            trashURL: trashedURL,
-                            sizeBytes: planItem.sizeBytes,
-                            errorMessage: error.localizedDescription
-                        ))
-                    }
+                    continuation.yield(.itemTrashed(
+                        originalPath: planItem.path,
+                        trashURL: trashedURL,
+                        sizeBytes: planItem.sizeBytes
+                    ))
                 }
 
                 var receiptError: Error?
                 let finalStatus = abortReason == nil ? "COMPLETED" : "ABORTED"
                 do {
+                    let recordedTrashURLs = try Self.loadSpoolRecords(from: spoolURL)
+                    for index in receiptItems.indices {
+                        if let trashURL = recordedTrashURLs[receiptItems[index].originalPath] {
+                            receiptItems[index].trashURL = trashURL
+                        }
+                    }
                     try Self.writeReceipt(
                         receiptURL: receiptURL,
                         runID: runID,
@@ -190,6 +204,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         bytesReclaimed: bytesReclaimed,
                         abortReason: abortReason
                     )
+                    try? FileManager.default.removeItem(at: spoolURL)
                 } catch {
                     receiptError = error
                     // Phase 1 finding #7: emit a dedicated event for a
@@ -439,6 +454,78 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         return logsDirectory.appendingPathComponent("dedupe_audit_receipt_\(timestamp)_\(runID.uuidString).json")
     }
 
+    static func spoolURL(for receiptURL: URL) -> URL {
+        receiptURL.appendingPathExtension("spool")
+    }
+
+    static func appendSpoolRecord(_ record: DeduplicateSpoolRecord, to handle: FileHandle) throws {
+        var data = try JSONEncoder.dedupeSpool.encode(record)
+        data.append(Data("\n".utf8))
+        try handle.write(contentsOf: data)
+        try handle.synchronize()
+    }
+
+    static func loadSpoolRecords(from spoolURL: URL) throws -> [String: String] {
+        guard FileManager.default.fileExists(atPath: spoolURL.path) else { return [:] }
+        let data = try Data(contentsOf: spoolURL)
+        guard let raw = String(data: data, encoding: .utf8) else { return [:] }
+        var records: [String: String] = [:]
+        for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
+            let record = try JSONDecoder.dedupe.decode(DeduplicateSpoolRecord.self, from: Data(line.utf8))
+            if let trashURL = record.trashURL {
+                records[record.originalPath] = trashURL
+            }
+        }
+        return records
+    }
+
+    @discardableResult
+    public static func consolidatePendingReceipt(pendingURL: URL, spoolURL: URL) throws -> Bool {
+        let data = try Data(contentsOf: pendingURL)
+        var receipt = try JSONDecoder.dedupe.decode(DeduplicateAuditReceipt.self, from: data)
+        guard receipt.status == "PENDING" else { return false }
+        let recordedTrashURLs = try loadSpoolRecords(from: spoolURL)
+        guard !recordedTrashURLs.isEmpty else { return false }
+
+        var bytesReclaimed: Int64 = 0
+        for index in receipt.items.indices {
+            if let trashURL = recordedTrashURLs[receipt.items[index].originalPath] {
+                receipt.items[index].trashURL = trashURL
+                bytesReclaimed += receipt.items[index].sizeBytes
+            }
+        }
+        receipt.status = "ABORTED"
+        receipt.finishedAt = Date()
+        receipt.bytesReclaimed = bytesReclaimed
+        receipt.abortReason = "Deduplicate was interrupted before the audit receipt was finalized."
+
+        let encoded = try JSONEncoder.dedupe.encode(receipt)
+        try encoded.write(to: pendingURL, options: .atomic)
+        try? FileManager.default.removeItem(at: spoolURL)
+        return true
+    }
+
+    public static func recoverInterruptedRuns(at destinationRoot: URL) -> Int {
+        let logsDirectory = destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: logsDirectory,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return 0
+        }
+
+        var recovered = 0
+        for receiptURL in contents where receiptURL.lastPathComponent.hasPrefix("dedupe_audit_receipt_") && receiptURL.pathExtension == "json" {
+            let spoolURL = Self.spoolURL(for: receiptURL)
+            guard FileManager.default.fileExists(atPath: spoolURL.path) else { continue }
+            if (try? Self.consolidatePendingReceipt(pendingURL: receiptURL, spoolURL: spoolURL)) == true {
+                recovered += 1
+            }
+        }
+        return recovered
+    }
+
     static func writeReceipt(
         receiptURL: URL,
         runID: UUID,
@@ -465,6 +552,11 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         let data = try JSONEncoder.dedupe.encode(receipt)
         try data.write(to: receiptURL, options: .atomic)
     }
+}
+
+struct DeduplicateSpoolRecord: Codable, Sendable {
+    var originalPath: String
+    var trashURL: String?
 }
 
 public enum DeduplicateReceiptValidationError: LocalizedError, Equatable {
@@ -524,6 +616,13 @@ extension JSONEncoder {
     static let dedupe: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return encoder
+    }()
+
+    static let dedupeSpool: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return encoder
     }()
