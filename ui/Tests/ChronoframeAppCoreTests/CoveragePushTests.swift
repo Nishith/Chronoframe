@@ -15,6 +15,33 @@ final class CoveragePushTests: XCTestCase {
         let msg = CopyPlanBuilder.sequenceWidthInfoMessage(dateBucket: "2023-01-01", count: 1000, width: 4)
         XCTAssertTrue(msg.contains("1,000"))
     }
+
+    func testCopyPlanResultMapsTransfersIntoPendingCopyJobs() {
+        let identity = FileIdentity(size: 12, digest: String(repeating: "a", count: 128))
+        let transfer = PlannedTransfer(
+            sourcePath: "/source/IMG_0001.jpg",
+            destinationPath: "/dest/2024-01-01_001.jpg",
+            identity: identity,
+            dateBucket: "2024-01-01",
+            isDuplicate: false
+        )
+        let result = CopyPlanResult(
+            transfers: [transfer],
+            counts: CopyPlanCounts(newCount: 1),
+            warningMessages: [],
+            sequenceState: SequenceCounterState()
+        )
+
+        XCTAssertEqual(result.transferCount, 1)
+        XCTAssertEqual(result.copyJobs, [
+            CopyJobRecord(
+                sourcePath: transfer.sourcePath,
+                destinationPath: transfer.destinationPath,
+                identity: identity,
+                status: .pending
+            )
+        ])
+    }
     
     func testDateClassificationEdgeCases() {
         let naming = PlannerNamingRules.chronoframeDefault
