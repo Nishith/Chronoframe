@@ -168,6 +168,30 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
         XCTAssertTrue(collected.values[0].message.contains("outside source root"))
     }
 
+    func testDropManifestDiscoversOnlySupportedVisibleFilesOnce() throws {
+        try writeFile("IMG_20240101_010101.jpg")
+        try writeFile(".hidden.jpg")
+        try writeFile("notes.txt")
+
+        let imageURL = temporaryDirectoryURL.appendingPathComponent("IMG_20240101_010101.jpg")
+        let hiddenURL = temporaryDirectoryURL.appendingPathComponent(".hidden.jpg")
+        let notesURL = temporaryDirectoryURL.appendingPathComponent("notes.txt")
+        let manifest: [String: Any] = [
+            "items": [
+                ["path": imageURL.path, "isDirectory": false],
+                ["path": imageURL.path, "isDirectory": false],
+                ["path": hiddenURL.path, "isDirectory": false],
+                ["path": notesURL.path, "isDirectory": false]
+            ]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: manifest)
+        try data.write(to: temporaryDirectoryURL.appendingPathComponent(".chronoframe_drop_manifest.json"))
+
+        let discovered = try MediaDiscovery.discoverMediaFiles(at: temporaryDirectoryURL)
+
+        XCTAssertEqual(discovered, [imageURL.path])
+    }
+
     func testDropManifestReportsCorruptJSONInsteadOfSilentlyReturningEmptyWalk() throws {
         let manifestURL = temporaryDirectoryURL.appendingPathComponent(".chronoframe_drop_manifest.json")
         try Data("{ nope".utf8).write(to: manifestURL)
