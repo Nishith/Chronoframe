@@ -170,15 +170,20 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
 
     func testDropManifestDiscoversOnlySupportedVisibleFilesOnce() throws {
         try writeFile("IMG_20240101_010101.jpg")
+        try writeFile("album/VID_20240102_020202.mov")
+        try writeFile("album/notes.txt")
         try writeFile(".hidden.jpg")
         try writeFile("notes.txt")
 
         let imageURL = temporaryDirectoryURL.appendingPathComponent("IMG_20240101_010101.jpg")
+        let albumURL = temporaryDirectoryURL.appendingPathComponent("album", isDirectory: true)
+        let videoURL = temporaryDirectoryURL.appendingPathComponent("album/VID_20240102_020202.mov")
         let hiddenURL = temporaryDirectoryURL.appendingPathComponent(".hidden.jpg")
         let notesURL = temporaryDirectoryURL.appendingPathComponent("notes.txt")
         let manifest: [String: Any] = [
             "items": [
                 ["path": imageURL.path, "isDirectory": false],
+                ["path": albumURL.path, "isDirectory": true],
                 ["path": imageURL.path, "isDirectory": false],
                 ["path": hiddenURL.path, "isDirectory": false],
                 ["path": notesURL.path, "isDirectory": false]
@@ -189,7 +194,10 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
 
         let discovered = try MediaDiscovery.discoverMediaFiles(at: temporaryDirectoryURL)
 
-        XCTAssertEqual(discovered, [imageURL.path])
+        XCTAssertEqual(normalize(discovered), [
+            normalize(imageURL.path),
+            normalize(videoURL.path)
+        ])
     }
 
     func testDropManifestReportsCorruptJSONInsteadOfSilentlyReturningEmptyWalk() throws {
