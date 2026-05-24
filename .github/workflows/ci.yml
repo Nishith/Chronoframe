@@ -95,6 +95,7 @@ jobs:
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run meaningful coverage gate
         run: |
+          mkdir -p .tmp
           set +e
           script/swift_meaningful_coverage.sh 2>&1 | tee .tmp/meaningful-coverage.log
           status=${PIPESTATUS[0]}
