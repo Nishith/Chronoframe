@@ -311,7 +311,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "BUILD=$(git -C \"${SRCROOT}\" rev-list --count HEAD 2>/dev/null || true)\nif [ -z \"$BUILD\" ]; then BUILD=\"${CURRENT_PROJECT_VERSION:-0}\"; fi\nPLIST=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\nif [ ! -f \"$PLIST\" ]; then echo \"warning: Info.plist not found at $PLIST; skipping version stamp\"; exit 0; fi\nSHORT=\"${MARKETING_VERSION}.${BUILD}\"\n/usr/libexec/PlistBuddy -c \"Set :CFBundleShortVersionString ${SHORT}\" \"$PLIST\"\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion ${BUILD}\" \"$PLIST\"\necho \"Stamped version ${SHORT} (build ${BUILD})\"\n";
+			shellScript = "/bin/sh \"${SRCROOT}/Packaging/stamp_version.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

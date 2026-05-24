@@ -26,6 +26,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.tag }}
+          fetch-depth: 0 # full history so the version stamp's commit count is monotonic
       - name: Select Swift 6 toolchain
         run: |
           swift6_developer_dir=""
