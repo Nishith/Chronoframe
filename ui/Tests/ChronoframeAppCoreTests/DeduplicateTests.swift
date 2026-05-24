@@ -2125,6 +2125,23 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertEqual(try db.fingerprintLookup(digest: "digest-b", size: 34), [second])
     }
 
+    func testFingerprintIndexEmptySaveAndRemovalAreNoOps() throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("FingerprintIndexEmpty-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let db = try OrganizerDatabase(url: temporaryDirectory.appendingPathComponent(".organize_cache.db"))
+        defer { db.close() }
+        try db.ensureFingerprintIndexSchema()
+
+        try db.saveFingerprintIndexRecords([])
+        try db.removeFingerprintIndexRecords(forFolder: "/missing")
+
+        XCTAssertEqual(try db.fingerprintLookup(digest: "digest-a", size: 12), [])
+        XCTAssertEqual(try db.allFingerprintDigests(forFolder: "/missing"), [])
+    }
+
 
     // MARK: - DedupeFeatureCache round-trip
 
