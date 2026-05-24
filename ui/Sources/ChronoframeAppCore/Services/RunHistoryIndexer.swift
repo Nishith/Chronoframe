@@ -3,7 +3,7 @@ import ChronoframeCore
 #endif
 import Foundation
 
-public protocol RunHistoryIndexing {
+public protocol RunHistoryIndexing: Sendable {
     func index(destinationRoot: String) throws -> [RunHistoryEntry]
 }
 

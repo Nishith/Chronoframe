@@ -44,6 +44,7 @@ struct ContactSheetView: View {
                 .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .allowsHitTesting(false)
         .task(id: sourcePath) {
             await loader.load(sourcePath: sourcePath, count: cellCount, cellSize: cellSize)
         }

@@ -67,12 +67,11 @@ public enum FolderValidationError: LocalizedError, Equatable, Sendable {
     }
 }
 
-@MainActor
-public protocol FolderAccessServicing: AnyObject {
-    func chooseFolder(startingAt path: String?, prompt: String) -> URL?
+public protocol FolderAccessServicing: AnyObject, Sendable {
+    @MainActor func chooseFolder(startingAt path: String?, prompt: String) -> URL?
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark
-    func resolveBookmark(_ bookmark: FolderBookmark) -> ResolvedFolderBookmark?
-    func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess
+    @MainActor func resolveBookmark(_ bookmark: FolderBookmark) -> ResolvedFolderBookmark?
+    @MainActor func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess
     func validateFolder(_ url: URL, role: FolderRole) throws
 }
 
@@ -92,13 +91,18 @@ public final class FolderAccessService: FolderAccessServicing {
     }
 
     public static func initialPanelDirectoryURL(startingAt path: String?) -> URL {
+        let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
         guard let path = path?.trimmingCharacters(in: .whitespacesAndNewlines),
               !path.isEmpty
         else {
-            return FileManager.default.homeDirectoryForCurrentUser
+            return homeDirectory
         }
 
         let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        if url.path.hasPrefix("/Volumes/") {
+            return homeDirectory
+        }
+
         let parent = url.deletingLastPathComponent()
         guard parent.path != url.path, !parent.path.isEmpty else {
             return url
@@ -106,7 +110,7 @@ public final class FolderAccessService: FolderAccessServicing {
         return parent
     }
 
-    public func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
+    public nonisolated func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
         let data = try url.bookmarkData(options: [.withSecurityScope], includingResourceValuesForKeys: nil, relativeTo: nil)
         return FolderBookmark(key: key, path: url.path, data: data)
     }
@@ -152,7 +156,7 @@ public final class FolderAccessService: FolderAccessServicing {
         return SecurityScopedFolderAccess(accessedURLs: accessedURLs)
     }
 
-    public func validateFolder(_ url: URL, role: FolderRole) throws {
+    public nonisolated func validateFolder(_ url: URL, role: FolderRole) throws {
         var isDirectory = ObjCBool(false)
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
             throw FolderValidationError.pathDoesNotExist(role: role, path: url.path)

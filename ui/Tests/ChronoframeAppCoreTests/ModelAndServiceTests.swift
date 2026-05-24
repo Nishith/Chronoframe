@@ -77,10 +77,18 @@ final class ModelAndServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testFolderAccessServiceStartsPickerAtParentOfSavedFolder() {
+    func testFolderAccessServiceAvoidsExternalVolumeStartDirectories() {
         XCTAssertEqual(
             FolderAccessService.initialPanelDirectoryURL(startingAt: "/Volumes/Photos/Large Library").path,
-            "/Volumes/Photos"
+            FileManager.default.homeDirectoryForCurrentUser.path
+        )
+    }
+
+    @MainActor
+    func testFolderAccessServiceStartsPickerAtParentOfLocalSavedFolder() {
+        XCTAssertEqual(
+            FolderAccessService.initialPanelDirectoryURL(startingAt: "/Users/example/Pictures/Library").path,
+            "/Users/example/Pictures"
         )
         XCTAssertEqual(
             FolderAccessService.initialPanelDirectoryURL(startingAt: "  ").path,

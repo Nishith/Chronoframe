@@ -33,14 +33,19 @@ public final class HistoryStore: ObservableObject {
         self.trashItem = trashItem
     }
 
-    public func refresh(destinationRoot: String) {
+    public func refresh(destinationRoot: String) async {
+        setDestinationRoot(destinationRoot)
+        await loadEntries()
+    }
+
+    /// Records the active destination and clears the in-memory lists. Cheap
+    /// (no disk I/O), so callers that must reflect the new root immediately
+    /// can call this synchronously and offload `loadEntries()` to a Task.
+    public func setDestinationRoot(_ destinationRoot: String) {
         // Validate the incoming root BEFORE clobbering the prior state.
-        // Phase 1 finding #4: the previous order set `self.destinationRoot
-        // = destinationRoot` first, so calling `refresh("")` (which
-        // happens on profile-clear / setup-clear flows) wiped a
-        // previously-loaded valid root and broke downstream callers that
-        // rely on `historyStore.destinationRoot` as the implicit "where
-        // receipts live" handle.
+        // Phase 1 finding #4: calling this with "" (profile-clear /
+        // setup-clear flows) must not wipe a previously-loaded valid root that
+        // downstream callers rely on as the implicit "where receipts live" handle.
         let trimmed = destinationRoot.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
@@ -48,14 +53,40 @@ public final class HistoryStore: ObservableObject {
         self.entries = []
         self.transferredSources = []
         self.lastRefreshError = nil
+    }
 
-        do {
-            entries = try indexer.index(destinationRoot: trimmed)
-        } catch {
-            lastRefreshError = UserFacingErrorMessage.message(for: error, context: .history)
+    /// Reads run-history artifacts and the transferred-sources log for the
+    /// current `destinationRoot`. The disk scan runs off the main actor so a
+    /// slow or network destination can't freeze the UI.
+    public func loadEntries() async {
+        let trimmed = destinationRoot
+        guard !trimmed.isEmpty else { return }
+
+        let indexer = self.indexer
+        let log = self.transferredSourcesLog
+        let outcome = await Task.detached(priority: .userInitiated) {
+            () -> (entries: [RunHistoryEntry]?, errorMessage: String?, sources: [TransferredSourceRecord]) in
+            var entries: [RunHistoryEntry]?
+            var errorMessage: String?
+            do {
+                entries = try indexer.index(destinationRoot: trimmed)
+            } catch {
+                errorMessage = UserFacingErrorMessage.message(for: error, context: .history)
+            }
+            let sources = log.load(destinationRoot: trimmed)
+            return (entries, errorMessage, sources)
+        }.value
+
+        guard destinationRoot == trimmed else { return }
+
+        if let entries = outcome.entries {
+            self.entries = entries
+            self.lastRefreshError = nil
         }
-
-        transferredSources = transferredSourcesLog.load(destinationRoot: trimmed)
+        if let errorMessage = outcome.errorMessage {
+            self.lastRefreshError = errorMessage
+        }
+        self.transferredSources = outcome.sources
     }
 
     /// Records a successful transfer in the per-destination JSON log and

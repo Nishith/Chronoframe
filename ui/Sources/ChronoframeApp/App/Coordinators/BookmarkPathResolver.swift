@@ -23,9 +23,13 @@ final class BookmarkPathResolver {
         return "manual.\(role.rawValue)"
     }
 
-    func persistBookmark(for url: URL, role: FolderRole, profileName: String?) {
+    func persistBookmark(for url: URL, role: FolderRole, profileName: String?) async {
         let key = bookmarkKey(for: role, profileName: profileName)
-        guard let bookmark = try? folderAccessService.makeBookmark(for: url, key: key) else { return }
+        let service = folderAccessService
+        let bookmark = await Task.detached(priority: .userInitiated) {
+            try? service.makeBookmark(for: url, key: key)
+        }.value
+        guard let bookmark else { return }
         preferencesStore.storeBookmark(bookmark)
     }
 
