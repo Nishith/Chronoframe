@@ -92,22 +92,27 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
     /// was given. The fix applies the same symlink/package screen to
     /// each manifest entry and emits a `DirectoryIssue` for skipped
     /// ones.
-    func testDropManifestSkipsPackageDirectoriesAndEmitsDirectoryIssue() throws {
-        // Build a fake `.photoslibrary` package containing a JPEG that
-        // would be discovered if the manifest were honored blindly.
-        let library = temporaryDirectoryURL.appendingPathComponent("Fake Library.photoslibrary", isDirectory: true)
+    func testDropManifestSkipsSymlinkDirectoriesAndEmitsDirectoryIssue() throws {
+        // Build a symlinked directory containing a JPEG that would be
+        // discovered if the manifest were honored blindly.
+        let stagingDir = temporaryDirectoryURL.appendingPathComponent("stage", isDirectory: true)
+        try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+        let library = stagingDir.appendingPathComponent("Real Library", isDirectory: true)
         let originals = library.appendingPathComponent("originals", isDirectory: true)
         try FileManager.default.createDirectory(at: originals, withIntermediateDirectories: true)
         try Data("payload".utf8).write(
             to: originals.appendingPathComponent("IMG_20240101_010101.jpg")
         )
+        let symlinkURL = stagingDir.appendingPathComponent("Linked Library", isDirectory: true)
+        try FileManager.default.createSymbolicLink(
+            at: symlinkURL,
+            withDestinationURL: library
+        )
 
-        // Stage a manifest pointing at the package as a directory.
-        let stagingDir = temporaryDirectoryURL.appendingPathComponent("stage", isDirectory: true)
-        try FileManager.default.createDirectory(at: stagingDir, withIntermediateDirectories: true)
+        // Stage a manifest pointing at the symlink as a directory.
         let manifest: [String: Any] = [
             "items": [
-                ["path": library.path, "isDirectory": true]
+                ["path": symlinkURL.path, "isDirectory": true]
             ]
         ]
         let data = try JSONSerialization.data(withJSONObject: manifest)
@@ -121,7 +126,7 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
             }
         )
         XCTAssertTrue(discovered.isEmpty,
-            "Package entries in the drop manifest must not produce discovered files")
+            "Symlink entries in the drop manifest must not produce discovered files")
 
         // Re-run with a synchronous collector to verify the issue is emitted.
         let collected = LockedIssues()
@@ -131,8 +136,8 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
         )
         let issuePaths = collected.values.map(\.path)
         XCTAssertTrue(
-            issuePaths.contains { $0.hasSuffix("Fake Library.photoslibrary") },
-            "Expected a DirectoryIssue for the skipped .photoslibrary; got \(issuePaths)"
+            issuePaths.contains { $0.hasSuffix("Linked Library") },
+            "Expected a DirectoryIssue for the skipped symlink; got \(issuePaths)"
         )
         XCTAssertTrue(
             collected.values.allSatisfy { $0.message.contains("package") || $0.message.contains("symlink") || $0.message.contains("photo libraries") },
