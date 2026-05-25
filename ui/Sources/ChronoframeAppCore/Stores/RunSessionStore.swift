@@ -200,10 +200,9 @@ public final class RunSessionStore: ObservableObject {
         )
 
         let epoch = currentRunEpoch
-        streamTask = Task { [weak self] in
-            guard let self else { return }
-            // Run the synchronous revert (file hashing + moves) off the main
-            // actor so it cannot freeze the UI on large destination libraries.
+        streamTask = Task.detached { [weak self] in
+            // Task.detached breaks out of @MainActor isolation so file hashing
+            // and moves in ReorganizeExecutor.revert() run on a background thread.
             let executor = ReorganizeExecutor()
             let observer = ReorganizeExecutionObserver(
                 onTaskStart: { total in
