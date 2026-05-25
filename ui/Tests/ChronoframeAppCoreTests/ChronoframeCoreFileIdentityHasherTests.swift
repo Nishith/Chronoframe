@@ -84,6 +84,16 @@ final class ChronoframeCoreFileIdentityHasherTests: XCTestCase {
         )
     }
 
+    func testHashIdentityFromInvalidDescriptorThrowsReadError() {
+        XCTAssertThrowsError(try FileIdentityHasher().hashIdentity(descriptor: -1, size: 0)) { error in
+            let nsError = error as NSError
+            XCTAssertEqual(nsError.domain, NSPOSIXErrorDomain)
+            XCTAssertEqual(nsError.code, Int(EBADF))
+            XCTAssertEqual(nsError.userInfo[NSFilePathErrorKey] as? String, "<fd:-1>")
+            XCTAssertTrue(nsError.localizedDescription.contains("Could not read file"))
+        }
+    }
+
     func testProcessFileReturnsMissingResultWhenRegularFileCannotBeOpened() throws {
         let fileURL = try writeFile(named: "unreadable.jpg", contents: "alpha")
         try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: fileURL.path)
