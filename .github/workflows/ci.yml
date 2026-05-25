@@ -29,6 +29,16 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - run: script/check_agents_invariants_have_tests.sh
 
+  app-layer-test-check:
+    name: App-layer test guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0 # full history so merge-base against the PR base resolves
+      - run: script/check_app_layer_changes_have_tests.sh "${{ github.event.pull_request.base.sha }}"
+
   swiftpm-tests:
     name: SwiftPM tests
     runs-on: macos-14

@@ -1,6 +1,7 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import Combine
 import Foundation
 import XCTest
 @testable import ChronoframeApp
@@ -355,6 +356,106 @@ final class AppStateTests: XCTestCase {
         appState.startDeduplicateScan()
 
         XCTAssertEqual(harness.deduplicateEngine.lastScanConfiguration?.destinationPath, "/Volumes/Dedupe")
+    }
+
+    // MARK: - Deduplicate "Scan Folder" card display contract
+    //
+    // The Deduplicate Scan Folder card shows `deduplicateDestinationPath` and
+    // `deduplicateDestinationHelper`, both resolved from three stores in a
+    // fallback chain: preferencesStore (dedicated dedupe folder) → setupStore
+    // (Organize destination) → historyStore (last organized root). A reactivity
+    // bug shipped where the card observed only `appState` and never re-rendered
+    // when those stores changed — the resolved value was correct, but stale on
+    // screen. These tests pin the two halves the fix depends on: the resolved
+    // value/helper tracks every fallback transition, and each source property
+    // stays observable so a view bound to it re-renders.
+    //
+    // That the card itself observes all three stores is not unit-testable here
+    // without a SwiftUI view-inspection harness — the check_app_layer_changes
+    // guard and code review cover the wiring.
+
+    @MainActor
+    func testDeduplicateDestinationPathFollowsFullFallbackChain() {
+        let harness = AppStateHarness()
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        // Only the last organized root is known.
+        harness.historyStore.setDestinationRoot("/Volumes/History")
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/History")
+
+        // The Organize destination outranks history.
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/Organize")
+
+        // A dedicated dedupe folder outranks everything.
+        harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Dedupe"
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/Dedupe")
+
+        // Clearing the dedicated folder falls back to the Organize destination.
+        harness.preferencesStore.lastDeduplicateDestinationPath = ""
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/Organize")
+    }
+
+    @MainActor
+    func testDeduplicateDestinationHelperReflectsEachState() {
+        let harness = AppStateHarness()
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        // Nothing set anywhere.
+        XCTAssertTrue(appState.deduplicateDestinationPath.isEmpty)
+        XCTAssertEqual(
+            appState.deduplicateDestinationHelper,
+            "Choose the folder to scan for duplicate photos."
+        )
+
+        // Falling back to the Organize destination.
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        XCTAssertFalse(appState.hasDedicatedDeduplicateDestinationPath)
+        XCTAssertEqual(
+            appState.deduplicateDestinationHelper,
+            "Using the Organize destination until you choose a Deduplicate folder."
+        )
+
+        // A dedicated dedupe folder is set.
+        harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Dedupe"
+        XCTAssertTrue(appState.hasDedicatedDeduplicateDestinationPath)
+        XCTAssertEqual(
+            appState.deduplicateDestinationHelper,
+            "Used only for Deduplicate scans."
+        )
+    }
+
+    @MainActor
+    func testDeduplicateDestinationSourcesStayObservable() {
+        let harness = AppStateHarness()
+        _ = harness.makeAppState(performInitialBootstrap: false)
+
+        // The card observes these three stores so it re-renders when the
+        // resolved Scan Folder path changes. If any property stops being
+        // @Published, a correctly-wired view goes stale — the reactivity
+        // regression this guards against.
+        assertEmitsObjectWillChange(harness.preferencesStore) {
+            harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Dedupe"
+        }
+        assertEmitsObjectWillChange(harness.setupStore) {
+            harness.setupStore.destinationPath = "/Volumes/Organize"
+        }
+        assertEmitsObjectWillChange(harness.historyStore) {
+            harness.historyStore.setDestinationRoot("/Volumes/History")
+        }
+    }
+
+    private func assertEmitsObjectWillChange<T: ObservableObject>(
+        _ object: T,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ mutate: () -> Void
+    ) where T.ObjectWillChangePublisher == ObservableObjectPublisher {
+        var emitted = false
+        let cancellable = object.objectWillChange.sink { _ in emitted = true }
+        mutate()
+        cancellable.cancel()
+        XCTAssertTrue(emitted, "Expected objectWillChange to fire after mutation", file: file, line: line)
     }
 
     /// AGENTS-INVARIANT: 6

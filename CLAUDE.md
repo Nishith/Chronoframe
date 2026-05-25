@@ -39,6 +39,14 @@ script/check_agents_invariants_have_tests.sh
 
 Every bullet under `## Safety Invariants` in `AGENTS.md` must have at least one test tagged `// AGENTS-INVARIANT: N`. Run this after touching executor, revert, or deduplication code.
 
+### App-layer test guard
+
+```bash
+script/check_app_layer_changes_have_tests.sh [BASE_REF]   # BASE_REF defaults to origin/main, then main
+```
+
+Fails if a branch diff touches App-layer source (`ChronoframeApp/**` or `ChronoframeAppCore/Stores/**`) without changing any test. This layer (views, view-models, coordinators, stores) is where bugs slip past the coverage gate, which only meaningfully reaches `ChronoframeCore`. Add or update a test for App-layer behavior changes. For genuinely test-free edits (pure copy, styling, asset, comment), put `[skip-app-test-check]` in a commit message and say why. Runs in CI on pull requests; Core-only changes are out of scope.
+
 ### Build and run the app
 
 ```bash

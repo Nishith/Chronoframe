@@ -159,6 +159,7 @@ Be precise when discussing coverage.
 
 - Default branch is `main`, not `master`.
 - Use `codex/...` branch names for Codex work unless the user asks otherwise.
+- The `app-layer-test-check` CI job (PRs only) runs `script/check_app_layer_changes_have_tests.sh` against the PR base. It fails if the diff touches App-layer source (`ChronoframeApp/**` or `ChronoframeAppCore/Stores/**`) with no test change. This backstops the coverage gate, which only reaches `ChronoframeCore`. Escape hatch for genuinely test-free edits: `[skip-app-test-check]` in a commit message.
 - GitHub authentication is configured for `gh` in this workspace.
 - CodeQL workflow is `.github/workflows/codeql.yml`.
 - CodeQL analyzes Swift on macOS.
@@ -231,3 +232,4 @@ When editing UI:
 - When debugging CI, inspect the GitHub logs with `gh` if auth is available, then reproduce locally with the closest matching command.
 - When adding Swift code, keep SwiftPM and Xcode project membership in sync.
 - When changing user-visible failure behavior, add tests that assert the wording a nontechnical user will see.
+- App-layer fixes (views, view-models, coordinators, stores) need a regression test, not just a code change. The `app-layer-test-check` guard enforces this on PRs. If a value is correct but renders stale, suspect observation wiring (a view reading a computed property that crosses into an `ObservableObject` it does not observe) — see `ChronoframeApp/Views/Deduplicate/DeduplicateView.swift`.
