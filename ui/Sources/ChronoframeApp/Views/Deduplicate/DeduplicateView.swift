@@ -62,8 +62,8 @@ struct DeduplicateView: View {
             tint: appState.deduplicateDestinationPath.isEmpty ? DesignTokens.ColorSystem.statusDanger : DesignTokens.ColorSystem.statusSuccess
         ) {
             ViewThatFits(in: .horizontal) {
-                DeduplicateDestinationCardContent(appState: appState, isVertical: false)
-                DeduplicateDestinationCardContent(appState: appState, isVertical: true)
+                DeduplicateDestinationCardContent(appState: appState, preferencesStore: preferencesStore, setupStore: appState.setupStore, historyStore: appState.historyStore, isVertical: false)
+                DeduplicateDestinationCardContent(appState: appState, preferencesStore: preferencesStore, setupStore: appState.setupStore, historyStore: appState.historyStore, isVertical: true)
             }
         }
     }
@@ -810,6 +810,15 @@ enum CommitFooterButtonDensity {
 /// `Choose Folder…` action.
 private struct DeduplicateDestinationCardContent: View {
     @ObservedObject var appState: AppState
+    // The displayed path/helper come from `appState.deduplicateDestinationPath`,
+    // a computed property that falls back through three stores:
+    // preferencesStore (dedicated dedupe folder) → setupStore (Organize
+    // destination) → historyStore (last organized root). Observe all three
+    // directly so the card re-renders when any of them changes — SwiftUI can't
+    // follow the dependency through `appState`'s computed properties.
+    @ObservedObject var preferencesStore: PreferencesStore
+    @ObservedObject var setupStore: SetupStore
+    @ObservedObject var historyStore: HistoryStore
     let isVertical: Bool
 
     var body: some View {

@@ -74,6 +74,54 @@ final class BuildPipelineTests: XCTestCase {
         XCTAssertTrue(log.contains("fake xcodebuild failure from test harness"))
     }
 
+    func testStampVersionKeepsMarketingVersionSeparateFromBuildNumber() throws {
+        let packageRoot = try Self.packageRoot()
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("StampVersionTests-\(UUID().uuidString)", isDirectory: true)
+        let buildRoot = tempRoot.appendingPathComponent("Build", isDirectory: true)
+        try FileManager.default.createDirectory(at: buildRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let plistURL = buildRoot.appendingPathComponent("Info.plist")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleShortVersionString</key>
+            <string>0</string>
+            <key>CFBundleVersion</key>
+            <string>0</string>
+        </dict>
+        </plist>
+        """.write(to: plistURL, atomically: true, encoding: .utf8)
+
+        let scriptURL = packageRoot.appendingPathComponent("Packaging/stamp_version.sh")
+        let result = run(
+            "/bin/sh",
+            arguments: [scriptURL.path],
+            currentDirectory: packageRoot,
+            environment: [
+                "CHRONOFRAME_BUILD_NUMBER": "292",
+                "CURRENT_PROJECT_VERSION": "1",
+                "INFOPLIST_PATH": "Info.plist",
+                "MARKETING_VERSION": "1.1",
+                "SRCROOT": packageRoot.path,
+                "TARGET_BUILD_DIR": buildRoot.path,
+            ]
+        )
+
+        XCTAssertEqual(result.returnCode, 0, result.standardError)
+        let data = try Data(contentsOf: plistURL)
+        let plist = try XCTUnwrap(PropertyListSerialization.propertyList(
+            from: data,
+            options: [],
+            format: nil
+        ) as? [String: String])
+        XCTAssertEqual(plist["CFBundleShortVersionString"], "1.1")
+        XCTAssertEqual(plist["CFBundleVersion"], "292")
+    }
+
     private static func packageRoot() throws -> URL {
         var url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         for _ in 0..<5 {

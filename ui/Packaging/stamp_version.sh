@@ -1,7 +1,8 @@
 #!/bin/sh
-# Stamps the built Info.plist with a 3-part Major.Minor.Build version.
-# Major.Minor come from MARKETING_VERSION; Build is the Git commit count, which
-# is monotonic so that newer builds win Launch Services icon resolution.
+# Stamps the built Info.plist with the public marketing version plus a
+# monotonic build number. MARKETING_VERSION stays customer-facing; Build is the
+# Git commit count so newer builds win Launch Services icon resolution and App
+# Store upload ordering.
 #
 # Build number resolution order:
 #   1. CHRONOFRAME_BUILD_NUMBER  (lets CI inject a monotonic number directly)
@@ -39,7 +40,7 @@ if [ ! -f "$PLIST" ]; then
   exit 0
 fi
 
-SHORT="${MARKETING_VERSION}.${BUILD}"
+SHORT="${MARKETING_VERSION}"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${SHORT}" "$PLIST"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD}" "$PLIST"
 echo "Stamped version ${SHORT} (build ${BUILD})"
