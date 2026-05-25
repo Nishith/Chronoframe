@@ -8,10 +8,10 @@ public protocol RunHistoryIndexing: Sendable {
 }
 
 public struct RunHistoryIndexer: RunHistoryIndexing {
-    private let artifactTimestampTimeZone: TimeZone
+    private let localArtifactTimestampTimeZone: TimeZone
 
     public init(artifactTimestampTimeZone: TimeZone = .current) {
-        self.artifactTimestampTimeZone = artifactTimestampTimeZone
+        self.localArtifactTimestampTimeZone = artifactTimestampTimeZone
     }
 
     public func index(destinationRoot: String) throws -> [RunHistoryEntry] {
@@ -120,29 +120,31 @@ public struct RunHistoryIndexer: RunHistoryIndexing {
     }
 
     private func timestampFromFilename(_ filename: String) -> Date? {
-        let prefixes = [
-            "dry_run_report_",
-            "dedupe_audit_receipt_",
-            "reorganize_audit_receipt_",
-            "audit_receipt_",
+        let prefixes: [(prefix: String, timeZone: TimeZone)] = [
+            ("dry_run_report_", localArtifactTimestampTimeZone),
+            ("dedupe_audit_receipt_", Self.utcTimeZone),
+            ("reorganize_audit_receipt_", Self.utcTimeZone),
+            ("audit_receipt_", localArtifactTimestampTimeZone),
         ]
-        guard let prefix = prefixes.first(where: { filename.hasPrefix($0) }) else {
+        guard let match = prefixes.first(where: { filename.hasPrefix($0.prefix) }) else {
             return nil
         }
-        let remainder = filename.dropFirst(prefix.count)
+        let remainder = filename.dropFirst(match.prefix.count)
         guard remainder.count >= 15 else { return nil }
         let timestamp = String(remainder.prefix(15))
         guard timestamp.range(of: #"^\d{8}_\d{6}$"#, options: .regularExpression) != nil else {
             return nil
         }
-        return receiptTimestampFormatter.date(from: timestamp)
+        return receiptTimestampFormatter(timeZone: match.timeZone).date(from: timestamp)
     }
 
-    private var receiptTimestampFormatter: DateFormatter {
+    private static let utcTimeZone = TimeZone(secondsFromGMT: 0)!
+
+    private func receiptTimestampFormatter(timeZone: TimeZone) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = artifactTimestampTimeZone
+        formatter.timeZone = timeZone
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         return formatter
     }

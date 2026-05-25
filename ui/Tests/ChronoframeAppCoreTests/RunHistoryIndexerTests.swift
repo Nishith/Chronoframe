@@ -122,6 +122,44 @@ final class RunHistoryIndexerTests: XCTestCase {
         XCTAssertEqual(components.second, 6)
     }
 
+    func testDedupeAndReorganizeReceiptTimestampsAreParsedAsUTC() throws {
+        let logsDirectory = temporaryDirectoryURL.appendingPathComponent(".organize_logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+        let dedupeReceipt = logsDirectory.appendingPathComponent("dedupe_audit_receipt_20260525_070101_FA24.json")
+        let reorganizeReceipt = logsDirectory.appendingPathComponent("reorganize_audit_receipt_20260525_070203_ABCD.json")
+        try "{}".write(to: dedupeReceipt, atomically: true, encoding: .utf8)
+        try "{}".write(to: reorganizeReceipt, atomically: true, encoding: .utf8)
+        try setModificationDate(Date(timeIntervalSince1970: 1), for: dedupeReceipt)
+        try setModificationDate(Date(timeIntervalSince1970: 2), for: reorganizeReceipt)
+
+        let losAngeles = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let indexer = RunHistoryIndexer(artifactTimestampTimeZone: losAngeles)
+        let entries = try indexer.index(destinationRoot: temporaryDirectoryURL.path)
+
+        let dedupeEntry = try XCTUnwrap(entries.first { $0.kind == .dedupeAuditReceipt })
+        let reorganizeEntry = try XCTUnwrap(entries.first { $0.kind == .reorganizeAuditReceipt })
+
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+
+        let dedupeComponents = utcCalendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: dedupeEntry.createdAt)
+        XCTAssertEqual(dedupeComponents.year, 2026)
+        XCTAssertEqual(dedupeComponents.month, 5)
+        XCTAssertEqual(dedupeComponents.day, 25)
+        XCTAssertEqual(dedupeComponents.hour, 7)
+        XCTAssertEqual(dedupeComponents.minute, 1)
+        XCTAssertEqual(dedupeComponents.second, 1)
+
+        let reorgComponents = utcCalendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: reorganizeEntry.createdAt)
+        XCTAssertEqual(reorgComponents.year, 2026)
+        XCTAssertEqual(reorgComponents.month, 5)
+        XCTAssertEqual(reorgComponents.day, 25)
+        XCTAssertEqual(reorgComponents.hour, 7)
+        XCTAssertEqual(reorgComponents.minute, 2)
+        XCTAssertEqual(reorgComponents.second, 3)
+    }
+
     private func setModificationDate(_ date: Date, for url: URL) throws {
         try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
     }
