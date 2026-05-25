@@ -466,7 +466,7 @@ private struct SetupPreflightChecklist: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Preflight")
+            Text("Readiness check")
                 .font(.subheadline.weight(.semibold))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 8)], spacing: 8) {
                 preflightItem(

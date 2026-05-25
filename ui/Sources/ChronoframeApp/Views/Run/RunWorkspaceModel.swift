@@ -224,7 +224,7 @@ struct RunWorkspaceModel {
         case .preflighting:
             return RunHeroState(
                 title: "Checking the Next Run",
-                message: "Chronoframe is validating the configuration, resolving bookmarks, and preparing a safe next step before the backend starts.",
+                message: "Chronoframe is checking your folders and preparing a safe next step before the run starts.",
                 badgeTitle: "Preparing",
                 badgeSymbol: "clock.arrow.circlepath",
                 heroSymbol: "clock.arrow.circlepath",
@@ -621,7 +621,7 @@ struct RunWorkspaceModel {
                 id: "issues",
                 title: "Issues",
                 value: abbreviated(context.issueCount),
-                caption: "Warnings, failed copies, or hash errors to review.",
+                caption: "Warnings, failed copies, or verification problems to review.",
                 tone: issueTone
             ),
             RunMetricTileModel(

@@ -357,6 +357,83 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(harness.deduplicateEngine.lastScanConfiguration?.destinationPath, "/Volumes/Dedupe")
     }
 
+    /// AGENTS-INVARIANT: 6
+    /// The prominent Deduplicate "Move to Trash" button must commit only the
+    /// clusters the user has actually reviewed/approved. Scan completion
+    /// preselects a Delete decision for every cluster's non-keeper (including
+    /// low/medium-confidence, dHash-only weak matches) so the per-cluster UI
+    /// can preview them — but those weak preselects must stay review-only
+    /// until explicitly confirmed. Regression: the primary commit used to
+    /// route through the full-plan commit path, trashing unreviewed weak
+    /// matches and deleting more files than the confirmation dialog (which
+    /// shows the reviewed count) stated.
+    @MainActor
+    func testPrimaryDeduplicateCommitOnlyTrashesReviewedClusters() async {
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/dest"
+
+        let highCluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/high-keep.jpg", size: 100, modificationTime: 0, qualityScore: 0.9),
+                PhotoCandidate(path: "/dest/high-delete.jpg", size: 100, modificationTime: 0, qualityScore: 0.4),
+            ],
+            suggestedKeeperIDs: ["/dest/high-keep.jpg"],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .exactDuplicate))
+        )
+        let weakCluster = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/weak-keep.jpg", size: 100, modificationTime: 0, qualityScore: 0.9),
+                PhotoCandidate(path: "/dest/weak-delete.jpg", size: 100, modificationTime: 0, qualityScore: 0.4),
+            ],
+            suggestedKeeperIDs: ["/dest/weak-keep.jpg"],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .medium, matchReason: MatchReason(kind: .nearDuplicate))
+        )
+        harness.deduplicateEngine.clustersToEmit = [highCluster, weakCluster]
+        harness.deduplicateEngine.commitEvents = [
+            .started(totalToDelete: 1),
+            .complete(DeduplicateCommitSummary(
+                deletedCount: 1, failedCount: 0, bytesReclaimed: 100,
+                receiptPath: nil, hardDelete: false
+            )),
+        ]
+
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+        appState.startDeduplicateScan()
+        let scanned = await waitForCondition { harness.deduplicateSessionStore.status == .readyToReview }
+        XCTAssertTrue(scanned)
+
+        // User approves only the high-confidence cluster; the weak cluster is
+        // left unreviewed (its non-keeper sits at a scan-time Delete preselect).
+        harness.deduplicateSessionStore.acceptAllHighConfidence()
+        XCTAssertTrue(harness.deduplicateSessionStore.approvedClusterIDs.contains(highCluster.id))
+        XCTAssertFalse(harness.deduplicateSessionStore.approvedClusterIDs.contains(weakCluster.id))
+
+        appState.commitDeduplicateDecisions()
+        let committed = await waitForCondition { harness.deduplicateSessionStore.status == .completed }
+        XCTAssertTrue(committed)
+
+        // The executor must only ever see the reviewed cluster.
+        let committedClusterIDs = Set(harness.deduplicateEngine.lastCommitClusters.map(\.id))
+        XCTAssertEqual(committedClusterIDs, [highCluster.id],
+            "Primary commit must scope the executor to reviewed clusters only.")
+
+        let committedPlan = DeduplicationPlanner.plan(
+            decisions: harness.deduplicateEngine.lastCommitDecisions ?? DedupeDecisions(byPath: [:]),
+            clusters: harness.deduplicateEngine.lastCommitClusters,
+            configuration: harness.deduplicateEngine.lastCommitConfiguration
+                ?? DeduplicateConfiguration(destinationPath: "/dest")
+        )
+        let pathsToDelete = Set(committedPlan.pathsToDelete)
+        XCTAssertTrue(pathsToDelete.contains("/dest/high-delete.jpg"),
+            "Reviewed high-confidence non-keeper should be trashed.")
+        XCTAssertFalse(pathsToDelete.contains("/dest/weak-delete.jpg"),
+            "Unreviewed weak-match non-keeper must NOT be trashed.")
+    }
+
     @MainActor
     func testFacadeForwardsPreviewAndTransferFlows() async {
         let harness = AppStateHarness()

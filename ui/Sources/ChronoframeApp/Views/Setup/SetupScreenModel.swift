@@ -255,7 +255,7 @@ struct SetupScreenModel {
 
     var readinessMessage: String {
         canStartRun
-            ? "Preview is non-destructive. Transfer still requires an explicit confirmation before the backend begins copying."
+            ? "Preview is non-destructive. Transfer still requires an explicit confirmation before any files are copied."
             : "Complete the source and destination, or pick a saved profile, and Chronoframe will guide you into a safe preview."
     }
 

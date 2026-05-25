@@ -83,6 +83,19 @@ fi
 
 "${VALIDATOR_COMMAND[@]}" "$APP_DIR"
 
+# Refresh the LaunchServices registration for the freshly staged bundle.
+# build.sh rebuilds in place (rm -rf + ditto), so LaunchServices is left
+# holding a stale record that points at the previous, now-deleted inode.
+# A subsequent `open` then fails with
+# "_LSOpenURLsWithCompletionHandler() failed with error -600" (procNotFound).
+# Force-registering the new bundle replaces the stale record so `open`
+# resolves the correct process.
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister"
+if [ -x "$LSREGISTER" ]; then
+  echo "🧭 Refreshing LaunchServices registration..."
+  "$LSREGISTER" -f "$APP_DIR" || echo "warning: could not refresh LaunchServices registration for $APP_DIR" >&2
+fi
+
 echo "🗜️ Creating zip archive..."
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
 

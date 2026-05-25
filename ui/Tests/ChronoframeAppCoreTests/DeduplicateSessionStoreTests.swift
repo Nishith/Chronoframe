@@ -21,13 +21,13 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         super.tearDown()
     }
 
-    /// The commit footer's "X files will be moved to Trash" + recoverable
-    /// bytes are read from `currentDeletionPlan()`. That plan must be the
-    /// same one the executor consumes at commit time, so what the user
-    /// sees in the footer is what actually happens. This regression test
-    /// pins down the contract by constructing a cluster whose
-    /// pair-expanded MOV partner is NOT a cluster member, then asserting
-    /// the count + bytes include the partner.
+    /// `currentDeletionPlan()` and its derived `pendingDeleteCount` /
+    /// `totalRecoverableBytes` must reflect pair expansion: a delete decision
+    /// on one member pulls in its RAW / Live-Photo partner even when that
+    /// partner is not itself a cluster member. (The commit footer scopes to
+    /// `reviewedDeletionPlan()`; this test pins the underlying plan contract
+    /// both paths share.) Constructs a cluster whose pair-expanded MOV partner
+    /// is NOT a cluster member, then asserts the count + bytes include it.
     @MainActor
     func testCurrentDeletionPlanIncludesPairExpandedPartners() async throws {
         let clusterID = UUID()
@@ -104,7 +104,7 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         XCTAssertTrue(scanned)
         XCTAssertEqual(scanTracker.closeCount, 1)
 
-        store.commit(configuration: configuration, securityScope: commitTracker.makeScope())
+        store.commitReviewed(configuration: configuration, securityScope: commitTracker.makeScope())
         let committed = await waitForCondition { store.status == .completed }
         XCTAssertTrue(committed)
         XCTAssertEqual(commitTracker.closeCount, 1)
@@ -460,10 +460,11 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         XCTAssertTrue(store.clusters.isEmpty)
     }
 
-    /// The footer uses the scan-time configuration captured in
-    /// `lastScanConfiguration`. Commit must use that same configuration,
-    /// even if Settings changed after review began, otherwise the previewed
-    /// count/bytes can drift from the executor's final plan.
+    /// `commitReviewed` must use the scan-time configuration captured in
+    /// `lastScanConfiguration`, even if Settings changed after review began,
+    /// otherwise the previewed count/bytes can drift from the executor's final
+    /// plan. The commit is scoped to reviewed clusters, so only the cluster the
+    /// user approved reaches the executor.
     @MainActor
     func testCommitUsesScanConfigurationWhenSettingsChangeAfterReview() async throws {
         let heic = PhotoCandidate(
@@ -495,18 +496,23 @@ final class DeduplicateSessionStoreTests: XCTestCase {
 
         store.startScan(configuration: scanConfiguration)
         _ = await waitForCondition { store.status == .readyToReview }
-        let previewPlan = store.currentDeletionPlan()
-        XCTAssertTrue(Set(previewPlan.pathsToDelete).contains("/dest/IMG.MOV"))
+
+        // User reviews and approves the cluster; commit is scoped to it.
+        store.acceptSuggestionsForCluster(cluster)
+        let reviewedPlan = store.reviewedDeletionPlan()
+        XCTAssertTrue(Set(reviewedPlan.pathsToDelete).contains("/dest/IMG.MOV"))
 
         let changedSettingsConfiguration = DeduplicateConfiguration(
             destinationPath: "/dest",
             treatRawJpegPairsAsUnit: true,
             treatLivePhotoPairsAsUnit: false
         )
-        store.commit(configuration: changedSettingsConfiguration)
+        store.commitReviewed(configuration: changedSettingsConfiguration)
 
         XCTAssertEqual(engine.lastCommitConfiguration?.treatLivePhotoPairsAsUnit, true)
         XCTAssertEqual(engine.lastCommitConfiguration?.treatRawJpegPairsAsUnit, true)
+        XCTAssertEqual(Set(engine.lastCommitClusters.map(\.id)), [cluster.id],
+            "commitReviewed must scope the executor to reviewed clusters only")
         let commitDecisions = try XCTUnwrap(engine.lastCommitDecisions)
         let commitConfiguration = try XCTUnwrap(engine.lastCommitConfiguration)
         let commitPlan = DeduplicationPlanner.plan(
@@ -514,7 +520,7 @@ final class DeduplicateSessionStoreTests: XCTestCase {
             clusters: engine.lastCommitClusters,
             configuration: commitConfiguration
         )
-        XCTAssertEqual(Set(commitPlan.pathsToDelete), Set(previewPlan.pathsToDelete))
+        XCTAssertEqual(Set(commitPlan.pathsToDelete), Set(reviewedPlan.pathsToDelete))
     }
 
     /// Regression for review rec #3: `revert(receiptURL:)` previously
@@ -588,7 +594,8 @@ final class DeduplicateSessionStoreTests: XCTestCase {
 
         store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
         _ = await waitForCondition { store.status == .readyToReview }
-        store.commit(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        store.acceptSuggestionsForCluster(cluster)
+        store.commitReviewed(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
 
         XCTAssertEqual(store.status, .committing)
         let completed = await waitForCondition { store.status == .completed }
@@ -613,7 +620,7 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         )
         let store = DeduplicateSessionStore(engine: engine, runHistoryStore: historyStore)
 
-        store.commit(configuration: DeduplicateConfiguration(destinationPath: "/Volumes/Dedupe"))
+        store.commitReviewed(configuration: DeduplicateConfiguration(destinationPath: "/Volumes/Dedupe"))
         _ = await waitForCondition { store.status == .completed }
 
         XCTAssertEqual(store.runHistory.count, 1)

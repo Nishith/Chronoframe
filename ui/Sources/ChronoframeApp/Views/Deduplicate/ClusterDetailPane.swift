@@ -492,6 +492,23 @@ struct ClusterDetailPane: View {
             Button("Delete", role: .destructive) { sessionStore.setDecision(.delete, forPath: member.path) }
         }
         .help(URL(fileURLWithPath: member.path).lastPathComponent)
+        // Collapse the decorative badge/star symbols into one spoken element
+        // so VoiceOver announces the filename and Keep/Delete state instead of
+        // raw SF Symbol names.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(memberAccessibilityLabel(member: member, decision: decision, cluster: cluster))
+        .accessibilityAddTraits(isFocused ? .isSelected : [])
+    }
+
+    private func memberAccessibilityLabel(
+        member: PhotoCandidate,
+        decision: DedupeDecision,
+        cluster: DuplicateCluster
+    ) -> String {
+        let name = URL(fileURLWithPath: member.path).lastPathComponent
+        let state = decision == .keep ? "Keep" : "Delete"
+        let keeper = isSuggestedKeeper(member, in: cluster) ? ", suggested keeper" : ""
+        return "\(name), \(state)\(keeper)"
     }
 
     private func photoStageLabel(for member: PhotoCandidate) -> some View {

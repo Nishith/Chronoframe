@@ -366,19 +366,11 @@ final class AppState: ObservableObject {
         let destination = deduplicateDestinationPath
         guard !destination.isEmpty else { return }
         let configuration = preferencesStore.makeDeduplicateConfiguration(destinationPath: destination)
-        deduplicateSessionStore.decisions = DedupeDecisions(
-            byPath: deduplicateSessionStore.decisions.byPath
-        )
-        deduplicateSessionStore.commit(
-            configuration: configuration,
-            securityScope: deduplicateSecurityScope(destination: destination)
-        )
-    }
-
-    func commitReviewedDeduplicateDecisions() {
-        let destination = deduplicateDestinationPath
-        guard !destination.isEmpty else { return }
-        let configuration = preferencesStore.makeDeduplicateConfiguration(destinationPath: destination)
+        // Commit only clusters the user has reviewed/approved. The full-plan
+        // path would also trash scan-time preselects in unreviewed
+        // low/medium-confidence clusters (incl. dHash-only weak matches),
+        // violating the review-only invariant and deleting more files than
+        // the confirmation dialog (which shows the reviewed count) states.
         deduplicateSessionStore.commitReviewed(
             configuration: configuration,
             securityScope: deduplicateSecurityScope(destination: destination)

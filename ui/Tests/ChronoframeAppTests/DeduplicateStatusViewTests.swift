@@ -86,6 +86,15 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertFalse(hardDeleteDetail.contains("permanently"))
     }
 
+    func testCommittingTitleReportsTrashProgressAndFallsBackBeforeTotalKnown() {
+        // Once the executor reports a total, the title names the count.
+        XCTAssertEqual(DeduplicateView.committingTitle(fileCount: 1), "Moving 1 file to Trash…")
+        XCTAssertEqual(DeduplicateView.committingTitle(fileCount: 5), "Moving 5 files to Trash…")
+        // Before `.started` lands (total still 0) the title omits the count
+        // rather than claiming "0 files".
+        XCTAssertEqual(DeduplicateView.committingTitle(fileCount: 0), "Moving files to Trash…")
+    }
+
     func testDeduplicateReviewLayoutSwitchesAtConfiguredBreakpoint() {
         XCTAssertEqual(
             DeduplicateReviewLayout.mode(forWidth: DesignTokens.DeduplicateLayout.reviewWideBreakpoint - 1),

@@ -32,7 +32,9 @@ struct DeduplicateView: View {
                 idleView
             case .scanning:
                 scanningView
-            case .readyToReview, .committing:
+            case .committing:
+                committingView
+            case .readyToReview:
                 if sessionStore.clusters.isEmpty {
                     emptyResultsView
                 } else {
@@ -198,6 +200,32 @@ struct DeduplicateView: View {
         )
     }
 
+    // MARK: - Committing
+
+    /// In-flight commit (moving selected files to Trash). Mirrors the
+    /// scanning/reverting status surfaces so the user gets live progress
+    /// instead of the frozen review UI. `consumeCommit` drives
+    /// `phaseCompleted`/`phaseTotal` off the executor's per-item events.
+    /// Cancelling is safe: `DeduplicateExecutor.commit` honours the cancel
+    /// flag and finalises a PENDING->ABORTED receipt for everything already
+    /// trashed, which stays revertable from Run History.
+    private var committingView: some View {
+        let total = sessionStore.phaseTotal
+        return DeduplicateStatusView(
+            style: .progress,
+            title: Self.committingTitle(fileCount: total),
+            detail: total > 0
+                ? "\(sessionStore.phaseCompleted) of \(total)"
+                : nil,
+            primary: {
+                Button("Cancel", role: .destructive) {
+                    appState.cancelRun()
+                }
+                .accessibilityIdentifier("dedupeCancelCommitButton")
+            }
+        )
+    }
+
     // MARK: - Empty
 
     private var emptyResultsView: some View {
@@ -320,9 +348,6 @@ struct DeduplicateView: View {
             isPresented: $showingCommitConfirmation
         ) {
             Button("Move to Trash", role: .destructive) {
-                sessionStore.decisions = DedupeDecisions(
-                    byPath: sessionStore.decisions.byPath
-                )
                 appState.commitDeduplicateDecisions()
             }
             Button("Cancel", role: .cancel) {}
@@ -334,7 +359,7 @@ struct DeduplicateView: View {
             isPresented: $showingCommitReviewedConfirmation
         ) {
             Button("Move to Trash", role: .destructive) {
-                appState.commitReviewedDeduplicateDecisions()
+                appState.commitDeduplicateDecisions()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -672,6 +697,15 @@ struct DeduplicateStatusCopy: Equatable {
 }
 
 extension DeduplicateView {
+    /// Title for the in-flight commit progress surface. Falls back to a
+    /// count-free phrase before the executor's `.started` event reports the
+    /// total, then reads "Moving N files to Trash…" once it lands.
+    static func committingTitle(fileCount: Int) -> String {
+        fileCount > 0
+            ? "Moving \(fileCount) file\(fileCount == 1 ? "" : "s") to Trash…"
+            : "Moving files to Trash…"
+    }
+
     static func commitFooterTitle(fileCount: Int, hardDelete: Bool) -> String {
         "\(fileCount) file\(fileCount == 1 ? "" : "s") will be moved to Trash"
     }

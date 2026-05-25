@@ -128,6 +128,11 @@ public final class DeduplicateSessionStore: ObservableObject {
         self.securityScope = securityScope
         commitSummary = nil
         isHandlingRevert = false
+        // Reset progress counters so the committing status view starts at a
+        // clean zero rather than briefly showing leftover scan-phase totals
+        // before the executor's `.started` event lands.
+        phaseCompleted = 0
+        phaseTotal = 0
         status = .committing
         let commitConfiguration = lastScanConfiguration ?? configuration
         activeCommitConfiguration = commitConfiguration
@@ -261,44 +266,6 @@ public final class DeduplicateSessionStore: ObservableObject {
         status = .reverting
         do {
             let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
-            let epoch = currentRunEpoch
-            streamTask = Task { [weak self] in
-                do {
-                    for try await event in stream {
-                        await MainActor.run { [weak self] in
-                            guard let self, self.currentRunEpoch == epoch else { return }
-                            self.consumeCommit(event)
-                        }
-                    }
-                } catch {
-                    await MainActor.run { [weak self] in
-                        guard let self, self.currentRunEpoch == epoch else { return }
-                        self.applyStreamError(error)
-                    }
-                }
-            }
-        } catch {
-            applyStreamError(error)
-        }
-    }
-
-    public func commit(
-        configuration: DeduplicateConfiguration,
-        securityScope: SecurityScopedFolderAccess? = nil
-    ) {
-        cancelStream()
-        self.securityScope = securityScope
-        commitSummary = nil
-        isHandlingRevert = false
-        status = .committing
-        let commitConfiguration = lastScanConfiguration ?? configuration
-        activeCommitConfiguration = commitConfiguration
-        do {
-            let stream = try engine.commit(
-                decisions: applySuggestionsToDecisions(),
-                clusters: clusters,
-                configuration: commitConfiguration
-            )
             let epoch = currentRunEpoch
             streamTask = Task { [weak self] in
                 do {
