@@ -138,7 +138,7 @@ The shared Xcode scheme runs the macOS UI-test target only. SwiftPM remains the 
 CI-like Swift CodeQL build:
 
 ```bash
-xcodebuild -project ui/Chronoframe.xcodeproj -scheme Chronoframe -configuration Debug -derivedDataPath .tmp/ChronoframeDerivedData-x86 -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO ARCHS=x86_64 ONLY_ACTIVE_ARCH=YES build
+/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift build --package-path ui --product ChronoframeApp"
 ```
 
 Before committing, also run:
@@ -163,24 +163,28 @@ Be precise when discussing coverage.
 - GitHub authentication is configured for `gh` in this workspace.
 - CodeQL workflow is `.github/workflows/codeql.yml`.
 - CodeQL analyzes Swift on macOS.
-- Swift CodeQL uses manual Xcode build mode. The build command currently uses:
+- Swift CodeQL uses manual build mode with SwiftPM. Push CodeQL previously used
+  Xcode manual build mode, but the traced Xcode build could hit the 60 minute
+  workflow timeout during Swift module emission. The build command currently
+  uses:
 
 ```bash
-xcodebuild \
-  -project ui/Chronoframe.xcodeproj \
-  -scheme Chronoframe \
-  -configuration Debug \
-  -derivedDataPath "$RUNNER_TEMP/ChronoframeDerivedData" \
-  -destination "generic/platform=macOS" \
-  CODE_SIGNING_ALLOWED=NO \
-  ARCHS=x86_64 \
-  ONLY_ACTIVE_ARCH=YES \
-  build
+mkdir -p "$RUNNER_TEMP/swiftpm-home" "$RUNNER_TEMP/swiftpm-cache" "$RUNNER_TEMP/modulecache"
+HOME="$RUNNER_TEMP/swiftpm-home" \
+XDG_CACHE_HOME="$RUNNER_TEMP/swiftpm-cache" \
+CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/modulecache" \
+SWIFTPM_MODULECACHE_OVERRIDE="$RUNNER_TEMP/modulecache" \
+  swift build --package-path ui --product ChronoframeApp
 ```
 
-Swift CodeQL can look stuck for a long time while compiling, especially around `FileIdentityHasher.swift`. In the successful run after PR #21, the Swift analyze job took many minutes but completed.
+Swift CodeQL can look stuck for a long time while compiling under tracing. If it
+times out, prefer narrowing or optimizing the SwiftPM CodeQL build path instead
+of restoring the slower traced Xcode build on push.
 
-Important CI trap: SwiftPM tests are not enough. If you add a Swift source file that must compile in the app, make sure it is also included in `ui/Chronoframe.xcodeproj/project.pbxproj`. CodeQL builds the Xcode project, not only the Swift package.
+Important CI trap: SwiftPM tests and CodeQL are not enough to prove Xcode
+project membership. If you add a Swift source file that must compile in the app,
+make sure it is also included in `ui/Chronoframe.xcodeproj/project.pbxproj`.
+The separate CI Xcode build catches project membership regressions.
 
 Past Swift CodeQL failures included Swift 6 sendability issues, especially around `NSImage?` crossing async boundaries. Be careful with non-Sendable AppKit types in async groups and actor/nonisolated contexts.
 
