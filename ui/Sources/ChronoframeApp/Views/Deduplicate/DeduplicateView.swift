@@ -1076,7 +1076,7 @@ private struct RecentFolderMosaic: View {
         GeometryReader { geo in
             let count = thumbnails.count
             let columns = count >= 2 ? 2 : 1
-            let rows = count >= 3 ? 2 : 1
+            let rows = count >= 4 ? 2 : 1
             let cellW = geo.size.width / CGFloat(columns)
             let cellH = geo.size.height / CGFloat(rows)
             VStack(spacing: 0) {

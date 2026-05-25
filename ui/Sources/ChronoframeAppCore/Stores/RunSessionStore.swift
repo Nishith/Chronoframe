@@ -202,38 +202,46 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            do {
-                let executor = ReorganizeExecutor()
-                let observer = ReorganizeExecutionObserver(
-                    onTaskStart: { total in
-                        Task { @MainActor [weak self] in
-                            guard let self, self.currentRunEpoch == epoch else { return }
-                            self.consume(.phaseStarted(phase: .reorganize, total: total))
-                        }
-                    },
-                    onTaskProgress: { completed, total in
-                        Task { @MainActor [weak self] in
-                            guard let self, self.currentRunEpoch == epoch else { return }
-                            self.consume(.phaseProgress(
-                                phase: .reorganize,
-                                completed: completed,
-                                total: total,
-                                bytesCopied: nil,
-                                bytesTotal: nil,
-                                currentFilePath: nil
-                            ))
-                        }
-                    },
-                    onIssue: { issue in
-                        Task { @MainActor [weak self] in
-                            guard let self, self.currentRunEpoch == epoch else { return }
-                            self.consume(.issue(issue))
-                        }
+            let executor = ReorganizeExecutor()
+            let observer = ReorganizeExecutionObserver(
+                onTaskStart: { total in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.consume(.phaseStarted(phase: .reorganize, total: total))
                     }
-                )
-                let result = try executor.revert(receiptURL: receiptURL, observer: observer)
-                guard self.currentRunEpoch == epoch else { return }
-                consume(.phaseCompleted(
+                },
+                onTaskProgress: { completed, total in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.consume(.phaseProgress(
+                            phase: .reorganize,
+                            completed: completed,
+                            total: total,
+                            bytesCopied: nil,
+                            bytesTotal: nil,
+                            currentFilePath: nil
+                        ))
+                    }
+                },
+                onIssue: { issue in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.consume(.issue(issue))
+                    }
+                }
+            )
+            // Suspend the main actor during heavy file hashing and moves so the
+            // UI stays responsive. The @MainActor Task resumes here after the
+            // DispatchQueue work completes.
+            let outcome: Result<ReorganizeExecutionResult, Error> = await withCheckedContinuation { cont in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    cont.resume(returning: Result { try executor.revert(receiptURL: receiptURL, observer: observer) })
+                }
+            }
+            guard self.currentRunEpoch == epoch else { return }
+            switch outcome {
+            case let .success(result):
+                self.consume(.phaseCompleted(
                     phase: .reorganize,
                     result: RunPhaseResult(
                         failedCount: result.failedCount,
@@ -241,7 +249,7 @@ public final class RunSessionStore: ObservableObject {
                         movedCount: result.movedCount
                     )
                 ))
-                consume(.complete(RunSummary(
+                self.consume(.complete(RunSummary(
                     status: .reorganized,
                     title: "Reorganize undone",
                     metrics: RunMetrics(
@@ -250,10 +258,9 @@ public final class RunSessionStore: ObservableObject {
                         skippedCount: result.skippedCount,
                         movedCount: result.movedCount
                     ),
-                    artifacts: artifacts
+                    artifacts: self.artifacts
                 )))
-            } catch {
-                guard self.currentRunEpoch == epoch else { return }
+            case let .failure(error):
                 self.handleFailure(error: error)
             }
         }

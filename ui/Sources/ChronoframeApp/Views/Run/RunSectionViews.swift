@@ -371,7 +371,8 @@ struct RunSnapshotPanel: View {
                 SummaryLine(title: "Speed", value: model.speedSummaryValue)
                 SummaryLine(title: "ETA", value: model.etaSummaryValue)
                 SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
-                SummaryLine(title: "Errors", value: "\(max(model.context.errorCount, model.context.issueCount))", valueColor: model.errorTone.color)
+                SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
+                SummaryLine(title: "Issues", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
             }
         }
     }

@@ -384,15 +384,26 @@ struct RunWorkspaceModel {
 
     var issueSummaryValue: String {
         let warningCount = context.warningCount
-        let errorCount = max(context.errorCount, context.issueCount)
-        if warningCount == 0 && errorCount == 0 {
+        let errorCount = context.errorCount
+        let issueCount = context.issueCount
+        if warningCount == 0 && errorCount == 0 && issueCount == 0 {
             return "No issues reported"
         }
-        return "\(warningCount) warning\(warningCount == 1 ? "" : "s"), \(errorCount) error\(errorCount == 1 ? "" : "s")"
+        var parts: [String] = []
+        if warningCount > 0 {
+            parts.append("\(warningCount) warning\(warningCount == 1 ? "" : "s")")
+        }
+        if errorCount > 0 {
+            parts.append("\(errorCount) error\(errorCount == 1 ? "" : "s")")
+        }
+        if issueCount > 0 {
+            parts.append("\(issueCount) engine issue\(issueCount == 1 ? "" : "s")")
+        }
+        return parts.joined(separator: ", ")
     }
 
     var issueTone: RunWorkspaceTone {
-        if max(context.errorCount, context.issueCount) > 0 {
+        if context.errorCount > 0 || context.issueCount > 0 {
             return .danger
         }
         if context.warningCount > 0 {
@@ -406,7 +417,7 @@ struct RunWorkspaceModel {
     }
 
     var errorTone: RunWorkspaceTone {
-        max(context.errorCount, context.issueCount) > 0 ? .danger : .muted
+        context.errorCount > 0 ? .danger : .muted
     }
 
     var speedSummaryValue: String {

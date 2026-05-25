@@ -179,6 +179,18 @@ private enum SafetyPerformancePreset: String, CaseIterable, Identifiable {
             preferencesStore.workerCount = max(preferencesStore.workerCount, 12)
         }
     }
+
+    /// Returns the best-matching preset for the current preferences.
+    /// Uses `parallelTransferEnabled` as the primary discriminator (it
+    /// is mutually exclusive between fastRepeat and the other two), then
+    /// `workerCount` to choose between safest and balanced.
+    @MainActor
+    static func bestMatch(for preferencesStore: PreferencesStore) -> SafetyPerformancePreset {
+        if preferencesStore.parallelTransferEnabled {
+            return .fastRepeat
+        }
+        return preferencesStore.workerCount <= 8 ? .safest : .balanced
+    }
 }
 
 private struct PerformanceSettingsTab: View {
@@ -188,6 +200,7 @@ private struct PerformanceSettingsTab: View {
         Form {
             Section {
                 ForEach(SafetyPerformancePreset.allCases) { preset in
+                    let isActive = SafetyPerformancePreset.bestMatch(for: preferencesStore) == preset
                     Button {
                         preset.apply(to: preferencesStore)
                     } label: {
@@ -199,8 +212,13 @@ private struct PerformanceSettingsTab: View {
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: "checkmark.circle")
-                                .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+                            if isActive {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+                            } else {
+                                Image(systemName: "circle")
+                                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.4))
+                            }
                         }
                     }
                     .buttonStyle(.plain)
