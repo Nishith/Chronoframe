@@ -160,6 +160,35 @@ final class RunHistoryIndexerTests: XCTestCase {
         XCTAssertEqual(reorgComponents.second, 3)
     }
 
+    func testIndexSkipsNonRegularArtifactsAndFallsBackForMalformedReceiptTimestamps() throws {
+        let logsDirectory = temporaryDirectoryURL.appendingPathComponent(".organize_logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+        let malformedReceipt = logsDirectory.appendingPathComponent("audit_receipt_not-a-date.json")
+        let tooShortReceipt = logsDirectory.appendingPathComponent("audit_receipt_short.json")
+        let symlinkArtifact = logsDirectory.appendingPathComponent("dry_run_report_20260525_070000.csv")
+        let directoryArtifact = logsDirectory.appendingPathComponent("queue_summary.json", isDirectory: true)
+        let symlinkTarget = temporaryDirectoryURL.appendingPathComponent("target.csv")
+        let fallbackDate = Date(timeIntervalSince1970: 42)
+
+        try "{}".write(to: malformedReceipt, atomically: true, encoding: .utf8)
+        try "{}".write(to: tooShortReceipt, atomically: true, encoding: .utf8)
+        try "target".write(to: symlinkTarget, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(at: symlinkArtifact, withDestinationURL: symlinkTarget)
+        try FileManager.default.createDirectory(at: directoryArtifact, withIntermediateDirectories: true)
+        try setModificationDate(fallbackDate, for: malformedReceipt)
+        try setModificationDate(Date(timeIntervalSince1970: 41), for: tooShortReceipt)
+
+        let entries = try RunHistoryIndexer().index(destinationRoot: temporaryDirectoryURL.path)
+
+        XCTAssertEqual(entries.map(\.relativePath), [
+            ".organize_logs/audit_receipt_not-a-date.json",
+            ".organize_logs/audit_receipt_short.json",
+        ])
+        XCTAssertEqual(entries.map(\.kind), [.auditReceipt, .auditReceipt])
+        XCTAssertEqual(entries.first?.createdAt, fallbackDate)
+    }
+
     private func setModificationDate(_ date: Date, for url: URL) throws {
         try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
     }
