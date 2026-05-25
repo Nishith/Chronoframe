@@ -1,4 +1,4 @@
-/* Chronoframe — "Darkroom" web theme. Self-hosted, no external fonts or trackers. */
+/* Chronoframe — "Meridian" web theme. Self-hosted, no external fonts or trackers. */
 
 :root {
   --canvas: #161618;
@@ -82,6 +82,26 @@ h1, h2, h3 { color: var(--ink-primary); line-height: 1.2; letter-spacing: -0.01e
 .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 .hero .note { margin-top: 8px; font-size: 13px; color: var(--ink-muted); }
 .price-note { margin: 18px 0 0; font-size: 14px; font-weight: 600; color: var(--ink-secondary); }
+
+/* Hero assurance row */
+.hero-assurance {
+  list-style: none; padding: 0; margin: 0 auto 0;
+  display: flex; flex-wrap: wrap; gap: 8px 22px; justify-content: center;
+  color: var(--ink-secondary); font-size: 14px;
+}
+.hero-assurance li { display: inline-flex; align-items: center; gap: 8px; }
+.hero-assurance li::before { content: "\2713"; color: var(--success); font-weight: 700; }
+
+/* Stat band */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; text-align: center; }
+.stat .num { font-size: clamp(34px, 5vw, 48px); font-weight: 700; color: var(--ink-primary); letter-spacing: -0.02em; line-height: 1.1; }
+.stat .label { color: var(--ink-secondary); font-size: 15px; margin-top: 6px; }
+
+/* Maker note */
+.maker .card { max-width: 720px; margin: 0 auto; }
+.maker .card p { margin: 0 0 14px; }
+.maker .card p:last-child { margin-bottom: 0; }
+.maker .sig { color: var(--ink-primary); font-weight: 600; }
 
 .hero-shots {
   display: grid;
@@ -237,6 +257,7 @@ section .section-lede { text-align: center; color: var(--ink-secondary); max-wid
   .container { padding: 0 20px; }
   .nav-links { display: none; }
   .grid-2, .grid-3, .hero-shots, .feature-pair, .safety-list, .steps { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 28px 16px; }
   .hero { padding-top: 72px; }
   .hero h1 {
     font-size: 30px;
