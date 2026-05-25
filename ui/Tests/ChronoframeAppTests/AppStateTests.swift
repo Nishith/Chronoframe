@@ -253,6 +253,33 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testOpenDeduplicateRunHistoryLoadsDedupeReceipts() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeHistory-\(UUID().uuidString)", isDirectory: true)
+        let logsDirectory = temporaryDirectory.appendingPathComponent(".organize_logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let receipt = logsDirectory.appendingPathComponent("dedupe_audit_receipt_20260525_070101_FA24.json")
+        try "{}".write(to: receipt, atomically: true, encoding: .utf8)
+
+        let harness = AppStateHarness()
+        harness.preferencesStore.lastDeduplicateDestinationPath = temporaryDirectory.path
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        await appState.openDeduplicateRunHistory()
+
+        XCTAssertEqual(appState.selection, .organize)
+        XCTAssertEqual(appState.organizeSubSelection, .history)
+        XCTAssertEqual(harness.historyStore.destinationRoot, temporaryDirectory.path)
+        XCTAssertEqual(harness.historyStore.entries.map(\.kind), [.dedupeAuditReceipt])
+        XCTAssertEqual(
+            harness.historyStore.entries.first.map { URL(fileURLWithPath: $0.path).standardizedFileURL.path },
+            receipt.standardizedFileURL.path
+        )
+    }
+
+    @MainActor
     func testUseDeduplicateHistoryFolderSelectsAvailableFolderAndStoresBookmark() throws {
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("HistoryFolder-\(UUID().uuidString)")

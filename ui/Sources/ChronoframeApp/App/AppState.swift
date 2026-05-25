@@ -349,6 +349,19 @@ final class AppState: ObservableObject {
         finderService.revealInFinder(path)
     }
 
+    func openDeduplicateRunHistory() async {
+        let destination = deduplicateDestinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !destination.isEmpty else {
+            transientErrorMessage = "Choose a Deduplicate folder before opening its run history."
+            return
+        }
+
+        navigate(to: .organize(.history))
+        let scope = deduplicateSecurityScope(destination: destination)
+        await historyStore.refresh(destinationRoot: destination)
+        scope?.close()
+    }
+
     func startDeduplicateScan() {
         let destination = deduplicateDestinationPath
         guard !destination.isEmpty else {

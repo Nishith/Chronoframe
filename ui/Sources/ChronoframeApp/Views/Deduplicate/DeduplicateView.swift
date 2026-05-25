@@ -561,8 +561,15 @@ struct DeduplicateView: View {
                 .buttonStyle(.borderedProminent)
             },
             secondary: {
-                Button("Scan Again") {
-                    startScan()
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    Button("Open Run History") {
+                        Task { await appState.openDeduplicateRunHistory() }
+                    }
+                    .accessibilityIdentifier("dedupeOpenRunHistoryButton")
+
+                    Button("Scan Again") {
+                        startScan()
+                    }
                 }
             }
         )
