@@ -200,9 +200,8 @@ public final class RunSessionStore: ObservableObject {
         )
 
         let epoch = currentRunEpoch
-        streamTask = Task.detached { [weak self] in
-            // Task.detached breaks out of @MainActor isolation so file hashing
-            // and moves in ReorganizeExecutor.revert() run on a background thread.
+        streamTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             let executor = ReorganizeExecutor()
             let observer = ReorganizeExecutionObserver(
                 onTaskStart: { total in
@@ -231,33 +230,38 @@ public final class RunSessionStore: ObservableObject {
                     }
                 }
             )
-            let outcome = Result { try executor.revert(receiptURL: receiptURL, observer: observer) }
-            await MainActor.run { [weak self] in
-                guard let self, self.currentRunEpoch == epoch else { return }
-                switch outcome {
-                case let .success(result):
-                    self.consume(.phaseCompleted(
-                        phase: .reorganize,
-                        result: RunPhaseResult(
-                            failedCount: result.failedCount,
-                            skippedCount: result.skippedCount,
-                            movedCount: result.movedCount
-                        )
-                    ))
-                    self.consume(.complete(RunSummary(
-                        status: .reorganized,
-                        title: "Reorganize undone",
-                        metrics: RunMetrics(
-                            plannedCount: result.totalMoves,
-                            failedCount: result.failedCount,
-                            skippedCount: result.skippedCount,
-                            movedCount: result.movedCount
-                        ),
-                        artifacts: self.artifacts
-                    )))
-                case let .failure(error):
-                    self.handleFailure(error: error)
+            // Suspend the main actor during heavy file hashing and moves so the
+            // UI stays responsive. The @MainActor Task resumes here after the
+            // DispatchQueue work completes.
+            let outcome: Result<ReorganizeExecutionResult, Error> = await withCheckedContinuation { cont in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    cont.resume(returning: Result { try executor.revert(receiptURL: receiptURL, observer: observer) })
                 }
+            }
+            guard self.currentRunEpoch == epoch else { return }
+            switch outcome {
+            case let .success(result):
+                self.consume(.phaseCompleted(
+                    phase: .reorganize,
+                    result: RunPhaseResult(
+                        failedCount: result.failedCount,
+                        skippedCount: result.skippedCount,
+                        movedCount: result.movedCount
+                    )
+                ))
+                self.consume(.complete(RunSummary(
+                    status: .reorganized,
+                    title: "Reorganize undone",
+                    metrics: RunMetrics(
+                        plannedCount: result.totalMoves,
+                        failedCount: result.failedCount,
+                        skippedCount: result.skippedCount,
+                        movedCount: result.movedCount
+                    ),
+                    artifacts: self.artifacts
+                )))
+            case let .failure(error):
+                self.handleFailure(error: error)
             }
         }
     }
