@@ -37,9 +37,9 @@ A: Scanning reads metadata, computes content hashes, and resolves dates. Large l
 **Q: Can I speed things up?**
 
 A: Yes—
-- Use **Settings** → **Performance** to increase worker threads
-- Use `--fast-dest` in the Swift CLI to skip rescanning the destination
-- Pre-filter your source folder to smaller batches
+- Open **Settings → Performance** and pick a preset (Safest, Balanced, or Fast Repeat Runs), raise the worker-thread count, or turn on parallel transfers
+- Pre-filter your source folder into smaller batches
+- Keep your library on a local SSD rather than a network drive
 
 ---
 
@@ -146,7 +146,7 @@ See the [Technical Documentation](./TECHNICAL.md#command-line) for all flags.
 
 **Q: Can I automate repeated runs?**
 
-A: Yes. Save a **Profile** in the app with your source and destination folders. Profiles show up in Setup for one-click organization.
+A: Yes. Save a **Profile** in **Settings → Profiles** with your source and destination folders, then switch between saved pairs with one click. The Swift CLI can load the same profiles with `--profile NAME`.
 
 **Q: Where does Chronoframe store its data?**
 

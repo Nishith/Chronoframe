@@ -1,6 +1,6 @@
 # Chronoframe Design System
 
-The **Darkroom** design language — dark-first, dynamic, deeply rooted in native macOS.
+The **Meridian** visual language — restrained, work-focused, and deeply rooted in native macOS. The amber waypoint dot is the brand motif.
 
 ## Overview
 
@@ -12,12 +12,14 @@ Chronoframe uses a semantic design token system to ensure consistency across the
 
 ## Design Philosophy
 
-The **Darkroom** aesthetic is inspired by professional photo and video tools (Final Cut Pro, Adobe Lightroom, Darkroom app):
+The **Meridian** language takes its cues from professional photo and video tools (Final Cut Pro, Adobe Lightroom), favoring restraint over decoration:
 
-- **Dark-first:** Optimized for viewing and organizing media on dark backgrounds
-- **Dynamic:** Adapts to macOS light/dark appearance without jarring transitions
-- **Native:** Uses SF Pro (not SF Rounded) and native macOS materials
-- **Minimal:** Hairline separators, vibrancy, restraint
+- **Dynamic:** Adapts to macOS light and dark appearance without jarring transitions — neither mode is an afterthought.
+- **Native:** Uses SF Pro (not SF Rounded), native controls, and native macOS materials.
+- **Restrained:** Hairline separators, vibrancy, and whitespace instead of nested cards, decorative gradients, or orb backgrounds. No instructional text describing obvious UI mechanics.
+- **Branded with restraint:** The amber waypoint dot — "the moment a memory finds its place" — is the one recurring brand motif.
+
+> Note: the design tokens and the `darkroom()` view modifier in `DesignTokens.swift` still carry the original "Darkroom" name from an earlier iteration of this language. Those identifiers are kept for code stability; the current visual language is Meridian.
 
 ---
 

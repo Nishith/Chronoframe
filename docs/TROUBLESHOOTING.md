@@ -43,12 +43,12 @@ If the issue persists, [report it on GitHub](https://github.com/Nishith/Chronofr
 
 **Solution:**
 - **Large libraries** (50K+ files) naturally take longer. Give it time (5–15 min is normal).
-- Check the activity log (Cmd+L) to see progress.
+- Check the **Console** tab in the Run workspace to see progress.
 - If it's frozen (no progress for several minutes), force-quit and try again.
 - **To speed up future previews:**
-  - Use **Settings** → **Performance** to increase worker threads
+  - Open **Settings → Performance** and pick a faster preset or raise the worker-thread count
   - Filter your source folder to smaller batches
-  - Use `--fast-dest` in CLI mode
+  - Keep your library on a local SSD rather than a network drive
 
 ### Preview failed with a read error
 
@@ -83,7 +83,7 @@ If the issue persists, [report it on GitHub](https://github.com/Nishith/Chronofr
 **Problem:** Transfer stopped with errors.
 
 **Solution:**
-- Check the **Activity Log** (Cmd+L) to see what went wrong
+- Check the **Console** tab in the Run workspace to see what went wrong
 - **Permission errors?** Check that you have write access to destination folder
 - **Disk full?** Free up space and try again
 - **File locked?** Close other apps using destination files and retry
@@ -139,10 +139,9 @@ You can safely retry the transfer—Chronoframe will skip files already in desti
   - Metadata (photographer name, date, etc.)
   - Format (one JPG, one PNG of the same image)
   - …they won't match
-- **Try adjusting settings:**
-  1. Open **Deduplicate** → **Settings**
-  2. Try **Loose** similarity instead of **Balanced**
-  3. Rescan
+- **Try adjusting detection:**
+  1. On the Deduplicate setup screen, switch the **Detection** preset from **Balanced** to **Loose** (more options live in **Settings → Deduplicate**)
+  2. Start a new scan
 
 ### Similarity detection isn't working
 
@@ -151,18 +150,18 @@ You can safely retry the transfer—Chronoframe will skip files already in desti
 **Solution:**
 - First scan creates a cache. **Second scans are much faster.**
 - Make sure you have a GPU (Apple Silicon or Intel with dedicated GPU recommended)
-- Adjust the similarity threshold:
-  1. **Settings** → **Similarity Strictness**
+- Adjust the similarity preset:
+  1. Open **Settings → Deduplicate** (or use the Detection presets on the setup screen)
   2. Try **Balanced** or **Loose** for more matches (but more false positives)
 
-### "Commit" button is grayed out
+### "Move to Trash" button is grayed out
 
-**Problem:** You can't commit your deduplicate choices.
+**Problem:** You can't apply your deduplicate choices.
 
 **Solution:**
 - Make sure you've **selected keep/delete choices** for at least one group
-- Click a group on the left and select items to keep/delete
-- The **Commit** button will activate
+- Click a group on the left and choose which items to keep and which to delete (or use **Auto-Accept Safe** for the obvious exact copies)
+- The **Move to Trash** button activates once at least one file is marked for removal
 
 ---
 
@@ -257,4 +256,4 @@ If your issue isn't covered here:
 **When reporting a bug, include:**
 - Your macOS version and hardware (Intel vs. Apple Silicon)
 - The error message or steps to reproduce
-- The Activity Log (Cmd+L in Chronoframe) or relevant `.organize_logs/` files
+- The **Console** tab in the Run workspace, or relevant `.organize_logs/` files

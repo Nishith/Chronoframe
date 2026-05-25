@@ -12,6 +12,8 @@ Chronoframe is a macOS app for people with years of photos and videos spread acr
 
 Chronoframe always shows you a plan before it changes anything. Your source folder is read-only, transfers can be reviewed before copying, and dedupe choices move files to the macOS Trash instead of permanently deleting them.
 
+![Chronoframe Setup — choose a source and destination, with a contact sheet of the frames it will organize.](docs/screenshots/setup.jpg)
+
 ## What You Can Do
 
 | Need | Use Chronoframe to |
@@ -19,6 +21,7 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 | Make sense of a messy folder | Copy photos and videos into folders like `2024/06/15` |
 | Combine old backups | Skip files that are already in the destination |
 | Fix uncertain dates | Review unknown or low-confidence dates before copying |
+| Keep an eye on the library | Run a Health check for unknown dates, duplicates, and interrupted work |
 | Clean up duplicate files | Find exact copies by content, not filename |
 | Compare similar shots | Review near-duplicates, bursts, RAW+JPEG pairs, and Live Photos |
 | Undo a transfer | Revert copied files from History when their contents still match the receipt |
@@ -47,25 +50,45 @@ If macOS blocks the app on first launch, right-click `Chronoframe.app`, choose *
 
 ## Organize Photos
 
-1. Open **Organize**.
-2. Choose the folder with your unsorted photos and videos.
-3. Choose a destination folder.
-4. Pick a folder layout.
-5. Click **Preview**.
-6. Review anything that needs attention, such as unknown dates or skipped files.
-7. Click **Transfer** when the preview looks right.
+Organize is a four-step workspace — **Setup**, **Run**, **Health**, and **History** — that you move through left to right.
 
-Chronoframe copies files into the destination. It does not remove anything from the source.
+1. Open **Organize → Setup**.
+2. Click **Choose Source…** and pick the folder with your unsorted photos and videos.
+3. Click **Choose Destination…** and pick where organized copies should go.
+4. Click **Preview Plan**. Chronoframe scans the source, resolves dates, and builds a transfer plan — nothing is copied yet.
+
+![Preview Ready for Review — a timeline of the library by month, with discovered, planned, and issue counts.](docs/screenshots/preview-timeline.jpg)
+
+5. On the **Run** tab, inspect the preview: the timeline shows your library by month, and the counts cover what's ready, what's already there, duplicates, and anything that needs attention. Open **Review** to fix uncertain dates.
+6. Click **Start Transfer** when the preview looks right. Chronoframe copies files into the destination, verifies them, and writes a receipt — your source is never touched.
+
+![Transfer Complete — every frame copied, with a run summary and links to open the destination, report, and logs.](docs/screenshots/transfer-complete.jpg)
+
+### Check your library's health
+
+The **Health** tab scans the destination on demand and surfaces cleanup opportunities — unknown dates, duplicates, interrupted work, structure drift, and revert safety — with a one-glance health score and shortcuts to act on each.
+
+![Library Health — a health score with cards for unknown dates, duplicates, interrupted work, and structure drift.](docs/screenshots/library-health.jpg)
+
+### Review and undo from History
+
+The **History** tab keeps every run's reports and receipts. Reuse a past source, inspect logs, or open the **Undo Center** to revert a transfer when its files still match the receipt.
+
+![Run History — archived frames, reusable sources, an undo center, and a list of run reports and receipts.](docs/screenshots/run-history.jpg)
 
 ## Deduplicate Photos
 
 1. Open **Deduplicate**.
-2. Choose the folder to scan, or use the same destination as Organize.
-3. Click **Scan**.
-4. Review each duplicate group and choose what to keep.
-5. Click **Commit** to move selected duplicates to Trash.
+2. Click **Choose Folder…** to pick the folder to scan, or reuse a recent one. Pick a **Detection** preset (Strict, Balanced, or Loose) and click **Start Scan**.
 
-Exact duplicates can be suggested automatically. Similar photos, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call.
+![Deduplicate setup — a scan folder, recent folders with files removed and space saved, and detection presets.](docs/screenshots/dedupe-setup.jpg)
+
+3. Review each group. Compare candidates side by side, choose what to **Keep**, and use **Accept & Next** to move through them. **Auto-Accept Safe** clears the obvious exact copies for you.
+4. Click **Move to Trash** to send the files you approved to the macOS Trash.
+
+![Deduplicate review — two similar photos compared side by side, with keep and delete choices.](docs/screenshots/dedupe-compare.jpg)
+
+Exact duplicates can be accepted automatically. Similar photos, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call.
 
 ## Helpful Guides
 

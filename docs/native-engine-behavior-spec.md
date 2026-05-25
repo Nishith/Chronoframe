@@ -13,11 +13,17 @@ artifacts.
   - `--profile`
   - `--dry-run`
   - `--rebuild-cache`
-  - `--verify`
+  - `--skip-verify`
   - `--workers`
   - `-y` / `--yes`
   - `--json`
-  - `--fast-dest`
+  - `--folder-structure`
+  - `--revert`
+  - `--start-fresh`
+- The original engine's `--verify` flag is now implicit: verification is on by
+  default and `--skip-verify` opts out. The `--fast-dest` cache-only
+  destination shortcut was retired — destination indexing always revalidates
+  hashes against the filesystem.
 - `--json` remains the machine-readable progress surface exposed by the Swift
   CLI. Additive app-only entrypoints are allowed, but they must not remove or
   reinterpret the current CLI contract.
@@ -42,11 +48,10 @@ artifacts.
   names in the `SKIP_FILES` list.
 - Source discovery only admits files whose extensions are in the current media
   extension allow-list.
-- Standard destination indexing applies the same hidden-file and extension
-  filtering rules while revalidating hashes against the filesystem.
-- `--fast-dest` is intentionally less strict: it rebuilds the destination hash
-  index and sequence counters directly from cached destination rows without a
-  filesystem walk.
+- Destination indexing applies the same hidden-file and extension filtering
+  rules while revalidating hashes against the filesystem. (The retired
+  `--fast-dest` shortcut, which rebuilt the destination hash index and sequence
+  counters from cached rows without a filesystem walk, is no longer offered.)
 
 ## Queue And Cache Database
 
@@ -153,15 +158,17 @@ artifacts.
 ## Compatibility Fixtures And Tests
 
 - Planning parity fixtures:
-  - `planning_fast_dest_cache_reuse`
   - `planning_mixed_inputs`
   - `planning_sequence_reuse`
   - `planning_sequence_overflow`
+  - `planning_layout_yyyy_mm`
+  - `planning_layout_yyyy`
+  - `planning_layout_yyyy_mon_event`
+  - `planning_layout_flat`
 - Execution parity fixtures:
   - `execution_collision_receipt`
   - `execution_missing_source_abort`
   - `execution_verify_cleanup`
-  - `resume_pending_queue`
 - Swift tests remain the frozen reference surface for CLI flags, SQLite schema,
   retry behavior, abort thresholds, and artifact generation.
 

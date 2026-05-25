@@ -3,6 +3,8 @@
 **Linked plan:** [`~/.claude/plans/vivid-crafting-firefly.md`](../../../../.claude/plans/vivid-crafting-firefly.md)
 **Branch:** `claude/stoic-swirles-4e4c34` (worktree `stoic-swirles-4e4c34`)
 
+> **Historical record.** All phases below are complete and this redesign effort has shipped. The doc is kept as a point-in-time log, not a description of the current app — some specifics captured mid-effort have since evolved (for example, Settings has grown past the 3 tabs noted in Phase 5). For the current visual language see [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) and the "UI language" notes in `AGENTS.md`.
+
 This document tracks the state of the award-caliber redesign across sessions so work can resume with minimum rework. Update after each phase.
 
 ## Status Snapshot

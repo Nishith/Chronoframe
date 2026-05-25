@@ -26,10 +26,10 @@ CLI flags:
 | `--profile NAME` | Load source and destination from `profiles.yaml` |
 | `--dry-run` | Build the copy plan and write a CSV without copying |
 | `--folder-structure` | Output layout: `YYYY/MM/DD`, `YYYY/MM`, `YYYY`, `YYYY/Mon/Event`, or `Flat` |
-| `--verify` / `--skip-verify` | Re-hash each file after copy to verify integrity, or explicitly opt out |
+| `--skip-verify` | Skip re-hashing each file after copy (verification is on by default) |
 | `--revert PATH` | Undo a previous run using its audit receipt JSON |
 | `--rebuild-cache` | Force a full rebuild of the destination index |
-| `--fast-dest` | Load destination index from cache instead of scanning |
+| `--start-fresh` | Discard any resumable copy queue and start the transfer from scratch instead of resuming |
 | `--workers N` | Hashing thread count |
 | `--json` | Emit JSON progress events |
 | `-y`, `--yes` | Auto-confirm prompts |
@@ -163,7 +163,7 @@ It can find:
 - RAW+JPEG pairs.
 - Live Photo HEIC+MOV pairs.
 
-Settings include strict, balanced, and loose similarity presets, dHash prefilter thresholds, burst-mode behavior, pair-as-unit toggles, exact-duplicate grouping, and worker count.
+The **Settings → Deduplicate** tab exposes a Strict/Balanced/Loose similarity preset, a burst-mode toggle with an adjustable time window, RAW+JPEG and Live Photo "treat as a unit" toggles, and an option to surface exact duplicates as their own group. The same Strict/Balanced/Loose presets are also available inline on the Deduplicate setup screen.
 
 Deduplicate caches feature prints, dHash values, dimensions, dates, and quality scores in `.organize_cache.db` so later scans are incremental. Commit writes a dedupe audit receipt before mutating anything, then moves selected files to Trash by default.
 
@@ -225,10 +225,13 @@ mobile_backup:
 | :--- | :--- |
 | `Cmd+O` | Choose source folder |
 | `Shift+Cmd+O` | Choose destination folder |
-| `Shift+Cmd+P` | Toggle saved-profile field |
-| `Cmd+R` | Start a preview |
+| `Shift+Cmd+P` | Refresh profiles |
+| `Cmd+R` | Preview (non-destructive dry run) |
 | `Cmd+Return` | Start a transfer |
-| `Cmd+L` | Toggle activity pane |
+| `Cmd+,` | Open Settings |
+| `Cmd+?` | Open Chronoframe Help |
+
+In the Deduplicate review, `←`/`→` move between photos in a group, `Return` confirms the group, `C` compares candidates, and `Space` opens Rapid Triage.
 
 ## Build From Source
 
@@ -310,5 +313,5 @@ git diff --check
 - The GUI is macOS-specific.
 - The Swift CLI is developed and tested on macOS alongside the app.
 - The destination cache is a performance optimization. Use `--rebuild-cache` when you need a guaranteed fresh destination index.
-- `--fast-dest` is for repeated previews against a stable destination.
+- Use `--start-fresh` to ignore a resumable copy queue from an interrupted run and start the transfer from scratch.
 - Releases can be packaged with the Release Package GitHub Actions workflow or locally with `ui/archive.sh`, then uploaded to GitHub Releases with a checksum.

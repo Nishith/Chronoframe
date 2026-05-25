@@ -32,16 +32,16 @@
       <h2>Getting started</h2>
       <h3>Organize photos</h3>
       <ul>
-        <li>Open <strong>Organize</strong> and choose the folder with your unsorted photos and videos.</li>
-        <li>Choose a separate destination folder and pick a folder layout.</li>
-        <li>Click <strong>Preview</strong>, review anything that needs attention (such as unknown dates), then click <strong>Transfer</strong>.</li>
+        <li>Open <strong>Organize &rarr; Setup</strong> and choose the folder with your unsorted photos and videos.</li>
+        <li>Choose a separate destination folder. Chronoframe uses a <code>YYYY/MM/DD</code> layout by default; change it in <strong>Settings &rarr; Layout</strong>.</li>
+        <li>Click <strong>Preview Plan</strong>, review anything that needs attention (such as unknown dates) on the <strong>Run</strong> tab, then click <strong>Start Transfer</strong>.</li>
         <li>Your source folder is never changed. Review the run under <strong>History</strong>, and use <strong>Revert</strong> if needed.</li>
       </ul>
       <h3>Deduplicate photos</h3>
       <ul>
-        <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or use your Organize destination.</li>
-        <li>Click <strong>Scan</strong>, review each duplicate group, and choose what to keep.</li>
-        <li>Commit only after the plan looks right. Selected duplicates move to the macOS Trash.</li>
+        <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or reuse a recent one.</li>
+        <li>Pick a <strong>Detection</strong> preset (Strict, Balanced, or Loose), click <strong>Start Scan</strong>, review each group, and choose what to keep.</li>
+        <li>Click <strong>Move to Trash</strong> only after the plan looks right. Selected duplicates move to the macOS Trash.</li>
       </ul>
 
       <h2>Frequently asked questions</h2>
@@ -64,7 +64,7 @@
       </div>
       <div class="qa">
         <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>
-        <p class="a">Exact-duplicate detection compares file content, not filenames, so two files match only when their bytes are identical. Photos saved with different compression, metadata, or formats won't be exact matches &mdash; use the similar-photos review to compare them, and adjust the similarity strictness in Deduplicate settings.</p>
+        <p class="a">Exact-duplicate detection compares file content, not filenames, so two files match only when their bytes are identical. Photos saved with different compression, metadata, or formats won't be exact matches &mdash; use the similar-photos review to compare them, and adjust the <strong>Detection</strong> preset (Strict, Balanced, or Loose) to surface more candidates.</p>
       </div>
       <div class="qa">
         <p class="q">Does Deduplicate permanently delete files?</p>
@@ -102,8 +102,8 @@
         <p class="a">Make sure the drive is mounted in Finder (try unplugging and reconnecting it). If it's encrypted, unlock it first.</p>
       </div>
       <div class="qa">
-        <p class="q">The Commit button in Deduplicate is grayed out.</p>
-        <p class="a">Commit activates once you've made keep/delete choices for at least one duplicate group. Select a group and mark what to keep and what to remove.</p>
+        <p class="q">The Move to Trash button in Deduplicate is grayed out.</p>
+        <p class="a">It activates once you've marked at least one file for removal. Select a group and choose what to keep and what to remove, or use <strong>Auto-Accept Safe</strong> to clear the obvious exact copies.</p>
       </div>
 
       <h2>Contact us</h2>
