@@ -62,7 +62,7 @@ jobs:
           XDG_CACHE_HOME="$RUNNER_TEMP/swiftpm-cache" \
           CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/modulecache" \
           SWIFTPM_MODULECACHE_OVERRIDE="$RUNNER_TEMP/modulecache" \
-            swift build --package-path ui --product ChronoframeApp
+            swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store
       - uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba # v4
         with:
           category: "/language:swift"

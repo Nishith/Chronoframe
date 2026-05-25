@@ -138,7 +138,7 @@ The shared Xcode scheme runs the macOS UI-test target only. SwiftPM remains the 
 CI-like Swift CodeQL build:
 
 ```bash
-/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift build --package-path ui --product ChronoframeApp"
+/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store"
 ```
 
 Before committing, also run:
@@ -174,12 +174,13 @@ HOME="$RUNNER_TEMP/swiftpm-home" \
 XDG_CACHE_HOME="$RUNNER_TEMP/swiftpm-cache" \
 CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/modulecache" \
 SWIFTPM_MODULECACHE_OVERRIDE="$RUNNER_TEMP/modulecache" \
-  swift build --package-path ui --product ChronoframeApp
+  swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store
 ```
 
 Swift CodeQL can look stuck for a long time while compiling under tracing. If it
-times out, prefer narrowing or optimizing the SwiftPM CodeQL build path instead
-of restoring the slower traced Xcode build on push.
+times out, prefer optimizing the full app SwiftPM CodeQL build path before
+considering narrower build scope or restoring the slower traced Xcode build on
+push.
 
 Important CI trap: SwiftPM tests and CodeQL are not enough to prove Xcode
 project membership. If you add a Swift source file that must compile in the app,
