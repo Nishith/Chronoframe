@@ -38,8 +38,4 @@ Chronoframe does not permanently delete duplicates. Deduplicate moves files you 
 
 ## Contact
 
-For privacy or support questions, contact:
-
-Nishith Nand
-
-support@nishithnand.com
+For privacy or support questions, contact us at support@chronoframe.app.
