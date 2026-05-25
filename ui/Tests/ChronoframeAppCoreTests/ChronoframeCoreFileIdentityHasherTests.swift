@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import XCTest
 @testable import ChronoframeCore
 
@@ -67,6 +68,33 @@ final class ChronoframeCoreFileIdentityHasherTests: XCTestCase {
             outcome.identity?.rawValue,
             "5_1a486e31c373793e04ad3981405201d7b52e8e85c07bcc79c51704918e6a1a311dc9ceebba0eb132e2d638b3ae09fd4ad9913a75674f59fabf5287fa0c436fd6"
         )
+    }
+
+    func testHashIdentityFromDescriptorMatchesPathHash() throws {
+        let fileURL = try writeFile(named: "descriptor.jpg", contents: "alpha")
+        let descriptor = Darwin.open(fileURL.path, O_RDONLY | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { Darwin.close(descriptor) }
+
+        let identity = try FileIdentityHasher().hashIdentity(descriptor: descriptor, size: 5)
+
+        XCTAssertEqual(
+            identity.rawValue,
+            "5_1a486e31c373793e04ad3981405201d7b52e8e85c07bcc79c51704918e6a1a311dc9ceebba0eb132e2d638b3ae09fd4ad9913a75674f59fabf5287fa0c436fd6"
+        )
+    }
+
+    func testProcessFileReturnsMissingResultWhenRegularFileCannotBeOpened() throws {
+        let fileURL = try writeFile(named: "unreadable.jpg", contents: "alpha")
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: fileURL.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: fileURL.path) }
+
+        let outcome = FileIdentityHasher().processFile(at: fileURL.path, cachedRecord: nil)
+
+        XCTAssertNil(outcome.identity)
+        XCTAssertEqual(outcome.size, 0)
+        XCTAssertEqual(outcome.modificationTime, 0)
+        XCTAssertFalse(outcome.wasHashed)
     }
 
     func testProcessFileReturnsMissingResultForUnreadablePath() {
