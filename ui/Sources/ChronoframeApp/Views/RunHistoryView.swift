@@ -325,17 +325,15 @@ struct RunHistoryView: View {
     private var sparklinePoints: [SparklinePoint] {
         // Process oldest -> newest so the cumulative line trends up.
         let chronological = archiveOverviewReceiptEntries.sorted { $0.createdAt < $1.createdAt }
-        var cumulative = 0
-        return chronological.map { entry in
-            cumulative += 1
-            return SparklinePoint(date: entry.createdAt, cumulative: cumulative)
+        return chronological.enumerated().map { index, entry in
+            SparklinePoint(id: index, date: entry.createdAt, cumulative: index + 1)
         }
     }
 
     private struct SparklinePoint: Identifiable {
+        let id: Int
         let date: Date
         let cumulative: Int
-        var id: Date { date }
     }
 
     private func refreshErrorStrip(_ message: String) -> some View {

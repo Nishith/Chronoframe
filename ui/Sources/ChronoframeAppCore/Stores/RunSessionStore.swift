@@ -200,61 +200,65 @@ public final class RunSessionStore: ObservableObject {
         )
 
         let epoch = currentRunEpoch
-        streamTask = Task { @MainActor [weak self] in
+        streamTask = Task { [weak self] in
             guard let self else { return }
-            do {
-                let executor = ReorganizeExecutor()
-                let observer = ReorganizeExecutionObserver(
-                    onTaskStart: { total in
-                        Task { @MainActor [weak self] in
-                            guard let self, self.currentRunEpoch == epoch else { return }
-                            self.consume(.phaseStarted(phase: .reorganize, total: total))
-                        }
-                    },
-                    onTaskProgress: { completed, total in
-                        Task { @MainActor [weak self] in
-                            guard let self, self.currentRunEpoch == epoch else { return }
-                            self.consume(.phaseProgress(
-                                phase: .reorganize,
-                                completed: completed,
-                                total: total,
-                                bytesCopied: nil,
-                                bytesTotal: nil,
-                                currentFilePath: nil
-                            ))
-                        }
-                    },
-                    onIssue: { issue in
-                        Task { @MainActor [weak self] in
-                            guard let self, self.currentRunEpoch == epoch else { return }
-                            self.consume(.issue(issue))
-                        }
+            // Run the synchronous revert (file hashing + moves) off the main
+            // actor so it cannot freeze the UI on large destination libraries.
+            let executor = ReorganizeExecutor()
+            let observer = ReorganizeExecutionObserver(
+                onTaskStart: { total in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.consume(.phaseStarted(phase: .reorganize, total: total))
                     }
-                )
-                let result = try executor.revert(receiptURL: receiptURL, observer: observer)
-                guard self.currentRunEpoch == epoch else { return }
-                consume(.phaseCompleted(
-                    phase: .reorganize,
-                    result: RunPhaseResult(
-                        failedCount: result.failedCount,
-                        skippedCount: result.skippedCount,
-                        movedCount: result.movedCount
-                    )
-                ))
-                consume(.complete(RunSummary(
-                    status: .reorganized,
-                    title: "Reorganize undone",
-                    metrics: RunMetrics(
-                        plannedCount: result.totalMoves,
-                        failedCount: result.failedCount,
-                        skippedCount: result.skippedCount,
-                        movedCount: result.movedCount
-                    ),
-                    artifacts: artifacts
-                )))
-            } catch {
-                guard self.currentRunEpoch == epoch else { return }
-                self.handleFailure(error: error)
+                },
+                onTaskProgress: { completed, total in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.consume(.phaseProgress(
+                            phase: .reorganize,
+                            completed: completed,
+                            total: total,
+                            bytesCopied: nil,
+                            bytesTotal: nil,
+                            currentFilePath: nil
+                        ))
+                    }
+                },
+                onIssue: { issue in
+                    Task { @MainActor [weak self] in
+                        guard let self, self.currentRunEpoch == epoch else { return }
+                        self.consume(.issue(issue))
+                    }
+                }
+            )
+            let outcome = Result { try executor.revert(receiptURL: receiptURL, observer: observer) }
+            await MainActor.run { [weak self] in
+                guard let self, self.currentRunEpoch == epoch else { return }
+                switch outcome {
+                case let .success(result):
+                    self.consume(.phaseCompleted(
+                        phase: .reorganize,
+                        result: RunPhaseResult(
+                            failedCount: result.failedCount,
+                            skippedCount: result.skippedCount,
+                            movedCount: result.movedCount
+                        )
+                    ))
+                    self.consume(.complete(RunSummary(
+                        status: .reorganized,
+                        title: "Reorganize undone",
+                        metrics: RunMetrics(
+                            plannedCount: result.totalMoves,
+                            failedCount: result.failedCount,
+                            skippedCount: result.skippedCount,
+                            movedCount: result.movedCount
+                        ),
+                        artifacts: self.artifacts
+                    )))
+                case let .failure(error):
+                    self.handleFailure(error: error)
+                }
             }
         }
     }

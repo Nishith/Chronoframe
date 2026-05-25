@@ -992,7 +992,7 @@ public struct TransferExecutor: Sendable {
         return POSIXErrorCode(rawValue: Int32(nsError.code))
     }
 
-fileprivate static let receiptTimestampFormatter: DateFormatter = {
+    fileprivate static let receiptTimestampFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
