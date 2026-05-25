@@ -99,6 +99,29 @@ final class RunHistoryIndexerTests: XCTestCase {
         XCTAssertEqual(dedupeEntries.first?.relativePath, ".organize_logs/dedupe_audit_receipt_20260420_140000.json")
     }
 
+    func testFilenameTimestampsAreParsedInArtifactTimezone() throws {
+        let logsDirectory = temporaryDirectoryURL.appendingPathComponent(".organize_logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+        let receipt = logsDirectory.appendingPathComponent("audit_receipt_20260524_234106_ABC.json")
+        try "{}".write(to: receipt, atomically: true, encoding: .utf8)
+        try setModificationDate(Date(timeIntervalSince1970: 1), for: receipt)
+
+        let losAngeles = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let indexer = RunHistoryIndexer(artifactTimestampTimeZone: losAngeles)
+        let entry = try XCTUnwrap(try indexer.index(destinationRoot: temporaryDirectoryURL.path).first)
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = losAngeles
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: entry.createdAt)
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 5)
+        XCTAssertEqual(components.day, 24)
+        XCTAssertEqual(components.hour, 23)
+        XCTAssertEqual(components.minute, 41)
+        XCTAssertEqual(components.second, 6)
+    }
+
     private func setModificationDate(_ date: Date, for url: URL) throws {
         try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
     }
