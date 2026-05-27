@@ -36,3 +36,15 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
+      - name: Verify public site
+        run: |
+          set -euo pipefail
+          for url in \
+            "${{ steps.deployment.outputs.page_url }}" \
+            "https://chronoframe.app/support.html" \
+            "https://chronoframe.app/privacy.html" \
+            "https://chronoframe.app/support/" \
+            "https://chronoframe.app/privacy/"
+          do
+            curl --fail --silent --show-error --location --retry 5 --retry-delay 3 "$url" >/dev/null
+          done
