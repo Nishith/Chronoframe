@@ -497,19 +497,26 @@ struct ClusterDetailPane: View {
         // so VoiceOver announces the filename and Keep/Delete state instead of
         // raw SF Symbol names.
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(memberAccessibilityLabel(member: member, decision: decision, cluster: cluster))
+        .accessibilityLabel(DeduplicateAccessibilityText.memberLabel(
+            member: member,
+            isSuggestedKeeper: isSuggestedKeeper(member, in: cluster)
+        ))
+        .accessibilityValue(DeduplicateAccessibilityText.memberValue(
+            decision: decision,
+            isFocused: member.path == focusedMemberPath,
+            confidence: cluster.annotation?.confidence
+        ))
+        .accessibilityHint("Selects this photo for comparison and decision review")
         .accessibilityAddTraits(isFocused ? .isSelected : [])
-    }
-
-    private func memberAccessibilityLabel(
-        member: PhotoCandidate,
-        decision: DedupeDecision,
-        cluster: DuplicateCluster
-    ) -> String {
-        let name = URL(fileURLWithPath: member.path).lastPathComponent
-        let state = decision == .keep ? "Keep" : "Delete"
-        let keeper = isSuggestedKeeper(member, in: cluster) ? ", suggested keeper" : ""
-        return "\(name), \(state)\(keeper)"
+        .accessibilityAction(named: "Focus photo") {
+            focusedMemberPath = member.path
+        }
+        .accessibilityAction(named: "Mark keep") {
+            sessionStore.setDecision(.keep, forPath: member.path)
+        }
+        .accessibilityAction(named: "Mark delete") {
+            sessionStore.setDecision(.delete, forPath: member.path)
+        }
     }
 
     private func photoStageLabel(for member: PhotoCandidate) -> some View {

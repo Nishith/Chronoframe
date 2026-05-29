@@ -77,6 +77,8 @@ struct RapidTriageView: View {
             }
             ProgressView(value: progress)
                 .tint(DesignTokens.ColorSystem.accentAction)
+                .accessibilityLabel("Rapid triage progress")
+                .accessibilityValue("\(currentIndex) of \(clustersToReview.count) groups reviewed")
         }
         .padding(DesignTokens.Spacing.md)
     }
@@ -116,6 +118,25 @@ struct RapidTriageView: View {
             }
         }
         .padding(DesignTokens.Spacing.lg)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(DeduplicateAccessibilityText.rapidTriageLabel(
+            cluster: cluster,
+            currentIndex: currentIndex,
+            totalCount: clustersToReview.count
+        ))
+        .accessibilityValue(DeduplicateAccessibilityText.rapidTriageValue(
+            cluster: cluster,
+            reclaimableBytes: reclaimableBytes
+        ))
+        .accessibilityAction(named: "Accept suggestion") {
+            acceptCurrent()
+        }
+        .accessibilityAction(named: "Skip group") {
+            skipCurrent()
+        }
+        .accessibilityAction(named: "Compare photos") {
+            showingComparison = true
+        }
     }
 
     private func heroImage(for cluster: DuplicateCluster) -> some View {
@@ -130,6 +151,8 @@ struct RapidTriageView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(radius: 4)
+                .accessibilityLabel("Suggested keeper")
+                .accessibilityValue(URL(fileURLWithPath: keeper.path).lastPathComponent)
             }
         }
     }
@@ -166,10 +189,12 @@ struct RapidTriageView: View {
                             .padding(2)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(suggestionLabel): \(URL(fileURLWithPath: member.path).lastPathComponent)")
+                    .accessibilityLabel(URL(fileURLWithPath: member.path).lastPathComponent)
+                    .accessibilityValue(suggestionLabel)
                 }
             }
         }
+        .accessibilityLabel("Photos in this group")
     }
 
     // MARK: - Action Bar
@@ -270,4 +295,5 @@ struct RapidTriageView: View {
                 dragOffset = .zero
             }
     }
+
 }
