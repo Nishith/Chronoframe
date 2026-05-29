@@ -378,7 +378,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
                 isFocused: true,
                 confidence: cluster.annotation?.confidence
             ),
-            "Marked keep, selected, Auto confidence group"
+            "Marked keep, selected, high confidence group"
         )
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberValue(
