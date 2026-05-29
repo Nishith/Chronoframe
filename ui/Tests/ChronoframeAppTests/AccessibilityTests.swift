@@ -8,13 +8,11 @@ import XCTest
 /// Validates that accessibility identifiers referenced from XCUITest lookup code are stable
 /// string constants, and documents how to run the full VoiceOver / accessibility audit.
 ///
-/// ## Full accessibility audit (manual / CI with Display):
-/// On macOS 14+ with an XCUITest target, add:
-/// ```swift
-/// let app = XCUIApplication()
-/// app.launch()
-/// try app.performAccessibilityAudit()
-/// ```
+/// ## Full accessibility audit (automated):
+/// `ChronoframeUITests.testAccessibilityAuditAcrossScenarios` runs Apple's
+/// `performAccessibilityAudit()` against every UI scenario on a GUI runner
+/// (macOS 14+). It is warn-only until the initial backlog is cleared (see
+/// `auditFailsBuild` in that file), then becomes a hard gate.
 ///
 /// ## VoiceOver smoke test (manual):
 /// 1. Build and launch Chronoframe.
