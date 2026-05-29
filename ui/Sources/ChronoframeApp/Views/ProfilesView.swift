@@ -43,11 +43,11 @@ struct ProfilesView: View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Profiles")
-                    .font(DesignTokens.Typography.title)
+                    .scaledFont(.title)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                 Text(summaryMessage)
-                    .font(DesignTokens.Typography.subtitle)
+                    .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
 
@@ -118,13 +118,13 @@ struct ProfilesView: View {
     private func currentPathRow(label: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
             Text(label)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                 .tracking(0.6)
                 .frame(width: 96, alignment: .leading)
 
             Text(value.isEmpty ? "Not set" : value)
-                .font(DesignTokens.Typography.mono)
+                .scaledFont(.mono)
                 .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.inkMuted : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
@@ -207,7 +207,7 @@ private struct ProfileTile: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
                     Text(profile.name)
-                        .font(DesignTokens.Typography.cardTitle)
+                        .scaledFont(.cardTitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -268,13 +268,13 @@ private struct ProfileTile: View {
                 .frame(width: 14)
 
             Text(label)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                 .tracking(0.6)
                 .frame(width: 36, alignment: .leading)
 
             Text(value)
-                .font(DesignTokens.Typography.mono)
+                .scaledFont(.mono)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)

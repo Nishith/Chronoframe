@@ -137,12 +137,12 @@ struct RunProgressSurface: View {
                 if isCopying {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text(model.context.metrics.copiedCount.formatted())
-                            .font(DesignTokens.Typography.display)
+                            .scaledFont(.display)
                             .foregroundStyle(model.heroState.tone.color)
                             .contentTransition(.numericText())
                             .monospacedDigit()
                         Text("copied")
-                            .font(DesignTokens.Typography.subtitle)
+                            .scaledFont(.subtitle)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
                     .motion(Motion.mechanical, value: model.context.metrics.copiedCount)
@@ -210,7 +210,7 @@ struct RunPreviewReviewSection: View {
     private var reviewSummary: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Preview Review")
-                .font(DesignTokens.Typography.cardTitle)
+                .scaledFont(.cardTitle)
                 .foregroundStyle(DesignTokens.Color.inkPrimary)
 
             Text(model.previewReviewMessage)
@@ -365,7 +365,7 @@ struct RunSnapshotPanel: View {
         MeridianSurfaceCard(style: .inner, tint: model.heroState.tone.color) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Run Snapshot")
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
 
                 SummaryLine(title: "Status", value: model.heroState.badgeTitle)
                 SummaryLine(title: "Speed", value: model.speedSummaryValue)
@@ -386,7 +386,7 @@ struct RunArtifactsPanel: View {
         MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.amber) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Artifacts")
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
 
                 Text(model.destinationSummaryValue)
                     .font(.subheadline.monospaced())
@@ -451,7 +451,7 @@ struct RunIssuesPanel: View {
             MeridianSurfaceCard(style: .inner, tint: model.issueTone.color) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Issues")
-                        .font(DesignTokens.Typography.cardTitle)
+                        .scaledFont(.cardTitle)
 
                     SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                     SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
@@ -537,7 +537,7 @@ struct RunConsolePanel: View {
         MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.inkMuted) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Console")
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
@@ -585,17 +585,17 @@ struct RunIdleOnboardingCard: View {
     private func onboardingStep(number: String, title: String, message: String) -> some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
             Text(number)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.accentAction)
                 .frame(width: 18, height: 18)
                 .background(DesignTokens.ColorSystem.accentAction.opacity(0.12), in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(DesignTokens.Typography.body.weight(.semibold))
+                    .scaledFont(.body, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 Text(message)
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -16,7 +16,7 @@ struct PreviewReviewPanel: View {
                     HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Review Before Transfer")
-                                .font(DesignTokens.Typography.cardTitle)
+                                .scaledFont(.cardTitle)
                             Text(headerMessage)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)

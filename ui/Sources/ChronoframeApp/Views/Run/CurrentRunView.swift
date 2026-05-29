@@ -103,7 +103,7 @@ private struct RunOutcomeSummaryCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Run Summary")
-                        .font(DesignTokens.Typography.cardTitle)
+                        .scaledFont(.cardTitle)
                     Spacer()
                     Button("Open History") {
                         appState.navigate(to: .organize(.history))

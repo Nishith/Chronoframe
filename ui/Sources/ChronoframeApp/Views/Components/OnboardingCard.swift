@@ -37,11 +37,11 @@ struct OnboardingCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(DesignTokens.Typography.cardTitle)
+                        .scaledFont(.cardTitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                     Text(subtitle)
-                        .font(DesignTokens.Typography.subtitle)
+                        .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
@@ -52,7 +52,7 @@ struct OnboardingCard: View {
                                     Text("•")
                                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                                     Text(bullet)
-                                        .font(DesignTokens.Typography.subtitle)
+                                        .scaledFont(.subtitle)
                                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }

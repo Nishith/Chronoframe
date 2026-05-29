@@ -73,9 +73,9 @@ struct DeduplicateView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Deduplicate")
-                        .font(DesignTokens.Typography.title)
+                        .scaledFont(.title)
                     Text("Find similar shots and prune.")
-                        .font(DesignTokens.Typography.subtitle)
+                        .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
 

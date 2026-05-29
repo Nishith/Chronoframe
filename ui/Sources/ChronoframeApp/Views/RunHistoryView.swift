@@ -185,11 +185,11 @@ struct RunHistoryView: View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Archive")
-                    .font(DesignTokens.Typography.title)
+                    .scaledFont(.title)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                 Text(headerMessage)
-                    .font(DesignTokens.Typography.subtitle)
+                    .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(2)
             }
@@ -229,19 +229,19 @@ struct RunHistoryView: View {
             HStack(alignment: .center, spacing: DesignTokens.Spacing.lg) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(totalFramesArchived.formatted())
-                        .font(DesignTokens.Typography.display)
+                        .scaledFont(.display)
                         .monospacedDigit()
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .contentTransition(.numericText())
 
                     Text("frames archived")
-                        .font(DesignTokens.Typography.label)
+                        .scaledFont(.label)
                         .tracking(0.8)
                         .textCase(.uppercase)
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
 
                     Text(sinceLabel)
-                        .font(DesignTokens.Typography.body)
+                        .scaledFont(.body)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .frame(maxWidth: 220, alignment: .leading)
@@ -341,7 +341,7 @@ struct RunHistoryView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
             Text(message)
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
         }
         .padding(DesignTokens.Layout.compactPadding)
@@ -488,7 +488,7 @@ struct RunHistoryView: View {
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(1)
                 Text(record.sourcePath)
-                    .font(DesignTokens.Typography.mono)
+                    .scaledFont(.mono)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -502,7 +502,7 @@ struct RunHistoryView: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
                     Text("\(record.totalCopiedCount) copied")
                 }
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
             }
 
@@ -602,7 +602,7 @@ struct RunHistoryView: View {
 
     private func sectionHeader(for date: Date) -> some View {
         Text(date.formatted(date: .abbreviated, time: .omitted).uppercased())
-            .font(DesignTokens.Typography.label)
+            .scaledFont(.label)
             .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
             .tracking(0.8)
             .padding(.bottom, DesignTokens.Spacing.xs)
@@ -624,7 +624,7 @@ struct RunHistoryView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry.title)
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .fontWeight(.medium)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(1)
@@ -641,14 +641,14 @@ struct RunHistoryView: View {
                         Text(Self.fileSizeFormatter.string(fromByteCount: size))
                     }
                 }
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
             }
 
             Spacer(minLength: DesignTokens.Spacing.sm)
 
             Text(entry.relativePath)
-                .font(DesignTokens.Typography.mono)
+                .scaledFont(.mono)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                 .lineLimit(1)
                 .truncationMode(.middle)
