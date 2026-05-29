@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#endif
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
@@ -9,7 +12,34 @@ struct RunHeroSection: View {
     let appState: AppState
 
     @State private var washOpacity: Double = 0
+    @State private var lastAnnouncementSnapshot: RunAnnouncementPlanner.Snapshot?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var announcementSnapshot: RunAnnouncementPlanner.Snapshot {
+        RunAnnouncementPlanner.Snapshot(
+            status: model.context.status,
+            phase: model.context.currentPhase,
+            progress: model.context.progress
+        )
+    }
+
+    /// Posts a VoiceOver announcement for meaningful run-state transitions
+    /// (phase changes, coarse progress, completion) without mutating any store.
+    private func announceRunStateChange(to newSnapshot: RunAnnouncementPlanner.Snapshot) {
+        let previous = lastAnnouncementSnapshot ?? newSnapshot
+        lastAnnouncementSnapshot = newSnapshot
+        guard let message = RunAnnouncementPlanner.announcement(from: previous, to: newSnapshot) else { return }
+        #if canImport(AppKit)
+        NSAccessibility.post(
+            element: NSApp as Any,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
+        #endif
+    }
 
     var body: some View {
         DetailHeroCard(
@@ -52,6 +82,9 @@ struct RunHeroSection: View {
                     washOpacity = 0
                 }
             }
+        }
+        .onChange(of: announcementSnapshot) { newSnapshot in
+            announceRunStateChange(to: newSnapshot)
         }
     }
 
