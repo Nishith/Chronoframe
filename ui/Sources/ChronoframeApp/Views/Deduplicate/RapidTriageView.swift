@@ -140,6 +140,10 @@ struct RapidTriageView: View {
                 ForEach(cluster.members) { member in
                     let isKeeper = cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
                     let glyph: DedupeDecisionGlyph = isKeeper ? .keep : .delete
+                    // Triage shows the cluster's *suggestion* — nothing is
+                    // committed until the user accepts/skips — so the label is
+                    // phrased as a suggestion, not a final keep/delete decision.
+                    let suggestionLabel = isKeeper ? "Suggested keeper" : "Suggested for removal"
                     DedupeThumbnailView(
                         path: member.path,
                         size: CGSize(width: 56, height: 56),
@@ -162,7 +166,7 @@ struct RapidTriageView: View {
                             .padding(2)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(glyph.label): \(URL(fileURLWithPath: member.path).lastPathComponent)")
+                    .accessibilityLabel("\(suggestionLabel): \(URL(fileURLWithPath: member.path).lastPathComponent)")
                 }
             }
         }
