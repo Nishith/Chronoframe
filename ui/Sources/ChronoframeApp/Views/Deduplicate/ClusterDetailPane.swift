@@ -51,7 +51,7 @@ struct ClusterDetailPane: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .accessibilityIdentifier("dedupeReviewDetail")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewDetail)
     }
 
     @ViewBuilder
@@ -111,7 +111,7 @@ struct ClusterDetailPane: View {
         .frame(height: height)
         .background(.ultraThinMaterial)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("dedupeMemberStrip")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeMemberStrip)
     }
 
     private func memberStripWide(cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
@@ -151,7 +151,7 @@ struct ClusterDetailPane: View {
         }
         .fixedSize()
         .keyboardShortcut(.return, modifiers: [])
-        .accessibilityIdentifier("dedupeAcceptClusterSuggestionButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptClusterSuggestionButton)
         .accessibilityLabel("Confirm and move to next group")
         .accessibilityHint("Confirms keep and delete choices for this group, then selects the next group")
     }

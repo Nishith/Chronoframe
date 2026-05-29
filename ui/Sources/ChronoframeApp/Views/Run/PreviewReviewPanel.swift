@@ -61,7 +61,7 @@ struct PreviewReviewPanel: View {
                 }
             }
             .pickerStyle(.segmented)
-            .accessibilityIdentifier("previewReviewFilter")
+            .accessibilityIdentifier(AccessibilityIdentifiers.previewReviewFilter)
 
             if store.isLoading {
                 ProgressView("Loading review items...")

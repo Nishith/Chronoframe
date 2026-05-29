@@ -383,7 +383,7 @@ struct RunHistoryView: View {
                 }
             }
         }
-        .accessibilityIdentifier("recoveryCenterSection")
+        .accessibilityIdentifier(AccessibilityIdentifiers.recoveryCenterSection)
     }
 
     private var filteredRecoveryReceipts: [RunHistoryEntry] {
@@ -513,13 +513,13 @@ struct RunHistoryView: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            .accessibilityIdentifier("useHistoricalSourceButton")
+            .accessibilityIdentifier(AccessibilityIdentifiers.useHistoricalSourceButton)
 
             Menu {
                 Button("Reveal in Finder") {
                     appState.revealTransferredSource(record)
                 }
-                .accessibilityIdentifier("revealHistoricalSourceButton")
+                .accessibilityIdentifier(AccessibilityIdentifiers.revealHistoricalSourceButton)
                 Divider()
                 Button("Forget This Source", role: .destructive) {
                     appState.forgetTransferredSource(record)
@@ -559,7 +559,7 @@ struct RunHistoryView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 320)
-                .accessibilityIdentifier("historyFilterControl")
+                .accessibilityIdentifier(AccessibilityIdentifiers.historyFilterControl)
             }
 
             if filteredEntries.isEmpty {
@@ -660,19 +660,19 @@ struct RunHistoryView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             .accessibilityLabel("Open \(entry.title)")
-            .accessibilityIdentifier("openArtifact_\(entry.id)")
+            .accessibilityIdentifier(AccessibilityIdentifiers.openArtifact(entry.id))
 
             Menu {
                 Button("Reveal in Finder") {
                     appState.revealHistoryEntry(entry)
                 }
-                .accessibilityIdentifier("revealArtifact_\(entry.id)")
+                .accessibilityIdentifier(AccessibilityIdentifiers.revealArtifact(entry.id))
                 if entry.kind == .auditReceipt || entry.kind == .dedupeAuditReceipt || entry.kind == .reorganizeAuditReceipt {
                     Divider()
                     Button("Revert this run…") {
                         pendingRevertEntry = entry
                     }
-                    .accessibilityIdentifier("revertArtifact_\(entry.id)")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.revertArtifact(entry.id))
                 }
                 Divider()
                 Button("Move to Trash", role: .destructive) {

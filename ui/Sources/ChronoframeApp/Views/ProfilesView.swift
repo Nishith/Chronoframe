@@ -211,7 +211,7 @@ private struct ProfileTile: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .accessibilityIdentifier("profileName-\(profile.name)")
+                        .accessibilityIdentifier(AccessibilityIdentifiers.profileName(profile.name))
 
                     Spacer(minLength: DesignTokens.Spacing.sm)
 
@@ -219,7 +219,7 @@ private struct ProfileTile: View {
                         Circle()
                             .fill(DesignTokens.ColorSystem.statusActive)
                             .frame(width: 7, height: 7)
-                            .accessibilityIdentifier("activeProfileBadge")
+                            .accessibilityIdentifier(AccessibilityIdentifiers.activeProfileBadge)
                             .accessibilityLabel("Active")
                     }
 

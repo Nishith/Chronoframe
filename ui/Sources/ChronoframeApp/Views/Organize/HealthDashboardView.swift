@@ -36,7 +36,7 @@ struct HealthDashboardView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(healthStore.isRefreshing)
-                    .accessibilityIdentifier("refreshLibraryHealthButton")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.refreshLibraryHealthButton)
                 }
 
                 if healthStore.isRefreshing {

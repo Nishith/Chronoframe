@@ -160,7 +160,7 @@ struct DeduplicateView: View {
                     }
                 }
             }
-            .accessibilityIdentifier("dedupeFolderHistorySection")
+            .accessibilityIdentifier(AccessibilityIdentifiers.dedupeFolderHistorySection)
         }
     }
 
@@ -176,7 +176,7 @@ struct DeduplicateView: View {
                 resume: resumePausedReview,
                 discard: resetDeduplicate
             )
-            .accessibilityIdentifier("dedupePausedScanSection")
+            .accessibilityIdentifier(AccessibilityIdentifiers.dedupePausedScanSection)
         }
     }
 
@@ -221,7 +221,7 @@ struct DeduplicateView: View {
                 Button("Cancel", role: .destructive) {
                     appState.cancelRun()
                 }
-                .accessibilityIdentifier("dedupeCancelCommitButton")
+                .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCancelCommitButton)
             }
         )
     }
@@ -245,7 +245,7 @@ struct DeduplicateView: View {
                 Button("Change Folder") {
                     resetDeduplicate()
                 }
-                .accessibilityIdentifier("dedupeChangeFolderButton")
+                .accessibilityIdentifier(AccessibilityIdentifiers.dedupeChangeFolderButton)
             }
         )
     }
@@ -339,7 +339,7 @@ struct DeduplicateView: View {
             commitFooterCompact(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("dedupeCommitFooter")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitFooter)
         .padding(DesignTokens.Spacing.md)
         .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial)
@@ -468,19 +468,19 @@ struct DeduplicateView: View {
             Button("Change Folder") {
                 abandonReview()
             }
-            .accessibilityIdentifier("dedupeReviewChangeFolderButton")
+            .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewChangeFolderButton)
 
             Button("Adjust Settings") {
                 pauseReviewAndOpenSettings()
             }
-            .accessibilityIdentifier("dedupeReviewSettingsButton")
+            .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewSettingsButton)
 
             Divider()
 
             Button("Quick Review") {
                 showingRapidTriage = true
             }
-            .accessibilityIdentifier("dedupeRapidTriageButton")
+            .accessibilityIdentifier(AccessibilityIdentifiers.dedupeRapidTriageButton)
 
             if highCount > 0 {
                 Button("Auto-Accept Safe (\(highCount))") {
@@ -488,7 +488,7 @@ struct DeduplicateView: View {
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
                 .accessibilityLabel("Accept High-Confidence Clusters")
-                .accessibilityIdentifier("dedupeAcceptHighConfidenceButton")
+                .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptHighConfidenceButton)
                 .accessibilityHint("Accepts suggestions for all high-confidence clusters")
             }
 
@@ -498,12 +498,12 @@ struct DeduplicateView: View {
                 Button("Move Reviewed to Trash (\(reviewedCount) group\(reviewedCount == 1 ? "" : "s"))") {
                     showingCommitReviewedConfirmation = true
                 }
-                .accessibilityIdentifier("dedupeCommitReviewedButton")
+                .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitReviewedButton)
             }
         } label: {
             Label("Options", systemImage: "ellipsis.circle")
         }
-        .accessibilityIdentifier("dedupeReviewActionsMenu")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewActionsMenu)
         .sheet(isPresented: $showingRapidTriage) {
             let reviewClusters = sessionStore.clusters.filter {
                 let level = $0.annotation?.confidence ?? .medium
@@ -529,7 +529,7 @@ struct DeduplicateView: View {
         .buttonStyle(.bordered)
         .fixedSize()
         .accessibilityLabel("Accept High-Confidence Suggestions")
-        .accessibilityIdentifier("dedupeAcceptAllSuggestionsButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptAllSuggestionsButton)
         .accessibilityHint("Marks high-confidence clusters' suggested keepers as keep and the rest as delete")
 
         Spacer().frame(width: DesignTokens.Spacing.lg)
@@ -541,7 +541,7 @@ struct DeduplicateView: View {
         .buttonStyle(.borderedProminent)
         .fixedSize()
         .disabled(toDelete == 0 || sessionStore.status == .committing)
-        .accessibilityIdentifier("dedupeCommitButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitButton)
         .accessibilityHint("Moves the selected files to the Trash after confirmation")
     }
 
@@ -565,7 +565,7 @@ struct DeduplicateView: View {
                     Button("Open Run History") {
                         Task { await appState.openDeduplicateRunHistory() }
                     }
-                    .accessibilityIdentifier("dedupeOpenRunHistoryButton")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.dedupeOpenRunHistoryButton)
 
                     Button("Scan Again") {
                         startScan()
@@ -960,7 +960,7 @@ private struct PausedDeduplicateReviewCard: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(settingsChanged)
-            .accessibilityIdentifier("dedupeResumePausedScanButton")
+            .accessibilityIdentifier(AccessibilityIdentifiers.dedupeResumePausedScanButton)
         }
         .fixedSize()
     }
@@ -1066,7 +1066,7 @@ private struct DeduplicateRunHistoryRow: View {
             Label("Use", systemImage: "arrow.turn.down.right")
         }
         .controlSize(.small)
-        .accessibilityIdentifier("dedupeUseHistoryFolderButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeUseHistoryFolderButton)
     }
 
     private func metric(_ value: String, label: String) -> some View {

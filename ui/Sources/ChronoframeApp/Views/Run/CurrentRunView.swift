@@ -124,7 +124,7 @@ private struct RunOutcomeSummaryCard: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .accessibilityIdentifier("runOutcomeSummaryCard")
+        .accessibilityIdentifier(AccessibilityIdentifiers.runOutcomeSummaryCard)
     }
 
     private func summaryMetric(_ title: String, value: String, tint: Color) -> some View {

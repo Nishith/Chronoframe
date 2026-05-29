@@ -25,25 +25,48 @@ final class AccessibilityTests: XCTestCase {
 
     // MARK: - Identifier stability
 
-    /// Ensures the accessibility identifiers used in XCUITest lookup code are non-empty.
-    /// A typo here would cause XCUITest queries to silently miss elements.
-    func testAccessibilityIdentifiersAreNonEmpty() {
-        let identifiers: [String] = [
-            "previewButton",
-            "transferButton",
-            "profilePicker",
-            "dropZone",
-            "consoleScrollView",
-            "openDestinationButton",
-            "openReportButton",
-            "openLogsButton",
-            "startTransferFromPreviewButton",
-        ]
-
-        for id in identifiers {
-            XCTAssertFalse(id.isEmpty, "Accessibility identifier must be non-empty: \(id)")
+    /// Ensures every centralized accessibility identifier is non-empty and free of
+    /// spaces. A typo or stray space here would cause XCUITest queries to silently
+    /// miss elements.
+    func testAccessibilityIdentifiersAreNonEmptyAndSpaceFree() {
+        XCTAssertFalse(AccessibilityIdentifiers.all.isEmpty, "Expected a non-empty identifier table")
+        for id in AccessibilityIdentifiers.all {
+            XCTAssertFalse(id.isEmpty, "Accessibility identifier must be non-empty")
             XCTAssertFalse(id.contains(" "), "Accessibility identifier must not contain spaces: \(id)")
         }
+    }
+
+    /// Catches copy-paste collisions: two distinct constants resolving to the same
+    /// string would make XCUITest queries ambiguous.
+    func testAccessibilityIdentifiersAreUnique() {
+        let all = AccessibilityIdentifiers.all
+        XCTAssertEqual(Set(all).count, all.count, "Accessibility identifiers must be unique")
+    }
+
+    /// Contract test binding the App target to the XCUITest target: the identifiers
+    /// `ChronoframeUITests` looks up by literal must keep resolving to those literals.
+    /// If a constant value changes, update the UI test (or this assertion) deliberately.
+    func testAccessibilityIdentifierContractWithUITests() {
+        XCTAssertEqual(AccessibilityIdentifiers.previewButton, "previewButton")
+        XCTAssertEqual(AccessibilityIdentifiers.transferButton, "transferButton")
+        XCTAssertEqual(AccessibilityIdentifiers.startTransferFromPreviewButton, "startTransferFromPreviewButton")
+        XCTAssertEqual(AccessibilityIdentifiers.openDestinationButton, "openDestinationButton")
+        XCTAssertEqual(AccessibilityIdentifiers.chooseSourceButton, "chooseSourceButton")
+        XCTAssertEqual(AccessibilityIdentifiers.chooseDestinationButton, "chooseDestinationButton")
+        XCTAssertEqual(AccessibilityIdentifiers.dropZone, "dropZone")
+        XCTAssertEqual(AccessibilityIdentifiers.runWorkspaceTabs, "runWorkspaceTabs")
+        XCTAssertEqual(AccessibilityIdentifiers.historyFilterControl, "historyFilterControl")
+        XCTAssertEqual(AccessibilityIdentifiers.activeProfileBadge, "activeProfileBadge")
+        XCTAssertEqual(AccessibilityIdentifiers.dedupeReviewClusterList, "dedupeReviewClusterList")
+        XCTAssertEqual(AccessibilityIdentifiers.dedupeCommitFooter, "dedupeCommitFooter")
+        XCTAssertEqual(AccessibilityIdentifiers.dedupeAcceptClusterSuggestionButton, "dedupeAcceptClusterSuggestionButton")
+        XCTAssertEqual(AccessibilityIdentifiers.dedupeAcceptAllSuggestionsButton, "dedupeAcceptAllSuggestionsButton")
+        XCTAssertEqual(AccessibilityIdentifiers.dedupeCommitButton, "dedupeCommitButton")
+        // Parameterized identifiers must keep their prefix shape.
+        XCTAssertEqual(AccessibilityIdentifiers.profileName("Meridian Travel"), "profileName-Meridian Travel")
+        XCTAssertEqual(AccessibilityIdentifiers.openArtifact("abc"), "openArtifact_abc")
+        XCTAssertEqual(AccessibilityIdentifiers.revealArtifact("abc"), "revealArtifact_abc")
+        XCTAssertEqual(AccessibilityIdentifiers.revertArtifact("abc"), "revertArtifact_abc")
     }
 
     // MARK: - DesignTokens sanity

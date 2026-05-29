@@ -239,7 +239,7 @@ struct RunPreviewReviewSection: View {
         .controlSize(.large)
         .disabled(!model.canStartTransferFromPreview)
         .accessibilityLabel("Start transfer now")
-        .accessibilityIdentifier("startTransferFromPreviewButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.startTransferFromPreviewButton)
     }
 }
 
@@ -319,7 +319,7 @@ struct RunWorkspaceShell: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 340)
-                    .accessibilityIdentifier("runWorkspaceTabs")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.runWorkspaceTabs)
                 }
 
                 workspaceContent
@@ -414,21 +414,21 @@ struct RunArtifactsPanel: View {
         }
         .disabled(model.destinationRoot == nil)
         .accessibilityLabel("Open destination folder in Finder")
-        .accessibilityIdentifier("openDestinationButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.openDestinationButton)
 
         Button("Open Report") {
             appState.openReport()
         }
         .disabled(model.reportPath == nil)
         .accessibilityLabel("Open dry-run report")
-        .accessibilityIdentifier("openReportButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.openReportButton)
 
         Button("Open Logs") {
             appState.openLogsDirectory()
         }
         .disabled(model.logsDirectoryPath == nil)
         .accessibilityLabel("Open logs directory in Finder")
-        .accessibilityIdentifier("openLogsButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.openLogsButton)
     }
 }
 
@@ -557,7 +557,7 @@ struct RunConsolePanel: View {
                 }
                 .frame(minHeight: DesignTokens.Layout.consoleMinHeight, idealHeight: DesignTokens.Layout.consoleIdealHeight)
                 .accessibilityLabel("Run log")
-                .accessibilityIdentifier("consoleScrollView")
+                .accessibilityIdentifier(AccessibilityIdentifiers.consoleScrollView)
             }
         }
     }
@@ -579,7 +579,7 @@ struct RunIdleOnboardingCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("runIdleOnboardingCard")
+        .accessibilityIdentifier(AccessibilityIdentifiers.runIdleOnboardingCard)
     }
 
     private func onboardingStep(number: String, title: String, message: String) -> some View {
