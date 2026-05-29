@@ -11,15 +11,15 @@ import ChronoframeAppCore
 /// "high / medium / low" vocabulary (not the "Auto / Review / Careful" UI
 /// shorthand) so it reads consistently across surfaces.
 enum DeduplicateAccessibilityText {
-    private static let byteFormatter: ByteCountFormatter = {
+    // Built per call rather than cached in a `static let`: `ByteCountFormatter`
+    // is not `Sendable`, so a stored static would trip Swift 6 strict
+    // concurrency on this non-isolated enum. Label composition is not a hot
+    // path, so the allocation cost is negligible.
+    private static func formattedByteCount(_ byteCount: Int64) -> String {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useMB, .useGB]
         formatter.countStyle = .file
-        return formatter
-    }()
-
-    private static func formattedByteCount(_ byteCount: Int64) -> String {
-        byteFormatter.string(fromByteCount: byteCount)
+        return formatter.string(fromByteCount: byteCount)
     }
 
     static func confidenceLabel(_ level: ConfidenceLevel?) -> String {
