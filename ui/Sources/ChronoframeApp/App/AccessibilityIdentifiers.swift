@@ -84,14 +84,19 @@ enum AccessibilityIdentifiers {
 
     // MARK: - Per-row dynamic identifiers
 
+    // Accept any `CustomStringConvertible` so these reproduce the original
+    // string-interpolation behavior exactly — the row identifiers were keyed by
+    // a `UUID` (`"openArtifact_\(entry.id)"`), whose interpolation equals its
+    // `uuidString` — while still working with `String` keys (e.g. profile names).
+
     /// Identifier for the "Open" action of a history artifact row.
-    static func openArtifact(_ id: String) -> String { "openArtifact_\(id)" }
+    static func openArtifact(_ id: some CustomStringConvertible) -> String { "openArtifact_\(id)" }
     /// Identifier for the "Reveal in Finder" action of a history artifact row.
-    static func revealArtifact(_ id: String) -> String { "revealArtifact_\(id)" }
+    static func revealArtifact(_ id: some CustomStringConvertible) -> String { "revealArtifact_\(id)" }
     /// Identifier for the "Revert" action of a history artifact row.
-    static func revertArtifact(_ id: String) -> String { "revertArtifact_\(id)" }
+    static func revertArtifact(_ id: some CustomStringConvertible) -> String { "revertArtifact_\(id)" }
     /// Identifier for a saved-profile row, keyed by profile name.
-    static func profileName(_ name: String) -> String { "profileName-\(name)" }
+    static func profileName(_ name: some CustomStringConvertible) -> String { "profileName-\(name)" }
 
     // MARK: - Enumeration
 
