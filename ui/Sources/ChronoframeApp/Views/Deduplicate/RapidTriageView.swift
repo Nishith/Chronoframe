@@ -104,6 +104,8 @@ struct RapidTriageView: View {
                 .offset(dragOffset)
                 .gesture(swipeGesture)
                 .motion(.spring(response: 0.3), value: dragOffset)
+                .accessibilityLabel("Suggested keeper for this duplicate group")
+                .accessibilityHint("Swipe right or press Return to accept; swipe left or press the Left arrow to skip.")
 
             memberStrip(for: cluster)
 
@@ -242,10 +244,10 @@ struct RapidTriageView: View {
                 dragOffset = value.translation
             }
             .onEnded { value in
-                if value.translation.width > 100 {
-                    acceptCurrent()
-                } else if value.translation.width < -100 {
-                    skipCurrent()
+                switch RapidTriageSwipe.outcome(forTranslationWidth: value.translation.width) {
+                case .accept: acceptCurrent()
+                case .skip: skipCurrent()
+                case .none: break
                 }
                 dragOffset = .zero
             }

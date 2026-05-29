@@ -582,6 +582,7 @@ struct SetupDropZone: View {
             onDrop(providers)
         }
         .accessibilityLabel(AccessibilityLabels.dropZone)
+        .accessibilityHint(AccessibilityLabels.dropZoneHint)
         .accessibilityIdentifier(AccessibilityIdentifiers.dropZone)
     }
 }
