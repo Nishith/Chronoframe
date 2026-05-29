@@ -44,11 +44,11 @@ struct RunHeroSection: View {
         }
         .onChange(of: model.context.status) { newValue in
             guard newValue == .finished, !reduceMotion else { return }
-            withAnimation(Motion.wash) {
+            Motion.withMotion(Motion.wash, reduceMotion: reduceMotion) {
                 washOpacity = 0.18
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.Duration.wash * 0.55) {
-                withAnimation(Motion.wash) {
+                Motion.withMotion(Motion.wash, reduceMotion: reduceMotion) {
                     washOpacity = 0
                 }
             }
@@ -145,7 +145,7 @@ struct RunProgressSurface: View {
                             .font(DesignTokens.Typography.subtitle)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
-                    .animation(Motion.mechanical, value: model.context.metrics.copiedCount)
+                    .motion(Motion.mechanical, value: model.context.metrics.copiedCount)
                 }
 
                 progressView

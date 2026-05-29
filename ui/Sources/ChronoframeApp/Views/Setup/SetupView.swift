@@ -11,6 +11,7 @@ struct SetupView: View {
     @ObservedObject private var runSessionStore: RunSessionStore
     @State private var isDropTargeted = false
     @AppStorage("didOnboard") private var didOnboard = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(appState: AppState) {
         self.appState = appState
@@ -35,10 +36,10 @@ struct SetupView: View {
                     model: screenModel,
                     primaryAction: performHeroPrimaryAction,
                     scrollToSource: {
-                        withAnimation(.easeInOut(duration: 0.3)) { proxy.scrollTo("sourceSection", anchor: .top) }
+                        Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("sourceSection", anchor: .top) }
                     },
                     scrollToDestination: {
-                        withAnimation(.easeInOut(duration: 0.3)) { proxy.scrollTo("destinationSection", anchor: .top) }
+                        Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("destinationSection", anchor: .top) }
                     }
                 )
 

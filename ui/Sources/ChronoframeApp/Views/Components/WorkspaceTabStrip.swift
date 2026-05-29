@@ -37,7 +37,7 @@ struct WorkspaceTabStrip<Tab: Hashable & Identifiable>: View {
     private func tabButton(for tab: Tab) -> some View {
         let isSelected = (tab == selection)
         Button {
-            withAnimation(reduceMotion ? nil : Motion.filmic) {
+            Motion.withMotion(Motion.filmic, reduceMotion: reduceMotion) {
                 selection = tab
             }
         } label: {

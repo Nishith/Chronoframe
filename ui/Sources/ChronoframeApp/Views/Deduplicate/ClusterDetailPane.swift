@@ -19,6 +19,7 @@ struct ClusterDetailPane: View {
     @State private var dragStartThumbnailStripHeight: CGFloat?
     @State private var showingReasonDetail = false
     @State private var showingComparisonOverlay = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -561,7 +562,7 @@ struct ClusterDetailPane: View {
     private func reasoningSection(annotation: ClusterAnnotation, cluster: DuplicateCluster) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                Motion.withMotion(.easeInOut(duration: 0.2), reduceMotion: reduceMotion) {
                     showingReasonDetail.toggle()
                 }
             } label: {

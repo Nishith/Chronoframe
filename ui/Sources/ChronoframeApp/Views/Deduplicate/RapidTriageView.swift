@@ -10,6 +10,7 @@ struct RapidTriageView: View {
     @State private var showingComparison = false
     @State private var dragOffset: CGSize = .zero
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var clustersToReview: [DuplicateCluster]
 
@@ -102,7 +103,7 @@ struct RapidTriageView: View {
             heroImage(for: cluster)
                 .offset(dragOffset)
                 .gesture(swipeGesture)
-                .animation(.spring(response: 0.3), value: dragOffset)
+                .motion(.spring(response: 0.3), value: dragOffset)
 
             memberStrip(for: cluster)
 
@@ -229,7 +230,7 @@ struct RapidTriageView: View {
     }
 
     private func advance() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        Motion.withMotion(.easeInOut(duration: 0.2), reduceMotion: reduceMotion) {
             dragOffset = .zero
             currentIndex += 1
         }

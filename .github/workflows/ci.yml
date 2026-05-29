@@ -29,6 +29,13 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - run: script/check_agents_invariants_have_tests.sh
 
+  reduce-motion-check:
+    name: Reduce Motion guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - run: script/check_no_raw_animations.sh
+
   app-layer-test-check:
     name: App-layer test guard
     runs-on: ubuntu-latest

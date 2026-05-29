@@ -258,7 +258,7 @@ struct SetupSourceStepSection: View {
                 if !sourceIsReady {
                     dropZone
                         .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                        .animation(Motion.filmic, value: sourceIsReady)
+                        .motion(Motion.filmic, value: sourceIsReady)
                 }
 
                 MeridianSurfaceCard(style: .inner, tint: model.sourceStepState.tone.color) {
@@ -643,7 +643,7 @@ private struct DropZonePlaceholderFrames: View {
             }
         }
         .allowsHitTesting(false)
-        .animation(Motion.filmic, value: emphasized)
+        .motion(Motion.filmic, value: emphasized)
     }
 
     private struct PlaceholderFrame {
