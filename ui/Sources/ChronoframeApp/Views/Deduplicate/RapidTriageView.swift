@@ -119,8 +119,15 @@ struct RapidTriageView: View {
         }
         .padding(DesignTokens.Spacing.lg)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilityLabel(for: cluster))
-        .accessibilityValue(accessibilityValue(for: cluster))
+        .accessibilityLabel(DeduplicateAccessibilityText.rapidTriageLabel(
+            cluster: cluster,
+            currentIndex: currentIndex,
+            totalCount: clustersToReview.count
+        ))
+        .accessibilityValue(DeduplicateAccessibilityText.rapidTriageValue(
+            cluster: cluster,
+            reclaimableBytes: reclaimableBytes
+        ))
         .accessibilityAction(named: "Accept suggestion") {
             acceptCurrent()
         }
@@ -289,41 +296,4 @@ struct RapidTriageView: View {
             }
     }
 
-    private func accessibilityLabel(for cluster: DuplicateCluster) -> String {
-        var parts = [
-            "Group \(currentIndex + 1) of \(clustersToReview.count)",
-            "\(cluster.members.count) photos",
-            "\(confidenceLabel(for: cluster)) confidence"
-        ]
-        if let keeper = suggestedKeeperName(for: cluster) {
-            parts.append("suggested keeper \(keeper)")
-        }
-        if let warning = cluster.annotation?.warnings.first {
-            parts.append("review carefully, \(MatchReasonFormatter.warningSummary(warning))")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    private func accessibilityValue(for cluster: DuplicateCluster) -> String {
-        if let annotation = cluster.annotation {
-            return "\(Self.bytesFormatter.string(fromByteCount: reclaimableBytes)) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
-        }
-        return "\(Self.bytesFormatter.string(fromByteCount: reclaimableBytes)) reclaimable."
-    }
-
-    private func confidenceLabel(for cluster: DuplicateCluster) -> String {
-        switch cluster.annotation?.confidence ?? .medium {
-        case .high: return "high"
-        case .medium: return "medium"
-        case .low: return "low"
-        }
-    }
-
-    private func suggestedKeeperName(for cluster: DuplicateCluster) -> String? {
-        guard let keeperID = cluster.suggestedKeeperIDs.first,
-              let keeper = cluster.members.first(where: { $0.id == keeperID }) else {
-            return nil
-        }
-        return URL(fileURLWithPath: keeper.path).lastPathComponent
-    }
 }

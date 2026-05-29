@@ -329,4 +329,88 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.medium), "Review")
         XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.low), "Careful")
     }
+
+    func testDeduplicateAccessibilityTextNamesSuggestedGroupsWithStateAndWarnings() {
+        let cluster = makeAccessibilityCluster(
+            confidence: .low,
+            warning: .differentPeople(faceCountDelta: 1)
+        )
+
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster),
+            "Near duplicates group, 2 photos, low confidence, suggested keeper keeper.jpg, needs careful review"
+        )
+
+        let rowValue = DeduplicateAccessibilityText.clusterRowValue(
+            cluster: cluster,
+            isApproved: false,
+            recoverableBytes: 1_048_576
+        )
+        XCTAssertTrue(rowValue.hasPrefix("Suggested, not reviewed. 1 MB reclaimable."))
+        XCTAssertTrue(rowValue.contains("visually similar"))
+
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.rapidTriageLabel(
+                cluster: cluster,
+                currentIndex: 1,
+                totalCount: 4
+            ),
+            "Group 2 of 4, 2 photos, low confidence, suggested keeper keeper.jpg, review carefully, Different number of faces detected (±1)"
+        )
+    }
+
+    func testDeduplicateAccessibilityTextNamesMemberDecisionAndSelectionState() {
+        let cluster = makeAccessibilityCluster(confidence: .high)
+        let keeper = cluster.members[0]
+        let duplicate = cluster.members[1]
+
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: true),
+            "keeper.jpg, suggested keeper"
+        )
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.memberLabel(member: duplicate, isSuggestedKeeper: false),
+            "duplicate.jpg"
+        )
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.memberValue(
+                decision: .keep,
+                isFocused: true,
+                confidence: cluster.annotation?.confidence
+            ),
+            "Marked keep, selected, Auto confidence group"
+        )
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.memberValue(
+                decision: .delete,
+                isFocused: false,
+                confidence: nil
+            ),
+            "Marked delete"
+        )
+    }
+
+    private func makeAccessibilityCluster(
+        confidence: ConfidenceLevel,
+        warning: SafetyWarning? = nil
+    ) -> DuplicateCluster {
+        DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [
+                PhotoCandidate(path: "/Photos/keeper.jpg", size: 2_000_000, modificationTime: 0, qualityScore: 0.9),
+                PhotoCandidate(path: "/Photos/duplicate.jpg", size: 1_048_576, modificationTime: 0, qualityScore: 0.4),
+            ],
+            suggestedKeeperIDs: ["/Photos/keeper.jpg"],
+            bytesIfPruned: 1_048_576,
+            annotation: ClusterAnnotation(
+                confidence: confidence,
+                matchReason: MatchReason(
+                    timeDeltaSeconds: 12,
+                    averageVisionDistance: 0.08,
+                    kind: .nearDuplicate
+                ),
+                warnings: warning.map { [$0] } ?? []
+            )
+        )
+    }
 }

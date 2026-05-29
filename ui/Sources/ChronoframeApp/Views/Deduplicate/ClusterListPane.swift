@@ -225,8 +225,12 @@ private struct ClusterRow: View {
             Button("Delete All in Group", role: .destructive) { onDeleteAll() }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(accessibilityValue)
+        .accessibilityLabel(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster))
+        .accessibilityValue(DeduplicateAccessibilityText.clusterRowValue(
+            cluster: cluster,
+            isApproved: isApproved,
+            recoverableBytes: recoverableBytes
+        ))
         .accessibilityHint("Selects this duplicate group for review")
         .accessibilityAction(named: "Keep all photos in group") { onKeepAll() }
         .accessibilityAction(named: "Accept suggestion") { onAcceptSuggestion() }
@@ -313,43 +317,107 @@ private struct ClusterRow: View {
         cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
     }
 
-    private var accessibilityLabel: String {
-        var parts: [String] = [
-            "\(cluster.kind.title) group",
-            "\(cluster.members.count) photos",
-            "\(confidenceLabel) confidence"
-        ]
-        if let keeper = suggestedKeeperName {
-            parts.append("suggested keeper \(keeper)")
-        }
-        if hasWarnings {
-            parts.append("needs careful review")
-        }
-        return parts.joined(separator: ", ")
+}
+
+enum DeduplicateAccessibilityText {
+    private static func formattedByteCount(_ byteCount: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.allowedUnits = [.useMB, .useGB]
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: byteCount)
     }
 
-    private var accessibilityValue: String {
-        let reviewState = isApproved ? "Reviewed" : "Suggested, not reviewed"
-        let bytes = Self.formatter.string(fromByteCount: recoverableBytes)
-        if let annotation = cluster.annotation {
-            return "\(reviewState). \(bytes) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
-        }
-        return "\(reviewState). \(bytes) reclaimable."
-    }
-
-    private var confidenceLabel: String {
-        switch cluster.annotation?.confidence ?? .medium {
+    static func confidenceLabel(_ level: ConfidenceLevel?) -> String {
+        switch level ?? .medium {
         case .high: return "high"
         case .medium: return "medium"
         case .low: return "low"
         }
     }
 
-    private var suggestedKeeperName: String? {
+    static func suggestedKeeperName(in cluster: DuplicateCluster) -> String? {
         guard let keeperID = cluster.suggestedKeeperIDs.first,
               let keeper = cluster.members.first(where: { $0.id == keeperID }) else {
             return nil
         }
         return URL(fileURLWithPath: keeper.path).lastPathComponent
+    }
+
+    static func clusterRowLabel(cluster: DuplicateCluster) -> String {
+        var parts: [String] = [
+            "\(cluster.kind.title) group",
+            "\(cluster.members.count) photos",
+            "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
+        ]
+        if let keeper = suggestedKeeperName(in: cluster) {
+            parts.append("suggested keeper \(keeper)")
+        }
+        if !(cluster.annotation?.warnings.isEmpty ?? true) {
+            parts.append("needs careful review")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    static func clusterRowValue(
+        cluster: DuplicateCluster,
+        isApproved: Bool,
+        recoverableBytes: Int64
+    ) -> String {
+        let reviewState = isApproved ? "Reviewed" : "Suggested, not reviewed"
+        return "\(reviewState). \(reclaimableSummary(cluster: cluster, recoverableBytes: recoverableBytes))"
+    }
+
+    static func rapidTriageLabel(
+        cluster: DuplicateCluster,
+        currentIndex: Int,
+        totalCount: Int
+    ) -> String {
+        var parts = [
+            "Group \(currentIndex + 1) of \(totalCount)",
+            "\(cluster.members.count) photos",
+            "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
+        ]
+        if let keeper = suggestedKeeperName(in: cluster) {
+            parts.append("suggested keeper \(keeper)")
+        }
+        if let warning = cluster.annotation?.warnings.first {
+            parts.append("review carefully, \(MatchReasonFormatter.warningSummary(warning))")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    static func rapidTriageValue(cluster: DuplicateCluster, reclaimableBytes: Int64) -> String {
+        reclaimableSummary(cluster: cluster, recoverableBytes: reclaimableBytes)
+    }
+
+    static func memberLabel(member: PhotoCandidate, isSuggestedKeeper: Bool) -> String {
+        let name = URL(fileURLWithPath: member.path).lastPathComponent
+        return isSuggestedKeeper ? "\(name), suggested keeper" : name
+    }
+
+    static func memberValue(
+        decision: DedupeDecision,
+        isFocused: Bool,
+        confidence: ConfidenceLevel?
+    ) -> String {
+        var parts = [decision == .keep ? "Marked keep" : "Marked delete"]
+        if isFocused {
+            parts.append("selected")
+        }
+        if let confidence {
+            parts.append("\(MatchReasonFormatter.confidenceLabel(confidence)) confidence group")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    private static func reclaimableSummary(
+        cluster: DuplicateCluster,
+        recoverableBytes: Int64
+    ) -> String {
+        let bytes = formattedByteCount(recoverableBytes)
+        if let annotation = cluster.annotation {
+            return "\(bytes) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
+        }
+        return "\(bytes) reclaimable."
     }
 }
