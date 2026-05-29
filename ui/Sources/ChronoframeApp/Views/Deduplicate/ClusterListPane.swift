@@ -232,9 +232,9 @@ private struct ClusterRow: View {
             recoverableBytes: recoverableBytes
         ))
         .accessibilityHint("Selects this duplicate group for review")
-        .accessibilityAction(named: "Keep all photos in group") { onKeepAll() }
-        .accessibilityAction(named: "Accept suggestion") { onAcceptSuggestion() }
-        .accessibilityAction(named: "Delete all photos in group") { onDeleteAll() }
+        .accessibilityAction(named: "Keep All in Group") { onKeepAll() }
+        .accessibilityAction(named: "Accept Suggestion") { onAcceptSuggestion() }
+        .accessibilityAction(named: "Delete All in Group") { onDeleteAll() }
     }
 
     private var hoverActions: some View {
@@ -405,7 +405,10 @@ enum DeduplicateAccessibilityText {
             parts.append("selected")
         }
         if let confidence {
-            parts.append("\(MatchReasonFormatter.confidenceLabel(confidence)) confidence group")
+            // Use the same plain high/medium/low vocabulary as the cluster-row
+            // and rapid-triage labels, so VoiceOver speaks one consistent term
+            // for confidence (not the "Auto/Review/Careful" UI shorthand).
+            parts.append("\(confidenceLabel(confidence)) confidence group")
         }
         return parts.joined(separator: ", ")
     }
