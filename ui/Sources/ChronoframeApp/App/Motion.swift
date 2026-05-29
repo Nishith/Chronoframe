@@ -45,6 +45,31 @@ enum Motion {
     static func staggered(cellIndex: Int, base: Double = 0.04) -> Animation {
         reveal.delay(base * Double(cellIndex))
     }
+
+    // MARK: - Reduce-motion resolution
+
+    /// Resolves the animation that should actually be applied given the current
+    /// Reduce Motion setting: the requested animation when motion is allowed,
+    /// `nil` (no animation) when Reduce Motion is on.
+    ///
+    /// This is the single decision point every motion helper routes through, so
+    /// it can be unit-tested in isolation (see `MotionTests`).
+    static func resolved(_ animation: Animation, reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+
+    /// Imperative companion to the `.motion(_:value:)` modifier for call sites
+    /// that must drive an explicit state change (e.g. `ScrollViewProxy.scrollTo`
+    /// or a drag-resize). Runs `body` inside `withAnimation`, honoring Reduce
+    /// Motion via `resolved(_:reduceMotion:)`.
+    @MainActor
+    static func withMotion<Result>(
+        _ animation: Animation,
+        reduceMotion: Bool,
+        _ body: () throws -> Result
+    ) rethrows -> Result {
+        try withAnimation(resolved(animation, reduceMotion: reduceMotion), body)
+    }
 }
 
 // MARK: - Reduce-motion helper
@@ -62,6 +87,6 @@ private struct ReduceMotionAnimationModifier<V: Equatable>: ViewModifier {
     let value: V
 
     func body(content: Content) -> some View {
-        content.animation(reduceMotion ? nil : animation, value: value)
+        content.animation(Motion.resolved(animation, reduceMotion: reduceMotion), value: value)
     }
 }

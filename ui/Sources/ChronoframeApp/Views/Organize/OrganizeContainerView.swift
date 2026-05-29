@@ -116,7 +116,7 @@ private struct OrganizeNextActionBanner: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(action.tint.opacity(0.16), lineWidth: 0.5)
         }
-        .accessibilityIdentifier("organizeNextActionBanner")
+        .accessibilityIdentifier(AccessibilityIdentifiers.organizeNextActionBanner)
     }
 
     private var label: some View {

@@ -287,7 +287,7 @@ struct MeridianStatusBadge: View {
                     .frame(width: 5, height: 5)
             }
             Text(title)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
@@ -315,18 +315,18 @@ struct SectionHeading: View {
         VStack(alignment: .leading, spacing: 4) {
             if let eyebrow, !eyebrow.isEmpty {
                 Text(eyebrow.uppercased())
-                    .font(DesignTokens.Typography.label)
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                     .tracking(0.8)
             }
 
             Text(title)
-                .font(DesignTokens.Typography.cardTitle)
+                .scaledFont(.cardTitle)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
             if !message.isEmpty {
                 Text(message)
-                    .font(DesignTokens.Typography.subtitle)
+                    .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -388,12 +388,12 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(title)
-                            .font(DesignTokens.Typography.title)
+                            .scaledFont(.title)
                             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                         if !message.isEmpty {
                             Text(message)
-                                .font(DesignTokens.Typography.subtitle)
+                                .scaledFont(.subtitle)
                                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -442,7 +442,7 @@ struct SummaryLine: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
 
             Spacer(minLength: 12)
@@ -450,7 +450,7 @@ struct SummaryLine: View {
             if let onTap {
                 Button(action: onTap) {
                     Text(value)
-                        .font(DesignTokens.Typography.body)
+                        .scaledFont(.body)
                         .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
@@ -458,7 +458,7 @@ struct SummaryLine: View {
                 .buttonStyle(.plain)
             } else {
                 Text(value)
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
@@ -479,18 +479,20 @@ struct MetricTile: View {
         MeridianSurfaceCard(style: .inner, tint: tint) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title.uppercased())
-                    .font(DesignTokens.Typography.label)
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                     .tracking(0.6)
 
                 Text(value)
-                    .font(DesignTokens.Typography.metric)
+                    .scaledFont(.metric)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .monospacedDigit()
                     .contentTransition(.numericText())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
 
                 Text(caption)
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -510,12 +512,12 @@ struct PathValueView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                 .tracking(0.6)
 
             Text(value.isEmpty ? "Not set" : value)
-                .font(DesignTokens.Typography.mono)
+                .scaledFont(.mono)
                 .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.inkMuted : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(DesignTokens.Layout.pathLineLimit)
                 .truncationMode(.middle)
@@ -551,10 +553,10 @@ struct EmptyStateView: View {
                     MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40)
                 }
                 Text(title)
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 Text(message)
-                    .font(DesignTokens.Typography.subtitle)
+                    .scaledFont(.subtitle)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 if let actionLabel, let action {

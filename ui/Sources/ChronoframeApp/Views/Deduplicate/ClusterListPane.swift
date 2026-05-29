@@ -114,7 +114,7 @@ struct ClusterListPane: View {
             }
             .listStyle(.sidebar)
         }
-        .accessibilityIdentifier("dedupeReviewClusterList")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewClusterList)
         .onChange(of: focusedClusterID) { newID in
             guard let newID, let cluster = clusters.first(where: { $0.id == newID }) else { return }
             focusedMemberPath = cluster.members.first?.path
@@ -133,6 +133,7 @@ private struct ClusterRow: View {
     var onAcceptSuggestion: () -> Void = {}
     var onDeleteAll: () -> Void = {}
     @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let formatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -174,7 +175,7 @@ private struct ClusterRow: View {
                 Spacer()
                 if isHovered {
                     hoverActions
-                        .transition(.opacity.animation(.easeInOut(duration: 0.12)))
+                        .transition(.opacity.animation(Motion.resolved(.easeInOut(duration: 0.12), reduceMotion: reduceMotion)))
                 }
             }
             HStack(spacing: 4) {

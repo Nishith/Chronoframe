@@ -83,10 +83,10 @@ private struct LayoutSettingsTab: View {
                     }
                 }
                 .pickerStyle(.menu)
-                .accessibilityIdentifier("folderStructurePicker")
+                .accessibilityIdentifier(AccessibilityIdentifiers.folderStructurePicker)
 
                 Toggle("Suggest Smart Events During Preview", isOn: $preferencesStore.smartEventSuggestionsEnabled)
-                    .accessibilityIdentifier("smartEventSuggestionsToggle")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.smartEventSuggestionsToggle)
             } header: {
                 Text("Default Layout")
             } footer: {
@@ -99,7 +99,7 @@ private struct LayoutSettingsTab: View {
                 } label: {
                     Label("Reorganize Destination Now", systemImage: "rectangle.3.offgrid.fill")
                 }
-                .accessibilityIdentifier("reorganizeDestinationButton")
+                .accessibilityIdentifier(AccessibilityIdentifiers.reorganizeDestinationButton)
             } header: {
                 Text("Reorganize")
             } footer: {
@@ -322,7 +322,7 @@ private struct DiagnosticsSettingsTab: View {
                             .monospacedDigit()
                     }
                 }
-                .accessibilityIdentifier("diagnosticsLogBufferStepper")
+                .accessibilityIdentifier(AccessibilityIdentifiers.diagnosticsLogBufferStepper)
             } header: {
                 Text("Log Buffer")
             } footer: {

@@ -10,6 +10,7 @@ struct RapidTriageView: View {
     @State private var showingComparison = false
     @State private var dragOffset: CGSize = .zero
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var clustersToReview: [DuplicateCluster]
 
@@ -102,7 +103,9 @@ struct RapidTriageView: View {
             heroImage(for: cluster)
                 .offset(dragOffset)
                 .gesture(swipeGesture)
-                .animation(.spring(response: 0.3), value: dragOffset)
+                .motion(.spring(response: 0.3), value: dragOffset)
+                .accessibilityLabel("Suggested keeper for this duplicate group")
+                .accessibilityHint("Swipe right or press Return to accept; swipe left or press the Left arrow to skip.")
 
             memberStrip(for: cluster)
 
@@ -136,6 +139,11 @@ struct RapidTriageView: View {
             HStack(spacing: 6) {
                 ForEach(cluster.members) { member in
                     let isKeeper = cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
+                    let glyph: DedupeDecisionGlyph = isKeeper ? .keep : .delete
+                    // Triage shows the cluster's *suggestion* — nothing is
+                    // committed until the user accepts/skips — so the label is
+                    // phrased as a suggestion, not a final keep/delete decision.
+                    let suggestionLabel = isKeeper ? "Suggested keeper" : "Suggested for removal"
                     DedupeThumbnailView(
                         path: member.path,
                         size: CGSize(width: 56, height: 56),
@@ -146,6 +154,19 @@ struct RapidTriageView: View {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .stroke(isKeeper ? DesignTokens.ColorSystem.statusSuccess : Color.clear, lineWidth: 2)
                     )
+                    // Non-color cue: a glyph badge so the suggested keeper is
+                    // distinguishable without relying on the green stroke.
+                    .overlay(alignment: .topTrailing) {
+                        Image(systemName: glyph.symbolName)
+                            .font(.system(size: 14))
+                            .foregroundStyle(
+                                isKeeper ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.inkMuted,
+                                Color.white
+                            )
+                            .padding(2)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(suggestionLabel): \(URL(fileURLWithPath: member.path).lastPathComponent)")
                 }
             }
         }
@@ -229,7 +250,7 @@ struct RapidTriageView: View {
     }
 
     private func advance() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        Motion.withMotion(.easeInOut(duration: 0.2), reduceMotion: reduceMotion) {
             dragOffset = .zero
             currentIndex += 1
         }
@@ -241,10 +262,10 @@ struct RapidTriageView: View {
                 dragOffset = value.translation
             }
             .onEnded { value in
-                if value.translation.width > 100 {
-                    acceptCurrent()
-                } else if value.translation.width < -100 {
-                    skipCurrent()
+                switch RapidTriageSwipe.outcome(forTranslationWidth: value.translation.width) {
+                case .accept: acceptCurrent()
+                case .skip: skipCurrent()
+                case .none: break
                 }
                 dragOffset = .zero
             }

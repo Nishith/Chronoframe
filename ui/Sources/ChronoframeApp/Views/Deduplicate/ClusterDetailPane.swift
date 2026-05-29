@@ -19,6 +19,7 @@ struct ClusterDetailPane: View {
     @State private var dragStartThumbnailStripHeight: CGFloat?
     @State private var showingReasonDetail = false
     @State private var showingComparisonOverlay = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -51,7 +52,7 @@ struct ClusterDetailPane: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .accessibilityIdentifier("dedupeReviewDetail")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewDetail)
     }
 
     @ViewBuilder
@@ -111,7 +112,7 @@ struct ClusterDetailPane: View {
         .frame(height: height)
         .background(.ultraThinMaterial)
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("dedupeMemberStrip")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeMemberStrip)
     }
 
     private func memberStripWide(cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
@@ -151,7 +152,7 @@ struct ClusterDetailPane: View {
         }
         .fixedSize()
         .keyboardShortcut(.return, modifiers: [])
-        .accessibilityIdentifier("dedupeAcceptClusterSuggestionButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptClusterSuggestionButton)
         .accessibilityLabel("Confirm and move to next group")
         .accessibilityHint("Confirms keep and delete choices for this group, then selects the next group")
     }
@@ -561,7 +562,7 @@ struct ClusterDetailPane: View {
     private func reasoningSection(annotation: ClusterAnnotation, cluster: DuplicateCluster) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                Motion.withMotion(.easeInOut(duration: 0.2), reduceMotion: reduceMotion) {
                     showingReasonDetail.toggle()
                 }
             } label: {

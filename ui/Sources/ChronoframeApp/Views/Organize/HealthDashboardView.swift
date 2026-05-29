@@ -36,7 +36,7 @@ struct HealthDashboardView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(healthStore.isRefreshing)
-                    .accessibilityIdentifier("refreshLibraryHealthButton")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.refreshLibraryHealthButton)
                 }
 
                 if healthStore.isRefreshing {
@@ -163,7 +163,7 @@ private struct HealthCardView: View {
                     Image(systemName: symbol)
                         .foregroundStyle(tint)
                     Text(card.title)
-                        .font(DesignTokens.Typography.cardTitle)
+                        .scaledFont(.cardTitle)
                     Spacer()
                     Text(card.value)
                         .font(.title3.monospacedDigit())
@@ -262,7 +262,7 @@ private struct LibraryHealthHero: View {
 
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                     Text("Library shape")
-                        .font(DesignTokens.Typography.label.weight(.medium))
+                        .scaledFont(.label, weight: .medium)
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                         .tracking(0.8)
                         .textCase(.uppercase)
@@ -305,12 +305,12 @@ private struct LibraryHealthHero: View {
 
             VStack(spacing: 2) {
                 Text(percentString)
-                    .font(DesignTokens.Typography.metric)
+                    .scaledFont(.metric)
                     .monospacedDigit()
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .contentTransition(.numericText())
                 Text("Healthy")
-                    .font(DesignTokens.Typography.label)
+                    .scaledFont(.label)
                     .tracking(0.8)
                     .textCase(.uppercase)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
@@ -372,7 +372,7 @@ private struct LibraryHealthHero: View {
                 .fill(tint)
                 .frame(width: 6, height: 6)
             Text("\(count) \(label.lowercased())")
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .monospacedDigit()
         }

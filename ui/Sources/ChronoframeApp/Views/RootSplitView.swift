@@ -26,6 +26,10 @@ struct RootSplitView: View {
             detailView
         }
         .navigationSplitViewStyle(.balanced)
+        // Let text scale with Dynamic Type, but clamp the upper bound so the
+        // dense, fixed-width pro surfaces (metric tiles, console) stay legible
+        // rather than clipping at the largest accessibility sizes.
+        .dynamicTypeSize(...DesignTokens.maxDynamicType)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 if runSessionStore.isRunning {

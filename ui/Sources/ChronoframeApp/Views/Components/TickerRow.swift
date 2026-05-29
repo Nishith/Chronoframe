@@ -43,7 +43,7 @@ struct TickerRow: View {
             horizontalLayout
             wrappedLayout
         }
-        .font(DesignTokens.Typography.body)
+        .scaledFont(.body)
         .monospacedDigit()
         .padding(.horizontal, DesignTokens.Spacing.md)
         .padding(.vertical, DesignTokens.Spacing.sm)
@@ -108,11 +108,11 @@ struct TickerRow: View {
     private func tileView(_ entry: Entry) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(entry.value)
-                .font(DesignTokens.Typography.metric)
+                .scaledFont(.metric)
                 .foregroundStyle(color(for: entry.tone))
                 .contentTransition(.numericText())
             Text(entry.label.uppercased())
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .tracking(0.8)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
         }

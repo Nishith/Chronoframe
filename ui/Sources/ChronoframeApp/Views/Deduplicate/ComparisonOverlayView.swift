@@ -164,9 +164,35 @@ private struct SliderComparisonView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        position = min(1, max(0, value.location.x / geometry.size.width))
+                        position = ComparisonSlider.fraction(forLocationX: value.location.x, width: geometry.size.width)
                     }
             )
+            // Keyboard: nudge the divider with the arrow keys. Two invisible
+            // buttons because stacking `.keyboardShortcut` on one button drops
+            // all but the last (see RapidTriageView / ClusterDetailPane).
+            .background {
+                Group {
+                    Button { position = ComparisonSlider.adjusted(position, by: -ComparisonSlider.step) } label: { EmptyView() }
+                        .keyboardShortcut(.leftArrow, modifiers: [])
+                    Button { position = ComparisonSlider.adjusted(position, by: ComparisonSlider.step) } label: { EmptyView() }
+                        .keyboardShortcut(.rightArrow, modifiers: [])
+                }
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+            }
+            // VoiceOver: expose the divider as an adjustable value.
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Comparison divider")
+            .accessibilityValue(ComparisonSlider.accessibilityValue(position))
+            .accessibilityHint("Reveals more of the keeper or compare image. Use the arrow keys to adjust.")
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: position = ComparisonSlider.adjusted(position, by: ComparisonSlider.step)
+                case .decrement: position = ComparisonSlider.adjusted(position, by: -ComparisonSlider.step)
+                @unknown default: break
+                }
+            }
         }
         .task(id: leftPath) {
             leftFinishedLoading = false

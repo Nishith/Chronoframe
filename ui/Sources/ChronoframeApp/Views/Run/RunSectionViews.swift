@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(AppKit)
+import AppKit
+#endif
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
@@ -9,7 +12,34 @@ struct RunHeroSection: View {
     let appState: AppState
 
     @State private var washOpacity: Double = 0
+    @State private var lastAnnouncementSnapshot: RunAnnouncementPlanner.Snapshot?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var announcementSnapshot: RunAnnouncementPlanner.Snapshot {
+        RunAnnouncementPlanner.Snapshot(
+            status: model.context.status,
+            phase: model.context.currentPhase,
+            progress: model.context.progress
+        )
+    }
+
+    /// Posts a VoiceOver announcement for meaningful run-state transitions
+    /// (phase changes, coarse progress, completion) without mutating any store.
+    private func announceRunStateChange(to newSnapshot: RunAnnouncementPlanner.Snapshot) {
+        let previous = lastAnnouncementSnapshot ?? newSnapshot
+        lastAnnouncementSnapshot = newSnapshot
+        guard let message = RunAnnouncementPlanner.announcement(from: previous, to: newSnapshot) else { return }
+        #if canImport(AppKit)
+        NSAccessibility.post(
+            element: NSApp as Any,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
+        #endif
+    }
 
     var body: some View {
         DetailHeroCard(
@@ -44,14 +74,17 @@ struct RunHeroSection: View {
         }
         .onChange(of: model.context.status) { newValue in
             guard newValue == .finished, !reduceMotion else { return }
-            withAnimation(Motion.wash) {
+            Motion.withMotion(Motion.wash, reduceMotion: reduceMotion) {
                 washOpacity = 0.18
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + Motion.Duration.wash * 0.55) {
-                withAnimation(Motion.wash) {
+                Motion.withMotion(Motion.wash, reduceMotion: reduceMotion) {
                     washOpacity = 0
                 }
             }
+        }
+        .onChange(of: announcementSnapshot) { newSnapshot in
+            announceRunStateChange(to: newSnapshot)
         }
     }
 
@@ -137,15 +170,15 @@ struct RunProgressSurface: View {
                 if isCopying {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text(model.context.metrics.copiedCount.formatted())
-                            .font(DesignTokens.Typography.display)
+                            .scaledFont(.display)
                             .foregroundStyle(model.heroState.tone.color)
                             .contentTransition(.numericText())
                             .monospacedDigit()
                         Text("copied")
-                            .font(DesignTokens.Typography.subtitle)
+                            .scaledFont(.subtitle)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
-                    .animation(Motion.mechanical, value: model.context.metrics.copiedCount)
+                    .motion(Motion.mechanical, value: model.context.metrics.copiedCount)
                 }
 
                 progressView
@@ -210,7 +243,7 @@ struct RunPreviewReviewSection: View {
     private var reviewSummary: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Preview Review")
-                .font(DesignTokens.Typography.cardTitle)
+                .scaledFont(.cardTitle)
                 .foregroundStyle(DesignTokens.Color.inkPrimary)
 
             Text(model.previewReviewMessage)
@@ -239,7 +272,7 @@ struct RunPreviewReviewSection: View {
         .controlSize(.large)
         .disabled(!model.canStartTransferFromPreview)
         .accessibilityLabel("Start transfer now")
-        .accessibilityIdentifier("startTransferFromPreviewButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.startTransferFromPreviewButton)
     }
 }
 
@@ -319,7 +352,7 @@ struct RunWorkspaceShell: View {
                     }
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 340)
-                    .accessibilityIdentifier("runWorkspaceTabs")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.runWorkspaceTabs)
                 }
 
                 workspaceContent
@@ -365,7 +398,7 @@ struct RunSnapshotPanel: View {
         MeridianSurfaceCard(style: .inner, tint: model.heroState.tone.color) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Run Snapshot")
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
 
                 SummaryLine(title: "Status", value: model.heroState.badgeTitle)
                 SummaryLine(title: "Speed", value: model.speedSummaryValue)
@@ -386,7 +419,7 @@ struct RunArtifactsPanel: View {
         MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.amber) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Artifacts")
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
 
                 Text(model.destinationSummaryValue)
                     .font(.subheadline.monospaced())
@@ -414,21 +447,21 @@ struct RunArtifactsPanel: View {
         }
         .disabled(model.destinationRoot == nil)
         .accessibilityLabel("Open destination folder in Finder")
-        .accessibilityIdentifier("openDestinationButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.openDestinationButton)
 
         Button("Open Report") {
             appState.openReport()
         }
         .disabled(model.reportPath == nil)
         .accessibilityLabel("Open dry-run report")
-        .accessibilityIdentifier("openReportButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.openReportButton)
 
         Button("Open Logs") {
             appState.openLogsDirectory()
         }
         .disabled(model.logsDirectoryPath == nil)
         .accessibilityLabel("Open logs directory in Finder")
-        .accessibilityIdentifier("openLogsButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.openLogsButton)
     }
 }
 
@@ -451,7 +484,7 @@ struct RunIssuesPanel: View {
             MeridianSurfaceCard(style: .inner, tint: model.issueTone.color) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Issues")
-                        .font(DesignTokens.Typography.cardTitle)
+                        .scaledFont(.cardTitle)
 
                     SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                     SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
@@ -537,7 +570,7 @@ struct RunConsolePanel: View {
         MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.inkMuted) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Console")
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
 
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
@@ -557,7 +590,7 @@ struct RunConsolePanel: View {
                 }
                 .frame(minHeight: DesignTokens.Layout.consoleMinHeight, idealHeight: DesignTokens.Layout.consoleIdealHeight)
                 .accessibilityLabel("Run log")
-                .accessibilityIdentifier("consoleScrollView")
+                .accessibilityIdentifier(AccessibilityIdentifiers.consoleScrollView)
             }
         }
     }
@@ -579,23 +612,23 @@ struct RunIdleOnboardingCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("runIdleOnboardingCard")
+        .accessibilityIdentifier(AccessibilityIdentifiers.runIdleOnboardingCard)
     }
 
     private func onboardingStep(number: String, title: String, message: String) -> some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
             Text(number)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.accentAction)
                 .frame(width: 18, height: 18)
                 .background(DesignTokens.ColorSystem.accentAction.opacity(0.12), in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(DesignTokens.Typography.body.weight(.semibold))
+                    .scaledFont(.body, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 Text(message)
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

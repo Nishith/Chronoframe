@@ -3,7 +3,7 @@ import XCTest
 final class ChronoframeUITests: XCTestCase {
     private static let settingsWindowIdentifier = "com_apple_SwiftUI_Settings_window"
 
-    private enum Scenario: String {
+    private enum Scenario: String, CaseIterable {
         case setupReady
         case runPreviewReview
         case historyPopulated
@@ -13,8 +13,51 @@ final class ChronoframeUITests: XCTestCase {
         case deduplicateReviewCompact
     }
 
+    /// While the accessibility backlog from the a11y initiative is being cleared,
+    /// the per-scenario audit is WARN-ONLY: issues are logged but do not fail the
+    /// build. Flip to `true` to make `performAccessibilityAudit` a hard gate.
+    private static let auditFailsBuild = false
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+    }
+
+    /// Runs Apple's built-in accessibility audit against every UI scenario,
+    /// catching issues like insufficient contrast, undetectable elements,
+    /// too-small hit regions, and missing element descriptions.
+    ///
+    /// Warn-first (see `auditFailsBuild`): logs issues without failing so the
+    /// first run surfaces the backlog rather than turning the suite red at once.
+    @available(macOS 14.0, *)
+    func testAccessibilityAuditAcrossScenarios() async {
+        await MainActor.run {
+            let auditTypes: XCUIAccessibilityAuditType = [
+                .contrast,
+                .elementDetection,
+                .hitRegion,
+                .sufficientElementDescription,
+            ]
+
+            for scenario in Scenario.allCases {
+                let app = Self.launchApp(scenario)
+                do {
+                    try app.performAccessibilityAudit(for: auditTypes) { issue in
+                        NSLog("A11y audit [%@]: %@", scenario.rawValue, issue.compactDescription)
+                        // Returning true suppresses the issue (warn mode);
+                        // returning false reports it as a test failure.
+                        return !Self.auditFailsBuild
+                    }
+                } catch {
+                    let message = "Accessibility audit threw for \(scenario.rawValue): \(error)"
+                    if Self.auditFailsBuild {
+                        XCTFail(message)
+                    } else {
+                        NSLog("%@ (suppressed in warn mode)", message)
+                    }
+                }
+                app.terminate()
+            }
+        }
     }
 
     func testSetupReadyScenarioRendersHeroReadinessAndPrimaryCta() async {

@@ -210,7 +210,7 @@ struct SetupSavedSetupSection: View {
             }
             .pickerStyle(.menu)
             .labelsHidden()
-            .accessibilityIdentifier("profilePicker")
+            .accessibilityIdentifier(AccessibilityIdentifiers.profilePicker)
             .accessibilityLabel("Profile")
         }
     }
@@ -258,7 +258,7 @@ struct SetupSourceStepSection: View {
                 if !sourceIsReady {
                     dropZone
                         .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                        .animation(Motion.filmic, value: sourceIsReady)
+                        .motion(Motion.filmic, value: sourceIsReady)
                 }
 
                 MeridianSurfaceCard(style: .inner, tint: model.sourceStepState.tone.color) {
@@ -277,7 +277,7 @@ struct SetupSourceStepSection: View {
                                 accessibilityIdentifier: "chooseSourceButton",
                                 action: chooseSource
                             )
-                                .accessibilityIdentifier("chooseSourceButton")
+                                .accessibilityIdentifier(AccessibilityIdentifiers.chooseSourceButton)
                                 .accessibilityHint("Opens a folder picker to choose the source library")
                         }
 
@@ -293,7 +293,7 @@ struct SetupSourceStepSection: View {
                                 accessibilityIdentifier: "chooseSourceButton",
                                 action: chooseSource
                             )
-                                .accessibilityIdentifier("chooseSourceButton")
+                                .accessibilityIdentifier(AccessibilityIdentifiers.chooseSourceButton)
                                 .accessibilityHint("Opens a folder picker to choose the source library")
                         }
                     }
@@ -354,7 +354,7 @@ struct SetupDestinationStepSection: View {
                                 accessibilityIdentifier: "chooseDestinationButton",
                                 action: chooseDestination
                             )
-                                .accessibilityIdentifier("chooseDestinationButton")
+                                .accessibilityIdentifier(AccessibilityIdentifiers.chooseDestinationButton)
                                 .accessibilityHint("Opens a folder picker to choose where organized copies will be written")
                         }
 
@@ -370,7 +370,7 @@ struct SetupDestinationStepSection: View {
                                 accessibilityIdentifier: "chooseDestinationButton",
                                 action: chooseDestination
                             )
-                                .accessibilityIdentifier("chooseDestinationButton")
+                                .accessibilityIdentifier(AccessibilityIdentifiers.chooseDestinationButton)
                                 .accessibilityHint("Opens a folder picker to choose where organized copies will be written")
                         }
                     }
@@ -443,7 +443,7 @@ struct SetupReadinessSection: View {
         }
         .buttonStyle(.borderedProminent)
         .disabled(!model.canStartRun || isRunInProgress)
-        .accessibilityIdentifier("previewButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.previewButton)
         .accessibilityLabel("Preview")
         .accessibilityHint(model.canStartRun ? "Generates a copy plan without moving any files" : "Choose both folders or a saved profile first")
     }
@@ -455,7 +455,7 @@ struct SetupReadinessSection: View {
         }
         .buttonStyle(.bordered)
         .disabled(!model.canStartRun || isRunInProgress)
-        .accessibilityIdentifier("transferButton")
+        .accessibilityIdentifier(AccessibilityIdentifiers.transferButton)
         .accessibilityLabel("Transfer")
         .accessibilityHint(model.canStartRun ? "Copies files from the source to the destination after confirmation" : "Choose both folders or a saved profile first")
     }
@@ -501,7 +501,7 @@ private struct SetupPreflightChecklist: View {
                 )
             }
         }
-        .accessibilityIdentifier("setupPreflightChecklist")
+        .accessibilityIdentifier(AccessibilityIdentifiers.setupPreflightChecklist)
     }
 
     private func preflightItem(
@@ -581,8 +581,9 @@ struct SetupDropZone: View {
         .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
             onDrop(providers)
         }
-        .accessibilityLabel("Drop photos, videos, or folders to use as source")
-        .accessibilityIdentifier("dropZone")
+        .accessibilityLabel(AccessibilityLabels.dropZone)
+        .accessibilityHint(AccessibilityLabels.dropZoneHint)
+        .accessibilityIdentifier(AccessibilityIdentifiers.dropZone)
     }
 }
 
@@ -643,7 +644,7 @@ private struct DropZonePlaceholderFrames: View {
             }
         }
         .allowsHitTesting(false)
-        .animation(Motion.filmic, value: emphasized)
+        .motion(Motion.filmic, value: emphasized)
     }
 
     private struct PlaceholderFrame {

@@ -72,10 +72,10 @@ private struct HelpHeader: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Chronoframe")
-                    .font(DesignTokens.Typography.title)
+                    .scaledFont(.title)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 Text(versionString)
-                    .font(DesignTokens.Typography.label)
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                     .monospacedDigit()
             }
@@ -99,7 +99,7 @@ private struct HelpOverviewSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             Text("Chronoframe is a darkroom for time. Point it at a folder of photos and videos and it organizes a clean, dated copy at your destination — never moving, never overwriting your originals.")
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -124,7 +124,7 @@ private struct HelpShortcutsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             Text("Keyboard shortcuts work from any screen.")
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
 
             HelpListPanel(title: "Library") {
@@ -168,13 +168,13 @@ private struct HelpPrivacySection: View {
                 PathRow(label: "Profiles file", url: RuntimePaths.profilesFileURL())
                 PathRow(label: "App support folder", url: RuntimePaths.applicationSupportDirectory())
                 Text("Run logs and revert receipts live in a hidden .organize_logs folder inside each destination you choose.")
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .padding(.top, DesignTokens.Spacing.xs)
             }
 
             Link("Read the full privacy policy", destination: ChronoframeLinks.privacy)
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
         }
     }
@@ -184,16 +184,16 @@ private struct HelpCreditsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
             Text("Chronoframe is a native macOS app built with Swift, SwiftUI, AppKit, Vision, Quick Look, and SQLite.")
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HelpListPanel(title: "Chronoframe") {
                 Text("Copyright © 2026 Nishith Nand. All rights reserved.")
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 Text("Use of this software is governed by the Licensed Application End User License Agreement for the store where you obtained Chronoframe.")
-                    .font(DesignTokens.Typography.subtitle)
+                    .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -210,7 +210,7 @@ private struct HelpListPanel<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             Text(title)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
 
             DarkroomPanel(variant: .panel) {
@@ -230,15 +230,15 @@ private struct HelpStep: View {
     var body: some View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
             Text(number)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
                 .frame(width: 18, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 Text(detail)
-                    .font(DesignTokens.Typography.subtitle)
+                    .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -259,7 +259,7 @@ private struct HelpBullet: View {
                 .frame(width: 4, height: 4)
                 .padding(.top, 7)
             Text(text)
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
@@ -278,7 +278,7 @@ private struct ShortcutRow: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .frame(width: 56, alignment: .leading)
             Text(label)
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Spacer(minLength: 0)
         }
@@ -301,7 +301,7 @@ private struct PathRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
             Text(label)
-                .font(DesignTokens.Typography.body)
+                .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .frame(width: 140, alignment: .leading)
 

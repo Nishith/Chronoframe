@@ -23,11 +23,11 @@ struct NowCopyingCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Now")
-                        .font(DesignTokens.Typography.label)
+                        .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
 
                     Text(model.context.currentTaskTitle)
-                        .font(DesignTokens.Typography.body.weight(.medium))
+                        .scaledFont(.body, weight: .medium)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(2)
                         .truncationMode(.middle)
@@ -46,7 +46,7 @@ struct NowCopyingCard: View {
 
     private var tonePill: some View {
         Text(model.heroState.badgeTitle)
-            .font(DesignTokens.Typography.label)
+            .scaledFont(.label)
             .foregroundStyle(model.heroState.tone.color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)

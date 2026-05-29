@@ -34,7 +34,7 @@ struct RunTimelineView: View {
                 }
 
                 Text(subtitle)
-                    .font(DesignTokens.Typography.body)
+                    .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -49,13 +49,13 @@ struct RunTimelineView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             Text("Timeline")
-                .font(DesignTokens.Typography.cardTitle)
+                .scaledFont(.cardTitle)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
             Spacer()
 
             Text(rangeCaption)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                 .monospacedDigit()
                 .contentTransition(.numericText())
@@ -208,7 +208,7 @@ struct RunTimelineView: View {
                 .padding(DesignTokens.Spacing.md)
 
             Text(emptyStateMessage)
-                .font(DesignTokens.Typography.label)
+                .scaledFont(.label)
                 .foregroundStyle(.white.opacity(0.72))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignTokens.Spacing.md)
@@ -447,10 +447,10 @@ private struct TimelineBucketPeek: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(headerTitle)
-                    .font(DesignTokens.Typography.cardTitle)
+                    .scaledFont(.cardTitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 Text("\(bucket.plannedCount.formatted(.number)) planned")
-                    .font(DesignTokens.Typography.label)
+                    .scaledFont(.label)
                     .tracking(0.6)
                     .textCase(.uppercase)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
