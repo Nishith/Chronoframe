@@ -139,6 +139,7 @@ struct RapidTriageView: View {
             HStack(spacing: 6) {
                 ForEach(cluster.members) { member in
                     let isKeeper = cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
+                    let glyph: DedupeDecisionGlyph = isKeeper ? .keep : .delete
                     DedupeThumbnailView(
                         path: member.path,
                         size: CGSize(width: 56, height: 56),
@@ -149,6 +150,19 @@ struct RapidTriageView: View {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .stroke(isKeeper ? DesignTokens.ColorSystem.statusSuccess : Color.clear, lineWidth: 2)
                     )
+                    // Non-color cue: a glyph badge so the suggested keeper is
+                    // distinguishable without relying on the green stroke.
+                    .overlay(alignment: .topTrailing) {
+                        Image(systemName: glyph.symbolName)
+                            .font(.system(size: 14))
+                            .foregroundStyle(
+                                isKeeper ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.inkMuted,
+                                Color.white
+                            )
+                            .padding(2)
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(glyph.label): \(URL(fileURLWithPath: member.path).lastPathComponent)")
                 }
             }
         }
