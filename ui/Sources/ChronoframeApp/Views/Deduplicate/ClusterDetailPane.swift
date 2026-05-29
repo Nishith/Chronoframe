@@ -511,10 +511,10 @@ struct ClusterDetailPane: View {
         .accessibilityAction(named: "Focus photo") {
             focusedMemberPath = member.path
         }
-        .accessibilityAction(named: "Mark keep") {
+        .accessibilityAction(named: "Keep") {
             sessionStore.setDecision(.keep, forPath: member.path)
         }
-        .accessibilityAction(named: "Mark delete") {
+        .accessibilityAction(named: "Delete") {
             sessionStore.setDecision(.delete, forPath: member.path)
         }
     }
