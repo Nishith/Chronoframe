@@ -169,6 +169,22 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    @available(macOS 14.0, *)
+    func testPrimaryWorkflowsPassAccessibilityAudit() async throws {
+        try await MainActor.run {
+            for scenario in [
+                Scenario.setupReady,
+                .runPreviewReview,
+                .historyPopulated,
+                .deduplicateReviewWide,
+            ] {
+                let app = Self.launchApp(scenario)
+                try app.performAccessibilityAudit()
+                app.terminate()
+            }
+        }
+    }
+
     @MainActor
     private static func launchApp(_ scenario: Scenario) -> XCUIApplication {
         let app = XCUIApplication()

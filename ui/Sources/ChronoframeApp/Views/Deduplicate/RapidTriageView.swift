@@ -77,6 +77,8 @@ struct RapidTriageView: View {
             }
             ProgressView(value: progress)
                 .tint(DesignTokens.ColorSystem.accentAction)
+                .accessibilityLabel("Rapid triage progress")
+                .accessibilityValue("\(currentIndex) of \(clustersToReview.count) groups reviewed")
         }
         .padding(DesignTokens.Spacing.md)
     }
@@ -116,6 +118,18 @@ struct RapidTriageView: View {
             }
         }
         .padding(DesignTokens.Spacing.lg)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(accessibilityLabel(for: cluster))
+        .accessibilityValue(accessibilityValue(for: cluster))
+        .accessibilityAction(named: "Accept suggestion") {
+            acceptCurrent()
+        }
+        .accessibilityAction(named: "Skip group") {
+            skipCurrent()
+        }
+        .accessibilityAction(named: "Compare photos") {
+            showingComparison = true
+        }
     }
 
     private func heroImage(for cluster: DuplicateCluster) -> some View {
@@ -130,6 +144,8 @@ struct RapidTriageView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(radius: 4)
+                .accessibilityLabel("Suggested keeper")
+                .accessibilityValue(URL(fileURLWithPath: keeper.path).lastPathComponent)
             }
         }
     }
@@ -166,10 +182,12 @@ struct RapidTriageView: View {
                             .padding(2)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(suggestionLabel): \(URL(fileURLWithPath: member.path).lastPathComponent)")
+                    .accessibilityLabel(URL(fileURLWithPath: member.path).lastPathComponent)
+                    .accessibilityValue(suggestionLabel)
                 }
             }
         }
+        .accessibilityLabel("Photos in this group")
     }
 
     // MARK: - Action Bar
@@ -269,5 +287,43 @@ struct RapidTriageView: View {
                 }
                 dragOffset = .zero
             }
+    }
+
+    private func accessibilityLabel(for cluster: DuplicateCluster) -> String {
+        var parts = [
+            "Group \(currentIndex + 1) of \(clustersToReview.count)",
+            "\(cluster.members.count) photos",
+            "\(confidenceLabel(for: cluster)) confidence"
+        ]
+        if let keeper = suggestedKeeperName(for: cluster) {
+            parts.append("suggested keeper \(keeper)")
+        }
+        if let warning = cluster.annotation?.warnings.first {
+            parts.append("review carefully, \(MatchReasonFormatter.warningSummary(warning))")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    private func accessibilityValue(for cluster: DuplicateCluster) -> String {
+        if let annotation = cluster.annotation {
+            return "\(Self.bytesFormatter.string(fromByteCount: reclaimableBytes)) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
+        }
+        return "\(Self.bytesFormatter.string(fromByteCount: reclaimableBytes)) reclaimable."
+    }
+
+    private func confidenceLabel(for cluster: DuplicateCluster) -> String {
+        switch cluster.annotation?.confidence ?? .medium {
+        case .high: return "high"
+        case .medium: return "medium"
+        case .low: return "low"
+        }
+    }
+
+    private func suggestedKeeperName(for cluster: DuplicateCluster) -> String? {
+        guard let keeperID = cluster.suggestedKeeperIDs.first,
+              let keeper = cluster.members.first(where: { $0.id == keeperID }) else {
+            return nil
+        }
+        return URL(fileURLWithPath: keeper.path).lastPathComponent
     }
 }

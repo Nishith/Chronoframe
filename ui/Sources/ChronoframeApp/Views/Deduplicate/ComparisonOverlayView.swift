@@ -77,6 +77,7 @@ struct ComparisonOverlayView: View {
         }
         .pickerStyle(.segmented)
         .frame(maxWidth: 300)
+        .accessibilityLabel("Comparison mode")
     }
 
     private var imagePairLabel: some View {
@@ -256,6 +257,9 @@ private struct DifferenceComparisonView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(DesignTokens.Spacing.lg)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Difference comparison")
+        .accessibilityValue(loading ? "Computing difference image" : (differenceImage == nil ? "Difference image unavailable" : "Difference image ready"))
         .task {
             differenceImage = await DifferenceImageGenerator.generate(
                 leftURL: URL(fileURLWithPath: leftPath),
@@ -277,6 +281,7 @@ private struct FlickerComparisonView: View {
     @State private var leftFinishedLoading = false
     @State private var rightFinishedLoading = false
     @State private var flickerTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -301,13 +306,31 @@ private struct FlickerComparisonView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(DesignTokens.Spacing.lg)
         .overlay(alignment: .bottom) {
-            Text(showingLeft ? "A (Keeper)" : "B")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.black.opacity(0.44), in: Capsule())
-                .padding(.bottom, 12)
+            HStack(spacing: 8) {
+                Button {
+                    showingLeft = true
+                } label: {
+                    Label("Keeper", systemImage: "a.circle")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Text(showingLeft ? "A (Keeper)" : "B")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.black.opacity(0.44), in: Capsule())
+
+                Button {
+                    showingLeft = false
+                } label: {
+                    Label("Compare", systemImage: "b.circle")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+            .padding(.bottom, 12)
         }
         .task(id: leftPath) {
             leftFinishedLoading = false
@@ -319,15 +342,36 @@ private struct FlickerComparisonView: View {
             rightImage = await loadImage(at: rightPath)
             rightFinishedLoading = true
         }
-        .onAppear { startFlicker() }
+        .onAppear { updateFlickerTask() }
+        .onChange(of: reduceMotion) { _ in updateFlickerTask() }
         .onDisappear { flickerTask?.cancel() }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Flicker comparison")
+        .accessibilityValue(showingLeft ? "Showing keeper image" : "Showing compare image")
+        .accessibilityHint(reduceMotion ? "Automatic flicker is paused because Reduce Motion is on" : "Automatically alternates between keeper and compare images")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                showingLeft = false
+            case .decrement:
+                showingLeft = true
+            @unknown default:
+                break
+            }
+        }
     }
 
     private var currentSideFinishedLoading: Bool {
         showingLeft ? leftFinishedLoading : rightFinishedLoading
     }
 
-    private func startFlicker() {
+    private func updateFlickerTask() {
+        if reduceMotion {
+            flickerTask?.cancel()
+            flickerTask = nil
+            return
+        }
+
         // Cancel any previous task before starting a new one. SwiftUI may
         // call `.onAppear` again before `.onDisappear` runs the
         // cancellation, and a parent re-evaluation can also drop and

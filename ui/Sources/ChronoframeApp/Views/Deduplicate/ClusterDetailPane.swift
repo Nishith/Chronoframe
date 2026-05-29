@@ -497,19 +497,43 @@ struct ClusterDetailPane: View {
         // so VoiceOver announces the filename and Keep/Delete state instead of
         // raw SF Symbol names.
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(memberAccessibilityLabel(member: member, decision: decision, cluster: cluster))
+        .accessibilityLabel(memberAccessibilityLabel(member: member, cluster: cluster))
+        .accessibilityValue(memberAccessibilityValue(member: member, decision: decision, cluster: cluster))
+        .accessibilityHint("Selects this photo for comparison and decision review")
         .accessibilityAddTraits(isFocused ? .isSelected : [])
+        .accessibilityAction(named: "Focus photo") {
+            focusedMemberPath = member.path
+        }
+        .accessibilityAction(named: "Mark keep") {
+            sessionStore.setDecision(.keep, forPath: member.path)
+        }
+        .accessibilityAction(named: "Mark delete") {
+            sessionStore.setDecision(.delete, forPath: member.path)
+        }
     }
 
     private func memberAccessibilityLabel(
         member: PhotoCandidate,
-        decision: DedupeDecision,
         cluster: DuplicateCluster
     ) -> String {
         let name = URL(fileURLWithPath: member.path).lastPathComponent
-        let state = decision == .keep ? "Keep" : "Delete"
         let keeper = isSuggestedKeeper(member, in: cluster) ? ", suggested keeper" : ""
-        return "\(name), \(state)\(keeper)"
+        return "\(name)\(keeper)"
+    }
+
+    private func memberAccessibilityValue(
+        member: PhotoCandidate,
+        decision: DedupeDecision,
+        cluster: DuplicateCluster
+    ) -> String {
+        var parts = [decision == .keep ? "Marked keep" : "Marked delete"]
+        if member.path == focusedMemberPath {
+            parts.append("selected")
+        }
+        if let annotation = cluster.annotation {
+            parts.append("\(MatchReasonFormatter.confidenceLabel(annotation.confidence)) confidence group")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func photoStageLabel(for member: PhotoCandidate) -> some View {

@@ -134,6 +134,7 @@ private struct ClusterRow: View {
     var onDeleteAll: () -> Void = {}
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     private static let formatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -223,6 +224,13 @@ private struct ClusterRow: View {
             Divider()
             Button("Delete All in Group", role: .destructive) { onDeleteAll() }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Selects this duplicate group for review")
+        .accessibilityAction(named: "Keep all photos in group") { onKeepAll() }
+        .accessibilityAction(named: "Accept suggestion") { onAcceptSuggestion() }
+        .accessibilityAction(named: "Delete all photos in group") { onDeleteAll() }
     }
 
     private var hoverActions: some View {
@@ -271,9 +279,18 @@ private struct ClusterRow: View {
     @ViewBuilder
     private var confidenceDot: some View {
         let level = cluster.annotation?.confidence ?? .medium
-        Circle()
-            .fill(confidenceColor(level))
-            .frame(width: 6, height: 6)
+        if differentiateWithoutColor {
+            Image(systemName: confidenceSymbol(level))
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(confidenceColor(level))
+                .frame(width: 10)
+                .accessibilityHidden(true)
+        } else {
+            Circle()
+                .fill(confidenceColor(level))
+                .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
+        }
     }
 
     private func confidenceColor(_ level: ConfidenceLevel) -> Color {
@@ -284,7 +301,55 @@ private struct ClusterRow: View {
         }
     }
 
+    private func confidenceSymbol(_ level: ConfidenceLevel) -> String {
+        switch level {
+        case .high: return "checkmark.seal.fill"
+        case .medium: return "exclamationmark.circle.fill"
+        case .low: return "exclamationmark.triangle.fill"
+        }
+    }
+
     private func isSuggestedKeeper(_ member: PhotoCandidate) -> Bool {
         cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
+    }
+
+    private var accessibilityLabel: String {
+        var parts: [String] = [
+            "\(cluster.kind.title) group",
+            "\(cluster.members.count) photos",
+            "\(confidenceLabel) confidence"
+        ]
+        if let keeper = suggestedKeeperName {
+            parts.append("suggested keeper \(keeper)")
+        }
+        if hasWarnings {
+            parts.append("needs careful review")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    private var accessibilityValue: String {
+        let reviewState = isApproved ? "Reviewed" : "Suggested, not reviewed"
+        let bytes = Self.formatter.string(fromByteCount: recoverableBytes)
+        if let annotation = cluster.annotation {
+            return "\(reviewState). \(bytes) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
+        }
+        return "\(reviewState). \(bytes) reclaimable."
+    }
+
+    private var confidenceLabel: String {
+        switch cluster.annotation?.confidence ?? .medium {
+        case .high: return "high"
+        case .medium: return "medium"
+        case .low: return "low"
+        }
+    }
+
+    private var suggestedKeeperName: String? {
+        guard let keeperID = cluster.suggestedKeeperIDs.first,
+              let keeper = cluster.members.first(where: { $0.id == keeperID }) else {
+            return nil
+        }
+        return URL(fileURLWithPath: keeper.path).lastPathComponent
     }
 }
