@@ -96,4 +96,83 @@ final class RunAnnouncementPlannerTests: XCTestCase {
             )
         )
     }
+
+    func testAllTerminalStatusesHaveDistinctReassuringMessages() {
+        let cases: [(RunStatus, String)] = [
+            (.finished, "Transfer complete."),
+            (.dryRunFinished, "Preview ready for review."),
+            (.nothingToCopy, "Nothing new to copy."),
+            (.failed, "Run failed. Your original files were left untouched."),
+            (.cancelled, "Run cancelled. Your original files were left untouched."),
+            (.reverted, "Revert complete."),
+            (.revertEmpty, "Nothing to revert."),
+            (.reorganized, "Reorganize complete."),
+            (.nothingToReorganize, "Nothing to reorganize."),
+        ]
+        for (status, expected) in cases {
+            XCTAssertEqual(
+                RunAnnouncementPlanner.announcement(
+                    from: snapshot(.running, .copy, 0.5),
+                    to: snapshot(status, nil, 0.5)
+                ),
+                expected,
+                "Wrong announcement for \(status)"
+            )
+        }
+        // Every terminal message is unique so users can tell outcomes apart.
+        let messages = cases.map(\.1)
+        XCTAssertEqual(Set(messages).count, messages.count)
+    }
+
+    func testNonTerminalStatusTransitionsAreSilent() {
+        // Entering preflighting/running/idle is not, by itself, announced.
+        XCTAssertNil(
+            RunAnnouncementPlanner.announcement(
+                from: snapshot(.idle, nil, 0),
+                to: snapshot(.preflighting, nil, 0)
+            )
+        )
+        XCTAssertNil(
+            RunAnnouncementPlanner.announcement(
+                from: snapshot(.preflighting, nil, 0),
+                to: snapshot(.running, nil, 0)
+            )
+        )
+    }
+
+    func testPhaseChangeIsSilentWhenNotRunning() {
+        // A phase value that changes while the run isn't active should not speak.
+        XCTAssertNil(
+            RunAnnouncementPlanner.announcement(
+                from: snapshot(.preflighting, nil, 0),
+                to: snapshot(.preflighting, .discovery, 0)
+            )
+        )
+    }
+
+    func testProgressBucketsAnnounceAt25And75() {
+        XCTAssertEqual(
+            RunAnnouncementPlanner.announcement(
+                from: snapshot(.running, .copy, 0.20),
+                to: snapshot(.running, .copy, 0.26)
+            ),
+            "25 percent copied"
+        )
+        XCTAssertEqual(
+            RunAnnouncementPlanner.announcement(
+                from: snapshot(.running, .copy, 0.70),
+                to: snapshot(.running, .copy, 0.76)
+            ),
+            "75 percent copied"
+        )
+    }
+
+    func testProgressGoingBackwardsIsSilent() {
+        XCTAssertNil(
+            RunAnnouncementPlanner.announcement(
+                from: snapshot(.running, .copy, 0.80),
+                to: snapshot(.running, .copy, 0.40)
+            )
+        )
+    }
 }

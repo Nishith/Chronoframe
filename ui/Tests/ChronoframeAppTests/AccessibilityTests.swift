@@ -90,4 +90,20 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertGreaterThan(DesignTokens.Sidebar.minWidth, 0)
         XCTAssertGreaterThan(DesignTokens.Sidebar.maxWidth, DesignTokens.Sidebar.idealWidth)
     }
+
+    // MARK: - Accessibility labels
+
+    /// Centralized spoken labels must be present and non-trivial — an empty
+    /// drop-zone label or hint would leave a VoiceOver user with no description.
+    func testAccessibilityLabelsAreNonEmpty() {
+        let labels = [
+            AccessibilityLabels.dropZone,
+            AccessibilityLabels.dropZoneHint,
+        ]
+        for label in labels {
+            XCTAssertFalse(label.trimmingCharacters(in: .whitespaces).isEmpty, "Accessibility label must be non-empty")
+        }
+        // The hint should point keyboard users at the equivalent control.
+        XCTAssertTrue(AccessibilityLabels.dropZoneHint.localizedCaseInsensitiveContains("choose source"))
+    }
 }
