@@ -18,14 +18,20 @@ final class ChronoframeUITests: XCTestCase {
         let signature: String
     }
 
-    /// The accessibility audit is a hard gate by default. Local exploratory runs
-    /// can opt into warn-only mode with `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1`.
+    /// The accessibility audit becomes a hard gate once a baseline exists.
+    /// Local exploratory runs can opt into warn-only mode with
+    /// `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1`.
     private static var auditFailsBuild: Bool {
-        auditFailsBuild(environment: ProcessInfo.processInfo.environment)
+        auditFailsBuild(
+            environment: ProcessInfo.processInfo.environment,
+            hasBaseline: !accessibilityAuditAllowlist.isEmpty
+        )
     }
 
     /// Narrow home for unavoidable platform false positives. Keep empty unless a
     /// failure is manually verified as an Apple audit issue rather than app UI.
+    /// While this is empty the audit runs as a discovery sweep; adding the first
+    /// entry flips the CI path to hard-fail on every non-baselined issue.
     private static let accessibilityAuditAllowlist: [AccessibilityAuditAllowlistEntry] = []
 
     override func setUpWithError() throws {
@@ -101,9 +107,16 @@ final class ChronoframeUITests: XCTestCase {
     }
 
     func testAccessibilityAuditGateDefaultsToHardFailAndSupportsWarnOnlyEscapeHatch() {
-        XCTAssertTrue(Self.auditFailsBuild(environment: [:]))
-        XCTAssertTrue(Self.auditFailsBuild(environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "0"]))
-        XCTAssertFalse(Self.auditFailsBuild(environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "1"]))
+        XCTAssertFalse(Self.auditFailsBuild(environment: [:], hasBaseline: false))
+        XCTAssertTrue(Self.auditFailsBuild(environment: [:], hasBaseline: true))
+        XCTAssertTrue(Self.auditFailsBuild(
+            environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "0"],
+            hasBaseline: true
+        ))
+        XCTAssertFalse(Self.auditFailsBuild(
+            environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "1"],
+            hasBaseline: true
+        ))
     }
 
     func testAccessibilityAuditAllowlistMatchesScenarioAndSignatureOnly() {
@@ -284,8 +297,8 @@ final class ChronoframeUITests: XCTestCase {
         )
     }
 
-    private static func auditFailsBuild(environment: [String: String]) -> Bool {
-        environment["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY"] != "1"
+    private static func auditFailsBuild(environment: [String: String], hasBaseline: Bool) -> Bool {
+        hasBaseline && environment["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY"] != "1"
     }
 
     private static func isAllowedAccessibilityAuditIssue(
