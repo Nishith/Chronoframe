@@ -51,6 +51,11 @@ final class ChronoframeUITests: XCTestCase {
 
             for scenario in Scenario.allCases {
                 let app = Self.launchApp(scenario)
+                guard Self.waitForScenarioReady(scenario, in: app) else {
+                    XCTFail("Scenario \(scenario.rawValue) did not reach its audit-ready state")
+                    app.terminate()
+                    continue
+                }
                 do {
                     try app.performAccessibilityAudit(for: auditTypes) { issue in
                         let description = issue.compactDescription
@@ -246,6 +251,29 @@ final class ChronoframeUITests: XCTestCase {
             ensureSettingsWindowExists(in: app)
         }
         return app
+    }
+
+    @MainActor
+    private static func waitForScenarioReady(_ scenario: Scenario, in app: XCUIApplication) -> Bool {
+        switch scenario {
+        case .setupReady:
+            return app.staticTexts["Profiles for Repeatable Runs"].waitForExistence(timeout: 5)
+                && button(identifier: "previewButton", in: app).waitForExistence(timeout: 5)
+        case .runPreviewReview:
+            return app.staticTexts["Preview Ready for Review"].waitForExistence(timeout: 5)
+                && button(identifier: "startTransferFromPreviewButton", in: app).waitForExistence(timeout: 5)
+        case .historyPopulated:
+            return app.staticTexts["Reusable Sources"].waitForExistence(timeout: 5)
+                && button(identifier: "useHistoricalSourceButton", in: app).waitForExistence(timeout: 5)
+        case .profilesPopulated:
+            return app.staticTexts["Save Current Paths"].waitForExistence(timeout: 5)
+                && element(identifier: "profileName-Meridian Travel", in: app).waitForExistence(timeout: 5)
+        case .settingsSections:
+            return app.windows[settingsWindowIdentifier].waitForExistence(timeout: 5)
+        case .deduplicateReviewWide, .deduplicateReviewCompact:
+            return element(identifier: "dedupeReviewClusterList", in: app).waitForExistence(timeout: 5)
+                && element(identifier: "dedupeCommitFooter", in: app).waitForExistence(timeout: 10)
+        }
     }
 
     private static func isAllowedAccessibilityAuditIssue(_ description: String, scenario: Scenario) -> Bool {
