@@ -48,4 +48,36 @@ final class KeyboardInteractionTests: XCTestCase {
         XCTAssertEqual(RapidTriageSwipe.outcome(forTranslationWidth: t), .none, "Exactly at threshold should not commit")
         XCTAssertEqual(RapidTriageSwipe.outcome(forTranslationWidth: -t), .none)
     }
+
+    // MARK: - DedupeReviewKeyboard
+
+    func testClusterKeyboardNavigationClampsToAvailableGroups() {
+        XCTAssertEqual(DedupeReviewKeyboard.clusterIndex(afterMoving: 1, from: nil, count: 3), 1)
+        XCTAssertEqual(DedupeReviewKeyboard.clusterIndex(afterMoving: -1, from: nil, count: 3), 0)
+        XCTAssertEqual(DedupeReviewKeyboard.clusterIndex(afterMoving: -1, from: 0, count: 3), 0)
+        XCTAssertEqual(DedupeReviewKeyboard.clusterIndex(afterMoving: 1, from: -10, count: 3), 1)
+        XCTAssertEqual(DedupeReviewKeyboard.clusterIndex(afterMoving: -1, from: 99, count: 3), 1)
+        XCTAssertEqual(DedupeReviewKeyboard.clusterIndex(afterMoving: 1, from: 2, count: 3), 2)
+        XCTAssertNil(DedupeReviewKeyboard.clusterIndex(afterMoving: 1, from: nil, count: 0))
+    }
+
+    // MARK: - FlickerComparisonPlayback
+
+    func testFlickerPlaybackHonorsReduceMotion() {
+        XCTAssertTrue(FlickerComparisonPlayback.effectiveIsPlaying(requestedPlaying: true, reduceMotion: false))
+        XCTAssertFalse(FlickerComparisonPlayback.effectiveIsPlaying(requestedPlaying: true, reduceMotion: true))
+        XCTAssertFalse(FlickerComparisonPlayback.effectiveIsPlaying(requestedPlaying: false, reduceMotion: false))
+    }
+
+    func testFlickerAccessibilityValueNamesPlaybackAndCurrentSide() {
+        XCTAssertEqual(FlickerComparisonPlayback.automaticIntervalMilliseconds, 900)
+        XCTAssertEqual(
+            FlickerComparisonPlayback.accessibilityValue(isShowingKeeper: true, isPlaying: false),
+            "Paused, showing keeper"
+        )
+        XCTAssertEqual(
+            FlickerComparisonPlayback.accessibilityValue(isShowingKeeper: false, isPlaying: true),
+            "Playing, showing compare, alternating every 0.9 seconds"
+        )
+    }
 }

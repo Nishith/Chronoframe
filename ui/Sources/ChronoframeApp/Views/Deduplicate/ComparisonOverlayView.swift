@@ -281,7 +281,15 @@ private struct FlickerComparisonView: View {
     @State private var leftFinishedLoading = false
     @State private var rightFinishedLoading = false
     @State private var flickerTask: Task<Void, Never>?
+    @State private var wantsPlayback = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isPlaying: Bool {
+        FlickerComparisonPlayback.effectiveIsPlaying(
+            requestedPlaying: wantsPlayback,
+            reduceMotion: reduceMotion
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -314,6 +322,7 @@ private struct FlickerComparisonView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .keyboardShortcut(.leftArrow, modifiers: [])
 
                 Text(showingLeft ? "A (Keeper)" : "B")
                     .font(.caption.weight(.semibold))
@@ -329,6 +338,19 @@ private struct FlickerComparisonView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .keyboardShortcut(.rightArrow, modifiers: [])
+
+                Button {
+                    wantsPlayback.toggle()
+                    updateFlickerTask()
+                } label: {
+                    Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(reduceMotion)
+                .keyboardShortcut(.space, modifiers: [])
+                .accessibilityHint(reduceMotion ? "Automatic flicker is disabled because Reduce Motion is on" : "Starts or pauses automatic comparison flicker")
             }
             .padding(.bottom, 12)
         }
@@ -347,8 +369,11 @@ private struct FlickerComparisonView: View {
         .onDisappear { flickerTask?.cancel() }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Flicker comparison")
-        .accessibilityValue(showingLeft ? "Showing keeper image" : "Showing compare image")
-        .accessibilityHint(reduceMotion ? "Automatic flicker is paused because Reduce Motion is on" : "Automatically alternates between keeper and compare images")
+        .accessibilityValue(FlickerComparisonPlayback.accessibilityValue(
+            isShowingKeeper: showingLeft,
+            isPlaying: isPlaying
+        ))
+        .accessibilityHint(reduceMotion ? "Automatic flicker is disabled because Reduce Motion is on" : "Use Play to start automatic flicker, or use the Keeper and Compare buttons manually")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:
@@ -366,7 +391,7 @@ private struct FlickerComparisonView: View {
     }
 
     private func updateFlickerTask() {
-        if reduceMotion {
+        if !isPlaying {
             flickerTask?.cancel()
             flickerTask = nil
             return
@@ -381,7 +406,7 @@ private struct FlickerComparisonView: View {
         flickerTask?.cancel()
         flickerTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(500))
+                try? await Task.sleep(for: .milliseconds(FlickerComparisonPlayback.automaticIntervalMilliseconds))
                 guard !Task.isCancelled else { break }
                 showingLeft.toggle()
             }

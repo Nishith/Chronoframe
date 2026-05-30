@@ -208,6 +208,7 @@ private struct ClusterRow: View {
                         .background(DesignTokens.ColorSystem.statusWarning.opacity(0.12), in: Capsule())
                         .help("Chronoframe has a suggestion, but this group has not been reviewed")
                 }
+                actionsMenu
             }
             if let annotation = cluster.annotation {
                 Text(MatchReasonFormatter.oneLiner(annotation))
@@ -224,7 +225,7 @@ private struct ClusterRow: View {
             Divider()
             Button("Delete All in Group", role: .destructive) { onDeleteAll() }
         }
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster))
         .accessibilityValue(DeduplicateAccessibilityText.clusterRowValue(
             cluster: cluster,
@@ -235,6 +236,22 @@ private struct ClusterRow: View {
         .accessibilityAction(named: "Keep All in Group") { onKeepAll() }
         .accessibilityAction(named: "Accept Suggestion") { onAcceptSuggestion() }
         .accessibilityAction(named: "Delete All in Group") { onDeleteAll() }
+    }
+
+    private var actionsMenu: some View {
+        Menu {
+            Button("Keep All in Group") { onKeepAll() }
+            Button("Accept Suggestion") { onAcceptSuggestion() }
+            Divider()
+            Button("Delete All in Group", role: .destructive) { onDeleteAll() }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.system(size: 13, weight: .medium))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Actions for this duplicate group")
+        .accessibilityLabel("Actions for duplicate group")
     }
 
     private var hoverActions: some View {

@@ -260,6 +260,17 @@ struct DeduplicateView: View {
                 Divider()
                 commitFooter
             }
+            .background {
+                Group {
+                    Button { navigateCluster(by: -1) } label: { EmptyView() }
+                        .keyboardShortcut(.upArrow, modifiers: [])
+                    Button { navigateCluster(by: 1) } label: { EmptyView() }
+                        .keyboardShortcut(.downArrow, modifiers: [])
+                }
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+            }
         }
         .onAppear { ensureInitialFocus() }
         .onChange(of: sessionStore.clusters.map(\.id)) { _ in ensureInitialFocus() }
@@ -642,6 +653,21 @@ struct DeduplicateView: View {
               let currentIndex = clusters.firstIndex(where: { $0.id == currentID }),
               currentIndex + 1 < clusters.count else { return }
         let next = clusters[currentIndex + 1]
+        focusedClusterID = next.id
+        focusedMemberPath = next.members.first?.path
+    }
+
+    private func navigateCluster(by delta: Int) {
+        let clusters = sessionStore.clusters
+        let currentIndex = focusedClusterID.flatMap { id in
+            clusters.firstIndex { $0.id == id }
+        }
+        guard let nextIndex = DedupeReviewKeyboard.clusterIndex(
+            afterMoving: delta,
+            from: currentIndex,
+            count: clusters.count
+        ) else { return }
+        let next = clusters[nextIndex]
         focusedClusterID = next.id
         focusedMemberPath = next.members.first?.path
     }

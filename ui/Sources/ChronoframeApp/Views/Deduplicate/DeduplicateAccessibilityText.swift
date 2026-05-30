@@ -47,6 +47,9 @@ enum DeduplicateAccessibilityText {
         if let keeper = suggestedKeeperName(in: cluster) {
             parts.append("suggested keeper \(keeper)")
         }
+        if let rationale = keeperRationale(cluster.annotation?.keeperReason) {
+            parts.append(rationale)
+        }
         if !(cluster.annotation?.warnings.isEmpty ?? true) {
             parts.append("needs careful review")
         }
@@ -75,6 +78,9 @@ enum DeduplicateAccessibilityText {
         if let keeper = suggestedKeeperName(in: cluster) {
             parts.append("suggested keeper \(keeper)")
         }
+        if let rationale = keeperRationale(cluster.annotation?.keeperReason) {
+            parts.append(rationale)
+        }
         // A brief "needs careful review" flag here, matching the cluster row.
         // The specific warning text is carried by the visible warning banner
         // (which VoiceOver also reads), so repeating the full summary in this
@@ -89,9 +95,17 @@ enum DeduplicateAccessibilityText {
         reclaimableSummary(cluster: cluster, recoverableBytes: reclaimableBytes)
     }
 
-    static func memberLabel(member: PhotoCandidate, isSuggestedKeeper: Bool) -> String {
+    static func memberLabel(
+        member: PhotoCandidate,
+        isSuggestedKeeper: Bool,
+        keeperReason: KeeperReason? = nil
+    ) -> String {
         let name = URL(fileURLWithPath: member.path).lastPathComponent
-        return isSuggestedKeeper ? "\(name), suggested keeper" : name
+        guard isSuggestedKeeper else { return name }
+        if let rationale = keeperRationale(keeperReason) {
+            return "\(name), suggested keeper, \(rationale)"
+        }
+        return "\(name), suggested keeper"
     }
 
     static func memberValue(
@@ -121,5 +135,14 @@ enum DeduplicateAccessibilityText {
             return "\(bytes) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
         }
         return "\(bytes) reclaimable."
+    }
+
+    static func keeperRationale(_ reason: KeeperReason?) -> String? {
+        guard let reason, !reason.factors.isEmpty else { return nil }
+        let summary = MatchReasonFormatter.keeperSummary(reason)
+        if summary.hasPrefix("Kept: ") {
+            return "because " + summary.dropFirst("Kept: ".count)
+        }
+        return summary
     }
 }
