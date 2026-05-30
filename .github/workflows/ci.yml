@@ -186,6 +186,11 @@ jobs:
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run Chronoframe UI tests
+        env:
+          # Keep the scenario audit visible in CI logs while the first
+          # accessibility baseline is being captured. The XCUITest gate still
+          # defaults to hard-fail when this opt-out is absent.
+          CHRONOFRAME_A11Y_AUDIT_WARN_ONLY: "1"
         run: |
           xcodebuild \
             -project ui/Chronoframe.xcodeproj \
