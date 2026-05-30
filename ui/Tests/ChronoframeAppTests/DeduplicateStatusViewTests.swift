@@ -355,7 +355,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
                 currentIndex: 1,
                 totalCount: 4
             ),
-            "Group 2 of 4, 2 photos, low confidence, suggested keeper keeper.jpg, review carefully, Different number of faces detected (±1)"
+            "Group 2 of 4, 2 photos, low confidence, suggested keeper keeper.jpg, needs careful review"
         )
     }
 

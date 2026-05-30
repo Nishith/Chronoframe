@@ -128,13 +128,13 @@ struct RapidTriageView: View {
             cluster: cluster,
             reclaimableBytes: reclaimableBytes
         ))
-        .accessibilityAction(named: "Accept suggestion") {
+        .accessibilityAction(named: "Accept") {
             acceptCurrent()
         }
-        .accessibilityAction(named: "Skip group") {
+        .accessibilityAction(named: "Skip") {
             skipCurrent()
         }
-        .accessibilityAction(named: "Compare photos") {
+        .accessibilityAction(named: "Compare") {
             showingComparison = true
         }
     }
@@ -194,6 +194,7 @@ struct RapidTriageView: View {
                 }
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Photos in this group")
     }
 

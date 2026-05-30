@@ -289,11 +289,23 @@ private struct ClusterRow: View {
                 .foregroundStyle(confidenceColor(level))
                 .frame(width: 10)
                 .accessibilityHidden(true)
+                .help(confidenceHelp(level))
         } else {
             Circle()
                 .fill(confidenceColor(level))
                 .frame(width: 6, height: 6)
                 .accessibilityHidden(true)
+                .help(confidenceHelp(level))
+        }
+    }
+
+    /// Tooltip text giving the confidence level a permanent, hover-discoverable
+    /// label, since the dot/symbol otherwise conveys it by color/shape only.
+    private func confidenceHelp(_ level: ConfidenceLevel) -> String {
+        switch level {
+        case .high: return "High confidence"
+        case .medium: return "Medium confidence"
+        case .low: return "Low confidence"
         }
     }
 
@@ -317,110 +329,4 @@ private struct ClusterRow: View {
         cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
     }
 
-}
-
-enum DeduplicateAccessibilityText {
-    private static func formattedByteCount(_ byteCount: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.allowedUnits = [.useMB, .useGB]
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: byteCount)
-    }
-
-    static func confidenceLabel(_ level: ConfidenceLevel?) -> String {
-        switch level ?? .medium {
-        case .high: return "high"
-        case .medium: return "medium"
-        case .low: return "low"
-        }
-    }
-
-    static func suggestedKeeperName(in cluster: DuplicateCluster) -> String? {
-        guard let keeperID = cluster.suggestedKeeperIDs.first,
-              let keeper = cluster.members.first(where: { $0.id == keeperID }) else {
-            return nil
-        }
-        return URL(fileURLWithPath: keeper.path).lastPathComponent
-    }
-
-    static func clusterRowLabel(cluster: DuplicateCluster) -> String {
-        var parts: [String] = [
-            "\(cluster.kind.title) group",
-            "\(cluster.members.count) photos",
-            "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
-        ]
-        if let keeper = suggestedKeeperName(in: cluster) {
-            parts.append("suggested keeper \(keeper)")
-        }
-        if !(cluster.annotation?.warnings.isEmpty ?? true) {
-            parts.append("needs careful review")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    static func clusterRowValue(
-        cluster: DuplicateCluster,
-        isApproved: Bool,
-        recoverableBytes: Int64
-    ) -> String {
-        let reviewState = isApproved ? "Reviewed" : "Suggested, not reviewed"
-        return "\(reviewState). \(reclaimableSummary(cluster: cluster, recoverableBytes: recoverableBytes))"
-    }
-
-    static func rapidTriageLabel(
-        cluster: DuplicateCluster,
-        currentIndex: Int,
-        totalCount: Int
-    ) -> String {
-        var parts = [
-            "Group \(currentIndex + 1) of \(totalCount)",
-            "\(cluster.members.count) photos",
-            "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
-        ]
-        if let keeper = suggestedKeeperName(in: cluster) {
-            parts.append("suggested keeper \(keeper)")
-        }
-        if let warning = cluster.annotation?.warnings.first {
-            parts.append("review carefully, \(MatchReasonFormatter.warningSummary(warning))")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    static func rapidTriageValue(cluster: DuplicateCluster, reclaimableBytes: Int64) -> String {
-        reclaimableSummary(cluster: cluster, recoverableBytes: reclaimableBytes)
-    }
-
-    static func memberLabel(member: PhotoCandidate, isSuggestedKeeper: Bool) -> String {
-        let name = URL(fileURLWithPath: member.path).lastPathComponent
-        return isSuggestedKeeper ? "\(name), suggested keeper" : name
-    }
-
-    static func memberValue(
-        decision: DedupeDecision,
-        isFocused: Bool,
-        confidence: ConfidenceLevel?
-    ) -> String {
-        var parts = [decision == .keep ? "Marked keep" : "Marked delete"]
-        if isFocused {
-            parts.append("selected")
-        }
-        if let confidence {
-            // Use the same plain high/medium/low vocabulary as the cluster-row
-            // and rapid-triage labels, so VoiceOver speaks one consistent term
-            // for confidence (not the "Auto/Review/Careful" UI shorthand).
-            parts.append("\(confidenceLabel(confidence)) confidence group")
-        }
-        return parts.joined(separator: ", ")
-    }
-
-    private static func reclaimableSummary(
-        cluster: DuplicateCluster,
-        recoverableBytes: Int64
-    ) -> String {
-        let bytes = formattedByteCount(recoverableBytes)
-        if let annotation = cluster.annotation {
-            return "\(bytes) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
-        }
-        return "\(bytes) reclaimable."
-    }
 }
