@@ -1,4 +1,5 @@
 import CoreGraphics
+import ChronoframeCore
 import XCTest
 @testable import ChronoframeApp
 
@@ -61,6 +62,29 @@ final class KeyboardInteractionTests: XCTestCase {
         XCTAssertNil(DedupeReviewKeyboard.clusterIndex(afterMoving: 1, from: nil, count: 0))
     }
 
+    func testClusterKeyboardNavigationUsesFilteredVisibleRows() {
+        let high = Self.cluster(id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, path: "/high.jpg", confidence: .high)
+        let medium = Self.cluster(id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, path: "/medium.jpg", confidence: .medium)
+        let low = Self.cluster(id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!, path: "/low.jpg", confidence: .low)
+        let legacy = Self.cluster(id: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!, path: "/legacy.jpg", confidence: nil)
+        let clusters = [high, medium, low, legacy]
+
+        let visibleReviewRows = DedupeClusterConfidenceFilter.filtered(clusters, by: .medium)
+
+        XCTAssertEqual(visibleReviewRows.map(\.id), [medium.id, legacy.id])
+        XCTAssertEqual(DedupeClusterConfidenceFilter.filtered(clusters, by: .high).map(\.id), [high.id])
+        XCTAssertEqual(DedupeClusterConfidenceFilter.filtered(clusters, by: .low).map(\.id), [low.id])
+
+        let currentIndex = visibleReviewRows.firstIndex { $0.id == medium.id }
+        let nextIndex = DedupeReviewKeyboard.clusterIndex(
+            afterMoving: 1,
+            from: currentIndex,
+            count: visibleReviewRows.count
+        )
+
+        XCTAssertEqual(nextIndex.map { visibleReviewRows[$0].id }, legacy.id)
+    }
+
     // MARK: - FlickerComparisonPlayback
 
     func testFlickerPlaybackHonorsReduceMotion() {
@@ -78,6 +102,22 @@ final class KeyboardInteractionTests: XCTestCase {
         XCTAssertEqual(
             FlickerComparisonPlayback.accessibilityValue(isShowingKeeper: false, isPlaying: true),
             "Playing, showing compare, alternating every 0.9 seconds"
+        )
+    }
+
+    private static func cluster(id: UUID, path: String, confidence: ConfidenceLevel?) -> DuplicateCluster {
+        DuplicateCluster(
+            id: id,
+            kind: .nearDuplicate,
+            members: [
+                PhotoCandidate(path: path, size: 1, modificationTime: 0),
+                PhotoCandidate(path: path.replacingOccurrences(of: ".jpg", with: "-copy.jpg"), size: 1, modificationTime: 0)
+            ],
+            suggestedKeeperIDs: [path],
+            bytesIfPruned: 1,
+            annotation: confidence.map {
+                ClusterAnnotation(confidence: $0, matchReason: MatchReason(kind: .nearDuplicate))
+            }
         )
     }
 }

@@ -3,6 +3,35 @@ import ChronoframeAppCore
 #endif
 import SwiftUI
 
+enum DedupeClusterConfidenceFilter: String, CaseIterable {
+    case all
+    case high
+    case medium
+    case low
+
+    var label: String {
+        switch self {
+        case .all: return "All"
+        case .high: return "Auto"
+        case .medium: return "Review"
+        case .low: return "Careful"
+        }
+    }
+
+    func includes(_ cluster: DuplicateCluster) -> Bool {
+        switch self {
+        case .all: return true
+        case .high: return (cluster.annotation?.confidence ?? .medium) == .high
+        case .medium: return (cluster.annotation?.confidence ?? .medium) == .medium
+        case .low: return (cluster.annotation?.confidence ?? .medium) == .low
+        }
+    }
+
+    static func filtered(_ clusters: [DuplicateCluster], by filter: DedupeClusterConfidenceFilter) -> [DuplicateCluster] {
+        clusters.filter { filter.includes($0) }
+    }
+}
+
 /// Left pane: scrollable list of all clusters grouped by kind. Each row
 /// shows a thumbnail strip of the cluster's members, member count, and
 /// recoverable bytes. Selecting a row sets the focused cluster in the
@@ -15,34 +44,13 @@ struct ClusterListPane: View {
     @Binding var focusedClusterID: UUID?
     @Binding var focusedMemberPath: String?
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
+    @Binding var confidenceFilter: DedupeClusterConfidenceFilter
     var onKeepAll: (DuplicateCluster) -> Void = { _ in }
     var onAcceptSuggestion: (DuplicateCluster) -> Void = { _ in }
     var onDeleteAll: (DuplicateCluster) -> Void = { _ in }
-    @State private var confidenceFilter: ConfidenceFilter = .all
-
-    private enum ConfidenceFilter: String, CaseIterable {
-        case all
-        case high
-        case medium
-        case low
-
-        var label: String {
-            switch self {
-            case .all: return "All"
-            case .high: return "Auto"
-            case .medium: return "Review"
-            case .low: return "Careful"
-            }
-        }
-    }
 
     private var filteredClusters: [DuplicateCluster] {
-        switch confidenceFilter {
-        case .all: return clusters
-        case .high: return clusters.filter { ($0.annotation?.confidence ?? .medium) == .high }
-        case .medium: return clusters.filter { ($0.annotation?.confidence ?? .medium) == .medium }
-        case .low: return clusters.filter { ($0.annotation?.confidence ?? .medium) == .low }
-        }
+        DedupeClusterConfidenceFilter.filtered(clusters, by: confidenceFilter)
     }
 
     private var grouped: [(ClusterKind, [DuplicateCluster])] {
@@ -67,19 +75,14 @@ struct ClusterListPane: View {
         return totals
     }
 
-    private func bucketCount(_ filter: ConfidenceFilter) -> Int {
-        switch filter {
-        case .all: return clusters.count
-        case .high: return clusters.filter { ($0.annotation?.confidence ?? .medium) == .high }.count
-        case .medium: return clusters.filter { ($0.annotation?.confidence ?? .medium) == .medium }.count
-        case .low: return clusters.filter { ($0.annotation?.confidence ?? .medium) == .low }.count
-        }
+    private func bucketCount(_ filter: DedupeClusterConfidenceFilter) -> Int {
+        DedupeClusterConfidenceFilter.filtered(clusters, by: filter).count
     }
 
     var body: some View {
         VStack(spacing: 0) {
             Picker("Filter", selection: $confidenceFilter) {
-                ForEach(ConfidenceFilter.allCases, id: \.self) { filter in
+                ForEach(DedupeClusterConfidenceFilter.allCases, id: \.self) { filter in
                     Text("\(filter.label) (\(bucketCount(filter)))")
                         .tag(filter)
                 }
