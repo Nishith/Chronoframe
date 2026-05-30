@@ -36,6 +36,14 @@ struct ClusterDetailPane: View {
                             .keyboardShortcut(.leftArrow, modifiers: [])
                         Button { navigateMember(by: 1, in: cluster) } label: { EmptyView() }
                             .keyboardShortcut(.rightArrow, modifiers: [])
+                        Button { setFocusedDecision(.keep, in: cluster) } label: { EmptyView() }
+                            .keyboardShortcut("k", modifiers: [])
+                        Button { setFocusedDecision(.delete, in: cluster) } label: { EmptyView() }
+                            .keyboardShortcut("d", modifiers: [])
+                        Button { setFocusedDecision(.delete, in: cluster) } label: { EmptyView() }
+                            .keyboardShortcut(.delete, modifiers: [])
+                        Button { showingComparisonOverlay = true } label: { EmptyView() }
+                            .keyboardShortcut(.space, modifiers: [])
                     }
                     .opacity(0)
                     .frame(width: 0, height: 0)
@@ -98,6 +106,11 @@ struct ClusterDetailPane: View {
                 memberStripArea(cluster: cluster, height: stripHeight)
             }
             .background(DesignTokens.ColorSystem.imageStage)
+            .sheet(isPresented: $showingComparisonOverlay) {
+                if let pair = sideBySidePair(for: focused, in: cluster) {
+                    ComparisonOverlayView(leftPath: pair.left.path, rightPath: pair.right.path)
+                }
+            }
         }
     }
 
@@ -254,15 +267,20 @@ struct ClusterDetailPane: View {
     private func comparisonPane(member: PhotoCandidate, role: ComparisonRole, cluster: DuplicateCluster) -> some View {
         let isFocused = member.path == focusedMemberPath
         let decision = sessionStore.decisions.byPath[member.path] ?? (isSuggestedKeeper(member, in: cluster) ? .keep : .delete)
-        return ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.black.opacity(0.34))
-            LargePreviewImage(path: member.path)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        return Button {
+            focusedMemberPath = member.path
+        } label: {
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.black.opacity(0.34))
+                LargePreviewImage(path: member.path)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            comparisonPaneBadge(role: role, decision: decision)
-                .padding(10)
+                comparisonPaneBadge(role: role, decision: decision)
+                    .padding(10)
+            }
         }
+        .buttonStyle(.plain)
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(
@@ -271,11 +289,10 @@ struct ClusterDetailPane: View {
                 )
         }
         .contentShape(Rectangle())
-        .onTapGesture {
-            focusedMemberPath = member.path
-        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(role.label): \(URL(fileURLWithPath: member.path).lastPathComponent)")
+        .accessibilityHint("Selects this photo for keyboard keep or delete actions")
+        .accessibilityAddTraits(isFocused ? .isSelected : [])
     }
 
     private func comparisonPaneBadge(role: ComparisonRole, decision: DedupeDecision) -> some View {
@@ -316,7 +333,7 @@ struct ClusterDetailPane: View {
     private func metadataPanel(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(URL(fileURLWithPath: member.path).lastPathComponent)
-                .font(.headline)
+                .scaledFont(.subtitle, weight: .semibold)
                 .lineLimit(2)
                 .truncationMode(.middle)
 
@@ -366,11 +383,12 @@ struct ClusterDetailPane: View {
     private func metaRow(_ label: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(value)
-                .font(.caption.monospacedDigit())
+                .scaledFont(.mono)
+                .monospacedDigit()
         }
     }
 
@@ -378,7 +396,7 @@ struct ClusterDetailPane: View {
         let (filled, text) = Self.qualityLabel(score)
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
             Spacer()
             HStack(spacing: 3) {
@@ -389,7 +407,7 @@ struct ClusterDetailPane: View {
                 }
             }
             Text(text)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
         }
         .help(String(format: "Raw score: %.2f", score))
@@ -399,11 +417,11 @@ struct ClusterDetailPane: View {
         let text = Self.sharpnessLabel(score)
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
             Spacer()
             Text(text)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
         }
         .help(String(format: "Raw score: %.2f", score))
@@ -412,11 +430,11 @@ struct ClusterDetailPane: View {
     private func faceRow(_ label: String, detected: Bool) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
             Spacer()
             Label(detected ? "Detected" : "None", systemImage: detected ? "person.fill" : "person.slash")
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(detected ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.inkMuted)
         }
     }
@@ -457,37 +475,39 @@ struct ClusterDetailPane: View {
     private func memberThumb(member: PhotoCandidate, cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
         let decision = sessionStore.decisions.byPath[member.path] ?? (isSuggestedKeeper(member, in: cluster) ? .keep : .delete)
         let isFocused = member.path == focusedMemberPath
-        return ZStack(alignment: .bottomTrailing) {
-            DedupeThumbnailView(
-                path: member.path,
-                size: CGSize(width: thumbnailSize, height: thumbnailSize),
-                loader: thumbnailLoader
-            )
-            .opacity(decision == .delete ? 0.55 : 1.0)
-            .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(isFocused ? DesignTokens.ColorSystem.accentWaypoint : Color.white.opacity(0.16), lineWidth: isFocused ? 2 : 0.5)
-            )
-            .overlay(alignment: .topLeading) {
-                if isSuggestedKeeper(member, in: cluster) {
-                    Image(systemName: "star.fill")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
-                        .padding(4)
-                        .background(.black.opacity(0.45), in: Circle())
-                        .padding(4)
-                }
-            }
-
-            Image(systemName: decision == .keep ? "checkmark.circle.fill" : "xmark.circle.fill")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger, .black.opacity(0.42))
-                .padding(3)
-        }
-        .onTapGesture {
+        return Button {
             focusedMemberPath = member.path
+        } label: {
+            ZStack(alignment: .bottomTrailing) {
+                DedupeThumbnailView(
+                    path: member.path,
+                    size: CGSize(width: thumbnailSize, height: thumbnailSize),
+                    loader: thumbnailLoader
+                )
+                .opacity(decision == .delete ? 0.55 : 1.0)
+                .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(isFocused ? DesignTokens.ColorSystem.accentWaypoint : Color.white.opacity(0.16), lineWidth: isFocused ? 2 : 0.5)
+                )
+                .overlay(alignment: .topLeading) {
+                    if isSuggestedKeeper(member, in: cluster) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
+                            .padding(4)
+                            .background(.black.opacity(0.45), in: Circle())
+                            .padding(4)
+                    }
+                }
+
+                Image(systemName: decision == .keep ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger, .black.opacity(0.42))
+                    .padding(3)
+            }
         }
+        .buttonStyle(.plain)
         .contextMenu {
             Button("Keep") { sessionStore.setDecision(.keep, forPath: member.path) }
             Button("Delete", role: .destructive) { sessionStore.setDecision(.delete, forPath: member.path) }
@@ -499,7 +519,8 @@ struct ClusterDetailPane: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(DeduplicateAccessibilityText.memberLabel(
             member: member,
-            isSuggestedKeeper: isSuggestedKeeper(member, in: cluster)
+            isSuggestedKeeper: isSuggestedKeeper(member, in: cluster),
+            keeperReason: cluster.annotation?.keeperReason
         ))
         .accessibilityValue(DeduplicateAccessibilityText.memberValue(
             decision: decision,
@@ -610,12 +631,6 @@ struct ClusterDetailPane: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
             .keyboardShortcut("c", modifiers: [])
-            .sheet(isPresented: $showingComparisonOverlay) {
-                if let keeper = cluster.members.first(where: { isSuggestedKeeper($0, in: cluster) }),
-                   let other = cluster.members.first(where: { !isSuggestedKeeper($0, in: cluster) }) {
-                    ComparisonOverlayView(leftPath: keeper.path, rightPath: other.path)
-                }
-            }
         }
     }
 
@@ -650,6 +665,11 @@ struct ClusterDetailPane: View {
             from: focusedMemberPath,
             through: cluster.members
         )
+    }
+
+    private func setFocusedDecision(_ decision: DedupeDecision, in cluster: DuplicateCluster) {
+        guard let member = focusedMember(in: cluster) else { return }
+        sessionStore.setDecision(decision, forPath: member.path)
     }
 
     private func isSuggestedKeeper(_ member: PhotoCandidate, in cluster: DuplicateCluster) -> Bool {

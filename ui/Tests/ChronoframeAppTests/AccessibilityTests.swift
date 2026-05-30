@@ -2,6 +2,7 @@
 import ChronoframeAppCore
 #endif
 import Foundation
+import SwiftUI
 import XCTest
 @testable import ChronoframeApp
 
@@ -105,5 +106,28 @@ final class AccessibilityTests: XCTestCase {
         }
         // The hint should point keyboard users at the equivalent control.
         XCTAssertTrue(AccessibilityLabels.dropZoneHint.localizedCaseInsensitiveContains("choose source"))
+    }
+
+    func testAccessibleDesignStrengthensHighContrastSurfaces() {
+        XCTAssertFalse(AccessibleDesign.isIncreasedContrast(.standard))
+        XCTAssertTrue(AccessibleDesign.isIncreasedContrast(.increased))
+
+        XCTAssertEqual(AccessibleDesign.hairlineWidth(contrast: .standard), 0.5)
+        XCTAssertEqual(AccessibleDesign.hairlineWidth(contrast: .increased), 1)
+
+        XCTAssertEqual(AccessibleDesign.tintOverlayOpacity(style: .standard, contrast: .increased), 0)
+        XCTAssertEqual(AccessibleDesign.tintOverlayOpacity(style: .section, contrast: .increased), 0)
+        XCTAssertLessThan(
+            AccessibleDesign.tintOverlayOpacity(style: .inner, contrast: .standard),
+            AccessibleDesign.tintOverlayOpacity(style: .inner, contrast: .increased)
+        )
+        XCTAssertLessThan(
+            AccessibleDesign.tintOverlayOpacity(style: .hero, contrast: .standard),
+            AccessibleDesign.tintOverlayOpacity(style: .hero, contrast: .increased)
+        )
+        XCTAssertLessThan(
+            AccessibleDesign.neutralOverlayOpacity(contrast: .standard),
+            AccessibleDesign.neutralOverlayOpacity(contrast: .increased)
+        )
     }
 }

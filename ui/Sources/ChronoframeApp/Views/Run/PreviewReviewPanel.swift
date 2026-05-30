@@ -18,7 +18,7 @@ struct PreviewReviewPanel: View {
                             Text("Review Before Transfer")
                                 .scaledFont(.cardTitle)
                             Text(headerMessage)
-                                .font(.subheadline)
+                                .scaledFont(.subtitle)
                                 .foregroundStyle(.secondary)
                         }
 
@@ -43,10 +43,11 @@ struct PreviewReviewPanel: View {
                         ForEach(model.previewReviewSummaryTiles) { tile in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(tile.title)
-                                    .font(.caption)
+                                    .scaledFont(.label)
                                     .foregroundStyle(.secondary)
                                 Text(tile.value)
-                                    .font(.title3.monospacedDigit())
+                                    .scaledFont(.cardTitle)
+                                    .monospacedDigit()
                                     .foregroundStyle(tile.tone.color)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -127,11 +128,11 @@ private struct PreviewReviewRow: View {
 
                     VStack(alignment: .leading, spacing: 6) {
                         Text(URL(fileURLWithPath: item.sourcePath).lastPathComponent)
-                            .font(.headline)
+                            .scaledFont(.subtitle, weight: .semibold)
                             .lineLimit(1)
 
                         Text(item.sourcePath)
-                            .font(.caption.monospaced())
+                            .scaledFont(.mono)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
@@ -143,7 +144,7 @@ private struct PreviewReviewRow: View {
                                 Text(item.issues.map(\.title).joined(separator: ", "))
                             }
                         }
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(tint)
 
                     }
@@ -233,10 +234,10 @@ private struct PreviewReviewRow: View {
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.caption2.weight(.semibold))
+                    .scaledFont(.label, weight: .semibold)
                     .foregroundStyle(.secondary)
                 Text(path)
-                    .font(.caption.monospaced())
+                    .scaledFont(.mono)
                     .lineLimit(2)
                     .truncationMode(.middle)
             }

@@ -48,3 +48,26 @@ enum RapidTriageSwipe {
         return .none
     }
 }
+
+enum DedupeReviewKeyboard {
+    static func clusterIndex(afterMoving delta: Int, from currentIndex: Int?, count: Int) -> Int? {
+        guard count > 0 else { return nil }
+        let base = min(max(currentIndex ?? 0, 0), count - 1)
+        return min(max(base + delta, 0), count - 1)
+    }
+}
+
+enum FlickerComparisonPlayback {
+    static let automaticIntervalMilliseconds = 900
+
+    static func effectiveIsPlaying(requestedPlaying: Bool, reduceMotion: Bool) -> Bool {
+        requestedPlaying && !reduceMotion
+    }
+
+    static func accessibilityValue(isShowingKeeper: Bool, isPlaying: Bool) -> String {
+        let side = isShowingKeeper ? "showing keeper" : "showing compare"
+        return isPlaying
+            ? "Playing, \(side), alternating every \(Double(automaticIntervalMilliseconds) / 1000) seconds"
+            : "Paused, \(side)"
+    }
+}

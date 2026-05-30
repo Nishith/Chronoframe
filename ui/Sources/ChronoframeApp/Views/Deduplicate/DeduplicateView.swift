@@ -14,6 +14,7 @@ struct DeduplicateView: View {
 
     @State private var focusedClusterID: UUID?
     @State private var focusedMemberPath: String?
+    @State private var confidenceFilter: DedupeClusterConfidenceFilter = .all
     @State private var showingCommitConfirmation = false
     @State private var showingCommitReviewedConfirmation = false
     @State private var showingRapidTriage = false
@@ -260,9 +261,21 @@ struct DeduplicateView: View {
                 Divider()
                 commitFooter
             }
+            .background {
+                Group {
+                    Button { navigateCluster(by: -1) } label: { EmptyView() }
+                        .keyboardShortcut(.upArrow, modifiers: [])
+                    Button { navigateCluster(by: 1) } label: { EmptyView() }
+                        .keyboardShortcut(.downArrow, modifiers: [])
+                }
+                .opacity(0)
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
+            }
         }
-        .onAppear { ensureInitialFocus() }
-        .onChange(of: sessionStore.clusters.map(\.id)) { _ in ensureInitialFocus() }
+        .onAppear { alignFocusWithVisibleClusters() }
+        .onChange(of: sessionStore.clusters.map(\.id)) { _ in alignFocusWithVisibleClusters() }
+        .onChange(of: confidenceFilter) { _ in alignFocusWithVisibleClusters() }
     }
 
     @ViewBuilder
@@ -306,6 +319,7 @@ struct DeduplicateView: View {
             focusedClusterID: $focusedClusterID,
             focusedMemberPath: $focusedMemberPath,
             thumbnailLoader: thumbnailLoader,
+            confidenceFilter: $confidenceFilter,
             onKeepAll: { sessionStore.keepAllInCluster($0) },
             onAcceptSuggestion: { sessionStore.acceptSuggestionsForCluster($0) },
             onDeleteAll: { sessionStore.deleteAllInCluster($0) }
@@ -624,24 +638,55 @@ struct DeduplicateView: View {
 
     // MARK: - Helpers
 
-    private var focusedCluster: DuplicateCluster? {
-        guard let id = focusedClusterID else { return sessionStore.clusters.first }
-        return sessionStore.clusters.first { $0.id == id } ?? sessionStore.clusters.first
+    private var visibleReviewClusters: [DuplicateCluster] {
+        DedupeClusterConfidenceFilter.filtered(sessionStore.clusters, by: confidenceFilter)
     }
 
-    private func ensureInitialFocus() {
-        if focusedClusterID == nil, let first = sessionStore.clusters.first {
+    private var focusedCluster: DuplicateCluster? {
+        let clusters = visibleReviewClusters
+        guard let id = focusedClusterID else { return clusters.first }
+        return clusters.first { $0.id == id } ?? clusters.first
+    }
+
+    private func alignFocusWithVisibleClusters() {
+        let clusters = visibleReviewClusters
+        guard let first = clusters.first else {
+            focusedClusterID = nil
+            focusedMemberPath = nil
+            return
+        }
+        guard let currentID = focusedClusterID,
+              let current = clusters.first(where: { $0.id == currentID }) else {
             focusedClusterID = first.id
             focusedMemberPath = first.members.first?.path
+            return
+        }
+        if focusedMemberPath == nil || !current.members.contains(where: { $0.path == focusedMemberPath }) {
+            focusedMemberPath = current.members.first?.path
         }
     }
 
     private func advanceToNextCluster() {
-        let clusters = sessionStore.clusters
+        let clusters = visibleReviewClusters
         guard let currentID = focusedClusterID,
               let currentIndex = clusters.firstIndex(where: { $0.id == currentID }),
               currentIndex + 1 < clusters.count else { return }
         let next = clusters[currentIndex + 1]
+        focusedClusterID = next.id
+        focusedMemberPath = next.members.first?.path
+    }
+
+    private func navigateCluster(by delta: Int) {
+        let clusters = visibleReviewClusters
+        let currentIndex = focusedClusterID.flatMap { id in
+            clusters.firstIndex { $0.id == id }
+        }
+        guard let nextIndex = DedupeReviewKeyboard.clusterIndex(
+            afterMoving: delta,
+            from: currentIndex,
+            count: clusters.count
+        ) else { return }
+        let next = clusters[nextIndex]
         focusedClusterID = next.id
         focusedMemberPath = next.members.first?.path
     }
@@ -680,7 +725,7 @@ struct DeduplicateView: View {
     private func resumePausedReview() {
         guard canResumePausedReview else { return }
         sessionStore.resumePausedReview()
-        ensureInitialFocus()
+        alignFocusWithVisibleClusters()
     }
 
     private func formattedDuration(_ seconds: TimeInterval) -> String {

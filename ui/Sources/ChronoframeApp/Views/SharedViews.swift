@@ -26,6 +26,8 @@ enum DarkroomPanelVariant {
 struct DarkroomPanel<Content: View>: View {
     let variant: DarkroomPanelVariant
     let content: Content
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(variant: DarkroomPanelVariant = .panel, @ViewBuilder content: () -> Content) {
         self.variant = variant
@@ -39,8 +41,11 @@ struct DarkroomPanel<Content: View>: View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(backgroundFor: variant, in: shape)
-            .overlay(borderFor: variant, in: shape)
+            .background {
+                backgroundView
+                    .clipShape(shape)
+            }
+            .overlay(borderView(shape: shape))
     }
 
     private var cornerRadius: CGFloat {
@@ -64,30 +69,44 @@ struct DarkroomPanel<Content: View>: View {
             return DesignTokens.Layout.heroPadding
         }
     }
-}
 
-private extension View {
     @ViewBuilder
-    func background(backgroundFor variant: DarkroomPanelVariant, in shape: some InsettableShape) -> some View {
+    private var backgroundView: some View {
         switch variant {
         case .canvas, .inset:
-            self
+            Color.clear
         case .panel:
-            background(.thinMaterial, in: shape)
+            if reduceTransparency {
+                DesignTokens.ColorSystem.panel
+            } else {
+                Rectangle().fill(.thinMaterial)
+            }
         case .elevated:
-            background(DesignTokens.ColorSystem.elevated, in: shape)
-                .background(.regularMaterial, in: shape)
-                .shadow(color: DesignTokens.ColorSystem.shadow, radius: 18, x: 0, y: 10)
+            if reduceTransparency {
+                DesignTokens.ColorSystem.elevated
+            } else {
+                ZStack {
+                    DesignTokens.ColorSystem.elevated
+                    Rectangle().fill(.regularMaterial)
+                }
+            }
         }
     }
 
     @ViewBuilder
-    func overlay(borderFor variant: DarkroomPanelVariant, in shape: RoundedRectangle) -> some View {
+    private func borderView(shape: RoundedRectangle) -> some View {
         switch variant {
         case .canvas, .inset:
-            self
+            EmptyView()
         case .panel, .elevated:
-            overlay(shape.strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5))
+            shape.strokeBorder(
+                AccessibleDesign.borderColor(
+                    tint: nil,
+                    style: .standard,
+                    contrast: colorSchemeContrast
+                ),
+                lineWidth: AccessibleDesign.hairlineWidth(contrast: colorSchemeContrast)
+            )
         }
     }
 }
@@ -132,6 +151,8 @@ struct MeridianSurfaceCard<Content: View>: View {
     let style: MeridianSurfaceCardStyle
     let tint: SwiftUI.Color?
     let content: Content
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(
         style: MeridianSurfaceCardStyle = .standard,
@@ -153,26 +174,56 @@ struct MeridianSurfaceCard<Content: View>: View {
                 backgroundView
                     .clipShape(shape)
             }
-            .overlay(shape.strokeBorder(borderColor, lineWidth: 0.5).allowsHitTesting(false))
+            .overlay(
+                shape.strokeBorder(
+                    borderColor,
+                    lineWidth: AccessibleDesign.hairlineWidth(contrast: colorSchemeContrast)
+                )
+                .allowsHitTesting(false)
+            )
     }
 
     @ViewBuilder
     private var backgroundView: some View {
         switch style {
         case .hero:
-            ZStack {
-                Rectangle().fill(.thinMaterial)
-                if let tint {
-                    Rectangle().fill(tint.opacity(0.06))
+            if reduceTransparency {
+                Rectangle().fill(DesignTokens.ColorSystem.panel)
+                    .overlay {
+                        if let tint {
+                            Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
+                                style: .hero,
+                                contrast: colorSchemeContrast
+                            )))
+                        }
+                    }
+            } else {
+                ZStack {
+                    Rectangle().fill(.thinMaterial)
+                    if let tint {
+                        Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
+                            style: .hero,
+                            contrast: colorSchemeContrast
+                        )))
+                    }
                 }
             }
         case .standard:
-            Rectangle().fill(.thinMaterial)
+            if reduceTransparency {
+                Rectangle().fill(DesignTokens.ColorSystem.panel)
+            } else {
+                Rectangle().fill(.thinMaterial)
+            }
         case .inner:
             if let tint {
-                Rectangle().fill(tint.opacity(0.05))
+                Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
+                    style: .inner,
+                    contrast: colorSchemeContrast
+                )))
             } else {
-                Rectangle().fill(DesignTokens.ColorSystem.hairline.opacity(0.6))
+                Rectangle().fill(DesignTokens.ColorSystem.hairline.opacity(
+                    AccessibleDesign.neutralOverlayOpacity(contrast: colorSchemeContrast)
+                ))
             }
         case .section:
             Rectangle().fill(.clear)
@@ -183,10 +234,43 @@ struct MeridianSurfaceCard<Content: View>: View {
         if style == .section {
             return .clear
         }
-        if let tint, style == .inner {
-            return tint.opacity(0.18)
+        return AccessibleDesign.borderColor(tint: tint, style: style, contrast: colorSchemeContrast)
+    }
+}
+
+enum AccessibleDesign {
+    static func isIncreasedContrast(_ contrast: ColorSchemeContrast) -> Bool {
+        contrast == .increased
+    }
+
+    static func hairlineWidth(contrast: ColorSchemeContrast) -> CGFloat {
+        isIncreasedContrast(contrast) ? 1 : 0.5
+    }
+
+    static func tintOverlayOpacity(style: MeridianSurfaceCardStyle, contrast: ColorSchemeContrast) -> Double {
+        switch style {
+        case .hero:
+            return isIncreasedContrast(contrast) ? 0.12 : 0.06
+        case .inner:
+            return isIncreasedContrast(contrast) ? 0.12 : 0.05
+        case .standard, .section:
+            return 0
         }
-        return DesignTokens.ColorSystem.hairline
+    }
+
+    static func neutralOverlayOpacity(contrast: ColorSchemeContrast) -> Double {
+        isIncreasedContrast(contrast) ? 0.9 : 0.6
+    }
+
+    static func borderColor(
+        tint: SwiftUI.Color?,
+        style: MeridianSurfaceCardStyle,
+        contrast: ColorSchemeContrast
+    ) -> SwiftUI.Color {
+        if let tint, style == .inner {
+            return tint.opacity(isIncreasedContrast(contrast) ? 0.42 : 0.18)
+        }
+        return DesignTokens.ColorSystem.hairline.opacity(isIncreasedContrast(contrast) ? 1.6 : 1)
     }
 }
 

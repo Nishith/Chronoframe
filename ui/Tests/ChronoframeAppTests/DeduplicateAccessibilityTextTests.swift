@@ -45,6 +45,16 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         )
     }
 
+    func testClusterRowLabelIncludesConciseKeeperRationaleWhenPresent() {
+        let label = DeduplicateAccessibilityText.clusterRowLabel(
+            cluster: cluster(keeperReason: KeeperReason(factors: [
+                .betterSharpness(delta: 0.25),
+                .higherResolution(factor: 1.5),
+            ]))
+        )
+        XCTAssertTrue(label.contains("because sharper (+0.25), 1.5× resolution"), label)
+    }
+
     func testClusterRowLabelFlagsWarningsButNotCleanGroups() {
         XCTAssertTrue(
             DeduplicateAccessibilityText.clusterRowLabel(
@@ -138,6 +148,19 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         )
     }
 
+    func testMemberLabelIncludesKeeperRationaleOnlyForSuggestedKeeper() {
+        let keeper = PhotoCandidate(path: "/Photos/keeper.jpg", size: 2_000_000, modificationTime: 0, qualityScore: 0.9)
+        let reason = KeeperReason(factors: [.isRaw, .eyesOpen])
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: true, keeperReason: reason),
+            "keeper.jpg, suggested keeper, because RAW format, eyes open"
+        )
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: false, keeperReason: reason),
+            "keeper.jpg"
+        )
+    }
+
     func testMemberValueReportsDecisionFocusAndPlainConfidence() {
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberValue(decision: .keep, isFocused: true, confidence: .high),
@@ -151,6 +174,11 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
             DeduplicateAccessibilityText.memberValue(decision: .delete, isFocused: false, confidence: nil),
             "Marked delete"
         )
+    }
+
+    func testKeeperRationaleReturnsNilForMissingOrEmptyReasons() {
+        XCTAssertNil(DeduplicateAccessibilityText.keeperRationale(nil))
+        XCTAssertNil(DeduplicateAccessibilityText.keeperRationale(KeeperReason()))
     }
 
     // MARK: - suggestedKeeperName
@@ -170,7 +198,8 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         warnings: [SafetyWarning] = [],
         includeKeeper: Bool = true,
         hasAnnotation: Bool = true,
-        keeperID: String? = nil
+        keeperID: String? = nil,
+        keeperReason: KeeperReason? = nil
     ) -> DuplicateCluster {
         let members = [
             PhotoCandidate(path: "/Photos/keeper.jpg", size: 2_000_000, modificationTime: 0, qualityScore: 0.9),
@@ -191,6 +220,7 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
                 ? ClusterAnnotation(
                     confidence: confidence,
                     matchReason: MatchReason(timeDeltaSeconds: 12, averageVisionDistance: 0.08, kind: kind),
+                    keeperReason: keeperReason,
                     warnings: warnings
                 )
                 : nil

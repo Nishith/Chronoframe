@@ -189,7 +189,11 @@ struct RapidTriageView: View {
                             .padding(2)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(URL(fileURLWithPath: member.path).lastPathComponent)
+                    .accessibilityLabel(DeduplicateAccessibilityText.memberLabel(
+                        member: member,
+                        isSuggestedKeeper: isKeeper,
+                        keeperReason: cluster.annotation?.keeperReason
+                    ))
                     .accessibilityValue(suggestionLabel)
                 }
             }
