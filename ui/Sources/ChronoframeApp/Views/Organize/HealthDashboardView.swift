@@ -391,11 +391,27 @@ private struct LibraryHealthHero: View {
         Capsule()
             .fill(tint)
             .overlay {
-                if differentiateWithoutColor && width >= 28 {
-                    Text(AccessibleSeverityVisuals.abbreviation(for: level))
-                        .scaledFont(.label, weight: .bold)
-                        .foregroundStyle(DesignTokens.ColorSystem.imageStage)
-                        .minimumScaleFactor(0.7)
+                if differentiateWithoutColor {
+                    ZStack {
+                        Capsule()
+                            .strokeBorder(
+                                DesignTokens.ColorSystem.imageStage.opacity(0.85),
+                                style: StrokeStyle(
+                                    lineWidth: AccessibleSeverityVisuals.lineWidth(base: 1.5, contrast: colorSchemeContrast),
+                                    dash: AccessibleSeverityVisuals.dashPattern(
+                                        for: level,
+                                        differentiateWithoutColor: true
+                                    )
+                                )
+                            )
+
+                        if width >= 28 {
+                            Text(AccessibleSeverityVisuals.abbreviation(for: level))
+                                .scaledFont(.label, weight: .bold)
+                                .foregroundStyle(DesignTokens.ColorSystem.imageStage)
+                                .minimumScaleFactor(0.7)
+                        }
+                    }
                 }
             }
             .frame(width: max(width - 2, 4))

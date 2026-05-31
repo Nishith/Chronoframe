@@ -286,6 +286,8 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertTrue(source.contains("@Environment(\\.accessibilityDifferentiateWithoutColor)"))
         XCTAssertTrue(source.contains("AccessibleSeverityVisuals.dashPattern"))
         XCTAssertTrue(source.contains("AccessibleSeverityVisuals.abbreviation"))
+        XCTAssertTrue(source.contains(".strokeBorder("))
+        XCTAssertTrue(source.contains("width >= 28"))
         XCTAssertTrue(source.contains("SeverityLegendMarker"))
     }
 
