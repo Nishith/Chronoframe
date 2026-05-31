@@ -116,12 +116,16 @@ struct ClusterDetailPane: View {
                 memberStripArea(cluster: cluster, height: stripHeight)
             }
             .background(DesignTokens.ColorSystem.imageStage)
-            .sheet(isPresented: $showingComparisonOverlay) {
+            .sheet(isPresented: $showingComparisonOverlay, onDismiss: restoreFocusedMemberAfterComparison) {
                 if let pair = sideBySidePair(for: focused, in: cluster) {
                     ComparisonOverlayView(leftPath: pair.left.path, rightPath: pair.right.path)
                 }
             }
         }
+    }
+
+    private func restoreFocusedMemberAfterComparison() {
+        syncKeyboardFocusTarget(with: focusedMemberPath)
     }
 
     private func memberStripArea(cluster: DuplicateCluster, height: CGFloat) -> some View {

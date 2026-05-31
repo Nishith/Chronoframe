@@ -342,6 +342,25 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertTrue(clusterList.contains(".accessibilityAddTraits(isFocused ? .isSelected : [])"))
     }
 
+    func testComparisonOverlayManagesInitialAndReturnFocus() throws {
+        let sourceRoot = try appSourceRoot()
+        let dedupeRoot = sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Deduplicate")
+
+        let overlay = try String(contentsOf: dedupeRoot.appendingPathComponent("ComparisonOverlayView.swift"))
+        XCTAssertTrue(overlay.contains("@FocusState private var focusedControl"))
+        XCTAssertTrue(overlay.contains("@AccessibilityFocusState private var accessibilityFocusedControl"))
+        XCTAssertTrue(overlay.contains("private enum ComparisonOverlayFocusTarget: Hashable"))
+        XCTAssertTrue(overlay.contains(".focused($focusedControl, equals: .modePicker)"))
+        XCTAssertTrue(overlay.contains(".accessibilityFocused($accessibilityFocusedControl, equals: .modePicker)"))
+        XCTAssertTrue(overlay.contains(".onAppear(perform: focusInitialControl)"))
+
+        let clusterDetail = try String(contentsOf: dedupeRoot.appendingPathComponent("ClusterDetailPane.swift"))
+        XCTAssertTrue(clusterDetail.contains("onDismiss: restoreFocusedMemberAfterComparison"))
+        XCTAssertTrue(clusterDetail.contains("private func restoreFocusedMemberAfterComparison()"))
+    }
+
     func testDedupeClusterRowsDoNotDependOnHoverOnlyActions() throws {
         let sourceRoot = try appSourceRoot()
         let source = try String(contentsOf: sourceRoot
