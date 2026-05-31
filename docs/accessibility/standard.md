@@ -39,6 +39,13 @@ Do not add app regressions to the baseline. Missing labels, poor contrast, insuf
 
 This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus placement for Setup, Run, Preview, History, Profiles, Settings, and destructive confirmation flows remain follow-up Phase 2 work.
 
+## Phase 3 Announcement And Progress Bar
+
+- Run and Deduplicate status changes use pure announcement planners so wording and throttling stay testable.
+- VoiceOver announcements are reserved for phase changes and terminal outcomes such as preview ready, scan complete, transfer complete, restore complete, and failures.
+- Per-item progress is not announced as milestones. Progress surfaces expose completed/total counts through `accessibilityValue` so users can query current progress on demand without speech spam.
+- Failure announcements must reassure users when originals were left untouched.
+
 ## macOS-Specific Acceptance
 
 Chronoframe is a macOS app, so larger-text validation should be grounded in macOS behavior: Display Zoom, Hover Text, keyboard focus, VoiceOver, and clipping checks in representative UI tests. SwiftUI scaled typography remains useful hygiene, but `.accessibility1` previews alone are not evidence that the shipped Mac app meets the larger-text bar.

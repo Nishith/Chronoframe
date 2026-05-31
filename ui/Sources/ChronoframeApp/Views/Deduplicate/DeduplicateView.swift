@@ -1,6 +1,9 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+#if canImport(AppKit)
+import AppKit
+#endif
 import SwiftUI
 
 /// Top-level workspace for the Deduplicate sidebar destination. Branches
@@ -18,6 +21,7 @@ struct DeduplicateView: View {
     @State private var showingCommitConfirmation = false
     @State private var showingCommitReviewedConfirmation = false
     @State private var showingRapidTriage = false
+    @State private var lastAnnouncementSnapshot: DeduplicateAnnouncementPlanner.Snapshot?
     @AppStorage("didOnboardDeduplicate") private var didOnboardDeduplicate = false
 
     init(appState: AppState) {
@@ -53,6 +57,10 @@ struct DeduplicateView: View {
         }
         .navigationTitle("Deduplicate")
         .onDisappear { thumbnailLoader.purgeCache() }
+        .onAppear { lastAnnouncementSnapshot = announcementSnapshot }
+        .onChange(of: announcementSnapshot) { newSnapshot in
+            announceDeduplicateStateChange(to: newSnapshot)
+        }
     }
 
     // MARK: - Idle
@@ -193,6 +201,7 @@ struct DeduplicateView: View {
             detail: sessionStore.phaseTotal > 0
                 ? "\(sessionStore.phaseCompleted) of \(sessionStore.phaseTotal)"
                 : nil,
+            progress: statusProgress(unit: "files"),
             primary: {
                 Button("Cancel", role: .destructive) {
                     appState.cancelRun()
@@ -218,6 +227,7 @@ struct DeduplicateView: View {
             detail: total > 0
                 ? "\(sessionStore.phaseCompleted) of \(total)"
                 : nil,
+            progress: statusProgress(unit: "files"),
             primary: {
                 Button("Cancel", role: .destructive) {
                     appState.cancelRun()
@@ -599,7 +609,8 @@ struct DeduplicateView: View {
             title: "Restoring files from Trash…",
             detail: sessionStore.phaseTotal > 0
                 ? "\(sessionStore.phaseCompleted) of \(sessionStore.phaseTotal)"
-                : nil
+                : nil,
+            progress: statusProgress(unit: "files")
         )
     }
 
@@ -640,6 +651,40 @@ struct DeduplicateView: View {
 
     private var visibleReviewClusters: [DuplicateCluster] {
         DedupeClusterConfidenceFilter.filtered(sessionStore.clusters, by: confidenceFilter)
+    }
+
+    private var announcementSnapshot: DeduplicateAnnouncementPlanner.Snapshot {
+        DeduplicateAnnouncementPlanner.Snapshot(
+            status: sessionStore.status,
+            phase: sessionStore.currentPhase,
+            clusterCount: sessionStore.clusters.count,
+            commitSummary: sessionStore.commitSummary
+        )
+    }
+
+    private func announceDeduplicateStateChange(to newSnapshot: DeduplicateAnnouncementPlanner.Snapshot) {
+        let previous = lastAnnouncementSnapshot ?? newSnapshot
+        lastAnnouncementSnapshot = newSnapshot
+        guard let message = DeduplicateAnnouncementPlanner.announcement(from: previous, to: newSnapshot) else { return }
+        #if canImport(AppKit)
+        NSAccessibility.post(
+            element: NSApp as Any,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
+        #endif
+    }
+
+    private func statusProgress(unit: String) -> DeduplicateStatusProgress? {
+        guard sessionStore.phaseTotal > 0 else { return nil }
+        return DeduplicateStatusProgress(
+            completed: sessionStore.phaseCompleted,
+            total: sessionStore.phaseTotal,
+            unit: unit
+        )
     }
 
     private var focusedCluster: DuplicateCluster? {

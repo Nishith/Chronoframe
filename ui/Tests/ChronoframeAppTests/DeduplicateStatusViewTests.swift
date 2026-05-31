@@ -52,6 +52,20 @@ final class DeduplicateStatusViewTests: XCTestCase {
         }
     }
 
+    func testStatusProgressExposesOnDemandAccessibilityValue() throws {
+        let progress = DeduplicateStatusProgress(completed: 3, total: 8, unit: "files")
+        XCTAssertEqual(try XCTUnwrap(progress.fraction), 0.375, accuracy: 0.0001)
+        XCTAssertEqual(progress.accessibilityValue, "3 of 8 files")
+
+        let clamped = DeduplicateStatusProgress(completed: 12, total: 8, unit: "files")
+        XCTAssertEqual(try XCTUnwrap(clamped.fraction), 1, accuracy: 0.0001)
+        XCTAssertEqual(clamped.accessibilityValue, "8 of 8 files")
+
+        let indeterminate = DeduplicateStatusProgress(completed: 0, total: 0, unit: "files")
+        XCTAssertNil(indeterminate.fraction)
+        XCTAssertEqual(indeterminate.accessibilityValue, "In progress")
+    }
+
     func testStatusViewRendersPrimaryAndSecondaryActions() {
         let view = DeduplicateStatusView(
             style: .success,
