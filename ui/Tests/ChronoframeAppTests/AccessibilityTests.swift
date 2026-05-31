@@ -153,21 +153,25 @@ final class AccessibilityTests: XCTestCase {
         PathControl.configure(
             nsView,
             path: "/Users/example/Pictures",
+            accessibilityLabel: "Source folder",
             placeholder: "Choose a folder",
             isInteractive: true
         )
 
         XCTAssertEqual(nsView.focusRingType, .default)
-        XCTAssertEqual(nsView.accessibilityLabel(), "Folder path")
+        XCTAssertEqual(nsView.accessibilityLabel(), "Source folder")
         XCTAssertEqual(nsView.accessibilityValue() as? String, "/Users/example/Pictures")
         XCTAssertEqual(nsView.accessibilityHelp(), "Current folder path. Press to choose a folder.")
 
         PathControl.configure(
             nsView,
             path: "",
+            accessibilityLabel: "Destination folder",
             placeholder: "Choose a source folder",
             isInteractive: false
         )
+        XCTAssertEqual(nsView.focusRingType, .none)
+        XCTAssertEqual(nsView.accessibilityLabel(), "Destination folder")
         XCTAssertEqual(nsView.accessibilityValue() as? String, "Choose a source folder")
         XCTAssertEqual(nsView.accessibilityHelp(), "Current folder path.")
     }

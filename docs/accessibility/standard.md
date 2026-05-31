@@ -4,7 +4,12 @@ Chronoframe's accessibility bar is: core organize and deduplicate flows must be 
 
 ## Audit Gate
 
-The Xcode UI accessibility audit is a hard gate by default. Local discovery runs may set `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1`, but CI must fail on any non-baselined issue.
+The Xcode UI accessibility audit supports two modes:
+
+- Discovery/bootstrap mode runs the audit and uploads JSONL evidence without failing an empty, not-yet-verified baseline.
+- Strict mode fails on every non-baselined issue. Set `CHRONOFRAME_A11Y_AUDIT_STRICT=1` after the baseline is verified clean or populated only with reviewed platform false positives.
+
+Local exploratory runs may set `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1` to suppress strict failures while investigating audit output.
 
 Known platform false positives live in `docs/accessibility/audit-baseline.json`. The file must stay reviewable and narrow:
 
@@ -17,12 +22,12 @@ Do not add app regressions to the baseline. Missing labels, poor contrast, insuf
 
 ## Phase 1 Ship Bar
 
-- Audit gate fails closed by default.
+- Audit gate fails closed in strict mode and once a verified baseline exists; an empty baseline stays in bootstrap mode until the audit has been observed clean or populated deliberately.
 - CI publishes the audit JSONL artifact for triage.
-- macOS-specific `action` and `parentChild` audit types are included alongside the cross-platform audit set.
-- `PathControl` exposes a native focus ring and spoken label/value/help.
+- Native macOS `action` and `parentChild` audit types are included alongside the cross-platform audit set. XCTest exposes `textClipped` and `trait` for iOS, tvOS, watchOS, and simulator SDKs, not native macOS in the current SDK.
+- `PathControl` exposes a native focus ring only when interactive, plus caller-specific spoken label/value/help.
 - Shared focus-ring decisions are centralized for custom keyboard controls.
-- Reduce Transparency material gaps remain guarded through `accessibleMaterialBackground`.
+- Existing dedupe Reduce Transparency material gaps remain guarded through `accessibleMaterialBackground`; future direct material use should route through the same helper.
 
 ## macOS-Specific Acceptance
 

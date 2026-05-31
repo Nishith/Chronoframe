@@ -204,7 +204,7 @@ jobs:
         with:
           name: chronoframe-accessibility-audit
           path: ${{ runner.temp }}/chronoframe-a11y-audit
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
   release-archive-smoke:
     name: Release archive smoke
