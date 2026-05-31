@@ -294,7 +294,6 @@ private struct LibraryAtAGlanceFooter: View {
         HStack(spacing: 4) {
             Text(value)
                 .scaledFont(.mono, weight: .semibold)
-                .monospacedDigit()
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             Text(label)
                 .scaledFont(.label)

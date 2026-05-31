@@ -84,6 +84,7 @@ final class TypographyTests: XCTestCase {
         XCTAssertTrue(sidebar.contains("@ScaledMetric(relativeTo: .callout) private var destinationIconWidth"))
         XCTAssertTrue(sidebar.contains(".frame(width: destinationIconWidth, height: destinationIconHeight)"))
         XCTAssertFalse(sidebar.contains(".frame(width: 20, height: 22)"))
+        XCTAssertFalse(sidebar.contains(".monospacedDigit()"))
 
         let onboarding = try String(contentsOf: sourceRoot.appendingPathComponent("Views/Components/OnboardingCard.swift"))
         XCTAssertTrue(onboarding.contains("@ScaledMetric(relativeTo: .caption) private var dismissButtonSize"))
