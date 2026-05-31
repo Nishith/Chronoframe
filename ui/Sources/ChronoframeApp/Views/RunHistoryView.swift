@@ -79,6 +79,7 @@ struct RunHistoryView: View {
     @State private var searchText = ""
     @State private var historyFilter: HistoryFilter = .all
     @State private var pendingRevertEntry: RunHistoryEntry?
+    @ScaledMetric(relativeTo: .caption) private var actionsMenuIconSize: CGFloat = 22
 
     private static let fileSizeFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -404,9 +405,9 @@ struct RunHistoryView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(recoveryTitle(for: entry))
-                    .font(.subheadline.weight(.semibold))
+                    .scaledFont(.subtitle, weight: .semibold)
                 Text("\(entry.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(entry.relativePath)")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -484,7 +485,7 @@ struct RunHistoryView: View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(Self.sourceFolderLabel(for: record.sourcePath))
-                    .font(.subheadline.weight(.semibold))
+                    .scaledFont(.subtitle, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(1)
                 Text(record.sourcePath)
@@ -526,9 +527,9 @@ struct RunHistoryView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(.label, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                    .frame(width: 22, height: 22)
+                    .frame(width: actionsMenuIconSize, height: actionsMenuIconSize)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -618,7 +619,7 @@ struct RunHistoryView: View {
                 .accessibilityHidden(true)
 
             Image(systemName: entry.kind.systemImage)
-                .font(.system(size: 14))
+                .scaledFont(.body)
                 .foregroundStyle(tint(for: entry.kind))
                 .frame(width: 20, alignment: .leading)
 
@@ -680,9 +681,9 @@ struct RunHistoryView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 13, weight: .semibold))
+                    .scaledFont(.label, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                    .frame(width: 22, height: 22)
+                    .frame(width: actionsMenuIconSize, height: actionsMenuIconSize)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)

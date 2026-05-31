@@ -192,7 +192,7 @@ struct SetupSavedSetupSection: View {
     private var profilePickerSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Selected Profile")
-                .font(.subheadline.weight(.semibold))
+                .scaledFont(.subtitle, weight: .semibold)
 
             Picker(
                 "Profile",
@@ -416,7 +416,7 @@ struct SetupReadinessSection: View {
                 SetupPreflightChecklist(model: model)
 
                 Text(model.readinessMessage)
-                    .font(.subheadline)
+                    .scaledFont(.subtitle)
                     .foregroundStyle(.secondary)
 
                 ViewThatFits(in: .horizontal) {
@@ -467,7 +467,7 @@ private struct SetupPreflightChecklist: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Readiness check")
-                .font(.subheadline.weight(.semibold))
+                .scaledFont(.subtitle, weight: .semibold)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 8)], spacing: 8) {
                 preflightItem(
                     title: "Source access",
@@ -516,9 +516,9 @@ private struct SetupPreflightChecklist: View {
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.caption.weight(.semibold))
+                    .scaledFont(.label, weight: .semibold)
                 Text(value)
-                    .font(.caption2)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -553,13 +553,13 @@ struct SetupDropZone: View {
 
                     if isActive {
                         Text(droppedSourceLabel ?? "Dropped items ready")
-                            .font(.headline)
+                            .scaledFont(.body, weight: .semibold)
                             .foregroundStyle(DesignTokens.Color.inkPrimary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     } else {
                         Text(isTargeted ? "Release to use as source" : "Drop a folder to begin")
-                            .font(.headline)
+                            .scaledFont(.body, weight: .semibold)
                             .foregroundStyle(isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkPrimary)
                     }
                 }

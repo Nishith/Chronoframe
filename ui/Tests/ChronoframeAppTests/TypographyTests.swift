@@ -58,4 +58,53 @@ final class TypographyTests: XCTestCase {
         // grow for low-vision users, while bounding layout breakage.
         XCTAssertGreaterThanOrEqual(DesignTokens.maxDynamicType, .accessibility1)
     }
+
+    func testCoreWorkflowChromeUsesScaledTypographyRoles() throws {
+        let sourceRoot = try appSourceRoot()
+        let checkedFiles = [
+            "Views/SidebarView.swift",
+            "Views/Setup/SetupSectionViews.swift",
+            "Views/RunHistoryView.swift",
+            "Views/Components/OnboardingCard.swift",
+            "Views/Components/WorkspaceTabStrip.swift",
+        ]
+
+        for path in checkedFiles {
+            let source = try String(contentsOf: sourceRoot.appendingPathComponent(path))
+            XCTAssertFalse(
+                source.contains(".font("),
+                "\(path) should use scaledFont roles so core workflow chrome can grow with text-size accommodations."
+            )
+        }
+    }
+
+    func testScaledCoreChromeIconsDoNotUseFixedFrames() throws {
+        let sourceRoot = try appSourceRoot()
+        let sidebar = try String(contentsOf: sourceRoot.appendingPathComponent("Views/SidebarView.swift"))
+        XCTAssertTrue(sidebar.contains("@ScaledMetric(relativeTo: .callout) private var destinationIconWidth"))
+        XCTAssertTrue(sidebar.contains(".frame(width: destinationIconWidth, height: destinationIconHeight)"))
+        XCTAssertFalse(sidebar.contains(".frame(width: 20, height: 22)"))
+        XCTAssertFalse(sidebar.contains(".monospacedDigit()"))
+
+        let onboarding = try String(contentsOf: sourceRoot.appendingPathComponent("Views/Components/OnboardingCard.swift"))
+        XCTAssertTrue(onboarding.contains("@ScaledMetric(relativeTo: .caption) private var dismissButtonSize"))
+        XCTAssertTrue(onboarding.contains(".frame(width: dismissButtonSize, height: dismissButtonSize)"))
+        XCTAssertFalse(onboarding.contains(".frame(width: 22, height: 22)"))
+
+        let history = try String(contentsOf: sourceRoot.appendingPathComponent("Views/RunHistoryView.swift"))
+        XCTAssertTrue(history.contains("@ScaledMetric(relativeTo: .caption) private var actionsMenuIconSize"))
+        XCTAssertTrue(history.contains(".frame(width: actionsMenuIconSize, height: actionsMenuIconSize)"))
+        XCTAssertFalse(history.contains(".frame(width: 22, height: 22)"))
+    }
+
+    private func appSourceRoot() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.last != "ui" && url.path != "/" {
+            url.deleteLastPathComponent()
+        }
+        if url.pathComponents.last == "ui" {
+            return url.appendingPathComponent("Sources").appendingPathComponent("ChronoframeApp")
+        }
+        throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
+    }
 }

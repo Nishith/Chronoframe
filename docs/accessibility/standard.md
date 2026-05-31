@@ -46,6 +46,12 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 - Per-item progress is not announced as milestones. Progress surfaces expose completed/total counts through `accessibilityValue` so users can query current progress on demand without speech spam.
 - Failure announcements must reassure users when originals were left untouched.
 
+## Phase 4 Typography Bar
+
+- Core workflow chrome and review rows should use semantic `scaledFont` roles instead of raw `.font(...)` modifiers.
+- Dedupe remains covered by the stricter source guard from earlier phases; this phase extends coverage to Setup, Run History, Sidebar navigation, onboarding, and workspace tabs.
+- Geometry-bound image placeholders may keep size-derived glyph rendering only when the glyph is part of a thumbnail canvas, not user-facing text.
+
 ## macOS-Specific Acceptance
 
 Chronoframe is a macOS app, so larger-text validation should be grounded in macOS behavior: Display Zoom, Hover Text, keyboard focus, VoiceOver, and clipping checks in representative UI tests. SwiftUI scaled typography remains useful hygiene, but `.accessibility1` previews alone are not evidence that the shipped Mac app meets the larger-text bar.
