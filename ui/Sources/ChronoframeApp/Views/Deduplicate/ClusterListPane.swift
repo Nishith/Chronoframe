@@ -103,6 +103,7 @@ struct ClusterListPane: View {
                                 cluster: cluster,
                                 decisions: decisions,
                                 isApproved: approvedClusterIDs.contains(cluster.id),
+                                isFocused: cluster.id == focusedClusterID,
                                 recoverableBytes: bytesByCluster[cluster.id] ?? 0,
                                 thumbnailLoader: thumbnailLoader,
                                 onKeepAll: { onKeepAll(cluster) },
@@ -130,13 +131,12 @@ private struct ClusterRow: View {
     let cluster: DuplicateCluster
     let decisions: DedupeDecisions
     let isApproved: Bool
+    let isFocused: Bool
     let recoverableBytes: Int64
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
     var onKeepAll: () -> Void = {}
     var onAcceptSuggestion: () -> Void = {}
     var onDeleteAll: () -> Void = {}
-    @State private var isHovered = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     private static let formatter: ByteCountFormatter = {
@@ -180,10 +180,7 @@ private struct ClusterRow: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if isHovered {
-                    hoverActions
-                        .transition(.opacity.animation(Motion.resolved(.easeInOut(duration: 0.12), reduceMotion: reduceMotion)))
-                }
+                actionsMenu
             }
             HStack(spacing: 4) {
                 confidenceDot
@@ -214,7 +211,6 @@ private struct ClusterRow: View {
                         .background(DesignTokens.ColorSystem.statusWarning.opacity(0.12), in: Capsule())
                         .help("Chronoframe has a suggestion, but this group has not been reviewed")
                 }
-                actionsMenu
             }
             if let annotation = cluster.annotation {
                 Text(MatchReasonFormatter.oneLiner(annotation))
@@ -224,7 +220,7 @@ private struct ClusterRow: View {
             }
         }
         .padding(.vertical, 4)
-        .onHover { isHovered = $0 }
+        .accessibleFocusRing(isFocused: isFocused, cornerRadius: 6)
         .contextMenu {
             Button("Keep All in Group") { onKeepAll() }
             Button("Accept Suggestion") { onAcceptSuggestion() }
@@ -239,6 +235,7 @@ private struct ClusterRow: View {
             recoverableBytes: recoverableBytes
         ))
         .accessibilityHint("Selects this duplicate group for review")
+        .accessibilityAddTraits(isFocused ? .isSelected : [])
         .accessibilityAction(named: "Keep All in Group") { onKeepAll() }
         .accessibilityAction(named: "Accept Suggestion") { onAcceptSuggestion() }
         .accessibilityAction(named: "Delete All in Group") { onDeleteAll() }
@@ -258,40 +255,6 @@ private struct ClusterRow: View {
         .fixedSize()
         .help("Actions for this duplicate group")
         .accessibilityLabel("Actions for duplicate group")
-    }
-
-    private var hoverActions: some View {
-        HStack(spacing: 2) {
-            Button {
-                onKeepAll()
-            } label: {
-                Image(systemName: "tray.and.arrow.down.fill")
-                    .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
-            }
-            .buttonStyle(.borderless)
-            .help("Keep all photos in this group")
-
-            Button {
-                onAcceptSuggestion()
-            } label: {
-                Image(systemName: "checkmark.seal.fill")
-                    .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.accentAction)
-            }
-            .buttonStyle(.borderless)
-            .help("Accept suggestion (keep best, delete rest)")
-
-            Button(role: .destructive) {
-                onDeleteAll()
-            } label: {
-                Image(systemName: "trash.fill")
-                    .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
-            }
-            .buttonStyle(.borderless)
-            .help("Delete all photos in this group")
-        }
     }
 
     private func decisionFor(_ member: PhotoCandidate) -> DedupeDecision {

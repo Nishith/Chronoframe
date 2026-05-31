@@ -19,6 +19,7 @@ struct ClusterDetailPane: View {
     @State private var dragStartThumbnailStripHeight: CGFloat?
     @State private var showingReasonDetail = false
     @State private var showingComparisonOverlay = false
+    @FocusState private var keyboardFocusTarget: DedupeMemberFocusTarget?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
@@ -62,6 +63,14 @@ struct ClusterDetailPane: View {
             }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewDetail)
+        .onAppear { syncKeyboardFocusTarget(with: focusedMemberPath) }
+        .onChange(of: focusedMemberPath) { newPath in
+            syncKeyboardFocusTarget(with: newPath)
+        }
+        .onChange(of: keyboardFocusTarget) { newTarget in
+            guard let path = newTarget?.path, path != focusedMemberPath else { return }
+            focusedMemberPath = path
+        }
     }
 
     @ViewBuilder
@@ -267,9 +276,12 @@ struct ClusterDetailPane: View {
 
     private func comparisonPane(member: PhotoCandidate, role: ComparisonRole, cluster: DuplicateCluster) -> some View {
         let isFocused = member.path == focusedMemberPath
+        let focusTarget = DedupeMemberFocusTarget.comparison(member.path)
+        let isKeyboardFocused = keyboardFocusTarget == focusTarget
         let decision = sessionStore.decisions.byPath[member.path] ?? (isSuggestedKeeper(member, in: cluster) ? .keep : .delete)
         return Button {
             focusedMemberPath = member.path
+            keyboardFocusTarget = focusTarget
         } label: {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -285,11 +297,14 @@ struct ClusterDetailPane: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(
-                    isFocused ? DesignTokens.ColorSystem.accentWaypoint : Color.white.opacity(0.08),
-                    lineWidth: isFocused ? 2 : 0.5
+                    Color.white.opacity(0.08),
+                    lineWidth: 0.5
                 )
         }
+        .accessibleFocusRing(isFocused: isKeyboardFocused, cornerRadius: 8)
         .contentShape(Rectangle())
+        .focusable(true)
+        .focused($keyboardFocusTarget, equals: focusTarget)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(role.label): \(URL(fileURLWithPath: member.path).lastPathComponent)")
         .accessibilityHint("Selects this photo for keyboard keep or delete actions")
@@ -476,8 +491,11 @@ struct ClusterDetailPane: View {
     private func memberThumb(member: PhotoCandidate, cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
         let decision = sessionStore.decisions.byPath[member.path] ?? (isSuggestedKeeper(member, in: cluster) ? .keep : .delete)
         let isFocused = member.path == focusedMemberPath
+        let focusTarget = DedupeMemberFocusTarget.thumbnail(member.path)
+        let isKeyboardFocused = keyboardFocusTarget == focusTarget
         return Button {
             focusedMemberPath = member.path
+            keyboardFocusTarget = focusTarget
         } label: {
             ZStack(alignment: .bottomTrailing) {
                 DedupeThumbnailView(
@@ -492,7 +510,7 @@ struct ClusterDetailPane: View {
                 .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(isFocused ? DesignTokens.ColorSystem.accentWaypoint : Color.white.opacity(0.16), lineWidth: isFocused ? 2 : 0.5)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
                 )
                 .overlay(alignment: .topLeading) {
                     if isSuggestedKeeper(member, in: cluster) {
@@ -512,6 +530,9 @@ struct ClusterDetailPane: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibleFocusRing(isFocused: isKeyboardFocused, cornerRadius: 6)
+        .focusable(true)
+        .focused($keyboardFocusTarget, equals: focusTarget)
         .contextMenu {
             Button("Keep") { sessionStore.setDecision(.keep, forPath: member.path) }
             Button("Delete", role: .destructive) { sessionStore.setDecision(.delete, forPath: member.path) }
@@ -663,6 +684,16 @@ struct ClusterDetailPane: View {
         return cluster.members.first
     }
 
+    private func syncKeyboardFocusTarget(with path: String?) {
+        guard let path else {
+            keyboardFocusTarget = nil
+            return
+        }
+        if keyboardFocusTarget?.path != path {
+            keyboardFocusTarget = .thumbnail(path)
+        }
+    }
+
     private func navigateMember(by delta: Int, in cluster: DuplicateCluster) {
         focusedMemberPath = DeduplicateMemberNavigation.focusedPath(
             afterMoving: delta,
@@ -711,6 +742,18 @@ struct ClusterDetailPane: View {
         formatter.allowedUnits = [.useKB, .useMB, .useGB]
         formatter.countStyle = .file
         return formatter
+    }
+}
+
+private enum DedupeMemberFocusTarget: Hashable {
+    case comparison(String)
+    case thumbnail(String)
+
+    var path: String {
+        switch self {
+        case .comparison(let path), .thumbnail(let path):
+            return path
+        }
     }
 }
 
