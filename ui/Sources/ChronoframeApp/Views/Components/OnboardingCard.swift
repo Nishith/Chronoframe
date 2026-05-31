@@ -10,6 +10,7 @@ struct OnboardingCard: View {
     let bullets: [String]
     let accessibilitySummary: String
     let onDismiss: () -> Void
+    @ScaledMetric(relativeTo: .caption) private var dismissButtonSize: CGFloat = 22
 
     init(
         icon: String = "hand.wave",
@@ -70,7 +71,7 @@ struct OnboardingCard: View {
                     Image(systemName: "xmark")
                         .scaledFont(.label, weight: .semibold)
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                        .frame(width: 22, height: 22)
+                        .frame(width: dismissButtonSize, height: dismissButtonSize)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Dismiss onboarding")

@@ -11,6 +11,8 @@ struct SidebarView: View {
     @ObservedObject private var deduplicateSessionStore: DeduplicateSessionStore
     @AppStorage("lastSeenHistoryCount") private var lastSeenHistoryCount: Int = 0
     @AppStorage("lastSeenDeduplicateAttentionToken") private var lastSeenDeduplicateAttentionToken: String = ""
+    @ScaledMetric(relativeTo: .callout) private var destinationIconWidth: CGFloat = 20
+    @ScaledMetric(relativeTo: .callout) private var destinationIconHeight: CGFloat = 22
 
     init(appState: AppState) {
         self.appState = appState
@@ -93,7 +95,7 @@ struct SidebarView: View {
                 Image(systemName: destination.systemImage)
                     .scaledFont(.subtitle, weight: .semibold)
                     .foregroundStyle(isSelected ? DesignTokens.ColorSystem.accentAction : iconTint(for: destination))
-                    .frame(width: 20, height: 22)
+                    .frame(width: destinationIconWidth, height: destinationIconHeight)
                     .overlay(alignment: .bottomTrailing) {
                         if isSelected {
                             Circle()

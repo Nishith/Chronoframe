@@ -78,6 +78,24 @@ final class TypographyTests: XCTestCase {
         }
     }
 
+    func testScaledCoreChromeIconsDoNotUseFixedFrames() throws {
+        let sourceRoot = try appSourceRoot()
+        let sidebar = try String(contentsOf: sourceRoot.appendingPathComponent("Views/SidebarView.swift"))
+        XCTAssertTrue(sidebar.contains("@ScaledMetric(relativeTo: .callout) private var destinationIconWidth"))
+        XCTAssertTrue(sidebar.contains(".frame(width: destinationIconWidth, height: destinationIconHeight)"))
+        XCTAssertFalse(sidebar.contains(".frame(width: 20, height: 22)"))
+
+        let onboarding = try String(contentsOf: sourceRoot.appendingPathComponent("Views/Components/OnboardingCard.swift"))
+        XCTAssertTrue(onboarding.contains("@ScaledMetric(relativeTo: .caption) private var dismissButtonSize"))
+        XCTAssertTrue(onboarding.contains(".frame(width: dismissButtonSize, height: dismissButtonSize)"))
+        XCTAssertFalse(onboarding.contains(".frame(width: 22, height: 22)"))
+
+        let history = try String(contentsOf: sourceRoot.appendingPathComponent("Views/RunHistoryView.swift"))
+        XCTAssertTrue(history.contains("@ScaledMetric(relativeTo: .caption) private var actionsMenuIconSize"))
+        XCTAssertTrue(history.contains(".frame(width: actionsMenuIconSize, height: actionsMenuIconSize)"))
+        XCTAssertFalse(history.contains(".frame(width: 22, height: 22)"))
+    }
+
     private func appSourceRoot() throws -> URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.pathComponents.last != "ui" && url.path != "/" {

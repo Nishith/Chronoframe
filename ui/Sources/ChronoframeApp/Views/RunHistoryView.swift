@@ -79,6 +79,7 @@ struct RunHistoryView: View {
     @State private var searchText = ""
     @State private var historyFilter: HistoryFilter = .all
     @State private var pendingRevertEntry: RunHistoryEntry?
+    @ScaledMetric(relativeTo: .caption) private var actionsMenuIconSize: CGFloat = 22
 
     private static let fileSizeFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -528,7 +529,7 @@ struct RunHistoryView: View {
                 Image(systemName: "ellipsis")
                     .scaledFont(.label, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                    .frame(width: 22, height: 22)
+                    .frame(width: actionsMenuIconSize, height: actionsMenuIconSize)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
@@ -682,7 +683,7 @@ struct RunHistoryView: View {
                 Image(systemName: "ellipsis")
                     .scaledFont(.label, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                    .frame(width: 22, height: 22)
+                    .frame(width: actionsMenuIconSize, height: actionsMenuIconSize)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
