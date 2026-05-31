@@ -30,12 +30,14 @@ Do not add app regressions to the baseline. Missing labels, poor contrast, insuf
 - Shared focus-ring decisions are centralized for custom keyboard controls.
 - Known direct dedupe material sites route through `accessibleMaterialBackground`, with source tests guarding the three Reduce Transparency gaps identified in the review.
 
-## Phase 2 Ship Bar
+## Phase 2 Dedupe Review Ship Bar
 
 - Dedupe review member thumbnails and side-by-side comparison panes are real SwiftUI focus targets, not pointer-only hit regions.
 - Focused clusters, focused members, and selected comparison panes use the shared visible focus-ring treatment.
 - Row-level dedupe actions are always reachable through a visible Actions menu; hover affordances may only duplicate actions that remain keyboard reachable.
 - Keyboard shortcuts remain available, but every shortcut-backed dedupe review action must also have a visible focusable control or menu item.
+
+This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus placement for Setup, Run, Preview, History, Profiles, Settings, and destructive confirmation flows remain follow-up Phase 2 work.
 
 ## macOS-Specific Acceptance
 

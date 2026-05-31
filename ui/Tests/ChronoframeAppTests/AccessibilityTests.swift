@@ -255,11 +255,21 @@ final class AccessibilityTests: XCTestCase {
 
         let clusterDetail = try String(contentsOf: dedupeRoot.appendingPathComponent("ClusterDetailPane.swift"))
         XCTAssertTrue(
-            clusterDetail.contains("@FocusState private var keyboardFocusedMemberPath"),
+            clusterDetail.contains("@FocusState private var keyboardFocusTarget"),
             "Dedupe member focus should use SwiftUI focus state, not a pointer-only selection binding."
         )
+        XCTAssertTrue(
+            clusterDetail.contains("private enum DedupeMemberFocusTarget: Hashable"),
+            "Thumbnail and comparison controls need distinct focus identities so wide review does not bind two controls to the same focused value."
+        )
+        XCTAssertTrue(
+            clusterDetail.contains("case comparison(String)")
+        )
+        XCTAssertTrue(
+            clusterDetail.contains("case thumbnail(String)")
+        )
         XCTAssertGreaterThanOrEqual(
-            clusterDetail.components(separatedBy: ".focused($keyboardFocusedMemberPath, equals: member.path)").count - 1,
+            clusterDetail.components(separatedBy: ".focused($keyboardFocusTarget, equals: focusTarget)").count - 1,
             2,
             "Member thumbnails and comparison panes should both be first-class keyboard focus targets."
         )
@@ -269,7 +279,7 @@ final class AccessibilityTests: XCTestCase {
             "Custom image controls need explicit focusability for keyboard and Switch Control traversal."
         )
         XCTAssertGreaterThanOrEqual(
-            clusterDetail.components(separatedBy: ".accessibleFocusRing(isFocused: isFocused").count - 1,
+            clusterDetail.components(separatedBy: ".accessibleFocusRing(isFocused: isKeyboardFocused").count - 1,
             2,
             "Focused members and comparison panes should draw the shared visible focus ring."
         )
