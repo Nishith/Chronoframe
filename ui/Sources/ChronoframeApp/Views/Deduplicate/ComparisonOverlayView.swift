@@ -9,7 +9,14 @@ struct ComparisonOverlayView: View {
     let rightPath: String
     @State private var mode: ComparisonMode = .slider
     @State private var sliderPosition: CGFloat = 0.5
+    @FocusState private var focusedControl: ComparisonOverlayFocusTarget?
+    @AccessibilityFocusState private var accessibilityFocusedControl: ComparisonOverlayFocusTarget?
     @Environment(\.dismiss) private var dismiss
+
+    private enum ComparisonOverlayFocusTarget: Hashable {
+        case modePicker
+        case doneButton
+    }
 
     enum ComparisonMode: String, CaseIterable {
         case slider
@@ -43,6 +50,9 @@ struct ComparisonOverlayView: View {
         }
         .frame(minWidth: 600, minHeight: 500)
         .background(DesignTokens.ColorSystem.canvas)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Image comparison")
+        .onAppear(perform: focusInitialControl)
     }
 
     private var toolbar: some View {
@@ -51,8 +61,7 @@ struct ComparisonOverlayView: View {
                 imagePairLabel
                 Spacer()
                 modePicker
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.escape, modifiers: [])
+                doneButton
             }
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
@@ -60,8 +69,7 @@ struct ComparisonOverlayView: View {
                 HStack {
                     modePicker
                     Spacer()
-                    Button("Done") { dismiss() }
-                        .keyboardShortcut(.escape, modifiers: [])
+                    doneButton
                 }
             }
         }
@@ -78,6 +86,16 @@ struct ComparisonOverlayView: View {
         .pickerStyle(.segmented)
         .frame(maxWidth: 300)
         .accessibilityLabel("Comparison mode")
+        .focused($focusedControl, equals: .modePicker)
+        .accessibilityFocused($accessibilityFocusedControl, equals: .modePicker)
+    }
+
+    private var doneButton: some View {
+        Button("Done") { dismiss() }
+            .keyboardShortcut(.escape, modifiers: [])
+            .accessibilityHint("Closes the comparison and returns to duplicate review")
+            .focused($focusedControl, equals: .doneButton)
+            .accessibilityFocused($accessibilityFocusedControl, equals: .doneButton)
     }
 
     private var imagePairLabel: some View {
@@ -94,6 +112,13 @@ struct ComparisonOverlayView: View {
         }
         .scaledFont(.label)
         .foregroundStyle(.secondary)
+    }
+
+    private func focusInitialControl() {
+        DispatchQueue.main.async {
+            focusedControl = .modePicker
+            accessibilityFocusedControl = .modePicker
+        }
     }
 
     @ViewBuilder

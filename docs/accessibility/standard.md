@@ -59,6 +59,12 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 - Increased Contrast should strengthen focus rings, dividers, and status marks without changing the workflow or hiding information.
 - Phase 5 currently hardens the Health dashboard; sidebar status dots, run/progress phase states, setup status marks, and broader navigation indicators remain follow-up surfaces for the same standard.
 
+## Phase 6 Modal Focus Bar
+
+- Sheets and overlays must place initial keyboard and accessibility focus on a meaningful control instead of leaving users at an undefined window root.
+- Dismissing a modal workflow should return focus to the invoking review context when the source view owns explicit focus state.
+- Escape/Done paths must remain visible, labeled, and keyboard reachable.
+
 ## macOS-Specific Acceptance
 
 Chronoframe is a macOS app, so larger-text validation should be grounded in macOS behavior: Display Zoom, Hover Text, keyboard focus, VoiceOver, and clipping checks in representative UI tests. SwiftUI scaled typography remains useful hygiene, but `.accessibility1` previews alone are not evidence that the shipped Mac app meets the larger-text bar.
