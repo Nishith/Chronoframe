@@ -113,6 +113,18 @@ final class TypographyTests: XCTestCase {
         }
     }
 
+    func testSettingsAndProfilesScaledIconsDoNotUseFixedFrames() throws {
+        let sourceRoot = try appSourceRoot()
+        let profiles = try String(contentsOf: sourceRoot.appendingPathComponent("Views/ProfilesView.swift"))
+
+        XCTAssertTrue(profiles.contains("@ScaledMetric(relativeTo: .body) private var actionsMenuIconSize"))
+        XCTAssertTrue(profiles.contains("@ScaledMetric(relativeTo: .caption) private var pathIconWidth"))
+        XCTAssertTrue(profiles.contains(".frame(width: actionsMenuIconSize, height: actionsMenuIconSize)"))
+        XCTAssertTrue(profiles.contains(".frame(width: pathIconWidth)"))
+        XCTAssertFalse(profiles.contains(".frame(width: 22, height: 22)"))
+        XCTAssertFalse(profiles.contains(".frame(width: 14)"))
+    }
+
     private func appSourceRoot() throws -> URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.pathComponents.last != "ui" && url.path != "/" {

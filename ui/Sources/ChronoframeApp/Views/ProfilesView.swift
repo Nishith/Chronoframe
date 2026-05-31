@@ -201,6 +201,8 @@ private struct ProfileTile: View {
     let onDelete: () -> Void
 
     @State private var isHovering = false
+    @ScaledMetric(relativeTo: .body) private var actionsMenuIconSize: CGFloat = 22
+    @ScaledMetric(relativeTo: .caption) private var pathIconWidth: CGFloat = 14
 
     var body: some View {
         DarkroomPanel(variant: .panel) {
@@ -231,7 +233,7 @@ private struct ProfileTile: View {
                         Image(systemName: "ellipsis")
                             .scaledFont(.body, weight: .semibold)
                             .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                            .frame(width: 22, height: 22)
+                            .frame(width: actionsMenuIconSize, height: actionsMenuIconSize)
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
@@ -265,7 +267,7 @@ private struct ProfileTile: View {
             Image(systemName: icon)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                .frame(width: 14)
+                .frame(width: pathIconWidth)
 
             Text(label)
                 .scaledFont(.label)
