@@ -126,9 +126,9 @@ private struct OrganizeNextActionBanner: View {
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
                 Text(action.title)
-                    .font(.subheadline.weight(.semibold))
+                    .scaledFont(.subtitle, weight: .semibold)
                 Text(action.message)
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

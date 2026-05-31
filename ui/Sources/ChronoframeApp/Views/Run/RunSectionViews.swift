@@ -247,7 +247,7 @@ struct RunPreviewReviewSection: View {
                 .foregroundStyle(DesignTokens.Color.inkPrimary)
 
             Text(model.previewReviewMessage)
-                .font(.subheadline)
+                .scaledFont(.subtitle)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -255,7 +255,7 @@ struct RunPreviewReviewSection: View {
                 HStack(spacing: 8) {
                     ForEach(model.previewReviewSummaryTiles) { tile in
                         Label(tile.value, systemImage: tile.tone == .warning ? "exclamationmark.triangle" : "checkmark.circle")
-                            .font(.caption)
+                            .scaledFont(.label)
                             .foregroundStyle(tile.tone.color)
                             .help(tile.title)
                     }
@@ -422,7 +422,7 @@ struct RunArtifactsPanel: View {
                     .scaledFont(.cardTitle)
 
                 Text(model.destinationSummaryValue)
-                    .font(.subheadline.monospaced())
+                    .scaledFont(.mono)
                     .foregroundStyle(model.destinationRoot == nil ? .secondary : DesignTokens.Color.inkPrimary)
                     .lineLimit(3)
                     .truncationMode(.middle)
@@ -527,10 +527,10 @@ struct RunIssuesPanel: View {
         MeridianSurfaceCard(style: .inner, tint: model.issueTone.color) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Suggested fixes")
-                    .font(.subheadline.weight(.semibold))
+                    .scaledFont(.subtitle, weight: .semibold)
                 ForEach(Self.suggestedFixes(for: model.issueEntries), id: \.self) { fix in
                     Label(fix, systemImage: "wrench.and.screwdriver")
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(.secondary)
                 }
             }

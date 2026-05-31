@@ -78,6 +78,12 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 - Dense preference captions may use compact roles such as `label`, but they should still route through the scalable typography layer.
 - Source tests should guard Settings and Profiles alongside core workflow chrome so future preference additions do not reintroduce fixed fonts.
 
+## Phase 9 Run And Organize Typography Bar
+
+- Run and Organize status panels should use semantic `scaledFont` roles for visible labels, metrics, hints, and timeline markers.
+- Fixed monospaced fonts are allowed only for dense console or issue-log text where character alignment is the accessibility affordance.
+- Source tests should guard representative Run and Organize status files and keep console-only fixed-font exceptions narrow.
+
 ## macOS-Specific Acceptance
 
 Chronoframe is a macOS app, so larger-text validation should be grounded in macOS behavior: Display Zoom, Hover Text, keyboard focus, VoiceOver, and clipping checks in representative UI tests. SwiftUI scaled typography remains useful hygiene, but `.accessibility1` previews alone are not evidence that the shipped Mac app meets the larger-text bar.

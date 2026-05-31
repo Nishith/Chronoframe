@@ -186,7 +186,7 @@ private struct PreviewReviewRow: View {
         HStack(alignment: .top, spacing: 10) {
             planEndpoint(title: "Source", path: item.sourcePath, systemImage: "folder")
             Image(systemName: "arrow.right")
-                .font(.caption.weight(.semibold))
+                .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(.secondary)
                 .padding(.top, 18)
             planEndpoint(

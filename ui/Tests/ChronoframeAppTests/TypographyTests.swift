@@ -125,6 +125,35 @@ final class TypographyTests: XCTestCase {
         XCTAssertFalse(profiles.contains(".frame(width: 14)"))
     }
 
+    func testRunAndOrganizeStatusSurfacesUseScaledTypographyRoles() throws {
+        let sourceRoot = try appSourceRoot()
+        let checkedFiles = [
+            "Views/Run/CurrentRunView.swift",
+            "Views/Run/PreviewReviewPanel.swift",
+            "Views/Run/RunTimelineView.swift",
+            "Views/Organize/OrganizeContainerView.swift",
+            "Views/Organize/HealthDashboardView.swift",
+        ]
+
+        for path in checkedFiles {
+            let source = try String(contentsOf: sourceRoot.appendingPathComponent(path))
+            XCTAssertFalse(
+                source.contains(".font("),
+                "\(path) should use scaledFont roles for visible status text."
+            )
+        }
+
+        let runSections = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views/Run/RunSectionViews.swift"))
+        XCTAssertFalse(runSections.contains(".font(.caption"))
+        XCTAssertFalse(runSections.contains(".font(.subheadline"))
+        XCTAssertEqual(
+            runSections.components(separatedBy: ".font(.system(size: DesignTokens.Layout.consoleFontSize").count - 1,
+            2,
+            "RunSectionViews should reserve fixed monospaced fonts for console/issue log surfaces only."
+        )
+    }
+
     private func appSourceRoot() throws -> URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.pathComponents.last != "ui" && url.path != "/" {

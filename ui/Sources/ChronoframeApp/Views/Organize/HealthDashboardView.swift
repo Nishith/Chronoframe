@@ -174,7 +174,7 @@ private struct HealthCardView: View {
                 }
 
                 Text(card.message)
-                    .font(.subheadline)
+                    .scaledFont(.subtitle)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
