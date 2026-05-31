@@ -247,6 +247,58 @@ final class AccessibilityTests: XCTestCase {
         )
     }
 
+    func testSeverityVisualsAddNonColorEncodingsWhenDifferentiatingWithoutColor() {
+        XCTAssertEqual(AccessibleSeverityVisuals.symbolName(for: .success), "checkmark.circle")
+        XCTAssertEqual(AccessibleSeverityVisuals.symbolName(for: .warning), "exclamationmark.triangle")
+        XCTAssertEqual(AccessibleSeverityVisuals.symbolName(for: .danger), "exclamationmark.octagon")
+
+        XCTAssertEqual(AccessibleSeverityVisuals.abbreviation(for: .success), "OK")
+        XCTAssertEqual(AccessibleSeverityVisuals.abbreviation(for: .warning), "!")
+        XCTAssertEqual(AccessibleSeverityVisuals.abbreviation(for: .danger), "!!")
+
+        XCTAssertEqual(
+            AccessibleSeverityVisuals.dashPattern(for: .success, differentiateWithoutColor: true),
+            []
+        )
+        XCTAssertFalse(
+            AccessibleSeverityVisuals.dashPattern(for: .warning, differentiateWithoutColor: true).isEmpty
+        )
+        XCTAssertFalse(
+            AccessibleSeverityVisuals.dashPattern(for: .danger, differentiateWithoutColor: true).isEmpty
+        )
+        XCTAssertEqual(
+            AccessibleSeverityVisuals.dashPattern(for: .danger, differentiateWithoutColor: false),
+            []
+        )
+        XCTAssertGreaterThan(
+            AccessibleSeverityVisuals.lineWidth(base: 12, contrast: .increased),
+            AccessibleSeverityVisuals.lineWidth(base: 12, contrast: .standard)
+        )
+    }
+
+    func testHealthDashboardUsesDifferentiateWithoutColorForSeverityVisuals() throws {
+        let sourceRoot = try appSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Organize")
+            .appendingPathComponent("HealthDashboardView.swift"))
+
+        XCTAssertTrue(source.contains("@Environment(\\.accessibilityDifferentiateWithoutColor)"))
+        XCTAssertTrue(source.contains("AccessibleSeverityVisuals.dashPattern"))
+        XCTAssertTrue(source.contains("AccessibleSeverityVisuals.abbreviation"))
+        XCTAssertTrue(source.contains(".strokeBorder("))
+        XCTAssertTrue(source.contains("width >= 28"))
+        XCTAssertTrue(source.contains("SeverityLegendMarker"))
+
+        let standard = try String(contentsOf: sourceRoot
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("docs/accessibility/standard.md"))
+        XCTAssertTrue(standard.contains("Phase 5 currently hardens the Health dashboard"))
+        XCTAssertTrue(standard.contains("sidebar status dots, run/progress phase states"))
+    }
+
     func testDedupeReviewUsesSwiftUIFocusAndVisibleFocusRings() throws {
         let sourceRoot = try appSourceRoot()
         let dedupeRoot = sourceRoot

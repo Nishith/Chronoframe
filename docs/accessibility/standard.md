@@ -52,6 +52,13 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 - Dedupe remains covered by the stricter source guard from earlier phases; this phase extends coverage to Setup, Run History, Sidebar navigation, onboarding, and workspace tabs.
 - Geometry-bound image placeholders may keep size-derived glyph rendering only when the glyph is part of a thumbnail canvas, not user-facing text.
 
+## Phase 5 System Settings Bar
+
+- System accessibility settings must visibly change more than dedupe review. Health, run, setup, and navigation surfaces should encode status with shape, iconography, labels, or pattern in addition to color.
+- Differentiate Without Color must remove color-only meaning from dashboard summaries; severity charts need non-color encodings such as symbols, labels, dash patterns, or text marks.
+- Increased Contrast should strengthen focus rings, dividers, and status marks without changing the workflow or hiding information.
+- Phase 5 currently hardens the Health dashboard; sidebar status dots, run/progress phase states, setup status marks, and broader navigation indicators remain follow-up surfaces for the same standard.
+
 ## macOS-Specific Acceptance
 
 Chronoframe is a macOS app, so larger-text validation should be grounded in macOS behavior: Display Zoom, Hover Text, keyboard focus, VoiceOver, and clipping checks in representative UI tests. SwiftUI scaled typography remains useful hygiene, but `.accessibility1` previews alone are not evidence that the shipped Mac app meets the larger-text bar.

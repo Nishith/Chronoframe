@@ -155,6 +155,7 @@ struct HealthDashboardView: View {
 private struct HealthCardView: View {
     let card: LibraryHealthCard
     let appState: AppState
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     var body: some View {
         MeridianSurfaceCard(tint: tint) {
@@ -162,11 +163,13 @@ private struct HealthCardView: View {
                 HStack(alignment: .center, spacing: 10) {
                     Image(systemName: symbol)
                         .foregroundStyle(tint)
+                        .imageScale(AccessibleDesign.isIncreasedContrast(colorSchemeContrast) ? .large : .medium)
                     Text(card.title)
                         .scaledFont(.cardTitle)
                     Spacer()
                     Text(card.value)
-                        .font(.title3.monospacedDigit())
+                        .scaledFont(.cardTitle, weight: .semibold)
+                        .monospacedDigit()
                         .foregroundStyle(tint)
                 }
 
@@ -199,13 +202,17 @@ private struct HealthCardView: View {
     }
 
     private var symbol: String {
+        AccessibleSeverityVisuals.symbolName(for: severityLevel)
+    }
+
+    private var severityLevel: AccessibleSeverityLevel {
         switch card.severity {
         case .good:
-            return "checkmark.circle"
+            return .success
         case .attention:
-            return "exclamationmark.triangle"
+            return .warning
         case .critical:
-            return "exclamationmark.octagon"
+            return .danger
         }
     }
 
@@ -233,6 +240,8 @@ private struct HealthCardView: View {
 /// extension required.
 private struct LibraryHealthHero: View {
     let summary: LibraryHealthSummary
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
 
     private var counts: (good: Int, attention: Int, critical: Int) {
         var good = 0, attention = 0, critical = 0
@@ -271,9 +280,9 @@ private struct LibraryHealthHero: View {
                         .frame(height: 14)
 
                     HStack(spacing: 14) {
-                        legend("Healthy", count: counts.good, tint: DesignTokens.ColorSystem.statusSuccess)
-                        legend("Review", count: counts.attention, tint: DesignTokens.ColorSystem.statusWarning)
-                        legend("Critical", count: counts.critical, tint: DesignTokens.ColorSystem.statusDanger)
+                        legend("Healthy", count: counts.good, tint: DesignTokens.ColorSystem.statusSuccess, level: .success)
+                        legend("Review", count: counts.attention, tint: DesignTokens.ColorSystem.statusWarning, level: .warning)
+                        legend("Critical", count: counts.critical, tint: DesignTokens.ColorSystem.statusDanger, level: .danger)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -297,11 +306,16 @@ private struct LibraryHealthHero: View {
                 .stroke(DesignTokens.ColorSystem.hairline, lineWidth: 12)
 
             // Critical segment (starts at top, runs clockwise)
-            dialSegment(start: 0, fraction: criticalFraction, tint: DesignTokens.ColorSystem.statusDanger)
+            dialSegment(start: 0, fraction: criticalFraction, tint: DesignTokens.ColorSystem.statusDanger, level: .danger)
             // Attention segment
-            dialSegment(start: criticalFraction, fraction: attentionFraction, tint: DesignTokens.ColorSystem.statusWarning)
+            dialSegment(start: criticalFraction, fraction: attentionFraction, tint: DesignTokens.ColorSystem.statusWarning, level: .warning)
             // Healthy segment
-            dialSegment(start: criticalFraction + attentionFraction, fraction: readyFraction, tint: DesignTokens.ColorSystem.statusSuccess)
+            dialSegment(
+                start: criticalFraction + attentionFraction,
+                fraction: readyFraction,
+                tint: DesignTokens.ColorSystem.statusSuccess,
+                level: .success
+            )
 
             VStack(spacing: 2) {
                 Text(percentString)
@@ -319,10 +333,20 @@ private struct LibraryHealthHero: View {
         .padding(6)
     }
 
-    private func dialSegment(start: Double, fraction: Double, tint: Color) -> some View {
+    private func dialSegment(start: Double, fraction: Double, tint: Color, level: AccessibleSeverityLevel) -> some View {
         Circle()
             .trim(from: start, to: start + fraction)
-            .stroke(tint, style: StrokeStyle(lineWidth: 12, lineCap: .butt))
+            .stroke(
+                tint,
+                style: StrokeStyle(
+                    lineWidth: AccessibleSeverityVisuals.lineWidth(base: 12, contrast: colorSchemeContrast),
+                    lineCap: .butt,
+                    dash: AccessibleSeverityVisuals.dashPattern(
+                        for: level,
+                        differentiateWithoutColor: differentiateWithoutColor
+                    )
+                )
+            )
             .rotationEffect(.degrees(-90)) // start at 12 o'clock
     }
 
@@ -340,19 +364,22 @@ private struct LibraryHealthHero: View {
                 if counts.good > 0 {
                     severitySegment(
                         width: geo.size.width * Double(counts.good) / Double(total),
-                        tint: DesignTokens.ColorSystem.statusSuccess
+                        tint: DesignTokens.ColorSystem.statusSuccess,
+                        level: .success
                     )
                 }
                 if counts.attention > 0 {
                     severitySegment(
                         width: geo.size.width * Double(counts.attention) / Double(total),
-                        tint: DesignTokens.ColorSystem.statusWarning
+                        tint: DesignTokens.ColorSystem.statusWarning,
+                        level: .warning
                     )
                 }
                 if counts.critical > 0 {
                     severitySegment(
                         width: geo.size.width * Double(counts.critical) / Double(total),
-                        tint: DesignTokens.ColorSystem.statusDanger
+                        tint: DesignTokens.ColorSystem.statusDanger,
+                        level: .danger
                     )
                 }
             }
@@ -360,17 +387,39 @@ private struct LibraryHealthHero: View {
         }
     }
 
-    private func severitySegment(width: CGFloat, tint: Color) -> some View {
+    private func severitySegment(width: CGFloat, tint: Color, level: AccessibleSeverityLevel) -> some View {
         Capsule()
             .fill(tint)
+            .overlay {
+                if differentiateWithoutColor {
+                    ZStack {
+                        Capsule()
+                            .strokeBorder(
+                                DesignTokens.ColorSystem.imageStage.opacity(0.85),
+                                style: StrokeStyle(
+                                    lineWidth: AccessibleSeverityVisuals.lineWidth(base: 1.5, contrast: colorSchemeContrast),
+                                    dash: AccessibleSeverityVisuals.dashPattern(
+                                        for: level,
+                                        differentiateWithoutColor: true
+                                    )
+                                )
+                            )
+
+                        if width >= 28 {
+                            Text(AccessibleSeverityVisuals.abbreviation(for: level))
+                                .scaledFont(.label, weight: .bold)
+                                .foregroundStyle(DesignTokens.ColorSystem.imageStage)
+                                .minimumScaleFactor(0.7)
+                        }
+                    }
+                }
+            }
             .frame(width: max(width - 2, 4))
     }
 
-    private func legend(_ label: String, count: Int, tint: Color) -> some View {
+    private func legend(_ label: String, count: Int, tint: Color, level: AccessibleSeverityLevel) -> some View {
         HStack(spacing: 5) {
-            Circle()
-                .fill(tint)
-                .frame(width: 6, height: 6)
+            SeverityLegendMarker(tint: tint, level: level, differentiateWithoutColor: differentiateWithoutColor)
             Text("\(count) \(label.lowercased())")
                 .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
@@ -381,5 +430,25 @@ private struct LibraryHealthHero: View {
     private var percentString: String {
         let pct = Int((readyFraction * 100).rounded())
         return "\(pct)%"
+    }
+}
+
+private struct SeverityLegendMarker: View {
+    let tint: Color
+    let level: AccessibleSeverityLevel
+    let differentiateWithoutColor: Bool
+
+    var body: some View {
+        if differentiateWithoutColor {
+            Image(systemName: AccessibleSeverityVisuals.symbolName(for: level))
+                .scaledFont(.label, weight: .semibold)
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+        } else {
+            Circle()
+                .fill(tint)
+                .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
+        }
     }
 }
