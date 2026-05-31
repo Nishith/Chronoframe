@@ -20,6 +20,7 @@ struct ClusterDetailPane: View {
     @State private var showingReasonDetail = false
     @State private var showingComparisonOverlay = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         Group {
@@ -52,7 +53,7 @@ struct ClusterDetailPane: View {
             } else {
                 VStack(spacing: 12) {
                     Image(systemName: "rectangle.on.rectangle.angled")
-                        .font(.system(size: 48))
+                        .scaledFont(.metric)
                         .foregroundStyle(.secondary)
                     Text("Select a cluster on the left")
                         .foregroundStyle(.secondary)
@@ -123,7 +124,7 @@ struct ClusterDetailPane: View {
         .padding(.vertical, DesignTokens.Spacing.sm)
         .padding(.trailing, DesignTokens.Spacing.md)
         .frame(height: height)
-        .background(.ultraThinMaterial)
+        .accessibleMaterialBackground(.ultraThin)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeMemberStrip)
     }
@@ -298,10 +299,10 @@ struct ClusterDetailPane: View {
     private func comparisonPaneBadge(role: ComparisonRole, decision: DedupeDecision) -> some View {
         HStack(spacing: 6) {
             Image(systemName: role.systemImage)
-                .font(.caption.weight(.semibold))
+                .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(role.tint)
             Text(role.label)
-                .font(.caption.weight(.semibold))
+                .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(.white)
             Circle()
                 .fill(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger)
@@ -324,7 +325,7 @@ struct ClusterDetailPane: View {
                     }
             } else {
                 Image(systemName: "photo")
-                    .font(.system(size: 56))
+                    .scaledFont(.metric)
                     .foregroundStyle(.secondary)
             }
         }
@@ -352,12 +353,12 @@ struct ClusterDetailPane: View {
             }
             if member.isRaw {
                 Label("RAW", systemImage: "camera.aperture")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
             }
             if let pairedPath = member.pairedPath {
                 Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -372,7 +373,7 @@ struct ClusterDetailPane: View {
             }
         }
         .padding(DesignTokens.Spacing.md)
-        .background(.thinMaterial)
+        .accessibleMaterialBackground(.thin)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -484,7 +485,10 @@ struct ClusterDetailPane: View {
                     size: CGSize(width: thumbnailSize, height: thumbnailSize),
                     loader: thumbnailLoader
                 )
-                .opacity(decision == .delete ? 0.55 : 1.0)
+                .opacity(AccessibleDecisionVisuals.thumbnailOpacity(
+                    decision: decision,
+                    differentiateWithoutColor: differentiateWithoutColor
+                ))
                 .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -493,7 +497,7 @@ struct ClusterDetailPane: View {
                 .overlay(alignment: .topLeading) {
                     if isSuggestedKeeper(member, in: cluster) {
                         Image(systemName: "star.fill")
-                            .font(.system(size: 10, weight: .bold))
+                            .scaledFont(.label, weight: .bold)
                             .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
                             .padding(4)
                             .background(.black.opacity(0.45), in: Circle())
@@ -502,7 +506,7 @@ struct ClusterDetailPane: View {
                 }
 
                 Image(systemName: decision == .keep ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.system(size: 14, weight: .bold))
+                    .scaledFont(.label, weight: .bold)
                     .foregroundStyle(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger, .black.opacity(0.42))
                     .padding(3)
             }
@@ -549,7 +553,7 @@ struct ClusterDetailPane: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .font(.caption.weight(.semibold))
+        .scaledFont(.label, weight: .semibold)
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -567,10 +571,10 @@ struct ClusterDetailPane: View {
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("These photos may be intentionally different")
-                        .font(.caption.weight(.semibold))
+                        .scaledFont(.label, weight: .semibold)
                     ForEach(Array(annotation.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(MatchReasonFormatter.warningSummary(warning))
-                            .font(.caption2)
+                            .scaledFont(.label)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -596,9 +600,9 @@ struct ClusterDetailPane: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: showingReasonDetail ? "chevron.down" : "chevron.right")
-                        .font(.caption2)
+                        .scaledFont(.label)
                     Text("Why matched")
-                        .font(.caption.weight(.medium))
+                        .scaledFont(.label)
                     Spacer()
                     confidenceBadge(annotation.confidence)
                 }
@@ -610,11 +614,11 @@ struct ClusterDetailPane: View {
             if showingReasonDetail {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(MatchReasonFormatter.summary(annotation.matchReason))
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(.secondary)
                     if let keeperReason = annotation.keeperReason {
                         Text(MatchReasonFormatter.keeperSummary(keeperReason))
-                            .font(.caption)
+                            .scaledFont(.label)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -626,7 +630,7 @@ struct ClusterDetailPane: View {
                 showingComparisonOverlay = true
             } label: {
                 Label("Compare", systemImage: "rectangle.on.rectangle")
-                    .font(.caption)
+                    .scaledFont(.label)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -636,7 +640,7 @@ struct ClusterDetailPane: View {
 
     private func confidenceBadge(_ level: ConfidenceLevel) -> some View {
         Text(MatchReasonFormatter.confidenceLabel(level))
-            .font(.caption2.weight(.semibold))
+            .scaledFont(.label, weight: .semibold)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(confidenceColor(level).opacity(0.15))
@@ -812,7 +816,7 @@ private struct LargePreviewImage: View {
                     .aspectRatio(contentMode: .fit)
             } else if failed {
                 Image(systemName: "photo")
-                    .font(.system(size: 56))
+                    .scaledFont(.metric)
                     .foregroundStyle(.secondary)
             } else {
                 ProgressView()

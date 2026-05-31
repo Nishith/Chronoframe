@@ -11,6 +11,7 @@ struct RapidTriageView: View {
     @State private var dragOffset: CGSize = .zero
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var clustersToReview: [DuplicateCluster]
 
@@ -62,15 +63,15 @@ struct RapidTriageView: View {
         VStack(spacing: 6) {
             HStack {
                 Text("Rapid Triage")
-                    .font(.headline)
+                    .scaledFont(.body, weight: .semibold)
                 Spacer()
                 Text("\(currentIndex) of \(clustersToReview.count) reviewed")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                 Text("·")
                     .foregroundStyle(.secondary)
                 Text("\(Self.bytesFormatter.string(fromByteCount: reclaimableBytes)) reclaimable")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                 Button("Exit") { dismiss() }
                     .keyboardShortcut(.escape, modifiers: [])
@@ -91,9 +92,9 @@ struct RapidTriageView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
-                        .font(.caption)
+                        .scaledFont(.label)
                     Text("Review carefully — \(MatchReasonFormatter.warningSummary(annotation.warnings[0]))")
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 12)
@@ -113,7 +114,7 @@ struct RapidTriageView: View {
 
             if let annotation = cluster.annotation {
                 Text(MatchReasonFormatter.oneLiner(annotation))
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
             }
         }
@@ -172,7 +173,10 @@ struct RapidTriageView: View {
                         size: CGSize(width: 56, height: 56),
                         loader: thumbnailLoader
                     )
-                    .opacity(isKeeper ? 1.0 : 0.6)
+                    .opacity(AccessibleDecisionVisuals.thumbnailOpacity(
+                        decision: isKeeper ? .keep : .delete,
+                        differentiateWithoutColor: differentiateWithoutColor
+                    ))
                     .overlay(
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .stroke(isKeeper ? DesignTokens.ColorSystem.statusSuccess : Color.clear, lineWidth: 2)
@@ -181,7 +185,7 @@ struct RapidTriageView: View {
                     // distinguishable without relying on the green stroke.
                     .overlay(alignment: .topTrailing) {
                         Image(systemName: glyph.symbolName)
-                            .font(.system(size: 14))
+                            .scaledFont(.label, weight: .bold)
                             .foregroundStyle(
                                 isKeeper ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.inkMuted,
                                 Color.white
@@ -255,12 +259,12 @@ struct RapidTriageView: View {
     private var completionView: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 48))
+                .scaledFont(.metric)
                 .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
             Text("All clusters reviewed")
-                .font(.title3.weight(.semibold))
+                .scaledFont(.cardTitle)
             Text("Return to the main review to commit your decisions.")
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
             Button("Done") { dismiss() }
                 .buttonStyle(.borderedProminent)

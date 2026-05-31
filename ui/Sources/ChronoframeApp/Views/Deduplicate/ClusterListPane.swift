@@ -155,7 +155,10 @@ private struct ClusterRow: View {
                         size: CGSize(width: 44, height: 44),
                         loader: thumbnailLoader
                     )
-                    .opacity(decisionFor(member) == .delete ? 0.45 : 1.0)
+                    .opacity(AccessibleDecisionVisuals.compactThumbnailOpacity(
+                        decision: decisionFor(member),
+                        differentiateWithoutColor: differentiateWithoutColor
+                    ))
                     .overlay(alignment: .topTrailing) {
                         // Once the user has touched a decision the
                         // scanner's suggestion is no longer actionable
@@ -165,7 +168,7 @@ private struct ClusterRow: View {
                         let hasExplicitDecision = decisions.byPath[member.path] != nil
                         if !hasExplicitDecision && isSuggestedKeeper(member) {
                             Image(systemName: "checkmark.seal.fill")
-                                .font(.system(size: 10, weight: .bold))
+                                .scaledFont(.label, weight: .bold)
                                 .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
                                 .padding(2)
                         }
@@ -173,7 +176,7 @@ private struct ClusterRow: View {
                 }
                 if cluster.members.count > 5 {
                     Text("+\(cluster.members.count - 5)")
-                        .font(.caption2)
+                        .scaledFont(.label)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -185,26 +188,26 @@ private struct ClusterRow: View {
             HStack(spacing: 4) {
                 confidenceDot
                 Text("\(cluster.members.count) photos")
-                    .font(.caption)
+                    .scaledFont(.label)
                 Text("·")
                     .foregroundStyle(.secondary)
                 Text(Self.formatter.string(fromByteCount: recoverableBytes))
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                 if hasWarnings {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 10))
+                        .scaledFont(.label)
                         .foregroundStyle(.orange)
                 }
                 Spacer()
                 if isApproved {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
                         .help("Reviewed")
                 } else {
                     Text("Suggested")
-                        .font(.caption2.weight(.semibold))
+                        .scaledFont(.label, weight: .semibold)
                         .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -215,8 +218,8 @@ private struct ClusterRow: View {
             }
             if let annotation = cluster.annotation {
                 Text(MatchReasonFormatter.oneLiner(annotation))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(1)
             }
         }
@@ -249,7 +252,7 @@ private struct ClusterRow: View {
             Button("Delete All in Group", role: .destructive) { onDeleteAll() }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: 13, weight: .medium))
+                .scaledFont(.label)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -263,7 +266,7 @@ private struct ClusterRow: View {
                 onKeepAll()
             } label: {
                 Image(systemName: "tray.and.arrow.down.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
             }
             .buttonStyle(.borderless)
@@ -273,7 +276,7 @@ private struct ClusterRow: View {
                 onAcceptSuggestion()
             } label: {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.accentAction)
             }
             .buttonStyle(.borderless)
@@ -283,7 +286,7 @@ private struct ClusterRow: View {
                 onDeleteAll()
             } label: {
                 Image(systemName: "trash.fill")
-                    .font(.system(size: 11, weight: .medium))
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
             }
             .buttonStyle(.borderless)
@@ -305,7 +308,7 @@ private struct ClusterRow: View {
         let level = cluster.annotation?.confidence ?? .medium
         if differentiateWithoutColor {
             Image(systemName: confidenceSymbol(level))
-                .font(.system(size: 9, weight: .semibold))
+                .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(confidenceColor(level))
                 .frame(width: 10)
                 .accessibilityHidden(true)

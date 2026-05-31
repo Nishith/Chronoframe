@@ -105,7 +105,7 @@ struct DeduplicateView: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Detection")
-                        .font(.headline)
+                        .scaledFont(.body, weight: .semibold)
                     Picker("Similarity preset", selection: $preferencesStore.dedupeSimilarityPreset) {
                         ForEach(DedupeSimilarityPreset.allCases) { preset in
                             Text(preset.title).tag(preset)
@@ -114,7 +114,7 @@ struct DeduplicateView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     Text(preferencesStore.dedupeSimilarityPreset.subtitle)
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     Stepper(value: $preferencesStore.dedupeTimeWindowSeconds, in: 5...600, step: 5) {
                         LabeledContent("Burst window") {
@@ -149,7 +149,7 @@ struct DeduplicateView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Recent Deduplicate Folders")
-                        .font(.headline)
+                        .scaledFont(.body, weight: .semibold)
                     Spacer()
                 }
 
@@ -356,7 +356,7 @@ struct DeduplicateView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitFooter)
         .padding(DesignTokens.Spacing.md)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        .accessibleMaterialBackground(.ultraThin)
         .confirmationDialog(
             "Move \(toDelete) file\(toDelete == 1 ? "" : "s") to Trash?",
             isPresented: $showingCommitConfirmation
@@ -425,14 +425,14 @@ struct DeduplicateView: View {
         let suggestedCount = max(0, sessionStore.clusters.count - reviewedCount)
         VStack(alignment: .leading, spacing: 2) {
             Text(Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete))
-                .font(.subheadline.weight(.semibold))
+                .scaledFont(.body, weight: .semibold)
                 .lineLimit(2)
             Text(Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete))
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
             Text("\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested")
-                .font(.caption2)
+                .scaledFont(.label)
                 .foregroundStyle(suggestedCount > 0 ? DesignTokens.ColorSystem.statusWarning : DesignTokens.ColorSystem.statusSuccess)
                 .lineLimit(1)
         }
@@ -978,9 +978,9 @@ private struct PausedDeduplicateReviewCard: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("Paused Scan")
-                    .font(.subheadline.weight(.semibold))
+                    .scaledFont(.body, weight: .semibold)
                 Text(settingsChanged ? "Settings changed since this scan." : "Ready to review.")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
             }
         }
@@ -1013,9 +1013,10 @@ private struct PausedDeduplicateReviewCard: View {
     private func metric(_ value: String, label: String) -> some View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(value)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .scaledFont(.mono, weight: .semibold)
+                .monospacedDigit()
             Text(label)
-                .font(.caption2)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
         }
     }
@@ -1075,15 +1076,15 @@ private struct DeduplicateRunHistoryRow: View {
                 .frame(width: 64, height: 44)
             VStack(alignment: .leading, spacing: 3) {
                 Text(URL(fileURLWithPath: record.folderPath).lastPathComponent)
-                    .font(.subheadline.weight(.semibold))
+                    .scaledFont(.body, weight: .semibold)
                     .lineLimit(1)
                 Text(record.folderPath)
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("Last run \(Self.dateFormatter.string(from: record.lastRunAt))")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
             }
         }
@@ -1117,9 +1118,10 @@ private struct DeduplicateRunHistoryRow: View {
     private func metric(_ value: String, label: String) -> some View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(value)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .scaledFont(.mono, weight: .semibold)
+                .monospacedDigit()
             Text(label)
-                .font(.caption2)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
         }
     }
@@ -1150,7 +1152,7 @@ private struct RecentFolderMosaic: View {
             if thumbnails.isEmpty {
                 Image(systemName: "folder")
                     .foregroundStyle(DesignTokens.ColorSystem.accentAction)
-                    .font(.system(size: 18, weight: .regular))
+                    .scaledFont(.label)
             } else {
                 mosaic
             }

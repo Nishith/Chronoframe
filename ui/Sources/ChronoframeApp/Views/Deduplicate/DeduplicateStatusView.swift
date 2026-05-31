@@ -64,11 +64,11 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
 
             VStack(spacing: 6) {
                 Text(title)
-                    .font(.headline)
+                    .scaledFont(.body, weight: .semibold)
                     .multilineTextAlignment(.center)
                 if let detail, !detail.isEmpty {
                     Text(detail)
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
@@ -83,7 +83,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
 
             if let warning, !warning.isEmpty {
                 Text(warning)
-                    .font(.caption)
+                    .scaledFont(.label)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
                     .padding(.horizontal)
@@ -114,7 +114,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
                         .strokeBorder(style.tint.opacity(0.22), lineWidth: 0.5)
                         .frame(width: 76, height: 76)
                     Image(systemName: name)
-                        .font(.system(size: 44))
+                        .scaledFont(.metric)
                         .foregroundStyle(style.tint)
                     if showsWaypointDot {
                         Circle()

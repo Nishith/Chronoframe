@@ -86,13 +86,13 @@ struct ComparisonOverlayView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Image(systemName: "arrow.left.arrow.right")
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
             Label(URL(fileURLWithPath: rightPath).lastPathComponent, systemImage: "b.circle")
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .font(.caption)
+        .scaledFont(.label)
         .foregroundStyle(.secondary)
     }
 
@@ -209,7 +209,7 @@ private struct SliderComparisonView: View {
 
     private func comparisonLabel(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
-            .font(.caption.weight(.semibold))
+            .scaledFont(.label, weight: .semibold)
             .foregroundStyle(.white)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
@@ -218,7 +218,7 @@ private struct SliderComparisonView: View {
 
     private func comparisonStatusLabel(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
-            .font(.caption.weight(.semibold))
+            .scaledFont(.label, weight: .semibold)
             .foregroundStyle(.white.opacity(0.78))
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
@@ -325,7 +325,7 @@ private struct FlickerComparisonView: View {
                 .keyboardShortcut(.leftArrow, modifiers: [])
 
                 Text(showingLeft ? "A (Keeper)" : "B")
-                    .font(.caption.weight(.semibold))
+                    .scaledFont(.label, weight: .semibold)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -422,10 +422,10 @@ private struct ComparisonUnavailableView: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: "photo.badge.exclamationmark")
-                .font(.system(size: 34, weight: .light))
+                .scaledFont(.metric)
                 .foregroundStyle(.white.opacity(0.48))
             Text(title)
-                .font(.caption.weight(.semibold))
+                .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(.white.opacity(0.72))
                 .multilineTextAlignment(.center)
         }

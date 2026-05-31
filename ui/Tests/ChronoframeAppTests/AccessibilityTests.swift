@@ -1,6 +1,7 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import ChronoframeCore
 import Foundation
 import SwiftUI
 import XCTest
@@ -129,5 +130,69 @@ final class AccessibilityTests: XCTestCase {
             AccessibleDesign.neutralOverlayOpacity(contrast: .standard),
             AccessibleDesign.neutralOverlayOpacity(contrast: .increased)
         )
+    }
+
+    func testDecisionVisualsDoNotDependOnDimmingWhenDifferentiatingWithoutColor() {
+        XCTAssertEqual(
+            AccessibleDecisionVisuals.thumbnailOpacity(decision: .delete, differentiateWithoutColor: true),
+            1
+        )
+        XCTAssertEqual(
+            AccessibleDecisionVisuals.compactThumbnailOpacity(decision: .delete, differentiateWithoutColor: true),
+            1
+        )
+        XCTAssertLessThan(
+            AccessibleDecisionVisuals.thumbnailOpacity(decision: .delete, differentiateWithoutColor: false),
+            AccessibleDecisionVisuals.thumbnailOpacity(decision: .keep, differentiateWithoutColor: false)
+        )
+        XCTAssertLessThan(
+            AccessibleDecisionVisuals.compactThumbnailOpacity(decision: .delete, differentiateWithoutColor: false),
+            AccessibleDecisionVisuals.compactThumbnailOpacity(decision: .keep, differentiateWithoutColor: false)
+        )
+    }
+
+    func testDedupeCoreViewsUseAccessibleMaterialAndScaledFonts() throws {
+        let checkedFiles = [
+            "ClusterDetailPane.swift",
+            "ClusterListPane.swift",
+            "ComparisonOverlayView.swift",
+            "DeduplicateStatusView.swift",
+            "DeduplicateView.swift",
+            "RapidTriageView.swift",
+        ]
+
+        let sourceRoot = try appSourceRoot()
+        for filename in checkedFiles {
+            let url = sourceRoot
+                .appendingPathComponent("Views")
+                .appendingPathComponent("Deduplicate")
+                .appendingPathComponent(filename)
+            let source = try String(contentsOf: url)
+
+            XCTAssertFalse(
+                source.contains(".thinMaterial") || source.contains(".regularMaterial") || source.contains(".ultraThinMaterial"),
+                "\(filename) should route translucent surfaces through accessibleMaterialBackground(_:fallback:)."
+            )
+            XCTAssertFalse(
+                source.contains(".font(.caption") ||
+                source.contains(".font(.caption2") ||
+                source.contains(".font(.headline") ||
+                source.contains(".font(.subheadline") ||
+                source.contains(".font(.title3") ||
+                source.contains(".font(.system"),
+                "\(filename) should use scaledFont roles for visible text and icon labels."
+            )
+        }
+    }
+
+    private func appSourceRoot() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.last != "ui" && url.path != "/" {
+            url.deleteLastPathComponent()
+        }
+        if url.pathComponents.last == "ui" {
+            return url.appendingPathComponent("Sources").appendingPathComponent("ChronoframeApp")
+        }
+        throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
     }
 }

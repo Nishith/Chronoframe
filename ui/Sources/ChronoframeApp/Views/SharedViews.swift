@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(ChronoframeCore)
+import ChronoframeCore
+#endif
 #if canImport(AppKit)
 import AppKit
 #endif
@@ -271,6 +274,65 @@ enum AccessibleDesign {
             return tint.opacity(isIncreasedContrast(contrast) ? 0.42 : 0.18)
         }
         return DesignTokens.ColorSystem.hairline.opacity(isIncreasedContrast(contrast) ? 1.6 : 1)
+    }
+}
+
+enum AccessibleMaterialKind {
+    case thin
+    case regular
+    case ultraThin
+}
+
+private struct AccessibleMaterialBackgroundModifier: ViewModifier {
+    let kind: AccessibleMaterialKind
+    let fallback: SwiftUI.Color
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    func body(content: Content) -> some View {
+        content.background {
+            if reduceTransparency {
+                fallback
+            } else {
+                material
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var material: some View {
+        switch kind {
+        case .thin:
+            Rectangle().fill(.thinMaterial)
+        case .regular:
+            Rectangle().fill(.regularMaterial)
+        case .ultraThin:
+            Rectangle().fill(.ultraThinMaterial)
+        }
+    }
+}
+
+extension View {
+    func accessibleMaterialBackground(
+        _ kind: AccessibleMaterialKind,
+        fallback: SwiftUI.Color = DesignTokens.ColorSystem.panel
+    ) -> some View {
+        modifier(AccessibleMaterialBackgroundModifier(kind: kind, fallback: fallback))
+    }
+}
+
+enum AccessibleDecisionVisuals {
+    static func thumbnailOpacity(decision: DedupeDecision, differentiateWithoutColor: Bool) -> Double {
+        if differentiateWithoutColor {
+            return 1
+        }
+        return decision == .delete ? 0.55 : 1
+    }
+
+    static func compactThumbnailOpacity(decision: DedupeDecision, differentiateWithoutColor: Bool) -> Double {
+        if differentiateWithoutColor {
+            return 1
+        }
+        return decision == .delete ? 0.45 : 1
     }
 }
 
