@@ -10,8 +10,9 @@ final class SettingsAccessibilityTests: XCTestCase {
 
         let message = ReorganizeConfirmationCopy.message(for: .yyyyMonEvent)
         XCTAssertTrue(message.contains("YYYY/Mon/Event"))
-        XCTAssertTrue(message.contains("destination"))
-        XCTAssertTrue(message.contains("Originals are not deleted"))
+        XCTAssertTrue(message.contains("destination file"))
+        XCTAssertTrue(message.contains("Nothing is deleted"))
+        XCTAssertTrue(message.contains("destination files will appear at new paths"))
         XCTAssertTrue(message.contains("Run workspace"))
     }
 
@@ -20,7 +21,7 @@ final class SettingsAccessibilityTests: XCTestCase {
 
         XCTAssertTrue(hint.contains("confirmation"))
         XCTAssertTrue(hint.contains("Flat"))
-        XCTAssertTrue(hint.contains("Originals are never deleted"))
+        XCTAssertTrue(hint.contains("Nothing is deleted"))
     }
 
     func testSettingsReorganizeControlUsesSharedConfirmationCopy() throws {

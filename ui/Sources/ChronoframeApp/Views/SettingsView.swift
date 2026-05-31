@@ -79,11 +79,11 @@ enum ReorganizeConfirmationCopy {
     }
 
     static func message(for targetStructure: FolderStructure) -> String {
-        "Chronoframe will move every recognised file in the destination into the \(targetStructure.rawValue) layout. Originals are not deleted, but destination files will appear at new paths. Open the Run workspace to track progress."
+        "Chronoframe will move every recognised destination file into the \(targetStructure.rawValue) layout. Nothing is deleted; destination files will appear at new paths. Open the Run workspace to track progress."
     }
 
     static func accessibilityHint(for targetStructure: FolderStructure) -> String {
-        "Shows a confirmation before moving destination files into the \(targetStructure.rawValue) layout. Originals are never deleted."
+        "Shows a confirmation before moving destination files into the \(targetStructure.rawValue) layout. Nothing is deleted."
     }
 }
 
