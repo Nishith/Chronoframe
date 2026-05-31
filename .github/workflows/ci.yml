@@ -187,6 +187,9 @@ jobs:
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run Chronoframe UI tests
         run: |
+          mkdir -p "$RUNNER_TEMP/chronoframe-a11y-audit"
+          CHRONOFRAME_A11Y_AUDIT_BASELINE_PATH="$GITHUB_WORKSPACE/docs/accessibility/audit-baseline.json" \
+          CHRONOFRAME_A11Y_AUDIT_REPORT_DIR="$RUNNER_TEMP/chronoframe-a11y-audit" \
           xcodebuild \
             -project ui/Chronoframe.xcodeproj \
             -scheme Chronoframe \
@@ -195,6 +198,13 @@ jobs:
             -destination "platform=macOS" \
             DEVELOPMENT_TEAM= \
             test
+      - name: Upload accessibility audit report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: chronoframe-accessibility-audit
+          path: ${{ runner.temp }}/chronoframe-a11y-audit
+          if-no-files-found: warn
 
   release-archive-smoke:
     name: Release archive smoke

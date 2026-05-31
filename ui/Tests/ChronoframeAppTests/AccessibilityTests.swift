@@ -1,6 +1,7 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import AppKit
 import ChronoframeCore
 import Foundation
 import SwiftUI
@@ -132,6 +133,101 @@ final class AccessibilityTests: XCTestCase {
         )
     }
 
+    func testAccessibleFocusRingIsVisibleAndStrongerInHighContrast() {
+        XCTAssertEqual(AccessibleFocusRing.lineWidth(isFocused: false, contrast: .standard), 0)
+        XCTAssertEqual(AccessibleFocusRing.opacity(isFocused: false, contrast: .standard), 0)
+        XCTAssertGreaterThan(
+            AccessibleFocusRing.lineWidth(isFocused: true, contrast: .increased),
+            AccessibleFocusRing.lineWidth(isFocused: true, contrast: .standard)
+        )
+        XCTAssertGreaterThan(
+            AccessibleFocusRing.opacity(isFocused: true, contrast: .increased),
+            AccessibleFocusRing.opacity(isFocused: true, contrast: .standard)
+        )
+    }
+
+    @MainActor
+    func testPathControlKeepsNativeFocusRingAndAccessibilityContext() {
+        let nsView = NSPathControl()
+        nsView.focusRingType = .default
+        PathControl.configure(
+            nsView,
+            path: "/Users/example/Pictures",
+            accessibilityLabel: "Source folder",
+            placeholder: "Choose a folder",
+            isInteractive: true
+        )
+
+        XCTAssertEqual(nsView.focusRingType, .default)
+        XCTAssertEqual(nsView.accessibilityLabel(), "Source folder")
+        XCTAssertEqual(nsView.accessibilityValue() as? String, "/Users/example/Pictures")
+        XCTAssertEqual(nsView.accessibilityHelp(), "Current folder path. Press to choose a folder.")
+
+        PathControl.configure(
+            nsView,
+            path: "",
+            accessibilityLabel: "Destination folder",
+            placeholder: "Choose a source folder",
+            isInteractive: false
+        )
+        XCTAssertEqual(nsView.focusRingType, .none)
+        XCTAssertEqual(nsView.accessibilityLabel(), "Destination folder")
+        XCTAssertEqual(nsView.accessibilityValue() as? String, "Choose a source folder")
+        XCTAssertEqual(nsView.accessibilityHelp(), "Current folder path.")
+    }
+
+    func testPathControlRequiresCallerSpecificAccessibilityLabel() throws {
+        let sourceRoot = try appSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Components")
+            .appendingPathComponent("PathControl.swift"))
+
+        XCTAssertFalse(
+            source.contains("accessibilityLabel: String ="),
+            "PathControl should not provide a generic default label that repeated call sites can accidentally share."
+        )
+    }
+
+    func testPathValueViewExposesSemanticAccessibilityText() throws {
+        let sourceRoot = try appSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("SharedViews.swift"))
+
+        XCTAssertTrue(source.contains("struct PathValueView"))
+        XCTAssertTrue(source.contains(".accessibilityElement(children: .ignore)"))
+        XCTAssertTrue(source.contains(".accessibilityLabel(title)"))
+        XCTAssertTrue(source.contains(".accessibilityValue(accessibilityValue)"))
+        XCTAssertTrue(source.contains("value.isEmpty ? \"Not set\" : value"))
+    }
+
+    func testKnownDedupeMaterialGapsRouteThroughAccessibleMaterialBackground() throws {
+        let sourceRoot = try appSourceRoot()
+        let dedupeRoot = sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Deduplicate")
+
+        let clusterDetail = try String(contentsOf: dedupeRoot.appendingPathComponent("ClusterDetailPane.swift"))
+        XCTAssertEqual(
+            clusterDetail.components(separatedBy: ".accessibleMaterialBackground(.ultraThin)").count - 1,
+            1,
+            "Cluster detail member strip should guard its ultra-thin material for Reduce Transparency."
+        )
+        XCTAssertEqual(
+            clusterDetail.components(separatedBy: ".accessibleMaterialBackground(.thin)").count - 1,
+            1,
+            "Cluster detail metadata panel should guard its thin material for Reduce Transparency."
+        )
+
+        let deduplicateView = try String(contentsOf: dedupeRoot.appendingPathComponent("DeduplicateView.swift"))
+        XCTAssertEqual(
+            deduplicateView.components(separatedBy: ".accessibleMaterialBackground(.ultraThin)").count - 1,
+            1,
+            "Dedupe commit footer should guard its ultra-thin material for Reduce Transparency."
+        )
+    }
+
     func testDecisionVisualsDoNotDependOnDimmingWhenDifferentiatingWithoutColor() {
         XCTAssertEqual(
             AccessibleDecisionVisuals.thumbnailOpacity(decision: .delete, differentiateWithoutColor: true),
@@ -195,4 +291,5 @@ final class AccessibilityTests: XCTestCase {
         }
         throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
     }
+
 }

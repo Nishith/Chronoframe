@@ -3,7 +3,7 @@ import XCTest
 final class ChronoframeUITests: XCTestCase {
     private static let settingsWindowIdentifier = "com_apple_SwiftUI_Settings_window"
 
-    private enum Scenario: String, CaseIterable {
+    private enum Scenario: String, CaseIterable, Decodable {
         case setupReady
         case runPreviewReview
         case historyPopulated
@@ -13,29 +13,90 @@ final class ChronoframeUITests: XCTestCase {
         case deduplicateReviewCompact
     }
 
-    private struct AccessibilityAuditAllowlistEntry {
+    private struct AccessibilityAuditBaselineEntry: Decodable {
         let scenario: Scenario
+        let auditType: String
         let signature: String
+        let severity: String
+        let owner: String
+        let reason: String
+        let expiration: String
+        let trackingIssue: String?
+
+        func matches(
+            description: String,
+            auditType: String,
+            scenario: Scenario,
+            referenceDate: Date
+        ) -> Bool {
+            self.scenario == scenario
+                && matchesAuditType(auditType)
+                && description.localizedCaseInsensitiveContains(signature)
+                && !isExpired(referenceDate: referenceDate)
+        }
+
+        private func matchesAuditType(_ auditType: String) -> Bool {
+            self.auditType == "*" || self.auditType.caseInsensitiveCompare(auditType) == .orderedSame
+        }
+
+        private func isExpired(referenceDate: Date) -> Bool {
+            guard let expirationDate = Self.expirationFormatter.date(from: expiration) else {
+                return true
+            }
+            return expirationDate < Calendar(identifier: .gregorian).startOfDay(for: referenceDate)
+        }
+
+        private static let expirationFormatter: DateFormatter = {
+            let formatter = DateFormatter()
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = "yyyy-MM-dd"
+            return formatter
+        }()
     }
 
-    /// The accessibility audit becomes a hard gate once a baseline exists.
-    /// Local exploratory runs can opt into warn-only mode with
-    /// `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1`.
+    private struct AccessibilityAuditReportEvent: Encodable {
+        let event: String
+        let scenario: String
+        let auditType: String
+        let allowedByBaseline: Bool
+        let issueCount: Int?
+        let baselineAllowedCount: Int?
+        let description: String
+    }
+
+    private struct AccessibilityAuditBaselineLoad {
+        let entries: [AccessibilityAuditBaselineEntry]
+        let errorDescription: String?
+    }
+
+    /// The accessibility audit hard-fails once the baseline has been verified
+    /// or strict mode is explicitly enabled. Local exploratory runs can opt into
+    /// warn-only mode with `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1`.
     private static var auditFailsBuild: Bool {
         auditFailsBuild(
             environment: ProcessInfo.processInfo.environment,
-            hasBaseline: !accessibilityAuditAllowlist.isEmpty
+            hasBaseline: !accessibilityAuditBaseline.isEmpty
         )
     }
 
-    /// Narrow home for unavoidable platform false positives. Keep empty unless a
-    /// failure is manually verified as an Apple audit issue rather than app UI.
-    /// While this is empty the audit runs as a discovery sweep; adding the first
-    /// entry flips the CI path to hard-fail on every non-baselined issue.
-    private static let accessibilityAuditAllowlist: [AccessibilityAuditAllowlistEntry] = []
+    /// Narrow home for unavoidable platform false positives. Keep empty unless
+    /// a failure is manually verified as an Apple audit issue rather than app UI.
+    private static let accessibilityAuditBaselineLoad = loadAccessibilityAuditBaseline()
+    private static var accessibilityAuditBaseline: [AccessibilityAuditBaselineEntry] {
+        accessibilityAuditBaselineLoad.entries
+    }
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        if let errorDescription = Self.accessibilityAuditBaselineLoad.errorDescription {
+            throw NSError(
+                domain: "ChronoframeAccessibilityAuditBaseline",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: errorDescription]
+            )
+        }
     }
 
     /// Runs Apple's built-in accessibility audit against every UI scenario,
@@ -48,12 +109,7 @@ final class ChronoframeUITests: XCTestCase {
     @available(macOS 14.0, *)
     func testAccessibilityAuditAcrossScenarios() async {
         await MainActor.run {
-            let auditTypes: XCUIAccessibilityAuditType = [
-                .contrast,
-                .elementDetection,
-                .hitRegion,
-                .sufficientElementDescription,
-            ]
+            let auditTypes = Self.accessibilityAuditTypes()
 
             for scenario in Scenario.allCases {
                 let app = Self.launchApp(scenario)
@@ -63,14 +119,41 @@ final class ChronoframeUITests: XCTestCase {
                     continue
                 }
                 do {
+                    var issueCount = 0
+                    var baselineAllowedCount = 0
                     try app.performAccessibilityAudit(for: auditTypes) { issue in
+                        issueCount += 1
                         let description = issue.compactDescription
-                        NSLog("A11y audit [%@]: %@", scenario.rawValue, description)
-                        if Self.isAllowedAccessibilityAuditIssue(description, scenario: scenario) {
-                            return true
+                        let auditType = Self.auditTypeName(issue)
+                        let allowed = Self.isAllowedAccessibilityAuditIssue(
+                            description,
+                            auditType: auditType,
+                            scenario: scenario
+                        )
+                        if allowed {
+                            baselineAllowedCount += 1
                         }
-                        return !Self.auditFailsBuild
+                        Self.writeAccessibilityAuditReport(
+                            event: "issue",
+                            scenario: scenario,
+                            auditType: auditType,
+                            allowedByBaseline: allowed,
+                            issueCount: nil,
+                            baselineAllowedCount: nil,
+                            description: description
+                        )
+                        NSLog("A11y audit [%@/%@]: %@", scenario.rawValue, auditType, description)
+                        return allowed || !Self.auditFailsBuild
                     }
+                    Self.writeAccessibilityAuditReport(
+                        event: "scenarioCompleted",
+                        scenario: scenario,
+                        auditType: "all",
+                        allowedByBaseline: baselineAllowedCount == issueCount,
+                        issueCount: issueCount,
+                        baselineAllowedCount: baselineAllowedCount,
+                        description: "Accessibility audit completed for \(scenario.rawValue) with \(issueCount) issue(s)."
+                    )
                 } catch {
                     let message = "Accessibility audit threw for \(scenario.rawValue): \(error)"
                     if Self.auditFailsBuild {
@@ -106,9 +189,13 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
-    func testAccessibilityAuditGateDefaultsToHardFailAndSupportsWarnOnlyEscapeHatch() {
+    func testAccessibilityAuditGateBootstrapsSafelyAndSupportsStrictMode() {
         XCTAssertFalse(Self.auditFailsBuild(environment: [:], hasBaseline: false))
         XCTAssertTrue(Self.auditFailsBuild(environment: [:], hasBaseline: true))
+        XCTAssertTrue(Self.auditFailsBuild(
+            environment: ["CHRONOFRAME_A11Y_AUDIT_STRICT": "1"],
+            hasBaseline: false
+        ))
         XCTAssertTrue(Self.auditFailsBuild(
             environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "0"],
             hasBaseline: true
@@ -119,28 +206,110 @@ final class ChronoframeUITests: XCTestCase {
         ))
     }
 
-    func testAccessibilityAuditAllowlistMatchesScenarioAndSignatureOnly() {
-        let allowlist = [
-            AccessibilityAuditAllowlistEntry(
+    func testAccessibilityAuditGateFailsClosedWithoutBaselineMatchInStrictMode() {
+        XCTAssertFalse(Self.shouldAllowAccessibilityAuditIssue(
+            "A missing label regression",
+            auditType: "sufficientElementDescription",
+            scenario: .setupReady,
+            baseline: [],
+            environment: ["CHRONOFRAME_A11Y_AUDIT_STRICT": "1"],
+            referenceDate: Date(timeIntervalSince1970: 0)
+        ))
+        XCTAssertTrue(Self.shouldAllowAccessibilityAuditIssue(
+            "A missing label regression",
+            auditType: "sufficientElementDescription",
+            scenario: .setupReady,
+            baseline: [],
+            environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "1"],
+            referenceDate: Date(timeIntervalSince1970: 0)
+        ))
+    }
+
+    func testAccessibilityAuditBaselineRejectsMalformedJSON() {
+        XCTAssertThrowsError(try Self.decodeAccessibilityAuditBaseline(
+            Data("{\"scenario\":\"setupReady\"}".utf8),
+            urlDescription: "malformed-test-baseline.json"
+        ))
+    }
+
+    func testAccessibilityAuditBaselineMatchesScenarioAuditTypeSignatureAndExpiration() {
+        let baseline = [
+            AccessibilityAuditBaselineEntry(
                 scenario: .setupReady,
-                signature: "known platform issue"
+                auditType: "sufficientElementDescription",
+                signature: "known platform issue",
+                severity: "low",
+                owner: "accessibility",
+                reason: "Verified XCTest platform false positive.",
+                expiration: "2099-01-01",
+                trackingIssue: nil
             )
         ]
-        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+        XCTAssertTrue(Self.shouldAllowAccessibilityAuditIssue(
             "A known platform issue from XCTest",
+            auditType: "sufficientElementDescription",
             scenario: .setupReady,
-            allowlist: allowlist
+            baseline: baseline,
+            environment: [:],
+            referenceDate: Date(timeIntervalSince1970: 0)
         ))
-        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+        XCTAssertFalse(Self.shouldAllowAccessibilityAuditIssue(
             "A known platform issue from XCTest",
+            auditType: "sufficientElementDescription",
             scenario: .deduplicateReviewWide,
-            allowlist: allowlist
+            baseline: baseline,
+            environment: [:],
+            referenceDate: Date(timeIntervalSince1970: 0)
         ))
-        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
-            "A missing label regression",
+        XCTAssertFalse(Self.shouldAllowAccessibilityAuditIssue(
+            "A known platform issue from XCTest",
+            auditType: "contrast",
             scenario: .setupReady,
-            allowlist: allowlist
+            baseline: baseline,
+            environment: [:],
+            referenceDate: Date(timeIntervalSince1970: 0)
         ))
+        XCTAssertFalse(Self.shouldAllowAccessibilityAuditIssue(
+            "A missing label regression",
+            auditType: "sufficientElementDescription",
+            scenario: .setupReady,
+            baseline: baseline,
+            environment: [:],
+            referenceDate: Date(timeIntervalSince1970: 0)
+        ))
+
+        let expiredBaseline = [
+            AccessibilityAuditBaselineEntry(
+                scenario: .setupReady,
+                auditType: "*",
+                signature: "known platform issue",
+                severity: "low",
+                owner: "accessibility",
+                reason: "Expired false positive.",
+                expiration: "1970-01-01",
+                trackingIssue: nil
+            )
+        ]
+        XCTAssertFalse(Self.shouldAllowAccessibilityAuditIssue(
+            "A known platform issue from XCTest",
+            auditType: "contrast",
+            scenario: .setupReady,
+            baseline: expiredBaseline,
+            environment: [:],
+            referenceDate: Date(timeIntervalSince1970: 86_400)
+        ))
+    }
+
+    @available(macOS 14.0, *)
+    func testAccessibilityAuditTypeNamesUseOptionSetMembership() {
+        XCTAssertEqual(Self.auditTypeName(.contrast), "contrast")
+        XCTAssertEqual(Self.auditTypeName(.elementDetection), "elementDetection")
+        XCTAssertEqual(Self.auditTypeName(.hitRegion), "hitRegion")
+        XCTAssertEqual(Self.auditTypeName(.sufficientElementDescription), "sufficientElementDescription")
+        #if os(macOS)
+        XCTAssertEqual(Self.auditTypeName(.action), "action")
+        XCTAssertEqual(Self.auditTypeName(.parentChild), "parentChild")
+        #endif
     }
 
     func testSetupReadyScenarioRendersHeroReadinessAndPrimaryCta() async {
@@ -289,25 +458,176 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
-    private static func isAllowedAccessibilityAuditIssue(_ description: String, scenario: Scenario) -> Bool {
-        isAllowedAccessibilityAuditIssue(
-            description,
-            scenario: scenario,
-            allowlist: accessibilityAuditAllowlist
-        )
+    @available(macOS 14.0, *)
+    private static func accessibilityAuditTypes() -> XCUIAccessibilityAuditType {
+        var auditTypes: XCUIAccessibilityAuditType = [
+            .contrast,
+            .elementDetection,
+            .hitRegion,
+            .sufficientElementDescription,
+        ]
+        // XCTest exposes textClipped/trait only for iOS, tvOS, watchOS, and
+        // simulator SDKs. Native macOS adds action and parentChild instead.
+        #if os(macOS)
+        auditTypes.insert(.action)
+        auditTypes.insert(.parentChild)
+        #endif
+        return auditTypes
     }
 
-    private static func auditFailsBuild(environment: [String: String], hasBaseline: Bool) -> Bool {
-        hasBaseline && environment["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY"] != "1"
+    @available(macOS 14.0, *)
+    private static func auditTypeName(_ issue: XCUIAccessibilityAuditIssue) -> String {
+        auditTypeName(issue.auditType)
+    }
+
+    @available(macOS 14.0, *)
+    private static func auditTypeName(_ auditType: XCUIAccessibilityAuditType) -> String {
+        if auditType.contains(.contrast) { return "contrast" }
+        if auditType.contains(.elementDetection) { return "elementDetection" }
+        if auditType.contains(.hitRegion) { return "hitRegion" }
+        if auditType.contains(.sufficientElementDescription) { return "sufficientElementDescription" }
+        #if os(macOS)
+        if auditType.contains(.action) { return "action" }
+        if auditType.contains(.parentChild) { return "parentChild" }
+        #endif
+        return "unknown(\(auditType.rawValue))"
     }
 
     private static func isAllowedAccessibilityAuditIssue(
         _ description: String,
-        scenario: Scenario,
-        allowlist: [AccessibilityAuditAllowlistEntry]
+        auditType: String,
+        scenario: Scenario
     ) -> Bool {
-        allowlist.contains { entry in
-            entry.scenario == scenario && description.localizedCaseInsensitiveContains(entry.signature)
+        shouldAllowAccessibilityAuditIssue(
+            description,
+            auditType: auditType,
+            scenario: scenario,
+            baseline: accessibilityAuditBaseline,
+            environment: ProcessInfo.processInfo.environment,
+            referenceDate: Date()
+        )
+    }
+
+    private static func shouldAllowAccessibilityAuditIssue(
+        _ description: String,
+        auditType: String,
+        scenario: Scenario,
+        baseline: [AccessibilityAuditBaselineEntry],
+        environment: [String: String],
+        referenceDate: Date
+    ) -> Bool {
+        if baseline.contains(where: {
+            $0.matches(
+                description: description,
+                auditType: auditType,
+                scenario: scenario,
+                referenceDate: referenceDate
+            )
+        }) {
+            return true
+        }
+        return !auditFailsBuild(environment: environment, hasBaseline: !baseline.isEmpty)
+    }
+
+    private static func auditFailsBuild(environment: [String: String], hasBaseline: Bool) -> Bool {
+        if environment["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY"] == "1" {
+            return false
+        }
+        if environment["CHRONOFRAME_A11Y_AUDIT_STRICT"] == "1" {
+            return true
+        }
+        return hasBaseline
+    }
+
+    private static func loadAccessibilityAuditBaseline() -> AccessibilityAuditBaselineLoad {
+        guard let baselineURL = accessibilityAuditBaselineURL() else {
+            return AccessibilityAuditBaselineLoad(entries: [], errorDescription: nil)
+        }
+        do {
+            let data = try Data(contentsOf: baselineURL)
+            let entries = try decodeAccessibilityAuditBaseline(data, urlDescription: baselineURL.path)
+            return AccessibilityAuditBaselineLoad(entries: entries, errorDescription: nil)
+        } catch {
+            return AccessibilityAuditBaselineLoad(
+                entries: [],
+                errorDescription: "Could not load accessibility audit baseline at \(baselineURL.path): \(error)"
+            )
+        }
+    }
+
+    private static func decodeAccessibilityAuditBaseline(
+        _ data: Data,
+        urlDescription: String
+    ) throws -> [AccessibilityAuditBaselineEntry] {
+        do {
+            return try JSONDecoder().decode([AccessibilityAuditBaselineEntry].self, from: data)
+        } catch {
+            throw NSError(
+                domain: "ChronoframeAccessibilityAuditBaseline",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "Malformed accessibility audit baseline at \(urlDescription): \(error)"]
+            )
+        }
+    }
+
+    private static func accessibilityAuditBaselineURL() -> URL? {
+        let environment = ProcessInfo.processInfo.environment
+        if let path = environment["CHRONOFRAME_A11Y_AUDIT_BASELINE_PATH"], !path.isEmpty {
+            return URL(fileURLWithPath: path)
+        }
+
+        var directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        while directory.path != "/" {
+            let candidate = directory
+                .appendingPathComponent("docs")
+                .appendingPathComponent("accessibility")
+                .appendingPathComponent("audit-baseline.json")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            directory.deleteLastPathComponent()
+        }
+        return nil
+    }
+
+    private static func writeAccessibilityAuditReport(
+        event: String,
+        scenario: Scenario,
+        auditType: String,
+        allowedByBaseline: Bool,
+        issueCount: Int?,
+        baselineAllowedCount: Int?,
+        description: String
+    ) {
+        guard let directoryPath = ProcessInfo.processInfo.environment["CHRONOFRAME_A11Y_AUDIT_REPORT_DIR"],
+              !directoryPath.isEmpty
+        else { return }
+
+        do {
+            let directoryURL = URL(fileURLWithPath: directoryPath, isDirectory: true)
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            let reportURL = directoryURL.appendingPathComponent("accessibility-audit.jsonl")
+            let event = AccessibilityAuditReportEvent(
+                event: event,
+                scenario: scenario.rawValue,
+                auditType: auditType,
+                allowedByBaseline: allowedByBaseline,
+                issueCount: issueCount,
+                baselineAllowedCount: baselineAllowedCount,
+                description: description
+            )
+            var data = try JSONEncoder().encode(event)
+            data.append(0x0A)
+            if FileManager.default.fileExists(atPath: reportURL.path) {
+                let handle = try FileHandle(forWritingTo: reportURL)
+                try handle.seekToEnd()
+                try handle.write(contentsOf: data)
+                try handle.close()
+            } else {
+                try data.write(to: reportURL)
+            }
+        } catch {
+            NSLog("Could not write accessibility audit report: %@", "\(error)")
         }
     }
 

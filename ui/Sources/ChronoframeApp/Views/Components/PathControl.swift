@@ -7,13 +7,16 @@ import SwiftUI
 ///
 /// Usage:
 /// ```
-/// PathControl(path: sourcePath, placeholder: "Choose a source…") { url in
+/// PathControl(path: sourcePath, accessibilityLabel: "Source folder", placeholder: "Choose a source…") { url in
 ///     setupStore.sourcePath = url.path
 /// }
 /// ```
 struct PathControl: NSViewRepresentable {
     /// POSIX path to display. Empty string shows the placeholder.
     let path: String
+    /// Spoken label for VoiceOver. Callers should make repeated path controls
+    /// specific, e.g. "Source folder" or "Destination folder".
+    let accessibilityLabel: String
     /// Text shown when `path` is empty.
     var placeholder: String = "Choose a folder…"
     /// Called when the user clicks a component of the path or picks via the
@@ -25,7 +28,6 @@ struct PathControl: NSViewRepresentable {
         control.pathStyle = .standard
         control.backgroundColor = .clear
         control.isEditable = false
-        control.focusRingType = .none
         control.translatesAutoresizingMaskIntoConstraints = false
         control.setContentHuggingPriority(.defaultLow, for: .horizontal)
         control.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -44,13 +46,34 @@ struct PathControl: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(owner: self) }
 
     private func applyPath(to control: NSPathControl) {
+        Self.configure(
+            control,
+            path: path,
+            accessibilityLabel: accessibilityLabel,
+            placeholder: placeholder,
+            isInteractive: onSelect != nil
+        )
+    }
+
+    static func configure(
+        _ control: NSPathControl,
+        path: String,
+        accessibilityLabel: String,
+        placeholder: String,
+        isInteractive: Bool
+    ) {
+        control.focusRingType = isInteractive ? .default : .none
         if path.isEmpty {
             control.url = nil
             control.placeholderString = placeholder
+            control.setAccessibilityValue(placeholder)
         } else {
             control.url = URL(fileURLWithPath: path)
             control.placeholderString = nil
+            control.setAccessibilityValue(path)
         }
+        control.setAccessibilityLabel(accessibilityLabel)
+        control.setAccessibilityHelp(isInteractive ? "Current folder path. Press to choose a folder." : "Current folder path.")
     }
 
     final class Coordinator {
