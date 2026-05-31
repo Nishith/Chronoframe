@@ -33,18 +33,33 @@ final class SettingsAccessibilityTests: XCTestCase {
         XCTAssertTrue(source.contains("ReorganizeConfirmationCopy.accessibilityHint(for: preferencesStore.folderStructure)"))
     }
 
+    func testAccessibilityStandardNamesRemainingDestructivePathFollowUps() throws {
+        let standard = try String(contentsOf: repositoryRoot()
+            .appendingPathComponent("docs/accessibility/standard.md"))
+
+        XCTAssertTrue(standard.contains("Phase 7 currently hardens the Reorganize confirmation"))
+        XCTAssertTrue(standard.contains("delete profile, discard paused review, transfer cancel, revert"))
+        XCTAssertTrue(standard.contains("moving focus to recovery actions on error"))
+    }
+
     private func settingsSourceURL() throws -> URL {
+        try repositoryRoot()
+            .appendingPathComponent("ui")
+            .appendingPathComponent("Sources")
+            .appendingPathComponent("ChronoframeApp")
+            .appendingPathComponent("Views")
+            .appendingPathComponent("SettingsView.swift")
+    }
+
+    private func repositoryRoot() throws -> URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.pathComponents.last != "ui" && url.path != "/" {
             url.deleteLastPathComponent()
         }
         if url.pathComponents.last == "ui" {
+            url.deleteLastPathComponent()
             return url
-                .appendingPathComponent("Sources")
-                .appendingPathComponent("ChronoframeApp")
-                .appendingPathComponent("Views")
-                .appendingPathComponent("SettingsView.swift")
         }
-        throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
+        throw XCTSkip("Could not locate repository root from \(#filePath)")
     }
 }

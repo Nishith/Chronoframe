@@ -70,6 +70,7 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 - High-consequence actions must have confirmation copy that names scope, outcome, and source-file safety before the user commits.
 - Shortcut or button entry points into destructive confirmations need accessibility hints that make the upcoming confirmation discoverable.
 - Confirmation wording should live behind pure helpers where practical so safety claims and spoken context are covered by unit tests.
+- Phase 7 currently hardens the Reorganize confirmation; delete profile, discard paused review, transfer cancel, revert, and moving focus to recovery actions on error remain follow-up destructive-path surfaces.
 
 ## macOS-Specific Acceptance
 
