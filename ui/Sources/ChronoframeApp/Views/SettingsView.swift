@@ -69,6 +69,24 @@ struct SettingsView: View {
     }
 }
 
+enum ReorganizeConfirmationCopy {
+    static func title() -> String {
+        "Reorganize destination?"
+    }
+
+    static func actionLabel() -> String {
+        "Reorganize"
+    }
+
+    static func message(for targetStructure: FolderStructure) -> String {
+        "Chronoframe will move every recognised destination file into the \(targetStructure.rawValue) layout. Nothing is deleted; destination files will appear at new paths. Open the Run workspace to track progress."
+    }
+
+    static func accessibilityHint(for targetStructure: FolderStructure) -> String {
+        "Shows a confirmation before moving destination files into the \(targetStructure.rawValue) layout. Nothing is deleted."
+    }
+}
+
 private struct LayoutSettingsTab: View {
     let appState: AppState
     @ObservedObject var preferencesStore: PreferencesStore
@@ -100,6 +118,7 @@ private struct LayoutSettingsTab: View {
                     Label("Reorganize Destination Now", systemImage: "rectangle.3.offgrid.fill")
                 }
                 .accessibilityIdentifier(AccessibilityIdentifiers.reorganizeDestinationButton)
+                .accessibilityHint(ReorganizeConfirmationCopy.accessibilityHint(for: preferencesStore.folderStructure))
             } header: {
                 Text("Reorganize")
             } footer: {
@@ -108,15 +127,15 @@ private struct LayoutSettingsTab: View {
         }
         .formStyle(.grouped)
         .confirmationDialog(
-            "Reorganize destination?",
+            ReorganizeConfirmationCopy.title(),
             isPresented: $showingReorganizeConfirmation
         ) {
-            Button("Reorganize", role: .destructive) {
+            Button(ReorganizeConfirmationCopy.actionLabel(), role: .destructive) {
                 appState.reorganizeDestination(targetStructure: preferencesStore.folderStructure)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Chronoframe will move every recognised file in the destination into the \(preferencesStore.folderStructure.rawValue) layout. Originals are not deleted, but files will appear at new paths. Open the Run workspace to track progress.")
+            Text(ReorganizeConfirmationCopy.message(for: preferencesStore.folderStructure))
         }
     }
 }
