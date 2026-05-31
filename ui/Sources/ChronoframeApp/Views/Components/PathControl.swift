@@ -25,7 +25,7 @@ struct PathControl: NSViewRepresentable {
         control.pathStyle = .standard
         control.backgroundColor = .clear
         control.isEditable = false
-        control.focusRingType = .none
+        control.focusRingType = .default
         control.translatesAutoresizingMaskIntoConstraints = false
         control.setContentHuggingPriority(.defaultLow, for: .horizontal)
         control.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -44,13 +44,21 @@ struct PathControl: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(owner: self) }
 
     private func applyPath(to control: NSPathControl) {
+        Self.configure(control, path: path, placeholder: placeholder, isInteractive: onSelect != nil)
+    }
+
+    static func configure(_ control: NSPathControl, path: String, placeholder: String, isInteractive: Bool) {
         if path.isEmpty {
             control.url = nil
             control.placeholderString = placeholder
+            control.setAccessibilityValue(placeholder)
         } else {
             control.url = URL(fileURLWithPath: path)
             control.placeholderString = nil
+            control.setAccessibilityValue(path)
         }
+        control.setAccessibilityLabel("Folder path")
+        control.setAccessibilityHelp(isInteractive ? "Current folder path. Press to choose a folder." : "Current folder path.")
     }
 
     final class Coordinator {

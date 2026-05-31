@@ -1,6 +1,7 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import AppKit
 import ChronoframeCore
 import Foundation
 import SwiftUI
@@ -132,6 +133,45 @@ final class AccessibilityTests: XCTestCase {
         )
     }
 
+    func testAccessibleFocusRingIsVisibleAndStrongerInHighContrast() {
+        XCTAssertEqual(AccessibleFocusRing.lineWidth(isFocused: false, contrast: .standard), 0)
+        XCTAssertEqual(AccessibleFocusRing.opacity(isFocused: false, contrast: .standard), 0)
+        XCTAssertGreaterThan(
+            AccessibleFocusRing.lineWidth(isFocused: true, contrast: .increased),
+            AccessibleFocusRing.lineWidth(isFocused: true, contrast: .standard)
+        )
+        XCTAssertGreaterThan(
+            AccessibleFocusRing.opacity(isFocused: true, contrast: .increased),
+            AccessibleFocusRing.opacity(isFocused: true, contrast: .standard)
+        )
+    }
+
+    @MainActor
+    func testPathControlKeepsNativeFocusRingAndAccessibilityContext() {
+        let nsView = NSPathControl()
+        nsView.focusRingType = .default
+        PathControl.configure(
+            nsView,
+            path: "/Users/example/Pictures",
+            placeholder: "Choose a folder",
+            isInteractive: true
+        )
+
+        XCTAssertEqual(nsView.focusRingType, .default)
+        XCTAssertEqual(nsView.accessibilityLabel(), "Folder path")
+        XCTAssertEqual(nsView.accessibilityValue() as? String, "/Users/example/Pictures")
+        XCTAssertEqual(nsView.accessibilityHelp(), "Current folder path. Press to choose a folder.")
+
+        PathControl.configure(
+            nsView,
+            path: "",
+            placeholder: "Choose a source folder",
+            isInteractive: false
+        )
+        XCTAssertEqual(nsView.accessibilityValue() as? String, "Choose a source folder")
+        XCTAssertEqual(nsView.accessibilityHelp(), "Current folder path.")
+    }
+
     func testDecisionVisualsDoNotDependOnDimmingWhenDifferentiatingWithoutColor() {
         XCTAssertEqual(
             AccessibleDecisionVisuals.thumbnailOpacity(decision: .delete, differentiateWithoutColor: true),
@@ -195,4 +235,5 @@ final class AccessibilityTests: XCTestCase {
         }
         throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
     }
+
 }

@@ -320,6 +320,46 @@ extension View {
     }
 }
 
+enum AccessibleFocusRing {
+    static func lineWidth(isFocused: Bool, contrast: ColorSchemeContrast) -> CGFloat {
+        guard isFocused else { return 0 }
+        return AccessibleDesign.isIncreasedContrast(contrast) ? 3 : 2
+    }
+
+    static func opacity(isFocused: Bool, contrast: ColorSchemeContrast) -> Double {
+        guard isFocused else { return 0 }
+        return AccessibleDesign.isIncreasedContrast(contrast) ? 1 : 0.88
+    }
+
+    static func color(isFocused: Bool, contrast: ColorSchemeContrast) -> SwiftUI.Color {
+        DesignTokens.ColorSystem.accentAction.opacity(opacity(isFocused: isFocused, contrast: contrast))
+    }
+}
+
+private struct AccessibleFocusRingModifier: ViewModifier {
+    let isFocused: Bool
+    let cornerRadius: CGFloat
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if isFocused {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(
+                        AccessibleFocusRing.color(isFocused: true, contrast: colorSchemeContrast),
+                        lineWidth: AccessibleFocusRing.lineWidth(isFocused: true, contrast: colorSchemeContrast)
+                    )
+            }
+        }
+    }
+}
+
+extension View {
+    func accessibleFocusRing(isFocused: Bool, cornerRadius: CGFloat = 8) -> some View {
+        modifier(AccessibleFocusRingModifier(isFocused: isFocused, cornerRadius: cornerRadius))
+    }
+}
+
 enum AccessibleDecisionVisuals {
     static func thumbnailOpacity(decision: DedupeDecision, differentiateWithoutColor: Bool) -> Double {
         if differentiateWithoutColor {
