@@ -57,6 +57,7 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 - System accessibility settings must visibly change more than dedupe review. Health, run, setup, and navigation surfaces should encode status with shape, iconography, labels, or pattern in addition to color.
 - Differentiate Without Color must remove color-only meaning from dashboard summaries; severity charts need non-color encodings such as symbols, labels, dash patterns, or text marks.
 - Increased Contrast should strengthen focus rings, dividers, and status marks without changing the workflow or hiding information.
+- Phase 5 currently hardens the Health dashboard; sidebar status dots, run/progress phase states, setup status marks, and broader navigation indicators remain follow-up surfaces for the same standard.
 
 ## macOS-Specific Acceptance
 

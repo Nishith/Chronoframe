@@ -289,6 +289,14 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertTrue(source.contains(".strokeBorder("))
         XCTAssertTrue(source.contains("width >= 28"))
         XCTAssertTrue(source.contains("SeverityLegendMarker"))
+
+        let standard = try String(contentsOf: sourceRoot
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("docs/accessibility/standard.md"))
+        XCTAssertTrue(standard.contains("Phase 5 currently hardens the Health dashboard"))
+        XCTAssertTrue(standard.contains("sidebar status dots, run/progress phase states"))
     }
 
     func testDedupeReviewUsesSwiftUIFocusAndVisibleFocusRings() throws {
