@@ -134,12 +134,12 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
             if let fraction = progress?.fraction {
                 ProgressView(value: fraction)
                     .controlSize(.large)
-                    .accessibilityLabel(title)
+                    .accessibilityLabel("Progress")
                     .accessibilityValue(progress?.accessibilityValue ?? "In progress")
             } else {
                 ProgressView()
                     .controlSize(.large)
-                    .accessibilityLabel(title)
+                    .accessibilityLabel("Progress")
                     .accessibilityValue(progress?.accessibilityValue ?? detail ?? "In progress")
             }
         case .success, .restored, .warning:
@@ -176,7 +176,6 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
 
     private var statusAccessibilityValue: String {
         [
-            progress?.accessibilityValue,
             detail,
             message,
             warning,

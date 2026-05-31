@@ -39,6 +39,16 @@ final class DeduplicateAnnouncementPlannerTests: XCTestCase {
         )
     }
 
+    func testEmptyScanCompletionAnnouncesNothingToDeduplicate() {
+        XCTAssertEqual(
+            DeduplicateAnnouncementPlanner.announcement(
+                from: snapshot(.scanning, phase: .clustering, clusterCount: 0),
+                to: snapshot(.readyToReview, clusterCount: 0)
+            ),
+            "Deduplicate scan complete. Nothing to deduplicate."
+        )
+    }
+
     func testScanPhaseChangesAnnounceButProgressDoesNot() {
         XCTAssertEqual(
             DeduplicateAnnouncementPlanner.announcement(

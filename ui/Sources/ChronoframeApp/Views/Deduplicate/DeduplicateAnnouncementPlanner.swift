@@ -49,6 +49,9 @@ enum DeduplicateAnnouncementPlanner {
         switch snapshot.status {
         case .readyToReview:
             let count = snapshot.clusterCount
+            if count == 0 {
+                return "Deduplicate scan complete. Nothing to deduplicate."
+            }
             return "Deduplicate scan complete. \(count) group\(count == 1 ? "" : "s") ready for review."
         case .completed:
             let count = snapshot.commitSummary?.deletedCount ?? 0

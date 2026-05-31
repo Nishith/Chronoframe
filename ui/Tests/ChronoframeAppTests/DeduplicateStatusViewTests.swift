@@ -66,6 +66,36 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertEqual(indeterminate.accessibilityValue, "In progress")
     }
 
+    func testProgressAccessibilityValueIsNotDuplicatedOnStatusContainer() throws {
+        let sourceRoot = try chronoframeAppSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Deduplicate")
+            .appendingPathComponent("DeduplicateStatusView.swift"))
+
+        XCTAssertTrue(source.contains(".accessibilityLabel(\"Progress\")"))
+        XCTAssertTrue(source.contains(".accessibilityValue(progress?.accessibilityValue ?? \"In progress\")"))
+
+        let statusValueStart = try XCTUnwrap(source.range(of: "private var statusAccessibilityValue: String"))
+        let statusValueSource = String(source[statusValueStart.lowerBound...])
+        let statusValueEnd = try XCTUnwrap(statusValueSource.range(of: "}\n}"))
+        XCTAssertFalse(
+            String(statusValueSource[..<statusValueEnd.lowerBound]).contains("progress?.accessibilityValue"),
+            "The status container should not repeat progress text that the ProgressView already exposes on demand."
+        )
+    }
+
+    private func chronoframeAppSourceRoot() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.last != "ui" && url.path != "/" {
+            url.deleteLastPathComponent()
+        }
+        if url.pathComponents.last == "ui" {
+            return url.appendingPathComponent("Sources").appendingPathComponent("ChronoframeApp")
+        }
+        throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
+    }
+
     func testStatusViewRendersPrimaryAndSecondaryActions() {
         let view = DeduplicateStatusView(
             style: .success,
