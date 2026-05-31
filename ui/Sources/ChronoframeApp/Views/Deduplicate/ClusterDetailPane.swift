@@ -19,6 +19,7 @@ struct ClusterDetailPane: View {
     @State private var dragStartThumbnailStripHeight: CGFloat?
     @State private var showingReasonDetail = false
     @State private var showingComparisonOverlay = false
+    @FocusState private var keyboardFocusedMemberPath: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
@@ -62,6 +63,14 @@ struct ClusterDetailPane: View {
             }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewDetail)
+        .onAppear { keyboardFocusedMemberPath = focusedMemberPath }
+        .onChange(of: focusedMemberPath) { newPath in
+            keyboardFocusedMemberPath = newPath
+        }
+        .onChange(of: keyboardFocusedMemberPath) { newPath in
+            guard let newPath, newPath != focusedMemberPath else { return }
+            focusedMemberPath = newPath
+        }
     }
 
     @ViewBuilder
@@ -285,11 +294,14 @@ struct ClusterDetailPane: View {
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(
-                    isFocused ? DesignTokens.ColorSystem.accentWaypoint : Color.white.opacity(0.08),
-                    lineWidth: isFocused ? 2 : 0.5
+                    Color.white.opacity(0.08),
+                    lineWidth: 0.5
                 )
         }
+        .accessibleFocusRing(isFocused: isFocused, cornerRadius: 8)
         .contentShape(Rectangle())
+        .focusable(true)
+        .focused($keyboardFocusedMemberPath, equals: member.path)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(role.label): \(URL(fileURLWithPath: member.path).lastPathComponent)")
         .accessibilityHint("Selects this photo for keyboard keep or delete actions")
@@ -492,7 +504,7 @@ struct ClusterDetailPane: View {
                 .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .stroke(isFocused ? DesignTokens.ColorSystem.accentWaypoint : Color.white.opacity(0.16), lineWidth: isFocused ? 2 : 0.5)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
                 )
                 .overlay(alignment: .topLeading) {
                     if isSuggestedKeeper(member, in: cluster) {
@@ -512,6 +524,9 @@ struct ClusterDetailPane: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibleFocusRing(isFocused: isFocused, cornerRadius: 6)
+        .focusable(true)
+        .focused($keyboardFocusedMemberPath, equals: member.path)
         .contextMenu {
             Button("Keep") { sessionStore.setDecision(.keep, forPath: member.path) }
             Button("Delete", role: .destructive) { sessionStore.setDecision(.delete, forPath: member.path) }

@@ -247,6 +247,52 @@ final class AccessibilityTests: XCTestCase {
         )
     }
 
+    func testDedupeReviewUsesSwiftUIFocusAndVisibleFocusRings() throws {
+        let sourceRoot = try appSourceRoot()
+        let dedupeRoot = sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Deduplicate")
+
+        let clusterDetail = try String(contentsOf: dedupeRoot.appendingPathComponent("ClusterDetailPane.swift"))
+        XCTAssertTrue(
+            clusterDetail.contains("@FocusState private var keyboardFocusedMemberPath"),
+            "Dedupe member focus should use SwiftUI focus state, not a pointer-only selection binding."
+        )
+        XCTAssertGreaterThanOrEqual(
+            clusterDetail.components(separatedBy: ".focused($keyboardFocusedMemberPath, equals: member.path)").count - 1,
+            2,
+            "Member thumbnails and comparison panes should both be first-class keyboard focus targets."
+        )
+        XCTAssertGreaterThanOrEqual(
+            clusterDetail.components(separatedBy: ".focusable(true)").count - 1,
+            2,
+            "Custom image controls need explicit focusability for keyboard and Switch Control traversal."
+        )
+        XCTAssertGreaterThanOrEqual(
+            clusterDetail.components(separatedBy: ".accessibleFocusRing(isFocused: isFocused").count - 1,
+            2,
+            "Focused members and comparison panes should draw the shared visible focus ring."
+        )
+
+        let clusterList = try String(contentsOf: dedupeRoot.appendingPathComponent("ClusterListPane.swift"))
+        XCTAssertTrue(clusterList.contains("isFocused: cluster.id == focusedClusterID"))
+        XCTAssertTrue(clusterList.contains(".accessibleFocusRing(isFocused: isFocused"))
+        XCTAssertTrue(clusterList.contains(".accessibilityAddTraits(isFocused ? .isSelected : [])"))
+    }
+
+    func testDedupeClusterRowsDoNotDependOnHoverOnlyActions() throws {
+        let sourceRoot = try appSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Deduplicate")
+            .appendingPathComponent("ClusterListPane.swift"))
+
+        XCTAssertTrue(source.contains("private var actionsMenu: some View"))
+        XCTAssertFalse(source.contains("@State private var isHovered"))
+        XCTAssertFalse(source.contains("private var hoverActions"))
+        XCTAssertFalse(source.contains(".onHover"))
+    }
+
     func testDedupeCoreViewsUseAccessibleMaterialAndScaledFonts() throws {
         let checkedFiles = [
             "ClusterDetailPane.swift",
