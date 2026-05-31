@@ -170,7 +170,7 @@ struct RunTimelineView: View {
                         .fill(Color.white.opacity(0.14))
                         .frame(width: 0.5, height: chartHeight - 20)
                     Text(marker.year)
-                        .font(.system(size: 10, weight: .medium, design: .default))
+                        .scaledFont(.label, weight: .medium)
                         .monospacedDigit()
                         .foregroundStyle(Color.white.opacity(0.52))
                 }

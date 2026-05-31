@@ -120,7 +120,7 @@ private struct RunOutcomeSummaryCard: View {
                 }
 
                 Text(model.outcomeSummaryMessage)
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
             }
         }
@@ -130,10 +130,11 @@ private struct RunOutcomeSummaryCard: View {
     private func summaryMetric(_ title: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(.secondary)
             Text(value)
-                .font(.title3.monospacedDigit())
+                .scaledFont(.cardTitle, weight: .semibold)
+                .monospacedDigit()
                 .foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
