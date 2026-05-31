@@ -25,7 +25,7 @@ Do not add app regressions to the baseline. Missing labels, poor contrast, insuf
 - Audit gate fails closed in strict mode and once a verified baseline exists; an empty baseline stays in bootstrap mode until the audit has been observed clean or populated deliberately.
 - CI publishes the audit JSONL artifact for triage.
 - Native macOS `action` and `parentChild` audit types are included alongside the cross-platform audit set. XCTest exposes `textClipped` and `trait` for iOS, tvOS, watchOS, and simulator SDKs, not native macOS in the current SDK.
-- `PathControl` exposes a native focus ring only when interactive, and requires caller-specific spoken labels before production adoption.
+- `PathControl` exposes a native focus ring only when interactive, plus caller-specific spoken label/value/help before production adoption.
 - `PathValueView`, the currently rendered path display, exposes semantic label/value text instead of relying on bare text and tooltips.
 - Shared focus-ring decisions are centralized for custom keyboard controls.
 - Known direct dedupe material sites route through `accessibleMaterialBackground`, with source tests guarding the three Reduce Transparency gaps identified in the review.
