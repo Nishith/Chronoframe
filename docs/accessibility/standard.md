@@ -72,6 +72,12 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 - Confirmation wording should live behind pure helpers where practical so safety claims and spoken context are covered by unit tests.
 - Phase 7 currently hardens the Reorganize confirmation; delete profile, discard paused review, transfer cancel, revert, and moving focus to recovery actions on error remain follow-up destructive-path surfaces.
 
+## Phase 8 Settings Typography Bar
+
+- Settings and profile-management controls should use semantic `scaledFont` roles instead of raw `.font(...)` modifiers.
+- Dense preference captions may use compact roles such as `label`, but they should still route through the scalable typography layer.
+- Source tests should guard Settings and Profiles alongside core workflow chrome so future preference additions do not reintroduce fixed fonts.
+
 ## macOS-Specific Acceptance
 
 Chronoframe is a macOS app, so larger-text validation should be grounded in macOS behavior: Display Zoom, Hover Text, keyboard focus, VoiceOver, and clipping checks in representative UI tests. SwiftUI scaled typography remains useful hygiene, but `.accessibility1` previews alone are not evidence that the shipped Mac app meets the larger-text bar.

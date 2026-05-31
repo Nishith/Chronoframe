@@ -97,6 +97,34 @@ final class TypographyTests: XCTestCase {
         XCTAssertFalse(history.contains(".frame(width: 22, height: 22)"))
     }
 
+    func testSettingsAndProfilesUseScaledTypographyRoles() throws {
+        let sourceRoot = try appSourceRoot()
+        let checkedFiles = [
+            "Views/SettingsView.swift",
+            "Views/ProfilesView.swift",
+        ]
+
+        for path in checkedFiles {
+            let source = try String(contentsOf: sourceRoot.appendingPathComponent(path))
+            XCTAssertFalse(
+                source.contains(".font("),
+                "\(path) should use scaledFont roles so preferences and profile controls can grow with text-size accommodations."
+            )
+        }
+    }
+
+    func testSettingsAndProfilesScaledIconsDoNotUseFixedFrames() throws {
+        let sourceRoot = try appSourceRoot()
+        let profiles = try String(contentsOf: sourceRoot.appendingPathComponent("Views/ProfilesView.swift"))
+
+        XCTAssertTrue(profiles.contains("@ScaledMetric(relativeTo: .body) private var actionsMenuIconSize"))
+        XCTAssertTrue(profiles.contains("@ScaledMetric(relativeTo: .caption) private var pathIconWidth"))
+        XCTAssertTrue(profiles.contains(".frame(width: actionsMenuIconSize, height: actionsMenuIconSize)"))
+        XCTAssertTrue(profiles.contains(".frame(width: pathIconWidth)"))
+        XCTAssertFalse(profiles.contains(".frame(width: 22, height: 22)"))
+        XCTAssertFalse(profiles.contains(".frame(width: 14)"))
+    }
+
     private func appSourceRoot() throws -> URL {
         var url = URL(fileURLWithPath: #filePath)
         while url.pathComponents.last != "ui" && url.path != "/" {
