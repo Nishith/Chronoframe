@@ -716,6 +716,14 @@ struct PathValueView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(helper)
+    }
+
+    private var accessibilityValue: String {
+        value.isEmpty ? "Not set" : value
     }
 }
 

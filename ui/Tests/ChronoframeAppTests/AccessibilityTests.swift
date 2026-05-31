@@ -189,6 +189,45 @@ final class AccessibilityTests: XCTestCase {
         )
     }
 
+    func testPathValueViewExposesSemanticAccessibilityText() throws {
+        let sourceRoot = try appSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("SharedViews.swift"))
+
+        XCTAssertTrue(source.contains("struct PathValueView"))
+        XCTAssertTrue(source.contains(".accessibilityElement(children: .ignore)"))
+        XCTAssertTrue(source.contains(".accessibilityLabel(title)"))
+        XCTAssertTrue(source.contains(".accessibilityValue(accessibilityValue)"))
+        XCTAssertTrue(source.contains("value.isEmpty ? \"Not set\" : value"))
+    }
+
+    func testKnownDedupeMaterialGapsRouteThroughAccessibleMaterialBackground() throws {
+        let sourceRoot = try appSourceRoot()
+        let dedupeRoot = sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Deduplicate")
+
+        let clusterDetail = try String(contentsOf: dedupeRoot.appendingPathComponent("ClusterDetailPane.swift"))
+        XCTAssertEqual(
+            clusterDetail.components(separatedBy: ".accessibleMaterialBackground(.ultraThin)").count - 1,
+            1,
+            "Cluster detail member strip should guard its ultra-thin material for Reduce Transparency."
+        )
+        XCTAssertEqual(
+            clusterDetail.components(separatedBy: ".accessibleMaterialBackground(.thin)").count - 1,
+            1,
+            "Cluster detail metadata panel should guard its thin material for Reduce Transparency."
+        )
+
+        let deduplicateView = try String(contentsOf: dedupeRoot.appendingPathComponent("DeduplicateView.swift"))
+        XCTAssertEqual(
+            deduplicateView.components(separatedBy: ".accessibleMaterialBackground(.ultraThin)").count - 1,
+            1,
+            "Dedupe commit footer should guard its ultra-thin material for Reduce Transparency."
+        )
+    }
+
     func testDecisionVisualsDoNotDependOnDimmingWhenDifferentiatingWithoutColor() {
         XCTAssertEqual(
             AccessibleDecisionVisuals.thumbnailOpacity(decision: .delete, differentiateWithoutColor: true),
