@@ -125,7 +125,9 @@ struct ClusterDetailPane: View {
     }
 
     private func restoreFocusedMemberAfterComparison() {
-        syncKeyboardFocusTarget(with: focusedMemberPath)
+        DispatchQueue.main.async {
+            syncKeyboardFocusTarget(with: focusedMemberPath)
+        }
     }
 
     private func memberStripArea(cluster: DuplicateCluster, height: CGFloat) -> some View {

@@ -359,6 +359,7 @@ final class AccessibilityTests: XCTestCase {
         let clusterDetail = try String(contentsOf: dedupeRoot.appendingPathComponent("ClusterDetailPane.swift"))
         XCTAssertTrue(clusterDetail.contains("onDismiss: restoreFocusedMemberAfterComparison"))
         XCTAssertTrue(clusterDetail.contains("private func restoreFocusedMemberAfterComparison()"))
+        XCTAssertTrue(clusterDetail.contains("DispatchQueue.main.async {\n            syncKeyboardFocusTarget(with: focusedMemberPath)"))
     }
 
     func testDedupeClusterRowsDoNotDependOnHoverOnlyActions() throws {
