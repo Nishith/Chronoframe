@@ -18,20 +18,21 @@ final class ChronoframeUITests: XCTestCase {
         let signature: String
     }
 
-    /// The accessibility audit becomes a hard gate once a baseline exists.
-    /// Local exploratory runs can opt into warn-only mode with
-    /// `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1`.
+    /// The accessibility audit is a hard gate by default. Local exploratory runs
+    /// can opt into warn-only mode with `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1`.
+    ///
+    /// Enforcement is deliberately decoupled from `accessibilityAuditAllowlist`:
+    /// the allowlist exists only to absorb individually verified platform false
+    /// positives, not to act as the on-switch. An empty allowlist therefore means
+    /// "every audit issue fails the build", not "discovery sweep".
     private static var auditFailsBuild: Bool {
-        auditFailsBuild(
-            environment: ProcessInfo.processInfo.environment,
-            hasBaseline: !accessibilityAuditAllowlist.isEmpty
-        )
+        auditFailsBuild(environment: ProcessInfo.processInfo.environment)
     }
 
     /// Narrow home for unavoidable platform false positives. Keep empty unless a
     /// failure is manually verified as an Apple audit issue rather than app UI.
-    /// While this is empty the audit runs as a discovery sweep; adding the first
-    /// entry flips the CI path to hard-fail on every non-baselined issue.
+    /// Entries here are subtracted from the audit; they do not change *whether*
+    /// the gate enforces — it always does, outside the warn-only escape hatch.
     private static let accessibilityAuditAllowlist: [AccessibilityAuditAllowlistEntry] = []
 
     override func setUpWithError() throws {
@@ -107,15 +108,14 @@ final class ChronoframeUITests: XCTestCase {
     }
 
     func testAccessibilityAuditGateDefaultsToHardFailAndSupportsWarnOnlyEscapeHatch() {
-        XCTAssertFalse(Self.auditFailsBuild(environment: [:], hasBaseline: false))
-        XCTAssertTrue(Self.auditFailsBuild(environment: [:], hasBaseline: true))
+        // Hard-fail by default — independent of whether the allowlist has entries.
+        XCTAssertTrue(Self.auditFailsBuild(environment: [:]))
         XCTAssertTrue(Self.auditFailsBuild(
-            environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "0"],
-            hasBaseline: true
+            environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "0"]
         ))
+        // The only way to downgrade to warn-only is the explicit escape hatch.
         XCTAssertFalse(Self.auditFailsBuild(
-            environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "1"],
-            hasBaseline: true
+            environment: ["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY": "1"]
         ))
     }
 
@@ -297,8 +297,8 @@ final class ChronoframeUITests: XCTestCase {
         )
     }
 
-    private static func auditFailsBuild(environment: [String: String], hasBaseline: Bool) -> Bool {
-        hasBaseline && environment["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY"] != "1"
+    private static func auditFailsBuild(environment: [String: String]) -> Bool {
+        environment["CHRONOFRAME_A11Y_AUDIT_WARN_ONLY"] != "1"
     }
 
     private static func isAllowedAccessibilityAuditIssue(

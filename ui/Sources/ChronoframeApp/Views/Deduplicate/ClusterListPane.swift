@@ -268,6 +268,13 @@ private struct ClusterRow: View {
             }
             .buttonStyle(.borderless)
             .help("Keep all photos in this group")
+            // These hover-revealed buttons are a pointer convenience; the
+            // always-visible actions menu and the row's VoiceOver custom actions
+            // provide the same operations for keyboard / assistive-tech users.
+            // `.help` only sets AXHelp, so give each an explicit label too — an
+            // icon-only button would otherwise read as bare "button" and trip the
+            // audit's sufficient-element-description check.
+            .accessibilityLabel("Keep all in group")
 
             Button {
                 onAcceptSuggestion()
@@ -278,6 +285,7 @@ private struct ClusterRow: View {
             }
             .buttonStyle(.borderless)
             .help("Accept suggestion (keep best, delete rest)")
+            .accessibilityLabel("Accept suggestion")
 
             Button(role: .destructive) {
                 onDeleteAll()
@@ -288,6 +296,7 @@ private struct ClusterRow: View {
             }
             .buttonStyle(.borderless)
             .help("Delete all photos in this group")
+            .accessibilityLabel("Delete all in group")
         }
     }
 

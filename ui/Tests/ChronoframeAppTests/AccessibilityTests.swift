@@ -12,8 +12,10 @@ import XCTest
 /// ## Full accessibility audit (automated):
 /// `ChronoframeUITests.testAccessibilityAuditAcrossScenarios` runs Apple's
 /// `performAccessibilityAudit()` against every UI scenario on a GUI runner
-/// (macOS 14+). It is warn-only until the initial backlog is cleared (see
-/// `auditFailsBuild` in that file), then becomes a hard gate.
+/// (macOS 14+). It is a hard gate by default (contrast, element detection, hit
+/// region, sufficient element description); local exploratory runs can opt into
+/// warn-only mode with `CHRONOFRAME_A11Y_AUDIT_WARN_ONLY=1` (see
+/// `auditFailsBuild` in that file).
 ///
 /// ## VoiceOver smoke test (manual):
 /// 1. Build and launch Chronoframe.
