@@ -82,6 +82,7 @@ This is the dedupe-review slice of Phase 2. Keyboard traversal and modal focus p
 
 - Run and Organize status panels should use semantic `scaledFont` roles for visible labels, metrics, hints, and timeline markers.
 - Fixed monospaced fonts are allowed only for dense console or issue-log text where character alignment is the accessibility affordance.
+- Because those console and issue-log exceptions intentionally do not scale, low-vision acceptance for them relies on macOS Display Zoom, Hover Text, and selectable/copyable text instead of SwiftUI text-size scaling.
 - Source tests should guard representative Run and Organize status files and keep console-only fixed-font exceptions narrow.
 
 ## macOS-Specific Acceptance

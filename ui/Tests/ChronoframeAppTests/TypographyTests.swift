@@ -152,6 +152,14 @@ final class TypographyTests: XCTestCase {
             2,
             "RunSectionViews should reserve fixed monospaced fonts for console/issue log surfaces only."
         )
+
+        let standard = try String(contentsOf: sourceRoot
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("docs/accessibility/standard.md"))
+        XCTAssertTrue(standard.contains("console and issue-log exceptions intentionally do not scale"))
+        XCTAssertTrue(standard.contains("macOS Display Zoom, Hover Text, and selectable/copyable text"))
     }
 
     private func appSourceRoot() throws -> URL {
