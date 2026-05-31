@@ -58,4 +58,34 @@ final class TypographyTests: XCTestCase {
         // grow for low-vision users, while bounding layout breakage.
         XCTAssertGreaterThanOrEqual(DesignTokens.maxDynamicType, .accessibility1)
     }
+
+    func testCoreWorkflowChromeUsesScaledTypographyRoles() throws {
+        let sourceRoot = try appSourceRoot()
+        let checkedFiles = [
+            "Views/SidebarView.swift",
+            "Views/Setup/SetupSectionViews.swift",
+            "Views/RunHistoryView.swift",
+            "Views/Components/OnboardingCard.swift",
+            "Views/Components/WorkspaceTabStrip.swift",
+        ]
+
+        for path in checkedFiles {
+            let source = try String(contentsOf: sourceRoot.appendingPathComponent(path))
+            XCTAssertFalse(
+                source.contains(".font("),
+                "\(path) should use scaledFont roles so core workflow chrome can grow with text-size accommodations."
+            )
+        }
+    }
+
+    private func appSourceRoot() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.last != "ui" && url.path != "/" {
+            url.deleteLastPathComponent()
+        }
+        if url.pathComponents.last == "ui" {
+            return url.appendingPathComponent("Sources").appendingPathComponent("ChronoframeApp")
+        }
+        throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
+    }
 }

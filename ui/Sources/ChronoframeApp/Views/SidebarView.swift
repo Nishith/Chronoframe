@@ -25,7 +25,7 @@ struct SidebarView: View {
             ForEach(visibleSections) { section in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(section.title)
-                        .font(.caption.weight(.semibold))
+                        .scaledFont(.label, weight: .semibold)
                         .tracking(0.8)
                         .textCase(.uppercase)
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
@@ -91,7 +91,7 @@ struct SidebarView: View {
         } label: {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: destination.systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .scaledFont(.subtitle, weight: .semibold)
                     .foregroundStyle(isSelected ? DesignTokens.ColorSystem.accentAction : iconTint(for: destination))
                     .frame(width: 20, height: 22)
                     .overlay(alignment: .bottomTrailing) {
@@ -105,12 +105,12 @@ struct SidebarView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(destination.title)
-                        .font(.system(size: 14, weight: .semibold, design: .default))
+                        .scaledFont(.body, weight: .semibold)
                         .foregroundStyle(isSelected ? DesignTokens.ColorSystem.accentAction : DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(1)
 
                     Text(destination.subtitle)
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         .lineLimit(1)
                 }
@@ -250,17 +250,17 @@ private struct LibraryAtAGlanceFooter: View {
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Library at a glance")
-                    .font(.caption.weight(.semibold))
+                    .scaledFont(.label, weight: .semibold)
                     .tracking(0.8)
                     .textCase(.uppercase)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
 
                 HStack(spacing: 8) {
                     Image(systemName: "externaldrive")
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
                     Text(URL(fileURLWithPath: destinationRoot).lastPathComponent)
-                        .font(.caption.weight(.medium))
+                        .scaledFont(.label, weight: .medium)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -291,10 +291,11 @@ private struct LibraryAtAGlanceFooter: View {
     private func metric(value: String, label: String) -> some View {
         HStack(spacing: 4) {
             Text(value)
-                .font(.caption.weight(.semibold).monospacedDigit())
+                .scaledFont(.mono, weight: .semibold)
+                .monospacedDigit()
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             Text(label)
-                .font(.caption2)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
         }
     }

@@ -31,7 +31,7 @@ struct OnboardingCard: View {
         DarkroomPanel(variant: .panel) {
             HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .scaledFont(.cardTitle)
                     .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
                     .frame(width: 28, alignment: .leading)
 
@@ -68,7 +68,7 @@ struct OnboardingCard: View {
                     onDismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .scaledFont(.label, weight: .semibold)
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                         .frame(width: 22, height: 22)
                 }
