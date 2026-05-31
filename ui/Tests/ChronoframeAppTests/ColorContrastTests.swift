@@ -90,9 +90,11 @@ final class ColorContrastTests: XCTestCase {
     // MARK: - Drift guard
 
     /// Best-effort cross-check that the literal triples above still match the
-    /// live `DesignTokens.ColorSystem` tokens. Resolves in the default (light)
-    /// drawing context, which needs no appearance switching and is deterministic
-    /// headless. If the platform can't resolve a token to sRGB in this
+    /// live `DesignTokens.ColorSystem` tokens. `resolveSRGB` pins the Aqua
+    /// (light) appearance before resolving, so the dynamic tokens resolve to
+    /// their light variant deterministically regardless of the host/CI
+    /// appearance (a Dark Aqua runner would otherwise yield the dark variant and
+    /// false-fail). If the platform can't resolve a token to sRGB in this
     /// environment, the check is skipped rather than producing a false failure.
     func testLiteralTriplesTrackLiveTokens() throws {
         let pairs: [(name: String, token: SwiftUI.Color, expected: RGB)] = [
@@ -147,12 +149,23 @@ final class ColorContrastTests: XCTestCase {
         }
     }
 
-    /// Resolves a SwiftUI color to sRGB components in the current drawing
-    /// appearance. Returns `nil` if the platform cannot bridge/convert it.
+    /// Resolves a SwiftUI color to sRGB components under the Aqua (light)
+    /// appearance, so dynamic tokens resolve to their light variant regardless
+    /// of the host appearance. Returns `nil` if the platform cannot convert it.
     private static func resolveSRGB(_ color: SwiftUI.Color) -> RGB? {
         #if canImport(AppKit)
-        guard let srgb = NSColor(color).usingColorSpace(.sRGB) else { return nil }
-        return RGB(Double(srgb.redComponent), Double(srgb.greenComponent), Double(srgb.blueComponent))
+        guard let appearance = NSAppearance(named: .aqua) else { return nil }
+        var components: RGB?
+        appearance.performAsCurrentDrawingAppearance {
+            if let srgb = NSColor(color).usingColorSpace(.sRGB) {
+                components = RGB(
+                    Double(srgb.redComponent),
+                    Double(srgb.greenComponent),
+                    Double(srgb.blueComponent)
+                )
+            }
+        }
+        return components
         #else
         return nil
         #endif
