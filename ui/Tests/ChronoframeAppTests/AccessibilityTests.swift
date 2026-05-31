@@ -176,6 +176,19 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(nsView.accessibilityHelp(), "Current folder path.")
     }
 
+    func testPathControlRequiresCallerSpecificAccessibilityLabel() throws {
+        let sourceRoot = try appSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Components")
+            .appendingPathComponent("PathControl.swift"))
+
+        XCTAssertFalse(
+            source.contains("accessibilityLabel: String ="),
+            "PathControl should not provide a generic default label that repeated call sites can accidentally share."
+        )
+    }
+
     func testDecisionVisualsDoNotDependOnDimmingWhenDifferentiatingWithoutColor() {
         XCTAssertEqual(
             AccessibleDecisionVisuals.thumbnailOpacity(decision: .delete, differentiateWithoutColor: true),

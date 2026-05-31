@@ -7,7 +7,7 @@ import SwiftUI
 ///
 /// Usage:
 /// ```
-/// PathControl(path: sourcePath, placeholder: "Choose a source…") { url in
+/// PathControl(path: sourcePath, accessibilityLabel: "Source folder", placeholder: "Choose a source…") { url in
 ///     setupStore.sourcePath = url.path
 /// }
 /// ```
@@ -16,7 +16,7 @@ struct PathControl: NSViewRepresentable {
     let path: String
     /// Spoken label for VoiceOver. Callers should make repeated path controls
     /// specific, e.g. "Source folder" or "Destination folder".
-    var accessibilityLabel: String = "Folder path"
+    let accessibilityLabel: String
     /// Text shown when `path` is empty.
     var placeholder: String = "Choose a folder…"
     /// Called when the user clicks a component of the path or picks via the
