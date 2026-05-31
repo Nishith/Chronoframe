@@ -376,6 +376,52 @@ enum AccessibleDecisionVisuals {
     }
 }
 
+enum AccessibleSeverityLevel {
+    case success
+    case warning
+    case danger
+}
+
+enum AccessibleSeverityVisuals {
+    static func symbolName(for level: AccessibleSeverityLevel) -> String {
+        switch level {
+        case .success:
+            return "checkmark.circle"
+        case .warning:
+            return "exclamationmark.triangle"
+        case .danger:
+            return "exclamationmark.octagon"
+        }
+    }
+
+    static func abbreviation(for level: AccessibleSeverityLevel) -> String {
+        switch level {
+        case .success:
+            return "OK"
+        case .warning:
+            return "!"
+        case .danger:
+            return "!!"
+        }
+    }
+
+    static func dashPattern(for level: AccessibleSeverityLevel, differentiateWithoutColor: Bool) -> [CGFloat] {
+        guard differentiateWithoutColor else { return [] }
+        switch level {
+        case .success:
+            return []
+        case .warning:
+            return [7, 4]
+        case .danger:
+            return [2, 3]
+        }
+    }
+
+    static func lineWidth(base: CGFloat, contrast: ColorSchemeContrast) -> CGFloat {
+        AccessibleDesign.isIncreasedContrast(contrast) ? base + 2 : base
+    }
+}
+
 // MARK: - Lead icon
 
 struct MeridianLeadIcon: View {
