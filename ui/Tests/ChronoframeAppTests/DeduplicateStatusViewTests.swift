@@ -52,6 +52,50 @@ final class DeduplicateStatusViewTests: XCTestCase {
         }
     }
 
+    func testStatusProgressExposesOnDemandAccessibilityValue() throws {
+        let progress = DeduplicateStatusProgress(completed: 3, total: 8, unit: "files")
+        XCTAssertEqual(try XCTUnwrap(progress.fraction), 0.375, accuracy: 0.0001)
+        XCTAssertEqual(progress.accessibilityValue, "3 of 8 files")
+
+        let clamped = DeduplicateStatusProgress(completed: 12, total: 8, unit: "files")
+        XCTAssertEqual(try XCTUnwrap(clamped.fraction), 1, accuracy: 0.0001)
+        XCTAssertEqual(clamped.accessibilityValue, "8 of 8 files")
+
+        let indeterminate = DeduplicateStatusProgress(completed: 0, total: 0, unit: "files")
+        XCTAssertNil(indeterminate.fraction)
+        XCTAssertEqual(indeterminate.accessibilityValue, "In progress")
+    }
+
+    func testProgressAccessibilityValueIsNotDuplicatedOnStatusContainer() throws {
+        let sourceRoot = try chronoframeAppSourceRoot()
+        let source = try String(contentsOf: sourceRoot
+            .appendingPathComponent("Views")
+            .appendingPathComponent("Deduplicate")
+            .appendingPathComponent("DeduplicateStatusView.swift"))
+
+        XCTAssertTrue(source.contains(".accessibilityLabel(\"Progress\")"))
+        XCTAssertTrue(source.contains(".accessibilityValue(progress?.accessibilityValue ?? \"In progress\")"))
+
+        let statusValueStart = try XCTUnwrap(source.range(of: "private var statusAccessibilityValue: String"))
+        let statusValueSource = String(source[statusValueStart.lowerBound...])
+        let statusValueEnd = try XCTUnwrap(statusValueSource.range(of: "}\n}"))
+        XCTAssertFalse(
+            String(statusValueSource[..<statusValueEnd.lowerBound]).contains("progress?.accessibilityValue"),
+            "The status container should not repeat progress text that the ProgressView already exposes on demand."
+        )
+    }
+
+    private func chronoframeAppSourceRoot() throws -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.last != "ui" && url.path != "/" {
+            url.deleteLastPathComponent()
+        }
+        if url.pathComponents.last == "ui" {
+            return url.appendingPathComponent("Sources").appendingPathComponent("ChronoframeApp")
+        }
+        throw XCTSkip("Could not locate ui/Sources/ChronoframeApp from \(#filePath)")
+    }
+
     func testStatusViewRendersPrimaryAndSecondaryActions() {
         let view = DeduplicateStatusView(
             style: .success,

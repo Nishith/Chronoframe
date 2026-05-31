@@ -3,6 +3,29 @@ import ChronoframeAppCore
 #endif
 import SwiftUI
 
+struct DeduplicateStatusProgress: Equatable {
+    var completed: Int
+    var total: Int
+    var unit: String
+
+    init(completed: Int, total: Int, unit: String) {
+        self.completed = max(0, completed)
+        self.total = max(0, total)
+        self.unit = unit
+    }
+
+    var fraction: Double? {
+        guard total > 0 else { return nil }
+        return min(1, Double(completed) / Double(total))
+    }
+
+    var accessibilityValue: String {
+        guard total > 0 else { return "In progress" }
+        let clampedCompleted = min(completed, total)
+        return "\(clampedCompleted) of \(total) \(unit)"
+    }
+}
+
 /// Shared full-screen status surface used by every non-review state in
 /// Deduplicate (scanning, empty, completed, reverting, reverted, failed).
 /// Consolidates icon + tint pairings, layout spacing, and copy
@@ -37,6 +60,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
     let message: String?
     let warning: String?
     let detail: String?
+    let progress: DeduplicateStatusProgress?
     @ViewBuilder let primary: () -> Primary
     @ViewBuilder let secondary: () -> Secondary
 
@@ -46,6 +70,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
         message: String? = nil,
         warning: String? = nil,
         detail: String? = nil,
+        progress: DeduplicateStatusProgress? = nil,
         @ViewBuilder primary: @escaping () -> Primary,
         @ViewBuilder secondary: @escaping () -> Secondary
     ) {
@@ -54,6 +79,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
         self.message = message
         self.warning = warning
         self.detail = detail
+        self.progress = progress
         self.primary = primary
         self.secondary = secondary
     }
@@ -96,14 +122,26 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(title)
+        .accessibilityValue(statusAccessibilityValue)
     }
 
     @ViewBuilder
     private var icon: some View {
         switch style {
         case .progress:
-            ProgressView()
-                .controlSize(.large)
+            if let fraction = progress?.fraction {
+                ProgressView(value: fraction)
+                    .controlSize(.large)
+                    .accessibilityLabel("Progress")
+                    .accessibilityValue(progress?.accessibilityValue ?? "In progress")
+            } else {
+                ProgressView()
+                    .controlSize(.large)
+                    .accessibilityLabel("Progress")
+                    .accessibilityValue(progress?.accessibilityValue ?? detail ?? "In progress")
+            }
         case .success, .restored, .warning:
             if let name = style.systemImage {
                 ZStack {
@@ -135,6 +173,16 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
             return false
         }
     }
+
+    private var statusAccessibilityValue: String {
+        [
+            detail,
+            message,
+            warning,
+        ]
+        .compactMap { $0?.isEmpty == false ? $0 : nil }
+        .joined(separator: ". ")
+    }
 }
 
 extension DeduplicateStatusView where Secondary == EmptyView {
@@ -144,6 +192,7 @@ extension DeduplicateStatusView where Secondary == EmptyView {
         message: String? = nil,
         warning: String? = nil,
         detail: String? = nil,
+        progress: DeduplicateStatusProgress? = nil,
         @ViewBuilder primary: @escaping () -> Primary
     ) {
         self.init(
@@ -152,6 +201,7 @@ extension DeduplicateStatusView where Secondary == EmptyView {
             message: message,
             warning: warning,
             detail: detail,
+            progress: progress,
             primary: primary,
             secondary: { EmptyView() }
         )
@@ -164,7 +214,8 @@ extension DeduplicateStatusView where Primary == EmptyView, Secondary == EmptyVi
         title: String,
         message: String? = nil,
         warning: String? = nil,
-        detail: String? = nil
+        detail: String? = nil,
+        progress: DeduplicateStatusProgress? = nil
     ) {
         self.init(
             style: style,
@@ -172,6 +223,7 @@ extension DeduplicateStatusView where Primary == EmptyView, Secondary == EmptyVi
             message: message,
             warning: warning,
             detail: detail,
+            progress: progress,
             primary: { EmptyView() },
             secondary: { EmptyView() }
         )
