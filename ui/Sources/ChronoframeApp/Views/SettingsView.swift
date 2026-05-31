@@ -227,7 +227,7 @@ private struct PerformanceSettingsTab: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(preset.title)
                                 Text(preset.summary)
-                                    .font(.caption)
+                                    .scaledFont(.label)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -291,7 +291,7 @@ private struct DeduplicateSettingsTab: View {
                 .pickerStyle(.segmented)
 
                 Text(preferencesStore.dedupeSimilarityPreset.subtitle)
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(.secondary)
 
                 if preferencesStore.dedupeBurstModeEnabled {

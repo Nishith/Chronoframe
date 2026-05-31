@@ -229,7 +229,7 @@ private struct ProfileTile: View {
                         Button("Delete", role: .destructive, action: onDelete)
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 13, weight: .semibold))
+                            .scaledFont(.body, weight: .semibold)
                             .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                             .frame(width: 22, height: 22)
                     }
@@ -263,7 +263,7 @@ private struct ProfileTile: View {
     private func pathRow(icon: String, label: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
-                .font(.caption)
+                .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                 .frame(width: 14)
 
