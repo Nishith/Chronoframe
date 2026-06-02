@@ -175,4 +175,43 @@ final class RunAnnouncementPlannerTests: XCTestCase {
             )
         )
     }
+
+    // MARK: - Delivery priority
+
+    func testAnnouncementPriorityReflectsImportance() {
+        // Terminal outcomes are the only announcements allowed to interrupt.
+        XCTAssertEqual(
+            RunAnnouncementPlanner.detailedAnnouncement(
+                from: snapshot(.running, .copy, 0.5),
+                to: snapshot(.finished, nil, 1.0)
+            )?.priority,
+            .high
+        )
+        // Phase changes are announced but yield to the user.
+        XCTAssertEqual(
+            RunAnnouncementPlanner.detailedAnnouncement(
+                from: snapshot(.running, .discovery, 0),
+                to: snapshot(.running, .sourceHashing, 0)
+            )?.priority,
+            .medium
+        )
+        // Coarse progress is lowest priority so it never talks over a read.
+        XCTAssertEqual(
+            RunAnnouncementPlanner.detailedAnnouncement(
+                from: snapshot(.running, .copy, 0.49),
+                to: snapshot(.running, .copy, 0.51)
+            )?.priority,
+            .low
+        )
+    }
+
+    func testDetailedAnnouncementMessageMatchesStringConvenience() {
+        // The String convenience must stay a thin projection of the detailed form.
+        let from = snapshot(.running, .copy, 0.5)
+        let to = snapshot(.finished, nil, 1.0)
+        XCTAssertEqual(
+            RunAnnouncementPlanner.detailedAnnouncement(from: from, to: to)?.message,
+            RunAnnouncementPlanner.announcement(from: from, to: to)
+        )
+    }
 }

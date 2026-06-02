@@ -6,6 +6,21 @@ import AppKit
 import ChronoframeAppCore
 #endif
 
+#if canImport(AppKit)
+private extension RunAnnouncementPlanner.Priority {
+    /// Maps the planner's pure, AppKit-free priority to the platform
+    /// announcement priority. Only `.high` interrupts the user; progress is
+    /// `.low` so VoiceOver drops it when busy rather than talking over a read.
+    var nsPriorityLevel: NSAccessibilityPriorityLevel {
+        switch self {
+        case .high: return .high
+        case .medium: return .medium
+        case .low: return .low
+        }
+    }
+}
+#endif
+
 struct RunHeroSection: View {
     let model: RunWorkspaceModel
     @Binding var workspaceTab: RunWorkspaceTab
@@ -25,17 +40,19 @@ struct RunHeroSection: View {
 
     /// Posts a VoiceOver announcement for meaningful run-state transitions
     /// (phase changes, coarse progress, completion) without mutating any store.
+    /// The planner assigns each a priority so routine progress doesn't interrupt
+    /// a user reading the UI — only terminal outcomes are posted at high.
     private func announceRunStateChange(to newSnapshot: RunAnnouncementPlanner.Snapshot) {
         let previous = lastAnnouncementSnapshot ?? newSnapshot
         lastAnnouncementSnapshot = newSnapshot
-        guard let message = RunAnnouncementPlanner.announcement(from: previous, to: newSnapshot) else { return }
+        guard let announcement = RunAnnouncementPlanner.detailedAnnouncement(from: previous, to: newSnapshot) else { return }
         #if canImport(AppKit)
         NSAccessibility.post(
             element: NSApp as Any,
             notification: .announcementRequested,
             userInfo: [
-                .announcement: message,
-                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+                .announcement: announcement.message,
+                .priority: announcement.priority.nsPriorityLevel.rawValue,
             ]
         )
         #endif
