@@ -90,6 +90,19 @@ final class ColorContrastTests: XCTestCase {
         }
     }
 
+    /// The muted ink also serves as the idle status tone, which tints fallback
+    /// symbols on the dark `imageStage` tile (e.g. `NowCopyingThumbnail` before a
+    /// run starts). That is a non-text icon, so it must clear the 3:1 AA floor
+    /// against `imageStage` — the constraint that pulls the light muted value up
+    /// from the other direction while `testLightModeTextTiersMeetWCAG` pins it
+    /// down against the canvas. Both must hold simultaneously.
+    func testMutedInkClearsIconContrastOnImageStage() {
+        XCTAssertGreaterThanOrEqual(
+            contrastRatio(Palette.Light.inkMuted, Palette.Light.imageStage), 3.0,
+            "Idle/muted fallback icons must clear the 3:1 non-text floor on the image stage"
+        )
+    }
+
     // MARK: - Drift guard
 
     /// Best-effort cross-check that the literal triples above still match the
@@ -142,7 +155,10 @@ final class ColorContrastTests: XCTestCase {
             static let canvas = RGB.bits(246, 245, 242)
             static let inkPrimary = RGB.bits(14, 17, 22)
             static let inkSecondary = RGB.bits(71, 80, 99)
-            static let inkMuted = RGB.bits(95, 103, 120)
+            static let inkMuted = RGB.bits(100, 111, 121)
+            /// Neutral dark tile behind previews / fallback symbols. Dark even in
+            /// the light appearance, so muted-tinted icons land on it.
+            static let imageStage = RGB.bits(31, 33, 38)
         }
         enum Dark {
             static let canvas = RGB.bits(14, 15, 18)
