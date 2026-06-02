@@ -304,6 +304,7 @@ final class ChronoframeUITests: XCTestCase {
     /// which control), so the backlog can be cleared without a local GUI audit
     /// run. Newlines in the detail are flattened to keep it a single line.
     @available(macOS 14.0, *)
+    @MainActor
     private static func auditLogLine(for issue: XCUIAccessibilityAuditIssue, scenario: Scenario) -> String {
         let elementInfo: String
         if let element = issue.element {
