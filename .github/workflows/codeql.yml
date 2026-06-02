@@ -32,7 +32,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0 # full history so the version stamp's commit count is monotonic
       - name: Select Swift 6 toolchain
@@ -51,7 +51,7 @@ jobs:
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
-      - uses: github/codeql-action/init@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4
+      - uses: github/codeql-action/init@87557b9c84dde89fdd9b10e88954ac2f4248e463 # v4
         with:
           languages: swift
           build-mode: manual
@@ -63,6 +63,6 @@ jobs:
           CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/modulecache" \
           SWIFTPM_MODULECACHE_OVERRIDE="$RUNNER_TEMP/modulecache" \
             swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store
-      - uses: github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa # v4
+      - uses: github/codeql-action/analyze@87557b9c84dde89fdd9b10e88954ac2f4248e463 # v4
         with:
           category: "/language:swift"
