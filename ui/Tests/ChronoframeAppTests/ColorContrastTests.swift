@@ -60,11 +60,9 @@ final class ColorContrastTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.inkPrimary, canvas), 7.0)
         // Secondary ink (default body copy / labels) must clear AA for normal text.
         XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.inkSecondary, canvas), 4.5)
-        // Muted ink is the caption / eyebrow tier. It clears the 3:1 large-text /
-        // non-text floor but, by design today, NOT the 4.5:1 normal-text bar —
-        // see `testMutedInkSitsBelowNormalTextAA`, which documents that gap so it
-        // can't silently regress further.
-        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.inkMuted, canvas), 3.0)
+        // Muted ink is the least-prominent caption / eyebrow tier, but it must
+        // still clear the 4.5:1 normal-text AA bar (it was retuned to ~5.2:1).
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.inkMuted, canvas), 4.5)
     }
 
     // MARK: - Palette AA compliance (dark)
@@ -73,18 +71,23 @@ final class ColorContrastTests: XCTestCase {
         let canvas = Palette.Dark.canvas
         XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.inkPrimary, canvas), 7.0)
         XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.inkSecondary, canvas), 4.5)
-        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.inkMuted, canvas), 3.0)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.inkMuted, canvas), 4.5)
     }
 
-    /// Documents a known, quantified gap rather than hiding it: the muted-ink
-    /// caption tier does not reach the 4.5:1 AA bar for normal-size text on the
-    /// canvas in light mode. Pinning it to the `[3.0, 4.5)` window means any
-    /// further regression *or* an eventual fix both surface here as a deliberate
-    /// decision instead of slipping by unnoticed.
-    func testMutedInkSitsBelowNormalTextAA() {
-        let ratio = contrastRatio(Palette.Light.inkMuted, Palette.Light.canvas)
-        XCTAssertGreaterThanOrEqual(ratio, 3.0, "Muted ink must at least clear the 3:1 large-text / non-text floor")
-        XCTAssertLessThan(ratio, 4.5, "Muted ink unexpectedly meets 4.5:1 — promote it to a normal-text tier and update this expectation")
+    /// Guards the muted-ink retune: every ink tier now clears the 4.5:1 AA bar
+    /// for normal-size text on canvas, in both appearances. Muted remains the
+    /// least-prominent tier (lowest ratio of the three) without dropping below
+    /// readable — so a regression that darkens contrast hierarchy away *or* one
+    /// that pushes muted back under AA both surface here.
+    func testMutedInkIsLeastProminentButStillMeetsAA() {
+        for (muted, secondary, canvas) in [
+            (Palette.Light.inkMuted, Palette.Light.inkSecondary, Palette.Light.canvas),
+            (Palette.Dark.inkMuted, Palette.Dark.inkSecondary, Palette.Dark.canvas),
+        ] {
+            let mutedRatio = contrastRatio(muted, canvas)
+            XCTAssertGreaterThanOrEqual(mutedRatio, 4.5, "Muted ink must meet the 4.5:1 normal-text AA bar")
+            XCTAssertLessThanOrEqual(mutedRatio, contrastRatio(secondary, canvas), "Muted ink should stay the least-prominent text tier")
+        }
     }
 
     // MARK: - Drift guard
@@ -139,13 +142,13 @@ final class ColorContrastTests: XCTestCase {
             static let canvas = RGB.bits(246, 245, 242)
             static let inkPrimary = RGB.bits(14, 17, 22)
             static let inkSecondary = RGB.bits(71, 80, 99)
-            static let inkMuted = RGB.bits(123, 131, 149)
+            static let inkMuted = RGB.bits(95, 103, 120)
         }
         enum Dark {
             static let canvas = RGB.bits(14, 15, 18)
             static let inkPrimary = RGB.bits(237, 238, 242)
             static let inkSecondary = RGB.bits(169, 175, 188)
-            static let inkMuted = RGB.bits(112, 118, 132)
+            static let inkMuted = RGB.bits(124, 130, 144)
         }
     }
 

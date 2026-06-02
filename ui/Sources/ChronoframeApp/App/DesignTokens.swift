@@ -144,10 +144,13 @@ enum DesignTokens {
             light: NSColor(srgbRed: 71.0 / 255, green: 80.0 / 255, blue: 99.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 169.0 / 255, green: 175.0 / 255, blue: 188.0 / 255, alpha: 1)
         )
-        /// Muted text — helper captions, eyebrow labels.
+        /// Muted text — helper captions, eyebrow labels. Tuned to clear WCAG AA
+        /// (4.5:1) for normal-size text on `canvas` in both appearances: ~5.2:1
+        /// light, ~5.0:1 dark (see `ColorContrastTests`). Still the least
+        /// prominent ink tier — just no longer below the readable bar.
         static let inkMuted = dynamicColor(
-            light: NSColor(srgbRed: 123.0 / 255, green: 131.0 / 255, blue: 149.0 / 255, alpha: 1),
-            dark: NSColor(srgbRed: 112.0 / 255, green: 118.0 / 255, blue: 132.0 / 255, alpha: 1)
+            light: NSColor(srgbRed: 95.0 / 255, green: 103.0 / 255, blue: 120.0 / 255, alpha: 1),
+            dark: NSColor(srgbRed: 124.0 / 255, green: 130.0 / 255, blue: 144.0 / 255, alpha: 1)
         )
 
         // Lines
