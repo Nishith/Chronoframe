@@ -65,7 +65,7 @@ final class ChronoframeUITests: XCTestCase {
                 do {
                     try app.performAccessibilityAudit(for: auditTypes) { issue in
                         let description = issue.compactDescription
-                        NSLog("A11y audit [%@]: %@", scenario.rawValue, description)
+                        NSLog("%@", Self.auditLogLine(for: issue, scenario: scenario))
                         if Self.isAllowedAccessibilityAuditIssue(description, scenario: scenario) {
                             return true
                         }
@@ -295,6 +295,27 @@ final class ChronoframeUITests: XCTestCase {
             scenario: scenario,
             allowlist: accessibilityAuditAllowlist
         )
+    }
+
+    /// Builds one grep-friendly log line per audit issue carrying the offending
+    /// element's identity — identifier, label, role, frame — and Apple's
+    /// `detailedDescription`, not just the generic `compactDescription`. This
+    /// makes the CI log alone enough to locate and fix each finding (which view,
+    /// which control), so the backlog can be cleared without a local GUI audit
+    /// run. Newlines in the detail are flattened to keep it a single line.
+    @available(macOS 14.0, *)
+    @MainActor
+    private static func auditLogLine(for issue: XCUIAccessibilityAuditIssue, scenario: Scenario) -> String {
+        let elementInfo: String
+        if let element = issue.element {
+            let frame = element.frame
+            let frameDesc = "{\(Int(frame.minX)),\(Int(frame.minY)),\(Int(frame.width)),\(Int(frame.height))}"
+            elementInfo = "id=\"\(element.identifier)\" label=\"\(element.label)\" role=\(element.elementType.rawValue) frame=\(frameDesc)"
+        } else {
+            elementInfo = "element=nil"
+        }
+        let detail = issue.detailedDescription.replacingOccurrences(of: "\n", with: " ")
+        return "A11y audit [\(scenario.rawValue)]: \(issue.compactDescription) | \(elementInfo) | \(detail)"
     }
 
     private static func auditFailsBuild(environment: [String: String], hasBaseline: Bool) -> Bool {
