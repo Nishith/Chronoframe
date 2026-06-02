@@ -19,21 +19,21 @@ jobs:
     name: Whitespace check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - run: git diff --check
 
   invariants-check:
     name: AGENTS-INVARIANT tag check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - run: script/check_agents_invariants_have_tests.sh
 
   reduce-motion-check:
     name: Reduce Motion guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - run: script/check_no_raw_animations.sh
 
   app-layer-test-check:
@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0 # full history so merge-base against the PR base resolves
       - run: script/check_app_layer_changes_have_tests.sh "${{ github.event.pull_request.base.sha }}"
@@ -51,7 +51,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Select Swift 6 toolchain
         run: |
           swift6_developer_dir=""
@@ -93,7 +93,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Select Swift 6 toolchain
         run: |
           swift6_developer_dir=""
@@ -131,7 +131,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0 # full history so the version stamp's commit count is monotonic
       - name: Select Swift 6 toolchain
@@ -166,7 +166,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0 # full history so the version stamp's commit count is monotonic
       - name: Select Swift 6 toolchain
@@ -201,7 +201,7 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0 # full history so the version stamp's commit count is monotonic
       - name: Select Swift 6 toolchain
