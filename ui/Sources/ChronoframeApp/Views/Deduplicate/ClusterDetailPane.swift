@@ -530,7 +530,10 @@ struct ClusterDetailPane: View {
             confidence: cluster.annotation?.confidence
         ))
         .accessibilityHint("Selects this photo for comparison and decision review")
-        .accessibilityAddTraits(isFocused ? .isSelected : [])
+        // `.accessibilityElement(children: .ignore)` on the button content drops
+        // the inherited button role; re-add it so the tappable thumbnail isn't
+        // reported as "Unknown role".
+        .accessibilityAddTraits(isFocused ? [.isButton, .isSelected] : .isButton)
         .accessibilityAction(named: "Focus photo") {
             focusedMemberPath = member.path
         }
@@ -788,6 +791,9 @@ private struct PreviewResizeHandle: View {
         .help("Drag to resize the preview and duplicate thumbnails")
         .accessibilityLabel("Resize preview and duplicate thumbnails")
         .accessibilityHint("Drag up to make thumbnails larger, or down to make the preview larger")
+        // Give the adjustable resize handle a concrete role so it isn't reported
+        // as "Unknown role"; it stays operable via the adjustable action below.
+        .accessibilityAddTraits(.isButton)
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:

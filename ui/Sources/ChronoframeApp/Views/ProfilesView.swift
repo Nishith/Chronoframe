@@ -136,6 +136,9 @@ struct ProfilesView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label) folder")
         .accessibilityValue(value.isEmpty ? "Not set" : value)
+        // Combining children drops the inherited role; restore one so the audit
+        // sees static text rather than an "Unknown role" element.
+        .accessibilityAddTraits(.isStaticText)
     }
 
     // MARK: - Saved profiles grid
@@ -226,6 +229,11 @@ private struct ProfileTile: View {
                             .frame(width: 7, height: 7)
                             .accessibilityIdentifier(AccessibilityIdentifiers.activeProfileBadge)
                             .accessibilityLabel("Active")
+                            // A graphical status dot → image role. `.isStaticText`
+                            // on a text-less shape gets pruned (it dropped the
+                            // element from the AX tree and broke the XCUITest
+                            // query); `.isImage` keeps it present and queryable.
+                            .accessibilityAddTraits(.isImage)
                     }
 
                     Menu {
@@ -294,5 +302,6 @@ private struct ProfileTile: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenLabel)
         .accessibilityValue(value.isEmpty ? "Not set" : value)
+        .accessibilityAddTraits(.isStaticText)
     }
 }

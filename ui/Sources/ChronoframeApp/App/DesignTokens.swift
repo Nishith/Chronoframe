@@ -316,6 +316,11 @@ extension View {
             .background {
                 DarkroomCanvasBackground()
                     .ignoresSafeArea()
+                    // Purely decorative canvas (vignette/texture/grain). Without
+                    // this it surfaces as undescribed accessibility groups behind
+                    // every workspace — the recurring role=3 "Element has no
+                    // description" audit findings.
+                    .accessibilityHidden(true)
             }
             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
     }
