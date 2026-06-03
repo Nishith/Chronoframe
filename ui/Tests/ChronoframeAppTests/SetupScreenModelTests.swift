@@ -89,4 +89,29 @@ final class SetupScreenModelTests: XCTestCase {
             )
         )
     }
+
+    func testTrustProofModelSetupSummary() {
+        let items = TrustProofModel.setupSafetySummary(source: "/Volumes/Card", destination: "/Volumes/Archive", verifyCopies: true)
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items[0].id, "local_only")
+        XCTAssertEqual(items[1].id, "source_safe")
+        XCTAssertEqual(items[2].id, "verification")
+        XCTAssertEqual(items[2].tone, .success)
+
+        let itemsNoVerify = TrustProofModel.setupSafetySummary(source: "/Volumes/Card", destination: "/Volumes/Archive", verifyCopies: false)
+        XCTAssertEqual(itemsNoVerify[2].tone, .warning)
+    }
+
+    func testTrustProofModelDeduplicateSummary() {
+        let items = TrustProofModel.deduplicateSafetySummary(reviewedGroups: 5, unreviewedGroups: 2, willDeleteCount: 10)
+        XCTAssertEqual(items.count, 3)
+        XCTAssertEqual(items[0].id, "trash_only")
+        XCTAssertEqual(items[1].id, "reviewed_only")
+        XCTAssertEqual(items[1].tone, .warning)
+        XCTAssertEqual(items[2].id, "receipt_write")
+
+        let itemsAllReviewed = TrustProofModel.deduplicateSafetySummary(reviewedGroups: 5, unreviewedGroups: 0, willDeleteCount: 0)
+        XCTAssertEqual(itemsAllReviewed.count, 2)
+        XCTAssertEqual(itemsAllReviewed[1].tone, .success)
+    }
 }

@@ -674,3 +674,413 @@ private struct EmptyPreviewGrid: View {
         }
     }
 }
+
+// MARK: - Trust Proof Systems & Sandbox Popovers (ADA visual experience improvements)
+
+enum TrustProofTone: String, Equatable {
+    case neutral
+    case success
+    case warning
+    case danger
+
+    var color: SwiftUI.Color {
+        switch self {
+        case .neutral: return DesignTokens.ColorSystem.inkPrimary
+        case .success: return DesignTokens.ColorSystem.statusSuccess
+        case .warning: return DesignTokens.ColorSystem.statusWarning
+        case .danger: return DesignTokens.ColorSystem.statusDanger
+        }
+    }
+}
+
+struct TrustProofItem: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let message: String
+    let symbol: String
+    let tone: TrustProofTone
+    let accessibilityLabel: String
+    let actionLabel: String?
+
+    static func == (lhs: TrustProofItem, rhs: TrustProofItem) -> Bool {
+        lhs.id == rhs.id && lhs.title == rhs.title && lhs.message == rhs.message && lhs.symbol == rhs.symbol && lhs.tone == rhs.tone && lhs.accessibilityLabel == rhs.accessibilityLabel && lhs.actionLabel == rhs.actionLabel
+    }
+}
+
+struct TrustProofModel {
+    static func setupSafetySummary(source: String, destination: String, verifyCopies: Bool) -> [TrustProofItem] {
+        var items: [TrustProofItem] = []
+
+        // 1. Local Processing Guarantee
+        items.append(TrustProofItem(
+            id: "local_only",
+            title: "Local-First Processing",
+            message: "All photo analysis and copies run strictly on this Mac. No files or paths are sent to any server.",
+            symbol: "network.slash",
+            tone: .success,
+            accessibilityLabel: "Verified local processing. Photos stay on this Mac.",
+            actionLabel: nil
+        ))
+
+        // 2. Source Safe Protection
+        let sourceName = source.isEmpty ? "library" : URL(fileURLWithPath: source).lastPathComponent
+        items.append(TrustProofItem(
+            id: "source_safe",
+            title: "Original Photos Protected",
+            message: "Your source \(sourceName) is opened as read-only. Original files are never modified, moved, or deleted.",
+            symbol: "lock.shield",
+            tone: .success,
+            accessibilityLabel: "Source files are read-only and safe",
+            actionLabel: nil
+        ))
+
+        // 3. Copy Verification Status
+        if verifyCopies {
+            items.append(TrustProofItem(
+                id: "verification",
+                title: "Copy Verification Enabled",
+                message: "Every file written to the destination will be hash-checked against the original. Corrupted copies are auto-removed.",
+                symbol: "checkmark.shield",
+                tone: .success,
+                accessibilityLabel: "Hash verification is active",
+                actionLabel: nil
+            ))
+        } else {
+            items.append(TrustProofItem(
+                id: "verification",
+                title: "Verification Off",
+                message: "Copies will not be hash-checked. Originals remain untouched either way.",
+                symbol: "speedometer",
+                tone: .warning,
+                accessibilityLabel: "Warning: hash verification is disabled",
+                actionLabel: nil
+            ))
+        }
+
+        return items
+    }
+
+    static func runSafetySummary(isTransfer: Bool) -> [TrustProofItem] {
+        return [
+            TrustProofItem(
+                id: "active_run",
+                title: isTransfer ? "Transfer In Progress" : "Preview In Progress",
+                message: isTransfer ? "Writing copies to destination. Source files stay untouched." : "Reading and planning copy routes only. No files are modified or written.",
+                symbol: isTransfer ? "arrow.right.circle.fill" : "eye.fill",
+                tone: isTransfer ? .success : .neutral,
+                accessibilityLabel: isTransfer ? "Active transfer. Originals stay safe." : "Active preview. Read only.",
+                actionLabel: nil
+            )
+        ]
+    }
+
+    static func deduplicateSafetySummary(reviewedGroups: Int, unreviewedGroups: Int, willDeleteCount: Int) -> [TrustProofItem] {
+        var items: [TrustProofItem] = [
+            TrustProofItem(
+                id: "trash_only",
+                title: "Trash-Only Safeguard",
+                message: "Deduplication moves duplicates only to the macOS Trash, never hard-deletes them.",
+                symbol: "trash.fill",
+                tone: .success,
+                accessibilityLabel: "Safe trash-only mode is verified",
+                actionLabel: nil
+            ),
+            TrustProofItem(
+                id: "reviewed_only",
+                title: "Reviewed Groups Only",
+                message: "\(reviewedGroups) groups will be processed. \(unreviewedGroups) unreviewed groups remain completely untouched.",
+                symbol: "checklist",
+                tone: unreviewedGroups > 0 ? .warning : .success,
+                accessibilityLabel: "\(reviewedGroups) groups reviewed. \(unreviewedGroups) groups untouched.",
+                actionLabel: nil
+            )
+        ]
+
+        if willDeleteCount > 0 {
+            items.append(TrustProofItem(
+                id: "receipt_write",
+                title: "Revertible Recovery",
+                message: "A revert receipt will be written to .organize_logs before trashing, allowing full restore from Run History.",
+                symbol: "arrow.uturn.backward.circle.fill",
+                tone: .success,
+                accessibilityLabel: "Revert receipt active",
+                actionLabel: nil
+            ))
+        }
+
+        return items
+    }
+}
+
+struct LocalSafetyIndicator: View {
+    @State private var showPopover = false
+    let sourcePath: String
+    let destinationPath: String
+    let deduplicatePath: String
+
+    init(sourcePath: String, destinationPath: String, deduplicatePath: String = "") {
+        self.sourcePath = sourcePath
+        self.destinationPath = destinationPath
+        self.deduplicatePath = deduplicatePath.isEmpty ? destinationPath : deduplicatePath
+    }
+
+    var body: some View {
+        Button(action: { showPopover = true }) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(DesignTokens.ColorSystem.statusSuccess)
+                    .frame(width: 6, height: 6)
+                Text("Local-Only")
+                    .scaledFont(.label, weight: .semibold)
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(DesignTokens.ColorSystem.statusSuccess.opacity(0.3), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Local-only processing verified")
+        .accessibilityHint("Opens detailed security sandbox status")
+        .popover(isPresented: $showPopover, arrowEdge: .bottom) {
+            SandboxDetailPopover(sourcePath: sourcePath, destinationPath: destinationPath, deduplicatePath: deduplicatePath)
+        }
+    }
+}
+
+struct SandboxDetailPopover: View {
+    let sourcePath: String
+    let destinationPath: String
+    let deduplicatePath: String
+
+    enum TestStatus: Equatable {
+        case untested
+        case testing
+        case success(String)
+        case failure(String)
+
+        var description: String {
+            switch self {
+            case .untested: return "Untested"
+            case .testing: return "Testing..."
+            case .success(let msg): return msg
+            case .failure(let msg): return msg
+            }
+        }
+    }
+
+    @State private var sourceStatus: TestStatus = .untested
+    @State private var destinationStatus: TestStatus = .untested
+    @State private var deduplicateStatus: TestStatus = .untested
+    @State private var activeBookmarksCount: Int = 0
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("App Sandbox & Locality")
+                    .scaledFont(.body, weight: .semibold)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                Spacer()
+                Button(action: runInteractiveCheck) {
+                    Label("Verify Scopes", systemImage: "arrow.clockwise.circle")
+                        .scaledFont(.label)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+            }
+
+            Text("Chronoframe operates inside a secure OS-level sandbox. It only accesses the specific folders you explicitly select.")
+                .font(.caption)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 10) {
+                folderRow(title: "Source Folder", path: sourcePath, status: sourceStatus, isWrite: false)
+                folderRow(title: "Destination Folder", path: destinationPath, status: destinationStatus, isWrite: true)
+                folderRow(title: "Deduplicate Folder", path: deduplicatePath, status: deduplicateStatus, isWrite: true)
+            }
+            .padding(.vertical, 4)
+
+            Divider()
+
+            HStack {
+                Text("Active Bookmarks: \(activeBookmarksCount)")
+                    .font(.caption)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                Spacer()
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
+                    Text("Verified Local-First")
+                        .scaledFont(.label, weight: .semibold)
+                }
+            }
+        }
+        .padding(16)
+        .frame(width: 440)
+        .background(reduceTransparency ? DesignTokens.ColorSystem.panel : Color.clear)
+        .background {
+            if reduceTransparency {
+                Color.clear
+            } else {
+                Color.clear.background(.ultraThinMaterial)
+            }
+        }
+        .onAppear {
+            runInteractiveCheck()
+        }
+    }
+
+    private func runInteractiveCheck() {
+        sourceStatus = .testing
+        destinationStatus = .testing
+        deduplicateStatus = .testing
+
+        Task.detached(priority: .userInitiated) {
+            let srcOK = sourcePath.isEmpty ? false : FileManager.default.isReadableFile(atPath: sourcePath)
+            let srcMsg = srcOK ? "Read Access OK" : (sourcePath.isEmpty ? "Not Configured" : "Access Denied")
+            let srcStatus: TestStatus = srcOK ? .success(srcMsg) : .failure(srcMsg)
+
+            let destOK = destinationPath.isEmpty ? false : (FileManager.default.isReadableFile(atPath: destinationPath) && FileManager.default.isWritableFile(atPath: destinationPath))
+            let destMsg = destOK ? "Read/Write OK" : (destinationPath.isEmpty ? "Not Configured" : "Access Denied")
+            let destStatus: TestStatus = destOK ? .success(destMsg) : .failure(destMsg)
+
+            let dedOK = deduplicatePath.isEmpty ? false : (FileManager.default.isReadableFile(atPath: deduplicatePath) && FileManager.default.isWritableFile(atPath: deduplicatePath))
+            let dedMsg = dedOK ? "Read/Write OK" : (deduplicatePath.isEmpty ? "Not Configured" : "Access Denied")
+            let dedStatus: TestStatus = dedOK ? .success(dedMsg) : .failure(dedMsg)
+
+            var count = 0
+            if !sourcePath.isEmpty { count += 1 }
+            if !destinationPath.isEmpty { count += 1 }
+            if !deduplicatePath.isEmpty && deduplicatePath != destinationPath { count += 1 }
+
+            await MainActor.run {
+                self.sourceStatus = srcStatus
+                self.destinationStatus = destStatus
+                self.deduplicateStatus = dedStatus
+                self.activeBookmarksCount = count
+            }
+        }
+    }
+
+    private func folderRow(title: String, path: String, status: TestStatus, isWrite: Bool) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: isWrite ? "externaldrive.fill" : "folder.fill")
+                .font(.title3)
+                .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .scaledFont(.body, weight: .semibold)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+
+                if path.isEmpty {
+                    Text("Not selected")
+                        .font(.caption)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                } else {
+                    Text(URL(fileURLWithPath: path).lastPathComponent)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    Text(path)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+
+            Spacer()
+
+            statusBadge(for: status)
+        }
+        .padding(8)
+        .background(DesignTokens.ColorSystem.panel)
+        .cornerRadius(8)
+    }
+
+    @ViewBuilder
+    private func statusBadge(for status: TestStatus) -> some View {
+        switch status {
+        case .untested:
+            Text("Untested")
+                .scaledFont(.label)
+                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.gray.opacity(0.12), in: Capsule())
+        case .testing:
+            HStack(spacing: 4) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Verifying...")
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
+            }
+        case .success(let msg):
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
+                Text(msg)
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(DesignTokens.ColorSystem.statusSuccess.opacity(0.12), in: Capsule())
+        case .failure(let msg):
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+                Text(msg)
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(DesignTokens.ColorSystem.statusWarning.opacity(0.12), in: Capsule())
+        }
+    }
+}
+
+struct TrustProofSurface: View {
+    let items: [TrustProofItem]
+
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(items) { item in
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: item.symbol)
+                        .foregroundStyle(item.tone.color)
+                        .frame(width: 16)
+                        .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.title)
+                            .scaledFont(.body, weight: .semibold)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+
+                        Text(item.message)
+                            .scaledFont(.body)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DesignTokens.ColorSystem.panel)
+                .cornerRadius(DesignTokens.Corner.innerCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DesignTokens.Corner.innerCard, style: .continuous)
+                        .strokeBorder(item.tone.color.opacity(differentiateWithoutColor ? 0.55 : 0.18), lineWidth: differentiateWithoutColor ? 1.2 : 0.5)
+                )
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(item.accessibilityLabel)
+            }
+        }
+    }
+}

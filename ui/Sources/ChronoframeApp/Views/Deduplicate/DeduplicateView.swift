@@ -2,6 +2,7 @@
 import ChronoframeAppCore
 #endif
 import SwiftUI
+import QuickLook
 
 /// Top-level workspace for the Deduplicate sidebar destination. Branches
 /// between idle / scanning / reviewing / committing / completed states and
@@ -19,6 +20,7 @@ struct DeduplicateView: View {
     @State private var showingCommitReviewedConfirmation = false
     @State private var showingRapidTriage = false
     @AppStorage("didOnboardDeduplicate") private var didOnboardDeduplicate = false
+    @State private var selectedDedupeItemURL: URL? = nil
 
     init(appState: AppState) {
         self.appState = appState
@@ -53,6 +55,13 @@ struct DeduplicateView: View {
         }
         .navigationTitle("Deduplicate")
         .onDisappear { thumbnailLoader.purgeCache() }
+        .onChange(of: sessionStore.status) { newValue in
+            if newValue == .completed || newValue == .reverted {
+                #if canImport(AppKit)
+                NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+                #endif
+            }
+        }
     }
 
     // MARK: - Idle
@@ -261,12 +270,19 @@ struct DeduplicateView: View {
                 Divider()
                 commitFooter
             }
+            .quickLookPreview($selectedDedupeItemURL)
             .background {
                 Group {
                     Button { navigateCluster(by: -1) } label: { EmptyView() }
                         .keyboardShortcut(.upArrow, modifiers: [])
                     Button { navigateCluster(by: 1) } label: { EmptyView() }
                         .keyboardShortcut(.downArrow, modifiers: [])
+                    Button {
+                        if let path = focusedMemberPath {
+                            selectedDedupeItemURL = URL(fileURLWithPath: path)
+                        }
+                    } label: { EmptyView() }
+                        .keyboardShortcut(.space, modifiers: [])
                 }
                 .opacity(0)
                 .frame(width: 0, height: 0)
@@ -337,20 +353,30 @@ struct DeduplicateView: View {
     }
 
     private var commitFooter: some View {
-        // Show the count + bytes the user can actually commit RIGHT
-        // NOW (clusters they've reviewed and approved). Including
-        // unreviewed clusters here used to overstate the headline by
-        // counting weak-match preselects the executor would skip until
-        // approval — the AGENTS.md invariant says non-exact / weak
-        // matches stay review-only until the user confirms.
         let plan = sessionStore.reviewedDeletionPlan()
         let toDelete = plan.count
         let bytes = plan.totalBytes
         let hardDelete = false
-        return ViewThatFits(in: .horizontal) {
-            commitFooterWide(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
-            commitFooterMedium(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
-            commitFooterCompact(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+
+        let reviewedCount = sessionStore.reviewedClusters.count
+        let unreviewedCount = max(0, sessionStore.clusters.count - reviewedCount)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            TrustProofSurface(items: TrustProofModel.deduplicateSafetySummary(
+                reviewedGroups: reviewedCount,
+                unreviewedGroups: unreviewedCount,
+                willDeleteCount: toDelete
+            ))
+            .padding(.horizontal, DesignTokens.Spacing.md)
+
+            Divider()
+                .foregroundStyle(DesignTokens.ColorSystem.hairline)
+
+            ViewThatFits(in: .horizontal) {
+                commitFooterWide(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+                commitFooterMedium(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+                commitFooterCompact(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitFooter)

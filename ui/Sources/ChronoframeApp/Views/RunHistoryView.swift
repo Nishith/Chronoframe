@@ -1,6 +1,9 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+#if canImport(ChronoframeCore)
+import ChronoframeCore
+#endif
 import Charts
 import SwiftUI
 
@@ -79,6 +82,7 @@ struct RunHistoryView: View {
     @State private var searchText = ""
     @State private var historyFilter: HistoryFilter = .all
     @State private var pendingRevertEntry: RunHistoryEntry?
+    @State private var selectedReceiptEntry: RunHistoryEntry?
 
     private static let fileSizeFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -133,6 +137,9 @@ struct RunHistoryView: View {
             }
         } message: { entry in
             Text(Self.confirmationMessage(for: entry))
+        }
+        .sheet(item: $selectedReceiptEntry) { entry in
+            ReceiptDetailSheet(entry: entry, appState: appState)
         }
     }
 
@@ -657,7 +664,11 @@ struct RunHistoryView: View {
                 .frame(maxWidth: 260, alignment: .trailing)
 
             Button("Open") {
-                appState.openHistoryEntry(entry)
+                if entry.kind == .auditReceipt || entry.kind == .dedupeAuditReceipt || entry.kind == .reorganizeAuditReceipt {
+                    selectedReceiptEntry = entry
+                } else {
+                    appState.openHistoryEntry(entry)
+                }
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -751,5 +762,268 @@ struct RunHistoryView: View {
         case .runLog, .queueDatabase:
             return DesignTokens.ColorSystem.inkMuted
         }
+    }
+}
+
+struct ReceiptDetailSheet: View {
+    let entry: RunHistoryEntry
+    let appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    @State private var transfers: [ReceiptVisualItem] = []
+    @State private var metadata: ReceiptMetadata? = nil
+    @State private var verificationResults: [String: VerificationStatus] = [:]
+    @State private var isVerifying = false
+    @State private var errorMessage: String? = nil
+
+    enum VerificationStatus: String {
+        case pending = "Pending"
+        case matching = "Match"
+        case mismatch = "Modified"
+        case missing = "Missing"
+    }
+
+    struct ReceiptVisualItem: Identifiable {
+        let id = UUID()
+        let source: String
+        let dest: String
+        let hash: String
+        let sizeBytes: Int64?
+    }
+
+    struct ReceiptMetadata {
+        let title: String
+        let timestamp: Date
+        let status: String
+        let schemaVersion: Int
+        let totalFiles: Int
+        let bytesReclaimed: Int64?
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
+            // Header
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(metadata?.title ?? entry.kind.title)
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    if let meta = metadata {
+                        Text("Run: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)")
+                            .font(.subheadline)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    }
+                }
+                Spacer()
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if let error = errorMessage {
+                Text(error)
+                    .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+                    .padding()
+            } else if transfers.isEmpty {
+                VStack {
+                    ProgressView("Loading receipt content...")
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                // Table of transfers
+                ScrollView {
+                    VStack(spacing: 8) {
+                        ForEach(transfers) { item in
+                            HStack(alignment: .center) {
+                                Image(systemName: isVideo(item.dest) ? "video" : "photo")
+                                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                    .frame(width: 20)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(URL(fileURLWithPath: item.dest).lastPathComponent)
+                                        .font(.subheadline.weight(.medium))
+                                    Text(item.dest)
+                                        .font(.caption2)
+                                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                                        .lineLimit(1)
+                                        .truncationMode(.middle)
+                                }
+
+                                Spacer()
+
+                                if let size = item.sizeBytes {
+                                    Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
+                                        .font(.caption)
+                                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                }
+
+                                statusView(for: item.dest)
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(DesignTokens.ColorSystem.hairline.opacity(0.15))
+                            )
+                            .contextMenu {
+                                Button("Reveal in Finder") {
+                                    NSWorkspace.shared.selectFile(item.dest, inFileViewerRootedAtPath: "")
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 400)
+
+                // Actions Footer
+                HStack {
+                    Button(isVerifying ? "Verifying..." : "Verify Status") {
+                        Task { await runVerification() }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isVerifying)
+
+                    Spacer()
+
+                    Button("Revert This Run…") {
+                        dismiss()
+                        appState.revertHistoryEntry(entry)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.top, 12)
+            }
+        }
+        .padding(DesignTokens.Layout.contentPadding)
+        .frame(width: 600)
+        .darkroom()
+        .onAppear {
+            loadReceipt()
+        }
+    }
+
+    private func isVideo(_ path: String) -> Bool {
+        let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
+        return ["mov", "mp4", "m4v"].contains(ext)
+    }
+
+    @ViewBuilder
+    private func statusView(for path: String) -> some View {
+        let status = verificationResults[path] ?? .pending
+        HStack(spacing: 4) {
+            Circle()
+                .fill(statusColor(status))
+                .frame(width: 6, height: 6)
+            Text(status.rawValue)
+                .font(.caption)
+                .foregroundStyle(statusColor(status))
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(statusColor(status).opacity(0.1), in: Capsule())
+    }
+
+    private func statusColor(_ status: VerificationStatus) -> Color {
+        switch status {
+        case .pending: return DesignTokens.ColorSystem.inkMuted
+        case .matching: return DesignTokens.ColorSystem.statusSuccess
+        case .mismatch: return DesignTokens.ColorSystem.statusWarning
+        case .missing: return DesignTokens.ColorSystem.inkMuted
+        }
+    }
+
+    private func loadReceipt() {
+        let fileURL = URL(fileURLWithPath: entry.path)
+        guard let data = try? Data(contentsOf: fileURL) else {
+            errorMessage = "Could not read the receipt file from disk."
+            return
+        }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        if entry.kind == .dedupeAuditReceipt {
+            if let dedupeReceipt = try? decoder.decode(DeduplicateAuditReceipt.self, from: data) {
+                self.metadata = ReceiptMetadata(
+                    title: "Deduplication Run Details",
+                    timestamp: dedupeReceipt.createdAt,
+                    status: dedupeReceipt.status,
+                    schemaVersion: dedupeReceipt.schemaVersion,
+                    totalFiles: dedupeReceipt.items.count,
+                    bytesReclaimed: dedupeReceipt.bytesReclaimed
+                )
+                self.transfers = dedupeReceipt.items.map {
+                    ReceiptVisualItem(source: $0.originalPath, dest: $0.originalPath, hash: "", sizeBytes: $0.sizeBytes)
+                }
+            } else {
+                errorMessage = "Failed to parse the deduplication receipt."
+            }
+        } else {
+            // Reorganize or standard organize audit receipt
+            if let revertReceipt = try? decoder.decode(RevertReceipt.self, from: data) {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyyMMdd_HHmmss"
+                let date = revertReceipt.timestamp.flatMap { formatter.date(from: $0) } ?? entry.createdAt
+
+                self.metadata = ReceiptMetadata(
+                    title: entry.kind == .reorganizeAuditReceipt ? "Reorganize Run Details" : "Organize Run Details",
+                    timestamp: date,
+                    status: revertReceipt.status ?? "COMPLETED",
+                    schemaVersion: revertReceipt.schemaVersion ?? 1,
+                    totalFiles: revertReceipt.transfers.count,
+                    bytesReclaimed: nil
+                )
+                self.transfers = revertReceipt.transfers.map {
+                    ReceiptVisualItem(source: $0.source, dest: $0.dest, hash: $0.hash, sizeBytes: nil)
+                }
+            } else {
+                errorMessage = "Failed to parse the organize receipt."
+            }
+        }
+    }
+
+    private func runVerification() async {
+        isVerifying = true
+        let items = transfers
+        await Task.detached(priority: .userInitiated) {
+            let fileManager = FileManager.default
+            let hasher = FileIdentityHasher()
+            var results: [String: VerificationStatus] = [:]
+
+            for item in items {
+                if !fileManager.fileExists(atPath: item.dest) {
+                    results[item.dest] = .missing
+                } else if item.hash.isEmpty {
+                    results[item.dest] = .matching
+                } else {
+                    do {
+                        let fd = Darwin.open(item.dest, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+                        if fd >= 0 {
+                            var fdStat = stat()
+                            if fstat(fd, &fdStat) == 0 {
+                                let identity = try hasher.hashIdentity(descriptor: fd, size: Int64(fdStat.st_size))
+                                results[item.dest] = (identity.rawValue == item.hash) ? .matching : .mismatch
+                            } else {
+                                results[item.dest] = .mismatch
+                            }
+                            Darwin.close(fd)
+                        } else {
+                            results[item.dest] = .mismatch
+                        }
+                    } catch {
+                        results[item.dest] = .mismatch
+                    }
+                }
+            }
+
+            await MainActor.run {
+                self.verificationResults = results
+                self.isVerifying = false
+            }
+        }.value
     }
 }
