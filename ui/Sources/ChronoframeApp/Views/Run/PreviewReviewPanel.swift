@@ -3,11 +3,15 @@ import ChronoframeAppCore
 #endif
 import AppKit
 import SwiftUI
+import QuickLook
 
 struct PreviewReviewPanel: View {
     let model: RunWorkspaceModel
     @ObservedObject var store: PreviewReviewStore
     let appState: AppState
+
+    @State private var selectedItemPath: String? = nil
+    @State private var quickLookURL: URL? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -86,9 +90,28 @@ struct PreviewReviewPanel: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     ForEach(store.filteredItems.prefix(250)) { item in
-                        PreviewReviewRow(item: item, store: store)
+                        PreviewReviewRow(
+                            item: item,
+                            store: store,
+                            isSelected: selectedItemPath == item.sourcePath,
+                            onSelect: { selectedItemPath = item.sourcePath }
+                        )
                     }
                 }
+                .background {
+                    Button("") {
+                        if let path = selectedItemPath {
+                            quickLookURL = URL(fileURLWithPath: path)
+                        }
+                    }
+                    .keyboardShortcut(.space, modifiers: [])
+                    .buttonStyle(.plain)
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+                .quickLookPreview($quickLookURL)
             }
         }
     }
@@ -108,19 +131,23 @@ struct PreviewReviewPanel: View {
 private struct PreviewReviewRow: View {
     let item: PreviewReviewItem
     @ObservedObject var store: PreviewReviewStore
+    let isSelected: Bool
+    let onSelect: () -> Void
 
     @State private var selectedDate: Date
     @State private var eventName: String
 
-    init(item: PreviewReviewItem, store: PreviewReviewStore) {
+    init(item: PreviewReviewItem, store: PreviewReviewStore, isSelected: Bool, onSelect: @escaping () -> Void) {
         self.item = item
         self.store = store
+        self.isSelected = isSelected
+        self.onSelect = onSelect
         self._selectedDate = State(initialValue: item.resolvedDate ?? Date())
         self._eventName = State(initialValue: item.acceptedEventName ?? item.eventSuggestion?.suggestedName ?? "")
     }
 
     var body: some View {
-        MeridianSurfaceCard(style: .inner, tint: tint) {
+        MeridianSurfaceCard(style: .inner, tint: isSelected ? DesignTokens.Color.sky : tint) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
                     PreviewReviewThumbnail(path: item.sourcePath)
@@ -178,6 +205,15 @@ private struct PreviewReviewRow: View {
             eventName = newItem.acceptedEventName
                 ?? newItem.eventSuggestion?.suggestedName
                 ?? eventName
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect()
+        }
+        .contextMenu {
+            Button("Reveal in Finder") {
+                NSWorkspace.shared.selectFile(item.sourcePath, inFileViewerRootedAtPath: "")
+            }
         }
     }
 

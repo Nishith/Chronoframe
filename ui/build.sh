@@ -28,6 +28,8 @@ VALIDATOR_COMMAND=(
 )
 
 mkdir -p "$BUILD_DIR" "$MODULE_CACHE_DIR" "$SWIFT_CACHE_DIR"
+echo "🛑 Terminating running Chronoframe instances..."
+pkill -x "Chronoframe" >/dev/null 2>&1 || true
 rm -rf "$APP_DIR"
 rm -rf "$DERIVED_DATA_DIR"
 rm -f "$ZIP_PATH"
@@ -93,6 +95,7 @@ fi
 LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister"
 if [ -x "$LSREGISTER" ]; then
   echo "🧭 Refreshing LaunchServices registration..."
+  "$LSREGISTER" -u "$APP_DIR" >/dev/null 2>&1 || true
   "$LSREGISTER" -f "$APP_DIR" || echo "warning: could not refresh LaunchServices registration for $APP_DIR" >&2
 fi
 

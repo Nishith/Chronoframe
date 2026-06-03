@@ -269,6 +269,11 @@ struct ClusterDetailPane: View {
                     lineWidth: isFocused ? 2 : 0.5
                 )
         }
+        .contextMenu {
+            Button("Reveal in Finder") {
+                NSWorkspace.shared.selectFile(member.path, inFileViewerRootedAtPath: "")
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             focusedMemberPath = member.path
@@ -488,6 +493,10 @@ struct ClusterDetailPane: View {
             focusedMemberPath = member.path
         }
         .contextMenu {
+            Button("Reveal in Finder") {
+                NSWorkspace.shared.selectFile(member.path, inFileViewerRootedAtPath: "")
+            }
+            Divider()
             Button("Keep") { sessionStore.setDecision(.keep, forPath: member.path) }
             Button("Delete", role: .destructive) { sessionStore.setDecision(.delete, forPath: member.path) }
         }

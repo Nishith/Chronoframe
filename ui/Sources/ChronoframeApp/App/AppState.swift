@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
@@ -81,6 +82,8 @@ final class AppState: ObservableObject {
         }
     )
 
+    private var menuBarManager: MenuBarStatusManager?
+
     convenience init() {
         let preferencesStore = PreferencesStore()
         let profilesRepository = ProfilesRepository()
@@ -160,6 +163,7 @@ final class AppState: ObservableObject {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
             restoreDeduplicateDestinationBookmark()
         }
+        self.menuBarManager = MenuBarStatusManager(appState: self)
     }
 
     var canStartRun: Bool {
@@ -182,6 +186,14 @@ final class AppState: ObservableObject {
 
     func chooseSourceFolder() async {
         await setupCoordinator.chooseSourceFolder()
+    }
+
+    func selectSourceFolder(_ url: URL) async {
+        await setupCoordinator.selectSourceFolder(url)
+    }
+
+    func selectDestinationFolder(_ url: URL) async {
+        await setupCoordinator.selectDestinationFolder(url)
     }
 
     /// Handles files/folders dragged onto the app. Single-folder drops
@@ -254,6 +266,14 @@ final class AppState: ObservableObject {
         case .profiles:
             runCoordinator.cancelRun()
         }
+    }
+
+    func cancelOrganizeRun() {
+        runCoordinator.cancelRun()
+    }
+
+    func cancelDeduplicateRun() {
+        deduplicateSessionStore.cancel()
     }
 
     /// Where dedupe scans run. A folder chosen from Deduplicate wins; until
@@ -578,5 +598,130 @@ final class AppState: ObservableObject {
 
     func forgetTransferredSource(_ record: TransferredSourceRecord) {
         historyCoordinator.forgetTransferredSource(record)
+    }
+}
+
+@MainActor
+final class MenuBarStatusManager: NSObject {
+    private weak var appState: AppState?
+    private var statusItem: NSStatusItem?
+    private var cancellables = Set<AnyCancellable>()
+
+    init(appState: AppState) {
+        self.appState = appState
+        super.init()
+        setup()
+    }
+
+    func setup() {
+        // Skip setup when running unit tests to avoid WindowServer connection crash in headless CI
+        if NSClassFromString("XCTestCase") != nil {
+            return
+        }
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        updateStatusItem()
+        startObserving()
+    }
+
+    private func startObserving() {
+        guard let appState = appState else { return }
+
+        appState.runSessionStore.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItem()
+            }
+            .store(in: &cancellables)
+
+        appState.deduplicateSessionStore.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItem()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func updateStatusItem() {
+        guard let appState = appState, let button = statusItem?.button else { return }
+
+        let runStatus = appState.runSessionStore.status
+        let deduplicateStatus = appState.deduplicateSessionStore.status
+
+        if runStatus == .running {
+            let progressStr = String(format: "%.0f%%", appState.runSessionStore.progress * 100)
+            button.title = " ⚬ \(progressStr)"
+            button.image = NSImage(systemSymbolName: "circle.dashed", accessibilityDescription: "Chronoframe Running")
+        } else if deduplicateStatus == .committing {
+            button.title = " ⚬ Trashing"
+            button.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: "Chronoframe Deduplicating")
+        } else {
+            button.title = ""
+            button.image = NSImage(systemSymbolName: "circle", accessibilityDescription: "Chronoframe Idle")
+            button.image?.isTemplate = true
+        }
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        if runStatus == .running {
+            let item = NSMenuItem(title: "Chronoframe: Organizing...", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+
+            let phaseTitle = appState.runSessionStore.currentPhase?.title ?? "Processing"
+            let detailItem = NSMenuItem(title: "Phase: \(phaseTitle)", action: nil, keyEquivalent: "")
+            detailItem.isEnabled = false
+            menu.addItem(detailItem)
+        } else if deduplicateStatus == .committing {
+            let item = NSMenuItem(title: "Chronoframe: Trashing duplicates...", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        } else {
+            let item = NSMenuItem(title: "Chronoframe is Idle", action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        }
+
+        menu.addItem(NSMenuItem.separator())
+
+        if runStatus == .running {
+            let pauseCancelItem = NSMenuItem(title: "Cancel Transfer", action: #selector(cancelTransferAction), keyEquivalent: "")
+            pauseCancelItem.target = self
+            menu.addItem(pauseCancelItem)
+        } else if deduplicateStatus == .committing {
+            let cancelItem = NSMenuItem(title: "Cancel Commit", action: #selector(cancelDedupeAction), keyEquivalent: "")
+            cancelItem.target = self
+            menu.addItem(cancelItem)
+        }
+
+        let openAppItem = NSMenuItem(title: "Open Chronoframe", action: #selector(openAppAction), keyEquivalent: "o")
+        openAppItem.target = self
+        menu.addItem(openAppItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let quitItem = NSMenuItem(title: "Quit Chronoframe", action: #selector(quitAction), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
+
+        statusItem?.menu = menu
+    }
+
+    @objc private func openAppAction() {
+        let mainWindow = NSApp.windows.first { $0.title == "Chronoframe" } ?? NSApp.windows.first
+        mainWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func cancelTransferAction() {
+        appState?.cancelOrganizeRun()
+    }
+
+    @objc private func cancelDedupeAction() {
+        appState?.cancelDeduplicateRun()
+    }
+
+    @objc private func quitAction() {
+        NSApp.terminate(nil)
     }
 }
