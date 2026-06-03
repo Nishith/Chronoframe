@@ -42,6 +42,9 @@ struct RunTimelineView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Source timeline")
         .accessibilityValue(accessibilityValue)
+        // Custom data-viz graphic: expose as an image with a spoken summary so
+        // it has a valid role instead of reading as "Unknown role".
+        .accessibilityAddTraits(.isImage)
     }
 
     // MARK: - Header
@@ -409,6 +412,7 @@ struct RunPhaseStrip: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Phase progress")
             .accessibilityValue(phasesAccessibilityValue)
+            .accessibilityAddTraits(.isImage)
         }
         .frame(height: 4)
         .help(model.phaseStripTooltip)

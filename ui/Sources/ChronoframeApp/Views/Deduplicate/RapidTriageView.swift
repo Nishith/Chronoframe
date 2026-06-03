@@ -195,6 +195,7 @@ struct RapidTriageView: View {
                         keeperReason: cluster.annotation?.keeperReason
                     ))
                     .accessibilityValue(suggestionLabel)
+                    .accessibilityAddTraits(.isImage)
                 }
             }
         }
