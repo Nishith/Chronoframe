@@ -136,6 +136,9 @@ struct ProfilesView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(label) folder")
         .accessibilityValue(value.isEmpty ? "Not set" : value)
+        // Combining children drops the inherited role; restore one so the audit
+        // sees static text rather than an "Unknown role" element.
+        .accessibilityAddTraits(.isStaticText)
     }
 
     // MARK: - Saved profiles grid
@@ -226,6 +229,7 @@ private struct ProfileTile: View {
                             .frame(width: 7, height: 7)
                             .accessibilityIdentifier(AccessibilityIdentifiers.activeProfileBadge)
                             .accessibilityLabel("Active")
+                            .accessibilityAddTraits(.isStaticText)
                     }
 
                     Menu {
@@ -294,5 +298,6 @@ private struct ProfileTile: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(spokenLabel)
         .accessibilityValue(value.isEmpty ? "Not set" : value)
+        .accessibilityAddTraits(.isStaticText)
     }
 }
