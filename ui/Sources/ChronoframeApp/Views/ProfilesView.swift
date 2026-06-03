@@ -131,6 +131,11 @@ struct ProfilesView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
+        // Spoken as "Source folder, /Users/…" — the path is the value, not a
+        // non-human-readable label. See `pathRow`.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label) folder")
+        .accessibilityValue(value.isEmpty ? "Not set" : value)
     }
 
     // MARK: - Saved profiles grid
@@ -241,11 +246,11 @@ private struct ProfileTile: View {
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
-                    pathRow(icon: "arrow.up.forward", label: "From", value: profile.sourcePath)
+                    pathRow(icon: "arrow.up.forward", label: "From", spokenLabel: "Source folder", value: profile.sourcePath)
                     Rectangle()
                         .fill(DesignTokens.ColorSystem.hairline)
                         .frame(height: 0.5)
-                    pathRow(icon: "arrow.down.forward", label: "To", value: profile.destinationPath)
+                    pathRow(icon: "arrow.down.forward", label: "To", spokenLabel: "Destination folder", value: profile.destinationPath)
                 }
 
                 Button(action: onUse) {
@@ -260,7 +265,7 @@ private struct ProfileTile: View {
         .accessibilityElement(children: .contain)
     }
 
-    private func pathRow(icon: String, label: String, value: String) -> some View {
+    private func pathRow(icon: String, label: String, spokenLabel: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
                 .font(.caption)
@@ -281,5 +286,13 @@ private struct ProfileTile: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 6)
+        // Read the row as one element with a human-readable label ("Source
+        // folder") and the path as the value. A bare path Text would otherwise
+        // expose the raw "/Users/…" string as its label, which VoiceOver reads
+        // poorly and the accessibility audit flags as "Label not human-readable".
+        // The arrow glyph and terse "From/To" caption are decorative here.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenLabel)
+        .accessibilityValue(value.isEmpty ? "Not set" : value)
     }
 }
