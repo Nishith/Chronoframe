@@ -255,6 +255,8 @@ struct RunHistoryView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) runs.")
+        // Stats + sparkline graphic — expose as an image so it carries a valid role.
+        .accessibilityAddTraits(.isImage)
     }
 
     /// Cumulative count of completed-run receipts over time. Renders an area
