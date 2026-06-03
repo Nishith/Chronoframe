@@ -39,12 +39,26 @@ jobs:
       - name: Verify public site
         run: |
           set -euo pipefail
-          for url in \
-            "${{ steps.deployment.outputs.page_url }}" \
-            "https://chronoframe.app/support.html" \
-            "https://chronoframe.app/privacy.html" \
-            "https://chronoframe.app/support/" \
+
+          urls=(
+            "${{ steps.deployment.outputs.page_url }}"
+            "https://chronoframe.app/support.html"
+            "https://chronoframe.app/privacy.html"
+            "https://chronoframe.app/support/"
             "https://chronoframe.app/privacy/"
-          do
-            curl --fail --silent --show-error --location --retry 5 --retry-delay 3 "$url" >/dev/null
+          )
+
+          for url in "${urls[@]}"; do
+            for attempt in {1..12}; do
+              if curl --fail --silent --show-error --location --retry 3 --retry-delay 3 --retry-all-errors "$url" >/dev/null; then
+                break
+              fi
+
+              if [[ "$attempt" == 12 ]]; then
+                echo "Site verification failed after ${attempt} attempts: ${url}" >&2
+                exit 1
+              fi
+
+              sleep 10
+            done
           done
