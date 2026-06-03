@@ -962,15 +962,31 @@ struct ReceiptDetailSheet: View {
             } else {
                 errorMessage = "Failed to parse the deduplication receipt."
             }
+        } else if entry.kind == .reorganizeAuditReceipt {
+            if let reorganizeReceipt = try? decoder.decode(ReorganizeAuditReceipt.self, from: data) {
+                self.metadata = ReceiptMetadata(
+                    title: "Reorganize Run Details",
+                    timestamp: reorganizeReceipt.startedAt,
+                    status: reorganizeReceipt.status,
+                    schemaVersion: reorganizeReceipt.schemaVersion,
+                    totalFiles: reorganizeReceipt.items.count,
+                    bytesReclaimed: nil
+                )
+                self.transfers = reorganizeReceipt.items.map {
+                    ReceiptVisualItem(source: $0.sourcePath, dest: $0.destinationPath, hash: $0.hash, sizeBytes: nil)
+                }
+            } else {
+                errorMessage = "Failed to parse the reorganize receipt."
+            }
         } else {
-            // Reorganize or standard organize audit receipt
+            // Standard organize audit receipt
             if let revertReceipt = try? decoder.decode(RevertReceipt.self, from: data) {
                 let formatter = DateFormatter()
                 formatter.dateFormat = "yyyyMMdd_HHmmss"
                 let date = revertReceipt.timestamp.flatMap { formatter.date(from: $0) } ?? entry.createdAt
 
                 self.metadata = ReceiptMetadata(
-                    title: entry.kind == .reorganizeAuditReceipt ? "Reorganize Run Details" : "Organize Run Details",
+                    title: "Organize Run Details",
                     timestamp: date,
                     status: revertReceipt.status ?? "COMPLETED",
                     schemaVersion: revertReceipt.schemaVersion ?? 1,

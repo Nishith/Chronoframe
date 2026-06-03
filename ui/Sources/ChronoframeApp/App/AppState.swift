@@ -268,6 +268,14 @@ final class AppState: ObservableObject {
         }
     }
 
+    func cancelOrganizeRun() {
+        runCoordinator.cancelRun()
+    }
+
+    func cancelDeduplicateRun() {
+        deduplicateSessionStore.cancel()
+    }
+
     /// Where dedupe scans run. A folder chosen from Deduplicate wins; until
     /// then, the app falls back to the active organized destination.
     var deduplicateDestinationPath: String {
@@ -706,11 +714,11 @@ final class MenuBarStatusManager: NSObject {
     }
 
     @objc private func cancelTransferAction() {
-        appState?.cancelRun()
+        appState?.cancelOrganizeRun()
     }
 
     @objc private func cancelDedupeAction() {
-        appState?.cancelRun()
+        appState?.cancelDeduplicateRun()
     }
 
     @objc private func quitAction() {
