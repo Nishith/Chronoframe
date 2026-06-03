@@ -29,6 +29,25 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
+      - name: Verify site artifact
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "site/index.html"
+            "site/support.html"
+            "site/privacy.html"
+            "site/support/index.html"
+            "site/privacy/index.html"
+            "site/styles.css"
+            "site/CNAME"
+          )
+
+          for file in "${required_files[@]}"; do
+            test -s "$file"
+          done
+
+          grep -Fxq "chronoframe.app" site/CNAME
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
@@ -36,29 +55,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
-      - name: Verify public site
-        run: |
-          set -euo pipefail
-
-          urls=(
-            "${{ steps.deployment.outputs.page_url }}"
-            "https://chronoframe.app/support.html"
-            "https://chronoframe.app/privacy.html"
-            "https://chronoframe.app/support/"
-            "https://chronoframe.app/privacy/"
-          )
-
-          for url in "${urls[@]}"; do
-            for attempt in {1..12}; do
-              if curl --fail --silent --show-error --location --retry 3 --retry-delay 3 --retry-all-errors "$url" >/dev/null; then
-                break
-              fi
-
-              if [[ "$attempt" == 12 ]]; then
-                echo "Site verification failed after ${attempt} attempts: ${url}" >&2
-                exit 1
-              fi
-
-              sleep 10
-            done
-          done
