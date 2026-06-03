@@ -99,6 +99,20 @@ final class ModelAndServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testFolderAccessServiceDoesNotProbeProtectedMediaLibraryPaths() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+
+        XCTAssertEqual(
+            FolderAccessService.initialPanelDirectoryURL(startingAt: "\(home)/Music/iTunes").path,
+            home
+        )
+        XCTAssertEqual(
+            FolderAccessService.initialPanelDirectoryURL(startingAt: "\(home)/Movies/Archive").path,
+            home
+        )
+    }
+
+    @MainActor
     func testFolderAccessServiceValidatesDirectoryCapabilities() throws {
         let service = FolderAccessService()
         let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString, isDirectory: true)

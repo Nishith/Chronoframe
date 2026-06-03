@@ -99,6 +99,9 @@ public final class FolderAccessService: FolderAccessServicing {
         }
 
         let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+        if isProtectedMediaLibraryPath(url) {
+            return homeDirectory
+        }
 
         if FileManager.default.fileExists(atPath: url.path) {
             // Path exists — ask the OS whether the volume is local. Non-local
@@ -119,6 +122,21 @@ public final class FolderAccessService: FolderAccessServicing {
             return url
         }
         return parent
+    }
+
+    private static func isProtectedMediaLibraryPath(_ url: URL) -> Bool {
+        let homeDirectory = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        let homePath = homeDirectory.path
+        let path = url.path
+        guard path == homePath || path.hasPrefix(homePath + "/") else {
+            return false
+        }
+
+        let relativePath = String(path.dropFirst(homePath.count)).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let firstComponent = relativePath.split(separator: "/").first else {
+            return false
+        }
+        return firstComponent == "Music" || firstComponent == "Movies"
     }
 
     public nonisolated func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {

@@ -357,6 +357,49 @@ final class BundleValidatorTests: XCTestCase {
         XCTAssertFalse(result.distributionReady)
     }
 
+    func testValidationRejectsAppleMusicAndMediaUsageDescriptions() throws {
+        let appURL = try makeMinimalAppBundle()
+        try writeInfoPlist(
+            [
+                "CFBundleExecutable": "Chronoframe",
+                "CFBundleIdentifier": "com.nishith.chronoframe",
+                "CFBundleIconName": "AppIcon",
+                "CFBundlePackageType": "APPL",
+                "NSAppleMusicUsageDescription": "Read media metadata",
+                "NSMediaLibraryUsageDescription": "Read media metadata",
+            ],
+            to: appURL
+        )
+
+        let result = BundleValidator.validateAppBundle(
+            appURL: appURL,
+            appStore: true,
+            codesignInspector: { _ in .appleDistribution },
+            gatekeeperInspector: { _ in .unavailable }
+        )
+
+        XCTAssertTrue(result.errors.contains { $0.contains("NSAppleMusicUsageDescription") })
+        XCTAssertTrue(result.errors.contains { $0.contains("NSMediaLibraryUsageDescription") })
+        XCTAssertFalse(result.distributionReady)
+    }
+
+    func testValidationRejectsAppleMusicAndMediaEntitlements() throws {
+        let result = BundleValidator.validateAppBundle(
+            appURL: try makeMinimalAppBundle(),
+            appStore: true,
+            codesignInspector: { _ in .appleDistributionWithMusicAndMoviesAccess },
+            gatekeeperInspector: { _ in .unavailable }
+        )
+
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("com.apple.security.personal-information.music-library")
+        })
+        XCTAssertTrue(result.errors.contains {
+            $0.contains("com.apple.security.assets.movies.read-write")
+        })
+        XCTAssertFalse(result.distributionReady)
+    }
+
     func testValidationDoesNotRequireRetiredBackendFiles() throws {
         let result = BundleValidator.validateAppBundle(
             appURL: try makeMinimalAppBundle(),
@@ -515,6 +558,27 @@ private extension SignatureInspection {
         timestamped: false,
         authorities: ["Apple Distribution: Nishith Nand (ABCDE12345)"],
         output: "Authority=Apple Distribution: Nishith Nand (ABCDE12345)"
+    )
+
+    static let appleDistributionWithMusicAndMoviesAccess = SignatureInspection(
+        available: true,
+        kind: "apple-distribution",
+        identifier: "com.nishith.chronoframe",
+        teamIdentifier: "ABCDE12345",
+        sealedResources: true,
+        hardenedRuntime: true,
+        timestamped: false,
+        authorities: ["Apple Distribution: Nishith Nand (ABCDE12345)"],
+        output: """
+        Authority=Apple Distribution: Nishith Nand (ABCDE12345)
+        <plist version="1.0">
+        <dict>
+          <key>com.apple.security.app-sandbox</key><true/>
+          <key>com.apple.security.personal-information.music-library</key><true/>
+          <key>com.apple.security.assets.movies.read-write</key><true/>
+        </dict>
+        </plist>
+        """
     )
 
     static let unsignedUnavailable = SignatureInspection(
