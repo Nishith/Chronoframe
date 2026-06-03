@@ -614,8 +614,8 @@ final class MenuBarStatusManager: NSObject {
     }
 
     func setup() {
-        // Skip setup when running unit tests to avoid WindowServer connection crash in headless CI
-        if NSClassFromString("XCTestCase") != nil {
+        // Skip setup when running unit tests or UI tests to avoid WindowServer/MenuBar hangs in CI
+        if NSClassFromString("XCTestCase") != nil || ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_SCENARIO"] != nil {
             return
         }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
