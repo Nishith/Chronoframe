@@ -174,7 +174,12 @@ private struct ClusterRow: View {
                 if cluster.members.count > 5 {
                     Text("+\(cluster.members.count - 5)")
                         .font(.caption2)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        // ClusterRow lives in `List(selection:)`; keep the
+                        // hierarchical `.secondary` so a focused row's captions
+                        // adapt to the accent selection background. A fixed ink
+                        // token would stay dark and become unreadable when
+                        // selected — do not migrate these to inkSecondary.
+                        .foregroundStyle(.secondary)
                 }
                 Spacer()
                 if isHovered {
@@ -187,10 +192,10 @@ private struct ClusterRow: View {
                 Text("\(cluster.members.count) photos")
                     .font(.caption)
                 Text("·")
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(.secondary)
                 Text(Self.formatter.string(fromByteCount: recoverableBytes))
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(.secondary)
                 if hasWarnings {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 10))
