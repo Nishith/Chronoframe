@@ -229,7 +229,11 @@ private struct ProfileTile: View {
                             .frame(width: 7, height: 7)
                             .accessibilityIdentifier(AccessibilityIdentifiers.activeProfileBadge)
                             .accessibilityLabel("Active")
-                            .accessibilityAddTraits(.isStaticText)
+                            // A graphical status dot → image role. `.isStaticText`
+                            // on a text-less shape gets pruned (it dropped the
+                            // element from the AX tree and broke the XCUITest
+                            // query); `.isImage` keeps it present and queryable.
+                            .accessibilityAddTraits(.isImage)
                     }
 
                     Menu {
