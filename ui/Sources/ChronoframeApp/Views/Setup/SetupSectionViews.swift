@@ -78,6 +78,18 @@ struct SetupHeroSection: View {
             usesBrandMark: useBrandMark
         ) {
             VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Security")
+                        .scaledFont(.body)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    Spacer()
+                    LocalSafetyIndicator(
+                        sourcePath: model.context.sourcePath,
+                        destinationPath: model.context.destinationPath,
+                        deduplicatePath: model.context.deduplicateDestinationPath
+                    )
+                }
+
                 SummaryLine(title: "Source", value: model.sourceSummaryValue, valueColor: model.sourceStepState.tone.color, onTap: scrollToSource)
                 SummaryLine(title: "Destination", value: model.destinationSummaryValue, valueColor: model.destinationStepState.tone.color, onTap: scrollToDestination)
                 SummaryLine(title: "Mode", value: model.modeSummaryValue)
@@ -242,6 +254,11 @@ struct SetupSourceStepSection: View {
     let model: SetupScreenModel
     let dropZone: SetupDropZone
     let chooseSource: () -> Void
+    let selectSource: (URL) -> Void
+
+    @State private var isTargeted = false
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var sourceIsReady: Bool {
         if case .ready = model.sourceStepState { return true }
@@ -300,6 +317,37 @@ struct SetupSourceStepSection: View {
                 }
             }
         }
+        .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
+            let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier("public.file-url") }
+            guard !fileProviders.isEmpty else { return false }
+            Task {
+                if let provider = fileProviders.first {
+                    if let url = await loadFileURL(from: provider) {
+                        selectSource(url)
+                        #if canImport(AppKit)
+                        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+                        #endif
+                    }
+                }
+            }
+            return true
+        }
+        .overlay(
+            Group {
+                if isTargeted {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(DesignTokens.ColorSystem.accentWaypoint.opacity(0.55), lineWidth: 2)
+                        .padding(2)
+                }
+            }
+        )
+        .motion(.easeInOut(duration: Motion.Duration.fast), value: isTargeted)
+        .scaleEffect(isHovered && !reduceMotion ? 1.015 : 1.0)
+        .onHover { hovering in
+            Motion.withMotion(.spring(response: 0.25, dampingFraction: 0.7), reduceMotion: reduceMotion) {
+                isHovered = hovering
+            }
+        }
     }
 
     private func setupStepCard<Content: View>(
@@ -325,6 +373,11 @@ struct SetupSourceStepSection: View {
 struct SetupDestinationStepSection: View {
     let model: SetupScreenModel
     let chooseDestination: () -> Void
+    let selectDestination: (URL) -> Void
+
+    @State private var isTargeted = false
+    @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         MeridianSurfaceCard(style: .section) {
@@ -377,6 +430,37 @@ struct SetupDestinationStepSection: View {
                 }
             }
         }
+        .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
+            let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier("public.file-url") }
+            guard !fileProviders.isEmpty else { return false }
+            Task {
+                if let provider = fileProviders.first {
+                    if let url = await loadFileURL(from: provider) {
+                        selectDestination(url)
+                        #if canImport(AppKit)
+                        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+                        #endif
+                    }
+                }
+            }
+            return true
+        }
+        .overlay(
+            Group {
+                if isTargeted {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(DesignTokens.ColorSystem.accentWaypoint.opacity(0.55), lineWidth: 2)
+                        .padding(2)
+                }
+            }
+        )
+        .motion(.easeInOut(duration: Motion.Duration.fast), value: isTargeted)
+        .scaleEffect(isHovered && !reduceMotion ? 1.015 : 1.0)
+        .onHover { hovering in
+            Motion.withMotion(.spring(response: 0.25, dampingFraction: 0.7), reduceMotion: reduceMotion) {
+                isHovered = hovering
+            }
+        }
     }
 }
 
@@ -405,13 +489,11 @@ struct SetupReadinessSection: View {
                     )
                 }
 
-                MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.amber) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        SummaryLine(title: "Configuration", value: model.configurationSummary)
-                        SummaryLine(title: "Performance", value: model.performanceSummary)
-                        SummaryLine(title: "Safety", value: model.safetySummary)
-                    }
-                }
+                TrustProofSurface(items: TrustProofModel.setupSafetySummary(
+                    source: model.context.sourcePath,
+                    destination: model.context.destinationPath,
+                    verifyCopies: model.context.verifyCopies
+                ))
 
                 SetupPreflightChecklist(model: model)
 
@@ -425,12 +507,16 @@ struct SetupReadinessSection: View {
                         transferButton
                         Button("Adjust Settings…", action: openSettings)
                     }
+                    .padding(8)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
 
                     VStack(alignment: .leading, spacing: 10) {
                         previewButton
                         transferButton
                         Button("Adjust Settings…", action: openSettings)
                     }
+                    .padding(8)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                 }
             }
         }
@@ -654,5 +740,28 @@ private struct DropZonePlaceholderFrames: View {
         let height: CGFloat
         let rotation: Double
         let phase: Double
+    }
+}
+
+@MainActor
+fileprivate func loadFileURL(from provider: NSItemProvider) async -> URL? {
+    await withCheckedContinuation { continuation in
+        provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+            if let url = item as? URL {
+                continuation.resume(returning: url)
+                return
+            }
+            if let data = item as? Data,
+               let url = URL(dataRepresentation: data, relativeTo: nil) {
+                continuation.resume(returning: url)
+                return
+            }
+            if let string = item as? String,
+               let url = URL(string: string) {
+                continuation.resume(returning: url)
+                return
+            }
+            continuation.resume(returning: nil)
+        }
     }
 }

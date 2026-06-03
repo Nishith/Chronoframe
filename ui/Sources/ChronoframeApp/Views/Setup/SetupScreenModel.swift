@@ -83,6 +83,7 @@ enum SetupPrimaryAction: Equatable {
 struct SetupScreenContext {
     var sourcePath: String
     var destinationPath: String
+    var deduplicateDestinationPath: String
     var selectedProfileName: String
     var activeProfile: Profile?
     var usingDroppedSource: Bool
@@ -91,6 +92,32 @@ struct SetupScreenContext {
     var workerCount: Int
     var verifyCopies: Bool
     var isRunInProgress: Bool
+
+    init(
+        sourcePath: String,
+        destinationPath: String,
+        deduplicateDestinationPath: String = "",
+        selectedProfileName: String,
+        activeProfile: Profile? = nil,
+        usingDroppedSource: Bool = false,
+        droppedSourceLabel: String? = nil,
+        droppedSourceItemCount: Int = 0,
+        workerCount: Int = 4,
+        verifyCopies: Bool = true,
+        isRunInProgress: Bool = false
+    ) {
+        self.sourcePath = sourcePath
+        self.destinationPath = destinationPath
+        self.deduplicateDestinationPath = deduplicateDestinationPath.isEmpty ? destinationPath : deduplicateDestinationPath
+        self.selectedProfileName = selectedProfileName
+        self.activeProfile = activeProfile
+        self.usingDroppedSource = usingDroppedSource
+        self.droppedSourceLabel = droppedSourceLabel
+        self.droppedSourceItemCount = droppedSourceItemCount
+        self.workerCount = workerCount
+        self.verifyCopies = verifyCopies
+        self.isRunInProgress = isRunInProgress
+    }
 }
 
 struct SetupScreenModel {
@@ -102,10 +129,15 @@ struct SetupScreenModel {
         preferencesStore: PreferencesStore,
         isRunInProgress: Bool
     ) {
+        let dedupePath = !preferencesStore.lastDeduplicateDestinationPath.isEmpty
+            ? preferencesStore.lastDeduplicateDestinationPath
+            : setupStore.destinationPath
+
         self.init(
             context: SetupScreenContext(
                 sourcePath: setupStore.sourcePath,
                 destinationPath: setupStore.destinationPath,
+                deduplicateDestinationPath: dedupePath,
                 selectedProfileName: setupStore.selectedProfileName,
                 activeProfile: setupStore.activeProfile,
                 usingDroppedSource: setupStore.usingDroppedSource,

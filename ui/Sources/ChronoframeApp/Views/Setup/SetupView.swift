@@ -29,67 +29,139 @@ struct SetupView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-        ScrollView {
-            VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
-                SetupHeroSection(
-                    model: screenModel,
-                    primaryAction: performHeroPrimaryAction,
-                    scrollToSource: {
-                        Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("sourceSection", anchor: .top) }
-                    },
-                    scrollToDestination: {
-                        Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("destinationSection", anchor: .top) }
+        GeometryReader { geometry in
+            let isWide = geometry.size.width >= 1024
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Group {
+                        if isWide {
+                            HStack(alignment: .top, spacing: DesignTokens.Layout.sectionSpacing) {
+                                VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
+                                    SetupHeroSection(
+                                        model: screenModel,
+                                        primaryAction: performHeroPrimaryAction,
+                                        scrollToSource: {
+                                            Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("sourceSection", anchor: .top) }
+                                        },
+                                        scrollToDestination: {
+                                            Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("destinationSection", anchor: .top) }
+                                        }
+                                    )
+
+                                    SetupSourceStepSection(
+                                        model: screenModel,
+                                        dropZone: dropZone,
+                                        chooseSource: { Task { await appState.chooseSourceFolder() } },
+                                        selectSource: { url in Task { await appState.selectSourceFolder(url) } }
+                                    )
+                                    .id("sourceSection")
+
+                                    SetupDestinationStepSection(
+                                        model: screenModel,
+                                        chooseDestination: { Task { await appState.chooseDestinationFolder() } },
+                                        selectDestination: { url in Task { await appState.selectDestinationFolder(url) } }
+                                    )
+                                    .id("destinationSection")
+
+                                    SetupReadinessSection(
+                                        model: screenModel,
+                                        preview: { Task { await appState.startPreview() } },
+                                        transfer: { Task { await appState.startTransfer() } },
+                                        openSettings: appState.openSettingsWindow,
+                                        isRunInProgress: runSessionStore.isRunning
+                                    )
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                                VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
+                                    if !didOnboard && setupStore.sourcePath.isEmpty {
+                                        OnboardingCard(
+                                            title: "Point Chronoframe at your photo source.",
+                                            subtitle: "Drag a folder anywhere on this window, or choose one below. Nothing is copied until you say so.",
+                                            accessibilitySummary: "Welcome. Point Chronoframe at your photo source.",
+                                            onDismiss: { didOnboard = true }
+                                        )
+                                    }
+
+                                    if !setupStore.sourcePath.isEmpty {
+                                        SetupContactSheetSection(sourcePath: setupStore.sourcePath)
+                                    }
+
+                                    SetupSavedSetupSection(
+                                        model: screenModel,
+                                        setupStore: setupStore,
+                                        refreshProfiles: appState.refreshProfiles,
+                                        clearSelectedProfile: appState.clearSelectedProfile,
+                                        openProfiles: appState.openProfilesSettings,
+                                        onProfileSelection: handleProfileSelection(_:)
+                                    )
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        } else {
+                            VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
+                                SetupHeroSection(
+                                    model: screenModel,
+                                    primaryAction: performHeroPrimaryAction,
+                                    scrollToSource: {
+                                        Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("sourceSection", anchor: .top) }
+                                    },
+                                    scrollToDestination: {
+                                        Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("destinationSection", anchor: .top) }
+                                    }
+                                )
+
+                                if !didOnboard && setupStore.sourcePath.isEmpty {
+                                    OnboardingCard(
+                                        title: "Point Chronoframe at your photo source.",
+                                        subtitle: "Drag a folder anywhere on this window, or choose one below. Nothing is copied until you say so.",
+                                        accessibilitySummary: "Welcome. Point Chronoframe at your photo source.",
+                                        onDismiss: { didOnboard = true }
+                                    )
+                                }
+
+                                SetupSourceStepSection(
+                                    model: screenModel,
+                                    dropZone: dropZone,
+                                    chooseSource: { Task { await appState.chooseSourceFolder() } },
+                                    selectSource: { url in Task { await appState.selectSourceFolder(url) } }
+                                )
+                                .id("sourceSection")
+
+                                SetupDestinationStepSection(
+                                    model: screenModel,
+                                    chooseDestination: { Task { await appState.chooseDestinationFolder() } },
+                                    selectDestination: { url in Task { await appState.selectDestinationFolder(url) } }
+                                )
+                                .id("destinationSection")
+
+                                if !setupStore.sourcePath.isEmpty {
+                                    SetupContactSheetSection(sourcePath: setupStore.sourcePath)
+                                }
+
+                                SetupSavedSetupSection(
+                                    model: screenModel,
+                                    setupStore: setupStore,
+                                    refreshProfiles: appState.refreshProfiles,
+                                    clearSelectedProfile: appState.clearSelectedProfile,
+                                    openProfiles: appState.openProfilesSettings,
+                                    onProfileSelection: handleProfileSelection(_:)
+                                )
+
+                                SetupReadinessSection(
+                                    model: screenModel,
+                                    preview: { Task { await appState.startPreview() } },
+                                    transfer: { Task { await appState.startTransfer() } },
+                                    openSettings: appState.openSettingsWindow,
+                                    isRunInProgress: runSessionStore.isRunning
+                                )
+                            }
+                        }
                     }
-                )
-
-                if !didOnboard && setupStore.sourcePath.isEmpty {
-                    OnboardingCard(
-                        title: "Point Chronoframe at your photo source.",
-                        subtitle: "Drag a folder anywhere on this window, or choose one below. Nothing is copied until you say so.",
-                        accessibilitySummary: "Welcome. Point Chronoframe at your photo source.",
-                        onDismiss: { didOnboard = true }
-                    )
+                    .padding(DesignTokens.Layout.contentPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-
-                SetupSourceStepSection(
-                    model: screenModel,
-                    dropZone: dropZone,
-                    chooseSource: { Task { await appState.chooseSourceFolder() } }
-                )
-                .id("sourceSection")
-
-                SetupDestinationStepSection(
-                    model: screenModel,
-                    chooseDestination: { Task { await appState.chooseDestinationFolder() } }
-                )
-                .id("destinationSection")
-
-                if !setupStore.sourcePath.isEmpty {
-                    SetupContactSheetSection(sourcePath: setupStore.sourcePath)
-                }
-
-                SetupSavedSetupSection(
-                    model: screenModel,
-                    setupStore: setupStore,
-                    refreshProfiles: appState.refreshProfiles,
-                    clearSelectedProfile: appState.clearSelectedProfile,
-                    openProfiles: appState.openProfilesSettings,
-                    onProfileSelection: handleProfileSelection(_:)
-                )
-
-                SetupReadinessSection(
-                    model: screenModel,
-                    preview: { Task { await appState.startPreview() } },
-                    transfer: { Task { await appState.startTransfer() } },
-                    openSettings: appState.openSettingsWindow,
-                    isRunInProgress: runSessionStore.isRunning
-                )
             }
-            .padding(DesignTokens.Layout.contentPadding)
-            .frame(maxWidth: DesignTokens.Layout.setupMaxWidth, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
         }
         .darkroom()
         .navigationTitle("Setup")

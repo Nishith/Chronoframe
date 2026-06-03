@@ -48,12 +48,6 @@ struct ChronoframeApp: App {
 
         Settings {
             SettingsView(appState: appState)
-                .frame(
-                    minWidth: DesignTokens.Window.settingsMinWidth,
-                    idealWidth: DesignTokens.Window.settingsIdealWidth,
-                    minHeight: DesignTokens.Window.settingsMinHeight
-                )
-                .padding()
         }
 
         Window("Chronoframe Help", id: ChronoframeApp.helpWindowID) {

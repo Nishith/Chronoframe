@@ -72,6 +72,18 @@ struct RunHeroSection: View {
                     RunProgressSurface(model: model)
                 }
 
+                HStack {
+                    Text("Security")
+                        .scaledFont(.body)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    Spacer()
+                    LocalSafetyIndicator(
+                        sourcePath: model.sourceRoot ?? "",
+                        destinationPath: model.destinationRoot ?? "",
+                        deduplicatePath: appState.deduplicateDestinationPath
+                    )
+                }
+
                 SummaryLine(title: "Mode", value: model.context.currentMode?.title ?? "Idle")
                 SummaryLine(title: "Current Focus", value: model.context.currentTaskTitle)
                 SummaryLine(title: "Issues", value: model.issueSummaryValue, valueColor: model.issueTone.color)
@@ -204,6 +216,11 @@ struct RunProgressSurface: View {
 
                 if model.showsCopyProgressDetails {
                     copyProgressDetails
+
+                    if isCopying {
+                        WaypointRunway(currentFileURL: model.context.currentFileURL)
+                            .transition(.opacity)
+                    }
                 }
 
                 RunPhaseStrip(model: model)
