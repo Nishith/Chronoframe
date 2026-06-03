@@ -246,6 +246,7 @@ public enum BundleValidator {
         if info["CFBundlePackageType"] as? String != "APPL" {
             result.errors.append("Info.plist must declare CFBundlePackageType=APPL.")
         }
+        applyPrivacyAccessRules(info: info, result: &result)
 
         let assetsURL = appURL.appendingPathComponent("Contents/Resources/Assets.car")
         if !fileManager.fileExists(atPath: assetsURL.path) {
@@ -296,6 +297,18 @@ public enum BundleValidator {
         return result
     }
 
+    private static func applyPrivacyAccessRules(info: [String: Any], result: inout BundleValidationResult) {
+        let forbiddenUsageDescriptions = [
+            "NSAppleMusicUsageDescription",
+            "NSMediaLibraryUsageDescription",
+        ]
+        for key in forbiddenUsageDescriptions where info[key] != nil {
+            result.errors.append(
+                "Info.plist must not declare \(key); Chronoframe does not access Apple Music or the media library."
+            )
+        }
+    }
+
     private static func applySignatureRules(
         _ signature: SignatureInspection,
         result: inout BundleValidationResult,
@@ -315,6 +328,7 @@ public enum BundleValidator {
         if !signature.sealedResources {
             result.errors.append("Bundle resources are not sealed by the code signature.")
         }
+        applyEntitlementRules(signature, result: &result)
 
         if appStore {
             if signature.kind != "apple-distribution" {
@@ -337,6 +351,21 @@ public enum BundleValidator {
             result.warnings.append("Bundle is ad hoc signed for local validation only; Developer ID signing is still required for notarization.")
         } else if signature.kind == "unsigned" {
             result.errors.append("Bundle is unsigned.")
+        }
+    }
+
+    private static func applyEntitlementRules(_ signature: SignatureInspection, result: inout BundleValidationResult) {
+        let forbiddenEntitlementKeys = [
+            "com.apple.security.personal-information.music-library",
+            "com.apple.security.assets.music.read-only",
+            "com.apple.security.assets.music.read-write",
+            "com.apple.security.assets.movies.read-only",
+            "com.apple.security.assets.movies.read-write",
+        ]
+        for key in forbiddenEntitlementKeys where signature.output.contains(key) {
+            result.errors.append(
+                "Code signature must not include \(key); Chronoframe only needs user-selected file access."
+            )
         }
     }
 
