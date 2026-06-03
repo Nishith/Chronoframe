@@ -417,7 +417,7 @@ struct SetupReadinessSection: View {
 
                 Text(model.readinessMessage)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
 
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) {
@@ -519,7 +519,7 @@ private struct SetupPreflightChecklist: View {
                     .font(.caption.weight(.semibold))
                 Text(value)
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(2)
             }
         }

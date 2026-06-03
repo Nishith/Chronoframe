@@ -429,7 +429,7 @@ struct DeduplicateView: View {
                 .lineLimit(2)
             Text(Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete))
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .lineLimit(2)
             Text("\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested")
                 .font(.caption2)
@@ -981,7 +981,7 @@ private struct PausedDeduplicateReviewCard: View {
                     .font(.subheadline.weight(.semibold))
                 Text(settingsChanged ? "Settings changed since this scan." : "Ready to review.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
         }
     }
@@ -1016,7 +1016,7 @@ private struct PausedDeduplicateReviewCard: View {
                 .font(.subheadline.weight(.semibold).monospacedDigit())
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
         }
     }
 }
@@ -1079,12 +1079,12 @@ private struct DeduplicateRunHistoryRow: View {
                     .lineLimit(1)
                 Text(record.folderPath)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("Last run \(Self.dateFormatter.string(from: record.lastRunAt))")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
         }
     }
@@ -1120,7 +1120,7 @@ private struct DeduplicateRunHistoryRow: View {
                 .font(.subheadline.weight(.semibold).monospacedDigit())
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
         }
     }
 }

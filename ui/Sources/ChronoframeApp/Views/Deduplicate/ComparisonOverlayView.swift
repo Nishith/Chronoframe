@@ -87,13 +87,13 @@ struct ComparisonOverlayView: View {
                 .truncationMode(.middle)
             Image(systemName: "arrow.left.arrow.right")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Label(URL(fileURLWithPath: rightPath).lastPathComponent, systemImage: "b.circle")
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
     }
 
     @ViewBuilder
@@ -252,7 +252,8 @@ private struct DifferenceComparisonView: View {
                 ProgressView("Computing difference…")
             } else {
                 Text("Could not generate difference image")
-                    .foregroundStyle(.secondary)
+                    // On the dark image stage — keep light in both appearances.
+                    .foregroundStyle(Color.white.opacity(0.7))
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

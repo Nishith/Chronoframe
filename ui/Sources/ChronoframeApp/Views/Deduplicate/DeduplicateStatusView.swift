@@ -69,7 +69,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
                 if let detail, !detail.isEmpty {
                     Text(detail)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         .monospacedDigit()
                 }
             }
@@ -77,7 +77,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
             if let message, !message.isEmpty {
                 Text(message)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .padding(.horizontal)
             }
 

@@ -53,9 +53,9 @@ struct ClusterDetailPane: View {
                 VStack(spacing: 12) {
                     Image(systemName: "rectangle.on.rectangle.angled")
                         .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     Text("Select a cluster on the left")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
@@ -325,7 +325,9 @@ struct ClusterDetailPane: View {
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: 56))
-                    .foregroundStyle(.secondary)
+                    // Placeholder sits on the dark photo-preview fill, so it must
+                    // stay light in both appearances (not the dark ink token).
+                    .foregroundStyle(Color.white.opacity(0.4))
             }
         }
     }
@@ -353,12 +355,12 @@ struct ClusterDetailPane: View {
             if member.isRaw {
                 Label("RAW", systemImage: "camera.aperture")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
             if let pairedPath = member.pairedPath {
                 Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(2)
             }
 
@@ -384,7 +386,7 @@ struct ClusterDetailPane: View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Spacer()
             Text(value)
                 .scaledFont(.mono)
@@ -397,7 +399,7 @@ struct ClusterDetailPane: View {
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Spacer()
             HStack(spacing: 3) {
                 ForEach(0..<5, id: \.self) { i in
@@ -418,7 +420,7 @@ struct ClusterDetailPane: View {
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Spacer()
             Text(text)
                 .scaledFont(.label)
@@ -431,7 +433,7 @@ struct ClusterDetailPane: View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Spacer()
             Label(detected ? "Detected" : "None", systemImage: detected ? "person.fill" : "person.slash")
                 .scaledFont(.label)
@@ -574,7 +576,7 @@ struct ClusterDetailPane: View {
                     ForEach(Array(annotation.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(MatchReasonFormatter.warningSummary(warning))
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
                 }
                 Spacer()
@@ -605,7 +607,7 @@ struct ClusterDetailPane: View {
                     Spacer()
                     confidenceBadge(annotation.confidence)
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -614,11 +616,11 @@ struct ClusterDetailPane: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(MatchReasonFormatter.summary(annotation.matchReason))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     if let keeperReason = annotation.keeperReason {
                         Text(MatchReasonFormatter.keeperSummary(keeperReason))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
                 }
             }
@@ -819,7 +821,9 @@ private struct LargePreviewImage: View {
             } else if failed {
                 Image(systemName: "photo")
                     .font(.system(size: 56))
-                    .foregroundStyle(.secondary)
+                    // Placeholder sits on the dark photo-preview fill, so it must
+                    // stay light in both appearances (not the dark ink token).
+                    .foregroundStyle(Color.white.opacity(0.4))
             } else {
                 ProgressView()
             }

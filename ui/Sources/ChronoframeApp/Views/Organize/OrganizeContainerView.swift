@@ -129,7 +129,7 @@ private struct OrganizeNextActionBanner: View {
                     .font(.subheadline.weight(.semibold))
                 Text(action.message)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

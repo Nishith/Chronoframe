@@ -172,7 +172,7 @@ private struct HealthCardView: View {
 
                 Text(card.message)
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let action = card.action {

@@ -174,6 +174,11 @@ private struct ClusterRow: View {
                 if cluster.members.count > 5 {
                     Text("+\(cluster.members.count - 5)")
                         .font(.caption2)
+                        // ClusterRow lives in `List(selection:)`; keep the
+                        // hierarchical `.secondary` so a focused row's captions
+                        // adapt to the accent selection background. A fixed ink
+                        // token would stay dark and become unreadable when
+                        // selected — do not migrate these to inkSecondary.
                         .foregroundStyle(.secondary)
                 }
                 Spacer()

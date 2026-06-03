@@ -121,7 +121,7 @@ private struct RunOutcomeSummaryCard: View {
 
                 Text(model.outcomeSummaryMessage)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.runOutcomeSummaryCard)
@@ -131,7 +131,7 @@ private struct RunOutcomeSummaryCard: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Text(value)
                 .font(.title3.monospacedDigit())
                 .foregroundStyle(tint)

@@ -265,7 +265,7 @@ struct RunPreviewReviewSection: View {
 
             Text(model.previewReviewMessage)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if model.previewReviewPath != nil {
@@ -548,7 +548,7 @@ struct RunIssuesPanel: View {
                 ForEach(Self.suggestedFixes(for: model.issueEntries), id: \.self) { fix in
                     Label(fix, systemImage: "wrench.and.screwdriver")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
             }
         }
@@ -593,7 +593,7 @@ struct RunConsolePanel: View {
                     LazyVStack(alignment: .leading, spacing: 8) {
                         if model.consoleEntries.isEmpty {
                             Text("No activity yet.")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         } else {
                             ForEach(model.consoleEntries, id: \.id) { entry in
                                 Text(entry.text)

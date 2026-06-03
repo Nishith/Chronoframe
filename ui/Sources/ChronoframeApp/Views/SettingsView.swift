@@ -126,7 +126,7 @@ private struct GeneralSettingsTab: View {
         Form {
             Section {
                 Text("Tune how Chronoframe balances speed, safety, and diagnostics. These settings affect future previews and transfers without changing the organizer's core guarantees.")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
         }
         .formStyle(.grouped)
@@ -209,7 +209,7 @@ private struct PerformanceSettingsTab: View {
                                 Text(preset.title)
                                 Text(preset.summary)
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                             }
                             Spacer()
                             if isActive {
@@ -273,7 +273,7 @@ private struct DeduplicateSettingsTab: View {
 
                 Text(preferencesStore.dedupeSimilarityPreset.subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
 
                 if preferencesStore.dedupeBurstModeEnabled {
                     Stepper(value: $preferencesStore.dedupeTimeWindowSeconds, in: 5...600, step: 5) {
