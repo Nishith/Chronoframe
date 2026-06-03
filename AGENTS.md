@@ -219,6 +219,17 @@ When editing UI:
 - Avoid nested cards, decorative gradient/orb backgrounds, and visible instructional text that describes obvious UI mechanics.
 - Make error and empty states useful to a nontechnical person.
 
+### Accessibility bar
+
+Chronoframe targets the Apple "sets the standard" bar. Treat these as expectations, not nice-to-haves, when adding or changing UI:
+
+- **VoiceOver:** every interactive control has a non-empty, human-readable accessibility label (not a path, identifier, or SF Symbol name). Use `.help()` for tooltips, but never as a substitute for a label — it only sets AXHelp. Compose non-trivial spoken text in pure helpers (see `DeduplicateAccessibilityText`, `AccessibilityLabels`) so it can be unit-tested. Custom controls expose value + `accessibilityAdjustableAction` (see `ComparisonSlider`). Decorative imagery/canvases are `.accessibilityHidden(true)`.
+- **Contrast:** text meets WCAG AA (4.5:1 normal, 3:1 large/non-text). `ColorContrastTests` pins the palette tiers headlessly; extend it when adding a foreground/background pair. Adapt to `ColorSchemeContrast.increased` via `AccessibleDesign`.
+- **Reduced-sensory settings:** motion through `Motion`/`.motion(_:value:)` (guarded by `check_no_raw_animations.sh`), plus `accessibilityReduceTransparency` and `accessibilityDifferentiateWithoutColor` where color/translucency carries meaning.
+- **Dynamic Type:** size text with `.scaledFont(_:)`, not fixed `Font.system(size:)`.
+- **Live announcements:** route VoiceOver announcements through a pure planner that assigns a priority (`RunAnnouncementPlanner`); only terminal outcomes use `.high`. Routine progress must not interrupt.
+- **Audit gate:** `ChronoframeUITests.testAccessibilityAuditAcrossScenarios` runs Apple's `performAccessibilityAudit` across every scenario and logs each finding with its element identity. It is warn-only until the backlog is cleared, then a hard gate; do not regress it. New top-level surfaces should be added as audited scenarios.
+
 ## Files And Directories To Avoid
 
 - `.claude/worktrees/` contains stale generated worktrees. Do not treat it as source of truth.
