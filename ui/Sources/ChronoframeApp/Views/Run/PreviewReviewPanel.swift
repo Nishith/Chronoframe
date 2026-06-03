@@ -19,7 +19,7 @@ struct PreviewReviewPanel: View {
                                 .scaledFont(.cardTitle)
                             Text(headerMessage)
                                 .scaledFont(.subtitle)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         }
 
                         Spacer()
@@ -44,7 +44,7 @@ struct PreviewReviewPanel: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(tile.title)
                                     .scaledFont(.label)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                                 Text(tile.value)
                                     .scaledFont(.cardTitle)
                                     .monospacedDigit()
@@ -133,7 +133,7 @@ private struct PreviewReviewRow: View {
 
                         Text(item.sourcePath)
                             .scaledFont(.mono)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
 
@@ -187,7 +187,7 @@ private struct PreviewReviewRow: View {
             planEndpoint(title: "Source", path: item.sourcePath, systemImage: "folder")
             Image(systemName: "arrow.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .padding(.top, 18)
             planEndpoint(
                 title: destinationTitle,
@@ -235,7 +235,7 @@ private struct PreviewReviewRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .scaledFont(.label, weight: .semibold)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 Text(path)
                     .scaledFont(.mono)
                     .lineLimit(2)
@@ -315,7 +315,7 @@ private struct PreviewReviewThumbnail: View {
                     .scaledToFill()
             } else {
                 Image(systemName: "photo")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
         }
         .frame(width: 52, height: 52)

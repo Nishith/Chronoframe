@@ -407,7 +407,7 @@ struct RunHistoryView: View {
                     .font(.subheadline.weight(.semibold))
                 Text("\(entry.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(entry.relativePath)")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(2)
             }
 

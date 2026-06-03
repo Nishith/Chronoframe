@@ -527,7 +527,10 @@ struct SummaryLine: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
                 .scaledFont(.body)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                // Secondary (not muted): these labels sit on tinted inner cards
+                // where the muted tier dropped below AA. inkSecondary keeps
+                // headroom over the tint overlay.
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
 
             Spacer(minLength: 12)
 

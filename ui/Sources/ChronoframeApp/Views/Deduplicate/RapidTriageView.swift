@@ -66,12 +66,12 @@ struct RapidTriageView: View {
                 Spacer()
                 Text("\(currentIndex) of \(clustersToReview.count) reviewed")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 Text("·")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 Text("\(Self.bytesFormatter.string(fromByteCount: reclaimableBytes)) reclaimable")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 Button("Exit") { dismiss() }
                     .keyboardShortcut(.escape, modifiers: [])
             }
@@ -94,7 +94,7 @@ struct RapidTriageView: View {
                         .font(.caption)
                     Text("Review carefully — \(MatchReasonFormatter.warningSummary(annotation.warnings[0]))")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
@@ -114,7 +114,7 @@ struct RapidTriageView: View {
             if let annotation = cluster.annotation {
                 Text(MatchReasonFormatter.oneLiner(annotation))
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
         }
         .padding(DesignTokens.Spacing.lg)
@@ -261,7 +261,7 @@ struct RapidTriageView: View {
                 .font(.title3.weight(.semibold))
             Text("Return to the main review to commit your decisions.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Button("Done") { dismiss() }
                 .buttonStyle(.borderedProminent)
         }
