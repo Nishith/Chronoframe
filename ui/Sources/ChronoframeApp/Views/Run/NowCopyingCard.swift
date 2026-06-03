@@ -214,7 +214,7 @@ struct WaypointRunway: View {
             RoundedRectangle(cornerRadius: DesignTokens.Corner.innerCard, style: .continuous)
                 .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
         )
-        .onChange(of: currentFileURL) { newURL in
+        .onChange(of: currentFileURL, perform: { newURL in
             if let newURL {
                 Motion.withMotion(.spring(response: 0.38, dampingFraction: 0.72), reduceMotion: reduceMotion) {
                     if !history.contains(newURL) {
@@ -225,7 +225,7 @@ struct WaypointRunway: View {
                     }
                 }
             }
-        }
+        })
     }
 }
 

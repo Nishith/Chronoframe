@@ -269,24 +269,6 @@ struct DeduplicateView: View {
                 Divider()
                 commitFooter
             }
-            .quickLookPreview($selectedDedupeItemURL)
-            .background {
-                Group {
-                    Button { navigateCluster(by: -1) } label: { EmptyView() }
-                        .keyboardShortcut(.upArrow, modifiers: [])
-                    Button { navigateCluster(by: 1) } label: { EmptyView() }
-                        .keyboardShortcut(.downArrow, modifiers: [])
-                    Button {
-                        if let path = focusedMemberPath {
-                            selectedDedupeItemURL = URL(fileURLWithPath: path)
-                        }
-                    } label: { EmptyView() }
-                        .keyboardShortcut(.space, modifiers: [])
-                }
-                .opacity(0)
-                .frame(width: 0, height: 0)
-                .accessibilityHidden(true)
-            }
         }
         .onAppear { ensureInitialFocus() }
         .onChange(of: sessionStore.clusters.map(\.id)) { _ in ensureInitialFocus() }
