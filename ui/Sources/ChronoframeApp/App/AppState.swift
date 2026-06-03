@@ -606,6 +606,10 @@ final class MenuBarStatusManager: NSObject {
     }
 
     func setup() {
+        // Skip setup when running unit tests to avoid WindowServer connection crash in headless CI
+        if NSClassFromString("XCTestCase") != nil {
+            return
+        }
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         updateStatusItem()
         startObserving()
