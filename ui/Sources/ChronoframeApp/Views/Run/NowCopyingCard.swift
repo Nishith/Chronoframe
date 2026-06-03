@@ -214,7 +214,7 @@ struct WaypointRunway: View {
         )
         .onChange(of: currentFileURL) { newURL in
             if let newURL {
-                withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.72)) {
+                Motion.withMotion(.spring(response: 0.38, dampingFraction: 0.72), reduceMotion: reduceMotion) {
                     if !history.contains(newURL) {
                         history.append(newURL)
                         if history.count > 5 {
@@ -233,6 +233,7 @@ private struct RunwayThumbnail: View {
 
     @State private var image: NSImage?
     @State private var showWaypoint = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -272,7 +273,7 @@ private struct RunwayThumbnail: View {
             if isCurrent {
                 // Pulse waypoint checkmark after copy resolves
                 try? await Task.sleep(nanoseconds: 800_000_000)
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                Motion.withMotion(.spring(response: 0.35, dampingFraction: 0.6), reduceMotion: reduceMotion) {
                     showWaypoint = true
                 }
             }

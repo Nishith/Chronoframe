@@ -344,7 +344,7 @@ struct SetupSourceStepSection: View {
         .motion(.easeInOut(duration: Motion.Duration.fast), value: isTargeted)
         .scaleEffect(isHovered && !reduceMotion ? 1.015 : 1.0)
         .onHover { hovering in
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            Motion.withMotion(.spring(response: 0.25, dampingFraction: 0.7), reduceMotion: reduceMotion) {
                 isHovered = hovering
             }
         }
@@ -457,7 +457,7 @@ struct SetupDestinationStepSection: View {
         .motion(.easeInOut(duration: Motion.Duration.fast), value: isTargeted)
         .scaleEffect(isHovered && !reduceMotion ? 1.015 : 1.0)
         .onHover { hovering in
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+            Motion.withMotion(.spring(response: 0.25, dampingFraction: 0.7), reduceMotion: reduceMotion) {
                 isHovered = hovering
             }
         }
