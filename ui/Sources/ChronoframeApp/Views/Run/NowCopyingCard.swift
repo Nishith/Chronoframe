@@ -187,20 +187,22 @@ struct WaypointRunway: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                 .tracking(0.6)
 
-            HStack(spacing: 12) {
-                ForEach(history, id: \.self) { url in
-                    RunwayThumbnail(url: url, isCurrent: url == currentFileURL)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .opacity
-                        ))
-                }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(history, id: \.self) { url in
+                        RunwayThumbnail(url: url, isCurrent: url == currentFileURL)
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .trailing).combined(with: .opacity),
+                                removal: .opacity
+                            ))
+                    }
 
-                if history.isEmpty {
-                    Text("Queue empty")
-                        .font(.caption)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
-                        .frame(height: 52)
+                    if history.isEmpty {
+                        Text("Queue empty")
+                            .font(.caption)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                            .frame(height: 52)
+                    }
                 }
             }
         }
@@ -217,7 +219,7 @@ struct WaypointRunway: View {
                 Motion.withMotion(.spring(response: 0.38, dampingFraction: 0.72), reduceMotion: reduceMotion) {
                     if !history.contains(newURL) {
                         history.append(newURL)
-                        if history.count > 5 {
+                        if history.count > 10 {
                             history.removeFirst()
                         }
                     }
