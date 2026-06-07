@@ -39,7 +39,6 @@ enum AccessibilityIdentifiers {
 
     // MARK: - Organize
 
-    static let organizeNextActionBanner = "organizeNextActionBanner"
     static let refreshLibraryHealthButton = "refreshLibraryHealthButton"
     static let reorganizeDestinationButton = "reorganizeDestinationButton"
 
@@ -97,6 +96,8 @@ enum AccessibilityIdentifiers {
     static func revertArtifact(_ id: some CustomStringConvertible) -> String { "revertArtifact_\(id)" }
     /// Identifier for a saved-profile row, keyed by profile name.
     static func profileName(_ name: some CustomStringConvertible) -> String { "profileName-\(name)" }
+    /// Identifier for a primary sidebar destination, keyed by its raw value.
+    static func sidebarDestination(_ id: some CustomStringConvertible) -> String { "sidebarDestination-\(id)" }
 
     // MARK: - Enumeration
 
@@ -109,7 +110,7 @@ enum AccessibilityIdentifiers {
         consoleScrollView, openDestinationButton, openReportButton, openLogsButton,
         startTransferFromPreviewButton, runWorkspaceTabs, runIdleOnboardingCard,
         runOutcomeSummaryCard, previewReviewFilter,
-        organizeNextActionBanner, refreshLibraryHealthButton, reorganizeDestinationButton,
+        refreshLibraryHealthButton, reorganizeDestinationButton,
         dedupeAcceptAllSuggestionsButton, dedupeAcceptClusterSuggestionButton,
         dedupeAcceptHighConfidenceButton, dedupeCancelCommitButton, dedupeChangeFolderButton,
         dedupeCommitButton, dedupeCommitFooter, dedupeCommitReviewedButton,

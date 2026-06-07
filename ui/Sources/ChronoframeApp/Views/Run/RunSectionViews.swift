@@ -385,7 +385,9 @@ struct RunWorkspaceShell: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .labelsHidden()
                     .frame(maxWidth: 340)
+                    .accessibilityLabel("Run workspace section")
                     .accessibilityIdentifier(AccessibilityIdentifiers.runWorkspaceTabs)
                 }
 

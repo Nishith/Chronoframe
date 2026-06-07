@@ -567,7 +567,9 @@ struct RunHistoryView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .labelsHidden()
                 .frame(maxWidth: 320)
+                .accessibilityLabel("Filter artifacts")
                 .accessibilityIdentifier(AccessibilityIdentifiers.historyFilterControl)
             }
 

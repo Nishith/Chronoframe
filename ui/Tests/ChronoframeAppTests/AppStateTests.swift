@@ -16,8 +16,14 @@ final class AppStateTests: XCTestCase {
         XCTAssertNil(UITestScenario.current(environment: [:]))
         XCTAssertNil(UITestScenario.current(environment: ["CHRONOFRAME_UI_TEST_SCENARIO": "unknown"]))
         XCTAssertTrue(UITestScenario.settingsSections.opensSettingsOnLaunch)
+        XCTAssertTrue(UITestScenario.settingsLayout.opensSettingsOnLaunch)
+        XCTAssertTrue(UITestScenario.settingsPerformance.opensSettingsOnLaunch)
+        XCTAssertTrue(UITestScenario.settingsDeduplicate.opensSettingsOnLaunch)
+        XCTAssertTrue(UITestScenario.settingsDiagnostics.opensSettingsOnLaunch)
         XCTAssertTrue(UITestScenario.profilesPopulated.opensSettingsOnLaunch)
+        XCTAssertFalse(UITestScenario.setupIncompleteRun.opensSettingsOnLaunch)
         XCTAssertFalse(UITestScenario.setupReady.opensSettingsOnLaunch)
+        XCTAssertFalse(UITestScenario.healthDashboard.opensSettingsOnLaunch)
     }
 
     @MainActor
@@ -57,6 +63,25 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(profilesState.setupStore.selectedProfileName, "Meridian Travel")
         XCTAssertEqual(profilesState.setupStore.newProfileName, "Weekend Archive")
         XCTAssertEqual(profilesState.setupStore.profiles.map(\.name), ["Meridian Travel", "Studio Imports"])
+
+        let incompleteRunState = UITestAppStateFactory.make(scenario: .setupIncompleteRun)
+
+        XCTAssertEqual(incompleteRunState.selection, .organize)
+        XCTAssertEqual(incompleteRunState.organizeSubSelection, .run)
+        XCTAssertTrue(incompleteRunState.setupStore.sourcePath.isEmpty)
+        XCTAssertTrue(incompleteRunState.setupStore.destinationPath.isEmpty)
+
+        let healthState = UITestAppStateFactory.make(scenario: .healthDashboard)
+
+        XCTAssertEqual(healthState.selection, .organize)
+        XCTAssertEqual(healthState.organizeSubSelection, .health)
+        XCTAssertEqual(healthState.setupStore.destinationPath, "/Volumes/Archive/Chronoframe Library")
+
+        XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsSections).settingsSelection, .general)
+        XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsLayout).settingsSelection, .layout)
+        XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsPerformance).settingsSelection, .performance)
+        XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsDeduplicate).settingsSelection, .deduplicate)
+        XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsDiagnostics).settingsSelection, .diagnostics)
     }
 
     @MainActor

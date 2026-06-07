@@ -26,6 +26,11 @@ enum UITestAppStateFactory {
         var deduplicateSessionStore: DeduplicateSessionStore? = nil
 
         switch scenario {
+        case .setupIncompleteRun:
+            historyStore = HistoryStore()
+            engine = previewReviewEngine(sourcePath: "", destinationPath: "")
+            route = .organize(.run)
+
         case .setupReady:
             setupStore.sourcePath = "/Volumes/Card/April Session"
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
@@ -39,6 +44,13 @@ enum UITestAppStateFactory {
             historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
             engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
             route = .organize(.run)
+
+        case .healthDashboard:
+            setupStore.sourcePath = "/Volumes/Card/April Session"
+            setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
+            historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
+            engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
+            route = .organize(.health)
 
         case .historyPopulated:
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
@@ -59,7 +71,7 @@ enum UITestAppStateFactory {
             engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
             route = .organize(.setup)
 
-        case .settingsSections:
+        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
             setupStore.sourcePath = "/Volumes/Card/April Session"
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
             historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
@@ -111,6 +123,20 @@ enum UITestAppStateFactory {
         appStateBox.value = appState
         if scenario == .profilesPopulated {
             appState.settingsSelection = .profiles
+        }
+        switch scenario {
+        case .settingsSections:
+            appState.settingsSelection = .general
+        case .settingsLayout:
+            appState.settingsSelection = .layout
+        case .settingsPerformance:
+            appState.settingsSelection = .performance
+        case .settingsDeduplicate:
+            appState.settingsSelection = .deduplicate
+        case .settingsDiagnostics:
+            appState.settingsSelection = .diagnostics
+        default:
+            break
         }
 
         if scenario == .runPreviewReview {

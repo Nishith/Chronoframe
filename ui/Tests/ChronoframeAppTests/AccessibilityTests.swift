@@ -66,6 +66,7 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.openArtifact("abc"), "openArtifact_abc")
         XCTAssertEqual(AccessibilityIdentifiers.revealArtifact("abc"), "revealArtifact_abc")
         XCTAssertEqual(AccessibilityIdentifiers.revertArtifact("abc"), "revertArtifact_abc")
+        XCTAssertEqual(AccessibilityIdentifiers.sidebarDestination("organize"), "sidebarDestination-organize")
     }
 
     // MARK: - DesignTokens sanity
@@ -90,6 +91,7 @@ final class AccessibilityTests: XCTestCase {
 
         XCTAssertGreaterThan(DesignTokens.Sidebar.minWidth, 0)
         XCTAssertGreaterThan(DesignTokens.Sidebar.maxWidth, DesignTokens.Sidebar.idealWidth)
+        XCTAssertGreaterThanOrEqual(DesignTokens.Sidebar.titlebarClearance, 80)
     }
 
     // MARK: - Accessibility labels
