@@ -153,7 +153,7 @@ enum DesignTokens {
         )
         /// Secondary text — body copy, labels.
         static let inkSecondary = dynamicColor(
-            light: NSColor(srgbRed: 71.0 / 255, green: 80.0 / 255, blue: 99.0 / 255, alpha: 1),
+            light: NSColor(srgbRed: 55.0 / 255, green: 62.0 / 255, blue: 78.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 169.0 / 255, green: 175.0 / 255, blue: 188.0 / 255, alpha: 1)
         )
         /// Muted text — helper captions, eyebrow labels, and the idle status
@@ -165,7 +165,7 @@ enum DesignTokens {
         /// image stage — so it stays the least prominent ink tier without
         /// dropping below readable on either. See `ColorContrastTests`.
         static let inkMuted = dynamicColor(
-            light: NSColor(srgbRed: 100.0 / 255, green: 111.0 / 255, blue: 121.0 / 255, alpha: 1),
+            light: NSColor(srgbRed: 97.0 / 255, green: 108.0 / 255, blue: 118.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 124.0 / 255, green: 130.0 / 255, blue: 144.0 / 255, alpha: 1)
         )
 

@@ -61,6 +61,7 @@ struct ClusterDetailPane: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewDetail)
     }
 
@@ -296,7 +297,7 @@ struct ClusterDetailPane: View {
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(role.label): \(URL(fileURLWithPath: member.path).lastPathComponent)")
+        .accessibilityLabel("\(role.label): \(AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent))")
         .accessibilityHint("Selects this photo for keyboard keep or delete actions")
         .accessibilityAddTraits(isFocused ? .isSelected : [])
     }
@@ -346,6 +347,7 @@ struct ClusterDetailPane: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(member != nil ? "Selected photo preview" : "")
+        .accessibilityAddTraits(.isImage)
         .accessibilityValue(member != nil ? DeduplicateAccessibilityText.photoPreviewDetail(
             member: member!,
             decision: sessionStore.decisions.byPath[member!.path] ?? (isSuggestedKeeper(member!, in: cluster) ? .keep : .delete),

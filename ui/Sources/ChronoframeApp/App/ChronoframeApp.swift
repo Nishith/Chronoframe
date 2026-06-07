@@ -29,6 +29,7 @@ struct ChronoframeApp: App {
     var body: some Scene {
         Window("Chronoframe", id: ChronoframeApp.mainWindowID) {
             RootSplitView(appState: appState)
+                .accessibilityLabel("Chronoframe")
                 .frame(
                     minWidth: DesignTokens.Window.mainMinWidth,
                     idealWidth: DesignTokens.Window.mainIdealWidth,
@@ -48,10 +49,12 @@ struct ChronoframeApp: App {
 
         Settings {
             SettingsView(appState: appState)
+                .accessibilityLabel("Settings")
         }
 
         Window("Chronoframe Help", id: ChronoframeApp.helpWindowID) {
             HelpView()
+                .accessibilityLabel("Chronoframe Help")
         }
         .windowResizability(.contentMinSize)
     }

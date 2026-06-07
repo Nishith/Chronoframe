@@ -41,6 +41,36 @@
   },
   {
     "scenario": "setupIncompleteRun",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "runIdleOnboardingCard",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 1 unless font size is larger."
+  },
+  {
+    "scenario": "setupIncompleteRun",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "runIdleOnboardingCard",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 2 unless font size is larger."
+  },
+  {
+    "scenario": "setupIncompleteRun",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "runIdleOnboardingCard",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 3 unless font size is larger."
+  },
+  {
+    "scenario": "setupIncompleteRun",
     "auditType": "sufficientElementDescription",
     "role": "touchBar",
     "identifier": "",
@@ -76,8 +106,68 @@
     "identifier": "",
     "label": "",
     "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Contact sheet preview \u2014 no previewable media found in the source."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
     "compactDescription": "Contrast nearly passed",
     "detailedDescription": "Contrast is not high enough for Optional unless font size is larger."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Use a saved source and destination pair when you want the app and CLI to stay in sync."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Where organized copies and receipts are written."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Chronoframe Library folder"
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Preview to inspect the plan. Transfer when ready."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
   },
   {
     "scenario": "setupReady",
@@ -108,6 +198,56 @@
     "value": "",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for discovered: 84"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for planned: 42"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for copied: 0"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for already there: 29"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for duplicates: 7"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for issues: 1"
   },
   {
     "scenario": "runPreviewReview",
@@ -151,6 +291,76 @@
   },
   {
     "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Needs destination"
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for The destination folder is missing or unavailable."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for No files are currently parked in Unknown_Date."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for No exact duplicate hints are visible from the destination cache."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for No audit receipts were found for this destination yet."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Recognized media filenames match Chronoframe's naming pattern."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Health"
+  },
+  {
+    "scenario": "healthDashboard",
     "auditType": "sufficientElementDescription",
     "role": "touchBar",
     "identifier": "",
@@ -186,8 +396,48 @@
     "identifier": "",
     "label": "",
     "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for /Volumes/Card/April Session"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
     "compactDescription": "Contrast nearly passed",
     "detailedDescription": "Contrast is not high enough for Last used Mar 19, 2025 at 5:00\u202fPM unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for \u00b7"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 3 runs unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 124 copied"
   },
   {
     "scenario": "historyPopulated",
@@ -198,6 +448,136 @@
     "value": "",
     "compactDescription": "Element has no description",
     "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for MAR 19, 2025 unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Dry Run Report unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 5:00\u202fPM unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 18 KB unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for .organize_logs/dry_run_report.csv"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Audit Receipt unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 8 KB unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for .organize_logs/receipt.json"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Run Log"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 5:00\u202fPM"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 64 KB"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for .organize_log.txt"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Run History"
   },
   {
     "scenario": "historyPopulated",
@@ -254,10 +634,30 @@
     "auditType": "contrast",
     "role": "staticText",
     "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Capture the source and destination configured in Setup."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
     "label": "Destination folder",
     "value": "",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for /Volumes/Archive/Travel"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Use activates a profile in Setup. Overwrite refreshes it with the current paths."
   },
   {
     "scenario": "profilesPopulated",
@@ -284,10 +684,150 @@
     "auditType": "contrast",
     "role": "staticText",
     "identifier": "",
+    "label": "Source folder",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for /Volumes/Card/Studio"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "Destination folder",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for /Volumes/Archive/Studio"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
     "label": "",
     "value": "",
     "compactDescription": "Contrast nearly passed",
     "detailedDescription": "Contrast is not high enough for LIBRARY unless font size is larger."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Library at a glance: 0 photos archived across 0 runs to Travel"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Security"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Source"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Destination"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Mode"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Next"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for The library Chronoframe should organize."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Manual Folder Source"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Travel folder"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Chronoframe reads from this library and never mutates the originals."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 2. Destination"
   },
   {
     "scenario": "profilesPopulated",
@@ -331,6 +871,46 @@
   },
   {
     "scenario": "settingsSections",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for LIBRARY"
+  },
+  {
+    "scenario": "settingsSections",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Manual source and destination"
+  },
+  {
+    "scenario": "settingsSections",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Destination Ready"
+  },
+  {
+    "scenario": "settingsSections",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
+  },
+  {
+    "scenario": "settingsSections",
     "auditType": "sufficientElementDescription",
     "role": "touchBar",
     "identifier": "",
@@ -361,6 +941,56 @@
   },
   {
     "scenario": "settingsLayout",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Move every file already in the destination into the layout selected above. Files are moved on the same volume (instant \u2014 no copy), originals are never deleted, and an existing file at the new location is never overwritten."
+  },
+  {
+    "scenario": "settingsLayout",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Manual source and destination"
+  },
+  {
+    "scenario": "settingsLayout",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 1. Source"
+  },
+  {
+    "scenario": "settingsLayout",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Destination Ready"
+  },
+  {
+    "scenario": "settingsLayout",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
+  },
+  {
+    "scenario": "settingsLayout",
     "auditType": "sufficientElementDescription",
     "role": "touchBar",
     "identifier": "",
@@ -388,6 +1018,66 @@
     "value": "",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Parallel Transfers"
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Destination"
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Mode"
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Manual source and destination"
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Destination Ready"
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
   },
   {
     "scenario": "settingsPerformance",
@@ -418,6 +1108,66 @@
     "value": "",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Manual source and destination"
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 1. Source"
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Manual Folder Source"
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Chronoframe reads from this library and never mutates the originals."
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Destination Ready"
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
   },
   {
     "scenario": "settingsDeduplicate",
@@ -448,6 +1198,46 @@
     "value": "",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsDiagnostics",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for A larger buffer keeps more recent console history in memory for the Run workspace. Lower values use less memory but trim older log lines sooner."
+  },
+  {
+    "scenario": "settingsDiagnostics",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Manual source and destination"
+  },
+  {
+    "scenario": "settingsDiagnostics",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Destination Ready"
+  },
+  {
+    "scenario": "settingsDiagnostics",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
   },
   {
     "scenario": "settingsDiagnostics",
@@ -491,19 +1281,39 @@
   },
   {
     "scenario": "deduplicateReviewWide",
-    "auditType": "sufficientElementDescription",
-    "role": "application",
-    "identifier": "dedupeReviewDetail",
-    "label": "Selected photo preview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
     "value": "",
-    "compactDescription": "Unknown role",
-    "detailedDescription": "This element is missing a valid role to identify its type."
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 3 photos"
   },
   {
     "scenario": "deduplicateReviewWide",
     "auditType": "contrast",
     "role": "staticText",
-    "identifier": "dedupeReviewDetail",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Zero KB"
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Suggested"
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
     "label": "",
     "value": "",
     "compactDescription": "Contrast failed",
@@ -511,23 +1321,33 @@
   },
   {
     "scenario": "deduplicateReviewWide",
-    "auditType": "sufficientElementDescription",
-    "role": "button",
+    "auditType": "contrast",
+    "role": "staticText",
     "identifier": "",
-    "label": "2007-03-21_001.jpg",
+    "label": "",
     "value": "",
-    "compactDescription": "Label not human-readable",
-    "detailedDescription": "The accessibilityLabel of this element is not human-readable."
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Safe trash-only mode is verified"
   },
   {
     "scenario": "deduplicateReviewWide",
-    "auditType": "sufficientElementDescription",
-    "role": "button",
+    "auditType": "contrast",
+    "role": "staticText",
     "identifier": "",
-    "label": "2007-03-21_002.jpg",
+    "label": "",
     "value": "",
-    "compactDescription": "Label not human-readable",
-    "detailedDescription": "The accessibilityLabel of this element is not human-readable."
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 0 groups reviewed. 12 groups untouched."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Deduplicate"
   },
   {
     "scenario": "deduplicateReviewWide",
@@ -571,19 +1391,29 @@
   },
   {
     "scenario": "deduplicateReviewCompact",
-    "auditType": "sufficientElementDescription",
-    "role": "application",
-    "identifier": "dedupeReviewDetail",
-    "label": "Selected photo preview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
     "value": "",
-    "compactDescription": "Unknown role",
-    "detailedDescription": "This element is missing a valid role to identify its type."
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Zero KB unless font size is larger."
   },
   {
     "scenario": "deduplicateReviewCompact",
     "auditType": "contrast",
     "role": "staticText",
-    "identifier": "dedupeReviewDetail",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Suggested"
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
     "label": "",
     "value": "",
     "compactDescription": "Contrast failed",
@@ -591,13 +1421,33 @@
   },
   {
     "scenario": "deduplicateReviewCompact",
-    "auditType": "sufficientElementDescription",
-    "role": "button",
+    "auditType": "contrast",
+    "role": "staticText",
     "identifier": "",
-    "label": "2007-03-21_002.jpg",
+    "label": "",
     "value": "",
-    "compactDescription": "Label not human-readable",
-    "detailedDescription": "The accessibilityLabel of this element is not human-readable."
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 1 MB"
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Safe trash-only mode is verified"
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 0 groups reviewed. 12 groups untouched."
   },
   {
     "scenario": "deduplicateReviewCompact",

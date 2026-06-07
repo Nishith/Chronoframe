@@ -142,4 +142,11 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(AccessibilityPathFormatter.spokenDescription(for: "/Users/nishithnand/Pictures/photo.jpg"), "photo.jpg")
         XCTAssertEqual(AccessibilityPathFormatter.spokenDescription(for: "/"), "Root folder")
     }
+
+    func testAccessibilityPathFormatterFilenameFormatting() {
+        XCTAssertEqual(AccessibilityPathFormatter.formatFilename("2007-03-21_001.jpg"), "2007 03 21 001")
+        XCTAssertEqual(AccessibilityPathFormatter.formatFilename("my-vacation-photo_edited.png"), "my vacation photo edited")
+        XCTAssertEqual(AccessibilityPathFormatter.formatFilename("simplefile"), "simplefile")
+        XCTAssertEqual(AccessibilityPathFormatter.formatFilename(".hiddenfile"), ".hiddenfile")
+    }
 }

@@ -24,4 +24,13 @@ enum AccessibilityPathFormatter {
             return name
         }
     }
+
+    /// Strips extensions and replaces delimiters with spaces to make file names speakable for VoiceOver.
+    static func formatFilename(_ filename: String) -> String {
+        let nameWithoutExtension = (filename as NSString).deletingPathExtension
+        let speakableName = nameWithoutExtension
+            .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
+        return speakableName.isEmpty ? filename : speakableName
+    }
 }

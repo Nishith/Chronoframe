@@ -185,8 +185,8 @@ final class ColorContrastTests: XCTestCase {
         enum Light {
             static let canvas = RGB.bits(246, 245, 242)
             static let inkPrimary = RGB.bits(14, 17, 22)
-            static let inkSecondary = RGB.bits(71, 80, 99)
-            static let inkMuted = RGB.bits(100, 111, 121)
+            static let inkSecondary = RGB.bits(55, 62, 78)
+            static let inkMuted = RGB.bits(97, 108, 118)
             /// Neutral dark tile behind previews / fallback symbols. Dark even in
             /// the light appearance, so muted-tinted icons land on it.
             static let imageStage = RGB.bits(31, 33, 38)

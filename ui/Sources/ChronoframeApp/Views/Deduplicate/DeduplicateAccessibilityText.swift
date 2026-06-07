@@ -35,7 +35,7 @@ enum DeduplicateAccessibilityText {
               let keeper = cluster.members.first(where: { $0.id == keeperID }) else {
             return nil
         }
-        return URL(fileURLWithPath: keeper.path).lastPathComponent
+        return AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: keeper.path).lastPathComponent)
     }
 
     static func clusterRowLabel(cluster: DuplicateCluster) -> String {
@@ -100,7 +100,7 @@ enum DeduplicateAccessibilityText {
         isSuggestedKeeper: Bool,
         keeperReason: KeeperReason? = nil
     ) -> String {
-        let name = URL(fileURLWithPath: member.path).lastPathComponent
+        let name = AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent)
         guard isSuggestedKeeper else { return name }
         if let rationale = keeperRationale(keeperReason) {
             return "\(name), suggested keeper, \(rationale)"
@@ -133,7 +133,7 @@ enum DeduplicateAccessibilityText {
         confidence: ConfidenceLevel?,
         keeperReason: KeeperReason?
     ) -> String {
-        let name = URL(fileURLWithPath: member.path).lastPathComponent
+        let name = AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent)
         var parts = [name]
         parts.append(decision == .keep ? "marked keep" : "marked delete")
         if isSuggestedKeeper {

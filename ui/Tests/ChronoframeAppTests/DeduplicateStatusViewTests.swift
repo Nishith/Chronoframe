@@ -399,7 +399,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
 
         XCTAssertEqual(
             DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster),
-            "Near duplicates group, 2 photos, low confidence, suggested keeper keeper.jpg, needs careful review"
+            "Near duplicates group, 2 photos, low confidence, suggested keeper keeper, needs careful review"
         )
 
         let rowValue = DeduplicateAccessibilityText.clusterRowValue(
@@ -416,7 +416,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
                 currentIndex: 1,
                 totalCount: 4
             ),
-            "Group 2 of 4, 2 photos, low confidence, suggested keeper keeper.jpg, needs careful review"
+            "Group 2 of 4, 2 photos, low confidence, suggested keeper keeper, needs careful review"
         )
     }
 
@@ -427,11 +427,11 @@ final class DeduplicateStatusViewTests: XCTestCase {
 
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: true),
-            "keeper.jpg, suggested keeper"
+            "keeper, suggested keeper"
         )
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberLabel(member: duplicate, isSuggestedKeeper: false),
-            "duplicate.jpg"
+            "duplicate"
         )
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberValue(
