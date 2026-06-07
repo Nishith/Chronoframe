@@ -76,6 +76,7 @@ struct ComparisonOverlayView: View {
             }
         }
         .pickerStyle(.segmented)
+        .labelsHidden()
         .frame(maxWidth: 300)
         .accessibilityLabel("Comparison mode")
     }
