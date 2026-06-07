@@ -49,7 +49,7 @@ struct SidebarView: View {
             )
         }
         .padding(.horizontal, 8)
-        .padding(.top, 8)
+        .padding(.top, DesignTokens.Sidebar.titlebarClearance)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle("Chronoframe")
@@ -139,6 +139,7 @@ struct SidebarView: View {
             .contentShape(Capsule(style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityIdentifiers.sidebarDestination(destination.rawValue))
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
         .tag(destination)
     }

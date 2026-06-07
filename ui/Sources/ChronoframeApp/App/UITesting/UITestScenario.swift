@@ -2,11 +2,17 @@ import AppKit
 import Foundation
 
 enum UITestScenario: String, CaseIterable {
+    case setupIncompleteRun
     case setupReady
     case runPreviewReview
+    case healthDashboard
     case historyPopulated
     case profilesPopulated
     case settingsSections
+    case settingsLayout
+    case settingsPerformance
+    case settingsDeduplicate
+    case settingsDiagnostics
     case deduplicateReviewWide
     case deduplicateReviewCompact
 
@@ -16,14 +22,19 @@ enum UITestScenario: String, CaseIterable {
     }
 
     var opensSettingsOnLaunch: Bool {
-        self == .settingsSections || self == .profilesPopulated
+        switch self {
+        case .profilesPopulated, .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
+            return true
+        default:
+            return false
+        }
     }
 
     private var preferredMainWindowSize: NSSize {
         switch self {
-        case .setupReady, .runPreviewReview, .historyPopulated, .profilesPopulated:
+        case .setupIncompleteRun, .setupReady, .runPreviewReview, .healthDashboard, .historyPopulated, .profilesPopulated:
             return NSSize(width: 1360, height: 920)
-        case .settingsSections:
+        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
             return NSSize(width: 1360, height: 920)
         case .deduplicateReviewWide:
             return NSSize(width: 1180, height: 820)

@@ -54,6 +54,7 @@ enum DesignTokens {
         static let minWidth: CGFloat = 220
         static let idealWidth: CGFloat = 248
         static let maxWidth: CGFloat = 304
+        static let titlebarClearance: CGFloat = 96
     }
 
     enum DeduplicateLayout {

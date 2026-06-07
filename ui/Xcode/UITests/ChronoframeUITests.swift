@@ -4,13 +4,28 @@ final class ChronoframeUITests: XCTestCase {
     private static let settingsWindowIdentifier = "com_apple_SwiftUI_Settings_window"
 
     private enum Scenario: String, CaseIterable {
+        case setupIncompleteRun
         case setupReady
         case runPreviewReview
+        case healthDashboard
         case historyPopulated
         case profilesPopulated
         case settingsSections
+        case settingsLayout
+        case settingsPerformance
+        case settingsDeduplicate
+        case settingsDiagnostics
         case deduplicateReviewWide
         case deduplicateReviewCompact
+
+        var opensSettingsOnLaunch: Bool {
+            switch self {
+            case .profilesPopulated, .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     private struct AccessibilityAuditAllowlistEntry {
@@ -148,6 +163,10 @@ final class ChronoframeUITests: XCTestCase {
             let app = Self.launchApp(.setupReady)
 
             XCTAssertTrue(app.staticTexts["Profiles for Repeatable Runs"].waitForExistence(timeout: 5))
+            XCTAssertFalse(
+                Self.element(identifier: "organizeNextActionBanner", in: app).exists,
+                "Setup-ready top chrome must not show the next-action banner"
+            )
             XCTAssertTrue(app.buttons["previewButton"].exists)
             XCTAssertTrue(app.staticTexts["1. Source"].exists)
             XCTAssertTrue(app.staticTexts["2. Destination"].exists)
@@ -207,6 +226,72 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    func testReviewRejectionScreensAvoidKnownOverlapStates() async {
+        await MainActor.run {
+            let runApp = Self.launchApp(.setupIncompleteRun)
+            XCTAssertTrue(runApp.staticTexts["This Workspace Activates After Setup"].waitForExistence(timeout: 5))
+            XCTAssertFalse(runApp.buttons["Go to Setup"].exists, "Incomplete Run should not show the top next-action banner")
+            XCTAssertTrue(runApp.buttons["Return to Setup"].exists)
+
+            let window = runApp.windows.firstMatch
+            let organizeRow = Self.element(identifier: "sidebarDestination-organize", in: runApp)
+            XCTAssertTrue(organizeRow.exists)
+            XCTAssertGreaterThanOrEqual(
+                organizeRow.frame.minY,
+                window.frame.minY + 72,
+                "Selected sidebar item must stay below the titlebar traffic-light controls"
+            )
+            runApp.terminate()
+
+            let healthApp = Self.launchApp(.healthDashboard)
+            XCTAssertTrue(healthApp.staticTexts["Library Health"].waitForExistence(timeout: 5))
+            let refreshButton = Self.button(identifier: "refreshLibraryHealthButton", in: healthApp)
+            XCTAssertTrue(refreshButton.waitForExistence(timeout: 5))
+            Self.assertFrame(
+                refreshButton.frame,
+                named: "health refresh button",
+                isInside: healthApp.windows.firstMatch.frame,
+                scenario: Scenario.healthDashboard.rawValue
+            )
+            healthApp.terminate()
+        }
+    }
+
+    func testOrganizeTopChromeNeverShowsNextActionBannerAcrossScreens() async {
+        await MainActor.run {
+            for scenario in [
+                Scenario.setupIncompleteRun,
+                .setupReady,
+                .runPreviewReview,
+                .healthDashboard,
+                .historyPopulated,
+            ] {
+                let app = Self.launchApp(scenario)
+                XCTAssertTrue(
+                    Self.waitForScenarioReady(scenario, in: app),
+                    "\(scenario.rawValue) did not reach ready state"
+                )
+                XCTAssertFalse(
+                    Self.element(identifier: "organizeNextActionBanner", in: app).exists,
+                    "Organize top chrome must not show the next-action banner for \(scenario.rawValue)"
+                )
+                if let anchorLabel = Self.contentAnchorLabel(for: scenario) {
+                    let contentAnchor = app.staticTexts[anchorLabel]
+                    XCTAssertTrue(contentAnchor.waitForExistence(timeout: 5), "Content anchor should render for \(scenario.rawValue)")
+
+                    let activeTab = Self.element(identifier: Self.organizeTabIdentifier(for: scenario), in: app)
+                    XCTAssertTrue(activeTab.waitForExistence(timeout: 5), "Active organize tab should render for \(scenario.rawValue)")
+                    XCTAssertLessThanOrEqual(
+                        activeTab.frame.maxY,
+                        contentAnchor.frame.minY,
+                        "Organize top chrome must stay above the content header for \(scenario.rawValue)"
+                    )
+                }
+                app.terminate()
+            }
+        }
+    }
+
     func testDeduplicateReviewKeepsActionsVisibleAtWideAndCompactSizes() async {
         await MainActor.run {
             for scenario in [Scenario.deduplicateReviewWide, .deduplicateReviewCompact] {
@@ -260,7 +345,7 @@ final class ChronoframeUITests: XCTestCase {
         app.launch()
         app.activate()
         ensurePrimaryWindowExists(in: app)
-        if scenario == .settingsSections {
+        if scenario.opensSettingsOnLaunch {
             ensureSettingsWindowExists(in: app)
         }
         return app
@@ -269,19 +354,24 @@ final class ChronoframeUITests: XCTestCase {
     @MainActor
     private static func waitForScenarioReady(_ scenario: Scenario, in app: XCUIApplication) -> Bool {
         switch scenario {
+        case .setupIncompleteRun:
+            return app.staticTexts["This Workspace Activates After Setup"].waitForExistence(timeout: 5)
         case .setupReady:
             return app.staticTexts["Profiles for Repeatable Runs"].waitForExistence(timeout: 5)
                 && button(identifier: "previewButton", in: app).waitForExistence(timeout: 5)
         case .runPreviewReview:
             return app.staticTexts["Preview Ready for Review"].waitForExistence(timeout: 5)
                 && button(identifier: "startTransferFromPreviewButton", in: app).waitForExistence(timeout: 5)
+        case .healthDashboard:
+            return app.staticTexts["Library Health"].waitForExistence(timeout: 5)
+                && button(identifier: "refreshLibraryHealthButton", in: app).waitForExistence(timeout: 5)
         case .historyPopulated:
             return app.staticTexts["Reusable Sources"].waitForExistence(timeout: 5)
                 && button(identifier: "useHistoricalSourceButton", in: app).waitForExistence(timeout: 5)
         case .profilesPopulated:
             return app.staticTexts["Save Current Paths"].waitForExistence(timeout: 5)
                 && element(identifier: "profileName-Meridian Travel", in: app).waitForExistence(timeout: 5)
-        case .settingsSections:
+        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
             return app.windows[settingsWindowIdentifier].waitForExistence(timeout: 5)
         case .deduplicateReviewWide, .deduplicateReviewCompact:
             return element(identifier: "dedupeReviewClusterList", in: app).waitForExistence(timeout: 5)
@@ -439,6 +529,52 @@ final class ChronoframeUITests: XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         }
         return element.exists && element.isEnabled
+    }
+
+    private static func contentAnchorLabel(for scenario: Scenario) -> String? {
+        switch scenario {
+        case .setupIncompleteRun:
+            return "This Workspace Activates After Setup"
+        case .setupReady:
+            return "Security"
+        case .runPreviewReview:
+            return "Preview Ready for Review"
+        case .healthDashboard:
+            return "Library Health"
+        case .historyPopulated:
+            return nil
+        case .profilesPopulated,
+             .settingsSections,
+             .settingsLayout,
+             .settingsPerformance,
+             .settingsDeduplicate,
+             .settingsDiagnostics,
+             .deduplicateReviewWide,
+             .deduplicateReviewCompact:
+            return nil
+        }
+    }
+
+    private static func organizeTabIdentifier(for scenario: Scenario) -> String {
+        switch scenario {
+        case .setupReady:
+            return "organizeTab.setup"
+        case .setupIncompleteRun, .runPreviewReview:
+            return "organizeTab.run"
+        case .healthDashboard:
+            return "organizeTab.health"
+        case .historyPopulated:
+            return "organizeTab.history"
+        case .profilesPopulated,
+             .settingsSections,
+             .settingsLayout,
+             .settingsPerformance,
+             .settingsDeduplicate,
+             .settingsDiagnostics,
+             .deduplicateReviewWide,
+             .deduplicateReviewCompact:
+            return "organizeTab.setup"
+        }
     }
 
     private static func assertFrame(
