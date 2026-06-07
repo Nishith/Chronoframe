@@ -637,7 +637,8 @@ struct SetupDropZone: View {
                 VStack(spacing: 10) {
                     MeridianLeadIcon(
                         systemImage: isActive ? "photo.on.rectangle.angled" : "square.and.arrow.down.on.square",
-                        tint: isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted
+                        tint: isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkMuted,
+                        isAccessibilityHidden: true
                     )
 
                     if isActive {

@@ -191,19 +191,19 @@ enum DesignTokens {
         // Status
         static let statusReady = accentAction
         static let statusActive = dynamicColor(
-            light: NSColor(srgbRed: 47.0 / 255, green: 182.0 / 255, blue: 160.0 / 255, alpha: 1),
+            light: NSColor(srgbRed: 25.0 / 255, green: 115.0 / 255, blue: 100.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 75.0 / 255, green: 208.0 / 255, blue: 182.0 / 255, alpha: 1)
         )
         static let statusSuccess = dynamicColor(
-            light: NSColor(srgbRed: 47.0 / 255, green: 143.0 / 255, blue: 91.0 / 255, alpha: 1),
+            light: NSColor(srgbRed: 30.0 / 255, green: 105.0 / 255, blue: 63.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 88.0 / 255, green: 201.0 / 255, blue: 140.0 / 255, alpha: 1)
         )
         static let statusWarning = dynamicColor(
-            light: NSColor(srgbRed: 208.0 / 255, green: 138.0 / 255, blue: 36.0 / 255, alpha: 1),
+            light: NSColor(srgbRed: 145.0 / 255, green: 90.0 / 255, blue: 5.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 240.0 / 255, green: 180.0 / 255, blue: 89.0 / 255, alpha: 1)
         )
         static let statusDanger = dynamicColor(
-            light: NSColor(srgbRed: 199.0 / 255, green: 70.0 / 255, blue: 60.0 / 255, alpha: 1),
+            light: NSColor(srgbRed: 175.0 / 255, green: 45.0 / 255, blue: 35.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 244.0 / 255, green: 113.0 / 255, blue: 102.0 / 255, alpha: 1)
         )
         static let statusIdle = inkMuted

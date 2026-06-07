@@ -181,6 +181,29 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         XCTAssertNil(DeduplicateAccessibilityText.keeperRationale(KeeperReason()))
     }
 
+    func testPhotoPreviewDetailComposesDescriptionExhaustively() {
+        let member = PhotoCandidate(path: "/Photos/photo.jpg", size: 1_000_000, modificationTime: 0, qualityScore: 0.8)
+        let reason = KeeperReason(factors: [.higherResolution(factor: 2.0)])
+
+        let standard = DeduplicateAccessibilityText.photoPreviewDetail(
+            member: member,
+            decision: .keep,
+            isSuggestedKeeper: true,
+            confidence: .high,
+            keeperReason: reason
+        )
+        XCTAssertEqual(standard, "photo.jpg, marked keep, suggested keeper, because 2.0× resolution, high confidence group")
+
+        let deleted = DeduplicateAccessibilityText.photoPreviewDetail(
+            member: member,
+            decision: .delete,
+            isSuggestedKeeper: false,
+            confidence: nil,
+            keeperReason: nil
+        )
+        XCTAssertEqual(deleted, "photo.jpg, marked delete")
+    }
+
     // MARK: - suggestedKeeperName
 
     func testSuggestedKeeperNameResolvesOrReturnsNil() {

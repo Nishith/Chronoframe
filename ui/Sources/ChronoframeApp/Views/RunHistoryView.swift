@@ -542,7 +542,7 @@ struct RunHistoryView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .accessibilityLabel("More actions for source")
+            .accessibilityLabel("Actions for source")
         }
         .padding(.horizontal, 2)
         .padding(.vertical, DesignTokens.Spacing.sm)
@@ -702,7 +702,7 @@ struct RunHistoryView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .accessibilityLabel("More actions for \(entry.title)")
+            .accessibilityLabel("Actions for \(entry.title)")
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
         .accessibilityElement(children: .contain)

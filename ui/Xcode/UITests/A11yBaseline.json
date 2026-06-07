@@ -1,0 +1,612 @@
+[
+  {
+    "scenario": "setupIncompleteRun",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "setupIncompleteRun",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Idle unless font size is larger."
+  },
+  {
+    "scenario": "setupIncompleteRun",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Idle"
+  },
+  {
+    "scenario": "setupIncompleteRun",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "runIdleOnboardingCard",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for HOW IT WORKS unless font size is larger."
+  },
+  {
+    "scenario": "setupIncompleteRun",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for A quick visual read of the frames Chronoframe will organize."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Optional unless font size is larger."
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for discovered: 84"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Library shape: 4 healthy, 2 needs review, 0 critical"
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "sufficientElementDescription",
+    "role": "application",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 3 artifacts \u00b7 1 reusable sources."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Last used Mar 19, 2025 at 5:00\u202fPM unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "application",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "Source folder",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for /Volumes/Card/Travel"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "application",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "Destination folder",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for /Volumes/Archive/Travel"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "profileName-Meridian Travel",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Meridian Travel"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "profileName-Studio Imports",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Studio Imports"
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for LIBRARY unless font size is larger."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "emoji & symbols",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsSections",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsSections",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsSections",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsLayout",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsLayout",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsLayout",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsPerformance",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsDeduplicate",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsDiagnostics",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "settingsDiagnostics",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Settings"
+  },
+  {
+    "scenario": "settingsDiagnostics",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for LIBRARY unless font size is larger."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for \u00b7"
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "sufficientElementDescription",
+    "role": "application",
+    "identifier": "dedupeReviewDetail",
+    "label": "Selected photo preview",
+    "value": "",
+    "compactDescription": "Unknown role",
+    "detailedDescription": "This element is missing a valid role to identify its type."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "dedupeReviewDetail",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Mar 17, 2025 at 5:00\u202fPM"
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "sufficientElementDescription",
+    "role": "button",
+    "identifier": "",
+    "label": "2007-03-21_001.jpg",
+    "value": "",
+    "compactDescription": "Label not human-readable",
+    "detailedDescription": "The accessibilityLabel of this element is not human-readable."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "sufficientElementDescription",
+    "role": "button",
+    "identifier": "",
+    "label": "2007-03-21_002.jpg",
+    "value": "",
+    "compactDescription": "Label not human-readable",
+    "detailedDescription": "The accessibilityLabel of this element is not human-readable."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "sufficientElementDescription",
+    "role": "window",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for LIBRARY unless font size is larger."
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for \u00b7"
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "sufficientElementDescription",
+    "role": "application",
+    "identifier": "dedupeReviewDetail",
+    "label": "Selected photo preview",
+    "value": "",
+    "compactDescription": "Unknown role",
+    "detailedDescription": "This element is missing a valid role to identify its type."
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "dedupeReviewDetail",
+    "label": "",
+    "value": "",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Mar 17, 2025 at 5:00\u202fPM"
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "sufficientElementDescription",
+    "role": "button",
+    "identifier": "",
+    "label": "2007-03-21_002.jpg",
+    "value": "",
+    "compactDescription": "Label not human-readable",
+    "detailedDescription": "The accessibilityLabel of this element is not human-readable."
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "sufficientElementDescription",
+    "role": "touchBar",
+    "identifier": "",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  }
+]

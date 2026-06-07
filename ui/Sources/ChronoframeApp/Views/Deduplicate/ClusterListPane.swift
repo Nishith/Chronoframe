@@ -180,6 +180,7 @@ private struct ClusterRow: View {
                         size: CGSize(width: 44, height: 44),
                         loader: thumbnailLoader
                     )
+                    .accessibilityHidden(true)
                     .opacity(decisionFor(member) == .delete ? 0.45 : 1.0)
                     .overlay(alignment: .topTrailing) {
                         // Once the user has touched a decision the

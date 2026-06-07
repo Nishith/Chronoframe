@@ -391,28 +391,32 @@ struct MeridianLeadIcon: View {
     let tint: SwiftUI.Color
     var usesBrandMark = false
     var size: CGFloat = DesignTokens.Layout.heroIconSize
+    var isAccessibilityHidden: Bool = false
 
     var body: some View {
-        if usesBrandMark {
-            // The brand mark IS the app icon — render it at full size with no
-            // tinted backdrop so we don't nest its rounded rect inside another.
-            MeridianMark()
-                .frame(width: size, height: size)
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                    .fill(tint.opacity(0.12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                            .strokeBorder(tint.opacity(0.22), lineWidth: 0.5)
-                    )
+        Group {
+            if usesBrandMark {
+                // The brand mark IS the app icon — render it at full size with no
+                // tinted backdrop so we don't nest its rounded rect inside another.
+                MeridianMark()
+                    .frame(width: size, height: size)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                        .fill(tint.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                                .strokeBorder(tint.opacity(0.22), lineWidth: 0.5)
+                        )
 
-                Image(systemName: systemImage)
-                    .font(.system(size: size * 0.44, weight: .medium))
-                    .foregroundStyle(tint)
+                    Image(systemName: systemImage)
+                        .font(.system(size: size * 0.44, weight: .medium))
+                        .foregroundStyle(tint)
+                }
+                .frame(width: size, height: size)
             }
-            .frame(width: size, height: size)
         }
+        .accessibilityHidden(isAccessibilityHidden)
     }
 }
 
@@ -577,7 +581,8 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                         systemImage: systemImage,
                         tint: tint,
                         usesBrandMark: usesBrandMark,
-                        size: usesBrandMark ? DesignTokens.Layout.heroIconSize : 36
+                        size: usesBrandMark ? DesignTokens.Layout.heroIconSize : 36,
+                        isAccessibilityHidden: true
                     )
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -719,10 +724,11 @@ struct PathValueView: View {
                 .lineLimit(DesignTokens.Layout.pathLineLimit)
                 .truncationMode(.middle)
                 .help(value.isEmpty ? "" : value)
+                .accessibilityLabel(value.isEmpty ? "Not set" : AccessibilityPathFormatter.spokenDescription(for: value))
 
             if !helper.isEmpty {
                 Text(helper)
-                    .font(.footnote)
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -747,7 +753,7 @@ struct EmptyStateView: View {
                         .frame(width: 128, height: 68)
                         .opacity(0.68)
 
-                    MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40)
+                    MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40, isAccessibilityHidden: true)
                 }
                 Text(title)
                     .scaledFont(.cardTitle)

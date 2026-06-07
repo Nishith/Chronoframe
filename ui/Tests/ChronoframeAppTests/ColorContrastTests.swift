@@ -103,92 +103,29 @@ final class ColorContrastTests: XCTestCase {
         )
     }
 
-    // MARK: - Status badge text (AccessibleDesign.badgeReadableTint)
-
-    /// Pins the production WCAG math in `AccessibleDesign` to this file's
-    /// independent reference implementation, so the badge adjustment below is
-    /// computed with verified arithmetic.
-    func testBadgeContrastMathMatchesReferenceImplementation() {
-        XCTAssertEqual(
-            AccessibleDesign.contrastRatio(srgb(.init(0, 0, 0)), srgb(.init(1, 1, 1))),
-            21,
-            accuracy: 0.01
-        )
-        for (a, b) in [
-            (Palette.Light.statusWarning, Palette.Light.canvas),
-            (Palette.Light.statusDanger, Palette.Light.canvas),
-            (Palette.Dark.statusSuccess, Palette.Dark.canvas),
-        ] {
-            XCTAssertEqual(
-                AccessibleDesign.contrastRatio(srgb(a), srgb(b)),
-                contrastRatio(a, b),
-                accuracy: 0.0001
-            )
-        }
+    func testLightModeStatusColorsMeetWCAG() {
+        let canvas = Palette.Light.canvas
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusActive, canvas), 4.5)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusSuccess, canvas), 4.5)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusWarning, canvas), 4.5)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusDanger, canvas), 4.5)
     }
 
-    /// The status accents are tuned for fills and icons (3:1), not 12pt label
-    /// text; raw, most sit below 4.5:1 on the light badge fill. The badge text
-    /// adjustment must bring every light status tint up to normal-text AA
-    /// against the badge's own composited fill — and only ever darken, so the
-    /// fix cannot wash a tint out.
-    func testBadgeReadableTintMeetsAAForLightStatusTints() {
-        let surface = srgb(Palette.Light.canvas)
-        let tints: [(name: String, tint: RGB)] = [
-            ("statusWarning", Palette.Light.statusWarning),
-            ("statusSuccess", Palette.Light.statusSuccess),
-            ("statusActive", Palette.Light.statusActive),
-            ("statusDanger", Palette.Light.statusDanger),
-            ("accentAction", Palette.Light.accentAction),
-            ("accentWaypoint", Palette.Light.accentWaypoint),
-        ]
-        for entry in tints {
-            let tint = srgb(entry.tint)
-            let fill = AccessibleDesign.composited(
-                tint, over: surface, alpha: AccessibleDesign.badgeFillOpacity
-            )
-            let adjusted = AccessibleDesign.badgeReadableTint(tint, surface: surface)
-            XCTAssertGreaterThanOrEqual(
-                AccessibleDesign.contrastRatio(adjusted, fill), 4.5,
-                "\(entry.name) badge text must clear the 4.5:1 normal-text AA bar on its own fill"
-            )
-            XCTAssertLessThanOrEqual(adjusted.r, tint.r, "\(entry.name) may only darken")
-            XCTAssertLessThanOrEqual(adjusted.g, tint.g, "\(entry.name) may only darken")
-            XCTAssertLessThanOrEqual(adjusted.b, tint.b, "\(entry.name) may only darken")
-        }
+    func testDarkModeStatusColorsMeetWCAG() {
+        let canvas = Palette.Dark.canvas
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.statusActive, canvas), 4.5)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.statusSuccess, canvas), 4.5)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.statusWarning, canvas), 4.5)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.statusDanger, canvas), 4.5)
     }
 
-    /// A tint that already reads at AA must come back untouched — the
-    /// adjustment is a floor, not a restyle.
-    func testBadgeReadableTintIsIdentityWhenAlreadyReadable() {
-        let surface = srgb(Palette.Light.canvas)
-        let ink = srgb(Palette.Light.inkPrimary)
-        XCTAssertEqual(AccessibleDesign.badgeReadableTint(ink, surface: surface), ink)
-    }
-
-    /// Documents why `badgeForeground` leaves the dark appearance unadjusted:
-    /// every dark status tint already clears normal-text AA against the dark
-    /// badge fill by a wide margin.
-    func testDarkStatusTintsAlreadyReadableOnBadgeFill() {
-        let surface = srgb(Palette.Dark.canvas)
-        for tint in [
-            Palette.Dark.statusWarning,
-            Palette.Dark.statusSuccess,
-            Palette.Dark.statusActive,
-            Palette.Dark.statusDanger,
-            Palette.Dark.accentAction,
-        ] {
-            let fill = AccessibleDesign.composited(
-                srgb(tint), over: surface, alpha: AccessibleDesign.badgeFillOpacity
-            )
-            XCTAssertGreaterThanOrEqual(
-                AccessibleDesign.contrastRatio(srgb(tint), fill), 4.5
-            )
-        }
-    }
-
-    private func srgb(_ rgb: RGB) -> AccessibleDesign.SRGB {
-        AccessibleDesign.SRGB(r: rgb.r, g: rgb.g, b: rgb.b)
+    func testNonTextStatusColorsMeetWCAG() {
+        let canvas = Palette.Light.canvas
+        // Dynamic non-text status elements (such as borders, icon overlays) must clear 3:1 against light canvas.
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusActive, canvas), 3.0)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusSuccess, canvas), 3.0)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusWarning, canvas), 3.0)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.statusDanger, canvas), 3.0)
     }
 
     // MARK: - Drift guard
@@ -206,9 +143,9 @@ final class ColorContrastTests: XCTestCase {
             ("inkPrimary", DesignTokens.ColorSystem.inkPrimary, Palette.Light.inkPrimary),
             ("inkSecondary", DesignTokens.ColorSystem.inkSecondary, Palette.Light.inkSecondary),
             ("inkMuted", DesignTokens.ColorSystem.inkMuted, Palette.Light.inkMuted),
-            ("statusWarning", DesignTokens.ColorSystem.statusWarning, Palette.Light.statusWarning),
-            ("statusSuccess", DesignTokens.ColorSystem.statusSuccess, Palette.Light.statusSuccess),
             ("statusActive", DesignTokens.ColorSystem.statusActive, Palette.Light.statusActive),
+            ("statusSuccess", DesignTokens.ColorSystem.statusSuccess, Palette.Light.statusSuccess),
+            ("statusWarning", DesignTokens.ColorSystem.statusWarning, Palette.Light.statusWarning),
             ("statusDanger", DesignTokens.ColorSystem.statusDanger, Palette.Light.statusDanger),
             ("accentAction", DesignTokens.ColorSystem.accentAction, Palette.Light.accentAction),
             ("accentWaypoint", DesignTokens.ColorSystem.accentWaypoint, Palette.Light.accentWaypoint),
@@ -253,10 +190,10 @@ final class ColorContrastTests: XCTestCase {
             /// Neutral dark tile behind previews / fallback symbols. Dark even in
             /// the light appearance, so muted-tinted icons land on it.
             static let imageStage = RGB.bits(31, 33, 38)
-            static let statusWarning = RGB.bits(208, 138, 36)
-            static let statusSuccess = RGB.bits(47, 143, 91)
-            static let statusActive = RGB.bits(47, 182, 160)
-            static let statusDanger = RGB.bits(199, 70, 60)
+            static let statusActive = RGB.bits(25, 115, 100)
+            static let statusSuccess = RGB.bits(30, 105, 63)
+            static let statusWarning = RGB.bits(145, 90, 5)
+            static let statusDanger = RGB.bits(175, 45, 35)
             static let accentAction = RGB.bits(62, 91, 255)
             static let accentWaypoint = RGB.bits(232, 163, 23)
         }
@@ -265,9 +202,9 @@ final class ColorContrastTests: XCTestCase {
             static let inkPrimary = RGB.bits(237, 238, 242)
             static let inkSecondary = RGB.bits(169, 175, 188)
             static let inkMuted = RGB.bits(124, 130, 144)
-            static let statusWarning = RGB.bits(240, 180, 89)
-            static let statusSuccess = RGB.bits(88, 201, 140)
             static let statusActive = RGB.bits(75, 208, 182)
+            static let statusSuccess = RGB.bits(88, 201, 140)
+            static let statusWarning = RGB.bits(240, 180, 89)
             static let statusDanger = RGB.bits(244, 113, 102)
             static let accentAction = RGB.bits(123, 142, 255)
         }

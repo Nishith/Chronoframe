@@ -162,6 +162,7 @@ private struct HealthCardView: View {
                 HStack(alignment: .center, spacing: 10) {
                     Image(systemName: symbol)
                         .foregroundStyle(tint)
+                        .accessibilityHidden(true)
                     Text(card.title)
                         .scaledFont(.cardTitle)
                     Spacer()

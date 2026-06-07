@@ -126,6 +126,29 @@ enum DeduplicateAccessibilityText {
         return parts.joined(separator: ", ")
     }
 
+    static func photoPreviewDetail(
+        member: PhotoCandidate,
+        decision: DedupeDecision,
+        isSuggestedKeeper: Bool,
+        confidence: ConfidenceLevel?,
+        keeperReason: KeeperReason?
+    ) -> String {
+        let name = URL(fileURLWithPath: member.path).lastPathComponent
+        var parts = [name]
+        parts.append(decision == .keep ? "marked keep" : "marked delete")
+        if isSuggestedKeeper {
+            if let rationale = keeperRationale(keeperReason) {
+                parts.append("suggested keeper, \(rationale)")
+            } else {
+                parts.append("suggested keeper")
+            }
+        }
+        if let confidence {
+            parts.append("\(confidenceLabel(confidence)) confidence group")
+        }
+        return parts.joined(separator: ", ")
+    }
+
     private static func reclaimableSummary(
         cluster: DuplicateCluster,
         recoverableBytes: Int64

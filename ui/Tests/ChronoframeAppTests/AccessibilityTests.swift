@@ -132,4 +132,14 @@ final class AccessibilityTests: XCTestCase {
             AccessibleDesign.neutralOverlayOpacity(contrast: .increased)
         )
     }
+
+    // MARK: - AccessibilityPathFormatter
+
+    func testAccessibilityPathFormatterFormattedDescriptions() {
+        XCTAssertEqual(AccessibilityPathFormatter.spokenDescription(for: ""), "Not set")
+        XCTAssertEqual(AccessibilityPathFormatter.spokenDescription(for: "   "), "Not set")
+        XCTAssertEqual(AccessibilityPathFormatter.spokenDescription(for: "/Users/nishithnand/Pictures/Travel"), "Travel folder")
+        XCTAssertEqual(AccessibilityPathFormatter.spokenDescription(for: "/Users/nishithnand/Pictures/photo.jpg"), "photo.jpg")
+        XCTAssertEqual(AccessibilityPathFormatter.spokenDescription(for: "/"), "Root folder")
+    }
 }

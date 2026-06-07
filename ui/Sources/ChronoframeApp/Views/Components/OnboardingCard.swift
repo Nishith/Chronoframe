@@ -34,6 +34,7 @@ struct OnboardingCard: View {
                     .font(.system(size: 20))
                     .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
                     .frame(width: 28, alignment: .leading)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
@@ -71,6 +72,7 @@ struct OnboardingCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                         .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Dismiss onboarding")

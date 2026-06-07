@@ -250,7 +250,7 @@ private struct ProfileTile: View {
                     .menuIndicator(.hidden)
                     .fixedSize()
                     .opacity(isHovering || isActive ? 1 : 0.5)
-                    .accessibilityLabel("More actions for \(profile.name)")
+                    .accessibilityLabel("Actions for \(profile.name)")
                 }
 
                 VStack(alignment: .leading, spacing: 0) {

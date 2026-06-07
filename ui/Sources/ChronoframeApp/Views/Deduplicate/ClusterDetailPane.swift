@@ -20,6 +20,7 @@ struct ClusterDetailPane: View {
     @State private var showingReasonDetail = false
     @State private var showingComparisonOverlay = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         Group {
@@ -172,7 +173,7 @@ struct ClusterDetailPane: View {
 
     private func detailContentCompact(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
         VStack(spacing: DesignTokens.Spacing.md) {
-            preview(for: focused)
+            preview(for: focused, cluster: cluster)
                 .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
             if let focused {
                 metadataPanel(for: focused, cluster: cluster)
@@ -211,11 +212,11 @@ struct ClusterDetailPane: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    preview(for: focused)
+                    preview(for: focused, cluster: cluster)
                 }
             }
         } else {
-            preview(for: focused)
+            preview(for: focused, cluster: cluster)
         }
     }
 
@@ -306,26 +307,34 @@ struct ClusterDetailPane: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(role.tint)
             Text(role.label)
-                .font(.caption.weight(.semibold))
+                .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(.white)
-            Circle()
-                .fill(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger)
-                .frame(width: 6, height: 6)
+            if differentiateWithoutColor {
+                Image(systemName: decision == .keep ? "checkmark" : "xmark")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger)
+            } else {
+                Circle()
+                    .fill(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger)
+                    .frame(width: 6, height: 6)
+            }
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
         .background(.black.opacity(0.46), in: Capsule())
     }
 
-    private func preview(for member: PhotoCandidate?) -> some View {
+    private func preview(for member: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.black.opacity(0.34))
             if let member {
                 LargePreviewImage(path: member.path)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityHidden(true)
                     .overlay(alignment: .bottomLeading) {
                         photoStageLabel(for: member)
+                            .accessibilityHidden(true)
                     }
             } else {
                 Image(systemName: "photo")
@@ -335,6 +344,15 @@ struct ClusterDetailPane: View {
                     .foregroundStyle(Color.white.opacity(0.4))
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(member != nil ? "Selected photo preview" : "")
+        .accessibilityValue(member != nil ? DeduplicateAccessibilityText.photoPreviewDetail(
+            member: member!,
+            decision: sessionStore.decisions.byPath[member!.path] ?? (isSuggestedKeeper(member!, in: cluster) ? .keep : .delete),
+            isSuggestedKeeper: isSuggestedKeeper(member!, in: cluster),
+            confidence: cluster.annotation?.confidence,
+            keeperReason: cluster.annotation?.keeperReason
+        ) : "")
     }
 
     private func metadataPanel(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
@@ -369,12 +387,12 @@ struct ClusterDetailPane: View {
             }
             if member.isRaw {
                 Label("RAW", systemImage: "camera.aperture")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
             if let pairedPath = member.pairedPath {
                 Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
-                    .font(.caption)
+                    .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(2)
             }
@@ -573,7 +591,7 @@ struct ClusterDetailPane: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .font(.caption.weight(.semibold))
+        .scaledFont(.label, weight: .semibold)
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
@@ -591,10 +609,10 @@ struct ClusterDetailPane: View {
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("These photos may be intentionally different")
-                        .font(.caption.weight(.semibold))
+                        .scaledFont(.label, weight: .semibold)
                     ForEach(Array(annotation.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(MatchReasonFormatter.warningSummary(warning))
-                            .font(.caption2)
+                            .scaledFont(.label)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
                 }
@@ -622,7 +640,7 @@ struct ClusterDetailPane: View {
                     Image(systemName: showingReasonDetail ? "chevron.down" : "chevron.right")
                         .font(.caption2)
                     Text("Why matched")
-                        .font(.caption.weight(.medium))
+                        .scaledFont(.label, weight: .medium)
                     Spacer()
                     confidenceBadge(annotation.confidence)
                 }
@@ -634,11 +652,11 @@ struct ClusterDetailPane: View {
             if showingReasonDetail {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(MatchReasonFormatter.summary(annotation.matchReason))
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     if let keeperReason = annotation.keeperReason {
                         Text(MatchReasonFormatter.keeperSummary(keeperReason))
-                            .font(.caption)
+                            .scaledFont(.label)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
                 }
@@ -650,7 +668,7 @@ struct ClusterDetailPane: View {
                 showingComparisonOverlay = true
             } label: {
                 Label("Compare", systemImage: "rectangle.on.rectangle")
-                    .font(.caption)
+                    .scaledFont(.label)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -660,7 +678,7 @@ struct ClusterDetailPane: View {
 
     private func confidenceBadge(_ level: ConfidenceLevel) -> some View {
         Text(MatchReasonFormatter.confidenceLabel(level))
-            .font(.caption2.weight(.semibold))
+            .scaledFont(.label, weight: .semibold)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(confidenceColor(level).opacity(0.15))

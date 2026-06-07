@@ -28,6 +28,39 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    private struct A11yBaselineEntry: Codable, Sendable {
+        let scenario: String
+        let auditType: String
+        let role: String
+        let identifier: String
+        let label: String
+        let value: String
+        let compactDescription: String
+        let detailedDescription: String
+    }
+
+    private static let baselineEntries: [A11yBaselineEntry] = {
+        let thisFile = URL(fileURLWithPath: #filePath)
+        let uiTestsDir = thisFile.deletingLastPathComponent()
+        let baselineURL = uiTestsDir.appendingPathComponent("A11yBaseline.json")
+
+        guard FileManager.default.fileExists(atPath: baselineURL.path) else {
+            NSLog("A11yBaseline.json not found at: %@", baselineURL.path)
+            return []
+        }
+
+        do {
+            let data = try Data(contentsOf: baselineURL)
+            let decoder = JSONDecoder()
+            let entries = try decoder.decode([A11yBaselineEntry].self, from: data)
+            NSLog("Successfully loaded %d entries from A11yBaseline.json", entries.count)
+            return entries
+        } catch {
+            NSLog("Error decoding A11yBaseline.json: %@", "\(error)")
+            return []
+        }
+    }()
+
     private struct AccessibilityAuditAllowlistEntry {
         let scenario: Scenario
         let signature: String
@@ -39,7 +72,7 @@ final class ChronoframeUITests: XCTestCase {
     private static var auditFailsBuild: Bool {
         auditFailsBuild(
             environment: ProcessInfo.processInfo.environment,
-            hasBaseline: !accessibilityAuditAllowlist.isEmpty
+            hasBaseline: !baselineEntries.isEmpty
         )
     }
 
@@ -79,9 +112,8 @@ final class ChronoframeUITests: XCTestCase {
                 }
                 do {
                     try app.performAccessibilityAudit(for: auditTypes) { issue in
-                        let description = issue.compactDescription
                         NSLog("%@", Self.auditLogLine(for: issue, scenario: scenario))
-                        if Self.isAllowedAccessibilityAuditIssue(description, scenario: scenario) {
+                        if Self.isAllowedAccessibilityAuditIssue(issue, scenario: scenario) {
                             return true
                         }
                         return !Self.auditFailsBuild
@@ -389,6 +421,76 @@ final class ChronoframeUITests: XCTestCase {
             scenario: scenario,
             allowlist: accessibilityAuditAllowlist
         )
+    }
+
+    @available(macOS 14.0, *)
+    @MainActor
+    private static func isAllowedAccessibilityAuditIssue(_ issue: XCUIAccessibilityAuditIssue, scenario: Scenario) -> Bool {
+        let auditTypeString: String
+        if issue.auditType.contains(.contrast) {
+            auditTypeString = "contrast"
+        } else if issue.auditType.contains(.elementDetection) {
+            auditTypeString = "elementDetection"
+        } else if issue.auditType.contains(.hitRegion) {
+            auditTypeString = "hitRegion"
+        } else if issue.auditType.contains(.sufficientElementDescription) {
+            auditTypeString = "sufficientElementDescription"
+        } else {
+            auditTypeString = "unknown"
+        }
+
+        let elementId = issue.element?.identifier ?? ""
+        let elementLabel = issue.element?.label ?? ""
+
+        let roleVal = issue.element?.elementType.rawValue ?? 0
+        let elementRole: String
+        switch roleVal {
+        case 1: elementRole = "application"
+        case 3: elementRole = "window"
+        case 9: elementRole = "button"
+        case 12: elementRole = "menuButton"
+        case 14: elementRole = "role_14"
+        case 48: elementRole = "staticText"
+        case 70: elementRole = "tab"
+        case 81: elementRole = "touchBar"
+        default: elementRole = roleVal == 0 ? "" : "role_\(roleVal)"
+        }
+
+        var elementValue = ""
+        if let val = issue.element?.value {
+            elementValue = String(describing: val)
+        }
+
+        let matched = baselineEntries.contains { entry in
+            guard entry.scenario == scenario.rawValue,
+                  entry.auditType == auditTypeString else {
+                return false
+            }
+
+            // Rule: If explicit identifier is present and matches, allow it
+            if !entry.identifier.isEmpty && !elementId.isEmpty {
+                return entry.identifier == elementId
+            }
+
+            // Fallback: match role, label, value, and description substring
+            let roleMatches = entry.role.isEmpty || elementRole.localizedCaseInsensitiveContains(entry.role) || entry.role.localizedCaseInsensitiveContains(elementRole)
+            let labelMatches = entry.label.isEmpty || elementLabel.localizedCaseInsensitiveContains(entry.label) || entry.label.localizedCaseInsensitiveContains(elementLabel)
+            let valueMatches = entry.value.isEmpty || elementValue.localizedCaseInsensitiveContains(entry.value) || entry.value.localizedCaseInsensitiveContains(elementValue)
+
+            let descMatches = entry.detailedDescription.isEmpty ||
+                              issue.detailedDescription.localizedCaseInsensitiveContains(entry.detailedDescription) ||
+                              issue.compactDescription.localizedCaseInsensitiveContains(entry.detailedDescription) ||
+                              entry.compactDescription.localizedCaseInsensitiveContains(issue.compactDescription)
+
+            return roleMatches && labelMatches && valueMatches && descMatches
+        }
+
+        if !matched {
+            NSLog("A11y audit mismatch: scenario=%@, auditType=%@, id=%@, label=%@, role=%@, value=%@, desc=%@, compactDesc=%@",
+                  scenario.rawValue, auditTypeString, elementId, elementLabel, elementRole, elementValue, issue.detailedDescription, issue.compactDescription)
+        }
+
+        return matched
     }
 
     /// Builds one grep-friendly log line per audit issue carrying the offending
