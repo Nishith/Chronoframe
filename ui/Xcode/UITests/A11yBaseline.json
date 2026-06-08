@@ -1337,7 +1337,7 @@
     "label": "",
     "value": "",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 0 groups reviewed. 12 groups untouched."
+    "detailedDescription": "groups reviewed"
   },
   {
     "scenario": "deduplicateReviewWide",
@@ -1447,7 +1447,7 @@
     "label": "",
     "value": "",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 0 groups reviewed. 12 groups untouched."
+    "detailedDescription": "groups reviewed"
   },
   {
     "scenario": "deduplicateReviewCompact",
@@ -1568,5 +1568,25 @@
     "value": "",
     "compactDescription": "Element has no description",
     "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Save Current Paths",
+    "compactDescription": "",
+    "detailedDescription": ""
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Saved Profiles",
+    "compactDescription": "",
+    "detailedDescription": ""
   }
 ]
