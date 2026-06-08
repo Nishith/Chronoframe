@@ -111,14 +111,14 @@ enum DesignTokens {
 
         /// Content panel behind lists; sits above canvas with vibrancy optional.
         static let panel = dynamicColor(
-            light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.72),
-            dark: NSColor(srgbRed: 23.0 / 255, green: 24.0 / 255, blue: 28.0 / 255, alpha: 0.88)
+            light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1),
+            dark: NSColor(srgbRed: 23.0 / 255, green: 24.0 / 255, blue: 28.0 / 255, alpha: 1)
         )
 
         /// Elevated surface — used sparingly for focus states / popovers.
         static let elevated = dynamicColor(
-            light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.92),
-            dark: NSColor(srgbRed: 32.0 / 255, green: 34.0 / 255, blue: 40.0 / 255, alpha: 0.96)
+            light: NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 1),
+            dark: NSColor(srgbRed: 32.0 / 255, green: 34.0 / 255, blue: 40.0 / 255, alpha: 1)
         )
 
         /// Neutral image stage behind previews and contact sheets.
@@ -129,8 +129,8 @@ enum DesignTokens {
 
         /// Subtle utility band for command/status strips.
         static let utilityBand = dynamicColor(
-            light: NSColor(srgbRed: 238.0 / 255, green: 237.0 / 255, blue: 234.0 / 255, alpha: 0.78),
-            dark: NSColor(srgbRed: 24.0 / 255, green: 25.0 / 255, blue: 29.0 / 255, alpha: 0.82)
+            light: NSColor(srgbRed: 238.0 / 255, green: 237.0 / 255, blue: 234.0 / 255, alpha: 1),
+            dark: NSColor(srgbRed: 24.0 / 255, green: 25.0 / 255, blue: 29.0 / 255, alpha: 1)
         )
 
         /// Soft highlight used to make thumbnail edges read like image prints.
@@ -167,6 +167,31 @@ enum DesignTokens {
         static let inkMuted = dynamicColor(
             light: NSColor(srgbRed: 97.0 / 255, green: 108.0 / 255, blue: 118.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 124.0 / 255, green: 130.0 / 255, blue: 144.0 / 255, alpha: 1)
+        )
+
+        /// Caption text on deterministic app surfaces. Use this instead of
+        /// applying opacity to another ink token; alpha-blended text is hard to
+        /// reason about and has produced runtime audit contrast failures over
+        /// materials.
+        static let captionText = dynamicColor(
+            light: NSColor(srgbRed: 70.0 / 255, green: 78.0 / 255, blue: 90.0 / 255, alpha: 1),
+            dark: NSColor(srgbRed: 196.0 / 255, green: 201.0 / 255, blue: 212.0 / 255, alpha: 1)
+        )
+
+        /// Dense metadata such as dates, paths, counts, and file sizes.
+        static let metadataText = captionText
+
+        /// Visible punctuation/separator text where a real glyph is needed.
+        /// Prefer hidden visual separators for decorative dots.
+        static let separatorText = dynamicColor(
+            light: NSColor(srgbRed: 85.0 / 255, green: 93.0 / 255, blue: 104.0 / 255, alpha: 1),
+            dark: NSColor(srgbRed: 181.0 / 255, green: 187.0 / 255, blue: 199.0 / 255, alpha: 1)
+        )
+
+        /// Text and symbols rendered directly on the dark image stage.
+        static let textOnImageStage = dynamicColor(
+            light: NSColor(srgbRed: 244.0 / 255, green: 246.0 / 255, blue: 250.0 / 255, alpha: 1),
+            dark: NSColor(srgbRed: 244.0 / 255, green: 246.0 / 255, blue: 250.0 / 255, alpha: 1)
         )
 
         // Lines

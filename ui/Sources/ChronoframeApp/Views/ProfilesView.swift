@@ -250,7 +250,10 @@ private struct ProfileTile: View {
                     .menuIndicator(.hidden)
                     .fixedSize()
                     .opacity(isHovering || isActive ? 1 : 0.5)
-                    .accessibilityLabel("Actions for \(profile.name)")
+                    .accessibilityActionsMenu(
+                        label: "Actions for \(profile.name)",
+                        hint: "Overwrite or delete this saved profile."
+                    )
                 }
 
                 VStack(alignment: .leading, spacing: 0) {

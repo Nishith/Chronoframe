@@ -505,14 +505,16 @@ struct RunHistoryView: View {
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text("Last used \(record.lastTransferredAt.formatted(date: .abbreviated, time: .shortened))")
                     Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                        .accessibilityHidden(true)
                     Text("\(record.runCount) run\(record.runCount == 1 ? "" : "s")")
                     Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                        .accessibilityHidden(true)
                     Text("\(record.totalCopiedCount) copied")
                 }
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
             }
 
             Spacer(minLength: DesignTokens.Spacing.md)
@@ -542,7 +544,10 @@ struct RunHistoryView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .accessibilityLabel("Actions for source")
+            .accessibilityActionsMenu(
+                label: "Actions for source",
+                hint: "Reveal this source in Finder or forget it."
+            )
         }
         .padding(.horizontal, 2)
         .padding(.vertical, DesignTokens.Spacing.sm)
@@ -644,23 +649,25 @@ struct RunHistoryView: View {
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text(entry.kind.title)
                     Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                        .accessibilityHidden(true)
                     Text(entry.createdAt.formatted(date: .omitted, time: .shortened))
                     if let size = entry.fileSizeBytes {
                         Text("·")
-                            .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                            .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                            .accessibilityHidden(true)
                         Text(Self.fileSizeFormatter.string(fromByteCount: size))
                     }
                 }
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
             }
 
             Spacer(minLength: DesignTokens.Spacing.sm)
 
             Text(entry.relativePath)
                 .scaledFont(.mono)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: 260, alignment: .trailing)
@@ -702,7 +709,10 @@ struct RunHistoryView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .accessibilityLabel("Actions for \(entry.title)")
+            .accessibilityActionsMenu(
+                label: "Actions for \(entry.title)",
+                hint: "Reveal, revert, or move this artifact to Trash."
+            )
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
         .accessibilityElement(children: .contain)

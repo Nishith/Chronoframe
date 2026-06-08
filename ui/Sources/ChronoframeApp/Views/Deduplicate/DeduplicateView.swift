@@ -541,6 +541,10 @@ struct DeduplicateView: View {
             Label("Options", systemImage: "ellipsis.circle")
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewActionsMenu)
+        .accessibilityActionsMenu(
+            label: "Review options",
+            hint: "Change folder, adjust settings, quick review, or commit reviewed duplicate groups."
+        )
         .sheet(isPresented: $showingRapidTriage) {
             let reviewClusters = sessionStore.clusters.filter {
                 let level = $0.annotation?.confidence ?? .medium
@@ -951,6 +955,10 @@ private struct DeduplicateDestinationCardContent: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
+                .accessibilityActionsMenu(
+                    label: "More destination actions",
+                    hint: "Reveal this folder in Finder or use the Organize destination."
+                )
             }
         }
     }

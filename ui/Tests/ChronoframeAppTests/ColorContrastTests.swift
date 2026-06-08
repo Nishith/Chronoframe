@@ -90,6 +90,33 @@ final class ColorContrastTests: XCTestCase {
         }
     }
 
+    func testSemanticTextTokensMeetAAOnWorstCaseSurfaces() {
+        for palette in [Palette.Light.self, Palette.Dark.self] as [any ContrastPalette.Type] {
+            for background in palette.textSurfaces {
+                XCTAssertGreaterThanOrEqual(
+                    contrastRatio(palette.captionText, background.color),
+                    4.5,
+                    "\(palette.name) caption text must clear AA on \(background.name)"
+                )
+                XCTAssertGreaterThanOrEqual(
+                    contrastRatio(palette.metadataText, background.color),
+                    4.5,
+                    "\(palette.name) metadata text must clear AA on \(background.name)"
+                )
+                XCTAssertGreaterThanOrEqual(
+                    contrastRatio(palette.separatorText, background.color),
+                    4.5,
+                    "\(palette.name) separator text must clear AA on \(background.name)"
+                )
+            }
+        }
+    }
+
+    func testTextOnImageStageMeetsAA() {
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Light.textOnImageStage, Palette.Light.imageStage), 4.5)
+        XCTAssertGreaterThanOrEqual(contrastRatio(Palette.Dark.textOnImageStage, Palette.Dark.imageStage), 4.5)
+    }
+
     /// The muted ink also serves as the idle status tone, which tints fallback
     /// symbols on the dark `imageStage` tile (e.g. `NowCopyingThumbnail` before a
     /// run starts). That is a non-text icon, so it must clear the 3:1 AA floor
@@ -143,6 +170,9 @@ final class ColorContrastTests: XCTestCase {
             ("inkPrimary", DesignTokens.ColorSystem.inkPrimary, Palette.Light.inkPrimary),
             ("inkSecondary", DesignTokens.ColorSystem.inkSecondary, Palette.Light.inkSecondary),
             ("inkMuted", DesignTokens.ColorSystem.inkMuted, Palette.Light.inkMuted),
+            ("captionText", DesignTokens.ColorSystem.captionText, Palette.Light.captionText),
+            ("separatorText", DesignTokens.ColorSystem.separatorText, Palette.Light.separatorText),
+            ("textOnImageStage", DesignTokens.ColorSystem.textOnImageStage, Palette.Light.textOnImageStage),
             ("statusActive", DesignTokens.ColorSystem.statusActive, Palette.Light.statusActive),
             ("statusSuccess", DesignTokens.ColorSystem.statusSuccess, Palette.Light.statusSuccess),
             ("statusWarning", DesignTokens.ColorSystem.statusWarning, Palette.Light.statusWarning),
@@ -182,11 +212,19 @@ final class ColorContrastTests: XCTestCase {
     /// sRGB triples mirroring `DesignTokens.ColorSystem`. Keep in sync with that
     /// file; `testLiteralTriplesTrackLiveTokens` enforces the light variants.
     private enum Palette {
-        enum Light {
+        enum Light: ContrastPalette {
+            static let name = "light"
             static let canvas = RGB.bits(246, 245, 242)
+            static let panel = RGB.bits(255, 255, 255)
+            static let elevated = RGB.bits(255, 255, 255)
+            static let utilityBand = RGB.bits(238, 237, 234)
             static let inkPrimary = RGB.bits(14, 17, 22)
             static let inkSecondary = RGB.bits(55, 62, 78)
             static let inkMuted = RGB.bits(97, 108, 118)
+            static let captionText = RGB.bits(70, 78, 90)
+            static let metadataText = captionText
+            static let separatorText = RGB.bits(85, 93, 104)
+            static let textOnImageStage = RGB.bits(244, 246, 250)
             /// Neutral dark tile behind previews / fallback symbols. Dark even in
             /// the light appearance, so muted-tinted icons land on it.
             static let imageStage = RGB.bits(31, 33, 38)
@@ -196,18 +234,47 @@ final class ColorContrastTests: XCTestCase {
             static let statusDanger = RGB.bits(175, 45, 35)
             static let accentAction = RGB.bits(62, 91, 255)
             static let accentWaypoint = RGB.bits(232, 163, 23)
+            static let textSurfaces: [(name: String, color: RGB)] = [
+                ("canvas", canvas),
+                ("panel", panel),
+                ("elevated", elevated),
+                ("utilityBand", utilityBand),
+            ]
         }
-        enum Dark {
+        enum Dark: ContrastPalette {
+            static let name = "dark"
             static let canvas = RGB.bits(14, 15, 18)
+            static let panel = RGB.bits(23, 24, 28)
+            static let elevated = RGB.bits(32, 34, 40)
+            static let utilityBand = RGB.bits(24, 25, 29)
             static let inkPrimary = RGB.bits(237, 238, 242)
             static let inkSecondary = RGB.bits(169, 175, 188)
             static let inkMuted = RGB.bits(124, 130, 144)
+            static let captionText = RGB.bits(196, 201, 212)
+            static let metadataText = captionText
+            static let separatorText = RGB.bits(181, 187, 199)
+            static let textOnImageStage = RGB.bits(244, 246, 250)
+            static let imageStage = RGB.bits(8, 9, 11)
             static let statusActive = RGB.bits(75, 208, 182)
             static let statusSuccess = RGB.bits(88, 201, 140)
             static let statusWarning = RGB.bits(240, 180, 89)
             static let statusDanger = RGB.bits(244, 113, 102)
             static let accentAction = RGB.bits(123, 142, 255)
+            static let textSurfaces: [(name: String, color: RGB)] = [
+                ("canvas", canvas),
+                ("panel", panel),
+                ("elevated", elevated),
+                ("utilityBand", utilityBand),
+            ]
         }
+    }
+
+    private protocol ContrastPalette {
+        static var name: String { get }
+        static var captionText: RGB { get }
+        static var metadataText: RGB { get }
+        static var separatorText: RGB { get }
+        static var textSurfaces: [(name: String, color: RGB)] { get }
     }
 
     /// Resolves a SwiftUI color to sRGB components under the Aqua (light)

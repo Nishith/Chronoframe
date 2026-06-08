@@ -200,12 +200,7 @@ private struct ClusterRow: View {
                 if cluster.members.count > 5 {
                     Text("+\(cluster.members.count - 5)")
                         .font(.caption2)
-                        // ClusterRow lives in `List(selection:)`; keep the
-                        // hierarchical `.secondary` so a focused row's captions
-                        // adapt to the accent selection background. A fixed ink
-                        // token would stay dark and become unreadable when
-                        // selected — do not migrate these to inkSecondary.
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.metadataText)
                 }
                 Spacer()
                 if isHovered {
@@ -217,14 +212,17 @@ private struct ClusterRow: View {
                 confidenceDot
                 Text("\(cluster.members.count) photos")
                     .font(.caption)
+                    .foregroundStyle(DesignTokens.ColorSystem.metadataText)
                 // ByteCountFormatter renders 0 as the words "Zero KB"; an
                 // unreviewed group has nothing selected yet, so show nothing.
                 if recoverableBytes > 0 {
-                    Text("·")
-                        .foregroundStyle(.secondary)
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
+                        .accessibilityHidden(true)
                     Text(Self.formatter.string(fromByteCount: recoverableBytes))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.metadataText)
                 }
                 if hasWarnings {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -251,7 +249,7 @@ private struct ClusterRow: View {
             if let annotation = cluster.annotation {
                 Text(MatchReasonFormatter.oneLiner(annotation))
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .lineLimit(1)
             }
         }
@@ -288,8 +286,10 @@ private struct ClusterRow: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Actions for this duplicate group")
-        .accessibilityLabel("Actions for duplicate group")
+        .accessibilityActionsMenu(
+            label: "Actions for duplicate group",
+            hint: "Keep all, accept the suggestion, or delete all in this duplicate group."
+        )
     }
 
     private var hoverActions: some View {

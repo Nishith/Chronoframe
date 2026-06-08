@@ -51,7 +51,8 @@ struct OnboardingCard: View {
                             ForEach(bullets, id: \.self) { bullet in
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("•")
-                                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                                        .accessibilityHidden(true)
                                     Text(bullet)
                                         .scaledFont(.subtitle)
                                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)

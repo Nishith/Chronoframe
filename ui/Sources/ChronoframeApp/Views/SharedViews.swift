@@ -76,20 +76,9 @@ struct DarkroomPanel<Content: View>: View {
         case .canvas, .inset:
             Color.clear
         case .panel:
-            if reduceTransparency {
-                DesignTokens.ColorSystem.panel
-            } else {
-                Rectangle().fill(.thinMaterial)
-            }
+            DesignTokens.ColorSystem.panel
         case .elevated:
-            if reduceTransparency {
-                DesignTokens.ColorSystem.elevated
-            } else {
-                ZStack {
-                    DesignTokens.ColorSystem.elevated
-                    Rectangle().fill(.regularMaterial)
-                }
-            }
+            DesignTokens.ColorSystem.elevated
         }
     }
 
@@ -187,19 +176,8 @@ struct MeridianSurfaceCard<Content: View>: View {
     private var backgroundView: some View {
         switch style {
         case .hero:
-            if reduceTransparency {
-                Rectangle().fill(DesignTokens.ColorSystem.panel)
-                    .overlay {
-                        if let tint {
-                            Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
-                                style: .hero,
-                                contrast: colorSchemeContrast
-                            )))
-                        }
-                    }
-            } else {
-                ZStack {
-                    Rectangle().fill(.thinMaterial)
+            Rectangle().fill(DesignTokens.ColorSystem.panel)
+                .overlay {
                     if let tint {
                         Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
                             style: .hero,
@@ -207,13 +185,8 @@ struct MeridianSurfaceCard<Content: View>: View {
                         )))
                     }
                 }
-            }
         case .standard:
-            if reduceTransparency {
-                Rectangle().fill(DesignTokens.ColorSystem.panel)
-            } else {
-                Rectangle().fill(.thinMaterial)
-            }
+            Rectangle().fill(DesignTokens.ColorSystem.panel)
         case .inner:
             if let tint {
                 Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
@@ -514,7 +487,7 @@ struct SectionHeading: View {
             if let eyebrow, !eyebrow.isEmpty {
                 Text(eyebrow.uppercased())
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .tracking(0.8)
             }
 
@@ -642,10 +615,7 @@ struct SummaryLine: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
                 .scaledFont(.body)
-                // Secondary (not muted): these labels sit on tinted inner cards
-                // where the muted tier dropped below AA. inkSecondary keeps
-                // headroom over the tint overlay.
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
 
             Spacer(minLength: 12)
 
@@ -682,7 +652,7 @@ struct MetricTile: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title.uppercased())
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .tracking(0.6)
 
                 Text(value)
@@ -715,12 +685,12 @@ struct PathValueView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .tracking(0.6)
 
             Text(value.isEmpty ? "Not set" : value)
                 .scaledFont(.mono)
-                .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.inkMuted : DesignTokens.ColorSystem.inkPrimary)
+                .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.captionText : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(DesignTokens.Layout.pathLineLimit)
                 .truncationMode(.middle)
                 .help(value.isEmpty ? "" : value)
@@ -729,7 +699,7 @@ struct PathValueView: View {
             if !helper.isEmpty {
                 Text(helper)
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -1198,5 +1168,14 @@ struct TrustProofSurface: View {
                 .accessibilityLabel(item.accessibilityLabel)
             }
         }
+    }
+}
+
+extension View {
+    func accessibilityActionsMenu(label: String, hint: String) -> some View {
+        self
+            .accessibilityLabel(label)
+            .accessibilityValue("Menu")
+            .help(hint)
     }
 }
