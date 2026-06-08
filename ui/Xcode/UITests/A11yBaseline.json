@@ -1458,5 +1458,115 @@
     "value": "",
     "compactDescription": "Element has no description",
     "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Review",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Review unless font size is larger."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for source",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for Dry Run Report",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for Transfer Receipt",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for Run Log",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for Meridian Travel",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "profilesPopulated",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for Studio Imports",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for duplicate group",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewWide",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "dedupeReviewActionsMenu",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "",
+    "label": "Actions for duplicate group",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
+  },
+  {
+    "scenario": "deduplicateReviewCompact",
+    "auditType": "sufficientElementDescription",
+    "role": "role_14",
+    "identifier": "dedupeReviewActionsMenu",
+    "label": "",
+    "value": "",
+    "compactDescription": "Element has no description",
+    "detailedDescription": "This element is missing useful accessibility information."
   }
 ]
