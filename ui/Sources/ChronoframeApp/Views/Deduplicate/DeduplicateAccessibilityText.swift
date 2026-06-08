@@ -134,8 +134,7 @@ enum DeduplicateAccessibilityText {
         keeperReason: KeeperReason?
     ) -> String {
         let name = AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent)
-        var parts = [name]
-        parts.append(decision == .keep ? "marked keep" : "marked delete")
+        var parts = [decision == .keep ? "Marked keep" : "Marked delete"]
         if isSuggestedKeeper {
             if let rationale = keeperRationale(keeperReason) {
                 parts.append("suggested keeper, \(rationale)")
@@ -146,6 +145,7 @@ enum DeduplicateAccessibilityText {
         if let confidence {
             parts.append("\(confidenceLabel(confidence)) confidence group")
         }
+        parts.append(name)
         return parts.joined(separator: ", ")
     }
 

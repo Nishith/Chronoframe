@@ -192,7 +192,7 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
             confidence: .high,
             keeperReason: reason
         )
-        XCTAssertEqual(standard, "photo, marked keep, suggested keeper, because 2.0× resolution, high confidence group")
+        XCTAssertEqual(standard, "Marked keep, suggested keeper, because 2.0× resolution, high confidence group, photo")
 
         let deleted = DeduplicateAccessibilityText.photoPreviewDetail(
             member: member,
@@ -201,7 +201,7 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
             confidence: nil,
             keeperReason: nil
         )
-        XCTAssertEqual(deleted, "photo, marked delete")
+        XCTAssertEqual(deleted, "Marked delete, photo")
     }
 
     // MARK: - suggestedKeeperName

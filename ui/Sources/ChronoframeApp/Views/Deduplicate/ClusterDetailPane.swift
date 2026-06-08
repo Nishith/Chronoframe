@@ -346,15 +346,18 @@ struct ClusterDetailPane: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(member != nil ? "Selected photo preview" : "")
+        .accessibilityHidden(member == nil)
+        .accessibilityLabel("Selected photo preview")
         .accessibilityAddTraits(.isImage)
-        .accessibilityValue(member != nil ? DeduplicateAccessibilityText.photoPreviewDetail(
-            member: member!,
-            decision: sessionStore.decisions.byPath[member!.path] ?? (isSuggestedKeeper(member!, in: cluster) ? .keep : .delete),
-            isSuggestedKeeper: isSuggestedKeeper(member!, in: cluster),
-            confidence: cluster.annotation?.confidence,
-            keeperReason: cluster.annotation?.keeperReason
-        ) : "")
+        .accessibilityValue(member.map { selectedMember in
+            DeduplicateAccessibilityText.photoPreviewDetail(
+                member: selectedMember,
+                decision: sessionStore.decisions.byPath[selectedMember.path] ?? (isSuggestedKeeper(selectedMember, in: cluster) ? .keep : .delete),
+                isSuggestedKeeper: isSuggestedKeeper(selectedMember, in: cluster),
+                confidence: cluster.annotation?.confidence,
+                keeperReason: cluster.annotation?.keeperReason
+            )
+        } ?? "")
     }
 
     private func metadataPanel(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
