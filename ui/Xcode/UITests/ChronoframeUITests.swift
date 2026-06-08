@@ -477,10 +477,16 @@ final class ChronoframeUITests: XCTestCase {
             let labelMatches = entry.label.isEmpty || elementLabel.localizedCaseInsensitiveContains(entry.label) || entry.label.localizedCaseInsensitiveContains(elementLabel)
             let valueMatches = entry.value.isEmpty || elementValue.localizedCaseInsensitiveContains(entry.value) || entry.value.localizedCaseInsensitiveContains(elementValue)
 
-            let descMatches = entry.detailedDescription.isEmpty ||
-                              issue.detailedDescription.localizedCaseInsensitiveContains(entry.detailedDescription) ||
-                              issue.compactDescription.localizedCaseInsensitiveContains(entry.detailedDescription) ||
+            let descMatches: Bool
+            if !entry.detailedDescription.isEmpty {
+                descMatches = issue.detailedDescription.localizedCaseInsensitiveContains(entry.detailedDescription) ||
+                              entry.detailedDescription.localizedCaseInsensitiveContains(issue.detailedDescription)
+            } else if !entry.compactDescription.isEmpty {
+                descMatches = issue.compactDescription.localizedCaseInsensitiveContains(entry.compactDescription) ||
                               entry.compactDescription.localizedCaseInsensitiveContains(issue.compactDescription)
+            } else {
+                descMatches = true
+            }
 
             return roleMatches && labelMatches && valueMatches && descMatches
         }
