@@ -264,7 +264,7 @@ private struct LibraryHealthHero: View {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                     Text("Library shape")
                         .scaledFont(.label, weight: .medium)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
                         .tracking(0.8)
                         .textCase(.uppercase)
 
@@ -282,7 +282,7 @@ private struct LibraryHealthHero: View {
             .padding(DesignTokens.Layout.cardPadding)
             .background(
                 RoundedRectangle(cornerRadius: DesignTokens.Corner.card, style: .continuous)
-                    .fill(DesignTokens.ColorSystem.imageStage.opacity(0.6))
+                    .fill(DesignTokens.ColorSystem.panel)
             )
         }
         .accessibilityElement(children: .combine)
@@ -314,7 +314,7 @@ private struct LibraryHealthHero: View {
                     .scaledFont(.label)
                     .tracking(0.8)
                     .textCase(.uppercase)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
             }
         }
         .padding(6)

@@ -342,7 +342,7 @@ struct ClusterDetailPane: View {
                     .font(.system(size: 56))
                     // Placeholder sits on the dark photo-preview fill, so it must
                     // stay light in both appearances (not the dark ink token).
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             }
         }
         .accessibilityElement(children: .ignore)
@@ -884,7 +884,7 @@ private struct LargePreviewImage: View {
                     .font(.system(size: 56))
                     // Placeholder sits on the dark photo-preview fill, so it must
                     // stay light in both appearances (not the dark ink token).
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             } else {
                 ProgressView()
             }

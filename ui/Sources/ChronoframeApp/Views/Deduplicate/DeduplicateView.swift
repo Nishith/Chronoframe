@@ -88,6 +88,8 @@ struct DeduplicateView: View {
                         .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Deduplicate. Find similar shots and prune.")
 
                 if !didOnboardDeduplicate {
                     OnboardingCard(

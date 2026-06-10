@@ -152,7 +152,7 @@ final class ChronoframeUITests: XCTestCase {
                 .sufficientElementDescription,
             ]
 
-            for scenario in Scenario.allCases {
+            for scenario in Self.requestedAuditScenarios {
                 let app = Self.launchApp(scenario)
                 guard Self.waitForScenarioReady(scenario, in: app) else {
                     XCTFail("Scenario \(scenario.rawValue) did not reach its audit-ready state")
@@ -182,6 +182,19 @@ final class ChronoframeUITests: XCTestCase {
                 app.terminate()
             }
         }
+    }
+
+    private static var requestedAuditScenarios: [Scenario] {
+        let rawValue = ProcessInfo.processInfo.environment["CHRONOFRAME_A11Y_AUDIT_SCENARIOS"] ?? ""
+        let names = rawValue
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !names.isEmpty else {
+            return Array(Scenario.allCases)
+        }
+        let scenarios = names.compactMap(Scenario.init(rawValue:))
+        return scenarios.isEmpty ? Array(Scenario.allCases) : scenarios
     }
 
     func testKeyboardTraversalReachesSetupAndDedupePrimaryActions() async {

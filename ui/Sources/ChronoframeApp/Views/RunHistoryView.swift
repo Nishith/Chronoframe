@@ -200,6 +200,8 @@ struct RunHistoryView: View {
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .lineLimit(2)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Archive. \(headerMessage)")
 
             Spacer(minLength: DesignTokens.Spacing.md)
 
@@ -245,7 +247,7 @@ struct RunHistoryView: View {
                         .scaledFont(.label)
                         .tracking(0.8)
                         .textCase(.uppercase)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
 
                     Text(sinceLabel)
                         .scaledFont(.body)
@@ -498,18 +500,20 @@ struct RunHistoryView: View {
                     .lineLimit(1)
                 Text(record.sourcePath)
                     .scaledFont(.mono)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text("Last used \(record.lastTransferredAt.formatted(date: .abbreviated, time: .shortened))")
-                    Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
                         .accessibilityHidden(true)
                     Text("\(record.runCount) run\(record.runCount == 1 ? "" : "s")")
-                    Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
                         .accessibilityHidden(true)
                     Text("\(record.totalCopiedCount) copied")
                 }
@@ -538,7 +542,7 @@ struct RunHistoryView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .frame(width: 22, height: 22)
             }
             .menuStyle(.borderlessButton)
@@ -619,7 +623,7 @@ struct RunHistoryView: View {
     private func sectionHeader(for date: Date) -> some View {
         Text(date.formatted(date: .abbreviated, time: .omitted).uppercased())
             .scaledFont(.label)
-            .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+            .foregroundStyle(DesignTokens.ColorSystem.captionText)
             .tracking(0.8)
             .padding(.bottom, DesignTokens.Spacing.xs)
             .padding(.top, DesignTokens.Spacing.xs)
@@ -648,13 +652,15 @@ struct RunHistoryView: View {
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text(entry.kind.title)
-                    Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
                         .accessibilityHidden(true)
                     Text(entry.createdAt.formatted(date: .omitted, time: .shortened))
                     if let size = entry.fileSizeBytes {
-                        Text("·")
-                            .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                        Circle()
+                            .fill(DesignTokens.ColorSystem.separatorText)
+                            .frame(width: 3, height: 3)
                             .accessibilityHidden(true)
                         Text(Self.fileSizeFormatter.string(fromByteCount: size))
                     }
@@ -703,7 +709,7 @@ struct RunHistoryView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .frame(width: 22, height: 22)
             }
             .menuStyle(.borderlessButton)
@@ -831,7 +837,7 @@ struct ReceiptDetailSheet: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
                 .buttonStyle(.plain)
             }
@@ -852,7 +858,7 @@ struct ReceiptDetailSheet: View {
                         ForEach(transfers) { item in
                             HStack(alignment: .center) {
                                 Image(systemName: isVideo(item.dest) ? "video" : "photo")
-                                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                                     .frame(width: 20)
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -870,7 +876,7 @@ struct ReceiptDetailSheet: View {
                                 if let size = item.sizeBytes {
                                     Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
                                         .font(.caption)
-                                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
                                 }
 
                                 statusView(for: item.dest)

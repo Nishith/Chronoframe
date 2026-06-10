@@ -502,6 +502,17 @@ struct SectionHeading: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private var accessibilitySummary: String {
+        [eyebrow, title, message]
+            .compactMap { value in
+                guard let value, !value.isEmpty else { return nil }
+                return value
+            }
+            .joined(separator: ". ")
     }
 }
 
@@ -570,6 +581,8 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(message.isEmpty ? title : "\(title). \(message)")
 
                     Spacer(minLength: 12)
 

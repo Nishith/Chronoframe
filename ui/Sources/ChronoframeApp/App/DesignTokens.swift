@@ -231,7 +231,7 @@ enum DesignTokens {
             light: NSColor(srgbRed: 175.0 / 255, green: 45.0 / 255, blue: 35.0 / 255, alpha: 1),
             dark: NSColor(srgbRed: 244.0 / 255, green: 113.0 / 255, blue: 102.0 / 255, alpha: 1)
         )
-        static let statusIdle = inkMuted
+        static let statusIdle = captionText
 
         // Deep shadow (modals/popovers only)
         static let shadow = dynamicColor(
