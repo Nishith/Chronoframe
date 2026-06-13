@@ -159,9 +159,12 @@ final class ChronoframeUITests: XCTestCase {
                     app.terminate()
                     continue
                 }
+                var unmatchedIssues: [String] = []
+                var auditThrew = false
                 do {
                     try app.performAccessibilityAudit(for: auditTypes) { issue in
-                        NSLog("%@", Self.auditLogLine(for: issue, scenario: scenario))
+                        let logLine = Self.auditLogLine(for: issue, scenario: scenario)
+                        NSLog("%@", logLine)
                         if Self.isAllowedAccessibilityAuditIssue(
                             issue,
                             scenario: scenario,
@@ -169,10 +172,26 @@ final class ChronoframeUITests: XCTestCase {
                         ) {
                             return true
                         }
+                        unmatchedIssues.append(logLine)
                         return !auditFailsBuild
                     }
                 } catch {
-                    let message = "Accessibility audit threw for \(scenario.rawValue): \(error)"
+                    auditThrew = true
+                    var message = "Accessibility audit threw for \(scenario.rawValue): \(error)"
+                    if !unmatchedIssues.isEmpty {
+                        message += "\nUnmatched issue(s):\n\(unmatchedIssues.joined(separator: "\n"))"
+                    }
+                    if auditFailsBuild {
+                        XCTFail(message)
+                    } else {
+                        NSLog("%@ (suppressed in warn mode)", message)
+                    }
+                }
+                if !auditThrew, !unmatchedIssues.isEmpty {
+                    let message = """
+                    Accessibility audit found \(unmatchedIssues.count) unmatched issue(s) for \(scenario.rawValue):
+                    \(unmatchedIssues.joined(separator: "\n"))
+                    """
                     if auditFailsBuild {
                         XCTFail(message)
                     } else {
