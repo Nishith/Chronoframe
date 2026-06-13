@@ -364,15 +364,17 @@ struct ClusterDetailPane: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
                 .scaledFont(.subtitle, weight: .semibold)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 .lineLimit(2)
 
             HStack(alignment: .firstTextBaseline) {
                 Text("File")
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 Spacer()
                 Text(DeduplicateInspectorText.fileName(forPath: member.path))
                     .scaledFont(.mono)
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .help(member.path)
@@ -393,12 +395,12 @@ struct ClusterDetailPane: View {
             if member.isRaw {
                 Label("RAW", systemImage: "camera.aperture")
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             }
             if let pairedPath = member.pairedPath {
                 Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                     .lineLimit(2)
             }
 
@@ -412,11 +414,13 @@ struct ClusterDetailPane: View {
             }
         }
         .padding(DesignTokens.Spacing.md)
-        .background(DesignTokens.ColorSystem.elevated)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(DesignTokens.ColorSystem.imageStage)
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
+                .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
         }
     }
 
@@ -424,12 +428,12 @@ struct ClusterDetailPane: View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             Text(value)
                 .scaledFont(.mono)
                 .monospacedDigit()
-                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
     }
 
@@ -438,7 +442,7 @@ struct ClusterDetailPane: View {
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             HStack(spacing: 3) {
                 ForEach(0..<5, id: \.self) { i in
@@ -449,7 +453,7 @@ struct ClusterDetailPane: View {
             }
             Text(text)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
         .help(String(format: "Raw score: %.2f", score))
     }
@@ -459,11 +463,11 @@ struct ClusterDetailPane: View {
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             Text(text)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
         .help(String(format: "Raw score: %.2f", score))
     }
@@ -472,7 +476,7 @@ struct ClusterDetailPane: View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             Label(detected ? "Detected" : "None", systemImage: detected ? "person.fill" : "person.slash")
                 .scaledFont(.label)

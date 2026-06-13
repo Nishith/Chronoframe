@@ -468,7 +468,7 @@ struct DeduplicateView: View {
                 .lineLimit(2)
             Text(reviewProgress)
                 .font(.caption2)
-                .foregroundStyle(suggestedCount > 0 ? DesignTokens.ColorSystem.statusWarning : DesignTokens.ColorSystem.statusSuccess)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
         }
         .accessibilityElement(children: .ignore)

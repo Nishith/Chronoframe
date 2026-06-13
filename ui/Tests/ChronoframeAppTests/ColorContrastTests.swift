@@ -112,17 +112,12 @@ final class ColorContrastTests: XCTestCase {
         }
     }
 
-    func testDeduplicateInspectorMetadataMeetsAAOnElevatedPanel() {
+    func testDeduplicateInspectorMetadataMeetsAAOnImageStagePanel() {
         for palette in [Palette.Light.self, Palette.Dark.self] as [any ContrastPalette.Type] {
             XCTAssertGreaterThanOrEqual(
-                contrastRatio(palette.metadataText, palette.elevated),
+                contrastRatio(palette.textOnImageStage, palette.imageStage),
                 4.5,
-                "\(palette.name) deduplicate inspector metadata must clear AA on the elevated panel"
-            )
-            XCTAssertGreaterThanOrEqual(
-                contrastRatio(palette.inkPrimary, palette.elevated),
-                4.5,
-                "\(palette.name) deduplicate inspector metric values must clear AA on the elevated panel"
+                "\(palette.name) deduplicate inspector metadata must clear AA on the image-stage panel"
             )
         }
     }
@@ -287,10 +282,12 @@ final class ColorContrastTests: XCTestCase {
     private protocol ContrastPalette {
         static var name: String { get }
         static var elevated: RGB { get }
+        static var imageStage: RGB { get }
         static var inkPrimary: RGB { get }
         static var captionText: RGB { get }
         static var metadataText: RGB { get }
         static var separatorText: RGB { get }
+        static var textOnImageStage: RGB { get }
         static var textSurfaces: [(name: String, color: RGB)] { get }
     }
 
