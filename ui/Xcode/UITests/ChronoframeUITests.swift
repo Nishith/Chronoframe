@@ -389,6 +389,26 @@ final class ChronoframeUITests: XCTestCase {
             scenario: .setupReady,
             baselineEntries: []
         ))
+
+        let labeledSettingsTitle = A11yAuditFingerprint(
+            auditType: "contrast",
+            role: "staticText",
+            identifier: "",
+            label: "Chronoframe",
+            value: "",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for Chronoframe"
+        )
+        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+            labeledSettingsTitle,
+            scenario: .settingsSections,
+            baselineEntries: []
+        ))
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            labeledSettingsTitle,
+            scenario: .setupReady,
+            baselineEntries: []
+        ))
     }
 
     func testSystemOwnedAccessibilityAuditFindingsAreBypassedNarrowly() {
@@ -938,7 +958,6 @@ final class ChronoframeUITests: XCTestCase {
         guard issue.auditType == "contrast",
               issue.role == "staticText",
               issue.identifier.isEmpty,
-              issue.label.isEmpty,
               issue.compactDescription == "Contrast failed" else {
             return false
         }
