@@ -136,7 +136,7 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
         case .organize:
             return "Setup, run, and run history"
         case .deduplicate:
-            return "Find similar shots and prune"
+            return "Find and remove duplicate photos"
         case .profiles:
             return "Reusable saved setups"
         }

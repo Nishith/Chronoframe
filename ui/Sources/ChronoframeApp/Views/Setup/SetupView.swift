@@ -39,7 +39,6 @@ struct SetupView: View {
                                 VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                                     SetupHeroSection(
                                         model: screenModel,
-                                        primaryAction: performHeroPrimaryAction,
                                         scrollToSource: {
                                             Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("sourceSection", anchor: .top) }
                                         },
@@ -71,7 +70,7 @@ struct SetupView: View {
                                         isRunInProgress: runSessionStore.isRunning
                                     )
                                 }
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                                .frame(maxWidth: DesignTokens.Layout.setupFormColumnWidth, alignment: .topLeading)
 
                                 VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                                     if !didOnboard && setupStore.sourcePath.isEmpty {
@@ -87,22 +86,27 @@ struct SetupView: View {
                                         SetupContactSheetSection(sourcePath: setupStore.sourcePath)
                                     }
 
-                                    SetupSavedSetupSection(
-                                        model: screenModel,
-                                        setupStore: setupStore,
-                                        refreshProfiles: appState.refreshProfiles,
-                                        clearSelectedProfile: appState.clearSelectedProfile,
-                                        openProfiles: appState.openProfilesSettings,
-                                        onProfileSelection: handleProfileSelection(_:)
-                                    )
+                                    if screenModel.showsSavedSetupSection {
+                                        SetupSavedSetupSection(
+                                            model: screenModel,
+                                            setupStore: setupStore,
+                                            refreshProfiles: appState.refreshProfiles,
+                                            clearSelectedProfile: appState.clearSelectedProfile,
+                                            openProfiles: appState.openProfilesSettings,
+                                            onProfileSelection: handleProfileSelection(_:)
+                                        )
+                                    }
                                 }
-                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                                .frame(
+                                    minWidth: DesignTokens.Layout.setupEvidenceMinWidth,
+                                    maxWidth: DesignTokens.Layout.setupEvidenceMaxWidth,
+                                    alignment: .topLeading
+                                )
                             }
                         } else {
                             VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                                 SetupHeroSection(
                                     model: screenModel,
-                                    primaryAction: performHeroPrimaryAction,
                                     scrollToSource: {
                                         Motion.withMotion(.easeInOut(duration: 0.3), reduceMotion: reduceMotion) { proxy.scrollTo("sourceSection", anchor: .top) }
                                     },
@@ -139,14 +143,16 @@ struct SetupView: View {
                                     SetupContactSheetSection(sourcePath: setupStore.sourcePath)
                                 }
 
-                                SetupSavedSetupSection(
-                                    model: screenModel,
-                                    setupStore: setupStore,
-                                    refreshProfiles: appState.refreshProfiles,
-                                    clearSelectedProfile: appState.clearSelectedProfile,
-                                    openProfiles: appState.openProfilesSettings,
-                                    onProfileSelection: handleProfileSelection(_:)
-                                )
+                                if screenModel.showsSavedSetupSection {
+                                    SetupSavedSetupSection(
+                                        model: screenModel,
+                                        setupStore: setupStore,
+                                        refreshProfiles: appState.refreshProfiles,
+                                        clearSelectedProfile: appState.clearSelectedProfile,
+                                        openProfiles: appState.openProfilesSettings,
+                                        onProfileSelection: handleProfileSelection(_:)
+                                    )
+                                }
 
                                 SetupReadinessSection(
                                     model: screenModel,
@@ -159,7 +165,13 @@ struct SetupView: View {
                         }
                     }
                     .padding(DesignTokens.Layout.contentPadding)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(
+                        maxWidth: isWide
+                            ? DesignTokens.Layout.setupWideMaxWidth
+                            : DesignTokens.Layout.setupMaxWidth,
+                        alignment: .leading
+                    )
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
         }
@@ -200,17 +212,6 @@ struct SetupView: View {
             appState.clearSelectedProfile()
         } else {
             appState.useProfile(named: selection)
-        }
-    }
-
-    private func performHeroPrimaryAction() {
-        switch screenModel.primaryAction {
-        case .chooseSource:
-            Task { await appState.chooseSourceFolder() }
-        case .chooseDestination:
-            Task { await appState.chooseDestinationFolder() }
-        case .preview:
-            Task { await appState.startPreview() }
         }
     }
 

@@ -84,7 +84,7 @@ struct DeduplicateView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Deduplicate")
                         .scaledFont(.title)
-                    Text("Find similar shots and prune.")
+                    Text("Find and remove duplicate photos. Removed files go to the Trash.")
                         .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
@@ -125,12 +125,9 @@ struct DeduplicateView: View {
                     Text(preferencesStore.dedupeSimilarityPreset.subtitle)
                         .font(.caption)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                    Stepper(value: $preferencesStore.dedupeTimeWindowSeconds, in: 5...600, step: 5) {
-                        LabeledContent("Burst window") {
-                            Text("\(preferencesStore.dedupeTimeWindowSeconds)s")
-                                .monospacedDigit()
-                        }
-                    }
+                    // Engine tuning (burst window, etc.) lives in Settings →
+                    // Deduplicate; the preset is the only pre-scan decision a
+                    // user should have to make here.
                 }
 
                 HStack {
@@ -148,7 +145,7 @@ struct DeduplicateView: View {
             }
             .padding(DesignTokens.Layout.contentPadding)
             .frame(maxWidth: DesignTokens.Layout.contentMaxWidth, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 
@@ -523,7 +520,7 @@ struct DeduplicateView: View {
             .accessibilityIdentifier(AccessibilityIdentifiers.dedupeRapidTriageButton)
 
             if highCount > 0 {
-                Button("Auto-Accept Safe (\(highCount))") {
+                Button("Accept All Safe (\(highCount))") {
                     sessionStore.acceptAllHighConfidence()
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
@@ -665,7 +662,9 @@ struct DeduplicateView: View {
     // MARK: - Helpers
 
     private var visibleReviewClusters: [DuplicateCluster] {
-        DedupeClusterConfidenceFilter.filtered(sessionStore.clusters, by: confidenceFilter)
+        DedupeReviewOrder.sorted(
+            DedupeClusterConfidenceFilter.filtered(sessionStore.clusters, by: confidenceFilter)
+        )
     }
 
     private var focusedCluster: DuplicateCluster? {
@@ -785,10 +784,18 @@ extension DeduplicateView {
     }
 
     static func commitFooterTitle(fileCount: Int, hardDelete: Bool) -> String {
-        "\(fileCount) file\(fileCount == 1 ? "" : "s") will be moved to Trash"
+        guard fileCount > 0 else {
+            return "Nothing will move to Trash yet"
+        }
+        return "\(fileCount) file\(fileCount == 1 ? "" : "s") will be moved to Trash"
     }
 
     static func commitFooterDetail(byteCount: Int64, hardDelete: Bool) -> String {
+        guard byteCount > 0 else {
+            // ByteCountFormatter renders 0 as the words "Zero KB" — guide the
+            // user toward the next step instead of printing that.
+            return "Accept a group's suggestion to select its extra copies."
+        }
         let formattedBytes = statusByteCountFormatter.string(fromByteCount: byteCount)
         return "≈ \(formattedBytes) recoverable"
     }
@@ -851,7 +858,7 @@ enum CommitFooterButtonDensity {
 
     var acceptAllTitle: String {
         switch self {
-        case .full: return "Auto-Accept Safe"
+        case .full: return "Accept All Safe"
         case .compact: return "Accept Safe"
         }
     }
@@ -934,7 +941,7 @@ private struct DeduplicateDestinationCardContent: View {
                     Button("Reveal in Finder") {
                         appState.revealDeduplicateDestinationInFinder()
                     }
-                    Button("Use Organize Destination") {
+                    Button("Scan the Organize Destination Instead") {
                         appState.clearDeduplicateDestinationFolder()
                     }
                 } label: {

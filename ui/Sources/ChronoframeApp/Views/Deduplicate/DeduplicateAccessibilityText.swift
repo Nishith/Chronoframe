@@ -8,7 +8,7 @@ import ChronoframeAppCore
 ///
 /// Kept as pure functions (no view state) so the wording and throttling can be
 /// unit-tested without a running UI. Confidence is always spoken with the plain
-/// "high / medium / low" vocabulary (not the "Auto / Review / Careful" UI
+/// "high / medium / low" vocabulary (not the "Safe / Check / Risky" UI
 /// shorthand) so it reads consistently across surfaces.
 enum DeduplicateAccessibilityText {
     // Built per call rather than cached in a `static let`: `ByteCountFormatter`

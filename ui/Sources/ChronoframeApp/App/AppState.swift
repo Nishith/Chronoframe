@@ -294,7 +294,7 @@ final class AppState: ObservableObject {
 
     var deduplicateDestinationHelper: String {
         if hasDedicatedDeduplicateDestinationPath {
-            return "Used only for Deduplicate scans."
+            return "Only this folder is scanned for duplicates."
         }
         if deduplicateDestinationPath.isEmpty {
             return "Choose the folder to scan for duplicate photos."

@@ -21,6 +21,17 @@ enum DesignTokens {
         static let contentMaxWidth: CGFloat = 1_160
         static let setupMaxWidth: CGFloat = 1_180
         static let archiveMaxWidth: CGFloat = 1_120
+
+        /// Wide-layout doctrine: text and form columns keep a fixed reading
+        /// measure; media/evidence surfaces (thumbnails, timelines, grids) are
+        /// the only elements that grow with the window. These tokens bound
+        /// Setup's wide two-column tier — the form column stops growing at
+        /// `setupFormColumnWidth` and the contact-sheet column absorbs the
+        /// rest, up to `setupEvidenceMaxWidth`.
+        static let setupFormColumnWidth: CGFloat = 680
+        static let setupEvidenceMinWidth: CGFloat = 320
+        static let setupEvidenceMaxWidth: CGFloat = 1_400
+        static let setupWideMaxWidth: CGFloat = 2_160
         static let contentPadding: CGFloat = 28
         static let heroPadding: CGFloat = 24
         static let cardPadding: CGFloat = 20

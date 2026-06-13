@@ -55,11 +55,14 @@ enum MatchReasonFormatter {
         }
     }
 
+    /// Keep in sync with `DedupeClusterConfidenceFilter.label` — one
+    /// confidence vocabulary (Safe / Check / Risky) across badge, filter
+    /// tabs, and the "Accept All Safe" bulk action.
     static func confidenceLabel(_ level: ConfidenceLevel) -> String {
         switch level {
-        case .high: return "Auto"
-        case .medium: return "Review"
-        case .low: return "Careful"
+        case .high: return "Safe"
+        case .medium: return "Check"
+        case .low: return "Risky"
         }
     }
 

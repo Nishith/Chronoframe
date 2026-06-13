@@ -86,6 +86,20 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertFalse(hardDeleteDetail.contains("permanently"))
     }
 
+    /// With nothing selected yet, the footer must guide instead of printing
+    /// the literal zero forms ("0 files will be moved to Trash", and
+    /// ByteCountFormatter's "Zero KB recoverable").
+    func testCommitFooterZeroStateGuidesInsteadOfPrintingZeroForms() {
+        XCTAssertEqual(
+            DeduplicateView.commitFooterTitle(fileCount: 0, hardDelete: false),
+            "Nothing will move to Trash yet"
+        )
+        let zeroDetail = DeduplicateView.commitFooterDetail(byteCount: 0, hardDelete: false)
+        XCTAssertFalse(zeroDetail.contains("Zero"))
+        XCTAssertFalse(zeroDetail.contains("KB"))
+        XCTAssertEqual(zeroDetail, "Accept a group's suggestion to select its extra copies.")
+    }
+
     func testCommittingTitleReportsTrashProgressAndFallsBackBeforeTotalKnown() {
         // Once the executor reports a total, the title names the count.
         XCTAssertEqual(DeduplicateView.committingTitle(fileCount: 1), "Moving 1 file to Trash…")
@@ -186,8 +200,55 @@ final class DeduplicateStatusViewTests: XCTestCase {
     }
 
     func testBulkAcceptLabelMatchesHighConfidenceOnlyBehavior() {
-        XCTAssertEqual(CommitFooterButtonDensity.full.acceptAllTitle, "Auto-Accept Safe")
+        XCTAssertEqual(CommitFooterButtonDensity.full.acceptAllTitle, "Accept All Safe")
         XCTAssertEqual(CommitFooterButtonDensity.compact.acceptAllTitle, "Accept Safe")
+    }
+
+    /// One confidence vocabulary across the review surface: the filter tabs
+    /// and the row badge must use the same tier words, and the bulk-accept
+    /// button's "Safe" must be the same word as the high tier — otherwise
+    /// the user cannot connect the button to the tab it operates on.
+    func testConfidenceVocabularyIsUnifiedAcrossFilterBadgeAndBulkAction() {
+        XCTAssertEqual(DedupeClusterConfidenceFilter.high.label, "Safe")
+        XCTAssertEqual(DedupeClusterConfidenceFilter.medium.label, "Check")
+        XCTAssertEqual(DedupeClusterConfidenceFilter.low.label, "Risky")
+
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.high), DedupeClusterConfidenceFilter.high.label)
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.medium), DedupeClusterConfidenceFilter.medium.label)
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.low), DedupeClusterConfidenceFilter.low.label)
+
+        XCTAssertTrue(
+            CommitFooterButtonDensity.full.acceptAllTitle.contains(DedupeClusterConfidenceFilter.high.label)
+        )
+    }
+
+    /// Review entry is safest-first: exact duplicates lead, then bursts,
+    /// near-duplicates, and edited variants — matching the list's visual
+    /// grouping so default focus and "next" follow what the user sees.
+    /// Order within a kind is preserved (stable).
+    func testReviewOrderSortsSafestKindFirstAndIsStable() {
+        func cluster(_ kind: ClusterKind, path: String) -> DuplicateCluster {
+            DuplicateCluster(
+                kind: kind,
+                members: [PhotoCandidate(path: path, size: 1, modificationTime: 0, qualityScore: 0.5)],
+                suggestedKeeperIDs: [],
+                bytesIfPruned: 0
+            )
+        }
+
+        let scannerOrder = [
+            cluster(.editedVariant, path: "/e1"),
+            cluster(.nearDuplicate, path: "/n1"),
+            cluster(.exactDuplicate, path: "/x1"),
+            cluster(.burst, path: "/b1"),
+            cluster(.exactDuplicate, path: "/x2"),
+        ]
+
+        let sorted = DedupeReviewOrder.sorted(scannerOrder)
+        XCTAssertEqual(
+            sorted.map { $0.members[0].path },
+            ["/x1", "/x2", "/b1", "/n1", "/e1"]
+        )
     }
 
     // MARK: - Quality / sharpness labels (design-critique fix #2)
@@ -325,9 +386,9 @@ final class DeduplicateStatusViewTests: XCTestCase {
         )
         XCTAssertEqual(MatchReasonFormatter.warningSummary(annotation.warnings[0]), "Different framing (24% crop difference)")
         XCTAssertEqual(MatchReasonFormatter.warningSummary(.largeTimeGap(seconds: 90)), "Taken 1.5 min apart")
-        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.high), "Auto")
-        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.medium), "Review")
-        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.low), "Careful")
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.high), "Safe")
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.medium), "Check")
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.low), "Risky")
     }
 
     func testDeduplicateAccessibilityTextNamesSuggestedGroupsWithStateAndWarnings() {
@@ -411,6 +472,34 @@ final class DeduplicateStatusViewTests: XCTestCase {
                 ),
                 warnings: warning.map { [$0] } ?? []
             )
+        )
+    }
+
+    /// The metadata panel leads with the capture date (how people recognize a
+    /// photo), with the filename demoted to — but never removed from — an
+    /// evidence row, since " copy" suffixes carry real triage signal.
+    func testInspectorTitleLeadsWithCaptureDateAndKeepsFileNameAsEvidence() throws {
+        let locale = Locale(identifier: "en_US_POSIX")
+        let timeZone = try XCTUnwrap(TimeZone(identifier: "UTC"))
+
+        // A fixed instant: 2026-05-23 10:48:00 UTC.
+        let captured = Date(timeIntervalSince1970: 1_779_533_280)
+        let title = DeduplicateInspectorText.title(
+            forCaptureDate: captured, locale: locale, timeZone: timeZone
+        )
+        XCTAssertTrue(title.contains("May 23, 2026"), "Title should lead with the capture date, got: \(title)")
+        XCTAssertTrue(title.contains("10:48"), "Title should include the capture time, got: \(title)")
+
+        // No capture date: state it plainly instead of showing a bare dash or
+        // falling back to the filename as the headline.
+        XCTAssertEqual(
+            DeduplicateInspectorText.title(forCaptureDate: nil, locale: locale, timeZone: timeZone),
+            "Capture date unknown"
+        )
+
+        XCTAssertEqual(
+            DeduplicateInspectorText.fileName(forPath: "/Photos/2026/daniel-stiel-dlkVbwOITY8-unsplash copy.jpg"),
+            "daniel-stiel-dlkVbwOITY8-unsplash copy.jpg"
         )
     }
 }

@@ -114,4 +114,36 @@ final class SetupScreenModelTests: XCTestCase {
         XCTAssertEqual(itemsAllReviewed.count, 2)
         XCTAssertEqual(itemsAllReviewed[1].tone, .success)
     }
+
+    /// Profiles are earned complexity: the saved-setup section stays hidden
+    /// for a first-time user (no profiles, nothing selected) and appears once
+    /// any profile exists or one is active/selected.
+    func testSavedSetupSectionVisibilityIsEarned() {
+        func context(
+            profileCount: Int = 0,
+            selectedProfileName: String = "",
+            activeProfile: Profile? = nil
+        ) -> SetupScreenContext {
+            SetupScreenContext(
+                sourcePath: "/Volumes/Card",
+                destinationPath: "/Volumes/Archive",
+                selectedProfileName: selectedProfileName,
+                activeProfile: activeProfile,
+                availableProfileCount: profileCount
+            )
+        }
+
+        XCTAssertFalse(SetupScreenModel(context: context()).showsSavedSetupSection)
+        XCTAssertTrue(SetupScreenModel(context: context(profileCount: 1)).showsSavedSetupSection)
+        XCTAssertTrue(
+            SetupScreenModel(context: context(selectedProfileName: "Travel")).showsSavedSetupSection
+        )
+        XCTAssertTrue(
+            SetupScreenModel(
+                context: context(
+                    activeProfile: Profile(name: "Travel", sourcePath: "/a", destinationPath: "/b")
+                )
+            ).showsSavedSetupSection
+        )
+    }
 }

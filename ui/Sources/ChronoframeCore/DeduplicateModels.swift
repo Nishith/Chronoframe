@@ -11,19 +11,21 @@ public enum DedupeSimilarityPreset: String, CaseIterable, Sendable, Codable, Ide
 
     public var id: String { rawValue }
 
+    // Outcome-shaped labels: the segments answer "what will I see?", not
+    // "how does the matcher behave?" (the old Strict/Balanced/Loose).
     public var title: String {
         switch self {
-        case .strict: return "Strict"
+        case .strict: return "Exact copies"
         case .balanced: return "Balanced"
-        case .loose: return "Loose"
+        case .loose: return "Similar shots"
         }
     }
 
     public var subtitle: String {
         switch self {
-        case .strict: return "Fewer groups, only very close matches"
+        case .strict: return "Only files that are clearly the same photo"
         case .balanced: return "Recommended for most libraries"
-        case .loose: return "More groups, including looser matches"
+        case .loose: return "Casts a wider net — expect more groups to check"
         }
     }
 
