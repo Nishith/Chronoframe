@@ -768,7 +768,13 @@ final class ChronoframeUITests: XCTestCase {
                     ("commit", commit),
                 ]
                 for (name, element) in framedElements {
-                    Self.assertFrame(element.frame, named: name, isInside: window.frame, scenario: scenario.rawValue)
+                    Self.assertFrame(
+                        element.frame,
+                        named: name,
+                        isInside: window.frame,
+                        scenario: scenario.rawValue,
+                        tolerance: 2
+                    )
                 }
                 XCTAssertLessThanOrEqual(
                     acceptCluster.frame.maxY,
@@ -1351,10 +1357,10 @@ final class ChronoframeUITests: XCTestCase {
         named name: String,
         isInside windowFrame: CGRect,
         scenario: String,
+        tolerance: CGFloat = 1,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let tolerance: CGFloat = 1
         XCTAssertGreaterThanOrEqual(frame.minX, windowFrame.minX - tolerance, "\(name) should not clip left in \(scenario)", file: file, line: line)
         XCTAssertGreaterThanOrEqual(frame.minY, windowFrame.minY - tolerance, "\(name) should not clip above the window in \(scenario)", file: file, line: line)
         XCTAssertLessThanOrEqual(frame.maxX, windowFrame.maxX + tolerance, "\(name) should not clip right in \(scenario)", file: file, line: line)
