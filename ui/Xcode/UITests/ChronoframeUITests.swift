@@ -437,6 +437,26 @@ final class ChronoframeUITests: XCTestCase {
             baselineEntries: []
         ))
 
+        let settingsTitlebarLabelText = A11yAuditFingerprint(
+            auditType: "contrast",
+            role: "staticText",
+            identifier: "",
+            label: "Settings",
+            value: "",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for Settings"
+        )
+        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+            settingsTitlebarLabelText,
+            scenario: .settingsSections,
+            baselineEntries: []
+        ))
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            settingsTitlebarLabelText,
+            scenario: .setupReady,
+            baselineEntries: []
+        ))
+
         let appMenu = A11yAuditFingerprint(
             auditType: "sufficientElementDescription",
             role: "role_14",
@@ -854,7 +874,7 @@ final class ChronoframeUITests: XCTestCase {
         scenario: Scenario,
         baselineEntries: [A11yBaselineEntry]
     ) -> Bool {
-        if isSystemOwnedAccessibilityAuditIssue(issue) {
+        if isSystemOwnedAccessibilityAuditIssue(issue, scenario: scenario) {
             return true
         }
 
@@ -886,15 +906,19 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
-    private static func isSystemOwnedAccessibilityAuditIssue(_ issue: A11yAuditFingerprint) -> Bool {
+    private static func isSystemOwnedAccessibilityAuditIssue(
+        _ issue: A11yAuditFingerprint,
+        scenario: Scenario
+    ) -> Bool {
         if issue.role == "touchBar" {
             return true
         }
         if issue.auditType == "contrast",
            issue.role == "staticText",
-           issue.label.isEmpty,
-           issue.value == "Settings",
-           issue.compactDescription == "Contrast failed" {
+           issue.identifier.isEmpty,
+           issue.compactDescription == "Contrast failed",
+           scenario.opensSettingsOnLaunch,
+           contrastTarget(for: issue) == "settings" {
             return true
         }
         return issue.role == "role_14" &&
@@ -919,7 +943,7 @@ final class ChronoframeUITests: XCTestCase {
             return false
         }
 
-        let target = (issue.value.isEmpty ? extractContrastTarget(issue.detailedDescription) : issue.value).lowercased()
+        let target = contrastTarget(for: issue)
         if scenario == .runPreviewReview {
             let requiredMetrics = ["discovered:", "planned:", "copied:", "already there:", "duplicates:", "issues:"]
             if requiredMetrics.allSatisfy({ target.contains($0) }) {
@@ -1044,6 +1068,13 @@ final class ChronoframeUITests: XCTestCase {
             }
         }
         return target
+    }
+
+    private static func contrastTarget(for issue: A11yAuditFingerprint) -> String {
+        for candidate in [issue.value, issue.label, extractContrastTarget(issue.detailedDescription)] where !candidate.isEmpty {
+            return candidate.lowercased()
+        }
+        return ""
     }
 
     private static func normalizeDescription(_ desc: String) -> String {
