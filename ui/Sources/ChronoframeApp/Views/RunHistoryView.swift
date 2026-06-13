@@ -197,7 +197,7 @@ struct RunHistoryView: View {
 
                 Text(headerMessage)
                     .scaledFont(.subtitle)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(2)
             }
 
@@ -245,7 +245,7 @@ struct RunHistoryView: View {
                         .scaledFont(.label)
                         .tracking(0.8)
                         .textCase(.uppercase)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
 
                     Text(sinceLabel)
                         .scaledFont(.body)
@@ -498,21 +498,25 @@ struct RunHistoryView: View {
                     .lineLimit(1)
                 Text(record.sourcePath)
                     .scaledFont(.mono)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text("Last used \(record.lastTransferredAt.formatted(date: .abbreviated, time: .shortened))")
-                    Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
+                        .accessibilityHidden(true)
                     Text("\(record.runCount) run\(record.runCount == 1 ? "" : "s")")
-                    Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
+                        .accessibilityHidden(true)
                     Text("\(record.totalCopiedCount) copied")
                 }
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
             }
 
             Spacer(minLength: DesignTokens.Spacing.md)
@@ -536,13 +540,16 @@ struct RunHistoryView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .frame(width: 22, height: 22)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .accessibilityLabel("More actions for source")
+            .accessibilityActionsMenu(
+                label: "Actions for source",
+                hint: "Reveal this source in Finder or forget it."
+            )
         }
         .padding(.horizontal, 2)
         .padding(.vertical, DesignTokens.Spacing.sm)
@@ -614,7 +621,7 @@ struct RunHistoryView: View {
     private func sectionHeader(for date: Date) -> some View {
         Text(date.formatted(date: .abbreviated, time: .omitted).uppercased())
             .scaledFont(.label)
-            .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+            .foregroundStyle(DesignTokens.ColorSystem.captionText)
             .tracking(0.8)
             .padding(.bottom, DesignTokens.Spacing.xs)
             .padding(.top, DesignTokens.Spacing.xs)
@@ -643,24 +650,28 @@ struct RunHistoryView: View {
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text(entry.kind.title)
-                    Text("·")
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
+                        .accessibilityHidden(true)
                     Text(entry.createdAt.formatted(date: .omitted, time: .shortened))
                     if let size = entry.fileSizeBytes {
-                        Text("·")
-                            .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
+                        Circle()
+                            .fill(DesignTokens.ColorSystem.separatorText)
+                            .frame(width: 3, height: 3)
+                            .accessibilityHidden(true)
                         Text(Self.fileSizeFormatter.string(fromByteCount: size))
                     }
                 }
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
             Spacer(minLength: DesignTokens.Spacing.sm)
 
             Text(entry.relativePath)
                 .scaledFont(.mono)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: 260, alignment: .trailing)
@@ -696,13 +707,16 @@ struct RunHistoryView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .frame(width: 22, height: 22)
             }
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
-            .accessibilityLabel("More actions for \(entry.title)")
+            .accessibilityActionsMenu(
+                label: "Actions for \(entry.title)",
+                hint: "Reveal, revert, or move this artifact to Trash."
+            )
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
         .accessibilityElement(children: .contain)
@@ -821,7 +835,7 @@ struct ReceiptDetailSheet: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
                 .buttonStyle(.plain)
             }
@@ -842,7 +856,7 @@ struct ReceiptDetailSheet: View {
                         ForEach(transfers) { item in
                             HStack(alignment: .center) {
                                 Image(systemName: isVideo(item.dest) ? "video" : "photo")
-                                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                                     .frame(width: 20)
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -860,7 +874,7 @@ struct ReceiptDetailSheet: View {
                                 if let size = item.sizeBytes {
                                     Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
                                         .font(.caption)
-                                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
                                 }
 
                                 statusView(for: item.dest)

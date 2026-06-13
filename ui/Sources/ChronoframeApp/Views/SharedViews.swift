@@ -76,20 +76,9 @@ struct DarkroomPanel<Content: View>: View {
         case .canvas, .inset:
             Color.clear
         case .panel:
-            if reduceTransparency {
-                DesignTokens.ColorSystem.panel
-            } else {
-                Rectangle().fill(.thinMaterial)
-            }
+            DesignTokens.ColorSystem.panel
         case .elevated:
-            if reduceTransparency {
-                DesignTokens.ColorSystem.elevated
-            } else {
-                ZStack {
-                    DesignTokens.ColorSystem.elevated
-                    Rectangle().fill(.regularMaterial)
-                }
-            }
+            DesignTokens.ColorSystem.elevated
         }
     }
 
@@ -187,19 +176,8 @@ struct MeridianSurfaceCard<Content: View>: View {
     private var backgroundView: some View {
         switch style {
         case .hero:
-            if reduceTransparency {
-                Rectangle().fill(DesignTokens.ColorSystem.panel)
-                    .overlay {
-                        if let tint {
-                            Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
-                                style: .hero,
-                                contrast: colorSchemeContrast
-                            )))
-                        }
-                    }
-            } else {
-                ZStack {
-                    Rectangle().fill(.thinMaterial)
+            Rectangle().fill(DesignTokens.ColorSystem.panel)
+                .overlay {
                     if let tint {
                         Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
                             style: .hero,
@@ -207,13 +185,8 @@ struct MeridianSurfaceCard<Content: View>: View {
                         )))
                     }
                 }
-            }
         case .standard:
-            if reduceTransparency {
-                Rectangle().fill(DesignTokens.ColorSystem.panel)
-            } else {
-                Rectangle().fill(.thinMaterial)
-            }
+            Rectangle().fill(DesignTokens.ColorSystem.panel)
         case .inner:
             if let tint {
                 Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
@@ -391,28 +364,32 @@ struct MeridianLeadIcon: View {
     let tint: SwiftUI.Color
     var usesBrandMark = false
     var size: CGFloat = DesignTokens.Layout.heroIconSize
+    var isAccessibilityHidden: Bool = false
 
     var body: some View {
-        if usesBrandMark {
-            // The brand mark IS the app icon — render it at full size with no
-            // tinted backdrop so we don't nest its rounded rect inside another.
-            MeridianMark()
-                .frame(width: size, height: size)
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                    .fill(tint.opacity(0.12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-                            .strokeBorder(tint.opacity(0.22), lineWidth: 0.5)
-                    )
+        Group {
+            if usesBrandMark {
+                // The brand mark IS the app icon — render it at full size with no
+                // tinted backdrop so we don't nest its rounded rect inside another.
+                MeridianMark()
+                    .frame(width: size, height: size)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                        .fill(tint.opacity(0.12))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                                .strokeBorder(tint.opacity(0.22), lineWidth: 0.5)
+                        )
 
-                Image(systemName: systemImage)
-                    .font(.system(size: size * 0.44, weight: .medium))
-                    .foregroundStyle(tint)
+                    Image(systemName: systemImage)
+                        .font(.system(size: size * 0.44, weight: .medium))
+                        .foregroundStyle(tint)
+                }
+                .frame(width: size, height: size)
             }
-            .frame(width: size, height: size)
         }
+        .accessibilityHidden(isAccessibilityHidden)
     }
 }
 
@@ -475,6 +452,7 @@ struct MeridianStatusBadge: View {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
             } else {
                 Circle()
                     .fill(tint)
@@ -482,10 +460,10 @@ struct MeridianStatusBadge: View {
             }
             Text(title)
                 .scaledFont(.label)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .foregroundStyle(AccessibleDesign.badgeForeground(for: tint))
         .background(tint.opacity(AccessibleDesign.badgeFillOpacity), in: Capsule())
         .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
         .motion(Motion.instant, value: title)
@@ -510,7 +488,7 @@ struct SectionHeading: View {
             if let eyebrow, !eyebrow.isEmpty {
                 Text(eyebrow.uppercased())
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .tracking(0.8)
             }
 
@@ -521,7 +499,7 @@ struct SectionHeading: View {
             if !message.isEmpty {
                 Text(message)
                     .scaledFont(.subtitle)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -570,14 +548,15 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
     }
 
     var body: some View {
-        MeridianSurfaceCard(style: .section) {
+        MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 HStack(alignment: .center, spacing: 14) {
                     MeridianLeadIcon(
                         systemImage: systemImage,
                         tint: tint,
                         usesBrandMark: usesBrandMark,
-                        size: usesBrandMark ? DesignTokens.Layout.heroIconSize : 36
+                        size: usesBrandMark ? DesignTokens.Layout.heroIconSize : 36,
+                        isAccessibilityHidden: true
                     )
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -592,7 +571,6 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-
                     Spacer(minLength: 12)
 
                     MeridianStatusBadge(title: badgeTitle, systemImage: badgeSystemImage, tint: tint)
@@ -637,10 +615,7 @@ struct SummaryLine: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
                 .scaledFont(.body)
-                // Secondary (not muted): these labels sit on tinted inner cards
-                // where the muted tier dropped below AA. inkSecondary keeps
-                // headroom over the tint overlay.
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
 
             Spacer(minLength: 12)
 
@@ -648,7 +623,7 @@ struct SummaryLine: View {
                 Button(action: onTap) {
                     Text(value)
                         .scaledFont(.body)
-                        .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
@@ -656,7 +631,7 @@ struct SummaryLine: View {
             } else {
                 Text(value)
                     .scaledFont(.body)
-                    .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
             }
@@ -677,7 +652,7 @@ struct MetricTile: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title.uppercased())
                     .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .tracking(0.6)
 
                 Text(value)
@@ -710,20 +685,21 @@ struct PathValueView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .tracking(0.6)
 
             Text(value.isEmpty ? "Not set" : value)
                 .scaledFont(.mono)
-                .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.inkMuted : DesignTokens.ColorSystem.inkPrimary)
+                .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.captionText : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(DesignTokens.Layout.pathLineLimit)
                 .truncationMode(.middle)
                 .help(value.isEmpty ? "" : value)
+                .accessibilityLabel(value.isEmpty ? "Not set" : AccessibilityPathFormatter.spokenDescription(for: value))
 
             if !helper.isEmpty {
                 Text(helper)
-                    .font(.footnote)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -747,7 +723,7 @@ struct EmptyStateView: View {
                         .frame(width: 128, height: 68)
                         .opacity(0.68)
 
-                    MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40)
+                    MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40, isAccessibilityHidden: true)
                 }
                 Text(title)
                     .scaledFont(.cardTitle)
@@ -1192,5 +1168,14 @@ struct TrustProofSurface: View {
                 .accessibilityLabel(item.accessibilityLabel)
             }
         }
+    }
+}
+
+extension View {
+    func accessibilityActionsMenu(label: String, hint: String) -> some View {
+        self
+            .accessibilityLabel(label)
+            .accessibilityValue("Menu")
+            .help(hint)
     }
 }

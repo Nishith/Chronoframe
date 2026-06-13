@@ -180,6 +180,7 @@ private struct ClusterRow: View {
                         size: CGSize(width: 44, height: 44),
                         loader: thumbnailLoader
                     )
+                    .accessibilityHidden(true)
                     .opacity(decisionFor(member) == .delete ? 0.45 : 1.0)
                     .overlay(alignment: .topTrailing) {
                         // Once the user has touched a decision the
@@ -199,12 +200,7 @@ private struct ClusterRow: View {
                 if cluster.members.count > 5 {
                     Text("+\(cluster.members.count - 5)")
                         .font(.caption2)
-                        // ClusterRow lives in `List(selection:)`; keep the
-                        // hierarchical `.secondary` so a focused row's captions
-                        // adapt to the accent selection background. A fixed ink
-                        // token would stay dark and become unreadable when
-                        // selected — do not migrate these to inkSecondary.
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
                 Spacer()
                 if isHovered {
@@ -216,14 +212,17 @@ private struct ClusterRow: View {
                 confidenceDot
                 Text("\(cluster.members.count) photos")
                     .font(.caption)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 // ByteCountFormatter renders 0 as the words "Zero KB"; an
                 // unreviewed group has nothing selected yet, so show nothing.
                 if recoverableBytes > 0 {
-                    Text("·")
-                        .foregroundStyle(.secondary)
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.separatorText)
+                        .frame(width: 3, height: 3)
+                        .accessibilityHidden(true)
                     Text(Self.formatter.string(fromByteCount: recoverableBytes))
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
                 if hasWarnings {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -235,7 +234,7 @@ private struct ClusterRow: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
-                        .help("Reviewed")
+                        .accessibilityHidden(true)
                 } else {
                     Text("Suggested")
                         .font(.caption2.weight(.semibold))
@@ -243,14 +242,14 @@ private struct ClusterRow: View {
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(DesignTokens.ColorSystem.statusWarning.opacity(0.12), in: Capsule())
-                        .help("Chronoframe has a suggestion, but this group has not been reviewed")
+                        .accessibilityHidden(true)
                 }
                 actionsMenu
             }
             if let annotation = cluster.annotation {
                 Text(MatchReasonFormatter.oneLiner(annotation))
                     .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .lineLimit(1)
             }
         }
@@ -262,7 +261,7 @@ private struct ClusterRow: View {
             Divider()
             Button("Delete All in Group", role: .destructive) { onDeleteAll() }
         }
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster))
         .accessibilityValue(DeduplicateAccessibilityText.clusterRowValue(
             cluster: cluster,
@@ -270,6 +269,7 @@ private struct ClusterRow: View {
             recoverableBytes: recoverableBytes
         ))
         .accessibilityHint("Selects this duplicate group for review")
+        .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Keep All in Group") { onKeepAll() }
         .accessibilityAction(named: "Accept Suggestion") { onAcceptSuggestion() }
         .accessibilityAction(named: "Delete All in Group") { onDeleteAll() }
@@ -287,8 +287,10 @@ private struct ClusterRow: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Actions for this duplicate group")
-        .accessibilityLabel("Actions for duplicate group")
+        .accessibilityActionsMenu(
+            label: "Actions for duplicate group",
+            hint: "Keep all, accept the suggestion, or delete all in this duplicate group."
+        )
     }
 
     private var hoverActions: some View {
@@ -352,23 +354,11 @@ private struct ClusterRow: View {
                 .foregroundStyle(confidenceColor(level))
                 .frame(width: 10)
                 .accessibilityHidden(true)
-                .help(confidenceHelp(level))
         } else {
             Circle()
                 .fill(confidenceColor(level))
                 .frame(width: 6, height: 6)
                 .accessibilityHidden(true)
-                .help(confidenceHelp(level))
-        }
-    }
-
-    /// Tooltip text giving the confidence level a permanent, hover-discoverable
-    /// label, since the dot/symbol otherwise conveys it by color/shape only.
-    private func confidenceHelp(_ level: ConfidenceLevel) -> String {
-        switch level {
-        case .high: return "High confidence"
-        case .medium: return "Medium confidence"
-        case .low: return "Low confidence"
         }
     }
 

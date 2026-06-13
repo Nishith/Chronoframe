@@ -53,7 +53,7 @@ struct DeduplicateView: View {
                 failureView(message: message)
             }
         }
-        .navigationTitle("Deduplicate")
+        .modifier(DeduplicateNavigationTitle(title: navigationTitle))
         .onDisappear { thumbnailLoader.purgeCache() }
         .onChange(of: sessionStore.status) { newValue in
             if newValue == .completed || newValue == .reverted {
@@ -65,6 +65,13 @@ struct DeduplicateView: View {
     }
 
     // MARK: - Idle
+
+    private var navigationTitle: String {
+        if case .readyToReview = sessionStore.status, !sessionStore.clusters.isEmpty {
+            return ""
+        }
+        return "Deduplicate"
+    }
 
     private var destinationCard: some View {
         MeridianSurfaceCard(
@@ -88,6 +95,8 @@ struct DeduplicateView: View {
                         .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Deduplicate. Find similar shots and prune.")
 
                 if !didOnboardDeduplicate {
                     OnboardingCard(
@@ -446,19 +455,25 @@ struct DeduplicateView: View {
     private func commitFooterStatus(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
         let reviewedCount = sessionStore.reviewedClusters.count
         let suggestedCount = max(0, sessionStore.clusters.count - reviewedCount)
+        let title = Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete)
+        let detail = Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete)
+        let reviewProgress = "\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested"
         VStack(alignment: .leading, spacing: 2) {
-            Text(Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete))
+            Text(title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(2)
-            Text(Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete))
+            Text(detail)
                 .font(.caption)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
-            Text("\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested")
+            Text(reviewProgress)
                 .font(.caption2)
-                .foregroundStyle(suggestedCount > 0 ? DesignTokens.ColorSystem.statusWarning : DesignTokens.ColorSystem.statusSuccess)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title). \(detail). \(reviewProgress).")
+        .accessibilityAddTraits(.isStaticText)
     }
 
     @ViewBuilder
@@ -541,6 +556,10 @@ struct DeduplicateView: View {
             Label("Options", systemImage: "ellipsis.circle")
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewActionsMenu)
+        .accessibilityActionsMenu(
+            label: "Review options",
+            hint: "Change folder, adjust settings, quick review, or commit reviewed duplicate groups."
+        )
         .sheet(isPresented: $showingRapidTriage) {
             let reviewClusters = sessionStore.clusters.filter {
                 let level = $0.annotation?.confidence ?? .medium
@@ -887,6 +906,19 @@ enum CommitFooterButtonDensity {
     }
 }
 
+private struct DeduplicateNavigationTitle: ViewModifier {
+    let title: String
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if title.isEmpty {
+            content
+        } else {
+            content.navigationTitle(title)
+        }
+    }
+}
+
 /// Content of the Deduplicate destination card. Hosted twice inside a
 /// `ViewThatFits` (horizontal vs vertical) so the layout adapts to a
 /// narrow main column. The `Reveal` and `Use Organize Destination`
@@ -951,6 +983,10 @@ private struct DeduplicateDestinationCardContent: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
+                .accessibilityActionsMenu(
+                    label: "More destination actions",
+                    hint: "Reveal this folder in Finder or use the Organize destination."
+                )
             }
         }
     }

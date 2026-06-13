@@ -34,6 +34,7 @@ struct OnboardingCard: View {
                     .font(.system(size: 20))
                     .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
                     .frame(width: 28, alignment: .leading)
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
@@ -50,7 +51,8 @@ struct OnboardingCard: View {
                             ForEach(bullets, id: \.self) { bullet in
                                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                                     Text("•")
-                                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                                        .foregroundStyle(DesignTokens.ColorSystem.separatorText)
+                                        .accessibilityHidden(true)
                                     Text(bullet)
                                         .scaledFont(.subtitle)
                                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
@@ -71,6 +73,7 @@ struct OnboardingCard: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
                         .frame(width: 22, height: 22)
+                        .accessibilityHidden(true)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Dismiss onboarding")

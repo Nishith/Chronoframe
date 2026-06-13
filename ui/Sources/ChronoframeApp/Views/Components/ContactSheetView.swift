@@ -61,6 +61,7 @@ struct ContactSheetView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
         .task(id: sourcePath) {
             await loader.load(
                 sourcePath: sourcePath,
@@ -68,7 +69,6 @@ struct ContactSheetView: View {
                 cellSize: cellSize
             )
         }
-        .accessibilityLabel(accessibilityLabelText)
     }
 
     private var displayedTileCount: Int {
@@ -205,10 +205,10 @@ private struct ContactSheetHeroPlaceholder: View {
         VStack(spacing: 9) {
             Image(systemName: "photo.on.rectangle.angled")
                 .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.white.opacity(0.45))
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Text("No previewable frames")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background {

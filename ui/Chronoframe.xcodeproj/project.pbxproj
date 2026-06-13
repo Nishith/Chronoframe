@@ -189,7 +189,7 @@
 				AA0000000000000000000401 /* Frameworks */,
 				AA0000000000000000000411 /* Sources */,
 				AA0000000000000000000421 /* Resources */,
-				AA0000000000000000000431 /* Stamp version */,
+				AA0000000000000000000431 /* Stamp version (Major.Minor.git-build) */,
 			);
 			buildRules = (
 			);
@@ -294,7 +294,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		AA0000000000000000000431 /* Stamp version */ = {
+		AA0000000000000000000431 /* Stamp version (Major.Minor.git-build) */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;

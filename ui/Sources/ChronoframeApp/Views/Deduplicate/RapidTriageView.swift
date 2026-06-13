@@ -66,12 +66,14 @@ struct RapidTriageView: View {
                 Spacer()
                 Text("\(currentIndex) of \(clustersToReview.count) reviewed")
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                Text("·")
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                Circle()
+                    .fill(DesignTokens.ColorSystem.separatorText)
+                    .frame(width: 3, height: 3)
+                    .accessibilityHidden(true)
                 Text("\(Self.bytesFormatter.string(fromByteCount: reclaimableBytes)) reclaimable")
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.metadataText)
                 Button("Exit") { dismiss() }
                     .keyboardShortcut(.escape, modifiers: [])
             }

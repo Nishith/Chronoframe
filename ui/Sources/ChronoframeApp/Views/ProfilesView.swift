@@ -119,13 +119,13 @@ struct ProfilesView: View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .tracking(0.6)
                 .frame(width: 96, alignment: .leading)
 
             Text(value.isEmpty ? "Not set" : value)
                 .scaledFont(.mono)
-                .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.inkMuted : DesignTokens.ColorSystem.inkPrimary)
+                .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.captionText : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -243,14 +243,17 @@ private struct ProfileTile: View {
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                            .foregroundStyle(DesignTokens.ColorSystem.captionText)
                             .frame(width: 22, height: 22)
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
                     .opacity(isHovering || isActive ? 1 : 0.5)
-                    .accessibilityLabel("More actions for \(profile.name)")
+                    .accessibilityActionsMenu(
+                        label: "Actions for \(profile.name)",
+                        hint: "Overwrite or delete this saved profile."
+                    )
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
@@ -277,12 +280,12 @@ private struct ProfileTile: View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: icon)
                 .font(.caption)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .frame(width: 14)
 
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .tracking(0.6)
                 .frame(width: 36, alignment: .leading)
 

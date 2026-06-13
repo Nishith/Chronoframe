@@ -37,7 +37,7 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
     func testClusterRowLabelNamesTheSuggestedKeeperWhenPresent() {
         XCTAssertTrue(
             DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster(includeKeeper: true))
-                .contains("suggested keeper keeper.jpg")
+                .contains("suggested keeper keeper")
         )
         XCTAssertFalse(
             DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster(includeKeeper: false))
@@ -140,11 +140,11 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         let keeper = PhotoCandidate(path: "/Photos/keeper.jpg", size: 2_000_000, modificationTime: 0, qualityScore: 0.9)
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: true),
-            "keeper.jpg, suggested keeper"
+            "keeper, suggested keeper"
         )
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: false),
-            "keeper.jpg"
+            "keeper"
         )
     }
 
@@ -153,11 +153,11 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         let reason = KeeperReason(factors: [.isRaw, .eyesOpen])
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: true, keeperReason: reason),
-            "keeper.jpg, suggested keeper, because RAW format, eyes open"
+            "keeper, suggested keeper, because RAW format, eyes open"
         )
         XCTAssertEqual(
             DeduplicateAccessibilityText.memberLabel(member: keeper, isSuggestedKeeper: false, keeperReason: reason),
-            "keeper.jpg"
+            "keeper"
         )
     }
 
@@ -181,10 +181,33 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         XCTAssertNil(DeduplicateAccessibilityText.keeperRationale(KeeperReason()))
     }
 
+    func testPhotoPreviewDetailComposesDescriptionExhaustively() {
+        let member = PhotoCandidate(path: "/Photos/photo.jpg", size: 1_000_000, modificationTime: 0, qualityScore: 0.8)
+        let reason = KeeperReason(factors: [.higherResolution(factor: 2.0)])
+
+        let standard = DeduplicateAccessibilityText.photoPreviewDetail(
+            member: member,
+            decision: .keep,
+            isSuggestedKeeper: true,
+            confidence: .high,
+            keeperReason: reason
+        )
+        XCTAssertEqual(standard, "Marked keep, suggested keeper, because 2.0× resolution, high confidence group, photo")
+
+        let deleted = DeduplicateAccessibilityText.photoPreviewDetail(
+            member: member,
+            decision: .delete,
+            isSuggestedKeeper: false,
+            confidence: nil,
+            keeperReason: nil
+        )
+        XCTAssertEqual(deleted, "Marked delete, photo")
+    }
+
     // MARK: - suggestedKeeperName
 
     func testSuggestedKeeperNameResolvesOrReturnsNil() {
-        XCTAssertEqual(DeduplicateAccessibilityText.suggestedKeeperName(in: cluster(includeKeeper: true)), "keeper.jpg")
+        XCTAssertEqual(DeduplicateAccessibilityText.suggestedKeeperName(in: cluster(includeKeeper: true)), "keeper")
         XCTAssertNil(DeduplicateAccessibilityText.suggestedKeeperName(in: cluster(includeKeeper: false)))
         // Suggested id that no member matches must not crash or mislabel.
         XCTAssertNil(DeduplicateAccessibilityText.suggestedKeeperName(in: cluster(keeperID: "/Photos/ghost.jpg")))

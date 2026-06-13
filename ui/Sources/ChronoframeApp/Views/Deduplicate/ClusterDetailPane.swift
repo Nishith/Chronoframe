@@ -20,6 +20,7 @@ struct ClusterDetailPane: View {
     @State private var showingReasonDetail = false
     @State private var showingComparisonOverlay = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
         Group {
@@ -60,6 +61,7 @@ struct ClusterDetailPane: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewDetail)
     }
 
@@ -172,7 +174,7 @@ struct ClusterDetailPane: View {
 
     private func detailContentCompact(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
         VStack(spacing: DesignTokens.Spacing.md) {
-            preview(for: focused)
+            preview(for: focused, cluster: cluster)
                 .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
             if let focused {
                 metadataPanel(for: focused, cluster: cluster)
@@ -211,11 +213,11 @@ struct ClusterDetailPane: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    preview(for: focused)
+                    preview(for: focused, cluster: cluster)
                 }
             }
         } else {
-            preview(for: focused)
+            preview(for: focused, cluster: cluster)
         }
     }
 
@@ -295,7 +297,7 @@ struct ClusterDetailPane: View {
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(role.label): \(URL(fileURLWithPath: member.path).lastPathComponent)")
+        .accessibilityLabel("\(role.label): \(AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent))")
         .accessibilityHint("Selects this photo for keyboard keep or delete actions")
         .accessibilityAddTraits(isFocused ? .isSelected : [])
     }
@@ -306,94 +308,117 @@ struct ClusterDetailPane: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(role.tint)
             Text(role.label)
-                .font(.caption.weight(.semibold))
+                .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(.white)
-            Circle()
-                .fill(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger)
-                .frame(width: 6, height: 6)
+            if differentiateWithoutColor {
+                Image(systemName: decision == .keep ? "checkmark" : "xmark")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger)
+            } else {
+                Circle()
+                    .fill(decision == .keep ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusDanger)
+                    .frame(width: 6, height: 6)
+            }
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
         .background(.black.opacity(0.46), in: Capsule())
     }
 
-    private func preview(for member: PhotoCandidate?) -> some View {
+    private func preview(for member: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.black.opacity(0.34))
             if let member {
                 LargePreviewImage(path: member.path)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .accessibilityHidden(true)
                     .overlay(alignment: .bottomLeading) {
                         photoStageLabel(for: member)
+                            .accessibilityHidden(true)
                     }
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: 56))
                     // Placeholder sits on the dark photo-preview fill, so it must
                     // stay light in both appearances (not the dark ink token).
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityHidden(member == nil)
+        .accessibilityLabel("Selected photo preview")
+        .accessibilityAddTraits(.isImage)
+        .accessibilityValue(member.map { selectedMember in
+            DeduplicateAccessibilityText.photoPreviewDetail(
+                member: selectedMember,
+                decision: sessionStore.decisions.byPath[selectedMember.path] ?? (isSuggestedKeeper(selectedMember, in: cluster) ? .keep : .delete),
+                isSuggestedKeeper: isSuggestedKeeper(selectedMember, in: cluster),
+                confidence: cluster.annotation?.confidence,
+                keeperReason: cluster.annotation?.keeperReason
+            )
+        } ?? "")
     }
 
     private func metadataPanel(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
-                .scaledFont(.subtitle, weight: .semibold)
-                .lineLimit(2)
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(DesignTokens.ColorSystem.imageStage)
 
-            HStack(alignment: .firstTextBaseline) {
-                Text("File")
-                    .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                Spacer()
-                Text(DeduplicateInspectorText.fileName(forPath: member.path))
-                    .scaledFont(.mono)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(member.path)
-            }
-
-            metaRow("Size", value: byteCountFormatter.string(fromByteCount: member.size))
-            if let width = member.pixelWidth, let height = member.pixelHeight {
-                metaRow("Dimensions", value: "\(width) × \(height)")
-            }
-
-            Divider().padding(.vertical, 2)
-
-            qualityRow("Quality", score: member.qualityScore)
-            sharpnessRow("Sharpness", score: member.sharpness)
-            if let face = member.faceScore {
-                faceRow("Face", detected: face > 0.5)
-            }
-            if member.isRaw {
-                Label("RAW", systemImage: "camera.aperture")
-                    .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-            }
-            if let pairedPath = member.pairedPath {
-                Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
-                    .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+            VStack(alignment: .leading, spacing: 10) {
+                Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
+                    .scaledFont(.subtitle, weight: .semibold)
                     .lineLimit(2)
-            }
 
-            Divider().padding(.vertical, 2)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("File")
+                        .scaledFont(.label)
+                    Spacer()
+                    Text(DeduplicateInspectorText.fileName(forPath: member.path))
+                        .scaledFont(.mono)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(member.path)
+                }
 
-            decisionControls(for: member, cluster: cluster)
+                metaRow("Size", value: byteCountFormatter.string(fromByteCount: member.size))
+                if let width = member.pixelWidth, let height = member.pixelHeight {
+                    metaRow("Dimensions", value: "\(width) × \(height)")
+                }
 
-            if let annotation = cluster.annotation {
                 Divider().padding(.vertical, 2)
-                reasoningSection(annotation: annotation, cluster: cluster)
+
+                qualityRow("Quality", score: member.qualityScore)
+                sharpnessRow("Sharpness", score: member.sharpness)
+                if let face = member.faceScore {
+                    faceRow("Face", detected: face > 0.5)
+                }
+                if member.isRaw {
+                    Label("RAW", systemImage: "camera.aperture")
+                        .scaledFont(.label)
+                }
+                if let pairedPath = member.pairedPath {
+                    Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
+                        .scaledFont(.label)
+                        .lineLimit(2)
+                }
+
+                Divider().padding(.vertical, 2)
+
+                decisionControls(for: member, cluster: cluster)
+
+                if let annotation = cluster.annotation {
+                    Divider().padding(.vertical, 2)
+                    reasoningSection(annotation: annotation, cluster: cluster)
+                }
             }
+            .padding(DesignTokens.Spacing.md)
+            .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
-        .padding(DesignTokens.Spacing.md)
-        .background(.thinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
         }
     }
 
@@ -401,11 +426,12 @@ struct ClusterDetailPane: View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             Text(value)
                 .scaledFont(.mono)
                 .monospacedDigit()
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
     }
 
@@ -414,7 +440,7 @@ struct ClusterDetailPane: View {
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             HStack(spacing: 3) {
                 ForEach(0..<5, id: \.self) { i in
@@ -425,7 +451,7 @@ struct ClusterDetailPane: View {
             }
             Text(text)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
         .help(String(format: "Raw score: %.2f", score))
     }
@@ -435,11 +461,11 @@ struct ClusterDetailPane: View {
         return HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             Text(text)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
         .help(String(format: "Raw score: %.2f", score))
     }
@@ -448,11 +474,11 @@ struct ClusterDetailPane: View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
             Label(detected ? "Detected" : "None", systemImage: detected ? "person.fill" : "person.slash")
                 .scaledFont(.label)
-                .foregroundStyle(detected ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
     }
 
@@ -573,8 +599,8 @@ struct ClusterDetailPane: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(.white)
+        .scaledFont(.label, weight: .semibold)
+        .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(.black.opacity(0.46), in: Capsule())
@@ -591,10 +617,10 @@ struct ClusterDetailPane: View {
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("These photos may be intentionally different")
-                        .font(.caption.weight(.semibold))
+                        .scaledFont(.label, weight: .semibold)
                     ForEach(Array(annotation.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(MatchReasonFormatter.warningSummary(warning))
-                            .font(.caption2)
+                            .scaledFont(.label)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
                 }
@@ -622,7 +648,7 @@ struct ClusterDetailPane: View {
                     Image(systemName: showingReasonDetail ? "chevron.down" : "chevron.right")
                         .font(.caption2)
                     Text("Why matched")
-                        .font(.caption.weight(.medium))
+                        .scaledFont(.label, weight: .medium)
                     Spacer()
                     confidenceBadge(annotation.confidence)
                 }
@@ -634,11 +660,11 @@ struct ClusterDetailPane: View {
             if showingReasonDetail {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(MatchReasonFormatter.summary(annotation.matchReason))
-                        .font(.caption)
+                        .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     if let keeperReason = annotation.keeperReason {
                         Text(MatchReasonFormatter.keeperSummary(keeperReason))
-                            .font(.caption)
+                            .scaledFont(.label)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     }
                 }
@@ -650,7 +676,7 @@ struct ClusterDetailPane: View {
                 showingComparisonOverlay = true
             } label: {
                 Label("Compare", systemImage: "rectangle.on.rectangle")
-                    .font(.caption)
+                    .scaledFont(.label)
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -660,7 +686,7 @@ struct ClusterDetailPane: View {
 
     private func confidenceBadge(_ level: ConfidenceLevel) -> some View {
         Text(MatchReasonFormatter.confidenceLabel(level))
-            .font(.caption2.weight(.semibold))
+            .scaledFont(.label, weight: .semibold)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(confidenceColor(level).opacity(0.15))
@@ -861,7 +887,7 @@ private struct LargePreviewImage: View {
                     .font(.system(size: 56))
                     // Placeholder sits on the dark photo-preview fill, so it must
                     // stay light in both appearances (not the dark ink token).
-                    .foregroundStyle(Color.white.opacity(0.4))
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             } else {
                 ProgressView()
             }

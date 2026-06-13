@@ -99,7 +99,7 @@ struct DedupeThumbnailView: View {
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: min(size.width, size.height) * 0.28, weight: .regular))
-                    .foregroundStyle(.white.opacity(0.34))
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             }
         }
         .overlay {

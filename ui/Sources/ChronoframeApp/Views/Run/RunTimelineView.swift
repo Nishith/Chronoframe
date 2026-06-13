@@ -59,7 +59,7 @@ struct RunTimelineView: View {
 
             Text(rangeCaption)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .monospacedDigit()
                 .contentTransition(.numericText())
         }
@@ -173,9 +173,9 @@ struct RunTimelineView: View {
                         .fill(Color.white.opacity(0.14))
                         .frame(width: 0.5, height: chartHeight - 20)
                     Text(marker.year)
-                        .font(.system(size: 10, weight: .medium, design: .default))
+                        .scaledFont(.label, weight: .medium)
                         .monospacedDigit()
-                        .foregroundStyle(Color.white.opacity(0.52))
+                        .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 }
                 .offset(x: markerOffset(for: marker.index, width: width), y: 0)
             }
@@ -212,7 +212,7 @@ struct RunTimelineView: View {
 
             Text(emptyStateMessage)
                 .scaledFont(.label)
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, DesignTokens.Spacing.md)
                 .padding(.vertical, 6)
@@ -457,7 +457,7 @@ private struct TimelineBucketPeek: View {
                     .scaledFont(.label)
                     .tracking(0.6)
                     .textCase(.uppercase)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
             }
 
             HStack(spacing: 6) {

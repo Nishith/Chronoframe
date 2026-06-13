@@ -25,7 +25,7 @@ struct NowCopyingCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Now")
                         .scaledFont(.label)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
 
                     Text(model.context.currentTaskTitle)
                         .scaledFont(.body, weight: .medium)
@@ -184,7 +184,7 @@ struct WaypointRunway: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Copy Queue")
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .tracking(0.6)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -200,7 +200,7 @@ struct WaypointRunway: View {
                     if history.isEmpty {
                         Text("Queue empty")
                             .font(.caption)
-                            .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                            .foregroundStyle(DesignTokens.ColorSystem.captionText)
                             .frame(height: 52)
                     }
                 }
@@ -249,7 +249,7 @@ private struct RunwayThumbnail: View {
                         .aspectRatio(contentMode: .fill)
                 } else {
                     Image(systemName: "photo")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
             }
             .frame(width: 52, height: 52)

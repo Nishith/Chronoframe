@@ -35,7 +35,7 @@ enum DeduplicateAccessibilityText {
               let keeper = cluster.members.first(where: { $0.id == keeperID }) else {
             return nil
         }
-        return URL(fileURLWithPath: keeper.path).lastPathComponent
+        return AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: keeper.path).lastPathComponent)
     }
 
     static func clusterRowLabel(cluster: DuplicateCluster) -> String {
@@ -100,7 +100,7 @@ enum DeduplicateAccessibilityText {
         isSuggestedKeeper: Bool,
         keeperReason: KeeperReason? = nil
     ) -> String {
-        let name = URL(fileURLWithPath: member.path).lastPathComponent
+        let name = AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent)
         guard isSuggestedKeeper else { return name }
         if let rationale = keeperRationale(keeperReason) {
             return "\(name), suggested keeper, \(rationale)"
@@ -123,6 +123,29 @@ enum DeduplicateAccessibilityText {
             // for confidence (not the "Auto/Review/Careful" UI shorthand).
             parts.append("\(confidenceLabel(confidence)) confidence group")
         }
+        return parts.joined(separator: ", ")
+    }
+
+    static func photoPreviewDetail(
+        member: PhotoCandidate,
+        decision: DedupeDecision,
+        isSuggestedKeeper: Bool,
+        confidence: ConfidenceLevel?,
+        keeperReason: KeeperReason?
+    ) -> String {
+        let name = AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent)
+        var parts = [decision == .keep ? "Marked keep" : "Marked delete"]
+        if isSuggestedKeeper {
+            if let rationale = keeperRationale(keeperReason) {
+                parts.append("suggested keeper, \(rationale)")
+            } else {
+                parts.append("suggested keeper")
+            }
+        }
+        if let confidence {
+            parts.append("\(confidenceLabel(confidence)) confidence group")
+        }
+        parts.append(name)
         return parts.joined(separator: ", ")
     }
 

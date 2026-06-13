@@ -220,7 +220,7 @@ private struct SliderComparisonView: View {
     private func comparisonStatusLabel(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
             .font(.caption.weight(.semibold))
-            .foregroundStyle(.white.opacity(0.78))
+            .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .background(.black.opacity(0.36), in: Capsule())
@@ -254,7 +254,7 @@ private struct DifferenceComparisonView: View {
             } else {
                 Text("Could not generate difference image")
                     // On the dark image stage — keep light in both appearances.
-                    .foregroundStyle(Color.white.opacity(0.7))
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -425,10 +425,10 @@ private struct ComparisonUnavailableView: View {
         VStack(spacing: 8) {
             Image(systemName: "photo.badge.exclamationmark")
                 .font(.system(size: 34, weight: .light))
-                .foregroundStyle(.white.opacity(0.48))
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Text(title)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.72))
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 .multilineTextAlignment(.center)
         }
         .padding(DesignTokens.Spacing.lg)
