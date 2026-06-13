@@ -452,6 +452,7 @@ struct MeridianStatusBadge: View {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
             } else {
                 Circle()
                     .fill(tint)
@@ -459,10 +460,10 @@ struct MeridianStatusBadge: View {
             }
             Text(title)
                 .scaledFont(.label)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .foregroundStyle(AccessibleDesign.badgeForeground(for: tint))
         .background(tint.opacity(AccessibleDesign.badgeFillOpacity), in: Capsule())
         .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
         .motion(Motion.instant, value: title)
@@ -498,21 +499,10 @@ struct SectionHeading: View {
             if !message.isEmpty {
                 Text(message)
                     .scaledFont(.subtitle)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilitySummary)
-    }
-
-    private var accessibilitySummary: String {
-        [eyebrow, title, message]
-            .compactMap { value in
-                guard let value, !value.isEmpty else { return nil }
-                return value
-            }
-            .joined(separator: ". ")
     }
 }
 
@@ -558,7 +548,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
     }
 
     var body: some View {
-        MeridianSurfaceCard(style: .section) {
+        MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 HStack(alignment: .center, spacing: 14) {
                     MeridianLeadIcon(
@@ -581,9 +571,6 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(message.isEmpty ? title : "\(title). \(message)")
-
                     Spacer(minLength: 12)
 
                     MeridianStatusBadge(title: badgeTitle, systemImage: badgeSystemImage, tint: tint)
@@ -636,7 +623,7 @@ struct SummaryLine: View {
                 Button(action: onTap) {
                     Text(value)
                         .scaledFont(.body)
-                        .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
@@ -644,7 +631,7 @@ struct SummaryLine: View {
             } else {
                 Text(value)
                     .scaledFont(.body)
-                    .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
             }
@@ -698,7 +685,7 @@ struct PathValueView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .tracking(0.6)
 
             Text(value.isEmpty ? "Not set" : value)

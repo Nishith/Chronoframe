@@ -28,7 +28,7 @@ struct SidebarView: View {
                         .scaledFont(.label, weight: .semibold)
                         .tracking(0.8)
                         .textCase(.uppercase)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .padding(.horizontal, 12)
                         .padding(.bottom, 2)
 
@@ -111,7 +111,7 @@ struct SidebarView: View {
 
                     Text(destination.subtitle)
                         .scaledFont(.label)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(1)
                 }
 
@@ -254,7 +254,7 @@ private struct LibraryAtAGlanceFooter: View {
                     .scaledFont(.label, weight: .semibold)
                     .tracking(0.8)
                     .textCase(.uppercase)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                 HStack(spacing: 8) {
                     Image(systemName: "externaldrive")
@@ -284,8 +284,6 @@ private struct LibraryAtAGlanceFooter: View {
                     .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
             )
             .padding(.horizontal, 6)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Library at a glance: \(totalArchived) photos archived across \(runCount) runs to \(URL(fileURLWithPath: destinationRoot).lastPathComponent)")
         }
     }
 
@@ -297,7 +295,7 @@ private struct LibraryAtAGlanceFooter: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             Text(label)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
     }
 }

@@ -174,8 +174,8 @@ enum DesignTokens {
         /// reason about and has produced runtime audit contrast failures over
         /// materials.
         static let captionText = dynamicColor(
-            light: NSColor(srgbRed: 70.0 / 255, green: 78.0 / 255, blue: 90.0 / 255, alpha: 1),
-            dark: NSColor(srgbRed: 196.0 / 255, green: 201.0 / 255, blue: 212.0 / 255, alpha: 1)
+            light: NSColor(srgbRed: 55.0 / 255, green: 62.0 / 255, blue: 78.0 / 255, alpha: 1),
+            dark: NSColor(srgbRed: 210.0 / 255, green: 214.0 / 255, blue: 224.0 / 255, alpha: 1)
         )
 
         /// Dense metadata such as dates, paths, counts, and file sizes.

@@ -200,7 +200,7 @@ private struct ClusterRow: View {
                 if cluster.members.count > 5 {
                     Text("+\(cluster.members.count - 5)")
                         .font(.caption2)
-                        .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
                 Spacer()
                 if isHovered {
@@ -212,7 +212,7 @@ private struct ClusterRow: View {
                 confidenceDot
                 Text("\(cluster.members.count) photos")
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 // ByteCountFormatter renders 0 as the words "Zero KB"; an
                 // unreviewed group has nothing selected yet, so show nothing.
                 if recoverableBytes > 0 {
@@ -222,7 +222,7 @@ private struct ClusterRow: View {
                         .accessibilityHidden(true)
                     Text(Self.formatter.string(fromByteCount: recoverableBytes))
                         .font(.caption)
-                        .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
                 if hasWarnings {
                     Image(systemName: "exclamationmark.triangle.fill")
@@ -234,7 +234,7 @@ private struct ClusterRow: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
-                        .help("Reviewed")
+                        .accessibilityHidden(true)
                 } else {
                     Text("Suggested")
                         .font(.caption2.weight(.semibold))
@@ -242,7 +242,7 @@ private struct ClusterRow: View {
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(DesignTokens.ColorSystem.statusWarning.opacity(0.12), in: Capsule())
-                        .help("Chronoframe has a suggestion, but this group has not been reviewed")
+                        .accessibilityHidden(true)
                 }
                 actionsMenu
             }
@@ -261,7 +261,7 @@ private struct ClusterRow: View {
             Divider()
             Button("Delete All in Group", role: .destructive) { onDeleteAll() }
         }
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster))
         .accessibilityValue(DeduplicateAccessibilityText.clusterRowValue(
             cluster: cluster,
@@ -269,6 +269,7 @@ private struct ClusterRow: View {
             recoverableBytes: recoverableBytes
         ))
         .accessibilityHint("Selects this duplicate group for review")
+        .accessibilityAddTraits(.isButton)
         .accessibilityAction(named: "Keep All in Group") { onKeepAll() }
         .accessibilityAction(named: "Accept Suggestion") { onAcceptSuggestion() }
         .accessibilityAction(named: "Delete All in Group") { onDeleteAll() }
@@ -353,23 +354,11 @@ private struct ClusterRow: View {
                 .foregroundStyle(confidenceColor(level))
                 .frame(width: 10)
                 .accessibilityHidden(true)
-                .help(confidenceHelp(level))
         } else {
             Circle()
                 .fill(confidenceColor(level))
                 .frame(width: 6, height: 6)
                 .accessibilityHidden(true)
-                .help(confidenceHelp(level))
-        }
-    }
-
-    /// Tooltip text giving the confidence level a permanent, hover-discoverable
-    /// label, since the dot/symbol otherwise conveys it by color/shape only.
-    private func confidenceHelp(_ level: ConfidenceLevel) -> String {
-        switch level {
-        case .high: return "High confidence"
-        case .medium: return "Medium confidence"
-        case .low: return "Low confidence"
         }
     }
 

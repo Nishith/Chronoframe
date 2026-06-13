@@ -53,7 +53,7 @@ struct DeduplicateView: View {
                 failureView(message: message)
             }
         }
-        .navigationTitle("Deduplicate")
+        .modifier(DeduplicateNavigationTitle(title: navigationTitle))
         .onDisappear { thumbnailLoader.purgeCache() }
         .onChange(of: sessionStore.status) { newValue in
             if newValue == .completed || newValue == .reverted {
@@ -65,6 +65,13 @@ struct DeduplicateView: View {
     }
 
     // MARK: - Idle
+
+    private var navigationTitle: String {
+        if case .readyToReview = sessionStore.status, !sessionStore.clusters.isEmpty {
+            return ""
+        }
+        return "Deduplicate"
+    }
 
     private var destinationCard: some View {
         MeridianSurfaceCard(
@@ -448,19 +455,25 @@ struct DeduplicateView: View {
     private func commitFooterStatus(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
         let reviewedCount = sessionStore.reviewedClusters.count
         let suggestedCount = max(0, sessionStore.clusters.count - reviewedCount)
+        let title = Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete)
+        let detail = Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete)
+        let reviewProgress = "\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested"
         VStack(alignment: .leading, spacing: 2) {
-            Text(Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete))
+            Text(title)
                 .font(.subheadline.weight(.semibold))
                 .lineLimit(2)
-            Text(Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete))
+            Text(detail)
                 .font(.caption)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
-            Text("\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested")
+            Text(reviewProgress)
                 .font(.caption2)
                 .foregroundStyle(suggestedCount > 0 ? DesignTokens.ColorSystem.statusWarning : DesignTokens.ColorSystem.statusSuccess)
                 .lineLimit(1)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title). \(detail). \(reviewProgress).")
+        .accessibilityAddTraits(.isStaticText)
     }
 
     @ViewBuilder
@@ -889,6 +902,19 @@ enum CommitFooterButtonDensity {
             return fileCount > 0 ? "Move \(fileCount) File\(fileCount == 1 ? "" : "s") to Trash" : "Move to Trash"
         case .compact:
             return "Move to Trash"
+        }
+    }
+}
+
+private struct DeduplicateNavigationTitle: ViewModifier {
+    let title: String
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if title.isEmpty {
+            content
+        } else {
+            content.navigationTitle(title)
         }
     }
 }

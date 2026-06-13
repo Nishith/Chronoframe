@@ -35,7 +35,7 @@ struct OrganizeContainerView: View {
             }
             .padding(.horizontal, DesignTokens.Layout.contentPadding)
             .padding(.vertical, DesignTokens.Spacing.sm)
-            .background(.bar)
+            .background(DesignTokens.ColorSystem.utilityBand)
 
             Divider()
 

@@ -28,19 +28,7 @@ struct ChronoframeApp: App {
 
     var body: some Scene {
         Window("Chronoframe", id: ChronoframeApp.mainWindowID) {
-            RootSplitView(appState: appState)
-                .accessibilityLabel("Chronoframe")
-                .frame(
-                    minWidth: DesignTokens.Window.mainMinWidth,
-                    idealWidth: DesignTokens.Window.mainIdealWidth,
-                    minHeight: DesignTokens.Window.mainMinHeight,
-                    idealHeight: DesignTokens.Window.mainIdealHeight
-                )
-                .task {
-                    guard uiTestScenario?.opensSettingsOnLaunch == true, !didOpenScenarioSettings else { return }
-                    didOpenScenarioSettings = true
-                    appState.openSettingsWindow()
-                }
+            mainWindowContent
         }
         .commands {
             AppCommands(appState: appState)
@@ -61,6 +49,29 @@ struct ChronoframeApp: App {
 
     static let mainWindowID = "chronoframe-main"
     static let helpWindowID = "chronoframe-help"
+
+    @ViewBuilder
+    private var mainWindowContent: some View {
+        if uiTestScenario?.opensSettingsOnLaunch == true {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityHidden(true)
+                .task {
+                    guard !didOpenScenarioSettings else { return }
+                    didOpenScenarioSettings = true
+                    appState.openSettingsWindow()
+                }
+        } else {
+            RootSplitView(appState: appState)
+                .accessibilityLabel("Chronoframe")
+                .frame(
+                    minWidth: DesignTokens.Window.mainMinWidth,
+                    idealWidth: DesignTokens.Window.mainIdealWidth,
+                    minHeight: DesignTokens.Window.mainMinHeight,
+                    idealHeight: DesignTokens.Window.mainIdealHeight
+                )
+        }
+    }
 }
 
 @MainActor
@@ -77,6 +88,11 @@ final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate, UNUserNotif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        #if DEBUG
+        if UITestScenario.current()?.opensSettingsOnLaunch == true {
+            return
+        }
+        #endif
         DispatchQueue.main.async {
             self.activateMainWindow()
         }

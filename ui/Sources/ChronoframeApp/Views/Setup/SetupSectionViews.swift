@@ -84,7 +84,7 @@ struct SetupHeroSection: View {
                 HStack {
                     Text("Privacy")
                         .scaledFont(.body)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     Spacer()
                     LocalSafetyIndicator(
                         sourcePath: model.context.sourcePath,
@@ -96,7 +96,7 @@ struct SetupHeroSection: View {
                 SummaryLine(
                     title: "Next",
                     value: model.nextStepSummary,
-                    valueColor: model.heroTone.color,
+                    valueColor: nil,
                     onTap: nextStepTap
                 )
             }
@@ -121,7 +121,7 @@ struct SetupContactSheetSection: View {
     let sourcePath: String
 
     var body: some View {
-        MeridianSurfaceCard(style: .section) {
+        MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 SectionHeading(
                     title: "Source Contact Sheet",
@@ -344,7 +344,7 @@ struct SetupSourceStepSection: View {
         stepState: SetupStepState,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        MeridianSurfaceCard(style: .section) {
+        MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(title: stepTitle, message: message)
@@ -368,7 +368,7 @@ struct SetupDestinationStepSection: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        MeridianSurfaceCard(style: .section) {
+        MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(
@@ -462,7 +462,7 @@ struct SetupReadinessSection: View {
     @State private var showsSafetyDetails = false
 
     var body: some View {
-        MeridianSurfaceCard(style: .section) {
+        MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(
@@ -486,7 +486,7 @@ struct SetupReadinessSection: View {
                         Button("Adjust Settings…", action: openSettings)
                     }
                     .padding(8)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .background(DesignTokens.ColorSystem.utilityBand, in: RoundedRectangle(cornerRadius: 10))
 
                     VStack(alignment: .leading, spacing: 10) {
                         previewButton
@@ -494,7 +494,7 @@ struct SetupReadinessSection: View {
                         Button("Adjust Settings…", action: openSettings)
                     }
                     .padding(8)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .background(DesignTokens.ColorSystem.utilityBand, in: RoundedRectangle(cornerRadius: 10))
                 }
 
                 // The safe-path promise in one line; the full evidence

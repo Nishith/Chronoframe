@@ -59,6 +59,9 @@ struct TickerRow: View {
                 .frame(height: 0.5)
         }
         .background(DesignTokens.ColorSystem.utilityBand)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+        .accessibilityAddTraits(.isStaticText)
     }
 
     private var tilesBody: some View {
@@ -72,13 +75,21 @@ struct TickerRow: View {
         .padding(.vertical, DesignTokens.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DesignTokens.ColorSystem.utilityBand)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+        .accessibilityAddTraits(.isStaticText)
+    }
+
+    private var accessibilitySummary: String {
+        entries
+            .map { "\($0.label): \($0.value)" }
+            .joined(separator: ", ")
     }
 
     private var horizontalLayout: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                 entryView(entry)
-                    .contentTransition(.numericText())
                 if index != entries.indices.last {
                     Text("·")
                         .foregroundStyle(DesignTokens.ColorSystem.separatorText)
@@ -104,8 +115,6 @@ struct TickerRow: View {
             Text(entry.label)
                 .foregroundStyle(DesignTokens.ColorSystem.metadataText)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(entry.label): \(entry.value)")
     }
 
     private func tileView(_ entry: Entry) -> some View {
@@ -113,15 +122,12 @@ struct TickerRow: View {
             Text(entry.value)
                 .scaledFont(.metric)
                 .foregroundStyle(color(for: entry.tone))
-                .contentTransition(.numericText())
             Text(entry.label.uppercased())
                 .scaledFont(.label)
                 .tracking(0.8)
                 .foregroundStyle(DesignTokens.ColorSystem.captionText)
         }
         .frame(minWidth: DesignTokens.Layout.narrowMetricMinWidth, alignment: .leading)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(entry.label): \(entry.value)")
     }
 
     private func color(for tone: TickerTone) -> Color {

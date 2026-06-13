@@ -51,7 +51,7 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(historyState.selection, .organize)
         XCTAssertEqual(historyState.organizeSubSelection, .history)
         XCTAssertEqual(historyState.historyStore.destinationRoot, "/Volumes/Archive/Chronoframe Library")
-        XCTAssertEqual(historyState.historyStore.entries.map(\.title), ["Dry Run Report", "Transfer Receipt", "Run Log"])
+        XCTAssertEqual(historyState.historyStore.entries.map(\.title), ["Dry Run Report", "Transfer Receipt"])
         XCTAssertEqual(historyState.historyStore.transferredSources.count, 1)
         XCTAssertEqual(historyState.historyStore.transferredSources.first?.sourcePath, "/Volumes/Card/April Session")
 

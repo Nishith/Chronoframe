@@ -221,7 +221,7 @@ final class ColorContrastTests: XCTestCase {
             static let inkPrimary = RGB.bits(14, 17, 22)
             static let inkSecondary = RGB.bits(55, 62, 78)
             static let inkMuted = RGB.bits(97, 108, 118)
-            static let captionText = RGB.bits(70, 78, 90)
+            static let captionText = RGB.bits(55, 62, 78)
             static let metadataText = captionText
             static let separatorText = RGB.bits(85, 93, 104)
             static let textOnImageStage = RGB.bits(244, 246, 250)
@@ -250,7 +250,7 @@ final class ColorContrastTests: XCTestCase {
             static let inkPrimary = RGB.bits(237, 238, 242)
             static let inkSecondary = RGB.bits(169, 175, 188)
             static let inkMuted = RGB.bits(124, 130, 144)
-            static let captionText = RGB.bits(196, 201, 212)
+            static let captionText = RGB.bits(210, 214, 224)
             static let metadataText = captionText
             static let separatorText = RGB.bits(181, 187, 199)
             static let textOnImageStage = RGB.bits(244, 246, 250)

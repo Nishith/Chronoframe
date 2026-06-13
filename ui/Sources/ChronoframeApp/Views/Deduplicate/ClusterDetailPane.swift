@@ -429,6 +429,7 @@ struct ClusterDetailPane: View {
             Text(value)
                 .scaledFont(.mono)
                 .monospacedDigit()
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
     }
 
@@ -597,7 +598,7 @@ struct ClusterDetailPane: View {
                 .truncationMode(.middle)
         }
         .scaledFont(.label, weight: .semibold)
-        .foregroundStyle(.white)
+        .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(.black.opacity(0.46), in: Capsule())

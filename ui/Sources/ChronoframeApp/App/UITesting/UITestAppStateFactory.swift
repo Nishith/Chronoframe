@@ -222,14 +222,6 @@ enum UITestAppStateFactory {
                 fileSizeBytes: 8_192,
                 createdAt: Date(timeIntervalSinceReferenceDate: 764_121_600)
             ),
-            RunHistoryEntry(
-                kind: .runLog,
-                title: "Run Log",
-                path: "/Volumes/Archive/Chronoframe Library/.organize_log.txt",
-                relativePath: ".organize_log.txt",
-                fileSizeBytes: 64_000,
-                createdAt: Date(timeIntervalSinceReferenceDate: 764_121_600)
-            ),
         ]
     }
 
@@ -308,6 +300,7 @@ private enum UITestSettingsWindowPresenter {
         if let settingsWindow {
             settingsWindow.level = .floating
             settingsWindow.makeKeyAndOrderFront(nil)
+            hideMainWindows(except: settingsWindow)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
@@ -323,14 +316,22 @@ private enum UITestSettingsWindowPresenter {
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "Settings"
+        window.identifier = NSUserInterfaceItemIdentifier("com_apple_SwiftUI_Settings_window")
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.level = .floating
         window.setContentSize(NSSize(width: 760, height: 680))
         window.center()
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)
+        hideMainWindows(except: window)
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow = window
+    }
+
+    private static func hideMainWindows(except settingsWindow: NSWindow) {
+        for window in NSApp.windows where window !== settingsWindow && window.title == "Chronoframe" {
+            window.orderOut(nil)
+        }
     }
 }
 #endif

@@ -197,11 +197,9 @@ struct RunHistoryView: View {
 
                 Text(headerMessage)
                     .scaledFont(.subtitle)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(2)
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Archive. \(headerMessage)")
 
             Spacer(minLength: DesignTokens.Spacing.md)
 
@@ -666,14 +664,14 @@ struct RunHistoryView: View {
                     }
                 }
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
             Spacer(minLength: DesignTokens.Spacing.sm)
 
             Text(entry.relativePath)
                 .scaledFont(.mono)
-                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: 260, alignment: .trailing)

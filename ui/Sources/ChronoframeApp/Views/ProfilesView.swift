@@ -50,8 +50,6 @@ struct ProfilesView: View {
                     .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Profiles. \(summaryMessage)")
 
             Spacer(minLength: DesignTokens.Spacing.md)
 
