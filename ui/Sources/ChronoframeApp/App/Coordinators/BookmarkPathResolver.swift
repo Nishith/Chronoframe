@@ -8,6 +8,14 @@ final class BookmarkPathResolver {
     private let preferencesStore: PreferencesStore
     private let folderAccessService: any FolderAccessServicing
 
+    /// Session-long security-scope access for the folders restored from
+    /// bookmarks. Resolving a bookmark alone does not grant sandbox read
+    /// access — without starting the scope, surfaces that read the restored
+    /// path directly (the Setup contact sheet) see an unreadable folder until
+    /// a run acquires its own per-run scope. Replaced wholesale on each
+    /// restore; the superseded token stops access when it deinitializes.
+    private var restoredPathAccess: SecurityScopedFolderAccess?
+
     init(
         preferencesStore: PreferencesStore,
         folderAccessService: any FolderAccessServicing
@@ -50,6 +58,8 @@ final class BookmarkPathResolver {
             setupStore.destinationPath = destinationPath
             preferencesStore.lastManualDestinationPath = destinationPath
         }
+
+        retainScopedAccess(forProfileName: nil)
     }
 
     func restoreProfilePaths(named profileName: String, into setupStore: SetupStore) {
@@ -60,6 +70,17 @@ final class BookmarkPathResolver {
         if let destinationPath = resolveBookmarkedPath(for: .destination, profileName: profileName) {
             setupStore.destinationPath = destinationPath
         }
+
+        retainScopedAccess(forProfileName: profileName)
+    }
+
+    private func retainScopedAccess(forProfileName profileName: String?) {
+        let keys = [
+            bookmarkKey(for: .source, profileName: profileName),
+            bookmarkKey(for: .destination, profileName: profileName),
+        ]
+        let bookmarks = keys.compactMap { preferencesStore.bookmark(for: $0) }
+        restoredPathAccess = bookmarks.isEmpty ? nil : folderAccessService.scopedAccess(for: bookmarks)
     }
 
     func resolveBookmarkedPath(for role: FolderRole, profileName: String?) -> String? {

@@ -274,6 +274,116 @@ enum AccessibleDesign {
     }
 }
 
+// MARK: - Badge text contrast
+
+/// WCAG-aware foreground derivation for `MeridianStatusBadge`. The status
+/// accents are tuned as *fills and icons* (3:1 non-text tier); used directly as
+/// 12pt label text on the light canvas most of them sit between 2.6:1 and
+/// 4.5:1, below the normal-text AA bar. The pure helpers below darken a tint
+/// only as far as needed to read at AA against the badge's own fill — they are
+/// deterministic and unit-tested in `ColorContrastTests`.
+extension AccessibleDesign {
+
+    struct SRGB: Equatable {
+        var r: Double
+        var g: Double
+        var b: Double
+    }
+
+    /// The badge capsule fill opacity (tint over the surface behind it).
+    static let badgeFillOpacity: Double = 0.18
+
+    /// Contrast target for badge text: 4.5:1 AA plus headroom for the slightly
+    /// darker utility-band surfaces the badge can sit on.
+    static let badgeTextContrastTarget: Double = 4.6
+
+    /// Relative luminance per WCAG 2.1 for sRGB components in 0...1.
+    static func relativeLuminance(_ c: SRGB) -> Double {
+        func linear(_ channel: Double) -> Double {
+            channel <= 0.03928 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b)
+    }
+
+    /// WCAG contrast ratio between two colors, always >= 1.
+    static func contrastRatio(_ a: SRGB, _ b: SRGB) -> Double {
+        let la = relativeLuminance(a)
+        let lb = relativeLuminance(b)
+        return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+    }
+
+    /// Simple sRGB-space alpha compositing, matching how the system blends the
+    /// badge's translucent tint fill over the surface behind it.
+    static func composited(_ top: SRGB, over base: SRGB, alpha: Double) -> SRGB {
+        SRGB(
+            r: top.r * alpha + base.r * (1 - alpha),
+            g: top.g * alpha + base.g * (1 - alpha),
+            b: top.b * alpha + base.b * (1 - alpha)
+        )
+    }
+
+    /// Darkens `tint` toward black (preserving hue) until it reads at
+    /// `badgeTextContrastTarget` against the badge fill (`tint` at
+    /// `badgeFillOpacity` over `surface`). Identity when the tint already
+    /// passes. Light-appearance use only — light tints on the dark canvas
+    /// already clear AA by a wide margin.
+    static func badgeReadableTint(_ tint: SRGB, surface: SRGB) -> SRGB {
+        let fill = composited(tint, over: surface, alpha: badgeFillOpacity)
+        var adjusted = tint
+        var scale = 1.0
+        while contrastRatio(adjusted, fill) < badgeTextContrastTarget && scale > 0 {
+            scale = max(0, scale - 0.02)
+            adjusted = SRGB(r: tint.r * scale, g: tint.g * scale, b: tint.b * scale)
+        }
+        return adjusted
+    }
+
+    /// Dynamic badge text color: the tint itself in dark mode, the AA-adjusted
+    /// darkened variant in light mode.
+    static func badgeForeground(for tint: SwiftUI.Color) -> SwiftUI.Color {
+        #if !canImport(AppKit)
+        return tint
+        #else
+        let base = NSColor(tint)
+        let surfaceToken = NSColor(DesignTokens.ColorSystem.canvas)
+        let dynamic = NSColor(name: nil) { appearance in
+            var resolvedTint: NSColor?
+            var resolvedSurface: NSColor?
+            appearance.performAsCurrentDrawingAppearance {
+                resolvedTint = base.usingColorSpace(.sRGB)
+                resolvedSurface = surfaceToken.usingColorSpace(.sRGB)
+            }
+            guard let tintColor = resolvedTint, let surfaceColor = resolvedSurface else {
+                return base
+            }
+            let match = appearance.bestMatch(from: [.darkAqua, .vibrantDark, .aqua, .vibrantLight])
+            if match == .darkAqua || match == .vibrantDark {
+                return tintColor
+            }
+            let adjusted = badgeReadableTint(
+                SRGB(
+                    r: Double(tintColor.redComponent),
+                    g: Double(tintColor.greenComponent),
+                    b: Double(tintColor.blueComponent)
+                ),
+                surface: SRGB(
+                    r: Double(surfaceColor.redComponent),
+                    g: Double(surfaceColor.greenComponent),
+                    b: Double(surfaceColor.blueComponent)
+                )
+            )
+            return NSColor(
+                srgbRed: CGFloat(adjusted.r),
+                green: CGFloat(adjusted.g),
+                blue: CGFloat(adjusted.b),
+                alpha: tintColor.alphaComponent
+            )
+        }
+        return SwiftUI.Color(nsColor: dynamic)
+        #endif
+    }
+}
+
 // MARK: - Lead icon
 
 struct MeridianLeadIcon: View {
@@ -375,8 +485,8 @@ struct MeridianStatusBadge: View {
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .foregroundStyle(tint)
-        .background(tint.opacity(0.15), in: Capsule())
+        .foregroundStyle(AccessibleDesign.badgeForeground(for: tint))
+        .background(tint.opacity(AccessibleDesign.badgeFillOpacity), in: Capsule())
         .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
         .motion(Motion.instant, value: title)
     }

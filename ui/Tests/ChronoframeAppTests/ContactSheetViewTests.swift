@@ -71,6 +71,60 @@ final class ContactSheetViewTests: XCTestCase {
         XCTAssertEqual(ContactSheetThumbnailPipeline.candidateLimit(for: 12), 48)
     }
 
+    /// Wide-layout doctrine: the tile grid is the media surface that grows
+    /// with its column. The plan must clamp at both ends — a floor so the
+    /// sheet reads as a grid even before width measurement, and a ceiling so
+    /// source enumeration cost is fixed no matter how wide the window gets.
+    func testContactSheetLayoutScalesTileCountWithColumnWidth() {
+        // Pre-measurement (zero width) falls back to the minimum grid.
+        XCTAssertEqual(
+            ContactSheetLayout.tileCount(forColumnWidth: 0, cellSize: 92),
+            ContactSheetLayout.minimumTiles
+        )
+        // A narrow evidence column (~470pt → 4 columns × 2 rows = 8) still
+        // shows the floor.
+        XCTAssertEqual(
+            ContactSheetLayout.tileCount(forColumnWidth: 470, cellSize: 92),
+            ContactSheetLayout.minimumTiles
+        )
+        // The full evidence cap (1,400pt → 14 columns) shows two full rows.
+        XCTAssertEqual(ContactSheetLayout.tileCount(forColumnWidth: 1_400, cellSize: 92), 28)
+        // Absurd widths clamp at the enumeration bound.
+        XCTAssertEqual(
+            ContactSheetLayout.tileCount(forColumnWidth: 5_000, cellSize: 92),
+            ContactSheetLayout.maximumTiles
+        )
+
+        // Monotonic: more width never shows fewer frames, and the displayed
+        // count never exceeds what the loader fetched.
+        var previous = 0
+        for width in stride(from: CGFloat(0), through: 3_000, by: 50) {
+            let count = ContactSheetLayout.tileCount(forColumnWidth: width, cellSize: 92)
+            XCTAssertGreaterThanOrEqual(count, previous)
+            XCTAssertLessThanOrEqual(count, ContactSheetLayout.maximumTiles)
+            previous = count
+        }
+    }
+
+    /// The collapsed empty state must distinguish "this folder has no media"
+    /// from "media exists but previews failed" — the second points at a real
+    /// problem (permissions, unsupported formats) and must not be hidden
+    /// behind the generic line.
+    func testEmptyResultMessageDistinguishesNoMediaFromPreviewFailure() {
+        XCTAssertEqual(
+            ContactSheetLayout.emptyResultMessage(foundMediaCount: 0),
+            "No photos or videos in this folder yet. Frames appear here as soon as Chronoframe can see them."
+        )
+        XCTAssertEqual(
+            ContactSheetLayout.emptyResultMessage(foundMediaCount: 1),
+            "Found 1 media file, but previews couldn't be created for them."
+        )
+        XCTAssertEqual(
+            ContactSheetLayout.emptyResultMessage(foundMediaCount: 12),
+            "Found 12 media files, but previews couldn't be created for them."
+        )
+    }
+
     private func render<V: View>(_ view: V, size: NSSize) throws -> NSBitmapImageRep {
         let hostingView = NSHostingView(rootView: view)
         hostingView.frame = NSRect(origin: .zero, size: size)

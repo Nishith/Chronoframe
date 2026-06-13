@@ -339,12 +339,22 @@ struct ClusterDetailPane: View {
 
     private func metadataPanel(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(URL(fileURLWithPath: member.path).lastPathComponent)
+            Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
                 .scaledFont(.subtitle, weight: .semibold)
                 .lineLimit(2)
-                .truncationMode(.middle)
 
-            metaRow("Captured", value: dateString(member.captureDate))
+            HStack(alignment: .firstTextBaseline) {
+                Text("File")
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                Spacer()
+                Text(DeduplicateInspectorText.fileName(forPath: member.path))
+                    .scaledFont(.mono)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(member.path)
+            }
+
             metaRow("Size", value: byteCountFormatter.string(fromByteCount: member.size))
             if let width = member.pixelWidth, let height = member.pixelHeight {
                 metaRow("Dimensions", value: "\(width) × \(height)")
@@ -708,19 +718,38 @@ struct ClusterDetailPane: View {
         dragStartThumbnailStripHeight = nil
     }
 
-    private func dateString(_ date: Date?) -> String {
-        guard let date else { return "—" }
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
-    }
-
     private var byteCountFormatter: ByteCountFormatter {
         let formatter = ByteCountFormatter()
         formatter.allowedUnits = [.useKB, .useMB, .useGB]
         formatter.countStyle = .file
         return formatter
+    }
+}
+
+/// Pure text composition for the member metadata panel, kept testable in the
+/// spirit of `DeduplicateAccessibilityText`.
+///
+/// People recognize photos by when they were taken, not by export filename, so
+/// the panel leads with the capture date. The filename stays one row below —
+/// in duplicate triage it carries real evidence (" copy" suffixes, export
+/// numbering) and must remain visible, just not be the headline.
+enum DeduplicateInspectorText {
+    static func title(
+        forCaptureDate captureDate: Date?,
+        locale: Locale = .current,
+        timeZone: TimeZone = .current
+    ) -> String {
+        guard let captureDate else { return "Capture date unknown" }
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: captureDate)
+    }
+
+    static func fileName(forPath path: String) -> String {
+        URL(fileURLWithPath: path).lastPathComponent
     }
 }
 

@@ -92,6 +92,7 @@ struct SetupScreenContext {
     var workerCount: Int
     var verifyCopies: Bool
     var isRunInProgress: Bool
+    var availableProfileCount: Int
 
     init(
         sourcePath: String,
@@ -104,7 +105,8 @@ struct SetupScreenContext {
         droppedSourceItemCount: Int = 0,
         workerCount: Int = 4,
         verifyCopies: Bool = true,
-        isRunInProgress: Bool = false
+        isRunInProgress: Bool = false,
+        availableProfileCount: Int = 0
     ) {
         self.sourcePath = sourcePath
         self.destinationPath = destinationPath
@@ -117,6 +119,7 @@ struct SetupScreenContext {
         self.workerCount = workerCount
         self.verifyCopies = verifyCopies
         self.isRunInProgress = isRunInProgress
+        self.availableProfileCount = availableProfileCount
     }
 }
 
@@ -145,7 +148,8 @@ struct SetupScreenModel {
                 droppedSourceItemCount: setupStore.droppedSourceItemCount,
                 workerCount: preferencesStore.workerCount,
                 verifyCopies: preferencesStore.verifyCopies,
-                isRunInProgress: isRunInProgress
+                isRunInProgress: isRunInProgress,
+                availableProfileCount: setupStore.profiles.count
             )
         )
     }
@@ -289,6 +293,15 @@ struct SetupScreenModel {
         canStartRun
             ? "Preview is non-destructive. Transfer still requires an explicit confirmation before any files are copied."
             : "Complete the source and destination, or pick a saved profile, and Chronoframe will guide you into a safe preview."
+    }
+
+    /// Profiles are earned complexity: a first-time user has none and should
+    /// not see the section at all. It appears once any profile exists or one
+    /// is selected; creation lives in the Profiles workspace.
+    var showsSavedSetupSection: Bool {
+        context.availableProfileCount > 0
+            || context.activeProfile != nil
+            || !context.selectedProfileName.isEmpty
     }
 
     var savedSetupBadgeTitle: String {

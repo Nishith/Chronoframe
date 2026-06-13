@@ -473,7 +473,7 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(appState.hasDedicatedDeduplicateDestinationPath)
         XCTAssertEqual(
             appState.deduplicateDestinationHelper,
-            "Used only for Deduplicate scans."
+            "Only this folder is scanned for duplicates."
         )
     }
 

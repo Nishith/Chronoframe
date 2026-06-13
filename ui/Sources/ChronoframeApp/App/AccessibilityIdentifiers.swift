@@ -24,6 +24,7 @@ enum AccessibilityIdentifiers {
     static let previewButton = "previewButton"
     static let transferButton = "transferButton"
     static let setupPreflightChecklist = "setupPreflightChecklist"
+    static let setupSafetyDetailsDisclosure = "setupSafetyDetailsDisclosure"
 
     // MARK: - Run
 
@@ -107,6 +108,7 @@ enum AccessibilityIdentifiers {
     static let all: [String] = [
         chooseSourceButton, chooseDestinationButton, dropZone, folderStructurePicker,
         profilePicker, previewButton, transferButton, setupPreflightChecklist,
+        setupSafetyDetailsDisclosure,
         consoleScrollView, openDestinationButton, openReportButton, openLogsButton,
         startTransferFromPreviewButton, runWorkspaceTabs, runIdleOnboardingCard,
         runOutcomeSummaryCard, previewReviewFilter,

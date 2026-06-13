@@ -33,7 +33,7 @@ struct ProfilesView: View {
             }
             .padding(DesignTokens.Layout.contentPadding)
             .frame(maxWidth: DesignTokens.Layout.archiveMaxWidth, alignment: .leading)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
     }
 

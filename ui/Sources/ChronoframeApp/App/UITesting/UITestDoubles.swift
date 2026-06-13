@@ -172,8 +172,13 @@ final class MockFolderAccessService: FolderAccessServicing {
         return resolvedBookmarks[bookmark.key] ?? ResolvedFolderBookmark(url: URL(fileURLWithPath: bookmark.path))
     }
 
+    /// Bookmark keys of every `scopedAccess` request, in call order. Lets
+    /// tests assert that restored paths get session-long sandbox access.
+    var scopedAccessRequests: [[String]] = []
+
     func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess {
-        SecurityScopedFolderAccess()
+        scopedAccessRequests.append(bookmarks.map(\.key))
+        return SecurityScopedFolderAccess()
     }
 
     nonisolated func validateFolder(_ url: URL, role: FolderRole) throws {

@@ -143,6 +143,32 @@ Consistent spacing throughout the app:
 | `Window.mainMinHeight` | 700pt | Main window minimum height |
 | `Window.settingsMinWidth` | 460pt | Settings window minimum width |
 
+### Wide Layouts (fullscreen and large displays)
+
+The rule for spending width: **text and form columns keep a fixed reading
+measure; media and evidence surfaces are the only elements that grow with the
+window.** Stretching a form or status card past its measure adds no
+information — it just balloons line lengths. Photo grids, timelines, and
+comparison stages get better with every extra point, so they absorb the width.
+
+In practice:
+
+- Every workspace caps its content column (`Layout.contentMaxWidth` /
+  `archiveMaxWidth` / `setupMaxWidth`) and centers it in the window
+  (`.frame(maxWidth: cap, alignment: .leading)` then
+  `.frame(maxWidth: .infinity, alignment: .center)`). Symmetric margins read
+  as intentional; a leading-pinned column reads as a rendering bug.
+- Where a workspace has a media surface, split into a fixed-measure column and
+  a fluid evidence column. Setup is the reference implementation: the form
+  column stops growing at `Layout.setupFormColumnWidth` (680pt) while the
+  contact-sheet column absorbs remaining width up to
+  `Layout.setupEvidenceMaxWidth` (1,400pt). The contact sheet itself adds tile
+  columns as it widens (`ContactSheetLayout`).
+- Cap the evidence surface too. Past ~1,400pt, thumbnails become billboards;
+  the leftover margin stays small and symmetric, which is fine.
+- Adaptation policy lives in pure, unit-tested helpers (see
+  `ContactSheetLayout` and `ContactSheetViewTests`), not inline view math.
+
 ---
 
 ## Typography

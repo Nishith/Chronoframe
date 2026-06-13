@@ -9,12 +9,17 @@ enum DedupeClusterConfidenceFilter: String, CaseIterable {
     case medium
     case low
 
+    /// One vocabulary for confidence everywhere a user sees it: these tab
+    /// labels, the row badge (`MatchReasonFormatter.confidenceLabel`), and the
+    /// bulk action ("Accept All Safe") all use Safe / Check / Risky so the
+    /// user can connect them. VoiceOver speaks the underlying
+    /// high/medium/low confidence via `DeduplicateAccessibilityText`.
     var label: String {
         switch self {
         case .all: return "All"
-        case .high: return "Auto"
-        case .medium: return "Review"
-        case .low: return "Careful"
+        case .high: return "Safe"
+        case .medium: return "Check"
+        case .low: return "Risky"
         }
     }
 
@@ -29,6 +34,26 @@ enum DedupeClusterConfidenceFilter: String, CaseIterable {
 
     static func filtered(_ clusters: [DuplicateCluster], by filter: DedupeClusterConfidenceFilter) -> [DuplicateCluster] {
         clusters.filter { filter.includes($0) }
+    }
+}
+
+/// Canonical review order: safest kinds first, matching the list's visual
+/// grouping, so the default focus lands on the safest group and "next"
+/// always means the next row the user actually sees.
+enum DedupeReviewOrder {
+    static let kindOrder: [ClusterKind] = [.exactDuplicate, .burst, .nearDuplicate, .editedVariant]
+
+    static func sorted(_ clusters: [DuplicateCluster]) -> [DuplicateCluster] {
+        let rank = Dictionary(uniqueKeysWithValues: kindOrder.enumerated().map { ($1, $0) })
+        return clusters.enumerated()
+            .sorted { a, b in
+                let rankA = rank[a.element.kind] ?? kindOrder.count
+                let rankB = rank[b.element.kind] ?? kindOrder.count
+                if rankA != rankB { return rankA < rankB }
+                // Stable within a kind: preserve the scanner's order.
+                return a.offset < b.offset
+            }
+            .map(\.element)
     }
 }
 
@@ -54,7 +79,7 @@ struct ClusterListPane: View {
     }
 
     private var grouped: [(ClusterKind, [DuplicateCluster])] {
-        let order: [ClusterKind] = [.exactDuplicate, .burst, .nearDuplicate, .editedVariant]
+        let order = DedupeReviewOrder.kindOrder
         return order.compactMap { kind in
             let matching = filteredClusters.filter { $0.kind == kind }
             return matching.isEmpty ? nil : (kind, matching)
@@ -191,11 +216,15 @@ private struct ClusterRow: View {
                 confidenceDot
                 Text("\(cluster.members.count) photos")
                     .font(.caption)
-                Text("·")
-                    .foregroundStyle(.secondary)
-                Text(Self.formatter.string(fromByteCount: recoverableBytes))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                // ByteCountFormatter renders 0 as the words "Zero KB"; an
+                // unreviewed group has nothing selected yet, so show nothing.
+                if recoverableBytes > 0 {
+                    Text("·")
+                        .foregroundStyle(.secondary)
+                    Text(Self.formatter.string(fromByteCount: recoverableBytes))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if hasWarnings {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 10))

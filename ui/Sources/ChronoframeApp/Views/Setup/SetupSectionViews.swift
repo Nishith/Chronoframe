@@ -51,7 +51,6 @@ private struct SetupFolderChooserButton: NSViewRepresentable {
 
 struct SetupHeroSection: View {
     let model: SetupScreenModel
-    let primaryAction: () -> Void
     let scrollToSource: () -> Void
     let scrollToDestination: () -> Void
 
@@ -77,9 +76,13 @@ struct SetupHeroSection: View {
             systemImage: heroSystemImage,
             usesBrandMark: useBrandMark
         ) {
+            // One orientation row and one next-step line. The steps below
+            // carry their own state pills, and the single prominent action
+            // lives at the end of the steps it depends on (the Start
+            // section) — the hero orients, it does not act.
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Security")
+                    Text("Privacy")
                         .scaledFont(.body)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     Spacer()
@@ -90,41 +93,26 @@ struct SetupHeroSection: View {
                     )
                 }
 
-                SummaryLine(title: "Source", value: model.sourceSummaryValue, valueColor: model.sourceStepState.tone.color, onTap: scrollToSource)
-                SummaryLine(title: "Destination", value: model.destinationSummaryValue, valueColor: model.destinationStepState.tone.color, onTap: scrollToDestination)
-                SummaryLine(title: "Mode", value: model.modeSummaryValue)
-                SummaryLine(title: "Next", value: model.nextStepSummary, valueColor: model.heroTone.color)
+                SummaryLine(
+                    title: "Next",
+                    value: model.nextStepSummary,
+                    valueColor: model.heroTone.color,
+                    onTap: nextStepTap
+                )
             }
         } actions: {
-            heroPrimaryButton
+            EmptyView()
         }
     }
 
-    /// When the next step is a "choose source/destination" action the
-    /// per-section button already leads the eye. Keep the hero's button
-    /// quieter (.bordered) so there's a single prominent blue button on the
-    /// screen — the sticky-footer Preview/Transfer. Only escalate to
-    /// `.borderedProminent` when the hero IS the place to act (preview ready).
-    @ViewBuilder
-    private var heroPrimaryButton: some View {
-        let isChooseStep = model.primaryAction == .chooseSource
-            || model.primaryAction == .chooseDestination
-        let button = Button(action: primaryAction) {
-            Label(model.primaryAction.title, systemImage: model.primaryAction.systemImage)
-                .frame(maxWidth: .infinity)
-        }
-        .disabled(model.primaryActionDisabled)
-        .accessibilityLabel(model.primaryAction.title)
-        .accessibilityHint(model.primaryActionDisabled ? "Choose both folders to continue" : "Continues to the next setup step")
-
-        if isChooseStep {
-            button
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
-        } else {
-            button
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+    private var nextStepTap: (() -> Void)? {
+        switch model.primaryAction {
+        case .chooseSource:
+            return scrollToSource
+        case .chooseDestination:
+            return scrollToDestination
+        case .preview:
+            return nil
         }
     }
 }
@@ -162,8 +150,8 @@ struct SetupSavedSetupSection: View {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(
                         eyebrow: "Saved Setup",
-                        title: "Profiles for Repeatable Runs",
-                        message: "Use a saved source and destination pair when you want the app and CLI to stay in sync."
+                        title: "Profiles",
+                        message: "Use a saved source and destination pair."
                     )
 
                     Spacer(minLength: 12)
@@ -471,13 +459,15 @@ struct SetupReadinessSection: View {
     let openSettings: () -> Void
     let isRunInProgress: Bool
 
+    @State private var showsSafetyDetails = false
+
     var body: some View {
         MeridianSurfaceCard(style: .section) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(
-                        title: "Run",
-                        message: "Preview to inspect the plan. Transfer when ready."
+                        title: "Start",
+                        message: model.readinessMessage
                     )
 
                     Spacer(minLength: 12)
@@ -488,18 +478,6 @@ struct SetupReadinessSection: View {
                         tint: model.readinessTone.color
                     )
                 }
-
-                TrustProofSurface(items: TrustProofModel.setupSafetySummary(
-                    source: model.context.sourcePath,
-                    destination: model.context.destinationPath,
-                    verifyCopies: model.context.verifyCopies
-                ))
-
-                SetupPreflightChecklist(model: model)
-
-                Text(model.readinessMessage)
-                    .font(.subheadline)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
 
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) {
@@ -518,6 +496,31 @@ struct SetupReadinessSection: View {
                     .padding(8)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                 }
+
+                // The safe-path promise in one line; the full evidence
+                // (trust items + readiness checklist) stays one click away.
+                // The heavy proof belongs at the transfer confirmation, not
+                // in front of a non-destructive preview.
+                DisclosureGroup(isExpanded: $showsSafetyDetails) {
+                    VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
+                        TrustProofSurface(items: TrustProofModel.setupSafetySummary(
+                            source: model.context.sourcePath,
+                            destination: model.context.destinationPath,
+                            verifyCopies: model.context.verifyCopies
+                        ))
+
+                        SetupPreflightChecklist(model: model)
+                    }
+                    .padding(.top, DesignTokens.Spacing.sm)
+                } label: {
+                    Label(
+                        "Everything runs on this Mac. Originals are never changed.",
+                        systemImage: "lock.shield"
+                    )
+                    .font(.subheadline)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                }
+                .accessibilityIdentifier(AccessibilityIdentifiers.setupSafetyDetailsDisclosure)
             }
         }
     }

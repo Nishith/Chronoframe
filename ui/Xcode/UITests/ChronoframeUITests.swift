@@ -162,17 +162,21 @@ final class ChronoframeUITests: XCTestCase {
         await MainActor.run {
             let app = Self.launchApp(.setupReady)
 
-            XCTAssertTrue(app.staticTexts["Profiles for Repeatable Runs"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["1. Source"].waitForExistence(timeout: 5))
             XCTAssertFalse(
                 Self.element(identifier: "organizeNextActionBanner", in: app).exists,
                 "Setup-ready top chrome must not show the next-action banner"
             )
             XCTAssertTrue(app.buttons["previewButton"].exists)
-            XCTAssertTrue(app.staticTexts["1. Source"].exists)
             XCTAssertTrue(app.staticTexts["2. Destination"].exists)
             XCTAssertTrue(Self.hittableButton(identifier: "chooseSourceButton", in: app).isHittable)
             XCTAssertTrue(Self.hittableButton(identifier: "chooseDestinationButton", in: app).isHittable)
-            XCTAssertTrue(app.staticTexts["Run"].exists)
+            XCTAssertTrue(app.staticTexts["Start"].exists)
+            // Profiles are earned complexity: the scenario seeds none, so the
+            // saved-setup section must stay hidden for this first-run state.
+            XCTAssertFalse(app.staticTexts["Profiles"].exists)
+            // The trust details live behind a single collapsed disclosure.
+            XCTAssertTrue(Self.element(identifier: "setupSafetyDetailsDisclosure", in: app).exists)
         }
     }
 
@@ -357,7 +361,7 @@ final class ChronoframeUITests: XCTestCase {
         case .setupIncompleteRun:
             return app.staticTexts["This Workspace Activates After Setup"].waitForExistence(timeout: 5)
         case .setupReady:
-            return app.staticTexts["Profiles for Repeatable Runs"].waitForExistence(timeout: 5)
+            return app.staticTexts["1. Source"].waitForExistence(timeout: 5)
                 && button(identifier: "previewButton", in: app).waitForExistence(timeout: 5)
         case .runPreviewReview:
             return app.staticTexts["Preview Ready for Review"].waitForExistence(timeout: 5)
@@ -536,7 +540,7 @@ final class ChronoframeUITests: XCTestCase {
         case .setupIncompleteRun:
             return "This Workspace Activates After Setup"
         case .setupReady:
-            return "Security"
+            return "Privacy"
         case .runPreviewReview:
             return "Preview Ready for Review"
         case .healthDashboard:

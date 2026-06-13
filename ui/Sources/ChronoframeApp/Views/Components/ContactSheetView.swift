@@ -4,38 +4,54 @@ import QuickLookThumbnailing
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// A small "contact sheet" that shows the first N images/videos in a folder
-/// as thumbnails. Purpose: make the Setup screen *visual*, not just textual —
+/// A "contact sheet" that shows the first N images/videos in a folder as
+/// thumbnails. Purpose: make the Setup screen *visual*, not just textual —
 /// the user sees what they're about to organize.
 ///
 /// Design notes:
-/// - Pulls up to ``cellCount`` files (default 12) from ``sourcePath``.
+/// - Width-adaptive per the wide-layout doctrine: the tile grid is the media
+///   surface that grows with its column, showing more frames as space allows
+///   (`ContactSheetLayout`). The loader always fetches the maximum so window
+///   resizes never re-enumerate the source.
 /// - Uses `QLThumbnailGenerator` — works for all native media types.
 /// - Cells fade in on appear with a 40ms stagger per Motion tokens.
 /// - Empty state is a dimmed placeholder grid, not a blank rectangle.
 /// - No filesystem work happens if ``sourcePath`` is empty.
 struct ContactSheetView: View {
     let sourcePath: String
-    var cellCount: Int = 18
     var cellSize: CGFloat = 92
 
     @StateObject private var loader = ContactSheetLoader()
+    @State private var columnWidth: CGFloat = 0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if shouldShowHeroCell {
-                heroCell
-            }
+            if shouldCollapseToEmptyRow {
+                // Never render a wall of empty tiles: when the scan finished
+                // and produced nothing, say why in one compact row instead.
+                emptyResultRow
+            } else {
+                if shouldShowHeroCell {
+                    heroCell
+                }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHGrid(rows: [GridItem(.fixed(cellSize))], spacing: 8) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: cellSize, maximum: cellSize), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
                     ForEach(gridRange, id: \.self) { index in
                         cell(at: index)
                     }
                 }
-                .padding(.horizontal, 1)
             }
-            .frame(height: cellSize)
+        }
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { columnWidth = geometry.size.width }
+                    .onChange(of: geometry.size.width) { columnWidth = $0 }
+            }
         }
         .padding(10)
         .background(DesignTokens.ColorSystem.imageStage, in: RoundedRectangle(cornerRadius: DesignTokens.Corner.card, style: .continuous))
@@ -46,14 +62,39 @@ struct ContactSheetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .allowsHitTesting(false)
         .task(id: sourcePath) {
-            await loader.load(sourcePath: sourcePath, count: cellCount, cellSize: cellSize)
+            await loader.load(
+                sourcePath: sourcePath,
+                count: ContactSheetLayout.maximumTiles,
+                cellSize: cellSize
+            )
         }
         .accessibilityLabel(accessibilityLabelText)
     }
 
+    private var displayedTileCount: Int {
+        ContactSheetLayout.tileCount(forColumnWidth: columnWidth, cellSize: cellSize)
+    }
+
+    private var shouldCollapseToEmptyRow: Bool {
+        !sourcePath.isEmpty && loader.didFinishLoading && loader.loadedThumbnailCount == 0
+    }
+
+    private var emptyResultRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .foregroundStyle(.white.opacity(0.45))
+            Text(ContactSheetLayout.emptyResultMessage(foundMediaCount: loader.foundMediaCount))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.white.opacity(0.72))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var gridRange: Range<Int> {
-        let lowerBound = sourcePath.isEmpty ? 0 : min(1, cellCount)
-        return lowerBound..<cellCount
+        let lowerBound = sourcePath.isEmpty ? 0 : min(1, displayedTileCount)
+        return lowerBound..<displayedTileCount
     }
 
     @ViewBuilder
@@ -112,13 +153,50 @@ struct ContactSheetView: View {
             return "Contact sheet preview — no source selected."
         }
         if loader.didFinishLoading && loader.loadedThumbnailCount == 0 {
-            return "Contact sheet preview — no previewable media found in the source."
+            return "Contact sheet preview — \(ContactSheetLayout.emptyResultMessage(foundMediaCount: loader.foundMediaCount))"
         }
-        return "Contact sheet showing \(loader.loadedThumbnailCount) of \(cellCount) preview frames from the source."
+        let visible = min(loader.loadedThumbnailCount, displayedTileCount)
+        return "Contact sheet showing \(visible) preview frames from the source."
     }
 
     private var shouldShowHeroCell: Bool {
         !sourcePath.isEmpty
+    }
+}
+
+/// Pure layout policy for the contact sheet's width-adaptive tile grid.
+/// Wide-layout doctrine: media surfaces grow with the window — the sheet shows
+/// more frames as its column widens; forms never stretch to match.
+enum ContactSheetLayout {
+    /// Upper bound on loaded thumbnails. Bounds source enumeration and
+    /// QuickLook work to a fixed cost regardless of window size, and lets the
+    /// loader fetch once instead of reloading on every resize.
+    static let maximumTiles = 32
+    /// Lower bound so the sheet always reads as a grid, including before the
+    /// first width measurement lands.
+    static let minimumTiles = 10
+    /// The grid aims for two rows of tiles below the hero frame.
+    static let targetRows = 2
+
+    static func columns(forColumnWidth width: CGFloat, cellSize: CGFloat, spacing: CGFloat = 8) -> Int {
+        guard width > 0, cellSize > 0 else { return 0 }
+        return max(1, Int((width + spacing) / (cellSize + spacing)))
+    }
+
+    static func tileCount(forColumnWidth width: CGFloat, cellSize: CGFloat, spacing: CGFloat = 8) -> Int {
+        let columns = columns(forColumnWidth: width, cellSize: cellSize, spacing: spacing)
+        guard columns > 0 else { return minimumTiles }
+        return min(max(columns * targetRows, minimumTiles), maximumTiles)
+    }
+
+    /// Copy for the collapsed empty state, distinguishing "this folder has no
+    /// media" from "media exists but previews could not be generated" — the
+    /// second is a signal worth surfacing, not hiding behind a generic line.
+    static func emptyResultMessage(foundMediaCount: Int) -> String {
+        if foundMediaCount > 0 {
+            return "Found \(foundMediaCount) media file\(foundMediaCount == 1 ? "" : "s"), but previews couldn't be created for them."
+        }
+        return "No photos or videos in this folder yet. Frames appear here as soon as Chronoframe can see them."
     }
 }
 
@@ -230,6 +308,9 @@ enum ContactSheetThumbnailPipeline {
 private final class ContactSheetLoader: ObservableObject {
     @Published var thumbnails: [NSImage?] = []
     @Published private(set) var phase: Phase = .idle
+    /// Media files seen during enumeration (capped at the candidate limit).
+    /// Distinguishes "empty folder" from "previews failed" in the empty state.
+    @Published private(set) var foundMediaCount = 0
 
     private var lastSource: String = ""
 
@@ -258,11 +339,13 @@ private final class ContactSheetLoader: ObservableObject {
 
         guard !trimmed.isEmpty else {
             thumbnails = []
+            foundMediaCount = 0
             phase = .idle
             return
         }
 
         thumbnails = Array(repeating: nil, count: count)
+        foundMediaCount = 0
         phase = .loading
         let urls = await Self.findMediaFiles(in: trimmed, limit: ContactSheetThumbnailPipeline.candidateLimit(for: count))
 
@@ -271,6 +354,8 @@ private final class ContactSheetLoader: ObservableObject {
         // walk over the old source can publish stale thumbnails on top
         // of the new source's grid.
         guard trimmed == lastSource, !Task.isCancelled else { return }
+
+        foundMediaCount = urls.count
 
         let scale = NSScreen.main?.backingScaleFactor ?? 2
         let size = CGSize(width: cellSize * 2, height: cellSize * 2)

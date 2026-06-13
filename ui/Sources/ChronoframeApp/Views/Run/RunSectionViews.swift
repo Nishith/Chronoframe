@@ -298,11 +298,17 @@ struct RunPreviewReviewSection: View {
         }
     }
 
+    /// `.bordered`, not `.borderedProminent`: whenever this section is visible
+    /// the hero directly above already carries the prominent Start Transfer
+    /// (`heroState.primaryAction == .transfer` for `.dryRunFinished`), and two
+    /// prominent buttons for the same action in one viewport blur which one is
+    /// "the" safe path. This button stays as the convenience affordance next to
+    /// the review evidence.
     private var transferButton: some View {
         Button(action: startTransfer) {
             Label("Start Transfer", systemImage: "arrow.right.circle.fill")
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.bordered)
         .controlSize(.large)
         .disabled(!model.canStartTransferFromPreview)
         .accessibilityLabel("Start transfer now")
