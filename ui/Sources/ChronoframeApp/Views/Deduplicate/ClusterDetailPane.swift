@@ -361,63 +361,61 @@ struct ClusterDetailPane: View {
     }
 
     private func metadataPanel(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
-                .scaledFont(.subtitle, weight: .semibold)
-                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
-                .lineLimit(2)
-
-            HStack(alignment: .firstTextBaseline) {
-                Text("File")
-                    .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
-                Spacer()
-                Text(DeduplicateInspectorText.fileName(forPath: member.path))
-                    .scaledFont(.mono)
-                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(member.path)
-            }
-
-            metaRow("Size", value: byteCountFormatter.string(fromByteCount: member.size))
-            if let width = member.pixelWidth, let height = member.pixelHeight {
-                metaRow("Dimensions", value: "\(width) × \(height)")
-            }
-
-            Divider().padding(.vertical, 2)
-
-            qualityRow("Quality", score: member.qualityScore)
-            sharpnessRow("Sharpness", score: member.sharpness)
-            if let face = member.faceScore {
-                faceRow("Face", detected: face > 0.5)
-            }
-            if member.isRaw {
-                Label("RAW", systemImage: "camera.aperture")
-                    .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
-            }
-            if let pairedPath = member.pairedPath {
-                Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
-                    .scaledFont(.label)
-                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
-                    .lineLimit(2)
-            }
-
-            Divider().padding(.vertical, 2)
-
-            decisionControls(for: member, cluster: cluster)
-
-            if let annotation = cluster.annotation {
-                Divider().padding(.vertical, 2)
-                reasoningSection(annotation: annotation, cluster: cluster)
-            }
-        }
-        .padding(DesignTokens.Spacing.md)
-        .background {
+        ZStack {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(DesignTokens.ColorSystem.imageStage)
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
+                    .scaledFont(.subtitle, weight: .semibold)
+                    .lineLimit(2)
+
+                HStack(alignment: .firstTextBaseline) {
+                    Text("File")
+                        .scaledFont(.label)
+                    Spacer()
+                    Text(DeduplicateInspectorText.fileName(forPath: member.path))
+                        .scaledFont(.mono)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .help(member.path)
+                }
+
+                metaRow("Size", value: byteCountFormatter.string(fromByteCount: member.size))
+                if let width = member.pixelWidth, let height = member.pixelHeight {
+                    metaRow("Dimensions", value: "\(width) × \(height)")
+                }
+
+                Divider().padding(.vertical, 2)
+
+                qualityRow("Quality", score: member.qualityScore)
+                sharpnessRow("Sharpness", score: member.sharpness)
+                if let face = member.faceScore {
+                    faceRow("Face", detected: face > 0.5)
+                }
+                if member.isRaw {
+                    Label("RAW", systemImage: "camera.aperture")
+                        .scaledFont(.label)
+                }
+                if let pairedPath = member.pairedPath {
+                    Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
+                        .scaledFont(.label)
+                        .lineLimit(2)
+                }
+
+                Divider().padding(.vertical, 2)
+
+                decisionControls(for: member, cluster: cluster)
+
+                if let annotation = cluster.annotation {
+                    Divider().padding(.vertical, 2)
+                    reasoningSection(annotation: annotation, cluster: cluster)
+                }
+            }
+            .padding(DesignTokens.Spacing.md)
+            .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
@@ -480,7 +478,7 @@ struct ClusterDetailPane: View {
             Spacer()
             Label(detected ? "Detected" : "None", systemImage: detected ? "person.fill" : "person.slash")
                 .scaledFont(.label)
-                .foregroundStyle(detected ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.inkMuted)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
     }
 
