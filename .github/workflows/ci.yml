@@ -164,7 +164,7 @@ jobs:
   xcode-ui-tests:
     name: Xcode UI tests
     runs-on: macos-14
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -193,6 +193,43 @@ jobs:
             -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/ChronoframeUITestDerivedData" \
             -destination "platform=macOS" \
+            -skip-testing:ChronoframeUITests/ChronoframeUITests/testAccessibilityAuditAcrossScenarios \
+            DEVELOPMENT_TEAM= \
+            test
+
+  xcode-accessibility-audit:
+    name: Xcode accessibility audit
+    runs-on: macos-14
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0 # full history so the version stamp's commit count is monotonic
+      - name: Select Swift 6 toolchain
+        run: |
+          swift6_developer_dir=""
+          for xcode in /Applications/Xcode*.app; do
+            swift_binary="$xcode/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
+            if [ -x "$swift_binary" ] && "$swift_binary" -version | grep -Eq 'Swift version 6\.'; then
+              swift6_developer_dir="$xcode/Contents/Developer"
+            fi
+          done
+          if [ -z "$swift6_developer_dir" ]; then
+            echo "::error title=Swift 6 toolchain not found::No installed Xcode app provides Swift 6."
+            ls -1 /Applications/Xcode*.app || true
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
+      - name: Run Chronoframe accessibility audit
+        run: |
+          xcodebuild \
+            -project ui/Chronoframe.xcodeproj \
+            -scheme Chronoframe \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/ChronoframeAccessibilityAuditDerivedData" \
+            -destination "platform=macOS" \
+            -only-testing:ChronoframeUITests/ChronoframeUITests/testAccessibilityAuditAcrossScenarios \
             DEVELOPMENT_TEAM= \
             test
 
