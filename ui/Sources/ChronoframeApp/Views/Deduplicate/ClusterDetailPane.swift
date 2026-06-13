@@ -412,11 +412,11 @@ struct ClusterDetailPane: View {
             }
         }
         .padding(DesignTokens.Spacing.md)
-        .background(.thinMaterial)
+        .background(DesignTokens.ColorSystem.elevated)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
         }
     }
 
@@ -449,7 +449,7 @@ struct ClusterDetailPane: View {
             }
             Text(text)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
         }
         .help(String(format: "Raw score: %.2f", score))
     }
@@ -463,7 +463,7 @@ struct ClusterDetailPane: View {
             Spacer()
             Text(text)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
         }
         .help(String(format: "Raw score: %.2f", score))
     }
