@@ -67,6 +67,34 @@ final class BookmarkPathResolverTests: XCTestCase {
         )
     }
 
+    /// When a profile has no profile-specific bookmarks but manual bookmarks
+    /// exist (e.g. a profile imported via CLI with YAML paths), the manual
+    /// bookmarks are used as a fallback so the sandbox scope is not dropped.
+    @MainActor
+    func testRestoreProfilePathsFallsBackToManualBookmarksWhenProfileBookmarksAbsent() {
+        let harness = AppStateHarness()
+        let resolver = BookmarkPathResolver(
+            preferencesStore: harness.preferencesStore,
+            folderAccessService: harness.folderAccessService
+        )
+
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.source", path: "/Volumes/Card", data: Data([0x01]))
+        )
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.destination", path: "/Volumes/Archive", data: Data([0x02]))
+        )
+
+        // Profile "Trip" has paths stored in SetupStore but no bookmark blobs.
+        resolver.restoreProfilePaths(named: "Trip", into: harness.setupStore)
+
+        XCTAssertEqual(
+            harness.folderAccessService.scopedAccessRequests,
+            [["manual.source", "manual.destination"]],
+            "Should fall back to manual bookmarks when profile bookmarks are absent"
+        )
+    }
+
     /// Profile restores acquire scope under the profile's bookmark keys, and
     /// a restore with no stored bookmarks must not request scope at all.
     @MainActor

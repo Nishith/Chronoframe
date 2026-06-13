@@ -79,7 +79,21 @@ final class BookmarkPathResolver {
             bookmarkKey(for: .source, profileName: profileName),
             bookmarkKey(for: .destination, profileName: profileName),
         ]
-        let bookmarks = keys.compactMap { preferencesStore.bookmark(for: $0) }
+        var bookmarks = keys.compactMap { preferencesStore.bookmark(for: $0) }
+
+        // When profile-specific bookmarks are absent or partial (e.g. a profile
+        // imported via CLI with YAML paths but no Finder-picked bookmark blobs),
+        // supplement with manual bookmarks so that sandbox access acquired at
+        // launch is not dropped. Without this, the contact sheet and other
+        // sandboxed reads lose access to the same folders the manual scope covers.
+        if profileName != nil, bookmarks.count < keys.count {
+            let manualKeys = [
+                bookmarkKey(for: .source, profileName: nil),
+                bookmarkKey(for: .destination, profileName: nil),
+            ]
+            bookmarks += manualKeys.compactMap { preferencesStore.bookmark(for: $0) }
+        }
+
         restoredPathAccess = bookmarks.isEmpty ? nil : folderAccessService.scopedAccess(for: bookmarks)
     }
 
