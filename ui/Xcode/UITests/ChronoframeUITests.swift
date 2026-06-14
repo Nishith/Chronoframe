@@ -1129,7 +1129,11 @@ final class ChronoframeUITests: XCTestCase {
         }
         result = normalizedWithNums
 
-        let charsToRemove: Set<Character> = [",", ":", ";", ".", "·", " "]
+        result = result
+            .replacingOccurrences(of: "\u{202F}", with: " ")
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+
+        let charsToRemove: Set<Character> = [",", ":", ";", ".", "·"]
         result = String(result.filter { !charsToRemove.contains($0) })
 
         result = result.components(separatedBy: .whitespacesAndNewlines)
