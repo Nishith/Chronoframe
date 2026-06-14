@@ -100,6 +100,27 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertEqual(zeroDetail, "Accept a group's suggestion to select its extra copies.")
     }
 
+    func testCommitFooterAccessibilityValueSpeaksSummaryAndReviewProgress() {
+        XCTAssertEqual(
+            DeduplicateView.commitFooterAccessibilityValue(
+                title: "Nothing will move to Trash yet",
+                detail: "Accept a group's suggestion to select its extra copies.",
+                reviewedCount: 0,
+                suggestedCount: 12
+            ),
+            "Nothing will move to Trash yet, Accept a group's suggestion to select its extra copies., 0 groups reviewed, 12 still suggested"
+        )
+        XCTAssertEqual(
+            DeduplicateView.commitFooterAccessibilityValue(
+                title: "1 file will be moved to Trash",
+                detail: "≈ 1 MB recoverable",
+                reviewedCount: 1,
+                suggestedCount: 0
+            ),
+            "1 file will be moved to Trash, ≈ 1 MB recoverable, 1 group reviewed, 0 still suggested"
+        )
+    }
+
     func testCommittingTitleReportsTrashProgressAndFallsBackBeforeTotalKnown() {
         // Once the executor reports a total, the title names the count.
         XCTAssertEqual(DeduplicateView.committingTitle(fileCount: 1), "Moving 1 file to Trash…")
