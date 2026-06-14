@@ -458,12 +458,6 @@ struct DeduplicateView: View {
         let title = Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete)
         let detail = Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete)
         let reviewProgress = "\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested"
-        let accessibilityValue = Self.commitFooterAccessibilityValue(
-            title: title,
-            detail: detail,
-            reviewedCount: reviewedCount,
-            suggestedCount: suggestedCount
-        )
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
@@ -478,10 +472,6 @@ struct DeduplicateView: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Deletion summary")
-        .accessibilityValue(accessibilityValue)
-        .accessibilityAddTraits(.isStaticText)
     }
 
     @ViewBuilder
@@ -825,15 +815,6 @@ extension DeduplicateView {
         }
         let formattedBytes = statusByteCountFormatter.string(fromByteCount: byteCount)
         return "≈ \(formattedBytes) recoverable"
-    }
-
-    static func commitFooterAccessibilityValue(
-        title: String,
-        detail: String,
-        reviewedCount: Int,
-        suggestedCount: Int
-    ) -> String {
-        "\(title), \(detail), \(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed, \(suggestedCount) still suggested"
     }
 
     static func completedStatusCopy(for summary: DeduplicateCommitSummary?) -> DeduplicateStatusCopy {
