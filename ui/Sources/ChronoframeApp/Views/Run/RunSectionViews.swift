@@ -281,8 +281,8 @@ struct RunPreviewReviewSection: View {
                 .foregroundStyle(DesignTokens.Color.inkPrimary)
 
             Text(model.previewReviewMessage)
-                .font(.subheadline)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .font(.body.weight(.medium))
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if model.previewReviewPath != nil {
@@ -663,7 +663,8 @@ struct RunIdleOnboardingCard: View {
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .frame(width: 18, height: 18)
-                .background(DesignTokens.ColorSystem.accentAction.opacity(0.12), in: Circle())
+                .background(DesignTokens.ColorSystem.panel, in: Circle())
+                .overlay(Circle().strokeBorder(DesignTokens.ColorSystem.accentAction.opacity(0.55), lineWidth: 0.8))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)

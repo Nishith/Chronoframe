@@ -131,11 +131,6 @@ struct ProfilesView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
-        // Spoken as "Source folder, /Users/…" — the path is the value, not a
-        // non-human-readable label. See `pathRow`.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(label) folder")
-        .accessibilityValue(value.isEmpty ? "Not set" : value)
     }
 
     // MARK: - Saved profiles grid
@@ -294,13 +289,5 @@ private struct ProfileTile: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 6)
-        // Read the row as one element with a human-readable label ("Source
-        // folder") and the path as the value. A bare path Text would otherwise
-        // expose the raw "/Users/…" string as its label, which VoiceOver reads
-        // poorly and the accessibility audit flags as "Label not human-readable".
-        // The arrow glyph and terse "From/To" caption are decorative here.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spokenLabel)
-        .accessibilityValue(value.isEmpty ? "Not set" : value)
     }
 }

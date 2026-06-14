@@ -467,8 +467,8 @@ struct MeridianStatusBadge: View {
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .background(tint.opacity(AccessibleDesign.badgeFillOpacity), in: Capsule())
-        .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
+        .background(DesignTokens.ColorSystem.panel, in: Capsule())
+        .overlay(Capsule().strokeBorder(tint.opacity(0.55), lineWidth: 0.8))
         .motion(Motion.instant, value: title)
     }
 }
@@ -501,7 +501,7 @@ struct SectionHeading: View {
 
             if !message.isEmpty {
                 Text(message)
-                    .scaledFont(.subtitle)
+                    .scaledFont(.body, weight: .medium)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -672,8 +672,6 @@ struct MetricTile: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(value). \(caption)")
     }
 }
 

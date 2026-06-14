@@ -423,7 +423,7 @@ struct ClusterDetailPane: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
         }
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .combine)
         .accessibilityLabel("Photo details")
         .accessibilityValue(metadataAccessibilityValue(for: member, cluster: cluster))
     }

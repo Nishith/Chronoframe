@@ -272,7 +272,7 @@ private struct DeduplicateSettingsTab: View {
                 .pickerStyle(.segmented)
 
                 Text(preferencesStore.dedupeSimilarityPreset.subtitle)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                 if preferencesStore.dedupeBurstModeEnabled {
