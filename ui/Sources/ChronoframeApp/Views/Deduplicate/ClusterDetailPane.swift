@@ -426,6 +426,7 @@ struct ClusterDetailPane: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Photo details")
         .accessibilityValue(metadataAccessibilityValue(for: member, cluster: cluster))
+        .accessibilityAddTraits(.isImage)
     }
 
     private func metaRow(_ label: String, value: String) -> some View {

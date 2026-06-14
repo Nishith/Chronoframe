@@ -274,6 +274,7 @@ private struct ProfileTile: View {
                 .font(.caption)
                 .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .frame(width: 14)
+                .accessibilityHidden(true)
 
             Text(label)
                 .scaledFont(.label)
