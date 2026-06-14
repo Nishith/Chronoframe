@@ -59,9 +59,6 @@ struct TickerRow: View {
                 .frame(height: 0.5)
         }
         .background(DesignTokens.ColorSystem.utilityBand)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilitySummary)
-        .accessibilityAddTraits(.isStaticText)
     }
 
     private var tilesBody: some View {
@@ -75,15 +72,6 @@ struct TickerRow: View {
         .padding(.vertical, DesignTokens.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DesignTokens.ColorSystem.utilityBand)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilitySummary)
-        .accessibilityAddTraits(.isStaticText)
-    }
-
-    private var accessibilitySummary: String {
-        entries
-            .map { "\($0.label): \($0.value)" }
-            .joined(separator: ", ")
     }
 
     private var horizontalLayout: some View {
@@ -113,8 +101,9 @@ struct TickerRow: View {
                 .fontWeight(.medium)
                 .foregroundStyle(color(for: entry.tone))
             Text(entry.label)
-                .foregroundStyle(DesignTokens.ColorSystem.metadataText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
+        .accessibilityElement(children: .combine)
     }
 
     private func tileView(_ entry: Entry) -> some View {
@@ -125,18 +114,14 @@ struct TickerRow: View {
             Text(entry.label.uppercased())
                 .scaledFont(.label)
                 .tracking(0.8)
-                .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
         .frame(minWidth: DesignTokens.Layout.narrowMetricMinWidth, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     private func color(for tone: TickerTone) -> Color {
-        switch tone {
-        case .neutral: return DesignTokens.ColorSystem.inkPrimary
-        case .warning: return DesignTokens.ColorSystem.statusWarning
-        case .danger: return DesignTokens.ColorSystem.statusDanger
-        case .success: return DesignTokens.ColorSystem.statusSuccess
-        }
+        DesignTokens.ColorSystem.inkPrimary
     }
 }
 

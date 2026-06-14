@@ -165,15 +165,16 @@ private struct HealthCardView: View {
                         .accessibilityHidden(true)
                     Text(card.title)
                         .scaledFont(.cardTitle)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     Spacer()
                     Text(card.value)
                         .font(.title3.monospacedDigit())
-                        .foregroundStyle(tint)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
 
                 Text(card.message)
                     .font(.subheadline)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let action = card.action {

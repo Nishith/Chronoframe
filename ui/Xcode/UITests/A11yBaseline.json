@@ -10,54 +10,14 @@
     "detailedDescription": "Contrast failed for Idle"
   },
   {
-    "scenario": "setupIncompleteRun",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "Mode",
-    "compactDescription": "Contrast nearly passed",
-    "detailedDescription": "Contrast is not high enough for Mode unless font size is larger."
-  },
-  {
-    "scenario": "setupIncompleteRun",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "runIdleOnboardingCard",
-    "label": "",
-    "value": "1",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 1"
-  },
-  {
-    "scenario": "setupIncompleteRun",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "runIdleOnboardingCard",
-    "label": "",
-    "value": "2",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 2"
-  },
-  {
-    "scenario": "setupIncompleteRun",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "runIdleOnboardingCard",
-    "label": "",
-    "value": "3",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 3"
-  },
-  {
     "scenario": "setupReady",
     "auditType": "contrast",
     "role": "staticText",
     "identifier": "",
     "label": "",
     "value": "Next",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Next"
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for Next unless font size is larger."
   },
   {
     "scenario": "setupReady",
@@ -68,16 +28,6 @@
     "value": "Preview is non-destructive. Transfer still requires an explicit confirmation before any files are copied.",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for Preview is non-destructive. Transfer still requires an explicit confirmation before any files are copied."
-  },
-  {
-    "scenario": "runPreviewReview",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "Mode",
-    "compactDescription": "Contrast nearly passed",
-    "detailedDescription": "Contrast is not high enough for Mode unless font size is larger."
   },
   {
     "scenario": "runPreviewReview",
@@ -98,6 +48,66 @@
     "value": "Nothing has been copied yet. 42 files are ready to transfer once the plan looks right.",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for Nothing has been copied yet. 42 files are ready to transfer once the plan looks right."
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "84, DISCOVERED",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 84, DISCOVERED"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "42, PLANNED",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 42, PLANNED"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "0, COPIED",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 0, COPIED"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "29, ALREADY THERE",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 29, ALREADY THERE"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "7, DUPLICATES",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 7, DUPLICATES"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "1, ISSUES",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 1, ISSUES"
   },
   {
     "scenario": "healthDashboard",
@@ -146,8 +156,8 @@
     "identifier": "",
     "label": "",
     "value": "No files are currently parked in Unknown_Date.",
-    "compactDescription": "Contrast nearly passed",
-    "detailedDescription": "Contrast is not high enough for No files are currently parked in Unknown_Date. unless font size is larger."
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for No files are currently parked in Unknown_Date."
   },
   {
     "scenario": "healthDashboard",
@@ -215,9 +225,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "12:00 AM",
+    "value": "12:00 AM",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 12:00 AM"
+    "detailedDescription": "Contrast failed for 12:00 AM"
   },
   {
     "scenario": "historyPopulated",
@@ -234,7 +244,7 @@
     "auditType": "contrast",
     "role": "staticText",
     "identifier": "",
-    "label": "Source folder",
+    "label": "",
     "value": "/Volumes/Card/Travel",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for /Volumes/Card/Travel"
@@ -244,7 +254,7 @@
     "auditType": "contrast",
     "role": "staticText",
     "identifier": "",
-    "label": "Destination folder",
+    "label": "",
     "value": "/Volumes/Archive/Travel",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for /Volumes/Archive/Travel"
@@ -254,69 +264,9 @@
     "auditType": "contrast",
     "role": "staticText",
     "identifier": "",
-    "label": "Source folder",
-    "value": "/Volumes/Card/Studio",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for /Volumes/Card/Studio"
-  },
-  {
-    "scenario": "profilesPopulated",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "Destination folder",
+    "label": "",
     "value": "/Volumes/Archive/Studio",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for /Volumes/Archive/Studio"
-  },
-  {
-    "scenario": "settingsDeduplicate",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "Recommended for most libraries",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Recommended for most libraries"
-  },
-  {
-    "scenario": "deduplicateReviewWide",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "Size",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Size"
-  },
-  {
-    "scenario": "deduplicateReviewWide",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "3264 × 2448",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 3264 × 2448"
-  },
-  {
-    "scenario": "deduplicateReviewCompact",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "Size",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Size"
-  },
-  {
-    "scenario": "deduplicateReviewCompact",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "3264 × 2448",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 3264 × 2448"
   }
 ]

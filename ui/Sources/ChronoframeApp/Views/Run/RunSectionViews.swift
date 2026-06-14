@@ -200,7 +200,7 @@ struct RunProgressSurface: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text(model.context.metrics.copiedCount.formatted())
                             .scaledFont(.display)
-                            .foregroundStyle(model.heroState.tone.color)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             .contentTransition(.numericText())
                             .monospacedDigit()
                         Text("copied")
@@ -281,8 +281,8 @@ struct RunPreviewReviewSection: View {
                 .foregroundStyle(DesignTokens.Color.inkPrimary)
 
             Text(model.previewReviewMessage)
-                .font(.subheadline)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .font(.body.weight(.medium))
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if model.previewReviewPath != nil {
@@ -290,7 +290,7 @@ struct RunPreviewReviewSection: View {
                     ForEach(model.previewReviewSummaryTiles) { tile in
                         Label(tile.value, systemImage: tile.tone == .warning ? "exclamationmark.triangle" : "checkmark.circle")
                             .font(.caption)
-                            .foregroundStyle(tile.tone.color)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             .help(tile.title)
                     }
                 }
@@ -465,7 +465,7 @@ struct RunArtifactsPanel: View {
 
                 Text(model.destinationSummaryValue)
                     .font(.subheadline.monospaced())
-                    .foregroundStyle(model.destinationRoot == nil ? .secondary : DesignTokens.Color.inkPrimary)
+                    .foregroundStyle(model.destinationRoot == nil ? DesignTokens.ColorSystem.captionText : DesignTokens.Color.inkPrimary)
                     .lineLimit(3)
                     .truncationMode(.middle)
 
@@ -661,9 +661,10 @@ struct RunIdleOnboardingCard: View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
             Text(number)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .frame(width: 18, height: 18)
-                .background(DesignTokens.ColorSystem.accentAction.opacity(0.12), in: Circle())
+                .background(DesignTokens.ColorSystem.panel, in: Circle())
+                .overlay(Circle().strokeBorder(DesignTokens.ColorSystem.accentAction.opacity(0.55), lineWidth: 0.8))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)

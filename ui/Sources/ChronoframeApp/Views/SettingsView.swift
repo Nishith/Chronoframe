@@ -208,8 +208,8 @@ private struct PerformanceSettingsTab: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(preset.title)
                                 Text(preset.summary)
-                                    .font(.caption)
-                                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                                    .font(.callout)
+                                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             }
                             Spacer()
                             if isActive {
@@ -272,8 +272,8 @@ private struct DeduplicateSettingsTab: View {
                 .pickerStyle(.segmented)
 
                 Text(preferencesStore.dedupeSimilarityPreset.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .font(.callout)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                 if preferencesStore.dedupeBurstModeEnabled {
                     Stepper(value: $preferencesStore.dedupeTimeWindowSeconds, in: 5...600, step: 5) {

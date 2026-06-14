@@ -16,9 +16,28 @@ enum UITestScenario: String, CaseIterable {
     case deduplicateReviewWide
     case deduplicateReviewCompact
 
-    static func current(environment: [String: String] = ProcessInfo.processInfo.environment) -> UITestScenario? {
-        guard let rawValue = environment["CHRONOFRAME_UI_TEST_SCENARIO"] else { return nil }
+    static func current(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> UITestScenario? {
+        let rawValue = environment["CHRONOFRAME_UI_TEST_SCENARIO"]
+            ?? argumentValue(after: "--chronoframe-ui-test-scenario", in: arguments)
+        guard let rawValue else { return nil }
         return UITestScenario(rawValue: rawValue)
+    }
+
+    static func isRunningScenario(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        arguments: [String] = ProcessInfo.processInfo.arguments
+    ) -> Bool {
+        current(environment: environment, arguments: arguments) != nil
+    }
+
+    private static func argumentValue(after option: String, in arguments: [String]) -> String? {
+        guard let optionIndex = arguments.firstIndex(of: option) else { return nil }
+        let valueIndex = arguments.index(after: optionIndex)
+        guard valueIndex < arguments.endIndex else { return nil }
+        return arguments[valueIndex]
     }
 
     var opensSettingsOnLaunch: Bool {

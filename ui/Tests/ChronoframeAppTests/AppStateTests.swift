@@ -13,7 +13,17 @@ final class AppStateTests: XCTestCase {
             UITestScenario.current(environment: ["CHRONOFRAME_UI_TEST_SCENARIO": "historyPopulated"]),
             .historyPopulated
         )
-        XCTAssertNil(UITestScenario.current(environment: [:]))
+        XCTAssertEqual(
+            UITestScenario.current(environment: [:], arguments: ["Chronoframe", "--chronoframe-ui-test-scenario", "setupReady"]),
+            .setupReady
+        )
+        XCTAssertTrue(
+            UITestScenario.isRunningScenario(
+                environment: [:],
+                arguments: ["Chronoframe", "--chronoframe-ui-test-scenario", "setupReady"]
+            )
+        )
+        XCTAssertNil(UITestScenario.current(environment: [:], arguments: []))
         XCTAssertNil(UITestScenario.current(environment: ["CHRONOFRAME_UI_TEST_SCENARIO": "unknown"]))
         XCTAssertTrue(UITestScenario.settingsSections.opensSettingsOnLaunch)
         XCTAssertTrue(UITestScenario.settingsLayout.opensSettingsOnLaunch)

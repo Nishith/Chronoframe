@@ -388,7 +388,7 @@ struct DeduplicateView: View {
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitFooter)
         .padding(DesignTokens.Spacing.md)
         .frame(maxWidth: .infinity)
-        .background(.ultraThinMaterial)
+        .background(DesignTokens.ColorSystem.panel)
         .confirmationDialog(
             "Move \(toDelete) file\(toDelete == 1 ? "" : "s") to Trash?",
             isPresented: $showingCommitConfirmation
@@ -461,19 +461,17 @@ struct DeduplicateView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
             Text(detail)
-                .font(.caption)
+                .font(.body.weight(.medium))
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
             Text(reviewProgress)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title). \(detail). \(reviewProgress).")
-        .accessibilityAddTraits(.isStaticText)
     }
 
     @ViewBuilder

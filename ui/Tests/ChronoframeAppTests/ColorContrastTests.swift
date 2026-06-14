@@ -177,10 +177,14 @@ final class ColorContrastTests: XCTestCase {
     func testLiteralTriplesTrackLiveTokens() throws {
         let pairs: [(name: String, token: SwiftUI.Color, expected: RGB)] = [
             ("canvas", DesignTokens.ColorSystem.canvas, Palette.Light.canvas),
+            ("panel", DesignTokens.ColorSystem.panel, Palette.Light.panel),
+            ("elevated", DesignTokens.ColorSystem.elevated, Palette.Light.elevated),
+            ("utilityBand", DesignTokens.ColorSystem.utilityBand, Palette.Light.utilityBand),
             ("inkPrimary", DesignTokens.ColorSystem.inkPrimary, Palette.Light.inkPrimary),
             ("inkSecondary", DesignTokens.ColorSystem.inkSecondary, Palette.Light.inkSecondary),
             ("inkMuted", DesignTokens.ColorSystem.inkMuted, Palette.Light.inkMuted),
             ("captionText", DesignTokens.ColorSystem.captionText, Palette.Light.captionText),
+            ("metadataText", DesignTokens.ColorSystem.metadataText, Palette.Light.metadataText),
             ("separatorText", DesignTokens.ColorSystem.separatorText, Palette.Light.separatorText),
             ("textOnImageStage", DesignTokens.ColorSystem.textOnImageStage, Palette.Light.textOnImageStage),
             ("statusActive", DesignTokens.ColorSystem.statusActive, Palette.Light.statusActive),

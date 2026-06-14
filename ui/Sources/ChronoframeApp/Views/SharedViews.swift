@@ -188,16 +188,19 @@ struct MeridianSurfaceCard<Content: View>: View {
         case .standard:
             Rectangle().fill(DesignTokens.ColorSystem.panel)
         case .inner:
-            if let tint {
-                Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
-                    style: .inner,
-                    contrast: colorSchemeContrast
-                )))
-            } else {
-                Rectangle().fill(DesignTokens.ColorSystem.hairline.opacity(
-                    AccessibleDesign.neutralOverlayOpacity(contrast: colorSchemeContrast)
-                ))
-            }
+            Rectangle().fill(DesignTokens.ColorSystem.panel)
+                .overlay {
+                    if let tint {
+                        Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
+                            style: .inner,
+                            contrast: colorSchemeContrast
+                        )))
+                    } else {
+                        Rectangle().fill(DesignTokens.ColorSystem.hairline.opacity(
+                            AccessibleDesign.neutralOverlayOpacity(contrast: colorSchemeContrast)
+                        ))
+                    }
+                }
         case .section:
             Rectangle().fill(.clear)
         }
@@ -460,12 +463,12 @@ struct MeridianStatusBadge: View {
             }
             Text(title)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
-        .background(tint.opacity(AccessibleDesign.badgeFillOpacity), in: Capsule())
-        .overlay(Capsule().strokeBorder(tint.opacity(0.28), lineWidth: 0.5))
+        .background(DesignTokens.ColorSystem.panel, in: Capsule())
+        .overlay(Capsule().strokeBorder(tint.opacity(0.55), lineWidth: 0.8))
         .motion(Motion.instant, value: title)
     }
 }
@@ -498,7 +501,7 @@ struct SectionHeading: View {
 
             if !message.isEmpty {
                 Text(message)
-                    .scaledFont(.subtitle)
+                    .scaledFont(.body, weight: .medium)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -615,7 +618,7 @@ struct SummaryLine: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
                 .scaledFont(.body)
-                .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
             Spacer(minLength: 12)
 
@@ -623,7 +626,7 @@ struct SummaryLine: View {
                 Button(action: onTap) {
                     Text(value)
                         .scaledFont(.body)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                        .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
@@ -631,7 +634,7 @@ struct SummaryLine: View {
             } else {
                 Text(value)
                     .scaledFont(.body)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
             }
@@ -669,8 +672,6 @@ struct MetricTile: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(value). \(caption)")
     }
 }
 
