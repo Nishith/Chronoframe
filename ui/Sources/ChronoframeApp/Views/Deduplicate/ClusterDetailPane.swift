@@ -369,42 +369,48 @@ struct ClusterDetailPane: View {
                 .fill(DesignTokens.ColorSystem.imageStage)
 
             VStack(alignment: .leading, spacing: 10) {
-                Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
-                    .scaledFont(.subtitle, weight: .semibold)
-                    .lineLimit(2)
-
-                HStack(alignment: .firstTextBaseline) {
-                    Text("File")
-                        .scaledFont(.label)
-                    Spacer()
-                    Text(DeduplicateInspectorText.fileName(forPath: member.path))
-                        .scaledFont(.mono)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .help(member.path)
-                }
-
-                metaRow("Size", value: byteCountFormatter.string(fromByteCount: member.size))
-                if let width = member.pixelWidth, let height = member.pixelHeight {
-                    metaRow("Dimensions", value: "\(width) × \(height)")
-                }
-
-                Divider().padding(.vertical, 2)
-
-                qualityRow("Quality", score: member.qualityScore)
-                sharpnessRow("Sharpness", score: member.sharpness)
-                if let face = member.faceScore {
-                    faceRow("Face", detected: face > 0.5)
-                }
-                if member.isRaw {
-                    Label("RAW", systemImage: "camera.aperture")
-                        .scaledFont(.label)
-                }
-                if let pairedPath = member.pairedPath {
-                    Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
-                        .scaledFont(.label)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(DeduplicateInspectorText.title(forCaptureDate: member.captureDate))
+                        .scaledFont(.subtitle, weight: .semibold)
                         .lineLimit(2)
+
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("File")
+                            .scaledFont(.label)
+                        Spacer()
+                        Text(DeduplicateInspectorText.fileName(forPath: member.path))
+                            .scaledFont(.mono)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .help(member.path)
+                    }
+
+                    metaRow("Size", value: byteCountFormatter.string(fromByteCount: member.size))
+                    if let width = member.pixelWidth, let height = member.pixelHeight {
+                        metaRow("Dimensions", value: "\(width) × \(height)")
+                    }
+
+                    Divider().padding(.vertical, 2)
+
+                    qualityRow("Quality", score: member.qualityScore)
+                    sharpnessRow("Sharpness", score: member.sharpness)
+                    if let face = member.faceScore {
+                        faceRow("Face", detected: face > 0.5)
+                    }
+                    if member.isRaw {
+                        Label("RAW", systemImage: "camera.aperture")
+                            .scaledFont(.label)
+                    }
+                    if let pairedPath = member.pairedPath {
+                        Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
+                            .scaledFont(.label)
+                            .lineLimit(2)
+                    }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Photo details")
+                .accessibilityValue(metadataAccessibilityValue(for: member, cluster: cluster))
+                .accessibilityAddTraits(.isImage)
 
                 Divider().padding(.vertical, 2)
 
@@ -423,10 +429,6 @@ struct ClusterDetailPane: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Photo details")
-        .accessibilityValue(metadataAccessibilityValue(for: member, cluster: cluster))
-        .accessibilityAddTraits(.isImage)
     }
 
     private func metaRow(_ label: String, value: String) -> some View {
