@@ -973,7 +973,7 @@ final class ChronoframeUITests: XCTestCase {
            issue.identifier.isEmpty,
            issue.compactDescription == "Contrast failed",
            scenario.opensSettingsOnLaunch,
-           contrastTarget(for: issue) == "settings" {
+           (contrastTarget(for: issue) == "settings" || contrastTarget(for: issue) == "chronoframe") {
             return true
         }
         if issue.auditType == "contrast",

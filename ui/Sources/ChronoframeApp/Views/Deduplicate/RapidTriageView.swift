@@ -120,7 +120,7 @@ struct RapidTriageView: View {
             }
         }
         .padding(DesignTokens.Spacing.lg)
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(DeduplicateAccessibilityText.rapidTriageLabel(
             cluster: cluster,
             currentIndex: currentIndex,
@@ -153,8 +153,10 @@ struct RapidTriageView: View {
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .shadow(radius: 4)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Suggested keeper")
                 .accessibilityValue(URL(fileURLWithPath: keeper.path).lastPathComponent)
+                .accessibilityAddTraits(.isImage)
             }
         }
     }
