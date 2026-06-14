@@ -199,6 +199,8 @@ struct RunHistoryView: View {
                     .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(2)
+                    .padding(.horizontal, 2)
+                    .background(DesignTokens.ColorSystem.canvas)
             }
 
             Spacer(minLength: DesignTokens.Spacing.md)

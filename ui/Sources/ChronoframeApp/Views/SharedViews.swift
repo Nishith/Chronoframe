@@ -460,7 +460,7 @@ struct MeridianStatusBadge: View {
             }
             Text(title)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                .foregroundStyle(AccessibleDesign.badgeForeground(for: tint))
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)
@@ -615,7 +615,7 @@ struct SummaryLine: View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
                 .scaledFont(.body)
-                .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
             Spacer(minLength: 12)
 
@@ -623,7 +623,7 @@ struct SummaryLine: View {
                 Button(action: onTap) {
                     Text(value)
                         .scaledFont(.body)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                        .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
                         .multilineTextAlignment(.trailing)
                         .monospacedDigit()
                 }
@@ -631,7 +631,7 @@ struct SummaryLine: View {
             } else {
                 Text(value)
                     .scaledFont(.body)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    .foregroundStyle(valueColor ?? DesignTokens.ColorSystem.inkPrimary)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
             }

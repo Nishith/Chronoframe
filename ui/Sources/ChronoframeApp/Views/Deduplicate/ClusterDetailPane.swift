@@ -420,6 +420,10 @@ struct ClusterDetailPane: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(DesignTokens.ColorSystem.imageStageHairline, lineWidth: 0.5)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Photo details")
+        .accessibilityValue(metadataAccessibilityValue(for: member, cluster: cluster))
+        .accessibilityAddTraits(.isStaticText)
     }
 
     private func metaRow(_ label: String, value: String) -> some View {
@@ -498,6 +502,32 @@ struct ClusterDetailPane: View {
         case 0.25..<0.5: return "Soft"
         default: return "Motion blur"
         }
+    }
+
+    private func metadataAccessibilityValue(for member: PhotoCandidate, cluster: DuplicateCluster) -> String {
+        var parts: [String] = [
+            DeduplicateInspectorText.title(forCaptureDate: member.captureDate),
+            "File \(DeduplicateInspectorText.fileName(forPath: member.path))",
+            "Size \(byteCountFormatter.string(fromByteCount: member.size))"
+        ]
+        if let width = member.pixelWidth, let height = member.pixelHeight {
+            parts.append("Dimensions \(width) by \(height)")
+        }
+        parts.append("Quality \(Self.qualityLabel(member.qualityScore).1)")
+        parts.append("Sharpness \(Self.sharpnessLabel(member.sharpness))")
+        if let face = member.faceScore {
+            parts.append(face > 0.5 ? "Face detected" : "No face detected")
+        }
+        if member.isRaw {
+            parts.append("RAW")
+        }
+        if let pairedPath = member.pairedPath {
+            parts.append("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)")
+        }
+        if let annotation = cluster.annotation {
+            parts.append(MatchReasonFormatter.oneLiner(annotation))
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func decisionControls(for member: PhotoCandidate, cluster: DuplicateCluster) -> some View {

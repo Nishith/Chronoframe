@@ -273,7 +273,7 @@ private struct DeduplicateSettingsTab: View {
 
                 Text(preferencesStore.dedupeSimilarityPreset.subtitle)
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                 if preferencesStore.dedupeBurstModeEnabled {
                     Stepper(value: $preferencesStore.dedupeTimeWindowSeconds, in: 5...600, step: 5) {

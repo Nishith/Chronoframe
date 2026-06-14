@@ -661,7 +661,7 @@ struct RunIdleOnboardingCard: View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
             Text(number)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .frame(width: 18, height: 18)
                 .background(DesignTokens.ColorSystem.accentAction.opacity(0.12), in: Circle())
 

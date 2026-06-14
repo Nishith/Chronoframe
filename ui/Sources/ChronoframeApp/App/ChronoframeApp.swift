@@ -132,7 +132,7 @@ final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate, UNUserNotif
 
     private static var isRunningUITestScenario: Bool {
         #if DEBUG
-        ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_SCENARIO"] != nil
+        UITestScenario.isRunningScenario()
         #else
         false
         #endif

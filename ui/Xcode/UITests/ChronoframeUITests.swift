@@ -333,7 +333,7 @@ final class ChronoframeUITests: XCTestCase {
         ))
     }
 
-    func testKnownAppOwnedAuditFalsePositiveRequiresExactScenarioAndMetricFingerprint() {
+    func testAppOwnedStaticTextContrastFindingsAreNotBypassed() {
         let tickerIssue = A11yAuditFingerprint(
             auditType: "contrast",
             role: "staticText",
@@ -343,7 +343,7 @@ final class ChronoframeUITests: XCTestCase {
             compactDescription: "Contrast failed",
             detailedDescription: "Contrast failed for discovered: 84, planned: 42, copied: 0, already there: 29, duplicates: 7, issues: 1"
         )
-        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
             tickerIssue,
             scenario: .runPreviewReview,
             baselineEntries: []
@@ -378,53 +378,13 @@ final class ChronoframeUITests: XCTestCase {
             compactDescription: "Contrast failed",
             detailedDescription: "Contrast failed for 2 artifacts · 1 reusable sources."
         )
-        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
             historyHeaderCount,
             scenario: .historyPopulated,
             baselineEntries: []
         ))
         XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
             historyHeaderCount,
-            scenario: .setupReady,
-            baselineEntries: []
-        ))
-
-        let settingsTitle = A11yAuditFingerprint(
-            auditType: "contrast",
-            role: "staticText",
-            identifier: "",
-            label: "",
-            value: "Chronoframe",
-            compactDescription: "Contrast failed",
-            detailedDescription: "Contrast failed for Chronoframe"
-        )
-        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
-            settingsTitle,
-            scenario: .settingsSections,
-            baselineEntries: []
-        ))
-        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
-            settingsTitle,
-            scenario: .setupReady,
-            baselineEntries: []
-        ))
-
-        let labeledSettingsTitle = A11yAuditFingerprint(
-            auditType: "contrast",
-            role: "staticText",
-            identifier: "",
-            label: "Chronoframe",
-            value: "",
-            compactDescription: "Contrast failed",
-            detailedDescription: "Contrast failed for Chronoframe"
-        )
-        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
-            labeledSettingsTitle,
-            scenario: .settingsSections,
-            baselineEntries: []
-        ))
-        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
-            labeledSettingsTitle,
             scenario: .setupReady,
             baselineEntries: []
         ))
@@ -492,6 +452,26 @@ final class ChronoframeUITests: XCTestCase {
         ))
         XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
             settingsTitlebarLabelText,
+            scenario: .setupReady,
+            baselineEntries: []
+        ))
+
+        let appTitlebarText = A11yAuditFingerprint(
+            auditType: "contrast",
+            role: "staticText",
+            identifier: "",
+            label: "",
+            value: "Chronoframe",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for Chronoframe"
+        )
+        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+            appTitlebarText,
+            scenario: .deduplicateReviewWide,
+            baselineEntries: []
+        ))
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            appTitlebarText,
             scenario: .setupReady,
             baselineEntries: []
         ))
@@ -792,6 +772,7 @@ final class ChronoframeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["CHRONOFRAME_UI_TEST_SCENARIO"] = scenario.rawValue
         app.launchEnvironment["CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS"] = "1"
+        app.launchArguments += ["--chronoframe-ui-test-scenario", scenario.rawValue]
         app.launch()
         app.activate()
         ensurePrimaryWindowExists(in: app)
@@ -923,10 +904,6 @@ final class ChronoframeUITests: XCTestCase {
             return true
         }
 
-        if isKnownAppOwnedAccessibilityAuditFalsePositive(issue, scenario: scenario) {
-            return true
-        }
-
         if isUnlabeledSwiftUILayoutWrapperIssue(issue) {
             return true
         }
@@ -966,59 +943,17 @@ final class ChronoframeUITests: XCTestCase {
            contrastTarget(for: issue) == "settings" {
             return true
         }
+        if issue.auditType == "contrast",
+           issue.role == "staticText",
+           issue.identifier.isEmpty,
+           issue.compactDescription == "Contrast failed",
+           (scenario == .deduplicateReviewWide || scenario == .deduplicateReviewCompact),
+           contrastTarget(for: issue) == "chronoframe" {
+            return true
+        }
         return issue.role == "role_14" &&
                issue.label.localizedCaseInsensitiveCompare("emoji & symbols") == .orderedSame &&
                issue.auditType == "sufficientElementDescription"
-    }
-
-    private static func isKnownAppOwnedAccessibilityAuditFalsePositive(
-        _ issue: A11yAuditFingerprint,
-        scenario: Scenario
-    ) -> Bool {
-        // XCTest audits the run-preview ticker's combined VoiceOver summary as
-        // one virtual static text node, even though the visible metric labels
-        // and values are separate high-contrast text elements. Keep this bound
-        // to the deterministic UI-test fixture and metric names so unrelated
-        // static text contrast failures still hard-fail.
-        guard issue.auditType == "contrast",
-              issue.role == "staticText",
-              issue.identifier.isEmpty,
-              issue.compactDescription == "Contrast failed" else {
-            return false
-        }
-
-        let target = contrastTarget(for: issue)
-        if scenario == .runPreviewReview {
-            let requiredMetrics = ["discovered:", "planned:", "copied:", "already there:", "duplicates:", "issues:"]
-            if requiredMetrics.allSatisfy({ target.contains($0) }) {
-                return true
-            }
-        }
-
-        if (scenario == .deduplicateReviewWide || scenario == .deduplicateReviewCompact),
-           target.contains("nothing will move to trash yet"),
-           target.contains("accept a group's suggestion"),
-           target.contains("0 groups reviewed"),
-           target.contains("12 still suggested") {
-            return true
-        }
-
-        if scenario == .historyPopulated,
-           target == "2 artifacts · 1 reusable sources." {
-            return true
-        }
-
-        if scenario.opensSettingsOnLaunch,
-           target == "chronoframe" {
-            return true
-        }
-
-        if (scenario == .deduplicateReviewWide || scenario == .deduplicateReviewCompact),
-           target == "chronoframe" {
-            return true
-        }
-
-        return false
     }
 
     private static func isUnlabeledSwiftUILayoutWrapperIssue(_ issue: A11yAuditFingerprint) -> Bool {
