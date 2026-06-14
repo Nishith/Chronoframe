@@ -468,7 +468,7 @@ struct DeduplicateView: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
             Text(reviewProgress)
-                .font(.caption2)
+                .font(.caption)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
         }

@@ -463,7 +463,7 @@ struct MeridianStatusBadge: View {
             }
             Text(title)
                 .scaledFont(.label)
-                .foregroundStyle(AccessibleDesign.badgeForeground(for: tint))
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
         .padding(.horizontal, 9)
         .padding(.vertical, 5)

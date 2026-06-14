@@ -52,7 +52,7 @@ struct PreviewReviewPanel: View {
                                 Text(tile.value)
                                     .scaledFont(.cardTitle)
                                     .monospacedDigit()
-                                    .foregroundStyle(tile.tone.color)
+                                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -172,7 +172,7 @@ private struct PreviewReviewRow: View {
                             }
                         }
                         .scaledFont(.label)
-                        .foregroundStyle(tint)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                     }
 

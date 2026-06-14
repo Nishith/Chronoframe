@@ -200,7 +200,7 @@ struct RunProgressSurface: View {
                     HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text(model.context.metrics.copiedCount.formatted())
                             .scaledFont(.display)
-                            .foregroundStyle(model.heroState.tone.color)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             .contentTransition(.numericText())
                             .monospacedDigit()
                         Text("copied")
@@ -290,7 +290,7 @@ struct RunPreviewReviewSection: View {
                     ForEach(model.previewReviewSummaryTiles) { tile in
                         Label(tile.value, systemImage: tile.tone == .warning ? "exclamationmark.triangle" : "checkmark.circle")
                             .font(.caption)
-                            .foregroundStyle(tile.tone.color)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             .help(tile.title)
                     }
                 }
@@ -465,7 +465,7 @@ struct RunArtifactsPanel: View {
 
                 Text(model.destinationSummaryValue)
                     .font(.subheadline.monospaced())
-                    .foregroundStyle(model.destinationRoot == nil ? .secondary : DesignTokens.Color.inkPrimary)
+                    .foregroundStyle(model.destinationRoot == nil ? DesignTokens.ColorSystem.captionText : DesignTokens.Color.inkPrimary)
                     .lineLimit(3)
                     .truncationMode(.middle)
 
