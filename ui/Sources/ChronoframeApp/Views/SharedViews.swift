@@ -188,16 +188,19 @@ struct MeridianSurfaceCard<Content: View>: View {
         case .standard:
             Rectangle().fill(DesignTokens.ColorSystem.panel)
         case .inner:
-            if let tint {
-                Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
-                    style: .inner,
-                    contrast: colorSchemeContrast
-                )))
-            } else {
-                Rectangle().fill(DesignTokens.ColorSystem.hairline.opacity(
-                    AccessibleDesign.neutralOverlayOpacity(contrast: colorSchemeContrast)
-                ))
-            }
+            Rectangle().fill(DesignTokens.ColorSystem.panel)
+                .overlay {
+                    if let tint {
+                        Rectangle().fill(tint.opacity(AccessibleDesign.tintOverlayOpacity(
+                            style: .inner,
+                            contrast: colorSchemeContrast
+                        )))
+                    } else {
+                        Rectangle().fill(DesignTokens.ColorSystem.hairline.opacity(
+                            AccessibleDesign.neutralOverlayOpacity(contrast: colorSchemeContrast)
+                        ))
+                    }
+                }
         case .section:
             Rectangle().fill(.clear)
         }
