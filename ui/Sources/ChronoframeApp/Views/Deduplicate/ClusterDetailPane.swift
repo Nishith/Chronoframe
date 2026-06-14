@@ -55,10 +55,13 @@ struct ClusterDetailPane: View {
                     Image(systemName: "rectangle.on.rectangle.angled")
                         .font(.system(size: 48))
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .accessibilityHidden(true)
                     Text("Select a cluster on the left")
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("No duplicate group selected")
             }
         }
         .accessibilityElement(children: .contain)

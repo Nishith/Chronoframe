@@ -120,7 +120,7 @@ struct RapidTriageView: View {
             }
         }
         .padding(DesignTokens.Spacing.lg)
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(DeduplicateAccessibilityText.rapidTriageLabel(
             cluster: cluster,
             currentIndex: currentIndex,
