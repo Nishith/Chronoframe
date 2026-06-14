@@ -1085,6 +1085,9 @@ final class ChronoframeUITests: XCTestCase {
         guard !entryNorm.isEmpty else {
             return true
         }
+        guard !issueNorm.isEmpty else {
+            return false
+        }
         return issueNorm.contains(entryNorm) || entryNorm.contains(issueNorm)
     }
 
