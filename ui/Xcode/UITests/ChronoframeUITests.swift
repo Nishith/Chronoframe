@@ -390,6 +390,39 @@ final class ChronoframeUITests: XCTestCase {
         ))
     }
 
+    func testBaselineMatchingNormalizesLocalizedTimestampSpacing() {
+        let entry = A11yBaselineEntry(
+            scenario: Scenario.historyPopulated.rawValue,
+            auditType: "contrast",
+            role: "staticText",
+            identifier: "",
+            label: "",
+            value: "12:00 AM",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for 12:00 AM"
+        )
+        let ciIssue = A11yAuditFingerprint(
+            auditType: "contrast",
+            role: "staticText",
+            identifier: "",
+            label: "",
+            value: "12:00\u{202F}AM",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for 12:00\u{202F}AM"
+        )
+
+        XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+            ciIssue,
+            scenario: .historyPopulated,
+            baselineEntries: [entry]
+        ))
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            ciIssue,
+            scenario: .setupReady,
+            baselineEntries: [entry]
+        ))
+    }
+
     func testSystemOwnedAccessibilityAuditFindingsAreBypassedNarrowly() {
         let touchBar = A11yAuditFingerprint(
             auditType: "sufficientElementDescription",
@@ -995,20 +1028,17 @@ final class ChronoframeUITests: XCTestCase {
 
     private static func labelMatches(_ entryLabel: String, _ issueLabel: String) -> Bool {
         guard !entryLabel.isEmpty else { return true }
-        return issueLabel.localizedCaseInsensitiveContains(entryLabel) ||
-               entryLabel.localizedCaseInsensitiveContains(issueLabel)
+        return normalizedTextContains(issueLabel, entryLabel)
     }
 
     private static func valueMatches(_ entryValue: String, _ issueValue: String) -> Bool {
         guard !entryValue.isEmpty else { return true }
-        return issueValue.localizedCaseInsensitiveContains(entryValue) ||
-               entryValue.localizedCaseInsensitiveContains(issueValue)
+        return normalizedTextContains(issueValue, entryValue)
     }
 
     private static func compactDescriptionMatches(_ entryDescription: String, _ issueDescription: String) -> Bool {
         guard !entryDescription.isEmpty else { return true }
-        return issueDescription.localizedCaseInsensitiveContains(entryDescription) ||
-               entryDescription.localizedCaseInsensitiveContains(issueDescription)
+        return normalizedTextContains(issueDescription, entryDescription)
     }
 
     private static func detailedDescriptionMatches(_ entryDescription: String, _ issueDescription: String) -> Bool {
@@ -1047,6 +1077,15 @@ final class ChronoframeUITests: XCTestCase {
             }
         }
         return target
+    }
+
+    private static func normalizedTextContains(_ issueText: String, _ entryText: String) -> Bool {
+        let issueNorm = normalizeDescription(issueText)
+        let entryNorm = normalizeDescription(entryText)
+        guard !entryNorm.isEmpty else {
+            return true
+        }
+        return issueNorm.contains(entryNorm) || entryNorm.contains(issueNorm)
     }
 
     private static func contrastTarget(for issue: A11yAuditFingerprint) -> String {
