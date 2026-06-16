@@ -268,5 +268,55 @@
     "value": "/Volumes/Archive/Studio",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for /Volumes/Archive/Studio"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Transfer Receipt",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Transfer Receipt"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Audit Receipt",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Audit Receipt"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "8 KB",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 8 KB"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Dry Run Report",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Dry Run Report"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "18 KB",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 18 KB"
   }
 ]

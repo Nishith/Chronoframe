@@ -93,7 +93,7 @@ struct DeduplicateView: View {
                         .scaledFont(.title)
                     Text("Find and remove duplicate photos. Removed files go to the Trash.")
                         .scaledFont(.subtitle)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Deduplicate. Find similar shots and prune.")
@@ -1048,7 +1048,7 @@ private struct PausedDeduplicateReviewCard: View {
                     .font(.subheadline.weight(.semibold))
                 Text(settingsChanged ? "Settings changed since this scan." : "Ready to review.")
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
     }
@@ -1083,7 +1083,7 @@ private struct PausedDeduplicateReviewCard: View {
                 .font(.subheadline.weight(.semibold).monospacedDigit())
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
     }
 }
@@ -1146,12 +1146,12 @@ private struct DeduplicateRunHistoryRow: View {
                     .lineLimit(1)
                 Text(record.folderPath)
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("Last run \(Self.dateFormatter.string(from: record.lastRunAt))")
                     .font(.caption)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
     }
@@ -1187,7 +1187,7 @@ private struct DeduplicateRunHistoryRow: View {
                 .font(.subheadline.weight(.semibold).monospacedDigit())
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
     }
 }

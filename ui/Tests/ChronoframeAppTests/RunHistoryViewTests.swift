@@ -132,4 +132,69 @@ final class RunHistoryViewTests: XCTestCase {
             createdAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
     }
+
+    func testCoordinateToBucketIndexCalculation() {
+        let buckets = [
+            DateHistogramBucket(key: "2026-01", plannedCount: 5),
+            DateHistogramBucket(key: "2026-02", plannedCount: 10),
+            DateHistogramBucket(key: "2026-03", plannedCount: 15)
+        ]
+
+        let width: CGFloat = 300
+        let spacing: CGFloat = 4
+        let totalSpacing = spacing * CGFloat(buckets.count - 1)
+        let barWidth = (width - totalSpacing) / CGFloat(buckets.count)
+
+        func bucketIndex(for x: CGFloat) -> Int {
+            let index = Int(x / (barWidth + spacing))
+            return max(0, min(buckets.count - 1, index))
+        }
+
+        XCTAssertEqual(bucketIndex(for: 0), 0)
+        XCTAssertEqual(bucketIndex(for: 50), 0)
+        XCTAssertEqual(bucketIndex(for: 101), 0)
+        XCTAssertEqual(bucketIndex(for: 102), 1)
+        XCTAssertEqual(bucketIndex(for: 200), 1)
+        XCTAssertEqual(bucketIndex(for: 205), 2)
+        XCTAssertEqual(bucketIndex(for: 500), 2)
+    }
+
+    func testRunHistoryViewTimelineBucketGroupingAndFiltering() {
+        let calendar = Calendar.current
+
+        let dateJan15 = calendar.date(from: DateComponents(year: 2023, month: 1, day: 15))!
+        let dateFeb15 = calendar.date(from: DateComponents(year: 2023, month: 2, day: 15))!
+        let dateJan16 = calendar.date(from: DateComponents(year: 2023, month: 1, day: 16))!
+
+        let entry1 = RunHistoryEntry(kind: .auditReceipt, title: "Run 1", path: "/tmp/1", createdAt: dateJan15)
+        let entry2 = RunHistoryEntry(kind: .auditReceipt, title: "Run 2", path: "/tmp/2", createdAt: dateFeb15)
+        let entry3 = RunHistoryEntry(kind: .auditReceipt, title: "Run 3", path: "/tmp/3", createdAt: dateJan16)
+        let logEntry = RunHistoryEntry(kind: .runLog, title: "Log 1", path: "/tmp/log1", createdAt: dateJan15)
+
+        let allEntries = [entry1, entry2, entry3, logEntry]
+
+        // 1. Grouping
+        let receiptEntries = allEntries.filter { $0.kind == .auditReceipt }
+        let buckets = RunHistoryView.makeTimelineBuckets(from: receiptEntries)
+
+        XCTAssertEqual(buckets.count, 2)
+        XCTAssertEqual(buckets[0].key, "2023-01")
+        XCTAssertEqual(buckets[0].plannedCount, 2)
+        XCTAssertEqual(buckets[1].key, "2023-02")
+        XCTAssertEqual(buckets[1].plannedCount, 1)
+
+        // 2. Filtering
+        let filtered1 = RunHistoryView.filterEntries(allEntries, filter: .all, searchText: "", selectedTimelineMonth: "2023-01")
+        XCTAssertEqual(filtered1.count, 3)
+        XCTAssertTrue(filtered1.contains(entry1))
+        XCTAssertTrue(filtered1.contains(entry3))
+        XCTAssertTrue(filtered1.contains(logEntry))
+
+        let filtered2 = RunHistoryView.filterEntries(allEntries, filter: .all, searchText: "", selectedTimelineMonth: "2023-02")
+        XCTAssertEqual(filtered2.count, 1)
+        XCTAssertEqual(filtered2.first, entry2)
+
+        let filteredNone = RunHistoryView.filterEntries(allEntries, filter: .all, searchText: "", selectedTimelineMonth: nil)
+        XCTAssertEqual(filteredNone.count, 4)
+    }
 }

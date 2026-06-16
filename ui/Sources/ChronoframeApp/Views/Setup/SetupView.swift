@@ -83,7 +83,7 @@ struct SetupView: View {
                                     }
 
                                     if !setupStore.sourcePath.isEmpty {
-                                        SetupContactSheetSection(sourcePath: setupStore.sourcePath)
+                                        SetupContactSheetSection(sourcePath: setupStore.sourcePath, sourceURL: setupStore.sourceURL)
                                     }
 
                                     if screenModel.showsSavedSetupSection {
@@ -140,7 +140,7 @@ struct SetupView: View {
                                 .id("destinationSection")
 
                                 if !setupStore.sourcePath.isEmpty {
-                                    SetupContactSheetSection(sourcePath: setupStore.sourcePath)
+                                    SetupContactSheetSection(sourcePath: setupStore.sourcePath, sourceURL: setupStore.sourceURL)
                                 }
 
                                 if screenModel.showsSavedSetupSection {

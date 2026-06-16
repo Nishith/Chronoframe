@@ -8,6 +8,7 @@ import Combine
 public final class SetupStore: ObservableObject {
     @Published public var sourcePath: String
     @Published public var destinationPath: String
+    @Published public var sourceURL: URL?
     @Published public var selectedProfileName: String
     @Published public var newProfileName: String
     @Published public var profiles: [Profile]
@@ -22,6 +23,7 @@ public final class SetupStore: ObservableObject {
     public init(
         sourcePath: String = "",
         destinationPath: String = "",
+        sourceURL: URL? = nil,
         selectedProfileName: String = "",
         newProfileName: String = "",
         profiles: [Profile] = [],
@@ -30,6 +32,7 @@ public final class SetupStore: ObservableObject {
     ) {
         self.sourcePath = sourcePath
         self.destinationPath = destinationPath
+        self.sourceURL = sourceURL
         self.selectedProfileName = selectedProfileName
         self.newProfileName = newProfileName
         self.profiles = profiles
@@ -70,6 +73,7 @@ public final class SetupStore: ObservableObject {
         guard let profile = profiles.first(where: { $0.name == trimmed }) else { return }
         sourcePath = profile.sourcePath
         destinationPath = profile.destinationPath
+        sourceURL = profile.sourcePath.isEmpty ? nil : URL(fileURLWithPath: profile.sourcePath)
         clearDroppedSource()
     }
 

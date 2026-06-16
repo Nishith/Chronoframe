@@ -102,6 +102,17 @@ final class HistoryCoordinator {
 
         setupStore.sourcePath = record.sourcePath
         preferencesStore.lastManualSourcePath = record.sourcePath
+
+        // Resolve manual.source bookmark if it matches record.sourcePath
+        var isStale = false
+        if let bookmark = preferencesStore.bookmark(for: "manual.source"),
+           bookmark.path == record.sourcePath,
+           let resolved = try? URL(resolvingBookmarkData: bookmark.data, options: [.withSecurityScope, .withoutUI], relativeTo: nil, bookmarkDataIsStale: &isStale) {
+            setupStore.sourceURL = resolved
+        } else {
+            setupStore.sourceURL = URL(fileURLWithPath: record.sourcePath)
+        }
+
         navigate(.organize(.setup))
     }
 

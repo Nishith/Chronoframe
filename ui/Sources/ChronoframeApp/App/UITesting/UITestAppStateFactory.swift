@@ -160,6 +160,10 @@ enum UITestAppStateFactory {
             resolvedDestinationPath: destinationPath
         )
 
+        let sampleHistogram = [
+            DateHistogramBucket(key: "2026-04", plannedCount: 42, samplePaths: ["/Volumes/Card/April Session/pic1.jpg"])
+        ]
+
         let summary = RunSummary(
             status: .dryRunFinished,
             title: "Preview complete",
@@ -171,7 +175,8 @@ enum UITestAppStateFactory {
                 hashErrorCount: 1,
                 copiedCount: 0,
                 failedCount: 0,
-                errorCount: 1
+                errorCount: 1,
+                dateHistogram: sampleHistogram
             ),
             artifacts: RunArtifactPaths(
                 destinationRoot: destinationPath,
@@ -185,6 +190,7 @@ enum UITestAppStateFactory {
             preflightResult: .success(preflight),
             startMode: .events([
                 .startup,
+                .dateHistogram(buckets: sampleHistogram),
                 .phaseStarted(phase: .discovery, total: 84),
                 .phaseCompleted(phase: .sourceHashing, result: RunPhaseResult(found: 84)),
                 .phaseCompleted(

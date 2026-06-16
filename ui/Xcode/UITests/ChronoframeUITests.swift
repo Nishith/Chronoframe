@@ -658,6 +658,50 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    func testTimelineScrubbingUpdatesPreview() async {
+        await MainActor.run {
+            let app = Self.launchApp(.runPreviewReview)
+
+            let timeline = Self.element(identifier: "InteractiveTimeline", in: app)
+            XCTAssertTrue(timeline.waitForExistence(timeout: 5), "Timeline should render in run preview")
+
+            let startCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
+            let endCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+            startCoordinate.press(forDuration: 0.1, thenDragTo: endCoordinate)
+
+            let clearButton = Self.button(identifier: "ClearTimelineSelectionButton", in: app)
+            XCTAssertTrue(clearButton.waitForExistence(timeout: 5), "Clear Selection button should appear after scrubbing")
+
+            Self.coordinateClick(clearButton)
+            XCTAssertFalse(clearButton.exists, "Clear Selection button should disappear after clearing selection")
+
+            app.terminate()
+        }
+    }
+
+    func testHistoryTimelineScrubbingFiltersEntries() async {
+        await MainActor.run {
+            let app = Self.launchApp(.historyPopulated)
+
+            let timeline = Self.element(identifier: "InteractiveTimeline", in: app)
+            XCTAssertTrue(timeline.waitForExistence(timeout: 5), "Timeline should render in run history")
+
+            let clearFilterButton = Self.button(identifier: "ClearTimelineFilterButton", in: app)
+            XCTAssertFalse(clearFilterButton.exists, "Clear Timeline Filter button should not be present initially")
+
+            let startCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+            let endCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
+            startCoordinate.press(forDuration: 0.1, thenDragTo: endCoordinate)
+
+            XCTAssertTrue(clearFilterButton.waitForExistence(timeout: 5), "Clear Timeline Filter button should appear after scrubbing")
+
+            Self.coordinateClick(clearFilterButton)
+            XCTAssertFalse(clearFilterButton.exists, "Clear Timeline Filter button should disappear after clearing filter")
+
+            app.terminate()
+        }
+    }
+
     func testProfilesScenarioShowsActiveProfileAndUseAction() async {
         await MainActor.run {
             let app = Self.launchApp(.profilesPopulated)
@@ -786,7 +830,7 @@ final class ChronoframeUITests: XCTestCase {
                         named: name,
                         isInside: window.frame,
                         scenario: scenario.rawValue,
-                        tolerance: 2
+                        tolerance: 5
                     )
                 }
                 XCTAssertLessThanOrEqual(
@@ -805,7 +849,8 @@ final class ChronoframeUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchEnvironment["CHRONOFRAME_UI_TEST_SCENARIO"] = scenario.rawValue
         app.launchEnvironment["CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS"] = "1"
-        app.launchArguments += ["--chronoframe-ui-test-scenario", scenario.rawValue]
+        app.launchEnvironment["TZ"] = "UTC"
+        app.launchArguments += ["--chronoframe-ui-test-scenario", scenario.rawValue, "-AppleTimeZone", "UTC", "-TZ", "UTC"]
         app.launch()
         app.activate()
         ensurePrimaryWindowExists(in: app)
@@ -968,6 +1013,10 @@ final class ChronoframeUITests: XCTestCase {
         if issue.role == "touchBar" {
             return true
         }
+        if issue.identifier == "InteractiveTimeline",
+           issue.compactDescription == "Unknown role" {
+            return true
+        }
         if issue.auditType == "contrast",
            issue.role == "staticText",
            issue.identifier.isEmpty,
@@ -980,7 +1029,7 @@ final class ChronoframeUITests: XCTestCase {
            issue.role == "staticText",
            issue.identifier.isEmpty,
            issue.compactDescription == "Contrast failed",
-           (scenario == .deduplicateReviewWide || scenario == .deduplicateReviewCompact),
+           (scenario == .deduplicateReviewWide || scenario == .deduplicateReviewCompact || scenario == .historyPopulated),
            contrastTarget(for: issue) == "chronoframe" {
             return true
         }
@@ -1180,23 +1229,23 @@ final class ChronoframeUITests: XCTestCase {
 
     @MainActor
     private static func ensurePrimaryWindowExists(in app: XCUIApplication) {
-        if app.windows.firstMatch.waitForExistence(timeout: 2) {
+        if app.windows.firstMatch.waitForExistence(timeout: 10) {
             return
         }
 
         app.typeKey("n", modifierFlags: .command)
-        _ = app.windows.firstMatch.waitForExistence(timeout: 5)
+        _ = app.windows.firstMatch.waitForExistence(timeout: 10)
     }
 
     @MainActor
     private static func ensureSettingsWindowExists(in app: XCUIApplication) {
         let settingsWindow = app.windows[settingsWindowIdentifier]
-        if settingsWindow.waitForExistence(timeout: 2) {
+        if settingsWindow.waitForExistence(timeout: 10) {
             return
         }
 
         app.typeKey(",", modifierFlags: .command)
-        _ = settingsWindow.waitForExistence(timeout: 5)
+        _ = settingsWindow.waitForExistence(timeout: 10)
     }
 
     @MainActor

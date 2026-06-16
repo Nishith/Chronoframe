@@ -119,6 +119,7 @@ struct SetupHeroSection: View {
 
 struct SetupContactSheetSection: View {
     let sourcePath: String
+    let sourceURL: URL?
 
     var body: some View {
         MeridianSurfaceCard(style: .standard) {
@@ -130,7 +131,7 @@ struct SetupContactSheetSection: View {
                         : "A quick visual read of the frames Chronoframe will organize."
                 )
 
-                ContactSheetView(sourcePath: sourcePath)
+                ContactSheetView(sourcePath: sourcePath, sourceURL: sourceURL)
             }
         }
     }

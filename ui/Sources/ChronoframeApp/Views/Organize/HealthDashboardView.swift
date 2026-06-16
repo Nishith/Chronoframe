@@ -265,7 +265,7 @@ private struct LibraryHealthHero: View {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                     Text("Library shape")
                         .scaledFont(.label, weight: .medium)
-                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .tracking(0.8)
                         .textCase(.uppercase)
 
@@ -375,7 +375,7 @@ private struct LibraryHealthHero: View {
                 .frame(width: 6, height: 6)
             Text("\(count) \(label.lowercased())")
                 .scaledFont(.body)
-                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .monospacedDigit()
         }
     }
