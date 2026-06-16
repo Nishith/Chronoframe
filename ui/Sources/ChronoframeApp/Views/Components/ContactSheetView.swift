@@ -380,7 +380,9 @@ private final class ContactSheetLoader: ObservableObject {
     }
 
     nonisolated private static func findMediaFiles(in path: String, url: URL?, limit: Int) async -> [URL] {
+        #if DEBUG
         NSLog("ContactSheet: Starting findMediaFiles in path: %@, hasURL: %d", path, url != nil)
+        #endif
         return await Task.detached(priority: .userInitiated) {
             let root = url ?? URL(fileURLWithPath: path, isDirectory: true)
 
@@ -391,14 +393,18 @@ private final class ContactSheetLoader: ObservableObject {
 
             // Check if directory is readable at all from this thread
             let isReadable = FileManager.default.isReadableFile(atPath: root.path)
+            #if DEBUG
             NSLog("ContactSheet: Path isReadable directly = %d", isReadable)
+            #endif
 
             guard let enumerator = FileManager.default.enumerator(
                 at: root,
                 includingPropertiesForKeys: keys,
                 options: [.skipsHiddenFiles, .skipsPackageDescendants]
             ) else {
+                #if DEBUG
                 NSLog("ContactSheet: Failed to create directory enumerator for path: %@", root.path)
+                #endif
                 return []
             }
 
@@ -412,7 +418,9 @@ private final class ContactSheetLoader: ObservableObject {
                     results.append(fileURL)
                 }
             }
+            #if DEBUG
             NSLog("ContactSheet: Finished findMediaFiles. Checked %d items, found %d media files.", checkedCount, results.count)
+            #endif
             return results
         }.value
     }

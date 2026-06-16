@@ -54,7 +54,8 @@ struct InteractiveTimelineView: View {
                 HStack(alignment: .bottom, spacing: spacing) {
                     ForEach(Array(buckets.enumerated()), id: \.element.id) { index, bucket in
                         let isSelected = selectedBucketKey == bucket.key
-                        let anySelected = selectedBucketKey != nil
+                        let selectedKeyIsValid = selectedBucketKey != nil && buckets.contains { $0.key == selectedBucketKey }
+                        let anySelected = selectedKeyIsValid
                         let dimOpacity = anySelected && !isSelected ? 0.35 : 1.0
 
                         bar(
@@ -100,6 +101,11 @@ struct InteractiveTimelineView: View {
                 }
             @unknown default:
                 break
+            }
+        }
+        .onChange(of: buckets) { newBuckets in
+            if let selected = selectedBucketKey, !newBuckets.contains(where: { $0.key == selected }) {
+                selectedBucketKey = nil
             }
         }
     }
