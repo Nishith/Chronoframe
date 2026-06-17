@@ -202,9 +202,8 @@ struct InteractiveTimelineView: View {
     }
 
     private var accessibilityValue: String {
-        if let key = selectedBucketKey {
-            let matchingBucket = buckets.first { $0.key == key }
-            let count = matchingBucket?.plannedCount ?? 0
+        if let key = selectedBucketKey, let matchingBucket = buckets.first(where: { $0.key == key }) {
+            let count = matchingBucket.plannedCount
             return "Selected month: \(key), \(count) files planned. Timeline contains \(buckets.count) months."
         }
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
