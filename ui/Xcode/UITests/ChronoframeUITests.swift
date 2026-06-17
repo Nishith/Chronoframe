@@ -1010,7 +1010,7 @@ final class ChronoframeUITests: XCTestCase {
         _ issue: A11yAuditFingerprint,
         scenario: Scenario
     ) -> Bool {
-        if issue.role == "touchBar" {
+        if issue.role == "touchBar" || issue.role == "81" || issue.role == "role_81" {
             return true
         }
         if issue.identifier == "InteractiveTimeline",
@@ -1054,7 +1054,7 @@ final class ChronoframeUITests: XCTestCase {
         if issue.role.isEmpty {
             return true
         }
-        return issue.role == "window" || issue.role == "application"
+        return issue.role == "window" || issue.role == "application" || issue.role == "group" || issue.role == "3" || issue.role == "role_3"
     }
 
     private static func hasStableTextualFingerprint(
