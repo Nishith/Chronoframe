@@ -8,16 +8,12 @@ import SwiftUI
 /// the photos and videos found in the source. Each bar is one year-month;
 /// height scales with the file count for that month.
 ///
-/// During a transfer the bars fill in left-to-right (oldest → newest) as
-/// `copiedCount` advances, giving the "frames finding their place" moment
-/// while also showing the actual shape of the user's library.
-///
-/// Source: `RunMetrics.dateHistogram`, populated from the organizer engine's
-/// `date_histogram` event after the classification phase completes.
+/// Supports visual scrubbing and selection to inspect files planned for each month.
 struct RunTimelineView: View {
     let model: RunWorkspaceModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var hoveredBucketKey: String?
+    @State private var selectedBucketKey: String? = nil
+    @State private var isScrubbing = false
 
     private let chartHeight: CGFloat = 136
     private let minBarHeight: CGFloat = 3
@@ -30,7 +26,20 @@ struct RunTimelineView: View {
                 if buckets.isEmpty {
                     emptyState
                 } else {
-                    chart
+                    InteractiveTimelineView(
+                        buckets: buckets,
+                        barFills: barFills,
+                        selectedBucketKey: $selectedBucketKey,
+                        isScrubbing: $isScrubbing
+                    )
+
+                    if let selectedBucketKey, let bucket = buckets.first(where: { $0.key == selectedBucketKey }) {
+                        selectionDrawer(for: bucket)
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .top)),
+                                removal: .opacity
+                            ))
+                    }
                 }
 
                 Text(subtitle)
@@ -39,12 +48,6 @@ struct RunTimelineView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Source timeline")
-        .accessibilityValue(accessibilityValue)
-        // Custom data-viz graphic: expose as an image with a spoken summary so
-        // it has a valid role instead of reading as "Unknown role".
-        .accessibilityAddTraits(.isImage)
     }
 
     // MARK: - Header
@@ -65,139 +68,62 @@ struct RunTimelineView: View {
         }
     }
 
-    // MARK: - Chart
+    // MARK: - Selection Drawer
 
-    private var chart: some View {
-        let fills = barFills
-        let maxCount = max(buckets.map(\.plannedCount).max() ?? 1, 1)
+    private func selectionDrawer(for bucket: DateHistogramBucket) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(formatMonthYear(bucket.key))
+                        .scaledFont(.subtitle, weight: .bold)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    Text("\(bucket.plannedCount.formatted(.number)) planned files")
+                        .scaledFont(.label)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                }
 
-        return GeometryReader { geo in
-            let spacing: CGFloat = max(1, min(4, geo.size.width / CGFloat(buckets.count) * 0.15))
-            let totalSpacing = spacing * CGFloat(max(0, buckets.count - 1))
-            let barWidth = max(2, (geo.size.width - totalSpacing) / CGFloat(buckets.count))
+                Spacer()
 
-            ZStack(alignment: .bottomLeading) {
-                HStack(alignment: .bottom, spacing: spacing) {
-                    ForEach(Array(buckets.enumerated()), id: \.element.id) { index, bucket in
-                        bar(
-                            for: bucket,
-                            fill: fills[index],
-                            maxCount: maxCount,
-                            width: barWidth,
-                            availableHeight: geo.size.height
-                        )
+                Button(action: {
+                    Motion.withMotion(Motion.mechanical, reduceMotion: reduceMotion) {
+                        selectedBucketKey = nil
+                    }
+                }) {
+                    Text("Clear Selection")
+                        .scaledFont(.label)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .accessibilityIdentifier("ClearTimelineSelectionButton")
+            }
+
+            if !bucket.samplePaths.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(bucket.samplePaths, id: \.self) { path in
+                            TimelinePeekThumbnail(path: path)
+                                .help(URL(fileURLWithPath: path).lastPathComponent)
+                        }
                     }
                 }
-
-                yearMarkers(width: geo.size.width)
+                .frame(height: 56)
             }
         }
-        .frame(height: chartHeight)
         .padding(DesignTokens.Spacing.md)
-        .background(DesignTokens.ColorSystem.imageStage, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(DesignTokens.ColorSystem.imageStage.opacity(0.4), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
-    private func bar(
-        for bucket: DateHistogramBucket,
-        fill: Double,
-        maxCount: Int,
-        width: CGFloat,
-        availableHeight: CGFloat
-    ) -> some View {
-        let ratio = Double(bucket.plannedCount) / Double(maxCount)
-        let height = max(minBarHeight, CGFloat(ratio) * availableHeight)
-        let cornerRadius = min(width, height) / 2
-        let track = seasonalTint(for: bucket.key)
-
-        return ZStack(alignment: .bottom) {
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(track)
-
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(fillColor(for: fill))
-                .frame(height: max(0, height * CGFloat(fill)))
-                .motion(reduceMotion ? Motion.mechanical : Motion.filmic, value: fill)
+    private func formatMonthYear(_ key: String) -> String {
+        guard key != "Unknown", key.count >= 7 else {
+            return key == "Unknown" ? "Unknown Date" : key
         }
-        .frame(width: width, height: height)
-        .contentShape(Rectangle())
-        .onHover { isHovering in
-            hoveredBucketKey = isHovering ? bucket.key : (hoveredBucketKey == bucket.key ? nil : hoveredBucketKey)
-        }
-        .popover(
-            isPresented: Binding(
-                get: { hoveredBucketKey == bucket.key && !bucket.samplePaths.isEmpty },
-                set: { newValue in if !newValue { hoveredBucketKey = nil } }
-            ),
-            arrowEdge: .top
-        ) {
-            TimelineBucketPeek(bucket: bucket)
-        }
-        .accessibilityLabel(label(for: bucket))
-    }
-
-    private func fillColor(for fill: Double) -> Color {
-        if fill >= 1.0 {
-            return DesignTokens.ColorSystem.statusSuccess
-        }
-        if fill > 0 {
-            return DesignTokens.ColorSystem.accentWaypoint
-        }
-        return .clear
-    }
-
-    /// Low-saturation seasonal tint for the bar track. Winter months read cool
-    /// blue, summer months warm amber, spring/autumn transition between. Keeps
-    /// the chart legible at a glance as a calendar of the library's shape.
-    private func seasonalTint(for key: String) -> Color {
-        guard key.count >= 7, key != "Unknown" else {
-            return DesignTokens.ColorSystem.inkMuted.opacity(0.18)
-        }
+        let yearPart = key.prefix(4)
         let monthPart = key.dropFirst(5).prefix(2)
         guard let month = Int(monthPart), (1...12).contains(month) else {
-            return DesignTokens.ColorSystem.inkMuted.opacity(0.18)
+            return key
         }
-        // Cosine-shaped warmth curve centered on July: coldest at Jan
-        // (~220°, deep blue), warmest at Jul (~35°, warm amber), with smooth
-        // periodicity through Dec ↔ Jan.
-        let warmth = (cos(Double(month - 7) / 6.0 * .pi) + 1) / 2
-        let hue = (220 - warmth * 185) / 360
-        return Color(hue: hue, saturation: 0.32, brightness: 0.66, opacity: 0.32)
-    }
-
-    private func yearMarkers(width: CGFloat) -> some View {
-        let markers = yearMarkerEntries
-        return ZStack(alignment: .topLeading) {
-            ForEach(markers, id: \.index) { marker in
-                VStack(alignment: .leading, spacing: 4) {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.14))
-                        .frame(width: 0.5, height: chartHeight - 20)
-                    Text(marker.year)
-                        .scaledFont(.label, weight: .medium)
-                        .monospacedDigit()
-                        .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
-                }
-                .offset(x: markerOffset(for: marker.index, width: width), y: 0)
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private var yearMarkerEntries: [(index: Int, year: String)] {
-        var lastYear: String?
-        return buckets.enumerated().compactMap { index, bucket in
-            guard bucket.key.count >= 4, bucket.key != "Unknown" else { return nil }
-            let year = String(bucket.key.prefix(4))
-            guard year != lastYear else { return nil }
-            lastYear = year
-            return (index, year)
-        }
-    }
-
-    private func markerOffset(for index: Int, width: CGFloat) -> CGFloat {
-        guard buckets.count > 1 else { return 0 }
-        let ratio = CGFloat(index) / CGFloat(max(buckets.count - 1, 1))
-        return min(max(0, ratio * width), max(0, width - 32))
+        let monthName = DateFormatter().monthSymbols[month - 1]
+        return "\(monthName) \(yearPart)"
     }
 
     // MARK: - Empty state
@@ -241,9 +167,7 @@ struct RunTimelineView: View {
     }
 
     /// Distributes `copiedCount` across buckets left-to-right. Each bucket gets
-    /// a fill ratio in [0, 1]. This is an approximation — the engine doesn't
-    /// emit per-file completion order, but the copy phase iterates buckets in
-    /// chronological order, so left-to-right fill matches reality closely.
+    /// a fill ratio in [0, 1].
     private var barFills: [Double] {
         let copied = model.context.metrics.copiedCount
         var remaining = copied
@@ -252,9 +176,6 @@ struct RunTimelineView: View {
             let used = min(remaining, bucket.plannedCount)
             remaining -= used
             let ratio = Double(used) / Double(bucket.plannedCount)
-            // After the run finishes, treat every planned bar as complete so
-            // a successful run reads as fully green even if the engine reports
-            // a slightly different copiedCount (e.g. duplicates folded in).
             if model.context.status == .finished || model.context.status == .nothingToCopy {
                 return 1.0
             }
@@ -312,19 +233,14 @@ struct RunTimelineView: View {
     private var accessibilityValue: String {
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
         let copied = model.context.metrics.copiedCount
-        return "\(copied) of \(total) frames placed across \(buckets.count) months."
-    }
-
-    private func label(for bucket: DateHistogramBucket) -> String {
-        let label = bucket.key == "Unknown" ? "Unknown date" : bucket.key
-        return "\(label): \(bucket.plannedCount) files"
+        if let selected = selectedBucketKey {
+            return "Selected month: \(selected). \(copied) of \(total) frames placed across \(buckets.count) months."
+        }
+        return "\(copied) of \(total) frames placed across \(buckets.count) months. Unselected."
     }
 }
 
-/// Placeholder row of low-opacity bars for the timeline empty state. Heights
-/// are seeded once so the silhouette is stable, and the whole layer pulses
-/// gently between two opacities on a slow filmic loop so the surface reads
-/// as "waiting for data" rather than "broken".
+/// Placeholder row of low-opacity bars for the timeline empty state.
 private struct GhostTimelineBars: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -374,9 +290,7 @@ private struct SeededTimelineRNG: RandomNumberGenerator {
     }
 }
 
-/// A slim 4pt capsule replacing the old five-dot phase timeline. Lives at
-/// the bottom of the hero card, colored per current phase, using the same
-/// tone tokens as the rest of the Run surfaces.
+/// A slim 4pt capsule replacing the old five-dot phase timeline.
 struct RunPhaseStrip: View {
     let model: RunWorkspaceModel
 
@@ -440,51 +354,7 @@ struct RunPhaseStrip: View {
     }
 }
 
-/// Popover content for a hovered timeline bucket. Shows the bucket label
-/// (month/year or "Unknown"), the planned count for that bucket, and a
-/// small grid of QuickLook thumbnails sampled from the bucket's planned
-/// sources. Each thumbnail loads asynchronously on a detached task.
-private struct TimelineBucketPeek: View {
-    let bucket: DateHistogramBucket
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(headerTitle)
-                    .scaledFont(.cardTitle)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                Text("\(bucket.plannedCount.formatted(.number)) planned")
-                    .scaledFont(.label)
-                    .tracking(0.6)
-                    .textCase(.uppercase)
-                    .foregroundStyle(DesignTokens.ColorSystem.captionText)
-            }
-
-            HStack(spacing: 6) {
-                ForEach(bucket.samplePaths.prefix(4), id: \.self) { path in
-                    TimelinePeekThumbnail(path: path)
-                }
-            }
-        }
-        .padding(DesignTokens.Spacing.md)
-        .frame(minWidth: 220)
-    }
-
-    private var headerTitle: String {
-        guard bucket.key != "Unknown", bucket.key.count >= 7 else {
-            return bucket.key
-        }
-        let yearPart = bucket.key.prefix(4)
-        let monthPart = bucket.key.dropFirst(5).prefix(2)
-        guard let month = Int(monthPart), (1...12).contains(month) else {
-            return bucket.key
-        }
-        let monthName = DateFormatter().monthSymbols[month - 1]
-        return "\(monthName) \(yearPart)"
-    }
-}
-
-private struct TimelinePeekThumbnail: View {
+struct TimelinePeekThumbnail: View {
     let path: String
     @State private var image: NSImage?
 
@@ -514,7 +384,7 @@ private struct TimelinePeekThumbnail: View {
                 size: CGSize(width: 112, height: 112),
                 scale: 2.0
             )
-            guard !Task.isCancelled, let cg else { return }
+            guard !Task.isCancelled, let cg = cg else { return }
             image = NSImage(cgImage: cg, size: NSSize(width: 56, height: 56))
         }
     }

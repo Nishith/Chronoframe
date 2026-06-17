@@ -4,10 +4,9 @@ import ChronoframeAppCore
 #if canImport(ChronoframeCore)
 import ChronoframeCore
 #endif
-import Charts
 import SwiftUI
 
-private enum HistoryFilter: String, CaseIterable, Identifiable {
+enum HistoryFilter: String, CaseIterable, Identifiable {
     case all
     case reports
     case receipts
@@ -79,10 +78,13 @@ private struct HistorySection: Identifiable {
 struct RunHistoryView: View {
     let appState: AppState
     @ObservedObject private var historyStore: HistoryStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var searchText = ""
     @State private var historyFilter: HistoryFilter = .all
     @State private var pendingRevertEntry: RunHistoryEntry?
     @State private var selectedReceiptEntry: RunHistoryEntry?
+    @State private var selectedTimelineMonth: String? = nil
+    @State private var isTimelineScrubbing = false
 
     private static let fileSizeFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -254,56 +256,22 @@ struct RunHistoryView: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .frame(maxWidth: 220, alignment: .leading)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) runs.")
 
                 Divider()
-                    .frame(height: 84)
+                    .frame(height: 120)
 
-                sparkline
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                InteractiveTimelineView(
+                    buckets: timelineBuckets,
+                    barFills: barFills,
+                    selectedBucketKey: $selectedTimelineMonth,
+                    isScrubbing: $isTimelineScrubbing,
+                    customAccessibilityValue: timelineAccessibilityValue
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) runs.")
-        // Stats + sparkline graphic — expose as an image so it carries a valid role.
-        .accessibilityAddTraits(.isImage)
-    }
-
-    /// Cumulative count of completed-run receipts over time. Renders an area
-    /// chart on top of a line for visual weight; uses the muted accent action
-    /// tone so it doesn't compete with the destination filter pills below.
-    private var sparkline: some View {
-        let points = sparklinePoints
-        return Chart {
-            ForEach(points) { point in
-                AreaMark(
-                    x: .value("Date", point.date),
-                    y: .value("Runs", point.cumulative)
-                )
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            DesignTokens.ColorSystem.accentAction.opacity(0.35),
-                            DesignTokens.ColorSystem.accentAction.opacity(0.04)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                LineMark(
-                    x: .value("Date", point.date),
-                    y: .value("Runs", point.cumulative)
-                )
-                .interpolationMethod(.monotone)
-                .foregroundStyle(DesignTokens.ColorSystem.accentAction)
-                .lineStyle(StrokeStyle(lineWidth: 1.5))
-            }
-        }
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartPlotStyle { plot in
-            plot.padding(.vertical, 4)
-        }
-        .frame(height: 84)
     }
 
     private var totalFramesArchived: Int {
@@ -333,18 +301,50 @@ struct RunHistoryView: View {
         !receiptEntries.isEmpty && totalFramesArchived > 0
     }
 
-    private var sparklinePoints: [SparklinePoint] {
-        // Process oldest -> newest so the cumulative line trends up.
-        let chronological = archiveOverviewReceiptEntries.sorted { $0.createdAt < $1.createdAt }
-        return chronological.enumerated().map { index, entry in
-            SparklinePoint(id: index, date: entry.createdAt, cumulative: index + 1)
-        }
+    private var timelineBuckets: [DateHistogramBucket] {
+        Self.makeTimelineBuckets(from: archiveOverviewReceiptEntries)
     }
 
-    private struct SparklinePoint: Identifiable {
-        let id: Int
-        let date: Date
-        let cumulative: Int
+    static func makeTimelineBuckets(from receiptEntries: [RunHistoryEntry]) -> [DateHistogramBucket] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone.current
+
+        let grouped = Dictionary(grouping: receiptEntries) { entry in
+            formatter.string(from: entry.createdAt)
+        }
+
+        return grouped.map { key, entries in
+            DateHistogramBucket(key: key, plannedCount: entries.count)
+        }.sorted { $0.key < $1.key }
+    }
+
+    private var barFills: [Double] {
+        Array(repeating: 1.0, count: timelineBuckets.count)
+    }
+
+    private var timelineAccessibilityValue: String {
+        if let key = selectedTimelineMonth {
+            let matchingBucket = timelineBuckets.first { $0.key == key }
+            let count = matchingBucket?.plannedCount ?? 0
+            return "Selected month: \(formatMonthYear(key)), \(count) runs. Timeline contains \(timelineBuckets.count) months."
+        }
+        let total = timelineBuckets.reduce(0) { $0 + $1.plannedCount }
+        return "Timeline containing \(total) runs across \(timelineBuckets.count) months. Unselected."
+    }
+
+    private func formatMonthYear(_ key: String) -> String {
+        guard key != "Unknown", key.count >= 7 else {
+            return key == "Unknown" ? "Unknown Date" : key
+        }
+        let yearPart = key.prefix(4)
+        let monthPart = key.dropFirst(5).prefix(2)
+        guard let month = Int(monthPart), (1...12).contains(month) else {
+            return key
+        }
+        let monthName = DateFormatter().monthSymbols[month - 1]
+        return "\(monthName) \(yearPart)"
     }
 
     private func refreshErrorStrip(_ message: String) -> some View {
@@ -570,6 +570,24 @@ struct RunHistoryView: View {
 
                 Spacer(minLength: DesignTokens.Spacing.md)
 
+                if selectedTimelineMonth != nil {
+                    Button(action: {
+                        Motion.withMotion(Motion.mechanical, reduceMotion: reduceMotion) {
+                            selectedTimelineMonth = nil
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "xmark.circle.fill")
+                            Text("Clear Timeline Filter")
+                        }
+                        .scaledFont(.label)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .accessibilityIdentifier("ClearTimelineFilterButton")
+                }
+
                 Picker("Filter", selection: $historyFilter) {
                     ForEach(HistoryFilter.allCases) { filter in
                         Text(filter.title).tag(filter)
@@ -587,7 +605,7 @@ struct RunHistoryView: View {
                     title: historyStore.entries.isEmpty ? "No Artifacts Yet" : "No Matching Artifacts",
                     message: historyStore.entries.isEmpty
                         ? "Run a preview or transfer, then return here to inspect reports, receipts, and logs."
-                        : "Try a different filter or search term.",
+                        : (selectedTimelineMonth != nil ? "Try a different filter, search term, or clear the timeline filter." : "Try a different filter or search term."),
                     systemImage: "doc.text.magnifyingglass"
                 )
             } else {
@@ -666,14 +684,14 @@ struct RunHistoryView: View {
                     }
                 }
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                .foregroundStyle(DesignTokens.ColorSystem.captionText)
             }
 
             Spacer(minLength: DesignTokens.Spacing.sm)
 
             Text(entry.relativePath)
                 .scaledFont(.mono)
-                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: 260, alignment: .trailing)
@@ -725,14 +743,37 @@ struct RunHistoryView: View {
     }
 
     private var filteredEntries: [RunHistoryEntry] {
-        historyStore.entries
-            .filter { historyFilter.matches($0) }
+        Self.filterEntries(
+            historyStore.entries,
+            filter: historyFilter,
+            searchText: searchText,
+            selectedTimelineMonth: selectedTimelineMonth
+        )
+    }
+
+    static func filterEntries(
+        _ entries: [RunHistoryEntry],
+        filter: HistoryFilter,
+        searchText: String,
+        selectedTimelineMonth: String?
+    ) -> [RunHistoryEntry] {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone.current
+
+        return entries
+            .filter { filter.matches($0) }
             .filter { entry in
                 guard !searchText.isEmpty else { return true }
                 let query = searchText.lowercased()
                 return entry.title.lowercased().contains(query)
                     || entry.relativePath.lowercased().contains(query)
                     || entry.kind.title.lowercased().contains(query)
+            }
+            .filter { entry in
+                guard let monthFilter = selectedTimelineMonth else { return true }
+                return formatter.string(from: entry.createdAt) == monthFilter
             }
             .sorted { $0.createdAt > $1.createdAt }
     }

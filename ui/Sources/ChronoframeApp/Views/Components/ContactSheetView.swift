@@ -19,6 +19,7 @@ import UniformTypeIdentifiers
 /// - No filesystem work happens if ``sourcePath`` is empty.
 struct ContactSheetView: View {
     let sourcePath: String
+    let sourceURL: URL?
     var cellSize: CGFloat = 92
 
     @StateObject private var loader = ContactSheetLoader()
@@ -65,6 +66,7 @@ struct ContactSheetView: View {
         .task(id: sourcePath) {
             await loader.load(
                 sourcePath: sourcePath,
+                sourceURL: sourceURL,
                 count: ContactSheetLayout.maximumTiles,
                 cellSize: cellSize
             )
@@ -332,7 +334,7 @@ private final class ContactSheetLoader: ObservableObject {
         thumbnails.compactMap { $0 }.count
     }
 
-    func load(sourcePath: String, count: Int, cellSize: CGFloat) async {
+    func load(sourcePath: String, sourceURL: URL?, count: Int, cellSize: CGFloat) async {
         let trimmed = sourcePath.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed == lastSource { return }
         lastSource = trimmed
@@ -347,7 +349,7 @@ private final class ContactSheetLoader: ObservableObject {
         thumbnails = Array(repeating: nil, count: count)
         foundMediaCount = 0
         phase = .loading
-        let urls = await Self.findMediaFiles(in: trimmed, limit: ContactSheetThumbnailPipeline.candidateLimit(for: count))
+        let urls = await Self.findMediaFiles(in: trimmed, url: sourceURL, limit: ContactSheetThumbnailPipeline.candidateLimit(for: count))
 
         // Bail if the user moved on to a different source while the
         // file enumeration was running. Without this check, a slow
@@ -377,26 +379,48 @@ private final class ContactSheetLoader: ObservableObject {
         phase = .finished
     }
 
-    nonisolated private static func findMediaFiles(in path: String, limit: Int) async -> [URL] {
-        await Task.detached(priority: .userInitiated) {
-            let root = URL(fileURLWithPath: path, isDirectory: true)
+    nonisolated private static func findMediaFiles(in path: String, url: URL?, limit: Int) async -> [URL] {
+        #if DEBUG
+        NSLog("ContactSheet: Starting findMediaFiles in path: %@, hasURL: %d", path, url != nil)
+        #endif
+        return await Task.detached(priority: .userInitiated) {
+            let root = url ?? URL(fileURLWithPath: path, isDirectory: true)
+
+            let didAccess = root.startAccessingSecurityScopedResource()
+            defer { if didAccess { root.stopAccessingSecurityScopedResource() } }
+
             let keys: [URLResourceKey] = [.isRegularFileKey, .typeIdentifierKey, .creationDateKey]
+
+            // Check if directory is readable at all from this thread
+            let isReadable = FileManager.default.isReadableFile(atPath: root.path)
+            #if DEBUG
+            NSLog("ContactSheet: Path isReadable directly = %d", isReadable)
+            #endif
+
             guard let enumerator = FileManager.default.enumerator(
                 at: root,
                 includingPropertiesForKeys: keys,
                 options: [.skipsHiddenFiles, .skipsPackageDescendants]
             ) else {
+                #if DEBUG
+                NSLog("ContactSheet: Failed to create directory enumerator for path: %@", root.path)
+                #endif
                 return []
             }
 
             var results: [URL] = []
+            var checkedCount = 0
             while let next = enumerator.nextObject() {
+                checkedCount += 1
                 guard results.count < limit else { break }
-                guard let url = next as? URL else { continue }
-                if Self.isLikelyMedia(url) {
-                    results.append(url)
+                guard let fileURL = next as? URL else { continue }
+                if Self.isLikelyMedia(fileURL) {
+                    results.append(fileURL)
                 }
             }
+            #if DEBUG
+            NSLog("ContactSheet: Finished findMediaFiles. Checked %d items, found %d media files.", checkedCount, results.count)
+            #endif
             return results
         }.value
     }

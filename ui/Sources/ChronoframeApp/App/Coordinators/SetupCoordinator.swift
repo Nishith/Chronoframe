@@ -80,6 +80,7 @@ final class SetupCoordinator {
         }
 
         setupStore.sourcePath = url.path
+        setupStore.sourceURL = url
         setupStore.clearDroppedSource()
         preferencesStore.lastManualSourcePath = url.path
         await bookmarkPathResolver.persistBookmark(for: url, role: .source, profileName: nil)
@@ -113,6 +114,7 @@ final class SetupCoordinator {
             }
 
             setupStore.sourcePath = staged.sourceDirectory.path
+            setupStore.sourceURL = staged.sourceDirectory
             if staged.wasSingleFolder {
                 setupStore.clearDroppedSource()
                 preferencesStore.lastManualSourcePath = staged.sourceDirectory.path

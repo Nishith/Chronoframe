@@ -640,7 +640,7 @@ struct RunConsolePanel: View {
 
 struct RunIdleOnboardingCard: View {
     var body: some View {
-        MeridianSurfaceCard {
+        DarkroomPanel(variant: .panel) {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
                 SectionHeading(
                     eyebrow: "How it works",
@@ -661,10 +661,10 @@ struct RunIdleOnboardingCard: View {
         HStack(alignment: .top, spacing: DesignTokens.Spacing.md) {
             Text(number)
                 .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 .frame(width: 18, height: 18)
-                .background(DesignTokens.ColorSystem.panel, in: Circle())
-                .overlay(Circle().strokeBorder(DesignTokens.ColorSystem.accentAction.opacity(0.55), lineWidth: 0.8))
+                .background(DesignTokens.ColorSystem.imageStage, in: Circle())
+                .overlay(Circle().strokeBorder(DesignTokens.ColorSystem.accentAction, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -672,9 +672,11 @@ struct RunIdleOnboardingCard: View {
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 Text(message)
                     .scaledFont(.body)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Step \(number): \(title). \(message)")
     }
 }

@@ -85,12 +85,17 @@ private struct LayoutSettingsTab: View {
                 .pickerStyle(.menu)
                 .accessibilityIdentifier(AccessibilityIdentifiers.folderStructurePicker)
 
-                Toggle("Suggest Smart Events During Preview", isOn: $preferencesStore.smartEventSuggestionsEnabled)
+                Toggle(isOn: $preferencesStore.smartEventSuggestionsEnabled) {
+                    Text("Suggest Smart Events During Preview")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
                     .accessibilityIdentifier(AccessibilityIdentifiers.smartEventSuggestionsToggle)
             } header: {
                 Text("Default Layout")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text("Future previews and transfers organize files into this directory layout. Smart Events suggest editable groups in Preview; they are only applied after you accept them and rebuild the preview.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
             Section {
@@ -102,8 +107,10 @@ private struct LayoutSettingsTab: View {
                 .accessibilityIdentifier(AccessibilityIdentifiers.reorganizeDestinationButton)
             } header: {
                 Text("Reorganize")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text("Move every file already in the destination into the layout selected above. Files are moved on the same volume (instant — no copy), originals are never deleted, and an existing file at the new location is never overwritten.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
         .formStyle(.grouped)
@@ -126,7 +133,7 @@ private struct GeneralSettingsTab: View {
         Form {
             Section {
                 Text("Tune how Chronoframe balances speed, safety, and diagnostics. These settings affect future previews and transfers without changing the organizer's core guarantees.")
-                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
         .formStyle(.grouped)
@@ -225,31 +232,47 @@ private struct PerformanceSettingsTab: View {
                 }
             } header: {
                 Text("Presets")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text("Presets adjust the advanced controls below without weakening Chronoframe's source-folder safety guarantees.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
             Section {
                 Stepper(value: $preferencesStore.workerCount, in: 1...32) {
-                    LabeledContent("Worker Threads") {
+                    LabeledContent {
                         Text("\(preferencesStore.workerCount)")
                             .monospacedDigit()
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    } label: {
+                        Text("Worker Threads")
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     }
                 }
 
-                Toggle("Parallel Transfers", isOn: $preferencesStore.parallelTransferEnabled)
+                Toggle(isOn: $preferencesStore.parallelTransferEnabled) {
+                    Text("Parallel Transfers")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
             } header: {
                 Text("Throughput")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text("More worker threads can improve throughput on faster storage. Parallel transfers allow concurrent file copies and only affect future transfer runs.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
             Section {
-                Toggle("Verify Completed Copies", isOn: $preferencesStore.verifyCopies)
+                Toggle(isOn: $preferencesStore.verifyCopies) {
+                    Text("Verify Completed Copies")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
             } header: {
                 Text("Safety")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text("Verification re-hashes copied files after transfer. It adds work, but it provides stronger confidence that destination files match the originals.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
         .formStyle(.grouped)
@@ -262,7 +285,10 @@ private struct DeduplicateSettingsTab: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Burst mode", isOn: $preferencesStore.dedupeBurstModeEnabled)
+                Toggle(isOn: $preferencesStore.dedupeBurstModeEnabled) {
+                    Text("Burst mode")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
 
                 Picker("Similarity", selection: $preferencesStore.dedupeSimilarityPreset) {
                     ForEach(DedupeSimilarityPreset.allCases) { preset in
@@ -277,28 +303,45 @@ private struct DeduplicateSettingsTab: View {
 
                 if preferencesStore.dedupeBurstModeEnabled {
                     Stepper(value: $preferencesStore.dedupeTimeWindowSeconds, in: 5...600, step: 5) {
-                        LabeledContent("Time Window") {
+                        LabeledContent {
                             Text("\(preferencesStore.dedupeTimeWindowSeconds)s")
                                 .monospacedDigit()
+                                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                        } label: {
+                            Text("Time Window")
+                                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         }
                     }
                 }
             } header: {
                 Text("Detection")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text(preferencesStore.dedupeBurstModeEnabled
                     ? "Burst mode only compares photos taken within the time window — fast, ideal for catching burst sequences and rapid retakes. Stricter similarity presets reduce false positives; looser presets surface more potential duplicates."
                     : "Without burst mode, every photo in the destination is compared against every other. Slower on large libraries, but catches duplicates that don't share a capture time.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
             Section {
-                Toggle("Treat RAW + JPEG as a unit", isOn: $preferencesStore.dedupeTreatRawJpegPairsAsUnit)
-                Toggle("Treat Live Photo (HEIC + MOV) as a unit", isOn: $preferencesStore.dedupeTreatLivePhotoPairsAsUnit)
-                Toggle("Surface exact duplicates separately", isOn: $preferencesStore.dedupeIncludeExactDuplicates)
+                Toggle(isOn: $preferencesStore.dedupeTreatRawJpegPairsAsUnit) {
+                    Text("Treat RAW + JPEG as a unit")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
+                Toggle(isOn: $preferencesStore.dedupeTreatLivePhotoPairsAsUnit) {
+                    Text("Treat Live Photo (HEIC + MOV) as a unit")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
+                Toggle(isOn: $preferencesStore.dedupeIncludeExactDuplicates) {
+                    Text("Surface exact duplicates separately")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
             } header: {
                 Text("Pairing")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text("Paired files are always kept or deleted together. Exact duplicates use the existing file-identity hash and are surfaced as their own group.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
         .formStyle(.grouped)
@@ -317,16 +360,22 @@ private struct DiagnosticsSettingsTab: View {
                     in: PreferencesStore.minimumLogCapacity...PreferencesStore.maximumLogCapacity,
                     step: 250
                 ) {
-                    LabeledContent("In-Memory Log Buffer") {
+                    LabeledContent {
                         Text("\(preferencesStore.logBufferCapacity)")
                             .monospacedDigit()
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    } label: {
+                        Text("In-Memory Log Buffer")
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     }
                 }
                 .accessibilityIdentifier(AccessibilityIdentifiers.diagnosticsLogBufferStepper)
             } header: {
                 Text("Log Buffer")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text("A larger buffer keeps more recent console history in memory for the Run workspace. Lower values use less memory but trim older log lines sooner.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
         .formStyle(.grouped)

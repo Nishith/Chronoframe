@@ -39,6 +39,7 @@ final class BookmarkPathResolver {
         }.value
         guard let bookmark else { return }
         preferencesStore.storeBookmark(bookmark)
+        retainScopedAccess(forProfileName: profileName)
     }
 
     func removeBookmark(for role: FolderRole, profileName: String?) {
@@ -48,10 +49,12 @@ final class BookmarkPathResolver {
     func restoreManualPaths(into setupStore: SetupStore) {
         setupStore.sourcePath = preferencesStore.lastManualSourcePath
         setupStore.destinationPath = preferencesStore.lastManualDestinationPath
+        setupStore.sourceURL = preferencesStore.lastManualSourcePath.isEmpty ? nil : URL(fileURLWithPath: preferencesStore.lastManualSourcePath)
 
-        if let sourcePath = resolveBookmarkedPath(for: .source, profileName: nil) {
-            setupStore.sourcePath = sourcePath
-            preferencesStore.lastManualSourcePath = sourcePath
+        if let sourceURL = resolveBookmarkedURL(for: .source, profileName: nil) {
+            setupStore.sourcePath = sourceURL.path
+            setupStore.sourceURL = sourceURL
+            preferencesStore.lastManualSourcePath = sourceURL.path
         }
 
         if let destinationPath = resolveBookmarkedPath(for: .destination, profileName: nil) {
@@ -63,8 +66,15 @@ final class BookmarkPathResolver {
     }
 
     func restoreProfilePaths(named profileName: String, into setupStore: SetupStore) {
-        if let sourcePath = resolveBookmarkedPath(for: .source, profileName: profileName) {
-            setupStore.sourcePath = sourcePath
+        setupStore.sourceURL = nil
+        if let sourceURL = resolveBookmarkedURL(for: .source, profileName: profileName) {
+            setupStore.sourcePath = sourceURL.path
+            setupStore.sourceURL = sourceURL
+        } else {
+            if let profile = setupStore.profiles.first(where: { $0.name == profileName }) {
+                setupStore.sourcePath = profile.sourcePath
+                setupStore.sourceURL = profile.sourcePath.isEmpty ? nil : URL(fileURLWithPath: profile.sourcePath)
+            }
         }
 
         if let destinationPath = resolveBookmarkedPath(for: .destination, profileName: profileName) {
@@ -95,6 +105,23 @@ final class BookmarkPathResolver {
         }
 
         restoredPathAccess = bookmarks.isEmpty ? nil : folderAccessService.scopedAccess(for: bookmarks)
+    }
+
+    func resolveBookmarkedURL(for role: FolderRole, profileName: String?) -> URL? {
+        let key = bookmarkKey(for: role, profileName: profileName)
+        guard let bookmark = preferencesStore.bookmark(for: key) else {
+            return nil
+        }
+        guard let resolvedBookmark = folderAccessService.resolveBookmark(bookmark) else {
+            preferencesStore.removeBookmark(for: key)
+            return nil
+        }
+
+        if let refreshedBookmark = resolvedBookmark.refreshedBookmark {
+            preferencesStore.storeBookmark(refreshedBookmark)
+        }
+
+        return resolvedBookmark.url
     }
 
     func resolveBookmarkedPath(for role: FolderRole, profileName: String?) -> String? {
