@@ -51,7 +51,9 @@ enum UITestScenario: String, CaseIterable {
 
     private var preferredMainWindowSize: NSSize {
         switch self {
-        case .setupIncompleteRun, .setupReady, .runPreviewReview, .healthDashboard, .historyPopulated, .profilesPopulated:
+        case .historyPopulated:
+            return NSSize(width: 1360, height: 1200)
+        case .setupIncompleteRun, .setupReady, .runPreviewReview, .healthDashboard, .profilesPopulated:
             return NSSize(width: 1360, height: 920)
         case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
             return NSSize(width: 1360, height: 920)
