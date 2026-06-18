@@ -268,5 +268,55 @@
     "value": "/Volumes/Archive/Studio",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for /Volumes/Archive/Studio"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Chronoframe Library",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Chronoframe Library"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "archived",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for archived"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "runs",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for runs"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Audit Receipt",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Audit Receipt"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "8 KB",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for 8 KB"
   }
 ]
