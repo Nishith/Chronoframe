@@ -22,21 +22,92 @@ enum DeduplicateAccessibilityText {
         return formatter.string(fromByteCount: byteCount)
     }
 
-    /// "3 photos" / "2 videos" / "4 items" — media-aware so exact-video review
-    /// never mislabels clips as photos. Clusters are homogeneous in practice
-    /// (a photo and a video can't be byte-identical), but a mixed cluster falls
-    /// back to the neutral "items".
+    // MARK: - Media-aware nouns
+
+    /// Singular media noun ("photo" / "video" / "item") for a cluster — media-aware
+    /// so exact-video review never mislabels clips as photos. Clusters are
+    /// homogeneous in practice (a photo and a video can't be byte-identical), but
+    /// a mixed cluster falls back to the neutral "item".
+    static func mediaNoun(_ cluster: DuplicateCluster) -> String {
+        if cluster.members.allSatisfy({ $0.mediaKind == .video }) { return "video" }
+        if cluster.members.contains(where: { $0.mediaKind == .video }) { return "item" }
+        return "photo"
+    }
+
+    /// Plural form of `mediaNoun(_:)` — "photos" / "videos" / "items".
+    static func pluralMediaNoun(_ cluster: DuplicateCluster) -> String {
+        mediaNoun(cluster) + "s"
+    }
+
+    /// Singular media noun for a single member ("photo" / "video"). A lone member
+    /// is never mixed, so the noun follows its own `mediaKind`.
+    static func mediaNoun(_ member: PhotoCandidate) -> String {
+        member.mediaKind == .video ? "video" : "photo"
+    }
+
+    /// "this photo" / "this video" — for hints and actions that refer to one
+    /// focused member.
+    static func thisMediaPhrase(_ member: PhotoCandidate) -> String {
+        "this \(mediaNoun(member))"
+    }
+
+    /// "3 photos" / "2 videos" / "4 items" — media-aware count phrase used by the
+    /// cluster list count and the VoiceOver row/card labels.
     static func memberCountPhrase(_ cluster: DuplicateCluster) -> String {
         let count = cluster.members.count
-        let noun: String
-        if cluster.members.allSatisfy({ $0.mediaKind == .video }) {
-            noun = count == 1 ? "video" : "videos"
-        } else if cluster.members.contains(where: { $0.mediaKind == .video }) {
-            noun = count == 1 ? "item" : "items"
-        } else {
-            noun = count == 1 ? "photo" : "photos"
-        }
-        return "\(count) \(noun)"
+        return "\(count) \(count == 1 ? mediaNoun(cluster) : pluralMediaNoun(cluster))"
+    }
+
+    // MARK: - Media-aware composed labels
+
+    /// Container label for the rapid-triage member strip — "Photos in this group"
+    /// / "Videos in this group" / "Items in this group".
+    static func membersInGroupLabel(_ cluster: DuplicateCluster) -> String {
+        "\(pluralMediaNoun(cluster).capitalized) in this group"
+    }
+
+    /// Pointer-hover help for the cluster row's keep-all action.
+    static func keepAllHelp(_ cluster: DuplicateCluster) -> String {
+        "Keep all \(pluralMediaNoun(cluster)) in this group"
+    }
+
+    /// Pointer-hover help for the cluster row's delete-all action.
+    static func deleteAllHelp(_ cluster: DuplicateCluster) -> String {
+        "Delete all \(pluralMediaNoun(cluster)) in this group"
+    }
+
+    /// VoiceOver hint for a comparison-pane thumbnail — "Selects this photo for
+    /// keyboard keep or delete actions".
+    static func selectsForKeyboardActionsHint(_ member: PhotoCandidate) -> String {
+        "Selects \(thisMediaPhrase(member)) for keyboard keep or delete actions"
+    }
+
+    /// VoiceOver hint for a member thumbnail in the detail strip.
+    static func selectsForComparisonHint(_ member: PhotoCandidate) -> String {
+        "Selects \(thisMediaPhrase(member)) for comparison and decision review"
+    }
+
+    /// VoiceOver label for the large preview pane — "Selected photo preview" /
+    /// "Selected video preview".
+    static func selectedPreviewLabel(_ cluster: DuplicateCluster) -> String {
+        "Selected \(mediaNoun(cluster)) preview"
+    }
+
+    /// VoiceOver label for the metadata panel — "Photo details" / "Video details".
+    static func detailsLabel(_ member: PhotoCandidate) -> String {
+        "\(mediaNoun(member).capitalized) details"
+    }
+
+    /// VoiceOver custom-action name for focusing a member — "Focus photo" /
+    /// "Focus video".
+    static func focusActionName(_ member: PhotoCandidate) -> String {
+        "Focus \(mediaNoun(member))"
+    }
+
+    /// Edited-variant warning headline — "These photos may be intentionally
+    /// different".
+    static func intentionallyDifferentNote(_ cluster: DuplicateCluster) -> String {
+        "These \(pluralMediaNoun(cluster)) may be intentionally different"
     }
 
     static func confidenceLabel(_ level: ConfidenceLevel?) -> String {
@@ -89,7 +160,7 @@ enum DeduplicateAccessibilityText {
     ) -> String {
         var parts = [
             "Group \(currentIndex + 1) of \(totalCount)",
-            "\(cluster.members.count) photos",
+            memberCountPhrase(cluster),
             "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
         ]
         if let keeper = suggestedKeeperName(in: cluster) {

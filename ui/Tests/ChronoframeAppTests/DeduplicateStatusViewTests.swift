@@ -377,7 +377,9 @@ final class DeduplicateStatusViewTests: XCTestCase {
         )
 
         XCTAssertEqual(MatchReasonFormatter.summary(MatchReason(kind: .exactDuplicate)), "Identical file content")
-        XCTAssertEqual(MatchReasonFormatter.summary(MatchReason(kind: .editedVariant)), "Edited version of the same photo")
+        // No cluster context → media-neutral noun. Media-aware variants are
+        // covered in DeduplicateAccessibilityTextTests.
+        XCTAssertEqual(MatchReasonFormatter.summary(MatchReason(kind: .editedVariant)), "Edited version of the same item")
         XCTAssertEqual(MatchReasonFormatter.summary(burst), "Taken 12s apart, 92% visually similar")
         XCTAssertEqual(MatchReasonFormatter.oneLiner(annotation), "92% similar, 12s apart")
         XCTAssertEqual(

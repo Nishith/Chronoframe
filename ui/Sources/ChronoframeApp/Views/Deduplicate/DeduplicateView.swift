@@ -91,12 +91,12 @@ struct DeduplicateView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Deduplicate")
                         .scaledFont(.title)
-                    Text("Find and remove duplicate photos. Removed files go to the Trash.")
+                    Text("Find and remove duplicate photos and videos. Removed files go to the Trash.")
                         .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Deduplicate. Find similar shots and prune.")
+                .accessibilityLabel("Deduplicate. Find and remove duplicate photos and videos. Removed files go to the Trash.")
 
                 if !didOnboardDeduplicate {
                     OnboardingCard(
@@ -104,11 +104,11 @@ struct DeduplicateView: View {
                         title: "How Deduplicate works",
                         subtitle: "Three steps before anything moves.",
                         bullets: [
-                            "We group similar photos.",
+                            "We group similar photos and duplicate videos.",
                             "We pick one likely keeper using sharpness, faces, file size, and resolution.",
                             "You approve; others go to the Trash and can be restored from Run History."
                         ],
-                        accessibilitySummary: "How Deduplicate works. We group similar photos, suggest a keeper, and you approve.",
+                        accessibilitySummary: "How Deduplicate works. We group similar photos and duplicate videos, suggest a keeper, and you approve.",
                         onDismiss: { didOnboardDeduplicate = true }
                     )
                 }

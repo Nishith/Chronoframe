@@ -303,7 +303,7 @@ private struct ClusterRow: View {
                     .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
             }
             .buttonStyle(.borderless)
-            .help("Keep all photos in this group")
+            .help(DeduplicateAccessibilityText.keepAllHelp(cluster))
             // These hover-revealed buttons are a pointer convenience; the
             // always-visible actions menu and the row's VoiceOver custom actions
             // provide the same operations for keyboard / assistive-tech users.
@@ -331,7 +331,7 @@ private struct ClusterRow: View {
                     .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
             }
             .buttonStyle(.borderless)
-            .help("Delete all photos in this group")
+            .help(DeduplicateAccessibilityText.deleteAllHelp(cluster))
             .accessibilityLabel("Delete all in group")
         }
     }

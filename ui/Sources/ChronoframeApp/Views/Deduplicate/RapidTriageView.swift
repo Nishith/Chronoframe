@@ -204,7 +204,7 @@ struct RapidTriageView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Photos in this group")
+        .accessibilityLabel(DeduplicateAccessibilityText.membersInGroupLabel(cluster))
     }
 
     // MARK: - Action Bar

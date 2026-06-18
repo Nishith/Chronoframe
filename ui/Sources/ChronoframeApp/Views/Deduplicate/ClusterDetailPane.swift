@@ -304,7 +304,7 @@ struct ClusterDetailPane: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(role.label): \(AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent))")
-        .accessibilityHint("Selects this photo for keyboard keep or delete actions")
+        .accessibilityHint(DeduplicateAccessibilityText.selectsForKeyboardActionsHint(member))
         .accessibilityAddTraits(isFocused ? .isSelected : [])
     }
 
@@ -353,7 +353,7 @@ struct ClusterDetailPane: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityHidden(member == nil)
-        .accessibilityLabel("Selected photo preview")
+        .accessibilityLabel(DeduplicateAccessibilityText.selectedPreviewLabel(cluster))
         .accessibilityAddTraits(.isImage)
         .accessibilityValue(member.map { selectedMember in
             DeduplicateAccessibilityText.photoPreviewDetail(
@@ -411,7 +411,7 @@ struct ClusterDetailPane: View {
                     }
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Photo details")
+                .accessibilityLabel(DeduplicateAccessibilityText.detailsLabel(member))
                 .accessibilityValue(metadataAccessibilityValue(for: member, cluster: cluster))
                 .accessibilityAddTraits(.isImage)
 
@@ -612,12 +612,12 @@ struct ClusterDetailPane: View {
             isFocused: member.path == focusedMemberPath,
             confidence: cluster.annotation?.confidence
         ))
-        .accessibilityHint("Selects this photo for comparison and decision review")
+        .accessibilityHint(DeduplicateAccessibilityText.selectsForComparisonHint(member))
         // `.accessibilityElement(children: .ignore)` on the button content drops
         // the inherited button role; re-add it so the tappable thumbnail isn't
         // reported as "Unknown role".
         .accessibilityAddTraits(isFocused ? [.isButton, .isSelected] : .isButton)
-        .accessibilityAction(named: "Focus photo") {
+        .accessibilityAction(named: DeduplicateAccessibilityText.focusActionName(member)) {
             focusedMemberPath = member.path
         }
         .accessibilityAction(named: "Keep") {
@@ -654,7 +654,7 @@ struct ClusterDetailPane: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("These photos may be intentionally different")
+                    Text(DeduplicateAccessibilityText.intentionallyDifferentNote(cluster))
                         .scaledFont(.label, weight: .semibold)
                     ForEach(Array(annotation.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(MatchReasonFormatter.warningSummary(warning))
@@ -697,7 +697,7 @@ struct ClusterDetailPane: View {
 
             if showingReasonDetail {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(MatchReasonFormatter.summary(annotation.matchReason))
+                    Text(MatchReasonFormatter.summary(annotation.matchReason, in: cluster))
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     if let keeperReason = annotation.keeperReason {
