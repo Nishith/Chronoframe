@@ -13,6 +13,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
     private let dateResolver: FileDateResolver
     private let identityHasher: FileIdentityHasher
     private let imageAnalyzer: any DedupeImageAnalyzing
+    private let videoFeatureProvider: any VideoFeatureProviding
     private var cancelFlag = ManagedAtomicBool()
 
     public init(
@@ -22,26 +23,34 @@ public final class DeduplicateScanner: @unchecked Sendable {
         self.dateResolver = dateResolver
         self.identityHasher = identityHasher
         self.imageAnalyzer = DefaultDedupeImageAnalyzer(dateResolver: dateResolver)
+        self.videoFeatureProvider = AVFoundationVideoFeatureExtractor()
     }
 
     init(
         dateResolver: FileDateResolver = FileDateResolver(),
         identityHasher: FileIdentityHasher = FileIdentityHasher(),
-        imageAnalyzer: any DedupeImageAnalyzing
+        imageAnalyzer: any DedupeImageAnalyzing,
+        videoFeatureProvider: any VideoFeatureProviding = AVFoundationVideoFeatureExtractor()
     ) {
         self.dateResolver = dateResolver
         self.identityHasher = identityHasher
         self.imageAnalyzer = imageAnalyzer
+        self.videoFeatureProvider = videoFeatureProvider
     }
 
     public func cancel() {
+        // Order matters: raise the scan-wide flag first, then cancel in-flight
+        // video generation, so a worker that registers a generator between
+        // these two calls sees the flag and aborts (see GeneratorRegistry).
         cancelFlag.set(true)
+        videoFeatureProvider.cancelAll()
     }
 
     public func scan(configuration: DeduplicateConfiguration) -> AsyncThrowingStream<DeduplicateEvent, Error> {
         cancelFlag.set(false)
         let identityHasher = self.identityHasher
         let imageAnalyzer = self.imageAnalyzer
+        let videoFeatureProvider = self.videoFeatureProvider
         let cancelFlag = self.cancelFlag
 
         return AsyncThrowingStream { continuation in
@@ -370,7 +379,26 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         return !cluster.members.allSatisfy { exactPaths.contains($0.path) }
                     }
 
-                    for cluster in dedupedClusters {
+                    // 6b. Perceptual video lane (Milestone 2b) — opt-in, always
+                    // review-only. Skipped entirely when off (no decode).
+                    // Exclusivity: any video already in an exact-duplicate
+                    // cluster is held out (exact wins). Runs after exact/near
+                    // clustering so the exclusion set is final.
+                    let perceptualVideoLane = Self.processVideoPerceptualLane(
+                        videoPaths: videoPaths,
+                        exactClusterPaths: exactPaths,
+                        folderRootByPath: folderRootByPath,
+                        folderPriority: folderPriority,
+                        database: database,
+                        provider: videoFeatureProvider,
+                        configuration: configuration,
+                        cancelFlag: cancelFlag
+                    )
+                    if cancelFlag.get() { continuation.finish(); return }
+
+                    let emittedClusters = dedupedClusters + perceptualVideoLane.clusters
+
+                    for cluster in emittedClusters {
                         if cancelFlag.get() { continuation.finish(); return }
                         continuation.yield(.clusterDiscovered(cluster))
                     }
@@ -378,12 +406,12 @@ public final class DeduplicateScanner: @unchecked Sendable {
 
                     // 7. Summary.
                     var counts: [ClusterKind: Int] = [:]
-                    for cluster in dedupedClusters {
+                    for cluster in emittedClusters {
                         counts[cluster.kind, default: 0] += 1
                     }
                     let defaultPlan = DeduplicationPlanner.plan(
                         decisions: DedupeDecisions(),
-                        clusters: dedupedClusters,
+                        clusters: emittedClusters,
                         configuration: configuration
                     )
                     continuation.yield(.complete(DeduplicateSummary(
@@ -391,7 +419,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         totalRecoverableBytes: defaultPlan.totalBytes,
                         totalCandidatesScanned: imagePaths.count + videoLane.cacheHits + videoLane.cacheMisses,
                         scanDuration: Date().timeIntervalSince(started),
-                        cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses)
+                        cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses),
+                        videoPerceptualMetrics: perceptualVideoLane.metrics
                     )))
                     continuation.finish()
                 } catch {
@@ -574,6 +603,124 @@ public final class DeduplicateScanner: @unchecked Sendable {
         in cache: [String: DedupeFeatureRecord]
     ) -> DedupeFeatureRecord? {
         cache[path] ?? cache[URL(fileURLWithPath: path).standardizedFileURL.path]
+    }
+
+    /// Opt-in perceptual video lane (Milestone 2b). Decodes/loads cached
+    /// features for every candidate video, runs the pure perceptual matcher,
+    /// and returns review-only `.nearDuplicate` clusters plus honest per-status
+    /// accounting. Decodes nothing — and touches no DB — when the flag is off.
+    struct VideoPerceptualLaneResult {
+        var clusters: [DuplicateCluster] = []
+        /// `nil` when the lane did not run (flag off), so the summary can stay
+        /// silent rather than report all-zero counts.
+        var metrics: VideoPerceptualAnalysisMetrics?
+    }
+
+    /// How many freshly-extracted records to accumulate before flushing to the
+    /// cache, so a long video scan that is cancelled or crashes preserves the
+    /// expensive decode work done so far (mirrors the photo feature loop).
+    private static let videoFeatureFlushBatch = 25
+
+    static func processVideoPerceptualLane(
+        videoPaths: [String],
+        exactClusterPaths: Set<String>,
+        folderRootByPath: [String: String],
+        folderPriority: [String: Int],
+        database: OrganizerDatabase,
+        provider: any VideoFeatureProviding,
+        configuration: DeduplicateConfiguration,
+        cancelFlag: ManagedAtomicBool
+    ) -> VideoPerceptualLaneResult {
+        // Off by default: no decode, no DB mutation, no metrics.
+        guard configuration.perceptualVideoMatchingEnabled else {
+            return VideoPerceptualLaneResult(clusters: [], metrics: nil)
+        }
+
+        // Exclusivity (exact wins): hold out every video already in an
+        // exact-duplicate cluster — including the kept one. A transcode of an
+        // exact group resurfaces only after the user cleans exacts and rescans.
+        let candidatePaths = videoPaths.filter { !exactClusterPaths.contains($0) }
+        let deferred = videoPaths.count - candidatePaths.count
+
+        var metrics = VideoPerceptualAnalysisMetrics(deferredPendingExactCleanup: deferred)
+
+        // Nothing to analyze: report the lane ran but leave the cache untouched
+        // (never prune to an empty set — that would drop still-present deferred
+        // videos' cached features and force a cold re-decode after cleanup).
+        guard !candidatePaths.isEmpty else {
+            return VideoPerceptualLaneResult(clusters: [], metrics: metrics)
+        }
+
+        try? database.ensureDedupeVideoFeaturesSchema()
+        let cached = (try? database.loadDedupeVideoFeatureRecords()) ?? [:]
+
+        var readyFeatures: [VideoPerceptualFeatures] = []
+        var freshRecords: [DedupeVideoFeatureRecord] = []
+
+        func tally(_ status: VideoDecodeStatus) {
+            switch status {
+            case .ready: metrics.analyzed += 1
+            case .unsupported: metrics.unsupported += 1
+            case .decodeFailed: metrics.decodeFailed += 1
+            case .insufficientVisualEvidence: metrics.insufficientVisualEvidence += 1
+            }
+        }
+
+        for path in candidatePaths {
+            if cancelFlag.get() { break }
+            var st = stat()
+            guard lstat(path, &st) == 0 else { continue }
+            let size = Int64(st.st_size)
+            let mtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
+            let folderRoot = folderRootByPath[path]
+
+            // Cache hit: reuse the stored features (including non-ready
+            // outcomes, which are recorded so undecodable/insufficient videos
+            // are not re-decoded every scan).
+            if let record = cached[path] ?? cached[URL(fileURLWithPath: path).standardizedFileURL.path],
+               record.isValid(size: size, modificationTime: mtime) {
+                metrics.cacheHits += 1
+                tally(record.features.status)
+                if record.features.status == .ready { readyFeatures.append(record.features) }
+                continue
+            }
+
+            // Cache miss: extract and persist (even non-ready outcomes).
+            metrics.cacheMisses += 1
+            let features = provider.extractFeatures(
+                path: path,
+                size: size,
+                modificationTime: mtime,
+                folderRoot: folderRoot,
+                isCancelled: { cancelFlag.get() }
+            )
+            // A cancelled extractor reports `.decodeFailed` because it has no
+            // complete feature set. Do not persist that transient outcome or
+            // the unchanged video would be skipped by every later scan.
+            guard !cancelFlag.get() else { break }
+            tally(features.status)
+            if features.status == .ready { readyFeatures.append(features) }
+            freshRecords.append(DedupeVideoFeatureRecord(features: features))
+            if freshRecords.count >= videoFeatureFlushBatch {
+                try? database.saveDedupeVideoFeatureRecords(freshRecords)
+                freshRecords.removeAll(keepingCapacity: true)
+            }
+        }
+
+        if !freshRecords.isEmpty {
+            try? database.saveDedupeVideoFeatureRecords(freshRecords)
+        }
+        // Prune only here — the perceptual lane is the only writer/owner of the
+        // video feature cache, so an exact-only / perceptual-off scan must
+        // never reach this and cold-evict the rows.
+        try? database.pruneDedupeVideoFeatureRecords(notIn: Set(candidatePaths))
+
+        let clusters = VideoPerceptualMatcher.cluster(
+            features: readyFeatures,
+            configuration: configuration.videoPerceptualMatchConfiguration,
+            folderPriority: folderPriority
+        )
+        return VideoPerceptualLaneResult(clusters: clusters, metrics: metrics)
     }
 
     private static func processAnalysisRequests(

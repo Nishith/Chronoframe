@@ -100,6 +100,16 @@ public struct DeduplicateConfiguration: Equatable, Sendable {
     /// dedup). Empty by default for single-folder behavior.
     public var additionalSources: [CrossFolderSource]
 
+    /// Opt-in: surface visually-similar (perceptual) video clusters in addition
+    /// to byte-identical ones. **Off by default** — this is a separate explicit
+    /// option, never inferred from the photo similarity preset. When off, the
+    /// scanner does no video decoding at all. Perceptual video clusters are
+    /// always review-only (medium-capped, never auto-commit eligible).
+    public var perceptualVideoMatchingEnabled: Bool
+    /// Thresholds for the perceptual video matcher. Only consulted when
+    /// `perceptualVideoMatchingEnabled` is true.
+    public var videoPerceptualMatchConfiguration: VideoPerceptualMatchConfiguration
+
     public init(
         destinationPath: String,
         timeWindowSeconds: Int = 30,
@@ -112,7 +122,9 @@ public struct DeduplicateConfiguration: Equatable, Sendable {
         workerCount: Int = 4,
         autoAcceptHighConfidence: Bool = false,
         detectEditVariants: Bool = true,
-        additionalSources: [CrossFolderSource] = []
+        additionalSources: [CrossFolderSource] = [],
+        perceptualVideoMatchingEnabled: Bool = false,
+        videoPerceptualMatchConfiguration: VideoPerceptualMatchConfiguration = VideoPerceptualMatchConfiguration()
     ) {
         self.destinationPath = destinationPath
         self.timeWindowSeconds = timeWindowSeconds
@@ -126,6 +138,8 @@ public struct DeduplicateConfiguration: Equatable, Sendable {
         self.autoAcceptHighConfidence = autoAcceptHighConfidence
         self.detectEditVariants = detectEditVariants
         self.additionalSources = additionalSources
+        self.perceptualVideoMatchingEnabled = perceptualVideoMatchingEnabled
+        self.videoPerceptualMatchConfiguration = videoPerceptualMatchConfiguration
     }
 }
 
@@ -351,19 +365,75 @@ public struct DeduplicateSummary: Sendable, Equatable {
     /// on every scan, or where a destination's database has lost its
     /// dedupe metadata and is silently re-extracting Vision feature prints.
     public var cacheMetrics: DedupeCacheMetrics
+    /// Honest accounting of the perceptual video lane, or `nil` when that lane
+    /// did not run (the opt-in flag was off). Lets the UI distinguish "no
+    /// similar videos found" from "nothing could be analyzed" from "deferred
+    /// pending exact cleanup".
+    public var videoPerceptualMetrics: VideoPerceptualAnalysisMetrics?
 
     public init(
         clusterCounts: [ClusterKind: Int] = [:],
         totalRecoverableBytes: Int64 = 0,
         totalCandidatesScanned: Int = 0,
         scanDuration: TimeInterval = 0,
-        cacheMetrics: DedupeCacheMetrics = DedupeCacheMetrics()
+        cacheMetrics: DedupeCacheMetrics = DedupeCacheMetrics(),
+        videoPerceptualMetrics: VideoPerceptualAnalysisMetrics? = nil
     ) {
         self.clusterCounts = clusterCounts
         self.totalRecoverableBytes = totalRecoverableBytes
         self.totalCandidatesScanned = totalCandidatesScanned
         self.scanDuration = scanDuration
         self.cacheMetrics = cacheMetrics
+        self.videoPerceptualMetrics = videoPerceptualMetrics
+    }
+}
+
+/// Per-scan accounting for the opt-in perceptual video lane. Only populated
+/// when `perceptualVideoMatchingEnabled` was true. Every candidate video is
+/// counted in exactly one of `analyzed`/`unsupported`/`decodeFailed`/
+/// `insufficientVisualEvidence` (the four decode outcomes), plus a separate
+/// `deferredPendingExactCleanup` tally for videos held out of the lane because
+/// they were already members of an exact-duplicate cluster.
+public struct VideoPerceptualAnalysisMetrics: Sendable, Equatable {
+    /// Videos that decoded to `.ready` features (eligible to cluster).
+    public var analyzed: Int
+    /// Containers AVFoundation could not open / had no usable video track.
+    public var unsupported: Int
+    /// Videos whose frames could not be decoded at all.
+    public var decodeFailed: Int
+    /// Videos that decoded but yielded too few informative frames.
+    public var insufficientVisualEvidence: Int
+    /// Videos excluded from the perceptual lane because they were already in an
+    /// exact-duplicate cluster (exact wins; they resurface only after the user
+    /// cleans exacts and rescans).
+    public var deferredPendingExactCleanup: Int
+    /// Feature-cache hits/misses for the video lane (a hit reuses a cached
+    /// `DedupeVideoFeatures` row; a miss decodes via the extractor).
+    public var cacheHits: Int
+    public var cacheMisses: Int
+
+    public init(
+        analyzed: Int = 0,
+        unsupported: Int = 0,
+        decodeFailed: Int = 0,
+        insufficientVisualEvidence: Int = 0,
+        deferredPendingExactCleanup: Int = 0,
+        cacheHits: Int = 0,
+        cacheMisses: Int = 0
+    ) {
+        self.analyzed = analyzed
+        self.unsupported = unsupported
+        self.decodeFailed = decodeFailed
+        self.insufficientVisualEvidence = insufficientVisualEvidence
+        self.deferredPendingExactCleanup = deferredPendingExactCleanup
+        self.cacheHits = cacheHits
+        self.cacheMisses = cacheMisses
+    }
+
+    /// Total videos that went through the decode/cache path (excludes the
+    /// exact-deferred set, which is never decoded).
+    public var totalConsidered: Int {
+        analyzed + unsupported + decodeFailed + insufficientVisualEvidence
     }
 }
 
