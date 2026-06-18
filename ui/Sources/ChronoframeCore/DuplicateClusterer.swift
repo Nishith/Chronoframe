@@ -242,9 +242,17 @@ public enum DuplicateClusterer {
         _ rhs: PhotoCandidate,
         folderPriority: [String: Int] = [:]
     ) -> Bool {
+        // 1. Configured source-folder priority (lower number wins).
         let lhsPriority = lhs.folderRoot.flatMap { folderPriority[$0] } ?? Int.max
         let rhsPriority = rhs.folderRoot.flatMap { folderPriority[$0] } ?? Int.max
         if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
+        // 2. Higher transformed resolution (keeps the 4K over a 1080p
+        //    re-export). Inert for exact clusters, whose copies are
+        //    byte-identical and carry no pixel dimensions.
+        let lhsArea = pixelArea(for: lhs)
+        let rhsArea = pixelArea(for: rhs)
+        if lhsArea != rhsArea { return lhsArea > rhsArea }
+        // 3. Deterministic final tiebreak.
         return lhs.path < rhs.path
     }
 
