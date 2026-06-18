@@ -4,11 +4,8 @@ Get your photos organized in 5 minutes.
 
 ## Installation
 
-1. Download `Chronoframe.zip` from [Releases](https://github.com/Nishith/Chronoframe/releases)
-2. Unzip and drag `Chronoframe.app` to Applications
-3. Open the app (macOS 13+)
-
-If macOS blocks the app, right-click it and choose **Open**.
+1. [Download Chronoframe from the Mac App Store](https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12)
+2. Open the app on macOS 14 or later
 
 ## Organize Photos
 
@@ -54,9 +51,9 @@ Use this when you want Chronoframe to copy messy folders into a cleaner date-bas
 
 That's it. Your photos are now organized.
 
-## Deduplicate Photos
+## Deduplicate Photos and Videos
 
-Use this when you want Chronoframe to find exact copies and similar shots so you can choose what to keep.
+Use this when you want Chronoframe to find exact photo and video copies plus similar photos so you can choose what to keep.
 
 1. Open **Deduplicate**
 2. Click **Choose Folder…** to pick the folder to scan, or reuse a recent one
@@ -64,7 +61,7 @@ Use this when you want Chronoframe to find exact copies and similar shots so you
 4. Review each group — compare candidates side by side and choose what to keep
 5. Use **Auto-Accept Safe** to clear the obvious exact copies, then click **Move to Trash** to remove the files you approved
 
-Chronoframe does not permanently delete files from Deduplicate. It sends selected files to the macOS Trash.
+Chronoframe does not permanently delete files from Deduplicate. It sends selected files to the macOS Trash. Similar-photo, burst, RAW+JPEG, and Live Photo analysis applies to photos; videos are currently matched when their file contents are identical.
 
 ## Tips
 

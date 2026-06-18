@@ -18,7 +18,7 @@ This is a one-time check.
 **Problem:** The app opens briefly then closes.
 
 **Solution:**
-1. Make sure you're on **macOS 13 or later** (`About This Mac` → System Report)
+1. Make sure you're on **macOS 14 or later** (`About This Mac` → System Report)
 2. Try removing and reinstalling the app
 3. Check the system logs for crash details (`Console.app` → `Chronoframe`)
 

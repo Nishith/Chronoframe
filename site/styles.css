@@ -139,6 +139,7 @@ section .section-lede { text-align: center; color: var(--ink-secondary); max-wid
 .grid { display: grid; gap: 24px; }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
+.feature-details { margin-top: 24px; }
 .card {
   background: var(--panel); border: 1px solid var(--hairline);
   border-radius: var(--radius-card); padding: 28px;

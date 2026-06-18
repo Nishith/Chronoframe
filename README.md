@@ -3,12 +3,12 @@
 [![Release](https://img.shields.io/github/v/release/Nishith/Chronoframe?label=release)](https://github.com/Nishith/Chronoframe/releases/latest)
 [![License](https://img.shields.io/badge/license-source--visible-lightgrey)](LICENSE)
 
-**Organize messy photo folders without changing your source files, then clean up duplicates safely through Trash.**
+**Organize messy photo and video folders without changing your source files, then clean up duplicates safely through Trash.**
 
 Chronoframe is a macOS app for people with years of photos and videos spread across phones, camera cards, old laptops, external drives, and backup folders. It helps you build a cleaner library in two practical ways:
 
 - **Organize** copies scattered media into a date-based folder structure.
-- **Deduplicate** finds exact copies and similar shots so you can choose what to keep.
+- **Deduplicate** finds exact photo and video copies plus similar photos so you can choose what to keep.
 
 Chronoframe always shows you a plan before it changes anything. Your source folder is read-only, transfers can be reviewed before copying, and dedupe choices move files to the macOS Trash instead of permanently deleting them.
 
@@ -22,9 +22,10 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 | Combine old backups | Skip files that are already in the destination |
 | Fix uncertain dates | Review unknown or low-confidence dates before copying |
 | Keep an eye on the library | Run a Health check for unknown dates, duplicates, and interrupted work |
-| Clean up duplicate files | Find exact copies by content, not filename |
-| Compare similar shots | Review near-duplicates, bursts, RAW+JPEG pairs, and Live Photos |
-| Undo a transfer | Revert copied files from History when their contents still match the receipt |
+| Clean up duplicate files | Find exact photo and video copies by content, not filename |
+| Compare similar shots | Review near-duplicate photos, bursts, RAW+JPEG pairs, and Live Photos |
+| Change the library layout | Safely reorganize an existing destination into a new date structure |
+| Undo a supported run | Revert transfers, dedupe commits, and reorganize runs from History when their receipts still match |
 
 ## Safety First
 
@@ -37,16 +38,9 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 
 ## Install
 
-Chronoframe is being prepared for Mac App Store distribution. Until that release is live:
+[Download Chronoframe from the Mac App Store](https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12). It is a one-time purchase with no subscription, account, analytics, or uploads.
 
-1. Download `Chronoframe.zip` from the [Releases page](https://github.com/Nishith/Chronoframe/releases).
-2. Unzip it.
-3. Drag `Chronoframe.app` to Applications.
-4. Open the app.
-
-Chronoframe requires **macOS 13.0 or later** and enough free space for the organized copy of your library.
-
-If macOS blocks the app on first launch, right-click `Chronoframe.app`, choose **Open**, then confirm.
+The current source targets **macOS 14.0 or later** on Apple Silicon and Intel Macs. Organizing also requires enough free space for a copy of the source library.
 
 ## Organize Photos
 
@@ -72,11 +66,11 @@ The **Health** tab scans the destination on demand and surfaces cleanup opportun
 
 ### Review and undo from History
 
-The **History** tab keeps every run's reports and receipts. Reuse a past source, inspect logs, or open the **Undo Center** to revert a transfer when its files still match the receipt.
+The **History** tab keeps every run's reports and receipts. Reuse a past source, inspect logs, or open the **Undo Center** to revert a transfer, dedupe commit, or reorganize run when its files still match the receipt.
 
 ![Run History — archived frames, reusable sources, an undo center, and a list of run reports and receipts.](docs/screenshots/run-history.jpg)
 
-## Deduplicate Photos
+## Deduplicate Photos and Videos
 
 1. Open **Deduplicate**.
 2. Click **Choose Folder…** to pick the folder to scan, or reuse a recent one. Pick a **Detection** preset (Strict, Balanced, or Loose) and click **Start Scan**.
@@ -88,7 +82,7 @@ The **History** tab keeps every run's reports and receipts. Reuse a past source,
 
 ![Deduplicate review — two similar photos compared side by side, with keep and delete choices.](docs/screenshots/dedupe-compare.jpg)
 
-Exact duplicates can be accepted automatically. Similar photos, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call.
+Exact photo and video duplicates are matched by file content and can be accepted automatically. Similar-photo groups, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call. Perceptual video matching is under active development and remains opt-in in the engine.
 
 ## Helpful Guides
 
@@ -99,10 +93,16 @@ Exact duplicates can be accepted automatically. Similar photos, bursts, RAW+JPEG
 
 ## Command Line
 
-Developers can run the Swift CLI through SwiftPM:
+Chronoframe is fully native Swift. Developers can run the shared organizing engine through the SwiftPM CLI:
 
 ```bash
 swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
+```
+
+Run the full test suite with the sandbox-friendly cache setup used by the project:
+
+```bash
+/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift test --package-path ui"
 ```
 
 ## Privacy

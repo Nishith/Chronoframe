@@ -24,7 +24,7 @@ A: Preview shows the exact plan before transfer. You can review the plan, edit u
 
 **Q: What are the system requirements?**
 
-A: macOS 13.0 or later. Chronoframe works on Intel and Apple Silicon Macs.
+A: macOS 14.0 or later. Chronoframe works on Intel and Apple Silicon Macs.
 
 **Q: How much disk space do I need?**
 
@@ -79,10 +79,12 @@ A: Photos (JPG, PNG, HEIF, RAW, etc.) and videos (MP4, MOV, etc.). If your OS ca
 **Q: Can Chronoframe find duplicate photos?**
 
 A: Yes. Use the **Deduplicate** workspace:
-- Finds **exact copies** using content hashing (BLAKE2b)
-- Finds **similar shots** using AI vision analysis
+- Finds **exact photo and video copies** using content hashing (BLAKE2b)
+- Finds **similar photos** using on-device Vision analysis
 - Detects **burst groups** using capture-time proximity
 - Recognizes **RAW+JPEG pairs** and **Live Photo pairs**
+
+Perceptual matching for similar videos is under active development and remains opt-in in the engine.
 
 **Q: Can I organize into a folder that already has photos?**
 

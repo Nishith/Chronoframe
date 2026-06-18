@@ -7,7 +7,7 @@
   <meta name="description" content="Chronoframe support: getting started, frequently asked questions, troubleshooting, and how to contact us." />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20260523-f" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260523-f" />
-  <link rel="stylesheet" href="styles.css?v=20260525" />
+  <link rel="stylesheet" href="styles.css?v=20260618" />
 </head>
 <body>
   <nav class="nav">
@@ -37,7 +37,7 @@
         <li>Click <strong>Preview Plan</strong>, review anything that needs attention (such as unknown dates) on the <strong>Run</strong> tab, then click <strong>Start Transfer</strong>.</li>
         <li>Your source folder is never changed. Review the run under <strong>History</strong>, and use <strong>Revert</strong> if needed.</li>
       </ul>
-      <h3>Deduplicate photos</h3>
+      <h3>Deduplicate photos and videos</h3>
       <ul>
         <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or reuse a recent one.</li>
         <li>Pick a <strong>Detection</strong> preset (Strict, Balanced, or Loose), click <strong>Start Scan</strong>, review each group, and choose what to keep.</li>
@@ -51,12 +51,12 @@
         <p class="a">No. Chronoframe only reads your source folder. Your originals are never moved, modified, or deleted. You control when, and whether, to delete the source folder yourself.</p>
       </div>
       <div class="qa">
-        <p class="q">Can I undo an organize transfer?</p>
-        <p class="a">Yes. Open <strong>Organize &rarr; History</strong>, select the transfer, and click <strong>Revert</strong>. Chronoframe deletes only the files it copied, and only when their content still matches the receipt. It won't touch files that already existed or were changed afterward.</p>
+        <p class="q">What can I undo?</p>
+        <p class="a">Open <strong>Organize &rarr; History</strong> to undo supported transfers, dedupe commits, and reorganize runs. Chronoframe acts only when each file still matches its receipt, so it won't touch files that already existed or were changed afterward.</p>
       </div>
       <div class="qa">
         <p class="q">What are the system requirements?</p>
-        <p class="a">macOS 13.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p>
+        <p class="a">macOS 14.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p>
       </div>
       <div class="qa">
         <p class="q">How does Chronoframe figure out photo dates?</p>
@@ -64,7 +64,11 @@
       </div>
       <div class="qa">
         <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>
-        <p class="a">Exact-duplicate detection compares file content, not filenames, so two files match only when their bytes are identical. Photos saved with different compression, metadata, or formats won't be exact matches. Use the similar-photos review to compare them, and adjust the <strong>Detection</strong> preset (Strict, Balanced, or Loose) to surface more candidates.</p>
+        <p class="a">Exact-duplicate detection compares file content, not filenames, so two photo or video files match only when their bytes are identical. Photos saved with different compression, metadata, or formats won't be exact matches. Use the similar-photos review and adjust the <strong>Detection</strong> preset (Strict, Balanced, or Loose) to surface more photo candidates.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Does Deduplicate find similar videos?</p>
+        <p class="a">The app currently finds byte-identical video copies and includes them in the same review workflow as photos. Similar-photo, burst, RAW+JPEG, and Live Photo analysis applies to photos.</p>
       </div>
       <div class="qa">
         <p class="q">Does Deduplicate permanently delete files?</p>
