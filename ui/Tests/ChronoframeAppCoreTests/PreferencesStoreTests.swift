@@ -52,6 +52,25 @@ final class PreferencesStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testPerceptualVideoMatchingDefaultsOffAndPlumbsIntoConfiguration() {
+        let store = PreferencesStore(defaults: defaults)
+        // Off by default so a fresh install never decodes video unasked.
+        XCTAssertFalse(store.dedupePerceptualVideoMatchingEnabled)
+        XCTAssertFalse(
+            store.makeDeduplicateConfiguration(destinationPath: "/tmp/dest").perceptualVideoMatchingEnabled
+        )
+
+        store.dedupePerceptualVideoMatchingEnabled = true
+        XCTAssertTrue(
+            store.makeDeduplicateConfiguration(destinationPath: "/tmp/dest").perceptualVideoMatchingEnabled
+        )
+
+        // Survives a reload from the same defaults.
+        let reloaded = PreferencesStore(defaults: defaults)
+        XCTAssertTrue(reloaded.dedupePerceptualVideoMatchingEnabled)
+    }
+
+    @MainActor
     func testLogBufferCapacityClampsToConfiguredBounds() {
         let store = PreferencesStore(defaults: defaults)
 

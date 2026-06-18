@@ -123,6 +123,13 @@ public final class PreferencesStore: ObservableObject {
         didSet { persist(dedupeIncludeExactDuplicates, key: "dedupeIncludeExactDuplicates") }
     }
 
+    /// Opt-in perceptual video matching. Off by default: when off the scanner
+    /// does no video decoding at all. Perceptual video clusters are always
+    /// review-only (medium-capped, never auto-commit eligible).
+    @Published public var dedupePerceptualVideoMatchingEnabled: Bool {
+        didSet { persist(dedupePerceptualVideoMatchingEnabled, key: "dedupePerceptualVideoMatchingEnabled") }
+    }
+
     @Published public var dedupeAllowHardDelete: Bool {
         didSet {
             if dedupeAllowHardDelete {
@@ -159,6 +166,7 @@ public final class PreferencesStore: ObservableObject {
         self.dedupeTreatRawJpegPairsAsUnit = defaults.object(forKey: "dedupeTreatRawJpegPairsAsUnit") as? Bool ?? true
         self.dedupeTreatLivePhotoPairsAsUnit = defaults.object(forKey: "dedupeTreatLivePhotoPairsAsUnit") as? Bool ?? true
         self.dedupeIncludeExactDuplicates = defaults.object(forKey: "dedupeIncludeExactDuplicates") as? Bool ?? true
+        self.dedupePerceptualVideoMatchingEnabled = defaults.object(forKey: "dedupePerceptualVideoMatchingEnabled") as? Bool ?? false
         self.dedupeAllowHardDelete = false
         defaults.set(false, forKey: "dedupeAllowHardDelete")
     }
@@ -173,7 +181,8 @@ public final class PreferencesStore: ObservableObject {
             treatRawJpegPairsAsUnit: dedupeTreatRawJpegPairsAsUnit,
             treatLivePhotoPairsAsUnit: dedupeTreatLivePhotoPairsAsUnit,
             enableExactDuplicateGroup: dedupeIncludeExactDuplicates,
-            workerCount: workerCount
+            workerCount: workerCount,
+            perceptualVideoMatchingEnabled: dedupePerceptualVideoMatchingEnabled
         )
     }
 
