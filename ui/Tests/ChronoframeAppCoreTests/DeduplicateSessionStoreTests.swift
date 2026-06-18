@@ -332,6 +332,48 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.decisions.byPath["/dest/medium-b.jpg"], .keep)
     }
 
+    /// Defense-in-depth: even if a non-exact *video* cluster is (incorrectly)
+    /// annotated high confidence, bulk "Accept all high confidence" must not
+    /// turn it into delete decisions — perceptual video stays review-only. The
+    /// exact video cluster in the same bucket is still accepted.
+    @MainActor
+    func testAcceptAllHighConfidenceSkipsNonExactVideoCluster() async throws {
+        let exactVideo = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/exact-a.mp4", size: 100, modificationTime: 0, mediaKind: .video),
+                PhotoCandidate(path: "/dest/exact-b.mp4", size: 100, modificationTime: 0, mediaKind: .video),
+            ],
+            suggestedKeeperIDs: ["/dest/exact-a.mp4"],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .exactDuplicate))
+        )
+        let perceptualVideo = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/near-a.mp4", size: 100, modificationTime: 0, mediaKind: .video),
+                PhotoCandidate(path: "/dest/near-b.mp4", size: 100, modificationTime: 0, mediaKind: .video),
+            ],
+            suggestedKeeperIDs: ["/dest/near-a.mp4"],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .nearDuplicate))
+        )
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [exactVideo, perceptualVideo]))
+
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+        store.acceptAllHighConfidence()
+
+        // The exact video cluster is approved by the bulk action; the
+        // non-exact video cluster is not — so it never enters the reviewed set
+        // the executor commits, regardless of its (here, deliberately wrong)
+        // high annotation. Suggested decisions are pre-populated for every
+        // cluster as a plan preview, so the safety signal is approval, not the
+        // raw decision map.
+        XCTAssertTrue(store.approvedClusterIDs.contains(exactVideo.id))
+        XCTAssertFalse(store.approvedClusterIDs.contains(perceptualVideo.id))
+    }
+
     /// Phase 1 finding #10 regression: `acceptAllSuggestions` used to
     /// approve every cluster regardless of confidence, so a user
     /// clicking this single button would commit low/medium-confidence

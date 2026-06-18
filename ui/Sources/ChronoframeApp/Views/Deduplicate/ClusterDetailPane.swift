@@ -1,8 +1,10 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
-import AppKit
+#if canImport(ChronoframeCore)
 import ChronoframeCore
+#endif
+import AppKit
 import ImageIO
 import SwiftUI
 

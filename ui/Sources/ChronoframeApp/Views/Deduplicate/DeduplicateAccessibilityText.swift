@@ -22,6 +22,23 @@ enum DeduplicateAccessibilityText {
         return formatter.string(fromByteCount: byteCount)
     }
 
+    /// "3 photos" / "2 videos" / "4 items" — media-aware so exact-video review
+    /// never mislabels clips as photos. Clusters are homogeneous in practice
+    /// (a photo and a video can't be byte-identical), but a mixed cluster falls
+    /// back to the neutral "items".
+    static func memberCountPhrase(_ cluster: DuplicateCluster) -> String {
+        let count = cluster.members.count
+        let noun: String
+        if cluster.members.allSatisfy({ $0.mediaKind == .video }) {
+            noun = count == 1 ? "video" : "videos"
+        } else if cluster.members.contains(where: { $0.mediaKind == .video }) {
+            noun = count == 1 ? "item" : "items"
+        } else {
+            noun = count == 1 ? "photo" : "photos"
+        }
+        return "\(count) \(noun)"
+    }
+
     static func confidenceLabel(_ level: ConfidenceLevel?) -> String {
         switch level ?? .medium {
         case .high: return "high"
@@ -41,7 +58,7 @@ enum DeduplicateAccessibilityText {
     static func clusterRowLabel(cluster: DuplicateCluster) -> String {
         var parts: [String] = [
             "\(cluster.kind.title) group",
-            "\(cluster.members.count) photos",
+            memberCountPhrase(cluster),
             "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
         ]
         if let keeper = suggestedKeeperName(in: cluster) {

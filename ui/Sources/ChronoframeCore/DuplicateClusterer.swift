@@ -160,11 +160,12 @@ public enum DuplicateClusterer {
     /// identity (size + BLAKE2b digest). Each group of more than one path
     /// that shares a `FileIdentity` becomes one `exactDuplicate` cluster.
     public static func exactDuplicateClusters(
-        candidatesByIdentity: [FileIdentity: [PhotoCandidate]]
+        candidatesByIdentity: [FileIdentity: [PhotoCandidate]],
+        folderPriority: [String: Int] = [:]
     ) -> [DuplicateCluster] {
         candidatesByIdentity.values.compactMap { members -> DuplicateCluster? in
             guard members.count > 1 else { return nil }
-            let suggested = suggestKeeperIDs(for: members)
+            let suggested = suggestKeeperIDs(for: members, folderPriority: folderPriority)
             var cluster = DuplicateCluster(
                 kind: .exactDuplicate,
                 members: members.sorted { $0.path < $1.path },
@@ -186,20 +187,28 @@ public enum DuplicateClusterer {
         return last.timeIntervalSince(first) <= TimeInterval(burstWindowSeconds) ? .burst : .nearDuplicate
     }
 
-    static func suggestKeeperIDs(for members: [PhotoCandidate]) -> [String] {
-        guard let best = members.sorted(by: isPreferredKeeper).first else { return [] }
+    static func suggestKeeperIDs(
+        for members: [PhotoCandidate],
+        folderPriority: [String: Int] = [:]
+    ) -> [String] {
+        guard let best = members.sorted(by: { isPreferredKeeper($0, $1, folderPriority: folderPriority) }).first else { return [] }
         return [best.id]
     }
 
-    static func isPreferredKeeper(_ lhs: PhotoCandidate, _ rhs: PhotoCandidate) -> Bool {
+    static func isPreferredKeeper(
+        _ lhs: PhotoCandidate,
+        _ rhs: PhotoCandidate,
+        folderPriority: [String: Int] = [:]
+    ) -> Bool {
         // Video keepers must never use photo-quality signals (sharpness,
         // faces, expressions, RAW, or file size), which are absent or
         // meaningless for video. Exact-video clusters are byte-identical,
-        // so the surviving copy is chosen deterministically by path. The
-        // richer transformed-resolution / data-rate ranking lands with
-        // perceptual video matching (Milestone 2).
+        // so the surviving copy is chosen by configured source-folder
+        // priority, then deterministically by path. The richer
+        // transformed-resolution / data-rate ranking lands with perceptual
+        // video matching (Milestone 2).
         if lhs.mediaKind == .video || rhs.mediaKind == .video {
-            return isPreferredVideoKeeper(lhs, rhs)
+            return isPreferredVideoKeeper(lhs, rhs, folderPriority: folderPriority)
         }
 
         let lhsArea = pixelArea(for: lhs)
@@ -224,11 +233,19 @@ public enum DuplicateClusterer {
     }
 
     /// Keeper preference for video candidates. Milestone 1 only forms exact
-    /// (byte-identical) video clusters, where every copy is interchangeable,
-    /// so the choice is purely deterministic. Photo-quality signals are
-    /// intentionally never consulted.
-    static func isPreferredVideoKeeper(_ lhs: PhotoCandidate, _ rhs: PhotoCandidate) -> Bool {
-        lhs.path < rhs.path
+    /// (byte-identical) video clusters, where every copy is interchangeable in
+    /// content — so the surviving copy is the one in the highest-priority
+    /// configured source folder (lower `priority` number wins), falling back to
+    /// deterministic path order. Photo-quality signals are never consulted.
+    static func isPreferredVideoKeeper(
+        _ lhs: PhotoCandidate,
+        _ rhs: PhotoCandidate,
+        folderPriority: [String: Int] = [:]
+    ) -> Bool {
+        let lhsPriority = lhs.folderRoot.flatMap { folderPriority[$0] } ?? Int.max
+        let rhsPriority = rhs.folderRoot.flatMap { folderPriority[$0] } ?? Int.max
+        if lhsPriority != rhsPriority { return lhsPriority < rhsPriority }
+        return lhs.path < rhs.path
     }
 
     static func bytesIfPruned(members: [PhotoCandidate], keeperIDs: Set<String>) -> Int64 {

@@ -16,6 +16,21 @@ public enum ConfidenceLevel: String, Sendable, Codable, CaseIterable, Hashable {
     }
 }
 
+extension ConfidenceLevel: Comparable {
+    /// Ordered low < medium < high so callers can clamp with `min`.
+    private var rank: Int {
+        switch self {
+        case .low: return 0
+        case .medium: return 1
+        case .high: return 2
+        }
+    }
+
+    public static func < (lhs: ConfidenceLevel, rhs: ConfidenceLevel) -> Bool {
+        lhs.rank < rhs.rank
+    }
+}
+
 // MARK: - Match reason
 
 public struct MatchReason: Sendable, Equatable {

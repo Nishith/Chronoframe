@@ -362,7 +362,10 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func acceptAllHighConfidence() {
-        let highClusters = triageBuckets[.high] ?? []
+        // Filter through the same eligibility gate as the auto-accept path so a
+        // non-exact video cluster (which must stay review-only) can never be
+        // bulk-accepted into explicit delete decisions the planner can't undo.
+        let highClusters = (triageBuckets[.high] ?? []).filter(DeduplicationPlanner.isAutomaticCommitEligible)
         guard !highClusters.isEmpty else { return }
         var byPath = decisions.byPath
         for (path, decision) in suggestedDecisions(for: highClusters).byPath {

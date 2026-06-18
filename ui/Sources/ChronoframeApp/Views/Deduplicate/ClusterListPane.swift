@@ -210,7 +210,7 @@ private struct ClusterRow: View {
             }
             HStack(spacing: 4) {
                 confidenceDot
-                Text("\(cluster.members.count) photos")
+                Text(DeduplicateAccessibilityText.memberCountPhrase(cluster))
                     .font(.caption)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 // ByteCountFormatter renders 0 as the words "Zero KB"; an

@@ -133,6 +133,12 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     for (path, identity) in videoLane.identityByPath {
                         identityByPath[path] = identity
                     }
+                    // Checkpoint newly hashed video identities so dedicated
+                    // dedupe folders / additional sources don't re-read every
+                    // size-collision video on the next scan.
+                    if !videoLane.newCacheRecords.isEmpty {
+                        try? database.saveCacheRecords(videoLane.newCacheRecords)
+                    }
                     if cancelFlag.get() { continuation.finish(); return }
                     continuation.yield(.phaseCompleted(phase: .identityHashing))
 
@@ -142,8 +148,11 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     var freshRecords: [DedupeFeatureRecord] = []
                     var candidatesByPath: [String: PhotoCandidate] = [:]
                     var analysisRequests: [DedupeAnalysisRequest] = []
-                    var cacheHits = 0
-                    var cacheMisses = 0
+                    // Seed with the video identity-hash cache outcomes so the
+                    // summary's `hits + misses == totalCandidatesScanned`
+                    // contract holds across the combined photo + video scan.
+                    var cacheHits = videoLane.cacheHits
+                    var cacheMisses = videoLane.cacheMisses
 
                     // Batch-stat all image files upfront to avoid per-file
                     // FileManager.attributesOfItem calls in the loop below.
@@ -314,6 +323,18 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     continuation.yield(.phaseStarted(phase: .clustering, total: nil))
                     let candidates = Array(candidatesByPath.values) + videoLane.candidates
 
+                    // Source-folder priority for keeper selection (lower number
+                    // = higher priority). The destination is the implicit
+                    // primary at priority 0; additional sources use their
+                    // configured priority. Keyed by standardized scan-root path
+                    // to match candidate `folderRoot`.
+                    var folderPriority: [String: Int] = [
+                        URL(fileURLWithPath: configuration.destinationPath).standardizedFileURL.path: 0
+                    ]
+                    for source in configuration.additionalSources {
+                        folderPriority[URL(fileURLWithPath: source.path).standardizedFileURL.path] = source.priority
+                    }
+
                     var clusters: [DuplicateCluster] = []
                     if configuration.enableExactDuplicateGroup {
                         var byIdentity: [FileIdentity: [PhotoCandidate]] = [:]
@@ -321,7 +342,10 @@ public final class DeduplicateScanner: @unchecked Sendable {
                             guard let identity = identityByPath[candidate.path] else { continue }
                             byIdentity[identity, default: []].append(candidate)
                         }
-                        clusters.append(contentsOf: DuplicateClusterer.exactDuplicateClusters(candidatesByIdentity: byIdentity))
+                        clusters.append(contentsOf: DuplicateClusterer.exactDuplicateClusters(
+                            candidatesByIdentity: byIdentity,
+                            folderPriority: folderPriority
+                        ))
                     }
 
                     // Pre-load all feature prints in one bulk query to
@@ -365,7 +389,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     continuation.yield(.complete(DeduplicateSummary(
                         clusterCounts: counts,
                         totalRecoverableBytes: defaultPlan.totalBytes,
-                        totalCandidatesScanned: imagePaths.count + videoPaths.count,
+                        totalCandidatesScanned: imagePaths.count + videoLane.cacheHits + videoLane.cacheMisses,
                         scanDuration: Date().timeIntervalSince(started),
                         cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses)
                     )))
@@ -413,7 +437,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
         identityHasher: FileIdentityHasher,
         workerCount: Int,
         cancelFlag: ManagedAtomicBool,
-        continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation
+        continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation,
+        emitProgress: Bool = true
     ) -> [ProcessedFileIdentity] {
         guard !paths.isEmpty else { return [] }
         let maxWorkers = max(1, workerCount)
@@ -426,7 +451,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     continue
                 }
                 results.append(identityHasher.processFile(at: path, cachedRecord: cacheIndex[path]))
-                if (offset + 1) % 50 == 0 || offset == paths.count - 1 {
+                if emitProgress, (offset + 1) % 50 == 0 || offset == paths.count - 1 {
                     continuation.yield(.phaseProgress(phase: .identityHashing, completed: offset + 1, total: paths.count))
                 }
             }
@@ -450,7 +475,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                 }
                 let processed = identityHasher.processFile(at: path, cachedRecord: cachedRecord)
                 let completed = results.store(processed, at: index)
-                if completed % 50 == 0 || completed == paths.count {
+                if emitProgress, completed % 50 == 0 || completed == paths.count {
                     continuation.yield(.phaseProgress(phase: .identityHashing, completed: completed, total: paths.count))
                 }
             }
@@ -465,6 +490,19 @@ public final class DeduplicateScanner: @unchecked Sendable {
     /// `DefaultDedupeImageAnalyzer` is never invoked. Size-prefiltered: only
     /// files that share a size with another candidate are hashed, so a
     /// unique-size video is never read from disk.
+    struct VideoExactLaneResult {
+        var candidates: [PhotoCandidate] = []
+        var identityByPath: [String: FileIdentity] = [:]
+        /// Newly hashed identities to checkpoint into FileCache so subsequent
+        /// scans of the same size-collision videos are served from cache.
+        var newCacheRecords: [FileCacheRecord] = []
+        /// Identity-hash cache hits/misses for these videos, folded into the
+        /// scan's `DedupeCacheMetrics`. Only the hashed (size-collision) videos
+        /// are counted; size-unique videos are skipped by the prefilter.
+        var cacheHits: Int = 0
+        var cacheMisses: Int = 0
+    }
+
     static func processVideoExactLane(
         videoPaths: [String],
         cacheIndex: [String: FileCacheRecord],
@@ -473,20 +511,14 @@ public final class DeduplicateScanner: @unchecked Sendable {
         workerCount: Int,
         cancelFlag: ManagedAtomicBool,
         continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation
-    ) -> (candidates: [PhotoCandidate], identityByPath: [String: FileIdentity]) {
-        guard !videoPaths.isEmpty else { return ([], [:]) }
+    ) -> VideoExactLaneResult {
+        guard !videoPaths.isEmpty else { return VideoExactLaneResult() }
 
-        var sizeByPath: [String: Int64] = [:]
-        var mtimeByPath: [String: TimeInterval] = [:]
         var pathsBySize: [Int64: [String]] = [:]
         for path in videoPaths {
             var st = stat()
             guard lstat(path, &st) == 0 else { continue }
-            let size = Int64(st.st_size)
-            let mtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
-            sizeByPath[path] = size
-            mtimeByPath[path] = mtime
-            pathsBySize[size, default: []].append(path)
+            pathsBySize[Int64(st.st_size), default: []].append(path)
         }
 
         // Only size-collision groups can contain byte-identical duplicates.
@@ -494,31 +526,47 @@ public final class DeduplicateScanner: @unchecked Sendable {
             .filter { $0.count > 1 }
             .flatMap { $0 }
             .sorted()
-        guard !collisionPaths.isEmpty else { return ([], [:]) }
+        guard !collisionPaths.isEmpty else { return VideoExactLaneResult() }
 
+        // Hash silently: this runs inside the identity-hashing phase but emits
+        // no progress so it can't make the photo-driven progress bar jump
+        // backward to a smaller zero-based total.
         let identities = processIdentityHashes(
             paths: collisionPaths,
             cacheIndex: cacheIndex,
             identityHasher: identityHasher,
             workerCount: workerCount,
             cancelFlag: cancelFlag,
-            continuation: continuation
+            continuation: continuation,
+            emitProgress: false
         )
 
-        var candidates: [PhotoCandidate] = []
-        var identityByPath: [String: FileIdentity] = [:]
+        var result = VideoExactLaneResult()
         for (index, path) in collisionPaths.enumerated() {
             guard index < identities.count, let identity = identities[index].identity else { continue }
-            identityByPath[path] = identity
-            candidates.append(PhotoCandidate(
+            let processed = identities[index]
+            result.identityByPath[path] = identity
+            if processed.wasHashed {
+                result.cacheMisses += 1
+                result.newCacheRecords.append(FileCacheRecord(
+                    namespace: .destination,
+                    path: path,
+                    identity: identity,
+                    size: processed.size,
+                    modificationTime: processed.modificationTime
+                ))
+            } else {
+                result.cacheHits += 1
+            }
+            result.candidates.append(PhotoCandidate(
                 path: path,
-                size: sizeByPath[path] ?? identity.size,
-                modificationTime: mtimeByPath[path] ?? 0,
+                size: processed.size,
+                modificationTime: processed.modificationTime,
                 folderRoot: folderRootByPath[path],
                 mediaKind: .video
             ))
         }
-        return (candidates, identityByPath)
+        return result
     }
 
     private static func cachedFeatureRecord(

@@ -137,6 +137,95 @@ final class DeduplicateVideoTests: XCTestCase {
         XCTAssertTrue(DeduplicationPlanner.isAutomaticCommitEligible(cluster))
     }
 
+    // MARK: - Confidence scorer clamp (second structural guard)
+
+    // AGENTS-INVARIANT: 6
+    // Even when distance metrics would qualify a cluster for high confidence,
+    // a non-exact video cluster is clamped to at most medium so it can never be
+    // auto-accepted. This is the scorer half of the two guards.
+    func testNonExactVideoClusterClampedToMediumConfidence() {
+        let highQualifyingMatch = MatchReason(
+            timeDeltaSeconds: 1.0,
+            averageVisionDistance: 0.05,
+            kind: .nearDuplicate
+        )
+        let videoCluster = videoCluster(kind: .nearDuplicate, confidence: .medium)
+        let level = ClusterConfidenceScorer.score(
+            cluster: videoCluster,
+            matchReason: highQualifyingMatch,
+            warnings: []
+        )
+        XCTAssertEqual(level, .medium, "non-exact video must never score high")
+    }
+
+    func testExactVideoClusterStillScoresHigh() {
+        let cluster = videoCluster(kind: .exactDuplicate, confidence: .high)
+        let level = ClusterConfidenceScorer.score(
+            cluster: cluster,
+            matchReason: MatchReason(kind: .exactDuplicate),
+            warnings: []
+        )
+        XCTAssertEqual(level, .high)
+    }
+
+    func testPhotoNearDuplicateStillScoresHighWhenQualifying() {
+        // The video clamp must not change photo scoring.
+        let photoCluster = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [
+                PhotoCandidate(path: "/lib/p1.jpg", size: 10, modificationTime: 0),
+                PhotoCandidate(path: "/lib/p2.jpg", size: 10, modificationTime: 0),
+            ],
+            suggestedKeeperIDs: ["/lib/p1.jpg"],
+            bytesIfPruned: 10
+        )
+        let level = ClusterConfidenceScorer.score(
+            cluster: photoCluster,
+            matchReason: MatchReason(timeDeltaSeconds: 1.0, averageVisionDistance: 0.05, kind: .nearDuplicate),
+            warnings: []
+        )
+        XCTAssertEqual(level, .high)
+    }
+
+    // MARK: - Keeper source-folder priority
+
+    func testVideoKeeperPrefersHigherPrioritySourceFolder() {
+        // Lexicographically larger path, but in the higher-priority folder.
+        let preferred = PhotoCandidate(path: "/secondary/z.mp4", size: 10, modificationTime: 0, folderRoot: "/secondary", mediaKind: .video)
+        let other = PhotoCandidate(path: "/primary/a.mp4", size: 10, modificationTime: 0, folderRoot: "/primary", mediaKind: .video)
+        let priorities = ["/primary": 5, "/secondary": 0] // secondary is higher priority
+        let keepers = DuplicateClusterer.suggestKeeperIDs(for: [preferred, other], folderPriority: priorities)
+        XCTAssertEqual(keepers, ["/secondary/z.mp4"])
+    }
+
+    func testVideoKeeperFallsBackToPathWhenPriorityEqual() {
+        let a = PhotoCandidate(path: "/x/a.mp4", size: 10, modificationTime: 0, folderRoot: "/x", mediaKind: .video)
+        let b = PhotoCandidate(path: "/x/b.mp4", size: 10, modificationTime: 0, folderRoot: "/x", mediaKind: .video)
+        let keepers = DuplicateClusterer.suggestKeeperIDs(for: [a, b], folderPriority: ["/x": 0])
+        XCTAssertEqual(keepers, ["/x/a.mp4"])
+    }
+
+    // MARK: - Video hash caching + metrics
+
+    func testVideoHashesAreCachedAndMetricsStayConsistent() async throws {
+        let dir = try makeTempDir("VideoCache")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data(repeating: 0x5A, count: 4096).write(to: dir.appendingPathComponent("a.mov"))
+        try Data(repeating: 0x5A, count: 4096).write(to: dir.appendingPathComponent("b.mov"))
+
+        let first = try await runScan(DeduplicateScanner(), destination: dir.path)
+        // First scan hashes both videos (2 misses), no hits.
+        XCTAssertEqual(first.cacheMetrics.misses, 2)
+        XCTAssertEqual(first.cacheMetrics.hits, 0)
+        XCTAssertEqual(first.cacheMetrics.hits + first.cacheMetrics.misses, first.totalCandidatesScanned)
+
+        let second = try await runScan(DeduplicateScanner(), destination: dir.path)
+        // Second scan serves both from the FileCache checkpoint.
+        XCTAssertEqual(second.cacheMetrics.hits, 2)
+        XCTAssertEqual(second.cacheMetrics.misses, 0)
+        XCTAssertEqual(second.cacheMetrics.hits + second.cacheMetrics.misses, second.totalCandidatesScanned)
+    }
+
     // MARK: - Receipt compatibility
 
     func testReceiptDecodesUnknownFutureClusterAndMediaKinds() throws {

@@ -367,10 +367,14 @@ public struct DeduplicateSummary: Sendable, Equatable {
     }
 }
 
-/// Snapshot of the feature-extraction cache's behaviour across one scan.
-/// `hits + misses == totalCandidatesScanned` whenever the scan completes —
-/// misses incur a Vision feature print + dHash + quality score computation,
-/// hits read the prior row from the DedupeFeatures table.
+/// Snapshot of the cache's behaviour across one scan.
+/// `hits + misses == totalCandidatesScanned` whenever the scan completes.
+/// For photos, a miss incurs a Vision feature print + dHash + quality score
+/// computation and a hit reads the prior row from the DedupeFeatures table.
+/// For videos, the counts cover identity hashing of the size-collision groups
+/// only (a hit reuses a FileCache row, a miss re-hashes); size-unique videos
+/// are skipped by the size prefilter and excluded from both the counts and
+/// `totalCandidatesScanned`.
 public struct DedupeCacheMetrics: Sendable, Equatable {
     public var hits: Int
     public var misses: Int
