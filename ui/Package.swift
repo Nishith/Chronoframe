@@ -16,6 +16,7 @@ let package = Package(
         .executable(name: "ChronoframeCLI", targets: ["ChronoframeCLI"]),
         .executable(name: "ChronoframePackagingTool", targets: ["ChronoframePackagingTool"]),
         .executable(name: "ChronoframeIconTool", targets: ["ChronoframeIconTool"]),
+        .executable(name: "ChronoframeVideoCalibrationTool", targets: ["ChronoframeVideoCalibrationTool"]),
     ],
     targets: [
         .target(
@@ -55,6 +56,14 @@ let package = Package(
         // in code, not in a Sketch/Figma file.
         .executableTarget(
             name: "ChronoframeIconTool"
+        ),
+        // Offline perceptual-video calibration harness (Milestone 2c). Local
+        // only — consumes an external labeled corpus manifest and prints
+        // precision/recall/throughput/stability metrics. Deliberately out of
+        // CI (no corpus in the repo); see docs/video-dedupe-calibration-rubric.md.
+        .executableTarget(
+            name: "ChronoframeVideoCalibrationTool",
+            dependencies: ["ChronoframeCore"]
         ),
         .testTarget(
             name: "ChronoframeAppCoreTests",
