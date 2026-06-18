@@ -80,6 +80,15 @@ Do not weaken these unless the user explicitly asks for a product change.
 - Thumbnails go through `ui/Sources/ChronoframeApp/Views/Components/ThumbnailRenderer.swift` (single QuickLook entry point shared by ContactSheet and DedupeThumbnailLoader). The dedupe loader uses `NSCache<NSString, NSImage>` with `countLimit = 256` for steady-state memory and bumps a `@Published version` so SwiftUI redraws after each insert. `cancelAll()` is called on `.onDisappear` to drop in-flight renders when the user leaves the workspace.
 - The dedicated dedupe folder picker stores its bookmark under key `deduplicate.destination`. If the bookmark fails to resolve at bootstrap, both the bookmark and the path are dropped so `deduplicateDestinationPath` falls back to the organize destination instead of silently scanning a dead path.
 
+### Perceptual video matching
+
+Exact (byte-identical) video duplicates are always detected. **Perceptual** video matching — surfacing re-encodes, container re-wraps, and resizes of the same recording — is an opt-in lane.
+
+- Enabled by the `dedupePerceptualVideoMatchingEnabled` preference (Settings → Deduplicate → Video → "Find similar videos"), which `PreferencesStore.makeDeduplicateConfiguration` plumbs into `DeduplicateConfiguration.perceptualVideoMatchingEnabled`. Off by default: when off the scanner does no video decoding at all.
+- Always **review-only**. Perceptual video clusters are medium-capped by `ClusterConfidenceScorer` and rejected by `DeduplicationPlanner.isAutomaticCommitEligible` (AGENTS-INVARIANT 6) — nothing is ever auto-selected for deletion. A video already in an exact-duplicate cluster is held out of this lane (exact wins) until exacts are cleaned and the user rescans.
+- Evidence surfaces in the UI via `VideoMatchEvidence` on the cluster annotation: `MatchReasonFormatter` renders frame-agreement copy ("4 of 5 sample frames matched · 0.8s duration difference") instead of the photo vision-distance percentage. Per-scan `VideoPerceptualAnalysisMetrics` (analyzed / unsupported / decodeFailed / insufficientVisualEvidence) ride on `DeduplicateSummary.videoPerceptualMetrics`; the empty-results view reports how many videos were analyzed or failed to decode.
+- **Outstanding:** the matcher thresholds in `VideoPerceptualMatchConfiguration` (and the extractor's `lowVarianceThreshold`) are still conservative placeholder defaults. Choosing the real operating point requires running `ChronoframeVideoCalibrationTool` against a labeled corpus per `docs/video-dedupe-calibration-rubric.md` — a local task, since the corpus cannot live in the repo or CI. Record chosen values and the corpus/commit in the PR that changes any default.
+
 ## Sandbox Status
 
 `ui/Packaging/Chronoframe.entitlements` enables the App Sandbox with user-selected read/write file access and security-scoped bookmarks for Developer ID distribution. Organize and dedupe rely on stored folder bookmarks; keep scoped access lifecycle changes synchronized across both flows so one mutating path is not sandbox-ready while another is not.
