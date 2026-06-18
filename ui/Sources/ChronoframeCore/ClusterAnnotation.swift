@@ -110,6 +110,39 @@ public struct PairwiseMatch: Sendable, Equatable {
     }
 }
 
+// MARK: - Video match evidence
+
+/// Honest, per-cluster explanation of *why* a perceptual video cluster was
+/// formed, captured so the review UI and accessibility text can describe the
+/// match in concrete terms rather than a generic "similar". Populated only for
+/// perceptual (non-exact) video clusters; `nil` everywhere else.
+public struct VideoMatchEvidence: Sendable, Equatable {
+    /// Number of aligned frame pairs that were usable (informative, decoded).
+    public var usableSamples: Int
+    /// How many of those pairs agreed within the Hamming threshold.
+    public var agreeingSamples: Int
+    /// Median per-frame Hamming distance across the usable pairs.
+    public var medianHammingDistance: Int
+    /// Absolute difference in duration between the two videos, in seconds.
+    public var durationDeltaSeconds: Double
+    /// Whether a Vision feature print corroborated the dHash agreement.
+    public var visionCorroborated: Bool
+
+    public init(
+        usableSamples: Int,
+        agreeingSamples: Int,
+        medianHammingDistance: Int,
+        durationDeltaSeconds: Double,
+        visionCorroborated: Bool = false
+    ) {
+        self.usableSamples = usableSamples
+        self.agreeingSamples = agreeingSamples
+        self.medianHammingDistance = medianHammingDistance
+        self.durationDeltaSeconds = durationDeltaSeconds
+        self.visionCorroborated = visionCorroborated
+    }
+}
+
 // MARK: - Cluster annotation (composite)
 
 public struct ClusterAnnotation: Sendable, Equatable {
@@ -117,16 +150,20 @@ public struct ClusterAnnotation: Sendable, Equatable {
     public var matchReason: MatchReason
     public var keeperReason: KeeperReason?
     public var warnings: [SafetyWarning]
+    /// Evidence for a perceptual video cluster, if this is one.
+    public var videoEvidence: VideoMatchEvidence?
 
     public init(
         confidence: ConfidenceLevel = .medium,
         matchReason: MatchReason,
         keeperReason: KeeperReason? = nil,
-        warnings: [SafetyWarning] = []
+        warnings: [SafetyWarning] = [],
+        videoEvidence: VideoMatchEvidence? = nil
     ) {
         self.confidence = confidence
         self.matchReason = matchReason
         self.keeperReason = keeperReason
         self.warnings = warnings
+        self.videoEvidence = videoEvidence
     }
 }
