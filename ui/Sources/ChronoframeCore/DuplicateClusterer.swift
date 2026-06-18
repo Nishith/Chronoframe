@@ -192,6 +192,16 @@ public enum DuplicateClusterer {
     }
 
     static func isPreferredKeeper(_ lhs: PhotoCandidate, _ rhs: PhotoCandidate) -> Bool {
+        // Video keepers must never use photo-quality signals (sharpness,
+        // faces, expressions, RAW, or file size), which are absent or
+        // meaningless for video. Exact-video clusters are byte-identical,
+        // so the surviving copy is chosen deterministically by path. The
+        // richer transformed-resolution / data-rate ranking lands with
+        // perceptual video matching (Milestone 2).
+        if lhs.mediaKind == .video || rhs.mediaKind == .video {
+            return isPreferredVideoKeeper(lhs, rhs)
+        }
+
         let lhsArea = pixelArea(for: lhs)
         let rhsArea = pixelArea(for: rhs)
         let lhsFace = lhs.faceScore ?? 0
@@ -211,6 +221,14 @@ public enum DuplicateClusterer {
         if lhsSmile != rhsSmile { return lhsSmile > rhsSmile }
         if lhs.isRaw != rhs.isRaw { return lhs.isRaw }
         return lhs.path < rhs.path
+    }
+
+    /// Keeper preference for video candidates. Milestone 1 only forms exact
+    /// (byte-identical) video clusters, where every copy is interchangeable,
+    /// so the choice is purely deterministic. Photo-quality signals are
+    /// intentionally never consulted.
+    static func isPreferredVideoKeeper(_ lhs: PhotoCandidate, _ rhs: PhotoCandidate) -> Bool {
+        lhs.path < rhs.path
     }
 
     static func bytesIfPruned(members: [PhotoCandidate], keeperIDs: Set<String>) -> Int64 {

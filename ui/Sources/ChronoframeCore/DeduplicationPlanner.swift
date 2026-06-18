@@ -110,7 +110,8 @@ public enum DeduplicationPlanner {
                     sizeBytes: member.size,
                     owningClusterID: cluster.id,
                     owningClusterKind: cluster.kind,
-                    pairOrigin: nil
+                    pairOrigin: nil,
+                    mediaKind: member.mediaKind
                 )
             }
         }
@@ -140,12 +141,15 @@ public enum DeduplicationPlanner {
                 }
                 if planItems[partner] != nil { continue }
                 let partnerSize = effective[partner]?.member.size ?? fileSize(at: partner)
+                let partnerMediaKind = effective[partner]?.member.mediaKind
+                    ?? (MediaLibraryRules.isVideoFile(path: partner) ? .video : .photo)
                 planItems[partner] = DeduplicationPlan.Item(
                     path: partner,
                     sizeBytes: partnerSize,
                     owningClusterID: owningItem.owningClusterID,
                     owningClusterKind: owningItem.owningClusterKind,
-                    pairOrigin: kind == .livePhoto ? .livePhoto : .rawJpeg
+                    pairOrigin: kind == .livePhoto ? .livePhoto : .rawJpeg,
+                    mediaKind: partnerMediaKind
                 )
             }
         }
@@ -183,6 +187,16 @@ public enum DeduplicationPlanner {
     // MARK: - Helpers
 
     public static func isAutomaticCommitEligible(_ cluster: DuplicateCluster) -> Bool {
+        // AGENTS-INVARIANT: 6 — Structural guard: a non-exact video cluster is
+        // never eligible for automatic deletion, even if a future annotation
+        // bug marks it high confidence. Perceptual video matching is always
+        // review-only in the first release; this is the second of the two
+        // guards (the other clamps confidence in ClusterConfidenceScorer) so
+        // the safety property holds regardless of how confidence is computed.
+        if cluster.kind != .exactDuplicate,
+           cluster.members.contains(where: { $0.mediaKind == .video }) {
+            return false
+        }
         let confidence = cluster.annotation?.confidence ?? .medium
         return confidence == .high
     }

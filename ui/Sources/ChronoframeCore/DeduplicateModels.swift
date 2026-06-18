@@ -170,6 +170,19 @@ public enum ClusterKind: String, Sendable, Codable {
     }
 }
 
+// MARK: - Media kind
+
+/// Whether a candidate (and the cluster it forms) is a still photo or a
+/// video. Drives the three media-sensitive seams — keeper selection,
+/// confidence/auto-commit eligibility, and match-reason presentation —
+/// while everything downstream (planner, executor, receipt, revert,
+/// history) stays a single pipeline. Defaults to `.photo` so existing
+/// call sites and decoded state are unchanged.
+public enum MediaKind: String, Sendable, Codable, Equatable, CaseIterable {
+    case photo
+    case video
+}
+
 // MARK: - Photo candidates
 
 /// Per-file analysis output produced by the scanner. Drives both clustering
@@ -212,6 +225,13 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
     /// Root folder this candidate was discovered in, for cross-folder dedup.
     public var folderRoot: String?
 
+    /// Whether this candidate is a still photo or a video. Videos are built
+    /// through a separate minimal lane that never runs the image analyzer,
+    /// so their photo-quality signals (dhash, featurePrintData, sharpness,
+    /// faceScore, expression scores) are absent and must never influence
+    /// keeper selection or confidence. Defaults to `.photo`.
+    public var mediaKind: MediaKind
+
     public init(
         path: String,
         size: Int64,
@@ -231,7 +251,8 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
         smileScore: Double? = nil,
         subjectSharpness: Double? = nil,
         subjectMotionBlur: Double? = nil,
-        folderRoot: String? = nil
+        folderRoot: String? = nil,
+        mediaKind: MediaKind = .photo
     ) {
         self.path = path
         self.size = size
@@ -252,6 +273,7 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
         self.subjectSharpness = subjectSharpness
         self.subjectMotionBlur = subjectMotionBlur
         self.folderRoot = folderRoot
+        self.mediaKind = mediaKind
     }
 }
 
@@ -465,19 +487,26 @@ public struct DeduplicationPlan: Sendable, Equatable {
         /// `nil` for direct cluster-member deletions; otherwise the kind of
         /// pair-as-unit expansion that pulled this path into the plan.
         public let pairOrigin: PairOrigin?
+        /// Whether the deleted file is a photo or a video. Carried through to
+        /// the audit receipt so Run History can render the right preview and
+        /// so revert never has to re-classify by extension. Defaults to
+        /// `.photo` for existing call sites.
+        public let mediaKind: MediaKind
 
         public init(
             path: String,
             sizeBytes: Int64,
             owningClusterID: UUID,
             owningClusterKind: ClusterKind,
-            pairOrigin: PairOrigin? = nil
+            pairOrigin: PairOrigin? = nil,
+            mediaKind: MediaKind = .photo
         ) {
             self.path = path
             self.sizeBytes = sizeBytes
             self.owningClusterID = owningClusterID
             self.owningClusterKind = owningClusterKind
             self.pairOrigin = pairOrigin
+            self.mediaKind = mediaKind
         }
     }
 
@@ -490,6 +519,95 @@ public struct DeduplicationPlan: Sendable, Equatable {
     public var pathsToDelete: [String] { items.map(\.path) }
     public var totalBytes: Int64 { items.reduce(0) { $0 + $1.sizeBytes } }
     public var count: Int { items.count }
+}
+
+// MARK: - Receipt-local tolerant enums
+
+/// Tolerant, receipt-local copy of `ClusterKind`. The receipt is a durable
+/// artifact that an *older* build may have to decode for revert. If a newer
+/// build introduces a cluster classification this build doesn't know, revert
+/// must still succeed — so unknown raw values decode to `.unknown(raw)`
+/// rather than throwing. Deliberately decoupled from the domain `ClusterKind`
+/// so adding a display-only classification can never break revert.
+public enum ReceiptClusterKind: Sendable, Equatable, Codable {
+    case exactDuplicate
+    case nearDuplicate
+    case burst
+    case editedVariant
+    case unknown(String)
+
+    public init(_ kind: ClusterKind) {
+        switch kind {
+        case .exactDuplicate: self = .exactDuplicate
+        case .nearDuplicate: self = .nearDuplicate
+        case .burst: self = .burst
+        case .editedVariant: self = .editedVariant
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .exactDuplicate: return "exactDuplicate"
+        case .nearDuplicate: return "nearDuplicate"
+        case .burst: return "burst"
+        case .editedVariant: return "editedVariant"
+        case let .unknown(raw): return raw
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        switch raw {
+        case "exactDuplicate": self = .exactDuplicate
+        case "nearDuplicate": self = .nearDuplicate
+        case "burst": self = .burst
+        case "editedVariant": self = .editedVariant
+        default: self = .unknown(raw)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+}
+
+/// Tolerant, receipt-local copy of `MediaKind`. Same rationale as
+/// `ReceiptClusterKind`: an unknown future media classification must not
+/// break an older build's revert.
+public enum ReceiptMediaKind: Sendable, Equatable, Codable {
+    case photo
+    case video
+    case unknown(String)
+
+    public init(_ kind: MediaKind) {
+        switch kind {
+        case .photo: self = .photo
+        case .video: self = .video
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .photo: return "photo"
+        case .video: return "video"
+        case let .unknown(raw): return raw
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        switch raw {
+        case "photo": self = .photo
+        case "video": self = .video
+        default: self = .unknown(raw)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 // MARK: - Audit receipt (revertible)
@@ -506,7 +624,10 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         public var trashURL: String?
         public var method: Method
         public var clusterID: UUID
-        public var clusterKind: ClusterKind
+        public var clusterKind: ReceiptClusterKind
+        /// Whether the trashed file was a photo or a video. Absent in
+        /// schema ≤3 receipts (decodes to `nil`); always present from v4.
+        public var mediaKind: ReceiptMediaKind?
 
         public init(
             originalPath: String,
@@ -514,7 +635,8 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
             trashURL: String?,
             method: Method,
             clusterID: UUID,
-            clusterKind: ClusterKind
+            clusterKind: ReceiptClusterKind,
+            mediaKind: ReceiptMediaKind? = nil
         ) {
             self.originalPath = originalPath
             self.sizeBytes = sizeBytes
@@ -522,6 +644,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
             self.method = method
             self.clusterID = clusterID
             self.clusterKind = clusterKind
+            self.mediaKind = mediaKind
         }
     }
 
@@ -559,7 +682,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
     }
 
     public init(
-        schemaVersion: Int = 3,
+        schemaVersion: Int = 4,
         runID: UUID = UUID(),
         operation: String = "deduplicate",
         status: String = "PENDING",

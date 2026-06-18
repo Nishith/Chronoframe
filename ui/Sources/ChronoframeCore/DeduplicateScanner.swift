@@ -85,6 +85,15 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     // 3. Pair detection.
                     let pairs = DeduplicatePairDetector.detectPairs(in: imagePaths + movPaths)
 
+                    // Standalone videos for the exact-duplicate lane: every
+                    // discovered video file except the .mov half of a Live
+                    // Photo (those stay paired to their still and are handled
+                    // by pair-as-unit fanout, never as independently
+                    // deletable video duplicates).
+                    let videoPaths = allPaths.filter {
+                        MediaLibraryRules.isVideoFile(path: $0) && pairs[$0]?.kind != .livePhoto
+                    }
+
                     // 4. Identity hashing — finds exact duplicates, reuses
                     // FileCache rows when (size, mtime) match.
                     continuation.yield(.phaseStarted(phase: .identityHashing, total: imagePaths.count))
@@ -106,6 +115,25 @@ public final class DeduplicateScanner: @unchecked Sendable {
                             identityByPath[path] = identity
                         }
                     }
+
+                    // Video exact-duplicate lane (Milestone 1). Videos never
+                    // enter the image-analysis lane below; a photo and a video
+                    // can never share a FileIdentity, so video candidates
+                    // simply join exact clustering. Size-prefiltered so a
+                    // video with a unique size is never read.
+                    let videoLane = Self.processVideoExactLane(
+                        videoPaths: videoPaths,
+                        cacheIndex: cacheIndex,
+                        folderRootByPath: folderRootByPath,
+                        identityHasher: identityHasher,
+                        workerCount: configuration.workerCount,
+                        cancelFlag: cancelFlag,
+                        continuation: continuation
+                    )
+                    for (path, identity) in videoLane.identityByPath {
+                        identityByPath[path] = identity
+                    }
+                    if cancelFlag.get() { continuation.finish(); return }
                     continuation.yield(.phaseCompleted(phase: .identityHashing))
 
                     // 5. Per-file feature extraction (dHash + Vision feature
@@ -278,9 +306,13 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     try? database.pruneDedupeFeatureRecords(notIn: Set(imagePaths))
                     continuation.yield(.phaseCompleted(phase: .featureExtraction))
 
-                    // 6. Clustering.
+                    // 6. Clustering. Photo candidates carry dHash/feature
+                    // prints and feed both exact and near clustering; video
+                    // candidates carry neither, so they participate only in
+                    // exact (identity-based) clustering and are skipped by the
+                    // dHash-driven near clusterer.
                     continuation.yield(.phaseStarted(phase: .clustering, total: nil))
-                    let candidates = Array(candidatesByPath.values)
+                    let candidates = Array(candidatesByPath.values) + videoLane.candidates
 
                     var clusters: [DuplicateCluster] = []
                     if configuration.enableExactDuplicateGroup {
@@ -333,7 +365,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     continuation.yield(.complete(DeduplicateSummary(
                         clusterCounts: counts,
                         totalRecoverableBytes: defaultPlan.totalBytes,
-                        totalCandidatesScanned: imagePaths.count,
+                        totalCandidatesScanned: imagePaths.count + videoPaths.count,
                         scanDuration: Date().timeIntervalSince(started),
                         cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses)
                     )))
@@ -426,6 +458,67 @@ public final class DeduplicateScanner: @unchecked Sendable {
 
         queue.waitUntilAllOperationsAreFinished()
         return results.values()
+    }
+
+    /// Exact-duplicate analysis for standalone videos. Builds `PhotoCandidate`s
+    /// with `mediaKind == .video` and **no** photo-quality signals — the
+    /// `DefaultDedupeImageAnalyzer` is never invoked. Size-prefiltered: only
+    /// files that share a size with another candidate are hashed, so a
+    /// unique-size video is never read from disk.
+    static func processVideoExactLane(
+        videoPaths: [String],
+        cacheIndex: [String: FileCacheRecord],
+        folderRootByPath: [String: String],
+        identityHasher: FileIdentityHasher,
+        workerCount: Int,
+        cancelFlag: ManagedAtomicBool,
+        continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation
+    ) -> (candidates: [PhotoCandidate], identityByPath: [String: FileIdentity]) {
+        guard !videoPaths.isEmpty else { return ([], [:]) }
+
+        var sizeByPath: [String: Int64] = [:]
+        var mtimeByPath: [String: TimeInterval] = [:]
+        var pathsBySize: [Int64: [String]] = [:]
+        for path in videoPaths {
+            var st = stat()
+            guard lstat(path, &st) == 0 else { continue }
+            let size = Int64(st.st_size)
+            let mtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
+            sizeByPath[path] = size
+            mtimeByPath[path] = mtime
+            pathsBySize[size, default: []].append(path)
+        }
+
+        // Only size-collision groups can contain byte-identical duplicates.
+        let collisionPaths = pathsBySize.values
+            .filter { $0.count > 1 }
+            .flatMap { $0 }
+            .sorted()
+        guard !collisionPaths.isEmpty else { return ([], [:]) }
+
+        let identities = processIdentityHashes(
+            paths: collisionPaths,
+            cacheIndex: cacheIndex,
+            identityHasher: identityHasher,
+            workerCount: workerCount,
+            cancelFlag: cancelFlag,
+            continuation: continuation
+        )
+
+        var candidates: [PhotoCandidate] = []
+        var identityByPath: [String: FileIdentity] = [:]
+        for (index, path) in collisionPaths.enumerated() {
+            guard index < identities.count, let identity = identities[index].identity else { continue }
+            identityByPath[path] = identity
+            candidates.append(PhotoCandidate(
+                path: path,
+                size: sizeByPath[path] ?? identity.size,
+                modificationTime: mtimeByPath[path] ?? 0,
+                folderRoot: folderRootByPath[path],
+                mediaKind: .video
+            ))
+        }
+        return (candidates, identityByPath)
     }
 
     private static func cachedFeatureRecord(
