@@ -164,7 +164,7 @@ public enum MediaDiscovery {
         do {
             children = try FileManager.default.contentsOfDirectory(
                 at: directoryURL,
-                includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey],
+                includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey, .ubiquitousItemDownloadingStatusKey],
                 options: []
             )
         } catch {
@@ -188,8 +188,16 @@ public enum MediaDiscovery {
 
             let isDirectory: Bool
             do {
-                let resourceValues = try child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey])
+                let resourceValues = try child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey, .isPackageKey, .ubiquitousItemDownloadingStatusKey])
                 if resourceValues.isSymbolicLink == true || resourceValues.isPackage == true {
+                    continue
+                }
+                #if DEBUG
+                let isDataless = isICloudDatalessProvider(child)
+                #else
+                let isDataless = resourceValues.ubiquitousItemDownloadingStatus == .notDownloaded
+                #endif
+                if isDataless {
                     continue
                 }
                 isDirectory = resourceValues.isDirectory == true
@@ -248,6 +256,32 @@ public enum MediaDiscovery {
         }
     }
 
+    #if DEBUG
+    nonisolated(unsafe) public static var isICloudDatalessProvider: @Sendable (URL) -> Bool = { url in
+        do {
+            let values = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+            if let status = values.ubiquitousItemDownloadingStatus {
+                return status == .notDownloaded
+            }
+        } catch {}
+        return false
+    }
+    #endif
+
+    private static func isICloudDataless(_ url: URL) -> Bool {
+        #if DEBUG
+        return isICloudDatalessProvider(url)
+        #else
+        do {
+            let values = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+            if let status = values.ubiquitousItemDownloadingStatus {
+                return status == .notDownloaded
+            }
+        } catch {}
+        return false
+        #endif
+    }
+
     private static func enumerateManifest(
         _ manifest: DropManifest,
         rootURL: URL,
@@ -290,6 +324,9 @@ public enum MediaDiscovery {
                 try walk(directoryURL: url, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: visitFilePath)
             } else if !url.lastPathComponent.hasPrefix("."),
                       MediaLibraryRules.isSupportedMediaFile(path: url.path) {
+                if isICloudDataless(url) {
+                    continue
+                }
                 try visitFilePath(url.path)
             }
         }

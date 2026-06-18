@@ -262,6 +262,14 @@ public struct RevertExecutor: Sendable {
         destinationBoundary: URL?,
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) -> RevertExecutionResult {
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.idleSystemSleepDisabled, .userInitiated],
+            reason: "Chronoframe: active revert"
+        )
+        defer {
+            ProcessInfo.processInfo.endActivity(activity)
+        }
+
         let transfers = receipt.transfers
         observer.onTaskStart(transfers.count)
 

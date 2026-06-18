@@ -303,7 +303,7 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
 
         // First execution: cancel after the first successfully copied job.
         // Using a Sendable class-based counter because `isCancelled` is @Sendable.
-        let cancelAfterFirst = CancelAfterFirstJob()
+        let cancelAfterFirst = CancelAfterFirstJob(database: database)
         _ = try TransferExecutor().executeQueuedJobs(
             database: database,
             destinationRoot: destDir,
@@ -354,17 +354,22 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
     }
 }
 
-/// Sendable counter used by the crash-recovery test. Cancels after the first
-/// poll returns false (i.e. after the first job is processed).
+/// Sendable helper used by the crash-recovery test. Cancels after the first
+/// job is successfully copied in the database.
 private final class CancelAfterFirstJob: @unchecked Sendable {
-    private let lock = NSLock()
-    private var calls = 0
+    private let database: OrganizerDatabase
+
+    init(database: OrganizerDatabase) {
+        self.database = database
+    }
 
     func shouldCancel() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        calls += 1
-        return calls > 1
+        do {
+            let jobs = try database.loadQueuedJobs()
+            return jobs.filter { $0.status == .copied }.count >= 1
+        } catch {
+            return false
+        }
     }
 }
 

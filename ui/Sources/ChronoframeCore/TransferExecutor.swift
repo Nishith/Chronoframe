@@ -185,6 +185,19 @@ public struct TransferExecutor: Sendable {
     public var namingRules: PlannerNamingRules
     var fileCopyStrategy: TransferFileCopyStrategy
 
+    #if DEBUG
+    public var isLowPowerModeEnabledProvider: @Sendable () -> Bool = { ProcessInfo.processInfo.isLowPowerModeEnabled }
+    public var thermalStateProvider: @Sendable () -> ProcessInfo.ThermalState = { ProcessInfo.processInfo.thermalState }
+    public var freeDiskSpaceProvider: @Sendable (String) -> Int64? = { path in
+        var fileSystemStatus = statvfs()
+        let result = path.withCString { pointer in
+            statvfs(pointer, &fileSystemStatus)
+        }
+        guard result == 0 else { return nil }
+        return Int64(fileSystemStatus.f_bavail) * Int64(fileSystemStatus.f_frsize)
+    }
+    #endif
+
     public init(
         fileHasher: FileIdentityHasher = FileIdentityHasher(),
         retryPolicy: RetryPolicy = .chronoframeDefault,
@@ -379,6 +392,14 @@ public struct TransferExecutor: Sendable {
         observer: TransferExecutionObserver = TransferExecutionObserver(),
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) throws -> TransferExecutionResult {
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.idleSystemSleepDisabled, .userInitiated],
+            reason: "Chronoframe: active photo/video transfer"
+        )
+        defer {
+            ProcessInfo.processInfo.endActivity(activity)
+        }
+
         let totalJobs = queuedJobs.count
         let bytesTotal = queuedJobs.reduce(into: Int64(0)) { partialResult, job in
             partialResult += safeFileSize(atPath: job.sourcePath) ?? 0
@@ -504,13 +525,41 @@ public struct TransferExecutor: Sendable {
         maxConcurrentCopies: Int,
         isCancelled: @escaping @Sendable () -> Bool
     ) throws -> TransferExecutionResult {
-        let concurrency = min(max(1, maxConcurrentCopies), 4)
+        let requestedConcurrency = min(max(1, maxConcurrentCopies), 4)
         var attemptedJobs = 0
         var batchStart = 0
+        var lastThrottledReason: String? = nil
 
         while batchStart < queuedJobs.count {
             if isCancelled() {
                 break
+            }
+
+            var concurrency = requestedConcurrency
+            var currentReason: String? = nil
+            #if DEBUG
+            let isLPM = isLowPowerModeEnabledProvider()
+            let thermal = thermalStateProvider()
+            #else
+            let isLPM = ProcessInfo.processInfo.isLowPowerModeEnabled
+            let thermal = ProcessInfo.processInfo.thermalState
+            #endif
+
+            if isLPM {
+                concurrency = 1
+                currentReason = "Low Power Mode is on"
+            } else if thermal == .serious || thermal == .critical {
+                concurrency = 1
+                currentReason = "Device thermal state is elevated"
+            }
+
+            if currentReason != lastThrottledReason {
+                lastThrottledReason = currentReason
+                if let reason = currentReason {
+                    context.observer.onIssue(RunIssue(severity: .warning, message: "Running gently: \(reason)"))
+                } else {
+                    context.observer.onIssue(RunIssue(severity: .warning, message: "Resuming standard speed: Low Power Mode/Thermal restriction cleared"))
+                }
             }
 
             let batchEnd = min(batchStart + concurrency, queuedJobs.count)
@@ -522,10 +571,19 @@ public struct TransferExecutor: Sendable {
 
             let verifyCopies = context.verifyCopies
             let runLogger = context.runLogger
+            let isCancelledRef = context.isCancelled
+            let observerRef = context.observer
+
             for (offset, job) in batchJobs.enumerated() {
                 queue.addOperation {
                     let outcome = autoreleasepool {
-                        self.prepareCopy(job: job, verifyCopies: verifyCopies, runLogger: runLogger)
+                        self.prepareCopy(
+                            job: job,
+                            verifyCopies: verifyCopies,
+                            runLogger: runLogger,
+                            isCancelled: isCancelledRef,
+                            onIssue: { issue in observerRef.onIssue(issue) }
+                        )
                     }
                     outcomes.store(outcome, at: offset)
                 }
@@ -598,12 +656,16 @@ public struct TransferExecutor: Sendable {
     fileprivate func performCopy(
         job: QueuedCopyJob,
         verifyCopies: Bool,
-        runLogger: PersistentRunLogger
+        runLogger: PersistentRunLogger,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) -> TransferJobOutcome {
         do {
             let actualDestinationPath = try safeCopyAtomic(
                 sourcePath: job.sourcePath,
-                requestedDestinationPath: job.destinationPath
+                requestedDestinationPath: job.destinationPath,
+                isCancelled: isCancelled,
+                onIssue: onIssue
             )
 
             var verifiedHash: String?
@@ -645,7 +707,9 @@ public struct TransferExecutor: Sendable {
     fileprivate func prepareCopy(
         job: QueuedCopyJob,
         verifyCopies: Bool,
-        runLogger: PersistentRunLogger
+        runLogger: PersistentRunLogger,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) -> TransferJobOutcome {
         do {
             let identity = try fileHasher.hashIdentity(at: URL(fileURLWithPath: job.sourcePath))
@@ -661,7 +725,9 @@ public struct TransferExecutor: Sendable {
         do {
             let temporaryPath = try prepareAtomicCopy(
                 sourcePath: job.sourcePath,
-                requestedDestinationPath: job.destinationPath
+                requestedDestinationPath: job.destinationPath,
+                isCancelled: isCancelled,
+                onIssue: onIssue
             )
 
             var verifiedHash: String?
@@ -696,7 +762,9 @@ public struct TransferExecutor: Sendable {
 
     fileprivate func safeCopyAtomic(
         sourcePath: String,
-        requestedDestinationPath: String
+        requestedDestinationPath: String,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) throws -> String {
         var lastError: Error?
 
@@ -704,7 +772,9 @@ public struct TransferExecutor: Sendable {
             do {
                 return try safeCopyAtomicOnce(
                     sourcePath: sourcePath,
-                    requestedDestinationPath: requestedDestinationPath
+                    requestedDestinationPath: requestedDestinationPath,
+                    isCancelled: isCancelled,
+                    onIssue: onIssue
                 )
             } catch {
                 lastError = error
@@ -728,23 +798,21 @@ public struct TransferExecutor: Sendable {
 
     private func safeCopyAtomicOnce(
         sourcePath: String,
-        requestedDestinationPath: String
+        requestedDestinationPath: String,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) throws -> String {
         let destinationURL = URL(fileURLWithPath: requestedDestinationPath)
         let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
-        try checkDiskSpace(sourcePath: sourcePath, destinationDirectoryPath: destinationDirectoryURL.path)
+        try checkDiskSpace(
+            sourcePath: sourcePath,
+            destinationDirectoryPath: destinationDirectoryURL.path,
+            isCancelled: isCancelled,
+            onIssue: onIssue
+        )
 
         let finalDestinationPath = try collisionResolvedPath(for: requestedDestinationPath)
-        // Phase 1 finding (P1, ranked-out from Top 10): use the same
-        // UUID-suffixed temp path the parallel `prepareAtomicCopy` path
-        // already uses, instead of the deterministic
-        // `finalDestinationPath + ".cf-tmp"`. With the old shape, two
-        // Chronoframe processes targeting the same destination could
-        // resolve the same `finalDestinationPath` and then race on the
-        // shared `<dest>.cf-tmp` filename — process B would
-        // unconditionally `removeItem` process A's in-progress write
-        // mid-stream.
         let temporaryDestinationPath = try uniqueTemporaryCopyPath(for: finalDestinationPath)
 
         do {
@@ -762,12 +830,19 @@ public struct TransferExecutor: Sendable {
 
     private func prepareAtomicCopy(
         sourcePath: String,
-        requestedDestinationPath: String
+        requestedDestinationPath: String,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) throws -> String {
         let destinationURL = URL(fileURLWithPath: requestedDestinationPath)
         let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
-        try checkDiskSpace(sourcePath: sourcePath, destinationDirectoryPath: destinationDirectoryURL.path)
+        try checkDiskSpace(
+            sourcePath: sourcePath,
+            destinationDirectoryPath: destinationDirectoryURL.path,
+            isCancelled: isCancelled,
+            onIssue: onIssue
+        )
 
         let temporaryDestinationPath = try uniqueTemporaryCopyPath(for: requestedDestinationPath)
 
@@ -853,27 +928,53 @@ public struct TransferExecutor: Sendable {
 
     private func checkDiskSpace(
         sourcePath: String,
-        destinationDirectoryPath: String
+        destinationDirectoryPath: String,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) throws {
         guard let sourceSize = safeFileSize(atPath: sourcePath) else {
             return
         }
 
-        var fileSystemStatus = statvfs()
-        let result = destinationDirectoryPath.withCString { pointer in
-            statvfs(pointer, &fileSystemStatus)
-        }
-        guard result == 0 else {
-            return
+        var warnedLowSpace = false
+
+        while !isCancelled() {
+            #if DEBUG
+            let freeBytesOpt = freeDiskSpaceProvider(destinationDirectoryPath)
+            #else
+            var fileSystemStatus = statvfs()
+            let result = destinationDirectoryPath.withCString { pointer in
+                statvfs(pointer, &fileSystemStatus)
+            }
+            let freeBytesOpt: Int64? = (result == 0) ? (Int64(fileSystemStatus.f_bavail) * Int64(fileSystemStatus.f_frsize)) : nil
+            #endif
+
+            guard let freeBytes = freeBytesOpt else {
+                return
+            }
+
+            if freeBytes >= sourceSize + Self.safetyBufferBytes {
+                if warnedLowSpace {
+                    onIssue(RunIssue(severity: .warning, message: "Disk space check passed. Resuming run."))
+                }
+                return
+            }
+
+            warnedLowSpace = true
+            let mbFree = freeBytes / (1024 * 1024)
+            let mbNeeded = (sourceSize + Self.safetyBufferBytes) / (1024 * 1024)
+            onIssue(RunIssue(
+                severity: .warning,
+                message: "Paused: Insufficient disk space on destination (\(mbFree) MB free, \(mbNeeded) MB needed). Free up space to resume automatically."
+            ))
+
+            Thread.sleep(forTimeInterval: 2.0)
         }
 
-        let freeBytes = Int64(fileSystemStatus.f_bavail) * Int64(fileSystemStatus.f_frsize)
-        if freeBytes < sourceSize + Self.safetyBufferBytes {
-            throw posixError(
-                code: ENOSPC,
-                description: "Insufficient disk space on destination: \(freeBytes / (1024 * 1024)) MB free, \(sourceSize / (1024 * 1024)) MB needed"
-            )
-        }
+        throw posixError(
+            code: ENOSPC,
+            description: "Run cancelled while waiting for disk space."
+        )
     }
 
     private func copyFileContents(from sourcePath: String, to destinationPath: String) throws {
@@ -1108,7 +1209,7 @@ private final class StreamingAuditReceiptWriter {
             withJSONObject: pendingJSON,
             options: [.prettyPrinted, .sortedKeys]
         )
-        try data.write(to: finalReceiptURL, options: [.atomic])
+        try ReceiptDurability.durablyWrite(data: data, to: finalReceiptURL)
     }
 
     deinit {
@@ -1168,11 +1269,13 @@ private final class StreamingAuditReceiptWriter {
             try receiptHandle.write(contentsOf: Data("  \"transfers\" : [\n".utf8))
             try pipeTransferSpool(into: receiptHandle)
             try receiptHandle.write(contentsOf: Data("\n  ]\n}\n".utf8))
+
+            _ = fcntl(receiptHandle.fileDescriptor, F_FULLFSYNC)
             try receiptHandle.close()
 
             let renameResult: Int32 = temporaryReceiptURL.withUnsafeFileSystemRepresentation { sourcePointer in
                 finalReceiptURL.withUnsafeFileSystemRepresentation { destinationPointer in
-                    guard let sourcePointer, let destinationPointer else { return -1 }
+                    guard let sourcePointer, let destinationPointer else { return Int32(-1) }
                     return Darwin.rename(sourcePointer, destinationPointer)
                 }
             }
@@ -1184,17 +1287,9 @@ private final class StreamingAuditReceiptWriter {
                     userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(code))]
                 )
             }
-            // Phase 1 finding: fsync the receipt's parent directory so
-            // the new entry survives power loss. F_FULLFSYNC on the
-            // file alone doesn't durably persist the directory's inode
-            // pointing at it.
             let parentPath = (finalReceiptURL.path as NSString).deletingLastPathComponent
             if !parentPath.isEmpty {
-                let descriptor = open(parentPath, O_RDONLY | O_CLOEXEC)
-                if descriptor >= 0 {
-                    _ = fcntl(descriptor, F_FULLFSYNC)
-                    close(descriptor)
-                }
+                try? ReceiptDurability.fsyncDirectory(atPath: parentPath)
             }
             try? fileManager.removeItem(at: transferSpoolURL)
             finished = true
@@ -1250,8 +1345,8 @@ private final class TransferExecutionContext {
     private let database: OrganizerDatabase
     fileprivate let verifyCopies: Bool
     fileprivate let runLogger: PersistentRunLogger
-    private let observer: TransferExecutionObserver
-    private let isCancelled: @Sendable () -> Bool
+    fileprivate let observer: TransferExecutionObserver
+    fileprivate let isCancelled: @Sendable () -> Bool
     private let totalJobs: Int
     private let bytesTotal: Int64
     private let artifacts: RunArtifactPaths
@@ -1305,7 +1400,14 @@ private final class TransferExecutionContext {
         if let skippedOutcome = sourceSkipOutcomeIfNeeded(for: job) {
             return try apply(outcome: skippedOutcome, for: job, attemptedJobs: attemptedJobs)
         }
-        let outcome = executor.performCopy(job: job, verifyCopies: verifyCopies, runLogger: runLogger)
+        let observerRef = self.observer
+        let outcome = executor.performCopy(
+            job: job,
+            verifyCopies: verifyCopies,
+            runLogger: runLogger,
+            isCancelled: isCancelled,
+            onIssue: { issue in observerRef.onIssue(issue) }
+        )
         return try apply(outcome: outcome, for: job, attemptedJobs: attemptedJobs)
     }
 

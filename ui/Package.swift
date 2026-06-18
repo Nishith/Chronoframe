@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
     name: "ChronoframeUI",
     platforms: [
-        .macOS(.v13),
+        .macOS(.v14),
     ],
     products: [
         .library(name: "ChronoframeCore", targets: ["ChronoframeCore"]),

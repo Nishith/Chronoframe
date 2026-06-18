@@ -69,6 +69,14 @@ public final class DeduplicateExecutor: @unchecked Sendable {
 
         return AsyncThrowingStream<DeduplicateCommitEvent, Error> { continuation in
             Task.detached {
+                let activity = ProcessInfo.processInfo.beginActivity(
+                    options: [.idleSystemSleepDisabled, .userInitiated],
+                    reason: "Chronoframe: active deduplicate commit"
+                )
+                defer {
+                    ProcessInfo.processInfo.endActivity(activity)
+                }
+
                 let logsDirectory: URL
                 do {
                     logsDirectory = try Self.preflightReceiptDirectory(destinationRoot: destinationRoot)
@@ -243,6 +251,14 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         let fileOperations = self.fileOperations
         return AsyncThrowingStream<DeduplicateCommitEvent, Error> { continuation in
             Task.detached {
+                let activity = ProcessInfo.processInfo.beginActivity(
+                    options: [.idleSystemSleepDisabled, .userInitiated],
+                    reason: "Chronoframe: active deduplicate revert"
+                )
+                defer {
+                    ProcessInfo.processInfo.endActivity(activity)
+                }
+
                 do {
                     let data = try Data(contentsOf: receiptURL)
                     let receipt = try JSONDecoder.dedupe.decode(DeduplicateAuditReceipt.self, from: data)
@@ -501,7 +517,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         receipt.abortReason = "Deduplicate was interrupted before the audit receipt was finalized."
 
         let encoded = try JSONEncoder.dedupe.encode(receipt)
-        try encoded.write(to: pendingURL, options: .atomic)
+        try ReceiptDurability.durablyWrite(data: encoded, to: pendingURL)
         try? FileManager.default.removeItem(at: spoolURL)
         return true
     }
@@ -551,7 +567,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
             abortReason: abortReason
         )
         let data = try JSONEncoder.dedupe.encode(receipt)
-        try data.write(to: receiptURL, options: .atomic)
+        try ReceiptDurability.durablyWrite(data: data, to: receiptURL)
     }
 }
 
