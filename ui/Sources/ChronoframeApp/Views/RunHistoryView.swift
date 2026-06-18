@@ -966,8 +966,10 @@ struct ReceiptDetailSheet: View {
     }
 
     private func isVideo(_ path: String) -> Bool {
-        let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
-        return ["mov", "mp4", "m4v"].contains(ext)
+        // Single source of truth for video classification so newly supported
+        // formats (e.g. .avi/.mkv/.wmv/.3gp) are recognized here too, instead
+        // of drifting from `MediaLibraryRules.videoExtensions`.
+        MediaLibraryRules.isVideoFile(path: path)
     }
 
     @ViewBuilder

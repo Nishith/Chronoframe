@@ -90,7 +90,8 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         trashURL: nil,
                         method: .trash,
                         clusterID: planItem.owningClusterID,
-                        clusterKind: planItem.owningClusterKind
+                        clusterKind: ReceiptClusterKind(planItem.owningClusterKind),
+                        mediaKind: ReceiptMediaKind(planItem.mediaKind)
                     )
                 }
                 do {

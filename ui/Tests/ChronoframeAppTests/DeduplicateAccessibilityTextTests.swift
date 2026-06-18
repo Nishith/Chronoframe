@@ -18,6 +18,37 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         XCTAssertEqual(DeduplicateAccessibilityText.confidenceLabel(nil), "medium")
     }
 
+    // MARK: - memberCountPhrase (media-aware nouns)
+
+    func testMemberCountPhraseUsesMediaAwareNouns() {
+        func cluster(_ kinds: [MediaKind]) -> DuplicateCluster {
+            let members = kinds.enumerated().map { index, kind in
+                PhotoCandidate(path: "/dest/m\(index)", size: 1, modificationTime: 0, mediaKind: kind)
+            }
+            return DuplicateCluster(kind: .exactDuplicate, members: members, suggestedKeeperIDs: [], bytesIfPruned: 0)
+        }
+        XCTAssertEqual(DeduplicateAccessibilityText.memberCountPhrase(cluster([.photo, .photo])), "2 photos")
+        XCTAssertEqual(DeduplicateAccessibilityText.memberCountPhrase(cluster([.video, .video, .video])), "3 videos")
+        XCTAssertEqual(DeduplicateAccessibilityText.memberCountPhrase(cluster([.video])), "1 video")
+        XCTAssertEqual(DeduplicateAccessibilityText.memberCountPhrase(cluster([.photo])), "1 photo")
+        // Mixed (defensive — not produced by exact clustering) → neutral noun.
+        XCTAssertEqual(DeduplicateAccessibilityText.memberCountPhrase(cluster([.photo, .video])), "2 items")
+    }
+
+    func testClusterRowLabelUsesVideoNounForVideoCluster() {
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/a.mp4", size: 1, modificationTime: 0, mediaKind: .video),
+                PhotoCandidate(path: "/dest/b.mp4", size: 1, modificationTime: 0, mediaKind: .video),
+            ],
+            suggestedKeeperIDs: ["/dest/a.mp4"],
+            bytesIfPruned: 1,
+            annotation: ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .exactDuplicate))
+        )
+        XCTAssertTrue(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster).contains("2 videos"))
+    }
+
     // MARK: - clusterRowLabel
 
     func testClusterRowLabelLeadsWithKindTitleForEveryKind() {

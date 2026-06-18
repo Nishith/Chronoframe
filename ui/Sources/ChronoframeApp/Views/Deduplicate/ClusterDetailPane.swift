@@ -1,6 +1,9 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+#if canImport(ChronoframeCore)
+import ChronoframeCore
+#endif
 import AppKit
 import ImageIO
 import SwiftUI
@@ -911,6 +914,8 @@ private struct LargePreviewImage: View {
     @State private var image: NSImage?
     @State private var failed = false
 
+    private var isVideo: Bool { MediaLibraryRules.isVideoFile(path: path) }
+
     var body: some View {
         Group {
             if let image {
@@ -918,11 +923,20 @@ private struct LargePreviewImage: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
             } else if failed {
-                Image(systemName: "photo")
+                // A video whose format QuickLook can't decode (some .mkv/.avi/
+                // .wmv) shows a film placeholder rather than a misleading photo
+                // icon, so the user understands why no frame is visible before
+                // deciding to move the file to Trash.
+                Image(systemName: isVideo ? "film" : "photo")
                     .font(.system(size: 56))
                     // Placeholder sits on the dark photo-preview fill, so it must
                     // stay light in both appearances (not the dark ink token).
                     .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
+                    .accessibilityLabel(
+                        isVideo
+                            ? "Video preview unavailable for this format"
+                            : "Preview unavailable"
+                    )
             } else {
                 ProgressView()
             }
@@ -932,7 +946,7 @@ private struct LargePreviewImage: View {
             image = nil
             failed = false
             let scale = NSScreen.main?.backingScaleFactor ?? 2.0
-            let cgImage = await Self.loadPreviewCGImage(at: path, scale: scale)
+            let cgImage = await Self.loadPreviewCGImage(at: path, scale: scale, isVideo: isVideo)
             guard !Task.isCancelled else { return }
             guard let cgImage else {
                 failed = true
@@ -943,8 +957,22 @@ private struct LargePreviewImage: View {
         }
     }
 
-    private nonisolated static func loadPreviewCGImage(at path: String, scale: CGFloat) async -> CGImage? {
+    private nonisolated static func loadPreviewCGImage(
+        at path: String,
+        scale: CGFloat,
+        isVideo: Bool
+    ) async -> CGImage? {
         let url = URL(fileURLWithPath: path)
+        // Videos have no CGImageSource; render a QuickLook poster frame so the
+        // user can visually confirm the clip before deleting it. QuickLook is
+        // also a reliable fallback for any still format ImageIO can't open.
+        if isVideo {
+            return await ThumbnailRenderer.cgImage(
+                for: url,
+                size: CGSize(width: 1200, height: 1200),
+                scale: scale
+            )
+        }
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             return nil
         }
