@@ -694,6 +694,10 @@ public final class DeduplicateScanner: @unchecked Sendable {
                 folderRoot: folderRoot,
                 isCancelled: { cancelFlag.get() }
             )
+            // A cancelled extractor reports `.decodeFailed` because it has no
+            // complete feature set. Do not persist that transient outcome or
+            // the unchanged video would be skipped by every later scan.
+            guard !cancelFlag.get() else { break }
             tally(features.status)
             if features.status == .ready { readyFeatures.append(features) }
             freshRecords.append(DedupeVideoFeatureRecord(features: features))

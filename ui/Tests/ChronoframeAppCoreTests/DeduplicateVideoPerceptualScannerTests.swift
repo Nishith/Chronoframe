@@ -139,6 +139,51 @@ final class DeduplicateVideoPerceptualScannerTests: XCTestCase {
         XCTAssertEqual(provider.totalCalls, 1, "unsupported video is not re-decoded next scan")
     }
 
+    func testCancelledExtractionDoesNotCacheDecodeFailure() async throws {
+        let dir = try makeTempDir("PerceptualCancellation")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try writeVideo(dir, "cancelled.mp4", byte: 0x56, size: 701)
+
+        let provider = FakeVideoFeatureProvider(specs: [
+            "cancelled.mp4": .decodeFailedSpec,
+        ])
+        let scanner = DeduplicateScanner(
+            imageAnalyzer: NoopImageAnalyzer(),
+            videoFeatureProvider: provider
+        )
+        provider.runOnceOnNextExtraction { scanner.cancel() }
+        let config = DeduplicateConfiguration(
+            destinationPath: dir.path,
+            similarityThreshold: 1.0,
+            dhashHammingThreshold: 5,
+            perceptualVideoMatchingEnabled: true
+        )
+
+        var cancelledScanCompleted = false
+        for try await event in scanner.scan(configuration: config) {
+            if case .complete = event { cancelledScanCompleted = true }
+        }
+        XCTAssertFalse(cancelledScanCompleted)
+        XCTAssertEqual(provider.totalCalls, 1)
+
+        let database = try OrganizerDatabase(url: dir.appendingPathComponent(".organize_cache.db"))
+        XCTAssertTrue(
+            try database.loadDedupeVideoFeatureRecords().isEmpty,
+            "cancellation must not persist its synthetic decode failure"
+        )
+        database.close()
+
+        var resumedSummary: DeduplicateSummary?
+        for try await event in scanner.scan(configuration: config) {
+            if case let .complete(summary) = event { resumedSummary = summary }
+        }
+        let metrics = try XCTUnwrap(resumedSummary?.videoPerceptualMetrics)
+        XCTAssertEqual(metrics.cacheHits, 0)
+        XCTAssertEqual(metrics.cacheMisses, 1)
+        XCTAssertEqual(metrics.decodeFailed, 1)
+        XCTAssertEqual(provider.totalCalls, 2, "the next scan must retry the cancelled video")
+    }
+
     // MARK: - Prune scoping
 
     func testPerceptualOffScanDoesNotPruneVideoFeatureCache() async throws {
@@ -319,12 +364,14 @@ private final class FakeVideoFeatureProvider: VideoFeatureProviding, @unchecked 
             Spec(status: .ready, frameHashes: hashes, duration: duration, width: width, height: height)
         }
         static let unsupportedSpec = Spec(status: .unsupported, frameHashes: [nil, nil, nil, nil, nil], duration: 0, width: 0, height: 0)
+        static let decodeFailedSpec = Spec(status: .decodeFailed, frameHashes: [nil, nil, nil, nil, nil], duration: 0, width: 0, height: 0)
         static let insufficientSpec = Spec(status: .insufficientVisualEvidence, frameHashes: [0x1, nil, nil, nil, nil], duration: 2, width: 1920, height: 1080)
     }
 
     private let lock = NSLock()
     private let specs: [String: Spec]
     private var callCounts: [String: Int] = [:]
+    private var nextExtractionAction: (@Sendable () -> Void)?
 
     init(specs: [String: Spec]) {
         self.specs = specs
@@ -340,7 +387,10 @@ private final class FakeVideoFeatureProvider: VideoFeatureProviding, @unchecked 
         let name = URL(fileURLWithPath: path).lastPathComponent
         lock.lock()
         callCounts[name, default: 0] += 1
+        let action = nextExtractionAction
+        nextExtractionAction = nil
         lock.unlock()
+        action?()
         let spec = specs[name] ?? Spec.unsupportedSpec
         return VideoPerceptualFeatures(
             path: path,
@@ -356,6 +406,12 @@ private final class FakeVideoFeatureProvider: VideoFeatureProviding, @unchecked 
     }
 
     func cancelAll() {}
+
+    func runOnceOnNextExtraction(_ action: @escaping @Sendable () -> Void) {
+        lock.lock()
+        nextExtractionAction = action
+        lock.unlock()
+    }
 
     func calls(for name: String) -> Int {
         lock.lock(); defer { lock.unlock() }
