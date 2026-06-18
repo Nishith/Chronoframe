@@ -43,6 +43,10 @@ public struct FileIdentityHasher: Sendable {
     public func processFile(at path: String, cachedRecord: FileCacheRecord?) -> ProcessedFileIdentity {
         let url = URL(fileURLWithPath: path)
 
+        if isICloudDataless(url) {
+            return ProcessedFileIdentity(identity: nil, size: 0, modificationTime: 0, wasHashed: false)
+        }
+
         guard let fileMetadata = fileMetadata(atPath: path) else {
             return ProcessedFileIdentity(identity: nil, size: 0, modificationTime: 0, wasHashed: false)
         }
@@ -181,5 +185,31 @@ public struct FileIdentityHasher: Sendable {
         let modificationTime = TimeInterval(fileStatus.st_mtimespec.tv_sec)
             + (TimeInterval(fileStatus.st_mtimespec.tv_nsec) / 1_000_000_000)
         return (Int64(fileStatus.st_size), modificationTime)
+    }
+
+    #if DEBUG
+    public var isICloudDatalessProvider: @Sendable (URL) -> Bool = { url in
+        do {
+            let values = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+            if let status = values.ubiquitousItemDownloadingStatus {
+                return status == .notDownloaded
+            }
+        } catch {}
+        return false
+    }
+    #endif
+
+    private func isICloudDataless(_ url: URL) -> Bool {
+        #if DEBUG
+        return isICloudDatalessProvider(url)
+        #else
+        do {
+            let values = try url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey])
+            if let status = values.ubiquitousItemDownloadingStatus {
+                return status == .notDownloaded
+            }
+        } catch {}
+        return false
+        #endif
     }
 }

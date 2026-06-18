@@ -308,6 +308,14 @@ public struct ReorganizeExecutor: Sendable {
         observer: ReorganizeExecutionObserver = ReorganizeExecutionObserver(),
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) throws -> ReorganizeExecutionResult {
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.idleSystemSleepDisabled, .userInitiated],
+            reason: "Chronoframe: active reorganize execute"
+        )
+        defer {
+            ProcessInfo.processInfo.endActivity(activity)
+        }
+
         observer.onTaskStart(plan.moves.count)
 
         var movedCount = 0
@@ -472,6 +480,14 @@ public struct ReorganizeExecutor: Sendable {
         observer: ReorganizeExecutionObserver = ReorganizeExecutionObserver(),
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) throws -> ReorganizeExecutionResult {
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.idleSystemSleepDisabled, .userInitiated],
+            reason: "Chronoframe: active reorganize revert"
+        )
+        defer {
+            ProcessInfo.processInfo.endActivity(activity)
+        }
+
         let data = try Data(contentsOf: receiptURL)
         let receipt = try JSONDecoder().decode(ReorganizeAuditReceipt.self, from: data)
         let rootURL = URL(fileURLWithPath: receipt.destinationRoot, isDirectory: true).standardizedFileURL
@@ -701,7 +717,7 @@ public struct ReorganizeExecutor: Sendable {
             abortReason: abortReason
         )
         let data = try JSONEncoder().encode(receipt)
-        try data.write(to: url, options: .atomic)
+        try ReceiptDurability.durablyWrite(data: data, to: url)
     }
 
     private static func isContained(_ url: URL, in rootURL: URL) -> Bool {
