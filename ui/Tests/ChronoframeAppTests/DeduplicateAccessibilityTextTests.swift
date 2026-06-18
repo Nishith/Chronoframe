@@ -35,6 +35,87 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         XCTAssertEqual(DeduplicateAccessibilityText.memberCountPhrase(cluster([.photo, .video])), "2 items")
     }
 
+    // MARK: - Media-aware nouns and composed copy
+
+    private func mediaCluster(_ kinds: [MediaKind], keeperID: String? = nil) -> DuplicateCluster {
+        let members = kinds.enumerated().map { index, kind in
+            PhotoCandidate(path: "/dest/m\(index)", size: 1, modificationTime: 0, mediaKind: kind)
+        }
+        return DuplicateCluster(
+            kind: .exactDuplicate,
+            members: members,
+            suggestedKeeperIDs: keeperID.map { [$0] } ?? [],
+            bytesIfPruned: 0
+        )
+    }
+
+    func testMediaNounDerivesFromClusterContents() {
+        XCTAssertEqual(DeduplicateAccessibilityText.mediaNoun(mediaCluster([.photo, .photo])), "photo")
+        XCTAssertEqual(DeduplicateAccessibilityText.mediaNoun(mediaCluster([.video, .video])), "video")
+        // Mixed (defensive — not produced by exact clustering) → neutral noun.
+        XCTAssertEqual(DeduplicateAccessibilityText.mediaNoun(mediaCluster([.photo, .video])), "item")
+        XCTAssertEqual(DeduplicateAccessibilityText.pluralMediaNoun(mediaCluster([.video, .video])), "videos")
+        XCTAssertEqual(DeduplicateAccessibilityText.pluralMediaNoun(mediaCluster([.photo, .video])), "items")
+    }
+
+    func testMediaNounForSingleMemberFollowsItsKind() {
+        let photo = PhotoCandidate(path: "/dest/a.jpg", size: 1, modificationTime: 0, mediaKind: .photo)
+        let video = PhotoCandidate(path: "/dest/a.mp4", size: 1, modificationTime: 0, mediaKind: .video)
+        XCTAssertEqual(DeduplicateAccessibilityText.mediaNoun(photo), "photo")
+        XCTAssertEqual(DeduplicateAccessibilityText.mediaNoun(video), "video")
+        XCTAssertEqual(DeduplicateAccessibilityText.thisMediaPhrase(photo), "this photo")
+        XCTAssertEqual(DeduplicateAccessibilityText.thisMediaPhrase(video), "this video")
+    }
+
+    func testComposedLabelsAreMediaAwareForVideoClusters() {
+        let photos = mediaCluster([.photo, .photo])
+        let videos = mediaCluster([.video, .video])
+        XCTAssertEqual(DeduplicateAccessibilityText.membersInGroupLabel(photos), "Photos in this group")
+        XCTAssertEqual(DeduplicateAccessibilityText.membersInGroupLabel(videos), "Videos in this group")
+        XCTAssertEqual(DeduplicateAccessibilityText.keepAllHelp(videos), "Keep all videos in this group")
+        XCTAssertEqual(DeduplicateAccessibilityText.deleteAllHelp(videos), "Delete all videos in this group")
+        XCTAssertEqual(DeduplicateAccessibilityText.selectedPreviewLabel(videos), "Selected video preview")
+        XCTAssertEqual(DeduplicateAccessibilityText.intentionallyDifferentNote(videos), "These videos may be intentionally different")
+        XCTAssertEqual(DeduplicateAccessibilityText.intentionallyDifferentNote(photos), "These photos may be intentionally different")
+    }
+
+    func testComposedMemberLabelsAreMediaAware() {
+        let video = PhotoCandidate(path: "/dest/a.mp4", size: 1, modificationTime: 0, mediaKind: .video)
+        let photo = PhotoCandidate(path: "/dest/a.jpg", size: 1, modificationTime: 0, mediaKind: .photo)
+        XCTAssertEqual(DeduplicateAccessibilityText.detailsLabel(video), "Video details")
+        XCTAssertEqual(DeduplicateAccessibilityText.detailsLabel(photo), "Photo details")
+        XCTAssertEqual(DeduplicateAccessibilityText.focusActionName(video), "Focus video")
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.selectsForKeyboardActionsHint(video),
+            "Selects this video for keyboard keep or delete actions"
+        )
+        XCTAssertEqual(
+            DeduplicateAccessibilityText.selectsForComparisonHint(video),
+            "Selects this video for comparison and decision review"
+        )
+    }
+
+    func testRapidTriageLabelUsesMediaAwareCount() {
+        let label = DeduplicateAccessibilityText.rapidTriageLabel(
+            cluster: mediaCluster([.video, .video, .video]), currentIndex: 0, totalCount: 2
+        )
+        XCTAssertTrue(label.contains("3 videos"), label)
+    }
+
+    func testMatchReasonSummaryEditedVariantIsMediaAware() {
+        let editedVariant = MatchReason(kind: .editedVariant)
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(editedVariant, in: mediaCluster([.video, .video])),
+            "Edited version of the same video"
+        )
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(editedVariant, in: mediaCluster([.photo, .photo])),
+            "Edited version of the same photo"
+        )
+        // No cluster context → neutral noun.
+        XCTAssertEqual(MatchReasonFormatter.summary(editedVariant), "Edited version of the same item")
+    }
+
     func testClusterRowLabelUsesVideoNounForVideoCluster() {
         let cluster = DuplicateCluster(
             kind: .exactDuplicate,

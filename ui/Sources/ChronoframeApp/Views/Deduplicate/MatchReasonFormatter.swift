@@ -4,7 +4,10 @@ import ChronoframeCore
 import Foundation
 
 enum MatchReasonFormatter {
-    static func summary(_ reason: MatchReason) -> String {
+    /// `cluster` makes the edited-variant wording media-aware ("same photo" /
+    /// "same video"). It defaults to `nil` — when no cluster context is
+    /// available the noun falls back to the neutral "item".
+    static func summary(_ reason: MatchReason, in cluster: DuplicateCluster? = nil) -> String {
         switch reason.kind {
         case .exactDuplicate:
             return "Identical file content"
@@ -13,7 +16,8 @@ enum MatchReasonFormatter {
         case .nearDuplicate:
             return nearDuplicateSummary(reason)
         case .editedVariant:
-            return "Edited version of the same photo"
+            let noun = cluster.map(DeduplicateAccessibilityText.mediaNoun) ?? "item"
+            return "Edited version of the same \(noun)"
         }
     }
 
