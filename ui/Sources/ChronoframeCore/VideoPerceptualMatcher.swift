@@ -50,9 +50,13 @@ public struct VideoPerceptualFeatures: Sendable, Equatable {
     /// and a baked-in-rotation copy compare equal).
     public var transformedWidth: Int
     public var transformedHeight: Int
-    /// Per-frame dHashes for the usable, informative sampled frames, in sample
-    /// order. Only meaningful when `status == .ready`.
-    public var frameHashes: [UInt64]
+    /// Per-sample-fraction dHashes, **positionally aligned** to
+    /// `VideoPerceptualAnalysis.sampleFractions` (same length). A slot is `nil`
+    /// when that frame was discarded as low-variance or failed to decode. The
+    /// alignment is what lets two copies be compared at *matching* fractions
+    /// even when they retained different subsets of frames — comparing by raw
+    /// array index would misalign them. Only meaningful when `status == .ready`.
+    public var frameHashes: [UInt64?]
     public var status: VideoDecodeStatus
     public var folderRoot: String?
 
@@ -63,7 +67,7 @@ public struct VideoPerceptualFeatures: Sendable, Equatable {
         durationSeconds: Double,
         transformedWidth: Int,
         transformedHeight: Int,
-        frameHashes: [UInt64],
+        frameHashes: [UInt64?],
         status: VideoDecodeStatus,
         folderRoot: String? = nil
     ) {
@@ -85,6 +89,11 @@ public struct VideoPerceptualFeatures: Sendable, Equatable {
         guard transformedHeight > 0 else { return 0 }
         return Double(transformedWidth) / Double(transformedHeight)
     }
+
+    /// Number of usable (non-`nil`) frame samples retained for this video.
+    public var usableSampleCount: Int {
+        frameHashes.reduce(0) { $0 + ($1 == nil ? 0 : 1) }
+    }
 }
 
 // MARK: - Configuration
@@ -104,23 +113,17 @@ public struct VideoPerceptualMatchConfiguration: Sendable, Equatable {
     /// Maximum relative aspect-ratio difference for two videos to be comparable
     /// (orientation/aspect reject). Resolution differences are still allowed.
     public var aspectRatioTolerance: Double
-    /// Cheap anchor pre-check: if the first usable frame pair already differs by
-    /// more than this, skip the full agreement computation (reject clear
-    /// non-matches immediately).
-    public var anchorHammingThreshold: Int
 
     public init(
         durationToleranceSeconds: Double = 1.0,
         frameHammingThreshold: Int = 8,
         aggregateMedianThreshold: Int = 6,
-        aspectRatioTolerance: Double = 0.10,
-        anchorHammingThreshold: Int = 12
+        aspectRatioTolerance: Double = 0.10
     ) {
         self.durationToleranceSeconds = durationToleranceSeconds
         self.frameHammingThreshold = frameHammingThreshold
         self.aggregateMedianThreshold = aggregateMedianThreshold
         self.aspectRatioTolerance = aspectRatioTolerance
-        self.anchorHammingThreshold = anchorHammingThreshold
     }
 }
 
@@ -144,46 +147,46 @@ public struct VideoFrameComparison: Sendable, Equatable {
 /// confidence so they are always review-only.
 public enum VideoPerceptualMatcher {
 
-    /// Compare two videos' frame signatures. Frames are aligned by index (the
-    /// sampling strategy is shared, so frame *i* corresponds), over the common
-    /// prefix length. Returns `nil` when there are too few usable aligned pairs
-    /// to decide.
+    /// Compare two videos' frame signatures. Frames are aligned by **sample
+    /// fraction** (slot *i* is the same timestamp fraction in both videos), and
+    /// only slots where *both* videos retained a frame are compared — so two
+    /// copies that discarded different low-variance frames are still aligned
+    /// correctly rather than by raw array index. Returns `nil` when fewer than
+    /// `minimumUsableSamples` slots overlap.
+    ///
+    /// No first-frame anchor short-circuit: with at most five hashes the full
+    /// comparison is trivial, and rejecting early on slot 0 would make the
+    /// single-outlier tolerance depend on the outlier's position (e.g. a fade or
+    /// burned-in timestamp at the 15% sample).
     public static func compareFrames(
-        _ lhs: [UInt64],
-        _ rhs: [UInt64],
+        _ lhs: [UInt64?],
+        _ rhs: [UInt64?],
         configuration: VideoPerceptualMatchConfiguration
     ) -> VideoFrameComparison? {
         let count = min(lhs.count, rhs.count)
-        guard count >= VideoPerceptualAnalysis.minimumUsableSamples else { return nil }
-
-        // Cheap anchor reject before computing the full distribution.
-        if PerceptualHash.hammingDistance(lhs[0], rhs[0]) > configuration.anchorHammingThreshold {
-            return VideoFrameComparison(
-                usableSamples: count,
-                agreeingSamples: 0,
-                medianHammingDistance: configuration.anchorHammingThreshold + 1,
-                isMatch: false
-            )
-        }
-
         var distances: [Int] = []
         distances.reserveCapacity(count)
         var agreeing = 0
         for i in 0..<count {
-            let d = PerceptualHash.hammingDistance(lhs[i], rhs[i])
+            guard let l = lhs[i], let r = rhs[i] else { continue } // compare matching fractions only
+            let d = PerceptualHash.hammingDistance(l, r)
             distances.append(d)
             if d <= configuration.frameHammingThreshold { agreeing += 1 }
         }
 
+        let usable = distances.count
+        guard usable >= VideoPerceptualAnalysis.minimumUsableSamples else { return nil }
+
         let median = medianOf(distances)
-        // Match rule: at least max(3, N-1) frame pairs agree AND the median
-        // distance is under the aggregate threshold. Requiring N-1 means at
-        // most one outlier frame (a fade, a burned-in timestamp) is tolerated.
-        let required = max(VideoPerceptualAnalysis.minimumUsableSamples, count - 1)
+        // Match rule: at least max(3, N-1) of the N overlapping frame pairs agree
+        // AND the median distance is under the aggregate threshold. Requiring N-1
+        // tolerates at most one outlier frame (a fade, a burned-in timestamp) —
+        // regardless of which sample position it falls on.
+        let required = max(VideoPerceptualAnalysis.minimumUsableSamples, usable - 1)
         let isMatch = agreeing >= required && median <= configuration.aggregateMedianThreshold
 
         return VideoFrameComparison(
-            usableSamples: count,
+            usableSamples: usable,
             agreeingSamples: agreeing,
             medianHammingDistance: median,
             isMatch: isMatch
@@ -199,7 +202,7 @@ public enum VideoPerceptualMatcher {
         folderPriority: [String: Int] = [:]
     ) -> [DuplicateCluster] {
         let ready = features
-            .filter { $0.status == .ready && $0.frameHashes.count >= VideoPerceptualAnalysis.minimumUsableSamples }
+            .filter { $0.status == .ready && $0.usableSampleCount >= VideoPerceptualAnalysis.minimumUsableSamples }
             .sorted { lhs, rhs in
                 if lhs.durationSeconds != rhs.durationSeconds { return lhs.durationSeconds < rhs.durationSeconds }
                 return lhs.path < rhs.path

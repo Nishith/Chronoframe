@@ -15,7 +15,7 @@ final class VideoPerceptualMatcherTests: XCTestCase {
     private func feature(
         _ path: String,
         duration: Double,
-        frames: [UInt64],
+        frames: [UInt64?],
         width: Int = 1920,
         height: Int = 1080,
         folderRoot: String? = nil,
@@ -34,10 +34,10 @@ final class VideoPerceptualMatcherTests: XCTestCase {
         )
     }
 
-    /// Five identical, high-information frame hashes.
-    private let framesA: [UInt64] = [0x0F0F_0F0F, 0x1234_5678, 0xABCD_EF01, 0x7777_1111, 0x9999_AAAA]
+    /// Five identical, high-information frame hashes (one slot per sample fraction).
+    private let framesA: [UInt64?] = [0x0F0F_0F0F, 0x1234_5678, 0xABCD_EF01, 0x7777_1111, 0x9999_AAAA]
     /// Five totally different frame hashes (a different clip).
-    private let framesB: [UInt64] = [0xFFFF_FFFF, 0x0000_0000, 0x5555_5555, 0xAAAA_AAAA, 0xF0F0_F0F0]
+    private let framesB: [UInt64?] = [0xFFFF_FFFF, 0x0000_0000, 0x5555_5555, 0xAAAA_AAAA, 0xF0F0_F0F0]
 
     // MARK: - medianOf
 
@@ -61,26 +61,48 @@ final class VideoPerceptualMatcherTests: XCTestCase {
     }
 
     func testCompareReturnsNilBelowMinimumSamples() {
-        XCTAssertNil(VideoPerceptualMatcher.compareFrames([1, 2], [1, 2], configuration: config))
+        let twoSlots: [UInt64?] = [1, 2]
+        XCTAssertNil(VideoPerceptualMatcher.compareFrames(twoSlots, twoSlots, configuration: config))
     }
 
     func testCompareToleratesSingleOutlierFrame() {
         // One frame differs wildly, the other four are identical → still a match
         // (rule requires max(3, N-1) = 4 of 5 to agree).
         var oneOff = framesA
-        oneOff[2] = ~framesA[2] // flip every bit of one frame
+        oneOff[2] = ~(framesA[2]!) // flip every bit of one frame
         let result = VideoPerceptualMatcher.compareFrames(framesA, oneOff, configuration: config)
         XCTAssertEqual(result?.agreeingSamples, 4)
         XCTAssertEqual(result?.isMatch, true)
     }
 
-    func testCompareAnchorRejectShortCircuits() {
-        // First frame differs beyond the anchor threshold → immediate no-match.
-        var anchorOff = framesA
-        anchorOff[0] = ~framesA[0]
-        let result = VideoPerceptualMatcher.compareFrames(framesA, anchorOff, configuration: config)
-        XCTAssertEqual(result?.agreeingSamples, 0)
-        XCTAssertEqual(result?.isMatch, false)
+    func testFirstSampleOutlierIsStillTolerated() {
+        // Codex P2: the outlier-tolerance must not depend on the sample position.
+        // A fade/overlay/timestamp at the 15% (first) sample must not reject a
+        // pair whose other four samples match.
+        var firstOff = framesA
+        firstOff[0] = ~(framesA[0]!)
+        let result = VideoPerceptualMatcher.compareFrames(framesA, firstOff, configuration: config)
+        XCTAssertEqual(result?.agreeingSamples, 4)
+        XCTAssertEqual(result?.isMatch, true)
+    }
+
+    func testDiscardedSlotsAlignByFractionNotArrayIndex() {
+        // Codex P2: two identical clips that discarded *different* low-variance
+        // frames (A dropped the 15% sample, B dropped the 85% sample) still
+        // align on the three shared fractions and match — comparing by raw array
+        // index would have mis-shifted them.
+        var a = framesA; a[0] = nil
+        var b = framesA; b[4] = nil
+        let result = VideoPerceptualMatcher.compareFrames(a, b, configuration: config)
+        XCTAssertEqual(result?.usableSamples, 3)
+        XCTAssertEqual(result?.isMatch, true)
+    }
+
+    func testInsufficientFractionOverlapReturnsNil() {
+        // Overlap on a single shared fraction → undecidable.
+        var a = framesA; a[0] = nil; a[1] = nil   // keeps slots 2,3,4
+        var b = framesA; b[3] = nil; b[4] = nil   // keeps slots 0,1,2
+        XCTAssertNil(VideoPerceptualMatcher.compareFrames(a, b, configuration: config))
     }
 
     // MARK: - aspect compatibility
