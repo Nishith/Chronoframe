@@ -343,6 +343,19 @@ private struct DeduplicateSettingsTab: View {
                 Text("Paired files are always kept or deleted together. Exact duplicates use the existing file-identity hash and are surfaced as their own group.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
+
+            Section {
+                Toggle(isOn: $preferencesStore.dedupePerceptualVideoMatchingEnabled) {
+                    Text("Find similar videos")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
+            } header: {
+                Text("Video")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+            } footer: {
+                Text("Decodes a few frames from each video to catch re-encodes and format conversions of the same recording. Slower scans, and these matches are always review-only — nothing is ever auto-selected for deletion. Byte-identical videos are found regardless of this setting.")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+            }
         }
         .formStyle(.grouped)
     }
