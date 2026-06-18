@@ -6,15 +6,21 @@ import Foundation
 enum MatchReasonFormatter {
     /// `cluster` makes the edited-variant wording media-aware ("same photo" /
     /// "same video"). It defaults to `nil` — when no cluster context is
-    /// available the noun falls back to the neutral "item".
-    static func summary(_ reason: MatchReason, in cluster: DuplicateCluster? = nil) -> String {
+    /// available the noun falls back to the neutral "item". `videoEvidence`
+    /// replaces the vision-distance percentage with frame-agreement copy for
+    /// perceptual video clusters.
+    static func summary(
+        _ reason: MatchReason,
+        in cluster: DuplicateCluster? = nil,
+        videoEvidence: VideoMatchEvidence? = nil
+    ) -> String {
         switch reason.kind {
         case .exactDuplicate:
             return "Identical file content"
         case .burst:
             return burstSummary(reason)
         case .nearDuplicate:
-            return nearDuplicateSummary(reason)
+            return nearDuplicateSummary(reason, videoEvidence: videoEvidence)
         case .editedVariant:
             let noun = cluster.map(DeduplicateAccessibilityText.mediaNoun) ?? "item"
             return "Edited version of the same \(noun)"
@@ -32,6 +38,9 @@ enum MatchReasonFormatter {
             }
             return "\(similarity) similar burst"
         case .nearDuplicate:
+            if let evidence = annotation.videoEvidence {
+                return videoFrameOneLiner(evidence)
+            }
             return "\(similarity) visually similar"
         case .editedVariant:
             return "Edited variant"
@@ -81,12 +90,27 @@ enum MatchReasonFormatter {
         return parts.joined(separator: ", ").prefix(1).uppercased() + parts.joined(separator: ", ").dropFirst()
     }
 
-    private static func nearDuplicateSummary(_ reason: MatchReason) -> String {
+    private static func nearDuplicateSummary(_ reason: MatchReason, videoEvidence: VideoMatchEvidence?) -> String {
+        if let evidence = videoEvidence {
+            return videoFrameSummary(evidence)
+        }
         let pct = similarityPercentage(reason)
         if let delta = reason.timeDeltaSeconds {
             return "\(pct) visually similar, taken \(formattedTimeDelta(delta)) apart"
         }
         return "\(pct) visually similar"
+    }
+
+    private static func videoFrameSummary(_ evidence: VideoMatchEvidence) -> String {
+        let frames = "\(evidence.agreeingSamples) of \(evidence.usableSamples) sample frames matched"
+        if evidence.durationDeltaSeconds >= 0.1 {
+            return "\(frames) · \(String(format: "%.1fs", evidence.durationDeltaSeconds)) duration difference"
+        }
+        return frames
+    }
+
+    private static func videoFrameOneLiner(_ evidence: VideoMatchEvidence) -> String {
+        "\(evidence.agreeingSamples)/\(evidence.usableSamples) frames match"
     }
 
     private static func similarityPercentage(_ reason: MatchReason) -> String {

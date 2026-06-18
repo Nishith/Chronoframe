@@ -21,6 +21,45 @@ final class MatchReasonFormatterBranchTests: XCTestCase {
         XCTAssertEqual(MatchReasonFormatter.summary(noDistance), "~ visually similar")
     }
 
+    func testVideoEvidenceReplacesVisionSimilarityInSummary() {
+        let reason = MatchReason(kind: .nearDuplicate)
+        let evidence = VideoMatchEvidence(usableSamples: 5, agreeingSamples: 5, medianHammingDistance: 3,
+                                          durationDeltaSeconds: 0.0, visionCorroborated: false)
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(reason, videoEvidence: evidence),
+            "5 of 5 sample frames matched"
+        )
+    }
+
+    func testVideoEvidenceSummaryAppendsDurationDeltaWhenMeaningful() {
+        let reason = MatchReason(kind: .nearDuplicate)
+        let evidence = VideoMatchEvidence(usableSamples: 5, agreeingSamples: 4, medianHammingDistance: 5,
+                                          durationDeltaSeconds: 0.8, visionCorroborated: false)
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(reason, videoEvidence: evidence),
+            "4 of 5 sample frames matched · 0.8s duration difference"
+        )
+    }
+
+    func testVideoEvidenceSummaryOmitsDurationDeltaBelowThreshold() {
+        let reason = MatchReason(kind: .nearDuplicate)
+        let evidence = VideoMatchEvidence(usableSamples: 4, agreeingSamples: 4, medianHammingDistance: 2,
+                                          durationDeltaSeconds: 0.05, visionCorroborated: false)
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(reason, videoEvidence: evidence),
+            "4 of 4 sample frames matched"
+        )
+    }
+
+    func testOneLinerUsesFrameCountForVideoNearDuplicate() {
+        let ann = ClusterAnnotation(
+            matchReason: MatchReason(kind: .nearDuplicate),
+            videoEvidence: VideoMatchEvidence(usableSamples: 5, agreeingSamples: 4, medianHammingDistance: 6,
+                                              durationDeltaSeconds: 0.3, visionCorroborated: false)
+        )
+        XCTAssertEqual(MatchReasonFormatter.oneLiner(ann), "4/5 frames match")
+    }
+
     func testOneLinerCoversEveryClusterKind() {
         XCTAssertEqual(
             MatchReasonFormatter.oneLiner(annotation(.exactDuplicate, distance: 0.0)),

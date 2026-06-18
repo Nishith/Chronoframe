@@ -697,7 +697,7 @@ struct ClusterDetailPane: View {
 
             if showingReasonDetail {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(MatchReasonFormatter.summary(annotation.matchReason, in: cluster))
+                    Text(MatchReasonFormatter.summary(annotation.matchReason, in: cluster, videoEvidence: annotation.videoEvidence))
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     if let keeperReason = annotation.keeperReason {

@@ -249,7 +249,17 @@ struct DeduplicateView: View {
             style: .success,
             title: "Nothing to deduplicate",
             message: sessionStore.summary.map { summary in
-                "Scanned \(summary.totalCandidatesScanned) file\(summary.totalCandidatesScanned == 1 ? "" : "s") in \(formattedDuration(summary.scanDuration)). No similar groups found."
+                var msg = "Scanned \(summary.totalCandidatesScanned) file\(summary.totalCandidatesScanned == 1 ? "" : "s") in \(formattedDuration(summary.scanDuration)). No similar groups found."
+                if let vm = summary.videoPerceptualMetrics, vm.totalConsidered > 0 {
+                    let n = vm.totalConsidered
+                    let problems = vm.unsupported + vm.decodeFailed + vm.insufficientVisualEvidence
+                    if problems > 0 {
+                        msg += " \(n) video\(n == 1 ? "" : "s") analyzed; \(problems) could not be decoded."
+                    } else {
+                        msg += " \(n) video\(n == 1 ? "" : "s") analyzed for similar recordings."
+                    }
+                }
+                return msg
             },
             primary: {
                 Button("Scan Again") {
