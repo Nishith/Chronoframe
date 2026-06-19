@@ -19,16 +19,18 @@ export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT_DIR/.tmp/modulecache"
 cd "$ROOT_DIR"
 mkdir -p "$XDG_CACHE_HOME" "$CLANG_MODULE_CACHE_PATH" .tmp
 
-test_list=".tmp/swift-test-suites.txt"
+test_list=".tmp/swift-test-identifiers.txt"
+suite_counts=".tmp/swift-test-suite-counts.txt"
 swift test list ${COVERAGE_FLAG:+$COVERAGE_FLAG} --package-path ui --disable-sandbox \
-    | grep -E '^[[:alnum:]_]+\.[[:alnum:]_]+/' \
-    | cut -d/ -f1 \
-    | sort -u > "$test_list"
+    | grep -E '^[[:alnum:]_]+\.[[:alnum:]_]+/' > "$test_list"
 
 if [[ ! -s "$test_list" ]]; then
     echo "SwiftPM did not discover any XCTest suites." >&2
     exit 1
 fi
+
+awk -F/ '{ counts[$1] += 1 } END { for (suite in counts) print suite, counts[suite] }' \
+    "$test_list" | sort > "$suite_counts"
 
 if [[ -n "$COVERAGE_FLAG" ]]; then
     coverage_profile_store=".tmp/swift-suite-profraw"
@@ -39,34 +41,62 @@ fi
 
 # GitHub's macos-14-arm64 image selects Swift 6.0.3. Its XCTest process can
 # stop advancing after several seconds in Chronoframe's full suite even though
-# every test reached so far has passed. A fresh process per XCTestCase avoids
-# that runtime bug while preserving complete discovery, execution, and (when
-# requested) aggregate profraw coverage.
+# every test reached so far has passed. Short, count-bounded shards avoid that
+# runtime bug while preserving complete discovery, execution, and (when
+# requested) aggregate profraw coverage without paying one startup per suite.
 SKIP_BUILD_FLAG=""
-while IFS= read -r suite; do
+SHARD_INDEX=0
+MAX_TESTS_PER_SHARD=100
+
+run_shard() {
+    shard_filter="$1"
+    shard_test_count="$2"
+    SHARD_INDEX=$((SHARD_INDEX + 1))
+
     if [[ -n "$COVERAGE_FLAG" ]]; then
         find ui/.build -type f -path '*/debug/codecov/*.profraw' -delete 2>/dev/null || true
     fi
 
-    escaped_suite="${suite//./\\.}"
+    echo "Running Swift test shard $SHARD_INDEX ($shard_test_count tests)"
     swift test ${COVERAGE_FLAG:+$COVERAGE_FLAG} --package-path ui --disable-sandbox \
-        ${SKIP_BUILD_FLAG:+$SKIP_BUILD_FLAG} --filter "^${escaped_suite}/"
+        ${SKIP_BUILD_FLAG:+$SKIP_BUILD_FLAG} --filter "^(${shard_filter})/"
     SKIP_BUILD_FLAG="--skip-build"
 
     if [[ -n "$COVERAGE_FLAG" ]]; then
         profile_count=0
         while IFS= read -r profile; do
-            safe_suite="${suite//./_}"
-            cp "$profile" "$coverage_profile_store/${safe_suite}-$(basename "$profile")"
+            cp "$profile" "$coverage_profile_store/shard-${SHARD_INDEX}-$(basename "$profile")"
             profile_count=$((profile_count + 1))
         done < <(find ui/.build -type f -path '*/debug/codecov/*.profraw' -print)
 
         if (( profile_count == 0 )); then
-            echo "No coverage profile was produced for $suite." >&2
+            echo "No coverage profile was produced for shard $SHARD_INDEX." >&2
             exit 1
         fi
     fi
-done < "$test_list"
+}
+
+current_filter=""
+current_test_count=0
+while read -r suite suite_test_count; do
+    if (( current_test_count > 0 && current_test_count + suite_test_count > MAX_TESTS_PER_SHARD )); then
+        run_shard "$current_filter" "$current_test_count"
+        current_filter=""
+        current_test_count=0
+    fi
+
+    escaped_suite="${suite//./\\.}"
+    if [[ -z "$current_filter" ]]; then
+        current_filter="$escaped_suite"
+    else
+        current_filter="$current_filter|$escaped_suite"
+    fi
+    current_test_count=$((current_test_count + suite_test_count))
+done < "$suite_counts"
+
+if (( current_test_count > 0 )); then
+    run_shard "$current_filter" "$current_test_count"
+fi
 
 if [[ -n "$COVERAGE_FLAG" ]]; then
     codecov_dir="$(find ui/.build -type d -path '*/debug/codecov' -print -quit)"
