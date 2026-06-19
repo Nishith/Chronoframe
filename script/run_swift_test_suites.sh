@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COVERAGE_ARGS=()
+COVERAGE_FLAG=""
 
 if [[ "${1:-}" == "--coverage" ]]; then
-    COVERAGE_ARGS=(--enable-code-coverage)
+    COVERAGE_FLAG="--enable-code-coverage"
 elif [[ $# -gt 0 ]]; then
     echo "Usage: $(basename "$0") [--coverage]" >&2
     exit 2
@@ -20,7 +20,7 @@ cd "$ROOT_DIR"
 mkdir -p "$XDG_CACHE_HOME" "$CLANG_MODULE_CACHE_PATH" .tmp
 
 test_list=".tmp/swift-test-suites.txt"
-swift test list "${COVERAGE_ARGS[@]}" --package-path ui --disable-sandbox \
+swift test list ${COVERAGE_FLAG:+$COVERAGE_FLAG} --package-path ui --disable-sandbox \
     | grep -E '^[[:alnum:]_]+\.[[:alnum:]_]+/' \
     | cut -d/ -f1 \
     | sort -u > "$test_list"
@@ -30,7 +30,7 @@ if [[ ! -s "$test_list" ]]; then
     exit 1
 fi
 
-if (( ${#COVERAGE_ARGS[@]} > 0 )); then
+if [[ -n "$COVERAGE_FLAG" ]]; then
     coverage_profile_store=".tmp/swift-suite-profraw"
     rm -rf "$coverage_profile_store"
     mkdir -p "$coverage_profile_store"
@@ -42,36 +42,33 @@ fi
 # every test reached so far has passed. A fresh process per XCTestCase avoids
 # that runtime bug while preserving complete discovery, execution, and (when
 # requested) aggregate profraw coverage.
-SKIP_BUILD_ARGS=()
+SKIP_BUILD_FLAG=""
 while IFS= read -r suite; do
-    if (( ${#COVERAGE_ARGS[@]} > 0 )); then
+    if [[ -n "$COVERAGE_FLAG" ]]; then
         find ui/.build -type f -path '*/debug/codecov/*.profraw' -delete 2>/dev/null || true
     fi
 
     escaped_suite="${suite//./\\.}"
-    swift test "${COVERAGE_ARGS[@]}" --package-path ui --disable-sandbox \
-        "${SKIP_BUILD_ARGS[@]}" --filter "^${escaped_suite}/"
-    SKIP_BUILD_ARGS=(--skip-build)
+    swift test ${COVERAGE_FLAG:+$COVERAGE_FLAG} --package-path ui --disable-sandbox \
+        ${SKIP_BUILD_FLAG:+$SKIP_BUILD_FLAG} --filter "^${escaped_suite}/"
+    SKIP_BUILD_FLAG="--skip-build"
 
-    if (( ${#COVERAGE_ARGS[@]} > 0 )); then
-        profiles=()
+    if [[ -n "$COVERAGE_FLAG" ]]; then
+        profile_count=0
         while IFS= read -r profile; do
-            profiles+=("$profile")
+            safe_suite="${suite//./_}"
+            cp "$profile" "$coverage_profile_store/${safe_suite}-$(basename "$profile")"
+            profile_count=$((profile_count + 1))
         done < <(find ui/.build -type f -path '*/debug/codecov/*.profraw' -print)
 
-        if (( ${#profiles[@]} == 0 )); then
+        if (( profile_count == 0 )); then
             echo "No coverage profile was produced for $suite." >&2
             exit 1
         fi
-
-        safe_suite="${suite//./_}"
-        for profile in "${profiles[@]}"; do
-            cp "$profile" "$coverage_profile_store/${safe_suite}-$(basename "$profile")"
-        done
     fi
 done < "$test_list"
 
-if (( ${#COVERAGE_ARGS[@]} > 0 )); then
+if [[ -n "$COVERAGE_FLAG" ]]; then
     codecov_dir="$(find ui/.build -type d -path '*/debug/codecov' -print -quit)"
     if [[ -z "$codecov_dir" ]]; then
         echo "SwiftPM coverage directory was not created." >&2
