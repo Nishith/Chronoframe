@@ -98,7 +98,9 @@ Paths must be absolute and readable on the calibrating machine.
 Run:
 
 ```bash
-swift run --package-path ui ChronoframeVideoCalibrationTool --manifest /corpus/manifest.json
+swift run --package-path ui ChronoframeVideoCalibrationTool \
+  --manifest /corpus/manifest.json \
+  --output-json /corpus/results/chronoframe-video-calibration.json
 ```
 
 Reported metrics (all defined against the rubric labels above):
@@ -139,3 +141,16 @@ Reported metrics (all defined against the rubric labels above):
 Record the chosen values and the corpus/commit they were derived from in the PR
 that changes any default in `VideoPerceptualMatchConfiguration` or
 `VideoFeatureExtractionConfiguration`.
+
+The JSON report is the durable calibration artifact. Keep it beside the private
+corpus rather than committing media or absolute corpus paths to this repository.
+Before changing defaults, include these fields in the PR description:
+
+- Chronoframe commit and macOS/hardware used for extraction.
+- Corpus revision, item count, and class distribution.
+- JSON report path or attached redacted report.
+- Chosen `(T, H, A)` and low-variance threshold.
+- Pair precision/recall, hard-negative false-positive rate, candidate-index
+  recall, cluster purity, and warm/cold stability.
+- A short explanation for any threshold that differs from the report's flattest
+  high-precision operating region.

@@ -30,6 +30,8 @@ final class DedupeVideoFeatureCacheTests: XCTestCase {
             durationSeconds: 12.34,
             transformedWidth: 1920,
             transformedHeight: 1080,
+            estimatedDataRate: 8_000_000,
+            metadataCompleteness: 3,
             frameHashes: frames,
             status: status,
             folderRoot: "/lib"
@@ -65,6 +67,8 @@ final class DedupeVideoFeatureCacheTests: XCTestCase {
         XCTAssertEqual(loaded["/lib/a.mp4"], record)
         XCTAssertEqual(loaded["/lib/a.mp4"]?.features.frameHashes, [1, nil, 3, 4, nil])
         XCTAssertEqual(loaded["/lib/a.mp4"]?.features.status, .ready)
+        XCTAssertEqual(loaded["/lib/a.mp4"]?.features.estimatedDataRate, 8_000_000)
+        XCTAssertEqual(loaded["/lib/a.mp4"]?.features.metadataCompleteness, 3)
     }
 
     func testNonReadyStatusesArePersisted() throws {

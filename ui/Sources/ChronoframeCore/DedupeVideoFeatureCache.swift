@@ -100,10 +100,16 @@ extension OrganizerDatabase {
                 analyzer_version INTEGER NOT NULL,
                 sample_strategy_version INTEGER NOT NULL,
                 frame_hashes BLOB,
-                folder_root TEXT
+                folder_root TEXT,
+                estimated_data_rate REAL NOT NULL DEFAULT 0,
+                metadata_completeness INTEGER NOT NULL DEFAULT 0
             );
             """
         )
+        // Additive migration for caches created by the exact/perceptual MVP.
+        // Duplicate-column errors simply mean the cache is already current.
+        try? execute("ALTER TABLE DedupeVideoFeatures ADD COLUMN estimated_data_rate REAL NOT NULL DEFAULT 0;")
+        try? execute("ALTER TABLE DedupeVideoFeatures ADD COLUMN metadata_completeness INTEGER NOT NULL DEFAULT 0;")
     }
 
     public func loadDedupeVideoFeatureRecords() throws -> [String: DedupeVideoFeatureRecord] {
@@ -111,7 +117,8 @@ extension OrganizerDatabase {
         let statement = try prepare(
             """
             SELECT path, size, mtime, duration, transformed_width, transformed_height,
-                   status, analyzer_version, sample_strategy_version, frame_hashes, folder_root
+                   status, analyzer_version, sample_strategy_version, frame_hashes, folder_root,
+                   estimated_data_rate, metadata_completeness
             FROM DedupeVideoFeatures
             """
         )
@@ -144,6 +151,8 @@ extension OrganizerDatabase {
             }
 
             let folderRoot = OrganizerDatabase.sqliteString(statement, column: 10)
+            let estimatedDataRate = sqlite3_column_double(statement, 11)
+            let metadataCompleteness = Int(sqlite3_column_int64(statement, 12))
 
             rows[path] = DedupeVideoFeatureRecord(
                 features: VideoPerceptualFeatures(
@@ -153,6 +162,8 @@ extension OrganizerDatabase {
                     durationSeconds: duration,
                     transformedWidth: width,
                     transformedHeight: height,
+                    estimatedDataRate: estimatedDataRate,
+                    metadataCompleteness: metadataCompleteness,
                     frameHashes: frameHashes,
                     status: status,
                     folderRoot: folderRoot
@@ -169,8 +180,9 @@ extension OrganizerDatabase {
             """
             REPLACE INTO DedupeVideoFeatures
             (path, size, mtime, duration, transformed_width, transformed_height,
-             status, analyzer_version, sample_strategy_version, frame_hashes, folder_root)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             status, analyzer_version, sample_strategy_version, frame_hashes, folder_root,
+             estimated_data_rate, metadata_completeness)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
         )
         defer { sqlite3_finalize(statement) }
@@ -203,6 +215,8 @@ extension OrganizerDatabase {
                 } else {
                     sqlite3_bind_null(statement, 11)
                 }
+                sqlite3_bind_double(statement, 12, f.estimatedDataRate)
+                sqlite3_bind_int64(statement, 13, Int64(f.metadataCompleteness))
                 guard sqlite3_step(statement) == SQLITE_DONE else {
                     throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
                 }

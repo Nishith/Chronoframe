@@ -4,6 +4,13 @@ import ChronoframeCore
 import Foundation
 
 enum MatchReasonFormatter {
+    static func summary(_ annotation: ClusterAnnotation, in cluster: DuplicateCluster? = nil) -> String {
+        if let evidence = annotation.videoEvidence {
+            return videoEvidenceSummary(evidence)
+        }
+        return summary(annotation.matchReason, in: cluster)
+    }
+
     /// `cluster` makes the edited-variant wording media-aware ("same photo" /
     /// "same video"). It defaults to `nil` — when no cluster context is
     /// available the noun falls back to the neutral "item". `videoEvidence`
@@ -28,6 +35,9 @@ enum MatchReasonFormatter {
     }
 
     static func oneLiner(_ annotation: ClusterAnnotation) -> String {
+        if let evidence = annotation.videoEvidence {
+            return "\(evidence.agreeingSamples) of \(evidence.usableSamples) sampled frames match"
+        }
         let similarity = similarityPercentage(annotation.matchReason)
         switch annotation.matchReason.kind {
         case .exactDuplicate:
@@ -77,6 +87,12 @@ enum MatchReasonFormatter {
         case .medium: return "Check"
         case .low: return "Risky"
         }
+    }
+
+    static func videoEvidenceSummary(_ evidence: VideoMatchEvidence) -> String {
+        let frameWord = evidence.usableSamples == 1 ? "frame" : "frames"
+        let duration = String(format: "%.1f", evidence.durationDeltaSeconds)
+        return "\(evidence.agreeingSamples) of \(evidence.usableSamples) sampled \(frameWord) agree. Video lengths differ by \(duration) seconds."
     }
 
     // MARK: - Private

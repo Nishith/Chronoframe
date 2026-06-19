@@ -135,6 +135,9 @@ enum DeduplicateAccessibilityText {
         if let keeper = suggestedKeeperName(in: cluster) {
             parts.append("suggested keeper \(keeper)")
         }
+        if let annotation = cluster.annotation, annotation.videoEvidence != nil {
+            parts.append(MatchReasonFormatter.oneLiner(annotation))
+        }
         if let rationale = keeperRationale(cluster.annotation?.keeperReason) {
             parts.append(rationale)
         }
@@ -165,6 +168,9 @@ enum DeduplicateAccessibilityText {
         ]
         if let keeper = suggestedKeeperName(in: cluster) {
             parts.append("suggested keeper \(keeper)")
+        }
+        if let annotation = cluster.annotation, annotation.videoEvidence != nil {
+            parts.append(MatchReasonFormatter.oneLiner(annotation))
         }
         if let rationale = keeperRationale(cluster.annotation?.keeperReason) {
             parts.append(rationale)

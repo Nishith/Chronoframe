@@ -70,6 +70,7 @@ struct ClusterListPane: View {
     @Binding var focusedMemberPath: String?
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
     @Binding var confidenceFilter: DedupeClusterConfidenceFilter
+    var videoAnalysisNote: String? = nil
     var onKeepAll: (DuplicateCluster) -> Void = { _ in }
     var onAcceptSuggestion: (DuplicateCluster) -> Void = { _ in }
     var onDeleteAll: (DuplicateCluster) -> Void = { _ in }
@@ -106,6 +107,20 @@ struct ClusterListPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if let videoAnalysisNote {
+                HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
+                    Image(systemName: "film")
+                        .accessibilityHidden(true)
+                    Text(videoAnalysisNote)
+                        .font(.caption)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .lineLimit(2)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, DesignTokens.Spacing.sm)
+                .padding(.top, DesignTokens.Spacing.xs)
+                .accessibilityElement(children: .combine)
+            }
             Picker("Filter", selection: $confidenceFilter) {
                 ForEach(DedupeClusterConfidenceFilter.allCases, id: \.self) { filter in
                     Text("\(filter.label) (\(bucketCount(filter)))")

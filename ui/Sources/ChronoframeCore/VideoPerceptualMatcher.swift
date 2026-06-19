@@ -17,6 +17,16 @@ public enum VideoPerceptualAnalysis {
     /// Minimum number of usable (informative, aligned) frame pairs required to
     /// make a perceptual decision. Below this a video is `insufficientVisualEvidence`.
     public static let minimumUsableSamples = 3
+    /// Very short clips can legitimately expose only two distinct informative
+    /// frames. They remain review-only and require both frames to agree.
+    public static let shortClipThresholdSeconds = 3.0
+    public static let shortClipMinimumUsableSamples = 2
+
+    public static func minimumUsableSamples(forDuration duration: Double) -> Int {
+        duration <= shortClipThresholdSeconds
+            ? shortClipMinimumUsableSamples
+            : minimumUsableSamples
+    }
 }
 
 // MARK: - Decode status
@@ -50,6 +60,9 @@ public struct VideoPerceptualFeatures: Sendable, Equatable {
     /// and a baked-in-rotation copy compare equal).
     public var transformedWidth: Int
     public var transformedHeight: Int
+    /// Video-only keeper signals loaded from the primary video track.
+    public var estimatedDataRate: Double
+    public var metadataCompleteness: Int
     /// Per-sample-fraction dHashes, **positionally aligned** to
     /// `VideoPerceptualAnalysis.sampleFractions` (same length). A slot is `nil`
     /// when that frame was discarded as low-variance or failed to decode. The
@@ -67,6 +80,8 @@ public struct VideoPerceptualFeatures: Sendable, Equatable {
         durationSeconds: Double,
         transformedWidth: Int,
         transformedHeight: Int,
+        estimatedDataRate: Double = 0,
+        metadataCompleteness: Int = 0,
         frameHashes: [UInt64?],
         status: VideoDecodeStatus,
         folderRoot: String? = nil
@@ -77,6 +92,8 @@ public struct VideoPerceptualFeatures: Sendable, Equatable {
         self.durationSeconds = durationSeconds
         self.transformedWidth = transformedWidth
         self.transformedHeight = transformedHeight
+        self.estimatedDataRate = estimatedDataRate
+        self.metadataCompleteness = metadataCompleteness
         self.frameHashes = frameHashes
         self.status = status
         self.folderRoot = folderRoot
@@ -147,6 +164,38 @@ public struct VideoFrameComparison: Sendable, Equatable {
 /// confidence so they are always review-only.
 public enum VideoPerceptualMatcher {
 
+    /// Select videos worth frame-decoding using only cheap track metadata.
+    /// Duration is a prefilter, never evidence: both members of every plausible
+    /// duration/aspect pair are returned.
+    public static func metadataCandidatePaths(
+        probes: [VideoMetadataProbe],
+        configuration: VideoPerceptualMatchConfiguration
+    ) -> Set<String> {
+        let ready = probes
+            .filter { $0.status == .ready && $0.durationSeconds > 0 && $0.aspectRatio > 0 }
+            .sorted {
+                $0.durationSeconds == $1.durationSeconds
+                    ? $0.path < $1.path
+                    : $0.durationSeconds < $1.durationSeconds
+            }
+        var paths = Set<String>()
+        for index in ready.indices {
+            var neighbor = index + 1
+            while neighbor < ready.count,
+                  ready[neighbor].durationSeconds - ready[index].durationSeconds <= configuration.durationToleranceSeconds {
+                let lhs = ready[index].aspectRatio
+                let rhs = ready[neighbor].aspectRatio
+                let relativeDifference = abs(lhs - rhs) / max(lhs, rhs)
+                if relativeDifference <= configuration.aspectRatioTolerance {
+                    paths.insert(ready[index].path)
+                    paths.insert(ready[neighbor].path)
+                }
+                neighbor += 1
+            }
+        }
+        return paths
+    }
+
     /// Compare two videos' frame signatures. Frames are aligned by **sample
     /// fraction** (slot *i* is the same timestamp fraction in both videos), and
     /// only slots where *both* videos retained a frame are compared — so two
@@ -161,7 +210,8 @@ public enum VideoPerceptualMatcher {
     public static func compareFrames(
         _ lhs: [UInt64?],
         _ rhs: [UInt64?],
-        configuration: VideoPerceptualMatchConfiguration
+        configuration: VideoPerceptualMatchConfiguration,
+        minimumUsableSamples: Int = VideoPerceptualAnalysis.minimumUsableSamples
     ) -> VideoFrameComparison? {
         let count = min(lhs.count, rhs.count)
         var distances: [Int] = []
@@ -175,14 +225,14 @@ public enum VideoPerceptualMatcher {
         }
 
         let usable = distances.count
-        guard usable >= VideoPerceptualAnalysis.minimumUsableSamples else { return nil }
+        guard usable >= minimumUsableSamples else { return nil }
 
         let median = medianOf(distances)
         // Match rule: at least max(3, N-1) of the N overlapping frame pairs agree
         // AND the median distance is under the aggregate threshold. Requiring N-1
         // tolerates at most one outlier frame (a fade, a burned-in timestamp) —
         // regardless of which sample position it falls on.
-        let required = max(VideoPerceptualAnalysis.minimumUsableSamples, usable - 1)
+        let required = max(minimumUsableSamples, usable - 1)
         let isMatch = agreeing >= required && median <= configuration.aggregateMedianThreshold
 
         return VideoFrameComparison(
@@ -202,7 +252,10 @@ public enum VideoPerceptualMatcher {
         folderPriority: [String: Int] = [:]
     ) -> [DuplicateCluster] {
         let ready = features
-            .filter { $0.status == .ready && $0.usableSampleCount >= VideoPerceptualAnalysis.minimumUsableSamples }
+            .filter {
+                $0.status == .ready
+                    && $0.usableSampleCount >= VideoPerceptualAnalysis.minimumUsableSamples(forDuration: $0.durationSeconds)
+            }
             .sorted { lhs, rhs in
                 if lhs.durationSeconds != rhs.durationSeconds { return lhs.durationSeconds < rhs.durationSeconds }
                 return lhs.path < rhs.path
@@ -215,24 +268,29 @@ public enum VideoPerceptualMatcher {
         // component (not a global best).
         var rawMatches: [(i: Int, j: Int, comparison: VideoFrameComparison)] = []
 
-        for i in 0..<ready.count {
-            let a = ready[i]
-            var j = i + 1
-            // Sliding duration window: stop as soon as the neighbor is more than
-            // T longer (the array is duration-sorted).
-            while j < ready.count, ready[j].durationSeconds - a.durationSeconds <= configuration.durationToleranceSeconds {
-                let b = ready[j]
-                defer { j += 1 }
+        // Locality-sensitive frame bands avoid the quadratic same-duration
+        // cliff common in social-media libraries. The band count is H+1, so
+        // any frame pair within H Hamming bits must share at least one exact
+        // band (pigeonhole principle); this prunes work without losing matches.
+        for pair in candidatePairs(features: ready, hammingThreshold: configuration.frameHammingThreshold) {
+            let a = ready[pair.lower]
+            let b = ready[pair.upper]
+            guard b.durationSeconds - a.durationSeconds <= configuration.durationToleranceSeconds else { continue }
+            guard aspectCompatible(a, b, tolerance: configuration.aspectRatioTolerance) else { continue }
+            let minimumSamples = min(
+                VideoPerceptualAnalysis.minimumUsableSamples(forDuration: a.durationSeconds),
+                VideoPerceptualAnalysis.minimumUsableSamples(forDuration: b.durationSeconds)
+            )
+            guard let comparison = compareFrames(
+                a.frameHashes,
+                b.frameHashes,
+                configuration: configuration,
+                minimumUsableSamples: minimumSamples
+            ),
+                  comparison.isMatch else { continue }
 
-                // Orientation / aspect reject (resolution differences allowed).
-                if !aspectCompatible(a, b, tolerance: configuration.aspectRatioTolerance) { continue }
-
-                guard let comparison = compareFrames(a.frameHashes, b.frameHashes, configuration: configuration),
-                      comparison.isMatch else { continue }
-
-                unionFind.union(i, j)
-                rawMatches.append((i: i, j: j, comparison: comparison))
-            }
+            unionFind.union(pair.lower, pair.upper)
+            rawMatches.append((i: pair.lower, j: pair.upper, comparison: comparison))
         }
 
         // Strongest (lowest-median) comparison per component root.
@@ -308,6 +366,48 @@ public enum VideoPerceptualMatcher {
         return abs(lhs - rhs) / max(lhs, rhs) <= tolerance
     }
 
+    static func candidatePairs(
+        features: [VideoPerceptualFeatures],
+        hammingThreshold: Int
+    ) -> [VideoCandidatePair] {
+        guard features.count > 1 else { return [] }
+        if hammingThreshold >= 64 {
+            return (0..<features.count).flatMap { lower in
+                ((lower + 1)..<features.count).map { VideoCandidatePair(lower: lower, upper: $0) }
+            }
+        }
+
+        let bandCount = min(64, max(1, hammingThreshold + 1))
+        var buckets: [VideoFrameBandKey: [Int]] = [:]
+        for (featureIndex, feature) in features.enumerated() {
+            for (sampleIndex, hash) in feature.frameHashes.enumerated() {
+                guard let hash else { continue }
+                var bitOffset = 0
+                for bandIndex in 0..<bandCount {
+                    let width = 64 / bandCount + (bandIndex < 64 % bandCount ? 1 : 0)
+                    let mask = width == 64 ? UInt64.max : (UInt64(1) << UInt64(width)) - 1
+                    let value = (hash >> UInt64(bitOffset)) & mask
+                    buckets[VideoFrameBandKey(sampleIndex: sampleIndex, bandIndex: bandIndex, value: value), default: []]
+                        .append(featureIndex)
+                    bitOffset += width
+                }
+            }
+        }
+
+        var pairs = Set<VideoCandidatePair>()
+        for indices in buckets.values where indices.count > 1 {
+            let unique = Array(Set(indices)).sorted()
+            for lowerOffset in 0..<(unique.count - 1) {
+                for upperOffset in (lowerOffset + 1)..<unique.count {
+                    pairs.insert(VideoCandidatePair(lower: unique[lowerOffset], upper: unique[upperOffset]))
+                }
+            }
+        }
+        return pairs.sorted {
+            $0.lower == $1.lower ? $0.upper < $1.upper : $0.lower < $1.lower
+        }
+    }
+
     static func makeCandidate(_ feature: VideoPerceptualFeatures) -> PhotoCandidate {
         PhotoCandidate(
             path: feature.path,
@@ -316,7 +416,9 @@ public enum VideoPerceptualMatcher {
             pixelWidth: feature.transformedWidth,
             pixelHeight: feature.transformedHeight,
             folderRoot: feature.folderRoot,
-            mediaKind: .video
+            mediaKind: .video,
+            videoEstimatedDataRate: feature.estimatedDataRate,
+            videoMetadataCompleteness: feature.metadataCompleteness
         )
     }
 
@@ -328,6 +430,17 @@ public enum VideoPerceptualMatcher {
         // Even count: lower-biased mean of the two central values (deterministic).
         return (sorted[mid - 1] + sorted[mid]) / 2
     }
+}
+
+struct VideoCandidatePair: Hashable, Sendable {
+    var lower: Int
+    var upper: Int
+}
+
+private struct VideoFrameBandKey: Hashable {
+    var sampleIndex: Int
+    var bandIndex: Int
+    var value: UInt64
 }
 
 // MARK: - Union-find

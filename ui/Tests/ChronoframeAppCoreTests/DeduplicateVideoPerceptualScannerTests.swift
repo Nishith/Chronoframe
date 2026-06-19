@@ -9,6 +9,15 @@ import XCTest
 /// prune scoping, honest summary counts), not pixel behavior.
 final class DeduplicateVideoPerceptualScannerTests: XCTestCase {
 
+    func testVideoDecodePacingRespondsToPowerAndThermalPressure() {
+        XCTAssertEqual(DeduplicateScanner.videoDecodePacingDelay(lowPowerMode: false, thermalState: .nominal), 0)
+        XCTAssertGreaterThan(DeduplicateScanner.videoDecodePacingDelay(lowPowerMode: true, thermalState: .nominal), 0)
+        XCTAssertGreaterThan(
+            DeduplicateScanner.videoDecodePacingDelay(lowPowerMode: false, thermalState: .serious),
+            DeduplicateScanner.videoDecodePacingDelay(lowPowerMode: false, thermalState: .fair)
+        )
+    }
+
     // MARK: - Opt-in gating
 
     func testPerceptualLaneOffByDefaultDoesNotDecodeOrReport() async throws {
@@ -26,6 +35,7 @@ final class DeduplicateVideoPerceptualScannerTests: XCTestCase {
         let result = try await scan(dir, provider: provider, perceptual: false)
 
         XCTAssertEqual(provider.totalCalls, 0, "lane off must never decode")
+        XCTAssertEqual(provider.totalProbes, 0, "lane off must never inspect video metadata")
         XCTAssertNil(result.summary.videoPerceptualMetrics, "lane off must not report metrics")
         XCTAssertTrue(result.clusters.allSatisfy { $0.kind != .nearDuplicate })
     }
@@ -57,6 +67,36 @@ final class DeduplicateVideoPerceptualScannerTests: XCTestCase {
         XCTAssertEqual(metrics.cacheHits, 0)
     }
 
+    func testPerceptualLaneReportsDedicatedProgressPhase() async throws {
+        let dir = try makeTempDir("PerceptualProgress")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try writeVideo(dir, "a.mp4", byte: 0x11, size: 1000)
+        try writeVideo(dir, "b.mp4", byte: 0x22, size: 1001)
+        let provider = FakeVideoFeatureProvider(specs: [
+            "a.mp4": .ready(hashes: matchingHashes),
+            "b.mp4": .ready(hashes: matchingHashes),
+        ])
+        let scanner = DeduplicateScanner(imageAnalyzer: NoopImageAnalyzer(), videoFeatureProvider: provider)
+        let config = DeduplicateConfiguration(destinationPath: dir.path, perceptualVideoMatchingEnabled: true)
+        var startedTotal: Int?
+        var finalProgress: (Int, Int)?
+        var completed = false
+
+        for try await event in scanner.scan(configuration: config) {
+            switch event {
+            case let .phaseStarted(.videoAnalysis, total): startedTotal = total
+            case let .phaseProgress(.videoAnalysis, count, total): finalProgress = (count, total)
+            case .phaseCompleted(.videoAnalysis): completed = true
+            default: break
+            }
+        }
+
+        XCTAssertEqual(startedTotal, 2)
+        XCTAssertEqual(finalProgress?.0, 2)
+        XCTAssertEqual(finalProgress?.1, 2)
+        XCTAssertTrue(completed)
+    }
+
     // MARK: - Exact-group exclusivity
 
     func testExactGroupVideosAreExcludedFromPerceptualLane() async throws {
@@ -82,6 +122,8 @@ final class DeduplicateVideoPerceptualScannerTests: XCTestCase {
         XCTAssertEqual(result.clusters.filter { $0.kind == .exactDuplicate }.count, 1)
         XCTAssertEqual(provider.calls(for: "exact1.mp4"), 0)
         XCTAssertEqual(provider.calls(for: "exact2.mp4"), 0)
+        XCTAssertEqual(provider.probes(for: "exact1.mp4"), 0)
+        XCTAssertEqual(provider.probes(for: "exact2.mp4"), 0)
 
         let near = result.clusters.filter { $0.kind == .nearDuplicate }
         XCTAssertEqual(near.count, 1)
@@ -130,22 +172,45 @@ final class DeduplicateVideoPerceptualScannerTests: XCTestCase {
         ])
         let first = try await scan(dir, provider: provider, perceptual: true)
         XCTAssertEqual(try XCTUnwrap(first.summary.videoPerceptualMetrics).unsupported, 1)
-        XCTAssertEqual(provider.totalCalls, 1)
+        XCTAssertEqual(provider.totalCalls, 0)
+        XCTAssertEqual(provider.totalProbes, 1)
 
         let second = try await scan(dir, provider: provider, perceptual: true)
         let metrics = try XCTUnwrap(second.summary.videoPerceptualMetrics)
         XCTAssertEqual(metrics.cacheHits, 1)
         XCTAssertEqual(metrics.unsupported, 1, "cached unsupported outcome is reused")
-        XCTAssertEqual(provider.totalCalls, 1, "unsupported video is not re-decoded next scan")
+        XCTAssertEqual(provider.totalCalls, 0, "unsupported video is never frame-decoded")
+        XCTAssertEqual(provider.totalProbes, 1, "unsupported metadata outcome is cached")
+    }
+
+    func testMetadataPrefilterSkipsFrameDecodeWithoutPlausibleNeighbor() async throws {
+        let dir = try makeTempDir("PerceptualMetadataPrefilter")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try writeVideo(dir, "short.mp4", byte: 0x61, size: 801)
+        try writeVideo(dir, "long.mp4", byte: 0x62, size: 802)
+
+        let provider = FakeVideoFeatureProvider(specs: [
+            "short.mp4": .ready(hashes: matchingHashes, duration: 10),
+            "long.mp4": .ready(hashes: matchingHashes, duration: 40),
+        ])
+        let result = try await scan(dir, provider: provider, perceptual: true)
+        let metrics = try XCTUnwrap(result.summary.videoPerceptualMetrics)
+
+        XCTAssertEqual(provider.totalProbes, 2)
+        XCTAssertEqual(provider.totalCalls, 0, "unique-duration videos must not decode sample frames")
+        XCTAssertEqual(metrics.prefilteredNoNeighbor, 2)
+        XCTAssertEqual(metrics.analyzed, 0)
     }
 
     func testCancelledExtractionDoesNotCacheDecodeFailure() async throws {
         let dir = try makeTempDir("PerceptualCancellation")
         defer { try? FileManager.default.removeItem(at: dir) }
         try writeVideo(dir, "cancelled.mp4", byte: 0x56, size: 701)
+        try writeVideo(dir, "peer.mp4", byte: 0x57, size: 702)
 
         let provider = FakeVideoFeatureProvider(specs: [
             "cancelled.mp4": .decodeFailedSpec,
+            "peer.mp4": .decodeFailedSpec,
         ])
         let scanner = DeduplicateScanner(
             imageAnalyzer: NoopImageAnalyzer(),
@@ -179,9 +244,9 @@ final class DeduplicateVideoPerceptualScannerTests: XCTestCase {
         }
         let metrics = try XCTUnwrap(resumedSummary?.videoPerceptualMetrics)
         XCTAssertEqual(metrics.cacheHits, 0)
-        XCTAssertEqual(metrics.cacheMisses, 1)
-        XCTAssertEqual(metrics.decodeFailed, 1)
-        XCTAssertEqual(provider.totalCalls, 2, "the next scan must retry the cancelled video")
+        XCTAssertEqual(metrics.cacheMisses, 2)
+        XCTAssertEqual(metrics.decodeFailed, 2)
+        XCTAssertEqual(provider.totalCalls, 3, "the next scan must retry both uncached videos")
     }
 
     // MARK: - Prune scoping
@@ -364,17 +429,42 @@ private final class FakeVideoFeatureProvider: VideoFeatureProviding, @unchecked 
             Spec(status: .ready, frameHashes: hashes, duration: duration, width: width, height: height)
         }
         static let unsupportedSpec = Spec(status: .unsupported, frameHashes: [nil, nil, nil, nil, nil], duration: 0, width: 0, height: 0)
-        static let decodeFailedSpec = Spec(status: .decodeFailed, frameHashes: [nil, nil, nil, nil, nil], duration: 0, width: 0, height: 0)
-        static let insufficientSpec = Spec(status: .insufficientVisualEvidence, frameHashes: [0x1, nil, nil, nil, nil], duration: 2, width: 1920, height: 1080)
+        static let decodeFailedSpec = Spec(status: .decodeFailed, frameHashes: [nil, nil, nil, nil, nil], duration: 10, width: 1920, height: 1080)
+        static let insufficientSpec = Spec(status: .insufficientVisualEvidence, frameHashes: [0x1, nil, nil, nil, nil], duration: 10, width: 1920, height: 1080)
     }
 
     private let lock = NSLock()
     private let specs: [String: Spec]
     private var callCounts: [String: Int] = [:]
+    private var probeCounts: [String: Int] = [:]
     private var nextExtractionAction: (@Sendable () -> Void)?
 
     init(specs: [String: Spec]) {
         self.specs = specs
+    }
+
+    func probeMetadata(
+        path: String,
+        size: Int64,
+        modificationTime: TimeInterval,
+        folderRoot: String?,
+        isCancelled: @Sendable () -> Bool
+    ) -> VideoMetadataProbe {
+        let name = URL(fileURLWithPath: path).lastPathComponent
+        lock.lock()
+        probeCounts[name, default: 0] += 1
+        lock.unlock()
+        let spec = specs[name] ?? Spec.unsupportedSpec
+        return VideoMetadataProbe(
+            path: path,
+            size: size,
+            modificationTime: modificationTime,
+            durationSeconds: spec.duration,
+            transformedWidth: spec.width,
+            transformedHeight: spec.height,
+            folderRoot: folderRoot,
+            status: spec.status == .unsupported ? .unsupported : .ready
+        )
     }
 
     func extractFeatures(
@@ -416,6 +506,16 @@ private final class FakeVideoFeatureProvider: VideoFeatureProviding, @unchecked 
     func calls(for name: String) -> Int {
         lock.lock(); defer { lock.unlock() }
         return callCounts[name, default: 0]
+    }
+
+    func probes(for name: String) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return probeCounts[name, default: 0]
+    }
+
+    var totalProbes: Int {
+        lock.lock(); defer { lock.unlock() }
+        return probeCounts.values.reduce(0, +)
     }
 
     var totalCalls: Int {

@@ -455,17 +455,91 @@ public struct TransferExecutor: Sendable {
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) throws -> TransferExecutionResult {
         if maxConcurrentCopies > 1 {
-            let queuedJobs = try database.loadQueuedJobs(status: status, orderByInsertion: orderByInsertion)
-            return try execute(
-                queuedJobs: queuedJobs,
+            let totalJobs = try database.queuedJobCount(status: status)
+            let bytesTotal = try totalBytesForQueuedJobs(
+                database: database,
+                status: status,
+                orderByInsertion: orderByInsertion,
+                batchSize: batchSize
+            )
+            let context = try TransferExecutionContext(
+                executor: self,
                 database: database,
                 destinationRoot: destinationRoot,
                 verifyCopies: verifyCopies,
                 runLogger: runLogger,
-                maxConcurrentCopies: maxConcurrentCopies,
                 observer: observer,
-                isCancelled: isCancelled
+                isCancelled: isCancelled,
+                totalJobs: totalJobs,
+                bytesTotal: bytesTotal
             )
+            context.start()
+
+            var attemptedJobs = 0
+            var lastThrottledReason: String? = nil
+
+            do {
+                try database.enumerateQueuedJobBatches(
+                    status: status,
+                    orderByInsertion: orderByInsertion,
+                    batchSize: batchSize
+                ) { batch in
+                    if isCancelled() {
+                        throw TransferExecutionStopSignal.stopRequested
+                    }
+
+                    var batchStart = 0
+                    while batchStart < batch.count {
+                        if isCancelled() {
+                            throw TransferExecutionStopSignal.stopRequested
+                        }
+
+                        let (concurrency, currentReason) = determineConcurrency(requested: maxConcurrentCopies)
+
+                        if currentReason != lastThrottledReason {
+                            lastThrottledReason = currentReason
+                            if let reason = currentReason {
+                                context.observer.onIssue(RunIssue(severity: .warning, message: "Running gently: \(reason)"))
+                            } else {
+                                context.observer.onIssue(RunIssue(severity: .warning, message: "Resuming standard speed: Low Power Mode/Thermal restriction cleared"))
+                            }
+                        }
+
+                        let batchEnd = min(batchStart + concurrency, batch.count)
+                        let batchJobs = Array(batch[batchStart..<batchEnd])
+
+                        let outcomes = runBlockingPrepare(
+                            batchJobs: batchJobs,
+                            context: context,
+                            concurrency: concurrency
+                        )
+
+                        for offset in batchJobs.indices {
+                            if isCancelled() {
+                                outcomes.removePreparedCopies(after: offset - 1, runLogger: runLogger, executor: self)
+                                throw TransferExecutionStopSignal.stopRequested
+                            }
+
+                            attemptedJobs += 1
+                            let shouldContinue = try context.apply(
+                                outcome: outcomes.value(at: offset),
+                                for: batchJobs[offset],
+                                attemptedJobs: attemptedJobs
+                            )
+                            if !shouldContinue {
+                                outcomes.removePreparedCopies(after: offset, runLogger: runLogger, executor: self)
+                                throw TransferExecutionStopSignal.stopRequested
+                            }
+                        }
+
+                        batchStart = batchEnd
+                    }
+                }
+            } catch TransferExecutionStopSignal.stopRequested {
+                // Stop requested via cancellation or abort threshold.
+            }
+
+            return try context.finish(attemptedJobs: attemptedJobs)
         }
 
         let totalJobs = try database.queuedJobCount(status: status)
@@ -525,7 +599,6 @@ public struct TransferExecutor: Sendable {
         maxConcurrentCopies: Int,
         isCancelled: @escaping @Sendable () -> Bool
     ) throws -> TransferExecutionResult {
-        let requestedConcurrency = min(max(1, maxConcurrentCopies), 4)
         var attemptedJobs = 0
         var batchStart = 0
         var lastThrottledReason: String? = nil
@@ -535,23 +608,7 @@ public struct TransferExecutor: Sendable {
                 break
             }
 
-            var concurrency = requestedConcurrency
-            var currentReason: String? = nil
-            #if DEBUG
-            let isLPM = isLowPowerModeEnabledProvider()
-            let thermal = thermalStateProvider()
-            #else
-            let isLPM = ProcessInfo.processInfo.isLowPowerModeEnabled
-            let thermal = ProcessInfo.processInfo.thermalState
-            #endif
-
-            if isLPM {
-                concurrency = 1
-                currentReason = "Low Power Mode is on"
-            } else if thermal == .serious || thermal == .critical {
-                concurrency = 1
-                currentReason = "Device thermal state is elevated"
-            }
+            let (concurrency, currentReason) = determineConcurrency(requested: maxConcurrentCopies)
 
             if currentReason != lastThrottledReason {
                 lastThrottledReason = currentReason
@@ -564,36 +621,16 @@ public struct TransferExecutor: Sendable {
 
             let batchEnd = min(batchStart + concurrency, queuedJobs.count)
             let batchJobs = Array(queuedJobs[batchStart..<batchEnd])
-            let outcomes = ParallelTransferOutcomes(count: batchJobs.count)
-            let queue = OperationQueue()
-            queue.name = "Chronoframe.TransferExecutor.copy"
-            queue.maxConcurrentOperationCount = concurrency
 
-            let verifyCopies = context.verifyCopies
-            let runLogger = context.runLogger
-            let isCancelledRef = context.isCancelled
-            let observerRef = context.observer
-
-            for (offset, job) in batchJobs.enumerated() {
-                queue.addOperation {
-                    let outcome = autoreleasepool {
-                        self.prepareCopy(
-                            job: job,
-                            verifyCopies: verifyCopies,
-                            runLogger: runLogger,
-                            isCancelled: isCancelledRef,
-                            onIssue: { issue in observerRef.onIssue(issue) }
-                        )
-                    }
-                    outcomes.store(outcome, at: offset)
-                }
-            }
-
-            queue.waitUntilAllOperationsAreFinished()
+            let outcomes = runBlockingPrepare(
+                batchJobs: batchJobs,
+                context: context,
+                concurrency: concurrency
+            )
 
             for offset in batchJobs.indices {
                 if isCancelled() {
-                    outcomes.removePreparedCopies(after: offset - 1, runLogger: runLogger, executor: self)
+                    outcomes.removePreparedCopies(after: offset - 1, runLogger: context.runLogger, executor: self)
                     return try context.finish(attemptedJobs: attemptedJobs)
                 }
 
@@ -604,7 +641,7 @@ public struct TransferExecutor: Sendable {
                     attemptedJobs: attemptedJobs
                 )
                 if !shouldContinue {
-                    outcomes.removePreparedCopies(after: offset, runLogger: runLogger, executor: self)
+                    outcomes.removePreparedCopies(after: offset, runLogger: context.runLogger, executor: self)
                     return try context.finish(attemptedJobs: attemptedJobs)
                 }
             }
@@ -613,6 +650,63 @@ public struct TransferExecutor: Sendable {
         }
 
         return try context.finish(attemptedJobs: attemptedJobs)
+    }
+
+    func determineConcurrency(requested: Int) -> (Int, String?) {
+        #if DEBUG
+        let isLPM = isLowPowerModeEnabledProvider()
+        let thermal = thermalStateProvider()
+        #else
+        let isLPM = ProcessInfo.processInfo.isLowPowerModeEnabled
+        let thermal = ProcessInfo.processInfo.thermalState
+        #endif
+
+        if isLPM {
+            return (1, "Low Power Mode is on")
+        }
+        if thermal == .serious || thermal == .critical {
+            return (1, "Device thermal state is elevated")
+        }
+
+        let activeProcessors = ProcessInfo.processInfo.activeProcessorCount
+        let maxLimit = min(max(4, activeProcessors), 6)
+        let concurrency = min(max(1, requested), maxLimit)
+        return (concurrency, nil)
+    }
+
+    private func runBlockingPrepare(
+        batchJobs: [QueuedCopyJob],
+        context: TransferExecutionContext,
+        concurrency: Int
+    ) -> ParallelTransferOutcomes {
+        let outcomes = ParallelTransferOutcomes(count: batchJobs.count)
+        let verifyCopies = context.verifyCopies
+        let runLogger = context.runLogger
+        let isCancelledRef = context.isCancelled
+        let observerRef = context.observer
+
+        let semaphore = DispatchSemaphore(value: concurrency)
+        let group = DispatchGroup()
+
+        for (offset, job) in batchJobs.enumerated() {
+            semaphore.wait()
+            DispatchQueue.global().async(group: group) {
+                let outcome = autoreleasepool {
+                    self.prepareCopy(
+                        job: job,
+                        verifyCopies: verifyCopies,
+                        runLogger: runLogger,
+                        isCancelled: isCancelledRef,
+                        onIssue: { issue in observerRef.onIssue(issue) }
+                    )
+                }
+                outcomes.store(outcome, at: offset)
+                semaphore.signal()
+            }
+        }
+
+        group.wait()
+        return outcomes
     }
 
     func abortReason(

@@ -86,6 +86,41 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertFalse(hardDeleteDetail.contains("permanently"))
     }
 
+    func testTrashConfirmationExplainsReclaimAndRestoreLimits() {
+        let regular = DeduplicateView.trashCommitMessage(byteCount: 1_000, availableCapacity: 20_000_000_000)
+        XCTAssertTrue(regular.contains("not reclaimed until Trash is emptied"))
+        XCTAssertTrue(regular.contains("cannot restore"))
+
+        let largeLowSpace = DeduplicateView.trashCommitMessage(
+            byteCount: 12_000_000_000,
+            availableCapacity: 2_000_000_000
+        )
+        XCTAssertTrue(largeLowSpace.contains("This selection uses"))
+        XCTAssertTrue(largeLowSpace.contains("This volume has only"))
+    }
+
+    func testVideoAnalysisNoteExplainsEveryNonMatchOutcome() {
+        let summary = DeduplicateSummary(
+            totalCandidatesScanned: 9,
+            videoPerceptualMetrics: VideoPerceptualAnalysisMetrics(
+                analyzed: 2,
+                unsupported: 1,
+                decodeFailed: 1,
+                insufficientVisualEvidence: 1,
+                prefilteredNoNeighbor: 3,
+                deferredPendingExactCleanup: 1
+            )
+        )
+        let note = try? XCTUnwrap(DeduplicateView.videoAnalysisNote(for: summary))
+
+        XCTAssertTrue(note?.contains("2 videos analyzed") == true)
+        XCTAssertTrue(note?.contains("3 had no plausible") == true)
+        XCTAssertTrue(note?.contains("2 could not be decoded") == true)
+        XCTAssertTrue(note?.contains("1 lacked enough visual detail") == true)
+        XCTAssertTrue(note?.contains("1 deferred") == true)
+        XCTAssertTrue(DeduplicateView.emptyResultsMessage(summary).contains("Scanned 9 files"))
+    }
+
     /// With nothing selected yet, the footer must guide instead of printing
     /// the literal zero forms ("0 files will be moved to Trash", and
     /// ByteCountFormatter's "Zero KB recoverable").

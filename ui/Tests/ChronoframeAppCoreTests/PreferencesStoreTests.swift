@@ -39,6 +39,7 @@ final class PreferencesStoreTests: XCTestCase {
         store.lastManualDestinationPath = "/tmp/destination"
         store.lastDeduplicateDestinationPath = "/tmp/dedupe"
         store.lastSelectedProfileName = "travel"
+        store.dedupePerceptualVideoMatchingEnabled = true
 
         let reloaded = PreferencesStore(defaults: defaults)
 
@@ -49,6 +50,23 @@ final class PreferencesStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.lastManualDestinationPath, "/tmp/destination")
         XCTAssertEqual(reloaded.lastDeduplicateDestinationPath, "/tmp/dedupe")
         XCTAssertEqual(reloaded.lastSelectedProfileName, "travel")
+        XCTAssertTrue(reloaded.dedupePerceptualVideoMatchingEnabled)
+    }
+
+    @MainActor
+    func testPerceptualVideoIsOffByDefaultAndExactPresetSuppressesIt() {
+        let store = PreferencesStore(defaults: defaults)
+        XCTAssertFalse(store.dedupePerceptualVideoMatchingEnabled)
+        XCTAssertFalse(store.makeDeduplicateConfiguration(destinationPath: "/tmp/dest").perceptualVideoMatchingEnabled)
+
+        store.dedupePerceptualVideoMatchingEnabled = true
+        store.dedupeSimilarityPreset = .balanced
+        let balanced = store.makeDeduplicateConfiguration(destinationPath: "/tmp/dest")
+        XCTAssertTrue(balanced.perceptualVideoMatchingEnabled)
+        XCTAssertEqual(balanced.videoPerceptualMatchConfiguration, VideoPerceptualMatchConfiguration())
+
+        store.dedupeSimilarityPreset = .strict
+        XCTAssertFalse(store.makeDeduplicateConfiguration(destinationPath: "/tmp/dest").perceptualVideoMatchingEnabled)
     }
 
     @MainActor

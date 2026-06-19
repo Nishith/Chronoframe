@@ -81,10 +81,11 @@ A: Photos (JPG, PNG, HEIF, RAW, etc.) and videos (MP4, MOV, etc.). If your OS ca
 A: Yes. Use the **Deduplicate** workspace:
 - Finds **exact photo and video copies** using content hashing (BLAKE2b)
 - Finds **similar photos** using on-device Vision analysis
+- Optionally finds **visually similar video transcodes and re-exports** using sampled frames
 - Detects **burst groups** using capture-time proximity
 - Recognizes **RAW+JPEG pairs** and **Live Photo pairs**
 
-Perceptual matching for similar videos is under active development and remains opt-in in the engine.
+Visual video matching is off by default. Enable it in **Settings → Deduplicate** with the Balanced or Similar Shots preset. These groups are always review-only and never accepted automatically.
 
 **Q: Can I organize into a folder that already has photos?**
 

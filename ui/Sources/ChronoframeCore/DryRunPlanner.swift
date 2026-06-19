@@ -90,6 +90,10 @@ public struct DryRunPlanner: Sendable {
     /// Low enough for responsive UI on slow volumes; high enough to avoid event flood.
     public static let planningProgressStride = 100
 
+    /// Source-compatible entry point for CLI/tests and older callers. The app
+    /// uses the async overload below; this wrapper preserves the established
+    /// synchronous API while the planner internals migrate to structured
+    /// concurrency.
     public func plan(
         sourceRoot: URL,
         destinationRoot: URL,
@@ -99,10 +103,40 @@ public struct DryRunPlanner: Sendable {
         folderStructure: FolderStructure = .yyyyMMDD,
         eventSuggestionMode: EventSuggestionMode = .off,
         isCancelled: @escaping @Sendable () -> Bool = { false },
-        /// Called with incremental `RunEvent`s while the walks are in progress.
-        /// Allows callers to stream progress to the UI without waiting for `plan()` to return.
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
     ) throws -> DryRunPlanningResult {
+        let box = BlockingDryRunPlanningResult()
+        Task.detached {
+            do {
+                box.complete(.success(try await planAsync(
+                    sourceRoot: sourceRoot,
+                    destinationRoot: destinationRoot,
+                    databaseURL: databaseURL,
+                    workerCount: workerCount,
+                    namingRules: namingRules,
+                    folderStructure: folderStructure,
+                    eventSuggestionMode: eventSuggestionMode,
+                    isCancelled: isCancelled,
+                    onEvent: onEvent
+                )))
+            } catch {
+                box.complete(.failure(error))
+            }
+        }
+        return try box.wait().get()
+    }
+
+    public func planAsync(
+        sourceRoot: URL,
+        destinationRoot: URL,
+        databaseURL: URL? = nil,
+        workerCount: Int = 1,
+        namingRules: PlannerNamingRules = .chronoframeDefault,
+        folderStructure: FolderStructure = .yyyyMMDD,
+        eventSuggestionMode: EventSuggestionMode = .off,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onEvent: (@Sendable (RunEvent) -> Void)? = nil
+    ) async throws -> DryRunPlanningResult {
         let organizerDatabaseURL = databaseURL
             ?? destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
         let database = try OrganizerDatabase(url: organizerDatabaseURL)
@@ -121,7 +155,7 @@ public struct DryRunPlanner: Sendable {
         onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
         try Self.throwIfCancelled(isCancelled)
 
-        let destinationIndex = try buildDestinationIndex(
+        let destinationIndex = try await buildDestinationIndex(
             destinationRoot: destinationRoot,
             database: database,
             workerCount: workerCount,
@@ -130,7 +164,6 @@ public struct DryRunPlanner: Sendable {
             onEvent: onEvent
         )
 
-        let sourceCacheByPath = try loadTypedCacheRecordsByPath(namespace: .source, database: database)
         let reviewOverrides = try database.loadReviewOverrides()
         let reviewOverridesByKey = Dictionary(
             uniqueKeysWithValues: reviewOverrides.map { (Self.reviewOverrideKey(identity: $0.identity, sourcePath: $0.sourcePath), $0) }
@@ -145,9 +178,9 @@ public struct DryRunPlanner: Sendable {
 
         onEvent?(.phaseStarted(phase: .sourceHashing, total: sourcePaths.count))
         let sourceCheckpoint = FileCacheCheckpointWriter(namespace: .source, database: database)
-        let sourceResults = try processFiles(
+        let sourceResults = try await processFiles(
             sourcePaths,
-            cachedRowsByPath: sourceCacheByPath,
+            database: database,
             workerCount: workerCount,
             phase: .sourceHashing,
             total: sourcePaths.count,
@@ -486,8 +519,7 @@ public struct DryRunPlanner: Sendable {
         namingRules: PlannerNamingRules,
         isCancelled: @escaping @Sendable () -> Bool,
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
-    ) throws -> DestinationIndexBuildResult {
-        let cachedRowsByPath = try loadTypedCacheRecordsByPath(namespace: .destination, database: database)
+    ) async throws -> DestinationIndexBuildResult {
         var snapshotBuilder = DestinationIndexSnapshotBuilder(namingRules: namingRules)
         var indexedFileCount = 0
 
@@ -500,9 +532,9 @@ public struct DryRunPlanner: Sendable {
         )
         onEvent?(.phaseStarted(phase: .destinationIndexing, total: destinationPaths.count))
         let destinationCheckpoint = FileCacheCheckpointWriter(namespace: .destination, database: database)
-        let destinationResults = try processFiles(
+        let destinationResults = try await processFiles(
             destinationPaths,
-            cachedRowsByPath: cachedRowsByPath,
+            database: database,
             workerCount: workerCount,
             phase: .destinationIndexing,
             total: destinationPaths.count,
@@ -528,25 +560,28 @@ public struct DryRunPlanner: Sendable {
 
     private func processFiles(
         _ paths: [String],
-        cachedRowsByPath: [String: FileCacheRecord],
+        database: OrganizerDatabase,
         workerCount: Int,
         phase: RunPhase,
         total: Int,
         checkpoint: FileCacheCheckpointWriter? = nil,
         isCancelled: @escaping @Sendable () -> Bool,
         onEvent: (@Sendable (RunEvent) -> Void)?
-    ) throws -> [ProcessedFileIdentity] {
+    ) async throws -> [ProcessedFileIdentity] {
         guard !paths.isEmpty else {
             return []
         }
 
         let maxWorkers = max(1, workerCount)
+        let namespace: CacheNamespace = (phase == .sourceHashing) ? .source : .destination
+
         if maxWorkers == 1 || paths.count == 1 {
             var results: [ProcessedFileIdentity] = []
             results.reserveCapacity(paths.count)
             for (index, path) in paths.enumerated() {
                 try Self.throwIfCancelled(isCancelled)
-                let result = fileHasher.processFile(at: path, cachedRecord: cachedRowsByPath[path])
+                let cachedRecord = try? database.loadCacheRecord(namespace: namespace, path: path)
+                let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
                 checkpoint?.append(path: path, result: result)
                 try checkpoint?.throwIfNeeded()
                 results.append(result)
@@ -562,57 +597,77 @@ public struct DryRunPlanner: Sendable {
         }
 
         let results = OrderedFileProcessingResults(count: paths.count)
-        let queue = OperationQueue()
-        queue.name = "Chronoframe.DryRunPlanner.\(phase.rawValue)"
-        queue.maxConcurrentOperationCount = maxWorkers
 
-        for (index, path) in paths.enumerated() {
-            let cachedRecord = cachedRowsByPath[path]
-            let fileHasher = self.fileHasher
-            queue.addOperation {
-                guard checkpoint?.hasError != true, !isCancelled() else {
-                    queue.cancelAllOperations()
-                    return
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            var activeTasks = 0
+            for (index, path) in paths.enumerated() {
+                try Self.throwIfCancelled(isCancelled)
+                if checkpoint?.hasError == true {
+                    break
                 }
-                let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
-                checkpoint?.append(path: path, result: result)
-                if checkpoint?.hasError == true || isCancelled() {
-                    queue.cancelAllOperations()
+
+                if activeTasks >= maxWorkers {
+                    _ = try await group.next()
+                    activeTasks -= 1
                 }
-                let completed = results.store(result, at: index)
-                if completed % Self.planningProgressStride == 0 || completed == total {
-                    onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
-                                            currentFilePath: nil))
+
+                activeTasks += 1
+                let fileHasher = self.fileHasher
+                let checkpoint = checkpoint
+                let database = database
+                let onEvent = onEvent
+
+                group.addTask {
+                    let cachedRecord = try? database.loadCacheRecord(namespace: namespace, path: path)
+                    let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
+                    checkpoint?.append(path: path, result: result)
+                    if checkpoint?.hasError == true {
+                        throw CancellationError()
+                    }
+                    let completed = results.store(result, at: index)
+                    if completed % Self.planningProgressStride == 0 || completed == total {
+                        onEvent?(.phaseProgress(phase: phase, completed: completed,
+                                                total: total, bytesCopied: nil, bytesTotal: nil,
+                                                currentFilePath: nil))
+                    }
                 }
+            }
+
+            while activeTasks > 0 {
+                _ = try await group.next()
+                activeTasks -= 1
             }
         }
 
-        queue.waitUntilAllOperationsAreFinished()
         try Self.throwIfCancelled(isCancelled)
         try checkpoint?.finish()
         return results.values()
-    }
-
-    private func loadTypedCacheRecordsByPath(
-        namespace: CacheNamespace,
-        database: OrganizerDatabase
-    ) throws -> [String: FileCacheRecord] {
-        var recordsByPath: [String: FileCacheRecord] = [:]
-        try database.enumerateRawCacheRecordBatches(namespace: namespace) { batch in
-            for rawRecord in batch {
-                if let typedRecord = rawRecord.typedRecord {
-                    recordsByPath[rawRecord.path] = typedRecord
-                }
-            }
-        }
-        return recordsByPath
     }
 
     private static func throwIfCancelled(_ isCancelled: @Sendable () -> Bool) throws {
         if isCancelled() {
             throw CancellationError()
         }
+    }
+}
+
+private final class BlockingDryRunPlanningResult: @unchecked Sendable {
+    private let semaphore = DispatchSemaphore(value: 0)
+    private let lock = NSLock()
+    private var result: Result<DryRunPlanningResult, Error>?
+
+    func complete(_ result: Result<DryRunPlanningResult, Error>) {
+        lock.lock()
+        self.result = result
+        lock.unlock()
+        semaphore.signal()
+    }
+
+    func wait() -> Result<DryRunPlanningResult, Error> {
+        semaphore.wait()
+        lock.lock()
+        defer { lock.unlock() }
+        return result!
     }
 }
 

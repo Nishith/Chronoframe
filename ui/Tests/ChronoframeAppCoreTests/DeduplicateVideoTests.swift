@@ -88,6 +88,60 @@ final class DeduplicateVideoTests: XCTestCase {
         XCTAssertTrue(cluster.members.allSatisfy { $0.mediaKind == .video })
     }
 
+    func testSummaryCountsUniqueSizeVideosAsScannedCandidates() async throws {
+        let dir = try makeTempDir("VideoSummaryCount")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data(repeating: 0x11, count: 101).write(to: dir.appendingPathComponent("one.mp4"))
+        try Data(repeating: 0x22, count: 202).write(to: dir.appendingPathComponent("two.mkv"))
+
+        let summary = try await runScan(DeduplicateScanner(), destination: dir.path)
+
+        XCTAssertEqual(summary.totalCandidatesScanned, 2)
+        XCTAssertEqual(summary.cacheMetrics.hits + summary.cacheMetrics.misses, 0)
+    }
+
+    func testDisablingExactGroupsSkipsVideoIdentityHashing() async throws {
+        let dir = try makeTempDir("VideoExactDisabled")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data(repeating: 0x33, count: 2048).write(to: dir.appendingPathComponent("a.mp4"))
+        try Data(repeating: 0x33, count: 2048).write(to: dir.appendingPathComponent("b.mp4"))
+
+        let scanner = DeduplicateScanner()
+        let config = DeduplicateConfiguration(
+            destinationPath: dir.path,
+            enableExactDuplicateGroup: false
+        )
+        var summary: DeduplicateSummary?
+        var exactClusterCount = 0
+        for try await event in scanner.scan(configuration: config) {
+            if case let .clusterDiscovered(cluster) = event, cluster.kind == .exactDuplicate {
+                exactClusterCount += 1
+            }
+            if case let .complete(value) = event { summary = value }
+        }
+
+        XCTAssertEqual(exactClusterCount, 0)
+        let completedSummary = try XCTUnwrap(summary)
+        XCTAssertEqual(completedSummary.cacheMetrics.hits + completedSummary.cacheMetrics.misses, 0)
+    }
+
+    func testExactVideoHashingReportsCombinedProgress() async throws {
+        let dir = try makeTempDir("VideoExactProgress")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data(repeating: 0x44, count: 2048).write(to: dir.appendingPathComponent("a.mp4"))
+        try Data(repeating: 0x44, count: 2048).write(to: dir.appendingPathComponent("b.mp4"))
+
+        var progress: [(Int, Int)] = []
+        for try await event in DeduplicateScanner().scan(configuration: configuration(destination: dir.path)) {
+            if case let .phaseProgress(.identityHashing, completed, total) = event {
+                progress.append((completed, total))
+            }
+        }
+
+        XCTAssertEqual(progress.last?.0, 2)
+        XCTAssertEqual(progress.last?.1, 2)
+    }
+
     func testExactVideoKeeperIsDeterministicLowestPath() {
         let a = PhotoCandidate(path: "/lib/z_copy.mp4", size: 10, modificationTime: 0, mediaKind: .video)
         let b = PhotoCandidate(path: "/lib/a_copy.mp4", size: 10, modificationTime: 0, mediaKind: .video)

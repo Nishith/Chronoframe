@@ -82,7 +82,7 @@ The **History** tab keeps every run's reports and receipts. Reuse a past source,
 
 ![Deduplicate review — two similar photos compared side by side, with keep and delete choices.](docs/screenshots/dedupe-compare.jpg)
 
-Exact photo and video duplicates are matched by file content and can be accepted automatically. Similar-photo groups, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call. Perceptual video matching is under active development and remains opt-in in the engine.
+Exact photo and video duplicates are matched by file content and can be accepted automatically. Similar-photo groups, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call. Visual matching for video transcodes and re-exports is available as an off-by-default option in **Settings → Deduplicate**; those video matches are always review-only.
 
 ## Helpful Guides
 

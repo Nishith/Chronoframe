@@ -248,19 +248,7 @@ struct DeduplicateView: View {
         DeduplicateStatusView(
             style: .success,
             title: "Nothing to deduplicate",
-            message: sessionStore.summary.map { summary in
-                var msg = "Scanned \(summary.totalCandidatesScanned) file\(summary.totalCandidatesScanned == 1 ? "" : "s") in \(formattedDuration(summary.scanDuration)). No similar groups found."
-                if let vm = summary.videoPerceptualMetrics, vm.totalConsidered > 0 {
-                    let n = vm.totalConsidered
-                    let problems = vm.unsupported + vm.decodeFailed + vm.insufficientVisualEvidence
-                    if problems > 0 {
-                        msg += " \(n) video\(n == 1 ? "" : "s") analyzed; \(problems) could not be decoded."
-                    } else {
-                        msg += " \(n) video\(n == 1 ? "" : "s") analyzed for similar recordings."
-                    }
-                }
-                return msg
-            },
+            message: sessionStore.summary.map(Self.emptyResultsMessage),
             primary: {
                 Button("Scan Again") {
                     startScan()
@@ -293,12 +281,6 @@ struct DeduplicateView: View {
                         .keyboardShortcut(.upArrow, modifiers: [])
                     Button { navigateCluster(by: 1) } label: { EmptyView() }
                         .keyboardShortcut(.downArrow, modifiers: [])
-                    Button {
-                        if let path = focusedMemberPath {
-                            selectedDedupeItemURL = URL(fileURLWithPath: path)
-                        }
-                    } label: { EmptyView() }
-                        .keyboardShortcut(.space, modifiers: [])
                 }
                 .opacity(0)
                 .frame(width: 0, height: 0)
@@ -352,6 +334,7 @@ struct DeduplicateView: View {
             focusedMemberPath: $focusedMemberPath,
             thumbnailLoader: thumbnailLoader,
             confidenceFilter: $confidenceFilter,
+            videoAnalysisNote: Self.videoAnalysisNote(for: sessionStore.summary),
             onKeepAll: { sessionStore.keepAllInCluster($0) },
             onAcceptSuggestion: { sessionStore.acceptSuggestionsForCluster($0) },
             onDeleteAll: { sessionStore.deleteAllInCluster($0) }
@@ -364,7 +347,10 @@ struct DeduplicateView: View {
             focusedMemberPath: $focusedMemberPath,
             sessionStore: sessionStore,
             thumbnailLoader: thumbnailLoader,
-            onAcceptAndAdvance: advanceToNextCluster
+            onAcceptAndAdvance: advanceToNextCluster,
+            onPreview: { path in
+                selectedDedupeItemURL = URL(fileURLWithPath: path)
+            }
         )
     }
 
@@ -408,7 +394,10 @@ struct DeduplicateView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Files will move to the macOS Trash. The dedupe receipt in Run History can revert this.")
+            Text(Self.trashCommitMessage(
+                byteCount: sessionStore.reviewedDeletionPlan().totalBytes,
+                availableCapacity: deduplicateVolumeAvailableCapacity
+            ))
         }
         .confirmationDialog(
             reviewedCommitDialogTitle,
@@ -419,7 +408,10 @@ struct DeduplicateView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Only groups you have fully reviewed will be affected. Unreviewed groups stay untouched. The dedupe receipt in Run History can revert this.")
+            Text("Only groups you have fully reviewed will be affected. Unreviewed groups stay untouched. " + Self.trashCommitMessage(
+                byteCount: sessionStore.reviewedDeletionPlan().totalBytes,
+                availableCapacity: deduplicateVolumeAvailableCapacity
+            ))
         }
     }
 
@@ -431,6 +423,13 @@ struct DeduplicateView: View {
             return "No deletions in reviewed groups"
         }
         return "Move \(count) file\(count == 1 ? "" : "s") from \(reviewed) reviewed group\(reviewed == 1 ? "" : "s") to Trash?"
+    }
+
+    private var deduplicateVolumeAvailableCapacity: Int64? {
+        guard !appState.deduplicateDestinationPath.isEmpty else { return nil }
+        return try? URL(fileURLWithPath: appState.deduplicateDestinationPath)
+            .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey])
+            .volumeAvailableCapacityForImportantUsage
     }
 
     private func commitFooterWide(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
@@ -780,11 +779,60 @@ struct DeduplicateView: View {
         alignFocusWithVisibleClusters()
     }
 
-    private func formattedDuration(_ seconds: TimeInterval) -> String {
+    private static func formattedDuration(_ seconds: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
         formatter.unitsStyle = .abbreviated
         return formatter.string(from: seconds) ?? "\(Int(seconds))s"
+    }
+
+    static func emptyResultsMessage(_ summary: DeduplicateSummary) -> String {
+        let count = summary.totalCandidatesScanned
+        var parts = ["Scanned \(count) file\(count == 1 ? "" : "s") in \(formattedDuration(summary.scanDuration)). No duplicate groups found."]
+        if let note = videoAnalysisNote(for: summary) {
+            parts.append(note)
+        }
+        return parts.joined(separator: " ")
+    }
+
+    static func videoAnalysisNote(for summary: DeduplicateSummary?) -> String? {
+        guard let metrics = summary?.videoPerceptualMetrics else { return nil }
+        var parts: [String] = []
+        if metrics.analyzed > 0 {
+            parts.append("\(metrics.analyzed) video\(metrics.analyzed == 1 ? "" : "s") analyzed")
+        }
+        if metrics.prefilteredNoNeighbor > 0 {
+            parts.append("\(metrics.prefilteredNoNeighbor) had no plausible visual-match candidate")
+        }
+        let unavailable = metrics.unsupported + metrics.decodeFailed
+        if unavailable > 0 {
+            parts.append("\(unavailable) could not be decoded")
+        }
+        if metrics.insufficientVisualEvidence > 0 {
+            parts.append("\(metrics.insufficientVisualEvidence) lacked enough visual detail")
+        }
+        if metrics.deferredPendingExactCleanup > 0 {
+            parts.append("\(metrics.deferredPendingExactCleanup) deferred until exact duplicates are cleaned")
+        }
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: " · ") + "."
+    }
+
+    static func trashCommitMessage(byteCount: Int64, availableCapacity: Int64?) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        var parts = [
+            "Files will move to the macOS Trash.",
+            "Storage is not reclaimed until Trash is emptied, and Run History cannot restore files after that."
+        ]
+        let largeSelectionThreshold: Int64 = 10 * 1_000_000_000
+        if byteCount >= largeSelectionThreshold {
+            parts.append("This selection uses \(formatter.string(fromByteCount: byteCount)).")
+        }
+        if let availableCapacity, availableCapacity < 5 * 1_000_000_000 {
+            parts.append("This volume has only \(formatter.string(fromByteCount: availableCapacity)) available; moving files to Trash will not increase it.")
+        }
+        return parts.joined(separator: " ")
     }
 
     private var byteCountFormatter: ByteCountFormatter {
