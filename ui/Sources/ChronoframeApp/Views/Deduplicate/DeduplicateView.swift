@@ -12,6 +12,8 @@ struct DeduplicateView: View {
     @ObservedObject private var sessionStore: DeduplicateSessionStore
     @ObservedObject private var preferencesStore: PreferencesStore
     @StateObject private var thumbnailLoader = DedupeThumbnailLoader()
+    @Environment(\.undoManager) private var undoManager
+    @State private var showingComparisonInspector = false
 
     @State private var focusedClusterID: UUID?
     @AccessibilityFocusState private var accessibilityFocusedClusterID: UUID?
@@ -62,6 +64,12 @@ struct DeduplicateView: View {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
                 #endif
             }
+        }
+        .onAppear {
+            sessionStore.undoManager = undoManager
+        }
+        .onChange(of: undoManager) { newUndoManager in
+            sessionStore.undoManager = newUndoManager
         }
     }
 
@@ -213,6 +221,7 @@ struct DeduplicateView: View {
                 Button("Cancel", role: .destructive) {
                     appState.cancelRun()
                 }
+                .buttonStyle(.borderedMicroDelight)
             }
         )
     }
@@ -238,6 +247,7 @@ struct DeduplicateView: View {
                 Button("Cancel", role: .destructive) {
                     appState.cancelRun()
                 }
+                .buttonStyle(.borderedMicroDelight)
                 .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCancelCommitButton)
             }
         )
@@ -254,12 +264,13 @@ struct DeduplicateView: View {
                 Button("Scan Again") {
                     startScan()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.prominentMicroDelight)
             },
             secondary: {
                 Button("Change Folder") {
                     resetDeduplicate()
                 }
+                .buttonStyle(.borderedMicroDelight)
                 .accessibilityIdentifier(AccessibilityIdentifiers.dedupeChangeFolderButton)
             }
         )
@@ -294,6 +305,19 @@ struct DeduplicateView: View {
         .onChange(of: focusedClusterID) { newID in
             if accessibilityFocusedClusterID != newID {
                 accessibilityFocusedClusterID = newID
+            }
+        }
+        .inspector(isPresented: $showingComparisonInspector) {
+            if let paths = sideBySideComparisonPaths {
+                ComparisonOverlayView(
+                    leftPath: paths.left,
+                    rightPath: paths.right,
+                    onDismiss: { showingComparisonInspector = false }
+                )
+                .inspectorColumnWidth(min: 300, ideal: 400, max: 600)
+            } else {
+                ContentUnavailableView("Select a cluster with at least 2 members to compare", systemImage: "rectangle.on.rectangle")
+                    .inspectorColumnWidth(min: 300, ideal: 400, max: 600)
             }
         }
     }
@@ -354,6 +378,7 @@ struct DeduplicateView: View {
             focusedMemberPath: $focusedMemberPath,
             sessionStore: sessionStore,
             thumbnailLoader: thumbnailLoader,
+            showingComparisonOverlay: $showingComparisonInspector,
             onAcceptAndAdvance: advanceToNextCluster,
             onPreview: { path in
                 selectedDedupeItemURL = URL(fileURLWithPath: path)
@@ -596,7 +621,7 @@ struct DeduplicateView: View {
             sessionStore.acceptAllSuggestions()
         }
         .keyboardShortcut(.return, modifiers: [.command, .shift])
-        .buttonStyle(.bordered)
+        .buttonStyle(.borderedMicroDelight)
         .fixedSize()
         .accessibilityLabel("Accept High-Confidence Suggestions")
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptAllSuggestionsButton)
@@ -608,7 +633,7 @@ struct DeduplicateView: View {
             showingCommitConfirmation = true
         }
         .keyboardShortcut(.return, modifiers: .command)
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.prominentMicroDelight(role: .destructive))
         .fixedSize()
         .disabled(toDelete == 0 || sessionStore.status == .committing)
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitButton)
@@ -628,18 +653,20 @@ struct DeduplicateView: View {
                 Button("Close") {
                     resetDeduplicate()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.prominentMicroDelight)
             },
             secondary: {
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Button("Open Run History") {
                         Task { await appState.openDeduplicateRunHistory() }
                     }
+                    .buttonStyle(.borderedMicroDelight)
                     .accessibilityIdentifier(AccessibilityIdentifiers.dedupeOpenRunHistoryButton)
 
                     Button("Scan Again") {
                         startScan()
                     }
+                    .buttonStyle(.borderedMicroDelight)
                 }
             }
         )
@@ -673,7 +700,7 @@ struct DeduplicateView: View {
                 Button("Done") {
                     resetDeduplicate()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.prominentMicroDelight)
             }
         )
     }
@@ -687,7 +714,7 @@ struct DeduplicateView: View {
                 Button("Try Again") {
                     resetDeduplicate()
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.prominentMicroDelight)
             }
         )
     }
@@ -789,6 +816,24 @@ struct DeduplicateView: View {
         guard canResumePausedReview else { return }
         sessionStore.resumePausedReview()
         alignFocusWithVisibleClusters()
+    }
+
+    private var sideBySideComparisonPaths: (left: String, right: String)? {
+        guard let cluster = focusedCluster, cluster.members.count >= 2 else { return nil }
+        let keeper = cluster.members.first(where: { member in
+            cluster.suggestedKeeperIDs.prefix(1).contains(member.id)
+        }) ?? cluster.members[0]
+        let other: PhotoCandidate
+        if let focusedPath = focusedMemberPath,
+           let focused = cluster.members.first(where: { $0.path == focusedPath }),
+           focused.id != keeper.id {
+            other = focused
+        } else if let firstOther = cluster.members.first(where: { $0.id != keeper.id }) {
+            other = firstOther
+        } else {
+            return nil
+        }
+        return (left: keeper.path, right: other.path)
     }
 
     private static func formattedDuration(_ seconds: TimeInterval) -> String {

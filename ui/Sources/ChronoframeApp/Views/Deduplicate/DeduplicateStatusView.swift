@@ -117,9 +117,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
                         .font(.system(size: 44))
                         .foregroundStyle(style.tint)
                     if showsWaypointDot {
-                        Circle()
-                            .fill(DesignTokens.ColorSystem.accentWaypoint)
-                            .frame(width: 7, height: 7)
+                        WaypointDot()
                             .offset(x: 24, y: 24)
                     }
                 }
@@ -134,6 +132,32 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
         case .progress, .restored, .warning:
             return false
         }
+    }
+}
+
+struct WaypointDot: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var scale: CGFloat = 0.01
+    @State private var isPulsing = false
+
+    var body: some View {
+        Circle()
+            .fill(DesignTokens.ColorSystem.accentWaypoint)
+            .frame(width: 7, height: 7)
+            .scaleEffect(scale)
+            .scaleEffect(isPulsing ? 1.25 : 1.0)
+            .onAppear {
+                if reduceMotion {
+                    scale = 1.0
+                } else {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
+                        scale = 1.0
+                    }
+                    withAnimation(Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                        isPulsing = true
+                    }
+                }
+            }
     }
 }
 

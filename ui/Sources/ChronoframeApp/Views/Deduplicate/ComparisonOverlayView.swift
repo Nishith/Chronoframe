@@ -7,9 +7,38 @@ import SwiftUI
 struct ComparisonOverlayView: View {
     let leftPath: String
     let rightPath: String
+    var onDismiss: (() -> Void)? = nil
     @State private var mode: ComparisonMode = .slider
     @State private var sliderPosition: CGFloat = 0.5
+    @State private var scale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @GestureState private var gestureScale: CGFloat = 1.0
+    @GestureState private var gestureOffset: CGSize = .zero
     @Environment(\.dismiss) private var dismiss
+
+    private var magnificationGesture: some Gesture {
+        MagnificationGesture()
+            .updating($gestureScale) { value, state, _ in
+                state = value
+            }
+            .onEnded { value in
+                scale = min(max(scale * value, 1.0), 5.0)
+                if scale == 1.0 {
+                    offset = .zero
+                }
+            }
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 5)
+            .updating($gestureOffset) { value, state, _ in
+                state = value.translation
+            }
+            .onEnded { value in
+                offset.width += value.translation.width
+                offset.height += value.translation.height
+            }
+    }
 
     enum ComparisonMode: String, CaseIterable {
         case slider
@@ -34,12 +63,29 @@ struct ComparisonOverlayView: View {
     }
 
     var body: some View {
+        let activeScale = scale * gestureScale
         VStack(spacing: 0) {
             toolbar
             Divider()
             comparisonContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(DesignTokens.ColorSystem.imageStage)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) {
+                    if scale > 1.0 {
+                        withAnimation(.spring()) {
+                            scale = 1.0
+                            offset = .zero
+                        }
+                    } else {
+                        withAnimation(.spring()) {
+                            scale = 3.0
+                            offset = .zero
+                        }
+                    }
+                }
+                .gesture(magnificationGesture)
+                .conditionalHighPriorityGesture(dragGesture, when: activeScale > 1.0)
         }
         .frame(minWidth: 600, minHeight: 500)
         .background(DesignTokens.ColorSystem.canvas)
@@ -51,8 +97,14 @@ struct ComparisonOverlayView: View {
                 imagePairLabel
                 Spacer()
                 modePicker
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.escape, modifiers: [])
+                Button("Done") {
+                    if let onDismiss {
+                        onDismiss()
+                    } else {
+                        dismiss()
+                    }
+                }
+                .keyboardShortcut(.escape, modifiers: [])
             }
 
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
@@ -60,8 +112,14 @@ struct ComparisonOverlayView: View {
                 HStack {
                     modePicker
                     Spacer()
-                    Button("Done") { dismiss() }
-                        .keyboardShortcut(.escape, modifiers: [])
+                    Button("Done") {
+                        if let onDismiss {
+                            onDismiss()
+                        } else {
+                            dismiss()
+                        }
+                    }
+                    .keyboardShortcut(.escape, modifiers: [])
                 }
             }
         }
@@ -99,13 +157,18 @@ struct ComparisonOverlayView: View {
 
     @ViewBuilder
     private var comparisonContent: some View {
+        let activeScale = scale * gestureScale
+        let activeOffset = CGSize(
+            width: offset.width + gestureOffset.width,
+            height: offset.height + gestureOffset.height
+        )
         switch mode {
         case .slider:
-            SliderComparisonView(leftPath: leftPath, rightPath: rightPath, position: $sliderPosition)
+            SliderComparisonView(leftPath: leftPath, rightPath: rightPath, position: $sliderPosition, scale: activeScale, offset: activeOffset)
         case .difference:
-            DifferenceComparisonView(leftPath: leftPath, rightPath: rightPath)
+            DifferenceComparisonView(leftPath: leftPath, rightPath: rightPath, scale: activeScale, offset: activeOffset)
         case .flicker:
-            FlickerComparisonView(leftPath: leftPath, rightPath: rightPath)
+            FlickerComparisonView(leftPath: leftPath, rightPath: rightPath, scale: activeScale, offset: activeOffset)
         }
     }
 }
@@ -116,6 +179,8 @@ private struct SliderComparisonView: View {
     let leftPath: String
     let rightPath: String
     @Binding var position: CGFloat
+    let scale: CGFloat
+    let offset: CGSize
     @State private var leftImage: NSImage?
     @State private var rightImage: NSImage?
     @State private var leftFinishedLoading = false
@@ -124,21 +189,31 @@ private struct SliderComparisonView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                if let rightImage {
-                    Image(nsImage: rightImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
+                ZStack {
+                    if let rightImage {
+                        Image(nsImage: rightImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                    }
+                    if let leftImage {
+                        Image(nsImage: leftImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .clipShape(
+                                HorizontalClip(fraction: position)
+                            )
+                    }
+                    Rectangle()
+                        .fill(DesignTokens.ColorSystem.dividerEmphasis)
+                        .frame(width: 2)
+                        .position(x: geometry.size.width * position, y: geometry.size.height / 2)
+                        .shadow(radius: 2)
                 }
-                if let leftImage {
-                    Image(nsImage: leftImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
-                        .clipShape(
-                            HorizontalClip(fraction: position)
-                        )
-                }
+                .scaleEffect(scale)
+                .offset(offset)
+
                 if leftFinishedLoading && rightFinishedLoading && leftImage == nil && rightImage == nil {
                     ComparisonUnavailableView(title: "Could not load comparison images")
                 } else {
@@ -151,11 +226,6 @@ private struct SliderComparisonView: View {
                             .position(x: min(geometry.size.width - 112, geometry.size.width * 0.75), y: geometry.size.height / 2)
                     }
                 }
-                Rectangle()
-                    .fill(DesignTokens.ColorSystem.dividerEmphasis)
-                    .frame(width: 2)
-                    .position(x: geometry.size.width * position, y: geometry.size.height / 2)
-                    .shadow(radius: 2)
 
                 comparisonLabel("Keeper", systemImage: "star.fill")
                     .position(x: 56, y: geometry.size.height - 28)
@@ -166,12 +236,11 @@ private struct SliderComparisonView: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        position = ComparisonSlider.fraction(forLocationX: value.location.x, width: geometry.size.width)
+                        if scale <= 1.0 {
+                            position = ComparisonSlider.fraction(forLocationX: value.location.x, width: geometry.size.width)
+                        }
                     }
             )
-            // Keyboard: nudge the divider with the arrow keys. Two invisible
-            // buttons because stacking `.keyboardShortcut` on one button drops
-            // all but the last (see RapidTriageView / ClusterDetailPane).
             .background {
                 Group {
                     Button { position = ComparisonSlider.adjusted(position, by: -ComparisonSlider.step) } label: { EmptyView() }
@@ -183,7 +252,6 @@ private struct SliderComparisonView: View {
                 .frame(width: 0, height: 0)
                 .accessibilityHidden(true)
             }
-            // VoiceOver: expose the divider as an adjustable value.
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Comparison divider")
             .accessibilityValue(ComparisonSlider.accessibilityValue(position))
@@ -240,20 +308,25 @@ private struct HorizontalClip: Shape {
 private struct DifferenceComparisonView: View {
     let leftPath: String
     let rightPath: String
+    let scale: CGFloat
+    let offset: CGSize
     @State private var differenceImage: NSImage?
     @State private var loading = true
 
     var body: some View {
         ZStack {
             if let differenceImage {
-                Image(nsImage: differenceImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+                ZStack {
+                    Image(nsImage: differenceImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                }
+                .scaleEffect(scale)
+                .offset(offset)
             } else if loading {
                 ProgressView("Computing difference…")
             } else {
                 Text("Could not generate difference image")
-                    // On the dark image stage — keep light in both appearances.
                     .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             }
         }
@@ -277,6 +350,8 @@ private struct DifferenceComparisonView: View {
 private struct FlickerComparisonView: View {
     let leftPath: String
     let rightPath: String
+    let scale: CGFloat
+    let offset: CGSize
     @State private var showingLeft = true
     @State private var leftImage: NSImage?
     @State private var rightImage: NSImage?
@@ -295,19 +370,26 @@ private struct FlickerComparisonView: View {
 
     var body: some View {
         ZStack {
-            if showingLeft, let leftImage {
-                Image(nsImage: leftImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else if !showingLeft, let rightImage {
-                Image(nsImage: rightImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else if currentSideFinishedLoading {
+            ZStack {
+                if showingLeft, let leftImage {
+                    Image(nsImage: leftImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } else if !showingLeft, let rightImage {
+                    Image(nsImage: rightImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                }
+            }
+            .scaleEffect(scale)
+            .offset(offset)
+
+            if (showingLeft && leftFinishedLoading && leftImage == nil) ||
+               (!showingLeft && rightFinishedLoading && rightImage == nil) {
                 ComparisonUnavailableView(
                     title: showingLeft ? "Keeper preview unavailable" : "Compare preview unavailable"
                 )
-            } else {
+            } else if !currentSideFinishedLoading {
                 ProgressView()
                     .controlSize(.small)
                     .tint(.white)
@@ -399,12 +481,6 @@ private struct FlickerComparisonView: View {
             return
         }
 
-        // Cancel any previous task before starting a new one. SwiftUI may
-        // call `.onAppear` again before `.onDisappear` runs the
-        // cancellation, and a parent re-evaluation can also drop and
-        // re-create this body — both situations would otherwise leak an
-        // orphaned task that keeps toggling `showingLeft` and doubles
-        // the visible flicker rate.
         flickerTask?.cancel()
         flickerTask = Task {
             while !Task.isCancelled {
@@ -435,13 +511,6 @@ private struct ComparisonUnavailableView: View {
     }
 }
 
-/// Asynchronous image loader for the comparison overlays. `NSImage(contentsOfFile:)`
-/// is blocking and can take hundreds of milliseconds to seconds for
-/// multi-megapixel RAW/HEIC inputs; running it inside a MainActor-isolated
-/// `.task { … }` would freeze the UI. Read the file bytes off the main
-/// thread (Data is Sendable), then hand them to `NSImage(data:)` back
-/// on the main actor — keeps the heavy I/O off the main thread without
-/// dragging non-Sendable `NSImage` across an actor boundary.
 @MainActor
 private func loadImage(at path: String) async -> NSImage? {
     let data = await Task.detached(priority: .userInitiated) {
@@ -449,4 +518,15 @@ private func loadImage(at path: String) async -> NSImage? {
     }.value
     guard let data else { return nil }
     return NSImage(data: data)
+}
+
+extension View {
+    @ViewBuilder
+    fileprivate func conditionalHighPriorityGesture<T: Gesture>(_ gesture: T, when condition: Bool) -> some View {
+        if condition {
+            self.highPriorityGesture(gesture)
+        } else {
+            self
+        }
+    }
 }

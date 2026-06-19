@@ -935,4 +935,82 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         XCTAssertEqual(records.first?.lastReceiptPath, "/a/receipt-2.json")
         XCTAssertEqual(records[1].lastHardDelete, true)
     }
+
+    @MainActor
+    func testUndoRedoStateRestoration() async throws {
+        let clusterID = UUID()
+        let file1 = PhotoCandidate(path: "/dest/file1.jpg", size: 100, modificationTime: 0)
+        let file2 = PhotoCandidate(path: "/dest/file2.jpg", size: 100, modificationTime: 0)
+        let cluster = DuplicateCluster(
+            id: clusterID,
+            kind: .burst,
+            members: [file1, file2],
+            suggestedKeeperIDs: [file1.path],
+            bytesIfPruned: 100
+        )
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [cluster]))
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition {
+            if case .readyToReview = store.status {
+                return true
+            }
+            return false
+        }
+
+        let undoManager = UndoManager()
+        undoManager.groupsByEvent = false
+        store.undoManager = undoManager
+
+        // Initial state from suggestions: keep file1, delete file2
+        XCTAssertEqual(store.decisions.byPath[file1.path], DedupeDecision.keep)
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.delete)
+        XCTAssertFalse(store.approvedClusterIDs.contains(clusterID))
+
+        // Action 1: set decision for file2 to keep
+        undoManager.beginUndoGrouping()
+        store.setDecision(DedupeDecision.keep, forPath: file2.path)
+        undoManager.endUndoGrouping()
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.keep)
+        XCTAssertTrue(store.approvedClusterIDs.contains(clusterID))
+
+        // Undo Action 1
+        XCTAssertTrue(undoManager.canUndo)
+        undoManager.undo()
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.delete)
+        XCTAssertFalse(store.approvedClusterIDs.contains(clusterID))
+
+        // Redo Action 1
+        XCTAssertTrue(undoManager.canRedo)
+        undoManager.redo()
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.keep)
+        XCTAssertTrue(store.approvedClusterIDs.contains(clusterID))
+
+        // Action 2: keepAllInCluster
+        undoManager.beginUndoGrouping()
+        store.keepAllInCluster(cluster)
+        undoManager.endUndoGrouping()
+        XCTAssertEqual(store.decisions.byPath[file1.path], DedupeDecision.keep)
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.keep)
+
+        // Action 3: deleteAllInCluster
+        undoManager.beginUndoGrouping()
+        store.deleteAllInCluster(cluster)
+        undoManager.endUndoGrouping()
+        XCTAssertEqual(store.decisions.byPath[file1.path], DedupeDecision.delete)
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.delete)
+
+        // Undo Action 3 (restores to keep all)
+        undoManager.undo()
+        XCTAssertEqual(store.decisions.byPath[file1.path], DedupeDecision.keep)
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.keep)
+
+        // Undo Action 2 (restores to Action 1 state)
+        undoManager.undo()
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.keep)
+
+        // Undo Action 1 (restores to initial suggestion state)
+        undoManager.undo()
+        XCTAssertEqual(store.decisions.byPath[file2.path], DedupeDecision.delete)
+        XCTAssertFalse(store.approvedClusterIDs.contains(clusterID))
+    }
 }

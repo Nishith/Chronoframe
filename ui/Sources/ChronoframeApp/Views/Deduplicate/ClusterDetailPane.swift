@@ -17,12 +17,12 @@ struct ClusterDetailPane: View {
     @Binding var focusedMemberPath: String?
     @ObservedObject var sessionStore: DeduplicateSessionStore
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
+    @Binding var showingComparisonOverlay: Bool
     var onAcceptAndAdvance: (() -> Void)? = nil
     var onPreview: ((String) -> Void)? = nil
     @State private var thumbnailStripHeight = DeduplicateDetailPreviewLayout.defaultThumbnailStripHeight
     @State private var dragStartThumbnailStripHeight: CGFloat?
     @State private var showingReasonDetail = false
-    @State private var showingComparisonOverlay = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
@@ -117,11 +117,6 @@ struct ClusterDetailPane: View {
                 memberStripArea(cluster: cluster, height: stripHeight)
             }
             .background(DesignTokens.ColorSystem.imageStage)
-            .sheet(isPresented: $showingComparisonOverlay) {
-                if let pair = sideBySidePair(for: focused, in: cluster) {
-                    ComparisonOverlayView(leftPath: pair.left.path, rightPath: pair.right.path)
-                }
-            }
         }
     }
 
