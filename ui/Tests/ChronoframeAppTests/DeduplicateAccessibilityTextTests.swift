@@ -130,36 +130,6 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         XCTAssertTrue(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster).contains("2 videos"))
     }
 
-    func testVideoEvidenceIsIncludedInSpokenClusterLabels() {
-        let annotation = ClusterAnnotation(
-            confidence: .medium,
-            matchReason: MatchReason(kind: .nearDuplicate),
-            videoEvidence: VideoMatchEvidence(
-                usableSamples: 5,
-                agreeingSamples: 4,
-                medianHammingDistance: 2,
-                durationDeltaSeconds: 0.2,
-                visionCorroborated: false
-            )
-        )
-        let cluster = DuplicateCluster(
-            kind: .nearDuplicate,
-            members: [
-                PhotoCandidate(path: "/dest/a.mp4", size: 1, modificationTime: 0, mediaKind: .video),
-                PhotoCandidate(path: "/dest/b.mp4", size: 1, modificationTime: 0, mediaKind: .video),
-            ],
-            suggestedKeeperIDs: ["/dest/a.mp4"],
-            bytesIfPruned: 1,
-            annotation: annotation
-        )
-
-        XCTAssertTrue(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster).contains("4 of 5 sampled frames match"))
-        XCTAssertTrue(
-            DeduplicateAccessibilityText.rapidTriageLabel(cluster: cluster, currentIndex: 0, totalCount: 1)
-                .contains("4 of 5 sampled frames match")
-        )
-    }
-
     // MARK: - clusterRowLabel
 
     func testClusterRowLabelLeadsWithKindTitleForEveryKind() {
@@ -389,6 +359,41 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
                     warnings: warnings
                 )
                 : nil
+        )
+    }
+}
+
+/// Kept separate from the long-standing accessibility helper suite because
+/// Swift 6.0.3's XCTest discovery can stall when this additional selector is
+/// injected into that already-large Objective-C-discovered test case.
+final class DeduplicateVideoAccessibilityTextTests: XCTestCase {
+    func testVideoEvidenceIsIncludedInSpokenClusterLabels() {
+        let annotation = ClusterAnnotation(
+            confidence: .medium,
+            matchReason: MatchReason(kind: .nearDuplicate),
+            videoEvidence: VideoMatchEvidence(
+                usableSamples: 5,
+                agreeingSamples: 4,
+                medianHammingDistance: 2,
+                durationDeltaSeconds: 0.2,
+                visionCorroborated: false
+            )
+        )
+        let cluster = DuplicateCluster(
+            kind: .nearDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/a.mp4", size: 1, modificationTime: 0, mediaKind: .video),
+                PhotoCandidate(path: "/dest/b.mp4", size: 1, modificationTime: 0, mediaKind: .video),
+            ],
+            suggestedKeeperIDs: ["/dest/a.mp4"],
+            bytesIfPruned: 1,
+            annotation: annotation
+        )
+
+        XCTAssertTrue(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster).contains("4 of 5 sampled frames match"))
+        XCTAssertTrue(
+            DeduplicateAccessibilityText.rapidTriageLabel(cluster: cluster, currentIndex: 0, totalCount: 1)
+                .contains("4 of 5 sampled frames match")
         )
     }
 }
