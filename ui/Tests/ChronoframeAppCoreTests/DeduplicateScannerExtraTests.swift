@@ -93,6 +93,10 @@ final class DeduplicateScannerExtraTests: XCTestCase {
     }
 
     func testRealAnalyzerRunsAgainstValidJPEGFixturesAndProducesCacheRows() async throws {
+        if ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true" {
+            throw XCTSkip("Skipping real Vision analyzer test in headless CI environment")
+        }
+
         let temporaryDirectory = try makeTemp("real-analyzer")
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
