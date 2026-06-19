@@ -93,6 +93,10 @@ final class DeduplicateScannerExtraTests: XCTestCase {
     }
 
     func testRealAnalyzerRunsAgainstValidJPEGFixturesAndProducesCacheRows() async throws {
+        if ProcessInfo.processInfo.environment["GITHUB_ACTIONS"] == "true" {
+            throw XCTSkip("Skipping real Vision analyzer test in headless CI environment")
+        }
+
         let temporaryDirectory = try makeTemp("real-analyzer")
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
@@ -249,6 +253,40 @@ final class DeduplicateScannerExtraTests: XCTestCase {
         let summary = try XCTUnwrap(finalSummary)
         XCTAssertEqual(summary.totalCandidatesScanned, 1)
     }
+
+    func testDefaultDedupeImageAnalyzerNonExistentFile() throws {
+        let resolver = FileDateResolver(metadataReader: NoDateMetadataReader())
+        let analyzer = DefaultDedupeImageAnalyzer(dateResolver: resolver)
+        let nonExistentURL = URL(fileURLWithPath: "/tmp/non-existent-photo-\(UUID().uuidString).jpg")
+        let analysis = analyzer.analyze(url: nonExistentURL, size: 1024)
+
+        XCTAssertNil(analysis.featurePrintData)
+        XCTAssertNotNil(analysis.featurePrintFailureMessage)
+        XCTAssertNil(analysis.captureDate)
+        XCTAssertNil(analysis.pixelWidth)
+        XCTAssertNil(analysis.pixelHeight)
+        XCTAssertNil(analysis.dhash)
+        XCTAssertLessThan(analysis.quality.composite, 0.2)
+    }
+
+    func testDefaultDedupeImageAnalyzerCorruptFile() throws {
+        let temporaryDirectory = try makeTemp("analyzer-corrupt")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let txtFile = temporaryDirectory.appendingPathComponent("corrupt.jpg")
+        try Data("hello world".utf8).write(to: txtFile)
+
+        let resolver = FileDateResolver(metadataReader: NoDateMetadataReader())
+        let analyzer = DefaultDedupeImageAnalyzer(dateResolver: resolver)
+        let analysis = analyzer.analyze(url: txtFile, size: 11)
+
+        XCTAssertNil(analysis.featurePrintData)
+        XCTAssertNotNil(analysis.featurePrintFailureMessage)
+        XCTAssertNil(analysis.captureDate)
+        XCTAssertNil(analysis.pixelWidth)
+        XCTAssertNil(analysis.pixelHeight)
+        XCTAssertNil(analysis.dhash)
+    }
 }
 
 private final class StubDedupeImageAnalyzerForExtraTests: DedupeImageAnalyzing, @unchecked Sendable {
@@ -263,4 +301,10 @@ private final class StubDedupeImageAnalyzerForExtraTests: DedupeImageAnalyzing, 
             quality: PhotoQualityScore(composite: 0.7, sharpness: 0.7, faceScore: nil)
         )
     }
+}
+
+private struct NoDateMetadataReader: MediaMetadataDateReading {
+    func photoMetadataDate(at url: URL) -> Date? { nil }
+    func fileSystemCreationDate(at url: URL) -> Date? { nil }
+    func fileSystemModificationDate(at url: URL) -> Date? { nil }
 }

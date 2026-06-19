@@ -221,6 +221,33 @@ final class ChronoframeCoreMediaDiscoveryTests: XCTestCase {
         XCTAssertTrue(collected.values[0].message.contains("Drop manifest could not be read"))
     }
 
+    func testWalkEntriesThrowsCancellationErrorWhenCancelled() throws {
+        try writeFile("file.jpg")
+        XCTAssertThrowsError(
+            try MediaDiscovery.walkEntries(at: temporaryDirectoryURL, isCancelled: { true })
+        ) { error in
+            XCTAssertTrue(error is CancellationError)
+        }
+    }
+
+    func testWalkEntriesSkipsSymbolicLinksAndPackages() throws {
+        try writeFile("visible.jpg")
+
+        let packageURL = temporaryDirectoryURL.appendingPathComponent("MyPackage.photoslibrary", isDirectory: true)
+        try FileManager.default.createDirectory(at: packageURL, withIntermediateDirectories: true)
+        try Data("package-file".utf8).write(to: packageURL.appendingPathComponent("file.jpg"))
+
+        let symlinkURL = temporaryDirectoryURL.appendingPathComponent("MySymlink.jpg")
+        try FileManager.default.createSymbolicLink(at: symlinkURL, withDestinationURL: temporaryDirectoryURL.appendingPathComponent("visible.jpg"))
+
+        let entries = try MediaDiscovery.walkEntries(at: temporaryDirectoryURL)
+
+        XCTAssertEqual(
+            entries.map { "\(normalize($0.path)):\($0.isDirectory ? "dir" : "file")" },
+            ["visible.jpg:file"]
+        )
+    }
+
     private func normalize(_ path: String) -> String {
         let absolute = URL(fileURLWithPath: path).standardizedFileURL.path
         let root = temporaryDirectoryURL.standardizedFileURL.path + "/"

@@ -1,6 +1,10 @@
 import AppIntents
+#if canImport(ChronoframeCore)
 import ChronoframeCore
+#endif
+#if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
+#endif
 import Foundation
 
 @available(macOS 14.0, *)
