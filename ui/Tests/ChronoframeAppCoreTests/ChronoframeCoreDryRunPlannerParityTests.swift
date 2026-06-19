@@ -571,6 +571,39 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
             .sorted { $0.path < $1.path }
     }
 
+    func testPlannerAsyncMultiWorkerOutputMatchesSerialOutputAndCacheRows() async throws {
+        let serialRoots = try makeConcurrencyScenario(named: "serial-async")
+        let parallelRoots = try makeConcurrencyScenario(named: "parallel-async")
+        let planner = DryRunPlanner(
+            dateResolver: FileDateResolver(metadataReader: NoDateMetadataReader())
+        )
+
+        let serial = try await planner.planAsync(
+            sourceRoot: serialRoots.source,
+            destinationRoot: serialRoots.destination,
+            workerCount: 1
+        )
+        let parallel = try await planner.planAsync(
+            sourceRoot: parallelRoots.source,
+            destinationRoot: parallelRoots.destination,
+            workerCount: 4
+        )
+
+        XCTAssertEqual(serial.counts, parallel.counts)
+        XCTAssertEqual(serial.dateHistogram.map(\.key), parallel.dateHistogram.map(\.key))
+        XCTAssertEqual(serial.dateHistogram.map(\.plannedCount), parallel.dateHistogram.map(\.plannedCount))
+        XCTAssertEqual(
+            serial.dateHistogram.map { $0.samplePaths.map { URL(fileURLWithPath: $0).lastPathComponent } },
+            parallel.dateHistogram.map { $0.samplePaths.map { URL(fileURLWithPath: $0).lastPathComponent } }
+        )
+        XCTAssertEqual(serial.warningMessages, parallel.warningMessages)
+        XCTAssertEqual(serial.infoMessages, parallel.infoMessages)
+        XCTAssertEqual(
+            normalize(serial.copyJobs, sourceRoot: serialRoots.source, destinationRoot: serialRoots.destination),
+            normalize(parallel.copyJobs, sourceRoot: parallelRoots.source, destinationRoot: parallelRoots.destination)
+        )
+    }
+
     private var fixtureRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
