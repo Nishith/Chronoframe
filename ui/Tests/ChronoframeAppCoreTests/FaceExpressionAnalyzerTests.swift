@@ -240,4 +240,32 @@ final class FaceExpressionAnalyzerTests: XCTestCase {
                                                subjectSharpness: 0.8, subjectMotionBlur: 0.1)
         XCTAssertEqual(a, b)
     }
+
+    func testAnalyzeWithFlatImageHasZeroMotionBlur() throws {
+        let width = 32
+        let height = 32
+        var pixels = [UInt8](repeating: 128, count: width * height * 4)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = try XCTUnwrap(CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        let cgImage = try XCTUnwrap(context.makeImage())
+        let measurements = [
+            FaceExpressionAnalyzer.LandmarkMeasurement(
+                boundingBox: CGRect(x: 0.2, y: 0.2, width: 0.5, height: 0.5),
+                leftEye: nil,
+                rightEye: nil,
+                outerLips: nil
+            )
+        ]
+
+        let result = try XCTUnwrap(FaceExpressionAnalyzer.analyze(cgImage: cgImage, measurements: measurements))
+        XCTAssertEqual(result.subjectMotionBlur, 0.0)
+    }
 }

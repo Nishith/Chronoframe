@@ -1,6 +1,7 @@
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
+import Vision
 import XCTest
 @testable import ChronoframeCore
 
@@ -286,6 +287,219 @@ final class DeduplicateScannerExtraTests: XCTestCase {
         XCTAssertNil(analysis.pixelWidth)
         XCTAssertNil(analysis.pixelHeight)
         XCTAssertNil(analysis.dhash)
+    }
+
+    private func loadMockPrintData() throws -> Data {
+        let thisFile = URL(fileURLWithPath: #filePath)
+        let mockPrintURL = thisFile.deletingLastPathComponent().appendingPathComponent("mock_print.txt")
+        let hexString = try String(contentsOf: mockPrintURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanHex = hexString.hasPrefix("HEX:") ? String(hexString.dropFirst(4)) : hexString
+
+        var data = Data()
+        var hex = cleanHex
+        if hex.count % 2 != 0 {
+            hex = "0" + hex
+        }
+        var index = hex.startIndex
+        while index < hex.endIndex {
+            let nextIndex = hex.index(index, offsetBy: 2)
+            if let byte = UInt8(hex[index..<nextIndex], radix: 16) {
+                data.append(byte)
+            }
+            index = nextIndex
+        }
+        return data
+    }
+
+    private func resolveMacSandboxPath(_ path: String) -> String {
+        if path.hasPrefix("/var/") {
+            return "/private" + path
+        }
+        return path
+    }
+
+    func testNearDuplicateClusteringWithPreloadedCache() async throws {
+        let temporaryDirectory = try makeTemp("preloaded-near-dup").standardizedFileURL.resolvingSymlinksInPath()
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let img1URL = temporaryDirectory.appendingPathComponent("img1.jpg")
+        let img2URL = temporaryDirectory.appendingPathComponent("img2.jpg")
+        let img3URL = temporaryDirectory.appendingPathComponent("img3.jpg")
+        let img4URL = temporaryDirectory.appendingPathComponent("img4.jpg")
+        let img5URL = temporaryDirectory.appendingPathComponent("img5.jpg")
+
+        let img1Data = Data("image1-bytes".utf8)
+        let img2Data = Data("image1-bytes".utf8) // byte-identical to img1
+        let img3Data = Data("image3-different-bytes".utf8)
+        let img4Data = Data("image4-bytes".utf8)
+        let img5Data = Data("image4-bytes".utf8) // byte-identical to img4
+
+        try img1Data.write(to: img1URL)
+        try img2Data.write(to: img2URL)
+        try img3Data.write(to: img3URL)
+        try img4Data.write(to: img4URL)
+        try img5Data.write(to: img5URL)
+
+        let attrs1 = try FileManager.default.attributesOfItem(atPath: img1URL.path)
+        let attrs2 = try FileManager.default.attributesOfItem(atPath: img2URL.path)
+        let attrs3 = try FileManager.default.attributesOfItem(atPath: img3URL.path)
+        let attrs4 = try FileManager.default.attributesOfItem(atPath: img4URL.path)
+        let attrs5 = try FileManager.default.attributesOfItem(atPath: img5URL.path)
+
+        let mtime1 = (attrs1[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let mtime2 = (attrs2[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let mtime3 = (attrs3[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let mtime4 = (attrs4[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let mtime5 = (attrs5[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+
+        let dbURL = temporaryDirectory.appendingPathComponent(".organize_cache.db")
+        let db = try OrganizerDatabase(url: dbURL)
+        try db.ensureDedupeFeaturesSchema()
+
+        let featureData = try loadMockPrintData()
+        let records = [
+            DedupeFeatureRecord(
+                path: resolveMacSandboxPath(img1URL.path),
+                size: Int64(img1Data.count),
+                modificationTime: mtime1,
+                dhash: 0x1111,
+                featurePrintData: featureData,
+                sharpness: 0.8,
+                faceScore: nil,
+                pixelWidth: 32,
+                pixelHeight: 32,
+                captureDate: Date(timeIntervalSince1970: 1000),
+                pairedPath: nil,
+                eyesOpenScore: nil,
+                smileScore: nil,
+                subjectSharpness: nil,
+                subjectMotionBlur: nil,
+                folderRoot: nil
+            ),
+            DedupeFeatureRecord(
+                path: resolveMacSandboxPath(img2URL.path),
+                size: Int64(img2Data.count),
+                modificationTime: mtime2,
+                dhash: 0x1111,
+                featurePrintData: featureData,
+                sharpness: 0.8,
+                faceScore: nil,
+                pixelWidth: 32,
+                pixelHeight: 32,
+                captureDate: Date(timeIntervalSince1970: 1000),
+                pairedPath: nil,
+                eyesOpenScore: nil,
+                smileScore: nil,
+                subjectSharpness: nil,
+                subjectMotionBlur: nil,
+                folderRoot: nil
+            ),
+            DedupeFeatureRecord(
+                path: resolveMacSandboxPath(img3URL.path),
+                size: Int64(img3Data.count),
+                modificationTime: mtime3,
+                dhash: 0x1112, // hamming distance 1 from 0x1111
+                featurePrintData: featureData,
+                sharpness: 0.8,
+                faceScore: nil,
+                pixelWidth: 32,
+                pixelHeight: 32,
+                captureDate: Date(timeIntervalSince1970: 1015), // 15s difference -> nearDuplicate
+                pairedPath: nil,
+                eyesOpenScore: nil,
+                smileScore: nil,
+                subjectSharpness: nil,
+                subjectMotionBlur: nil,
+                folderRoot: nil
+            ),
+            DedupeFeatureRecord(
+                path: resolveMacSandboxPath(img4URL.path),
+                size: Int64(img4Data.count),
+                modificationTime: mtime4,
+                dhash: 0x2222,
+                featurePrintData: featureData,
+                sharpness: 0.8,
+                faceScore: nil,
+                pixelWidth: 32,
+                pixelHeight: 32,
+                captureDate: Date(timeIntervalSince1970: 2000),
+                pairedPath: nil,
+                eyesOpenScore: nil,
+                smileScore: nil,
+                subjectSharpness: nil,
+                subjectMotionBlur: nil,
+                folderRoot: nil
+            ),
+            DedupeFeatureRecord(
+                path: resolveMacSandboxPath(img5URL.path),
+                size: Int64(img5Data.count),
+                modificationTime: mtime5,
+                dhash: 0x2222,
+                featurePrintData: featureData,
+                sharpness: 0.8,
+                faceScore: nil,
+                pixelWidth: 32,
+                pixelHeight: 32,
+                captureDate: Date(timeIntervalSince1970: 2000),
+                pairedPath: nil,
+                eyesOpenScore: nil,
+                smileScore: nil,
+                subjectSharpness: nil,
+                subjectMotionBlur: nil,
+                folderRoot: nil
+            )
+        ]
+        try db.saveDedupeFeatureRecords(records)
+
+        db.close()
+
+
+        let config = DeduplicateConfiguration(
+            destinationPath: temporaryDirectory.standardizedFileURL.path,
+            timeWindowSeconds: 30,
+            similarityThreshold: 0.5,
+            dhashHammingThreshold: 5,
+            enableExactDuplicateGroup: true
+        )
+
+        let scanner = DeduplicateScanner()
+        let stream = scanner.scan(configuration: config)
+
+        var clusters: [DuplicateCluster] = []
+        var finalSummary: DeduplicateSummary?
+        for try await event in stream {
+            switch event {
+            case .clusterDiscovered(let cluster):
+                clusters.append(cluster)
+            case .complete(let summary):
+                finalSummary = summary
+            default:
+                break
+            }
+        }
+
+
+        let summary = try XCTUnwrap(finalSummary)
+        XCTAssertEqual(summary.totalCandidatesScanned, 5)
+        XCTAssertEqual(summary.cacheMetrics.hits, 5)
+        XCTAssertEqual(summary.cacheMetrics.misses, 0)
+
+        // Exact clusters:
+        // 1. [img1, img2]
+        // 2. [img4, img5]
+        //
+        // Near duplicate clusters candidate:
+        // 1. [img1, img2, img3] (kept because img3 is not in exactPaths)
+        // 2. [img4, img5] (dropped because both are in exactPaths)
+        //
+        // Total expected clusters after filter: 3 (2 exact, 1 near)
+        XCTAssertEqual(clusters.count, 3)
+        XCTAssertEqual(clusters.filter({ $0.kind == .exactDuplicate }).count, 2)
+        XCTAssertEqual(clusters.filter({ $0.kind == .nearDuplicate }).count, 1)
+
+        let nearCluster = try XCTUnwrap(clusters.first(where: { $0.kind == .nearDuplicate }))
+        XCTAssertEqual(nearCluster.members.count, 3)
     }
 }
 

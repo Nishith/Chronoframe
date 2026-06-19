@@ -41,6 +41,9 @@ final class DeduplicateTests: XCTestCase {
         let invalidURL = temporaryDirectory.appendingPathComponent("not-an-image.jpg")
         try Data("nope".utf8).write(to: invalidURL)
         XCTAssertNil(PerceptualHash.dhash(at: invalidURL))
+
+        // Non-existent URL covers kCGImageSourceCreateWithURL failure branch.
+        XCTAssertNil(PerceptualHash.dhash(at: URL(fileURLWithPath: "/no/such/file.jpg")))
     }
 
     func testPhotoQualityScorerFallsBackForUndecodableImage() throws {

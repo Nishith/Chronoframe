@@ -266,10 +266,24 @@ final class ChronoframeCoreDatabaseExtraTests: XCTestCase {
         XCTAssertNil(updated.captureDate)
         XCTAssertEqual(updated.eventName, "Updated")
 
+        // Save with non-nil captureDate AND nil eventName → covers NULL event name bind branch on write.
+        let onlyDate = ReviewOverride(
+            identity: identity,
+            sourcePath: "/src/a.jpg",
+            captureDate: Date(timeIntervalSince1970: 1_700_003_000),
+            eventName: nil,
+            updatedAt: Date(timeIntervalSince1970: 1_700_004_000)
+        )
+        try db.saveReviewOverride(onlyDate)
+
+        let updatedDate = try XCTUnwrap(try db.loadReviewOverride(identity: identity, sourcePath: "/src/a.jpg"))
+        XCTAssertEqual(updatedDate.captureDate?.timeIntervalSince1970, 1_700_003_000)
+        XCTAssertNil(updatedDate.eventName)
+
         // loadReviewOverrides (plural) also covers NULL column branch.
         let all = try db.loadReviewOverrides()
         XCTAssertEqual(all.count, 1)
-        XCTAssertNil(all[0].captureDate)
+        XCTAssertNil(all[0].eventName)
 
         // Saving an override with both fields nil deletes it.
         let empty = ReviewOverride(
@@ -408,5 +422,64 @@ final class ChronoframeCoreDatabaseExtraTests: XCTestCase {
 
         let snapshot = try db.destinationIndexSnapshot()
         XCTAssertEqual(snapshot.sequenceState.primaryByDate["2024-01-01"], 3)
+    }
+
+    func testOrganizerDatabaseErrorDuplicateColumnNameHelper() {
+        let duplicateErr = OrganizerDatabaseError.executionFailed("duplicate column name: test")
+        XCTAssertTrue(duplicateErr.isDuplicateColumnName)
+
+        let otherErr = OrganizerDatabaseError.executionFailed("table already exists")
+        XCTAssertFalse(otherErr.isDuplicateColumnName)
+
+        let closedErr = OrganizerDatabaseError.databaseClosed
+        XCTAssertFalse(closedErr.isDuplicateColumnName)
+    }
+
+    func testRawFileCacheRecordParsedIdentity() {
+        let validRecord = RawFileCacheRecord(
+            namespace: .source,
+            path: "/a.jpg",
+            hash: "123_abc",
+            size: 123,
+            modificationTime: 0
+        )
+        XCTAssertNotNil(validRecord.parsedIdentity)
+        XCTAssertEqual(validRecord.parsedIdentity?.size, 123)
+        XCTAssertEqual(validRecord.parsedIdentity?.digest, "abc")
+
+        let invalidRecord = RawFileCacheRecord(
+            namespace: .source,
+            path: "/a.jpg",
+            hash: "garbage_format",
+            size: 123,
+            modificationTime: 0
+        )
+        XCTAssertNil(invalidRecord.parsedIdentity)
+    }
+
+    func testDatabaseSaveAndEnqueueEmptySequencesPerformNoTransaction() throws {
+        let db = try makeDatabase()
+        // Should not throw or perform database operations
+        try db.saveRawCacheRecords([])
+        try db.enqueueQueuedJobs([])
+        XCTAssertEqual(try db.cacheRecordCount(namespace: .source), 0)
+        XCTAssertEqual(try db.queuedJobCount(), 0)
+    }
+
+    func testClosedDatabaseThrowsForExecuteAndPrepare() throws {
+        let db = try makeDatabase()
+        db.close()
+
+        XCTAssertThrowsError(try db.execute("SELECT 1")) { error in
+            guard case OrganizerDatabaseError.databaseClosed = error else { XCTFail(); return }
+        }
+        XCTAssertThrowsError(try db.prepare("SELECT 1")) { error in
+            guard case OrganizerDatabaseError.databaseClosed = error else { XCTFail(); return }
+        }
+    }
+
+    func testErrorMessageHelperHandlesNilDatabase() {
+        let msg = OrganizerDatabase.errorMessage(from: nil)
+        XCTAssertEqual(msg, "Unknown SQLite error")
     }
 }
