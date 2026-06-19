@@ -604,6 +604,31 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         )
     }
 
+    func testPlannerSpoolEvictionWithManyDateBuckets() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("eviction-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("eviction-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        var date = makeDate("2024-01-01")
+        for index in 1...105 {
+            let dateStr = Self.dayFormatter.string(from: date).replacingOccurrences(of: "-", with: "")
+            let filename = "IMG_\(dateStr)_120000.jpg"
+            try writeMediaFile(at: sourceRoot.appendingPathComponent(filename), contents: "file-\(index)")
+            date = date.addingTimeInterval(24 * 3600)
+        }
+
+        let result = try DryRunPlanner().plan(
+            sourceRoot: sourceRoot,
+            destinationRoot: destinationRoot,
+            folderStructure: .yyyyMMDD
+        )
+
+        XCTAssertEqual(result.discoveredSourceCount, 105)
+        XCTAssertEqual(result.counts.newCount, 105)
+        XCTAssertEqual(result.dateHistogram.count, 4)
+    }
+
     private var fixtureRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
