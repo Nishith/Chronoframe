@@ -42,9 +42,15 @@ public final class DeduplicateSessionStore: ObservableObject {
         let currentDecisions = decisions
         let currentApproved = approvedClusterIDs
         undoManager.registerUndo(withTarget: self) { target in
-            target.decisions = oldDecisions
-            target.approvedClusterIDs = oldApproved
-            target.registerUndo(oldDecisions: currentDecisions, oldApproved: currentApproved, actionName: actionName)
+            // UndoManager invokes handlers synchronously on the thread where
+            // undo/redo was requested. This store and its manager are owned by
+            // the main actor, so preserve synchronous undo semantics while
+            // making that isolation guarantee explicit to Swift 6.
+            MainActor.assumeIsolated {
+                target.decisions = oldDecisions
+                target.approvedClusterIDs = oldApproved
+                target.registerUndo(oldDecisions: currentDecisions, oldApproved: currentApproved, actionName: actionName)
+            }
         }
         if !undoManager.isUndoing {
             undoManager.setActionName(actionName)

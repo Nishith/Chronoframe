@@ -57,6 +57,15 @@ enum DedupeReviewOrder {
     }
 }
 
+enum DedupeAccessibilityFocusSelection {
+    static func selectedClusterID(
+        accessibilityFocusedClusterID: UUID?,
+        currentSelection: UUID?
+    ) -> UUID? {
+        accessibilityFocusedClusterID ?? currentSelection
+    }
+}
+
 /// Left pane: scrollable list of all clusters grouped by kind. Each row
 /// shows a thumbnail strip of the cluster's members, member count, and
 /// recoverable bytes. Selecting a row sets the focused cluster in the

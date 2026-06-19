@@ -136,7 +136,6 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
 }
 
 struct WaypointDot: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scale: CGFloat = 0.01
     @State private var isPulsing = false
 
@@ -147,17 +146,11 @@ struct WaypointDot: View {
             .scaleEffect(scale)
             .scaleEffect(isPulsing ? 1.25 : 1.0)
             .onAppear {
-                if reduceMotion {
-                    scale = 1.0
-                } else {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.6)) {
-                        scale = 1.0
-                    }
-                    withAnimation(Animation.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                        isPulsing = true
-                    }
-                }
+                scale = 1.0
+                isPulsing = true
             }
+            .motion(.spring(response: 0.35, dampingFraction: 0.6), value: scale)
+            .motion(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: isPulsing)
     }
 }
 

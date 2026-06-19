@@ -14,6 +14,7 @@ struct ComparisonOverlayView: View {
     @State private var offset: CGSize = .zero
     @GestureState private var gestureScale: CGFloat = 1.0
     @GestureState private var gestureOffset: CGSize = .zero
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
 
     private var magnificationGesture: some Gesture {
@@ -73,12 +74,12 @@ struct ComparisonOverlayView: View {
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) {
                     if scale > 1.0 {
-                        withAnimation(.spring()) {
+                        Motion.withMotion(.spring(), reduceMotion: reduceMotion) {
                             scale = 1.0
                             offset = .zero
                         }
                     } else {
-                        withAnimation(.spring()) {
+                        Motion.withMotion(.spring(), reduceMotion: reduceMotion) {
                             scale = 3.0
                             offset = .zero
                         }

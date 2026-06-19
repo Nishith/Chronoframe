@@ -21,7 +21,7 @@ struct ProminentMicroDelightButtonStyle: ButtonStyle {
             )
             .foregroundColor(.white)
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1.0)
-            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .motion(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 
@@ -45,7 +45,7 @@ struct BorderedMicroDelightButtonStyle: ButtonStyle {
                     .stroke(Color.primary.opacity(0.12), lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.96 : 1.0)
-            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+            .motion(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 

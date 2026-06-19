@@ -307,6 +307,15 @@ struct DeduplicateView: View {
                 accessibilityFocusedClusterID = newID
             }
         }
+        .onChange(of: accessibilityFocusedClusterID) { newID in
+            let selection = DedupeAccessibilityFocusSelection.selectedClusterID(
+                accessibilityFocusedClusterID: newID,
+                currentSelection: focusedClusterID
+            )
+            if focusedClusterID != selection {
+                focusedClusterID = selection
+            }
+        }
         .inspector(isPresented: $showingComparisonInspector) {
             if let paths = sideBySideComparisonPaths {
                 ComparisonOverlayView(
