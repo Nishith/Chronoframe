@@ -14,6 +14,7 @@ struct DeduplicateView: View {
     @StateObject private var thumbnailLoader = DedupeThumbnailLoader()
 
     @State private var focusedClusterID: UUID?
+    @AccessibilityFocusState private var accessibilityFocusedClusterID: UUID?
     @State private var focusedMemberPath: String?
     @State private var confidenceFilter: DedupeClusterConfidenceFilter = .all
     @State private var showingCommitConfirmation = false
@@ -290,6 +291,11 @@ struct DeduplicateView: View {
         .onAppear { alignFocusWithVisibleClusters() }
         .onChange(of: sessionStore.clusters.map(\.id)) { _ in alignFocusWithVisibleClusters() }
         .onChange(of: confidenceFilter) { _ in alignFocusWithVisibleClusters() }
+        .onChange(of: focusedClusterID) { newID in
+            if accessibilityFocusedClusterID != newID {
+                accessibilityFocusedClusterID = newID
+            }
+        }
     }
 
     @ViewBuilder
@@ -337,7 +343,8 @@ struct DeduplicateView: View {
             videoAnalysisNote: Self.videoAnalysisNote(for: sessionStore.summary),
             onKeepAll: { sessionStore.keepAllInCluster($0) },
             onAcceptSuggestion: { sessionStore.acceptSuggestionsForCluster($0) },
-            onDeleteAll: { sessionStore.deleteAllInCluster($0) }
+            onDeleteAll: { sessionStore.deleteAllInCluster($0) },
+            accessibilityFocusedClusterID: $accessibilityFocusedClusterID
         )
     }
 
@@ -704,17 +711,20 @@ struct DeduplicateView: View {
         guard let first = clusters.first else {
             focusedClusterID = nil
             focusedMemberPath = nil
+            accessibilityFocusedClusterID = nil
             return
         }
         guard let currentID = focusedClusterID,
               let current = clusters.first(where: { $0.id == currentID }) else {
             focusedClusterID = first.id
             focusedMemberPath = first.members.first?.path
+            accessibilityFocusedClusterID = first.id
             return
         }
         if focusedMemberPath == nil || !current.members.contains(where: { $0.path == focusedMemberPath }) {
             focusedMemberPath = current.members.first?.path
         }
+        accessibilityFocusedClusterID = currentID
     }
 
     private func advanceToNextCluster() {
@@ -725,6 +735,7 @@ struct DeduplicateView: View {
         let next = clusters[currentIndex + 1]
         focusedClusterID = next.id
         focusedMemberPath = next.members.first?.path
+        accessibilityFocusedClusterID = next.id
     }
 
     private func navigateCluster(by delta: Int) {
@@ -740,6 +751,7 @@ struct DeduplicateView: View {
         let next = clusters[nextIndex]
         focusedClusterID = next.id
         focusedMemberPath = next.members.first?.path
+        accessibilityFocusedClusterID = next.id
     }
 
     private var currentDeduplicateConfiguration: DeduplicateConfiguration? {

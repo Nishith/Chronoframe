@@ -14,17 +14,17 @@ public enum UserFacingErrorContext: Sendable {
     fileprivate var fallbackMessage: String {
         switch self {
         case .generic:
-            return "Chronoframe ran into a problem. Try again."
+            return String(localized: "Chronoframe ran into a problem. Try again.", bundle: Bundle.module)
         case .setup:
-            return "Chronoframe could not update Setup. Choose the folder again, or check that the drive is connected."
+            return String(localized: "Chronoframe could not update Setup. Choose the folder again, or check that the drive is connected.", bundle: Bundle.module)
         case .droppedItems:
-            return "Chronoframe could not use the dropped items. Try choosing the source folder with the picker instead."
+            return String(localized: "Chronoframe could not use the dropped items. Try choosing the source folder with the picker instead.", bundle: Bundle.module)
         case .profiles:
-            return "Chronoframe could not update saved profiles. Check that Chronoframe can write to its settings, then try again."
+            return String(localized: "Chronoframe could not update saved profiles. Check that Chronoframe can write to its settings, then try again.", bundle: Bundle.module)
         case .run:
-            return "Chronoframe could not finish this run. Your source files were left untouched. Check that both folders are available, then try again."
+            return String(localized: "Chronoframe could not finish this run. Your source files were left untouched. Check that both folders are available, then try again.", bundle: Bundle.module)
         case .history:
-            return "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again."
+            return String(localized: "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again.", bundle: Bundle.module)
         }
     }
 }
@@ -40,7 +40,7 @@ public enum UserFacingErrorMessage {
         }
 
         if error is DecodingError {
-            return "Chronoframe could not read one of its saved files because the file format looked different than expected. Run a new preview or transfer to create a fresh file."
+            return String(localized: "Chronoframe could not read one of its saved files because the file format looked different than expected. Run a new preview or transfer to create a fresh file.", bundle: Bundle.module)
         }
 
         return withDetails(context.fallbackMessage, details: error.localizedDescription)
@@ -49,19 +49,19 @@ public enum UserFacingErrorMessage {
     public static func backendPrompt(_ message: String) -> String {
         let message = cleaned(message)
         guard !message.isEmpty else {
-            return "Chronoframe needs one more choice before it can continue. Review Setup, then try again."
+            return String(localized: "Chronoframe needs one more choice before it can continue. Review Setup, then try again.", bundle: Bundle.module)
         }
 
         if message.localizedCaseInsensitiveContains("Source and Destination must be provided") {
-            return "Choose both a source folder and a destination folder before starting."
+            return String(localized: "Choose both a source folder and a destination folder before starting.", bundle: Bundle.module)
         }
 
         if message.localizedCaseInsensitiveContains("No valid media files found in source") {
-            return "Chronoframe did not find supported photo or video files in the source. Choose a different source folder, then try again."
+            return String(localized: "Chronoframe did not find supported photo or video files in the source. Choose a different source folder, then try again.", bundle: Bundle.module)
         }
 
         return withDetails(
-            "Chronoframe needs attention before it can continue. Review the message below, then try again.",
+            String(localized: "Chronoframe needs attention before it can continue. Review the message below, then try again.", bundle: Bundle.module),
             details: message
         )
     }
@@ -71,31 +71,31 @@ public enum UserFacingErrorMessage {
         guard !message.isEmpty else {
             switch severity {
             case .info:
-                return "Chronoframe reported an update."
+                return String(localized: "Chronoframe reported an update.", bundle: Bundle.module)
             case .warning:
-                return "Chronoframe reported a warning, but did not include details."
+                return String(localized: "Chronoframe reported a warning, but did not include details.", bundle: Bundle.module)
             case .error:
-                return "Chronoframe reported a problem, but did not include details."
+                return String(localized: "Chronoframe reported a problem, but did not include details.", bundle: Bundle.module)
             }
         }
 
         if message.localizedCaseInsensitiveContains("Source and Destination must be provided") {
-            return "Choose both a source folder and a destination folder before starting."
+            return String(localized: "Choose both a source folder and a destination folder before starting.", bundle: Bundle.module)
         }
 
         if message.localizedCaseInsensitiveContains("No valid media files found in source") {
-            return "Chronoframe did not find supported photo or video files in the source. Choose a different source folder, then try again."
+            return String(localized: "Chronoframe did not find supported photo or video files in the source. Choose a different source folder, then try again.", bundle: Bundle.module)
         }
 
         if let payload = payload(after: "Verification failed:", in: message) {
             let parts = splitSourceDestination(payload)
-            return "Chronoframe copied this file but could not verify the copy, so the destination copy was removed and the source was left untouched. Source: \(parts.source). Destination: \(parts.destination)."
+            return String(localized: "Chronoframe copied this file but could not verify the copy, so the destination copy was removed and the source was left untouched. Source: \(parts.source). Destination: \(parts.destination).", bundle: Bundle.module)
         }
 
         if let payload = payload(after: "Copy failed:", in: message) {
             let parsed = splitSourceDestinationDetails(payload)
             return withDetails(
-                "Chronoframe could not copy this file, so the source was left untouched. Source: \(parsed.source). Destination: \(parsed.destination).",
+                String(localized: "Chronoframe could not copy this file, so the source was left untouched. Source: \(parsed.source). Destination: \(parsed.destination).", bundle: Bundle.module),
                 details: parsed.details
             )
         }
@@ -103,18 +103,18 @@ public enum UserFacingErrorMessage {
         if let payload = payload(after: "Unexpected hash error for", in: message) {
             let parsed = splitPathDetails(payload)
             return withDetails(
-                "Chronoframe could not check this file, so it skipped it. File: \(parsed.path).",
+                String(localized: "Chronoframe could not check this file, so it skipped it. File: \(parsed.path).", bundle: Bundle.module),
                 details: parsed.details
             )
         }
 
         if let path = payload(after: "Receipt not found:", in: message) {
-            return "The selected revert receipt could not be found. It may have been moved or deleted. Receipt: \(path)."
+            return String(localized: "The selected revert receipt could not be found. It may have been moved or deleted. Receipt: \(path).", bundle: Bundle.module)
         }
 
         if let details = payload(after: "Invalid receipt:", in: message) {
             return withDetails(
-                "Chronoframe could not read this revert receipt. Choose a different receipt or run a new transfer.",
+                String(localized: "Chronoframe could not read this revert receipt. Choose a different receipt or run a new transfer.", bundle: Bundle.module),
                 details: details
             )
         }
@@ -122,7 +122,7 @@ public enum UserFacingErrorMessage {
         if let payload = payload(after: "Could not remove", in: message) {
             let parsed = splitPathDetails(payload)
             return withDetails(
-                "Chronoframe could not remove this copied file during revert, so it was left in place. File: \(parsed.path).",
+                String(localized: "Chronoframe could not remove this copied file during revert, so it was left in place. File: \(parsed.path).", bundle: Bundle.module),
                 details: parsed.details
             )
         }
@@ -130,34 +130,34 @@ public enum UserFacingErrorMessage {
         if let payload = payload(after: "Could not re-hash", in: message) {
             let parsed = splitPathDetails(payload)
             return withDetails(
-                "Chronoframe could not check whether this file changed, so it was left in place. File: \(parsed.path).",
+                String(localized: "Chronoframe could not check whether this file changed, so it was left in place. File: \(parsed.path).", bundle: Bundle.module),
                 details: parsed.details
             )
         }
 
         if let path = payload(after: "Preserved (modified since copy):", in: message) {
-            return "Chronoframe kept this file because it has changed since the original transfer. File: \(path)."
+            return String(localized: "Chronoframe kept this file because it has changed since the original transfer. File: \(path).", bundle: Bundle.module)
         }
 
         if let path = payload(after: "Source no longer exists:", in: message) {
-            return "A file disappeared before Chronoframe could move it. File: \(path)."
+            return String(localized: "A file disappeared before Chronoframe could move it. File: \(path).", bundle: Bundle.module)
         }
 
         if let path = payload(after: "Destination exists, skipping:", in: message) {
-            return "A file already exists at the new location, so Chronoframe left the original in place. Destination: \(path)."
+            return String(localized: "A file already exists at the new location, so Chronoframe left the original in place. Destination: \(path).", bundle: Bundle.module)
         }
 
         if let payload = payload(after: "Could not move", in: message) {
             let parsed = splitPathDetails(payload)
             return withDetails(
-                "Chronoframe could not move this file inside the destination. It was left where it is. File: \(parsed.path).",
+                String(localized: "Chronoframe could not move this file inside the destination. It was left where it is. File: \(parsed.path).", bundle: Bundle.module),
                 details: parsed.details
             )
         }
 
         if message.hasPrefix("Cleaned "), message.contains(" orphaned .tmp files") {
-            return message
-                .replacingOccurrences(of: "orphaned .tmp files", with: "temporary files left by an interrupted run")
+            let replacement = String(localized: "temporary files left by an interrupted run", bundle: Bundle.module)
+            return message.replacingOccurrences(of: "orphaned .tmp files", with: replacement)
         }
 
         return message
@@ -167,7 +167,7 @@ public enum UserFacingErrorMessage {
         let details = cleaned(details ?? "")
         guard !details.isEmpty else { return message }
         guard details != message else { return message }
-        return "\(message) Details: \(details)"
+        return String(localized: "\(message) Details: \(details)", bundle: Bundle.module)
     }
 
     private static func specificMessage(for error: Error) -> String? {
@@ -194,22 +194,22 @@ public enum UserFacingErrorMessage {
             switch code {
             case .ENOENT, .ENOTDIR:
                 return withPath(
-                    "A file or folder Chronoframe needs is no longer available. Reconnect the drive or choose the folder again, then try again.",
+                    String(localized: "A file or folder Chronoframe needs is no longer available. Reconnect the drive or choose the folder again, then try again.", bundle: Bundle.module),
                     error: error
                 )
             case .EACCES, .EPERM:
                 return withPath(
-                    "macOS is blocking access to a file or folder. Choose the folder again to grant access, or check Privacy & Security settings.",
+                    String(localized: "macOS is blocking access to a file or folder. Choose the folder again to grant access, or check Privacy & Security settings.", bundle: Bundle.module),
                     error: error
                 )
             case .ENOSPC:
                 return withPath(
-                    "The destination drive is out of space. Free up space or choose a different destination, then try again.",
+                    String(localized: "The destination drive is out of space. Free up space or choose a different destination, then try again.", bundle: Bundle.module),
                     error: error
                 )
             case .EROFS:
                 return withPath(
-                    "The destination is read-only. Choose a writable folder or change the drive permissions, then try again.",
+                    String(localized: "The destination is read-only. Choose a writable folder or change the drive permissions, then try again.", bundle: Bundle.module),
                     error: error
                 )
             default:
@@ -222,27 +222,27 @@ public enum UserFacingErrorMessage {
         switch code {
         case .fileNoSuchFile, .fileReadNoSuchFile:
             return withPath(
-                "A file or folder Chronoframe needs is no longer available. Reconnect the drive or choose the folder again, then try again.",
+                String(localized: "A file or folder Chronoframe needs is no longer available. Reconnect the drive or choose the folder again, then try again.", bundle: Bundle.module),
                 error: error
             )
         case .fileReadNoPermission, .fileWriteNoPermission:
             return withPath(
-                "macOS is blocking access to a file or folder. Choose the folder again to grant access, or check Privacy & Security settings.",
+                String(localized: "macOS is blocking access to a file or folder. Choose the folder again to grant access, or check Privacy & Security settings.", bundle: Bundle.module),
                 error: error
             )
         case .fileWriteOutOfSpace:
             return withPath(
-                "The destination drive is out of space. Free up space or choose a different destination, then try again.",
+                String(localized: "The destination drive is out of space. Free up space or choose a different destination, then try again.", bundle: Bundle.module),
                 error: error
             )
         case .fileWriteVolumeReadOnly:
             return withPath(
-                "The destination is read-only. Choose a writable folder or change the drive permissions, then try again.",
+                String(localized: "The destination is read-only. Choose a writable folder or change the drive permissions, then try again.", bundle: Bundle.module),
                 error: error
             )
         case .fileReadCorruptFile:
             return withPath(
-                "Chronoframe could not read a saved file because it appears to be damaged. Run a new preview or transfer to create a fresh file.",
+                String(localized: "Chronoframe could not read a saved file because it appears to be damaged. Run a new preview or transfer to create a fresh file.", bundle: Bundle.module),
                 error: error
             )
         default:
@@ -254,7 +254,7 @@ public enum UserFacingErrorMessage {
         guard let path = error.userInfo[NSFilePathErrorKey] as? String, !path.isEmpty else {
             return message
         }
-        return "\(message) Path: \(path)."
+        return String(localized: "\(message) Path: \(path).", bundle: Bundle.module)
     }
 
     private static func payload(after prefix: String, in message: String) -> String? {
@@ -300,3 +300,17 @@ public enum UserFacingErrorMessage {
         message.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
+
+extension String {
+    fileprivate init(localized key: String.LocalizationValue, bundle: Bundle) {
+        self = String(localized: key, table: "LocalizableCore", bundle: bundle)
+    }
+}
+
+#if !SWIFT_PACKAGE
+extension Bundle {
+    static var module: Bundle {
+        Bundle.main
+    }
+}
+#endif
