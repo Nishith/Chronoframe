@@ -12,19 +12,26 @@ export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT_DIR/.tmp/modulecache"
 cd "$ROOT_DIR"
 mkdir -p "$XDG_CACHE_HOME" "$CLANG_MODULE_CACHE_PATH"
 
-# Swift 6.0.3 on GitHub's macos-14-arm64 image can wedge XCTest discovery
-# when this App test suite shares the full process. Exercise it separately,
-# then collect meaningful coverage from every other suite; none of the gate's
-# source files depend on this SwiftUI accessibility-helper suite.
-swift test --package-path ui --disable-sandbox \
-    --filter DeduplicateAccessibilityTextTests
-swift test --enable-code-coverage --package-path ui --disable-sandbox \
-    --skip DeduplicateAccessibilityTextTests
+script/run_swift_test_suites.sh --coverage
+rm -f ui/default.profraw
 
-CODECOV_PATH="$(
-    swift test --package-path ui --show-codecov-path --disable-sandbox 2>/dev/null \
-        | tail -n 1
+CODECOV_DIR="$(find ui/.build -type d -path '*/debug/codecov' -print -quit)"
+TEST_BINARY="$(
+    find ui/.build -type f \
+        -path '*/debug/ChronoframeUIPackageTests.xctest/Contents/MacOS/ChronoframeUIPackageTests' \
+        -print -quit
 )"
+
+if [[ -z "$CODECOV_DIR" || -z "$TEST_BINARY" ]]; then
+    echo "SwiftPM coverage artifacts were not created." >&2
+    exit 1
+fi
+
+PROFDATA_PATH="$CODECOV_DIR/default.profdata"
+CODECOV_PATH="$CODECOV_DIR/ChronoframeUI.json"
+xcrun llvm-profdata merge -sparse "$CODECOV_DIR"/*.profraw -o "$PROFDATA_PATH"
+xcrun llvm-cov export "$TEST_BINARY" \
+    -instr-profile="$PROFDATA_PATH" > "$CODECOV_PATH"
 
 if [[ ! -f "$CODECOV_PATH" ]]; then
     echo "Coverage JSON not found at: $CODECOV_PATH" >&2
