@@ -12,7 +12,14 @@ export SWIFTPM_MODULECACHE_OVERRIDE="$ROOT_DIR/.tmp/modulecache"
 cd "$ROOT_DIR"
 mkdir -p "$XDG_CACHE_HOME" "$CLANG_MODULE_CACHE_PATH"
 
-swift test --enable-code-coverage --package-path ui --disable-sandbox
+# Swift 6.0.3 on GitHub's macos-14-arm64 image can wedge XCTest discovery
+# when this App test suite shares the full process. Exercise it separately,
+# then collect meaningful coverage from every other suite; none of the gate's
+# source files depend on this SwiftUI accessibility-helper suite.
+swift test --package-path ui --disable-sandbox \
+    --filter DeduplicateAccessibilityTextTests
+swift test --enable-code-coverage --package-path ui --disable-sandbox \
+    --skip DeduplicateAccessibilityTextTests
 
 CODECOV_PATH="$(
     swift test --package-path ui --show-codecov-path --disable-sandbox 2>/dev/null \

@@ -170,6 +170,7 @@ Be precise when discussing coverage.
 - Default branch is `main`, not `master`.
 - Use `codex/...` branch names for Codex work unless the user asks otherwise.
 - The `app-layer-test-check` CI job (PRs only) runs `script/check_app_layer_changes_have_tests.sh` against the PR base. It fails if the diff touches App-layer source (`ChronoframeApp/**` or `ChronoframeAppCore/Stores/**`) with no test change. This backstops the coverage gate, which only reaches `ChronoframeCore`. Escape hatch for genuinely test-free edits: `[skip-app-test-check]` in a commit message.
+- SwiftPM CI and the meaningful coverage script run `DeduplicateAccessibilityTextTests` in a separate XCTest process. GitHub's `macos-14-arm64` image currently selects Swift 6.0.3, whose XCTest runner can stall after that suite when it shares the full 865-test process. Keep this shard until the runner toolchain is upgraded and a combined CI run is verified.
 - GitHub authentication is configured for `gh` in this workspace.
 - CodeQL workflow is `.github/workflows/codeql.yml`.
 - CodeQL analyzes Swift on macOS.
