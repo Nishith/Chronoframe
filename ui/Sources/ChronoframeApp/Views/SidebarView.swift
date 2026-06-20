@@ -24,7 +24,7 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(visibleSections) { section in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(section.title)
+                    Text(LocalizedStringKey(section.title), bundle: .module)
                         .scaledFont(.label, weight: .semibold)
                         .tracking(0.8)
                         .textCase(.uppercase)
@@ -104,12 +104,12 @@ struct SidebarView: View {
                     }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(destination.title)
+                    Text(LocalizedStringKey(destination.title), bundle: .module)
                         .scaledFont(.body, weight: .semibold)
                         .foregroundStyle(isSelected ? DesignTokens.ColorSystem.accentAction : DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(1)
 
-                    Text(destination.subtitle)
+                    Text(LocalizedStringKey(destination.subtitle), bundle: .module)
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .lineLimit(1)
@@ -250,7 +250,7 @@ private struct LibraryAtAGlanceFooter: View {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Library at a glance")
+                Text("Library at a glance", bundle: .module)
                     .scaledFont(.label, weight: .semibold)
                     .tracking(0.8)
                     .textCase(.uppercase)
@@ -271,6 +271,7 @@ private struct LibraryAtAGlanceFooter: View {
                     metric(value: "\(totalArchived.formatted(.number))", label: "archived")
                     metric(value: "\(runCount.formatted(.number))", label: "runs")
                 }
+                // `metric` localizes its label via the module bundle below.
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
@@ -293,7 +294,7 @@ private struct LibraryAtAGlanceFooter: View {
                 .scaledFont(.label, weight: .semibold)
                 .monospacedDigit()
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
