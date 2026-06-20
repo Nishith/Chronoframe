@@ -759,4 +759,123 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
             return _count
         }
     }
+
+    private final class ThreadSafeIssues: @unchecked Sendable {
+        private let lock = NSLock()
+        private var _issues: [RunIssue] = []
+        func append(_ issue: RunIssue) {
+            lock.lock(); defer { lock.unlock() }
+            _issues.append(issue)
+        }
+        var issues: [RunIssue] {
+            lock.lock(); defer { lock.unlock() }
+            return _issues
+        }
+    }
+
+    func testLoadReceiptThrowsForUnsupportedSchemaVersion() throws {
+        let receiptURL = temporaryDirectoryURL.appendingPathComponent("audit_receipt_unsupported.json")
+        let json = """
+        {
+            "schemaVersion": 3,
+            "transfers": []
+        }
+        """
+        try Data(json.utf8).write(to: receiptURL)
+
+        XCTAssertThrowsError(try RevertExecutor().loadReceipt(at: receiptURL)) { error in
+            guard case let RevertExecutorError.unsupportedSchema(version) = error else {
+                XCTFail("Expected unsupportedSchema, got \(error)")
+                return
+            }
+            XCTAssertEqual(version, 3)
+        }
+    }
+
+    func testErrorDescriptionsCoverUnsupportedSchema() {
+        let err = RevertExecutorError.unsupportedSchema(version: 3)
+        XCTAssertNotNil(err.errorDescription)
+        XCTAssertTrue(err.errorDescription?.contains("schema v3") == true)
+    }
+
+    func testQuarantineCorruptReceiptHandlesMoveFailure() throws {
+        let nestedDir = temporaryDirectoryURL.appendingPathComponent("unwritable-dir", isDirectory: true)
+        try FileManager.default.createDirectory(at: nestedDir, withIntermediateDirectories: true)
+        let receiptURL = nestedDir.appendingPathComponent("bad.json")
+        try Data("bad".utf8).write(to: receiptURL)
+
+        // Make parent directory read-only (no write/execute) to make renaming/moving files fail.
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: nestedDir.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: nestedDir.path)
+        }
+
+        let quarantined = RevertExecutor().quarantineCorruptReceipt(at: receiptURL)
+        XCTAssertNil(quarantined, "Quarantine should return nil when moving/renaming the file fails")
+    }
+
+    func testSafePathContainmentHelpers() throws {
+        let root = temporaryDirectoryURL.appendingPathComponent("container-root", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+
+        let inside = root.appendingPathComponent("sub/file.txt")
+        let outside = temporaryDirectoryURL.appendingPathComponent("outside.txt")
+
+        XCTAssertTrue(SafePathContainment.isContained(inside, in: root))
+        XCTAssertFalse(SafePathContainment.isContained(outside, in: root))
+
+        // resolvedPath cases
+        // 1. File exists
+        try Data().write(to: outside)
+        let path1 = SafePathContainment.resolvedPath(for: outside, treatAsDirectory: false)
+        XCTAssertEqual(path1, outside.standardizedFileURL.resolvingSymlinksInPath().path)
+
+        // 2. File does not exist but treatAsDirectory is true
+        let nonExistent = root.appendingPathComponent("non-existent-dir")
+        let path2 = SafePathContainment.resolvedPath(for: nonExistent, treatAsDirectory: true)
+        XCTAssertEqual(path2, nonExistent.standardizedFileURL.resolvingSymlinksInPath().path)
+
+        // 3. File does not exist and treatAsDirectory is false
+        let nonExistentFile = root.appendingPathComponent("non-existent-file.txt")
+        let path3 = SafePathContainment.resolvedPath(for: nonExistentFile, treatAsDirectory: false)
+        XCTAssertEqual(path3, nonExistentFile.standardizedFileURL.path)
+    }
+
+    func testRevertUnlinkatFailure() throws {
+        let nestedDir = temporaryDirectoryURL.appendingPathComponent("unlink-fail-dir", isDirectory: true)
+        try FileManager.default.createDirectory(at: nestedDir, withIntermediateDirectories: true)
+        let fileURL = nestedDir.appendingPathComponent("file.txt")
+        try Data("hello".utf8).write(to: fileURL)
+
+        let hash = try FileIdentityHasher().hashIdentity(at: fileURL).rawValue
+        let receipt = RevertReceipt(
+            schemaVersion: 2,
+            transfers: [
+                RevertReceiptTransfer(source: "/source/file.txt", dest: fileURL.path, hash: hash)
+            ]
+        )
+
+        // Make parent directory read-only so unlink fails
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: nestedDir.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: nestedDir.path)
+        }
+
+        let observedIssues = ThreadSafeIssues()
+        let observer = RevertExecutionObserver(
+            onIssue: { issue in
+                observedIssues.append(issue)
+            }
+        )
+
+        let result = RevertExecutor().revert(
+            receipt: receipt,
+            observer: observer,
+            destinationBoundary: nestedDir
+        )
+
+        XCTAssertEqual(result.revertedCount, 0)
+        XCTAssertEqual(result.skippedCount, 1)
+        XCTAssertTrue(observedIssues.issues.contains(where: { $0.message.contains("Could not remove") }))
+    }
 }

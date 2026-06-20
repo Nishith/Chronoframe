@@ -154,4 +154,13 @@ final class ChronoframeCoreFileIdentityHasherTests: XCTestCase {
         let modificationTime = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
         return (size, modificationTime)
     }
+
+    func testICloudDatalessDefaultProvider() throws {
+        let fileURL = try writeFile(named: "dataless-test.jpg", contents: "test")
+        let hasher = FileIdentityHasher()
+        XCTAssertFalse(hasher.isICloudDatalessProvider(fileURL))
+
+        let nonExistentURL = temporaryDirectoryURL.appendingPathComponent("non-existent-dataless.jpg")
+        XCTAssertFalse(hasher.isICloudDatalessProvider(nonExistentURL))
+    }
 }

@@ -157,4 +157,111 @@ final class CoveragePushTests: XCTestCase {
         let allPrints = try database.loadAllDedupeFeaturePrintData()
         XCTAssertTrue(allPrints.isEmpty)
     }
+
+    func testPhotoQualityScorerExpressionAwareAndFaceScore() {
+        // Test expression-aware score fallback when eyesOpenScore is nil
+        let scoreFallback = PhotoQualityScorer.expressionAwareScore(
+            sharpness: 0.8,
+            faceScore: 0.9,
+            eyesOpenScore: nil,
+            smileScore: 0.5,
+            subjectMotionBlur: 0.0,
+            sizeBytes: 1024,
+            pixelWidth: 640,
+            pixelHeight: 480
+        )
+        XCTAssertGreaterThan(scoreFallback.composite, 0.0)
+
+        // Test expression-aware score with eyesOpenScore and motion blur
+        let scoreWithBlur = PhotoQualityScorer.expressionAwareScore(
+            sharpness: 0.8,
+            faceScore: 0.9,
+            eyesOpenScore: 0.9,
+            smileScore: 0.7,
+            subjectMotionBlur: 0.5,
+            sizeBytes: 1024,
+            pixelWidth: 640,
+            pixelHeight: 480
+        )
+        XCTAssertGreaterThan(scoreWithBlur.composite, 0.0)
+
+        // Test faceScore helper nil/empty cases
+        XCTAssertNil(PhotoQualityScorer.faceScore(from: nil))
+        XCTAssertNil(PhotoQualityScorer.faceScore(from: []))
+    }
+
+    func testSafetyWarningDetectorEdgeCases() {
+        let member1 = PhotoCandidate(
+            path: "/path/1.jpg",
+            size: 100,
+            modificationTime: 1000.0,
+            captureDate: Date(timeIntervalSince1970: 1000),
+            pixelWidth: 100,
+            pixelHeight: 100,
+            sharpness: 0.8,
+            faceScore: 0.9
+        )
+        let member2 = PhotoCandidate(
+            path: "/path/2.jpg",
+            size: 200,
+            modificationTime: 2000.0,
+            captureDate: Date(timeIntervalSince1970: 2000),
+            pixelWidth: 300,
+            pixelHeight: 300, // 300x300 area, 1:1 aspect
+            sharpness: 0.1, // 0.8 / 0.1 = 8.0 > 2.5 exposure diff
+            faceScore: 0.5 // 1 face (diff = 1 face warning)
+        )
+
+        let cluster = DuplicateCluster(
+            id: UUID(),
+            kind: .nearDuplicate,
+            members: [member1, member2],
+            suggestedKeeperIDs: [],
+            bytesIfPruned: 0
+        )
+
+        let warnings = SafetyWarningDetector.detect(cluster: cluster, pairwiseMatches: [])
+        XCTAssertEqual(warnings.count, 4) // exposure diff, different people, different framing (areas 10000 vs 90000), and large time gap (1000s > 300s)
+
+        // Test aspect ratio warning separately
+        let member3 = PhotoCandidate(
+            path: "/path/3.jpg",
+            size: 100,
+            modificationTime: 1000.0,
+            captureDate: Date(),
+            pixelWidth: 400,
+            pixelHeight: 300, // 4:3 aspect
+            sharpness: 0.5
+        )
+        let member4 = PhotoCandidate(
+            path: "/path/4.jpg",
+            size: 100,
+            modificationTime: 1000.0,
+            captureDate: Date(),
+            pixelWidth: 1600,
+            pixelHeight: 900, // 16:9 aspect (diff > 1.10 aspect ratio ratio)
+            sharpness: 0.5
+        )
+        let aspectCluster = DuplicateCluster(
+            id: UUID(),
+            kind: .nearDuplicate,
+            members: [member3, member4],
+            suggestedKeeperIDs: [],
+            bytesIfPruned: 0
+        )
+        let aspectWarnings = SafetyWarningDetector.detect(cluster: aspectCluster, pairwiseMatches: [])
+        XCTAssertTrue(aspectWarnings.contains(where: {
+            if case .differentFraming = $0 { return true }
+            return false
+        }))
+    }
+
+    func testBLAKE2bHasherEmptyDataAndBuffer() {
+        var hasher = BLAKE2bHasher()
+        hasher.update(Data()) // empty data
+        let emptyBuffer = UnsafeRawBufferPointer(start: nil, count: 0)
+        hasher.update(emptyBuffer) // empty buffer
+        let hex = hasher.finalizeHexDigest()
+        XCTAssertEqual(hex.count, 128) // 64 bytes digest -> 128 hex characters
+    }
 }

@@ -844,7 +844,6 @@ struct DeduplicateView: View {
         }
         return (left: keeper.path, right: other.path)
     }
-
     private static func formattedDuration(_ seconds: TimeInterval) -> String {
         let formatter = DateComponentsFormatter()
         formatter.allowedUnits = [.minute, .second]
