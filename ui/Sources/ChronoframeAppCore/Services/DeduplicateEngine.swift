@@ -27,9 +27,28 @@ public protocol DeduplicateEngine: AnyObject {
     func commit(
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration
+        configuration: DeduplicateConfiguration,
+        allSidecarOwners: [String: Set<String>]
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error>
     func revert(receiptURL: URL, destinationRoot: String) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error>
+}
+
+public extension DeduplicateEngine {
+    /// Back-compat overload for callers that don't have the complete sidecar
+    /// ownership map (older tests). Production commits pass the scan's map so
+    /// shared sidecars with surviving owners are never deleted (Finding #2).
+    func commit(
+        decisions: DedupeDecisions,
+        clusters: [DuplicateCluster],
+        configuration: DeduplicateConfiguration
+    ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
+        try commit(
+            decisions: decisions,
+            clusters: clusters,
+            configuration: configuration,
+            allSidecarOwners: [:]
+        )
+    }
 }
 
 @MainActor
@@ -60,9 +79,15 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     public func commit(
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration
+        configuration: DeduplicateConfiguration,
+        allSidecarOwners: [String: Set<String>]
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
-        executor.commit(decisions: decisions, clusters: clusters, configuration: configuration)
+        executor.commit(
+            decisions: decisions,
+            clusters: clusters,
+            configuration: configuration,
+            allSidecarOwners: allSidecarOwners
+        )
     }
 
     public func revert(receiptURL: URL, destinationRoot: String) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {

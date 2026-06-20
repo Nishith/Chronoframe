@@ -112,7 +112,8 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     func commit(
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration
+        configuration: DeduplicateConfiguration,
+        allSidecarOwners: [String: Set<String>]
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         lastCommitDecisions = decisions
         lastCommitClusters = clusters

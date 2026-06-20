@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Applies a `DeduplicationPlan` to disk: each item is moved to Trash, while
@@ -32,12 +33,14 @@ public final class DeduplicateExecutor: @unchecked Sendable {
     public func commit(
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration
+        configuration: DeduplicateConfiguration,
+        allSidecarOwners: [String: Set<String>] = [:]
     ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         let plan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: clusters,
-            configuration: configuration
+            configuration: configuration,
+            allSidecarOwners: allSidecarOwners
         )
         return commit(
             plan: plan,
@@ -139,6 +142,11 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                 var failedCount = 0
                 var bytesReclaimed: Int64 = 0
                 var abortReason: String?
+                // Indices of plan items deliberately left untouched because the
+                // live file no longer matches what was scanned (Finding #1).
+                // They are dropped from the final receipt so revert never tries
+                // to restore something that was never trashed.
+                var staleIndices: Set<Int> = []
 
                 for (index, planItem) in plan.items.enumerated() {
                     if cancelFlag.get() {
@@ -146,6 +154,21 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         break
                     }
                     let url = URL(fileURLWithPath: planItem.path)
+
+                    // Finding #1: a stale plan can target a file the user never
+                    // reviewed. Between scan and commit an editor or sync client
+                    // may have replaced this path with a different file, a
+                    // symlink, or a directory. Re-stat the live path and skip
+                    // anything whose identity no longer matches — preserving the
+                    // replacement rather than trashing it.
+                    if let staleReason = Self.staleReason(for: planItem) {
+                        staleIndices.insert(index)
+                        continuation.yield(.itemStale(
+                            originalPath: planItem.path,
+                            reason: staleReason
+                        ))
+                        continue
+                    }
 
                     // Phase 1 finding #7: split trash from receipt write
                     // so a successful trash + failed receipt update
@@ -201,6 +224,12 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                             receiptItems[index].trashURL = trashURL
                         }
                     }
+                    // Drop items that were left untouched as stale (Finding #1)
+                    // so the durable receipt records only real Trash moves and
+                    // revert never tries to restore a file that was preserved.
+                    let finalItems = receiptItems.enumerated()
+                        .filter { !staleIndices.contains($0.offset) }
+                        .map(\.element)
                     try Self.writeReceipt(
                         receiptURL: receiptURL,
                         runID: runID,
@@ -209,7 +238,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         finishedAt: Date(),
                         destinationRoot: destinationRoot,
                         additionalSourceRoots: additionalSourceRoots,
-                        items: receiptItems,
+                        items: finalItems,
                         bytesReclaimed: bytesReclaimed,
                         abortReason: abortReason
                     )
@@ -357,6 +386,46 @@ public final class DeduplicateExecutor: @unchecked Sendable {
     }
 
     // MARK: - Helpers
+
+    /// Re-stat a plan item's live path immediately before Trash and decide
+    /// whether it still identifies the regular file that was scanned
+    /// (Finding #1 / AGENTS-INVARIANT 5, 15). Returns a human-readable
+    /// reason when the item is stale and must be preserved, or `nil` when the
+    /// live file matches and is safe to trash.
+    ///
+    /// Uses `lstat` so a symlink standing where a regular file was scanned is
+    /// treated as a mismatch rather than being followed, and so the live
+    /// mtime is read in the same Unix-epoch/nanosecond form the planner
+    /// captured. When the item carries no `scanIdentity` (legacy callers) the
+    /// file-type guard still applies.
+    static func staleReason(for item: DeduplicationPlan.Item) -> String? {
+        var st = stat()
+        guard lstat(item.path, &st) == 0 else {
+            return "The selected file no longer exists at its scanned location, so it was left untouched."
+        }
+        let fileType = st.st_mode & S_IFMT
+        if fileType == S_IFLNK {
+            return "A symlink now stands where a regular file was scanned, so it was left untouched."
+        }
+        guard fileType == S_IFREG else {
+            return "The scanned path is no longer a regular file, so it was left untouched."
+        }
+        guard let identity = item.scanIdentity else { return nil }
+        if Int64(st.st_size) != identity.sizeBytes {
+            return "The selected file changed size since the scan, so it was left untouched."
+        }
+        if let scannedMtime = identity.modificationTime {
+            let liveMtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
+            // Identical filesystem + identical formula → an unchanged file
+            // compares bit-equal; a tiny epsilon guards only against double
+            // round-off, not against a genuine re-write (which moves mtime by
+            // far more than a microsecond).
+            if abs(liveMtime - scannedMtime) > 0.000_001 {
+                return "The selected file changed on disk since the scan, so it was left untouched."
+            }
+        }
+        return nil
+    }
 
     /// Verify the receipt directory exists and is writable BEFORE we
     /// touch any user file. Probes by writing + removing a tiny file.

@@ -932,6 +932,91 @@ final class DeduplicateTests: XCTestCase {
         )
     }
 
+    /// Finding #2: a sidecar shared with an owner that is **not** a
+    /// duplicate-cluster member (a surviving singleton, e.g. `A.heic` next to
+    /// a clustered `A.jpg`) must survive. The planner only ever saw the
+    /// clustered owner, so without the scanner's complete reverse
+    /// sidecar-ownership map it concluded "every owner is deleted" and trashed
+    /// the sidecar a surviving photo still depends on.
+    // AGENTS-INVARIANT: 14
+    func testPlannerKeepsSidecarSharedWithSurvivingSingletonOwner() {
+        // A.jpg is clustered and deleted; A.heic is a singleton outside any
+        // cluster; both reference A.xmp. Only A.jpg reaches the planner.
+        let jpeg = candidate(path: "/dest/A.jpg", sidecarPaths: ["/dest/A.xmp"])
+        let twin = candidate(path: "/dest/A2.jpg")
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [jpeg, twin],
+            suggestedKeeperIDs: ["/dest/A2.jpg"],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/A.jpg": .delete,
+            "/dest/A2.jpg": .keep,
+        ])
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+
+        // Without the complete owner map the gate is blind to A.heic and the
+        // sidecar is (wrongly) deleted — the pre-fix behavior this guards.
+        let blindPlan = DeduplicationPlanner.plan(
+            decisions: decisions,
+            clusters: [cluster],
+            configuration: config
+        )
+        XCTAssertTrue(
+            Set(blindPlan.pathsToDelete).contains("/dest/A.xmp"),
+            "Sanity: with no owner map the planner can't see the singleton owner"
+        )
+
+        // With the scanner's complete map, A.heic is a visible surviving owner
+        // and the sidecar must be kept (Keep-wins).
+        let fullPlan = DeduplicationPlanner.plan(
+            decisions: decisions,
+            clusters: [cluster],
+            configuration: config,
+            allSidecarOwners: ["/dest/A.xmp": ["/dest/A.jpg", "/dest/A.heic"]]
+        )
+        let fullPaths = Set(fullPlan.pathsToDelete)
+        XCTAssertTrue(fullPaths.contains("/dest/A.jpg"))
+        XCTAssertFalse(
+            fullPaths.contains("/dest/A.xmp"),
+            "Sidecar shared with surviving singleton A.heic must NOT be deleted (Finding #2)"
+        )
+    }
+
+    /// The companion to the singleton-owner guard: when the complete owner map
+    /// shows EVERY owner of a sidecar is being deleted, the sidecar is deleted
+    /// with them.
+    // AGENTS-INVARIANT: 14
+    func testPlannerDeletesSidecarWhenEveryKnownOwnerIsDeleted() {
+        let jpeg = candidate(path: "/dest/A.jpg", sidecarPaths: ["/dest/A.xmp"])
+        let twin = candidate(path: "/dest/A2.jpg")
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [jpeg, twin],
+            suggestedKeeperIDs: ["/dest/A2.jpg"],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/A.jpg": .delete,
+            "/dest/A2.jpg": .keep,
+        ])
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+
+        let plan = DeduplicationPlanner.plan(
+            decisions: decisions,
+            clusters: [cluster],
+            configuration: config,
+            allSidecarOwners: ["/dest/A.xmp": ["/dest/A.jpg"]]
+        )
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertTrue(paths.contains("/dest/A.jpg"))
+        XCTAssertTrue(
+            paths.contains("/dest/A.xmp"),
+            "Sidecar whose every owner is deleted must travel with them"
+        )
+    }
+
     /// Conservative guard: even when a sidecar's only listed owner is deleted,
     /// a surviving pair partner that shares the basename keeps it. (The partner
     /// shares the sidecar on disk even if the planner only sees it via pairing.)
@@ -1579,11 +1664,19 @@ final class DeduplicateTests: XCTestCase {
         let keepURL = temporaryDirectory.appendingPathComponent("keep.jpg")
         try Data([0xDD]).write(to: deleteURL)
         try Data([0xAA]).write(to: keepURL)
+        // The convenience commit path builds the plan from candidate metadata,
+        // and the executor revalidates each file's live identity before Trash
+        // (Finding #1). Pin the on-disk mtime to a fixed value and give the
+        // candidates the same size/mtime a real scan would record, so the
+        // identity matches and the file is trashed rather than preserved.
+        let scanDate = Date(timeIntervalSince1970: 1_600_000_000)
+        try FileManager.default.setAttributes([.modificationDate: scanDate], ofItemAtPath: deleteURL.path)
+        try FileManager.default.setAttributes([.modificationDate: scanDate], ofItemAtPath: keepURL.path)
         let cluster = DuplicateCluster(
             kind: .exactDuplicate,
             members: [
-                candidate(path: deleteURL.path, size: 1),
-                candidate(path: keepURL.path, size: 1),
+                candidate(path: deleteURL.path, size: 1, modificationTime: scanDate.timeIntervalSince1970),
+                candidate(path: keepURL.path, size: 1, modificationTime: scanDate.timeIntervalSince1970),
             ],
             suggestedKeeperIDs: [keepURL.path],
             bytesIfPruned: 1
@@ -2357,12 +2450,13 @@ final class DeduplicateTests: XCTestCase {
         subjectSharpness: Double? = nil,
         subjectMotionBlur: Double? = nil,
         folderRoot: String? = nil,
-        sidecarPaths: [String] = []
+        sidecarPaths: [String] = [],
+        modificationTime: TimeInterval = 0
     ) -> PhotoCandidate {
         PhotoCandidate(
             path: path,
             size: size,
-            modificationTime: 0,
+            modificationTime: modificationTime,
             captureDate: captureDate,
             pixelWidth: pixelWidth,
             pixelHeight: pixelHeight,
