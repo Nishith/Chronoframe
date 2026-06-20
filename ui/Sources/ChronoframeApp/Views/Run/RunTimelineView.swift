@@ -293,6 +293,15 @@ private struct SeededTimelineRNG: RandomNumberGenerator {
 /// A slim 4pt capsule replacing the old five-dot phase timeline.
 struct RunPhaseStrip: View {
     let model: RunWorkspaceModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var landedScale: CGFloat = 1.0
+
+    /// True once every phase has completed — the waypoint dot stops travelling
+    /// and settles on the finish line.
+    private var isComplete: Bool {
+        let phases = model.phaseEntries
+        return !phases.isEmpty && phases.allSatisfy { $0.state == .complete }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -314,7 +323,23 @@ struct RunPhaseStrip: View {
                 }
                 .mask(Capsule())
 
-                if let currentIndex {
+                if isComplete {
+                    // Run finished: the waypoint dot lands on the completion line
+                    // with a brief settle. Honors Reduce Motion (no pop).
+                    Circle()
+                        .fill(DesignTokens.ColorSystem.accentWaypoint)
+                        .frame(width: 8, height: 8)
+                        .shadow(color: DesignTokens.ColorSystem.accentWaypoint.opacity(0.42), radius: 5)
+                        .scaleEffect(landedScale)
+                        .offset(x: max(0, width - 8))
+                        .onAppear {
+                            guard !reduceMotion else { return }
+                            landedScale = 1.6
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
+                                landedScale = 1.0
+                            }
+                        }
+                } else if let currentIndex {
                     Circle()
                         .fill(DesignTokens.ColorSystem.accentWaypoint)
                         .frame(width: 8, height: 8)
