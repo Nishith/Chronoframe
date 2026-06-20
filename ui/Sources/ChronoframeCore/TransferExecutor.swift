@@ -454,15 +454,15 @@ public struct TransferExecutor: Sendable {
         observer: TransferExecutionObserver = TransferExecutionObserver(),
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) throws -> TransferExecutionResult {
-        if maxConcurrentCopies > 1 {
-            let activity = ProcessInfo.processInfo.beginActivity(
-                options: [.idleSystemSleepDisabled, .userInitiated],
-                reason: "Chronoframe: active photo/video transfer"
-            )
-            defer {
-                ProcessInfo.processInfo.endActivity(activity)
-            }
+        let activity = ProcessInfo.processInfo.beginActivity(
+            options: [.idleSystemSleepDisabled, .userInitiated],
+            reason: "Chronoframe: active photo/video transfer"
+        )
+        defer {
+            ProcessInfo.processInfo.endActivity(activity)
+        }
 
+        if maxConcurrentCopies > 1 {
             let totalJobs = try database.queuedJobCount(status: status)
             let bytesTotal = try totalBytesForQueuedJobs(
                 database: database,
