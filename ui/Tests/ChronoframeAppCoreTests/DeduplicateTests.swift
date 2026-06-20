@@ -1664,11 +1664,19 @@ final class DeduplicateTests: XCTestCase {
         let keepURL = temporaryDirectory.appendingPathComponent("keep.jpg")
         try Data([0xDD]).write(to: deleteURL)
         try Data([0xAA]).write(to: keepURL)
+        // The convenience commit path builds the plan from candidate metadata,
+        // and the executor revalidates each file's live identity before Trash
+        // (Finding #1). Pin the on-disk mtime to a fixed value and give the
+        // candidates the same size/mtime a real scan would record, so the
+        // identity matches and the file is trashed rather than preserved.
+        let scanDate = Date(timeIntervalSince1970: 1_600_000_000)
+        try FileManager.default.setAttributes([.modificationDate: scanDate], ofItemAtPath: deleteURL.path)
+        try FileManager.default.setAttributes([.modificationDate: scanDate], ofItemAtPath: keepURL.path)
         let cluster = DuplicateCluster(
             kind: .exactDuplicate,
             members: [
-                candidate(path: deleteURL.path, size: 1),
-                candidate(path: keepURL.path, size: 1),
+                candidate(path: deleteURL.path, size: 1, modificationTime: scanDate.timeIntervalSince1970),
+                candidate(path: keepURL.path, size: 1, modificationTime: scanDate.timeIntervalSince1970),
             ],
             suggestedKeeperIDs: [keepURL.path],
             bytesIfPruned: 1
@@ -2442,12 +2450,13 @@ final class DeduplicateTests: XCTestCase {
         subjectSharpness: Double? = nil,
         subjectMotionBlur: Double? = nil,
         folderRoot: String? = nil,
-        sidecarPaths: [String] = []
+        sidecarPaths: [String] = [],
+        modificationTime: TimeInterval = 0
     ) -> PhotoCandidate {
         PhotoCandidate(
             path: path,
             size: size,
-            modificationTime: 0,
+            modificationTime: modificationTime,
             captureDate: captureDate,
             pixelWidth: pixelWidth,
             pixelHeight: pixelHeight,

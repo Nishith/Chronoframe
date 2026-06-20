@@ -130,6 +130,40 @@ final class DeduplicateExecutorStaleIdentityTests: XCTestCase {
         XCTAssertTrue(try receiptPaths(outcome).isEmpty, "Stale item must be excluded from the receipt")
     }
 
+    /// A file whose size changed since the scan is a different file — preserve.
+    // AGENTS-INVARIANT: 5
+    func testSizeChangeIsPreservedAsStale() async throws {
+        let file = temporaryDirectoryURL.appendingPathComponent("grew.jpg")
+        try Data(repeating: 0xAB, count: 100).write(to: file)
+        let item = planItem(for: file)
+
+        // Append bytes so the live size no longer matches the scanned size.
+        try Data(repeating: 0xCD, count: 200).write(to: file)
+
+        let outcome = try await runCommit(DeduplicationPlan(items: [item]))
+
+        XCTAssertEqual(outcome.stale.map(\.path), [file.path])
+        XCTAssertTrue(outcome.trashed.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: file.path))
+    }
+
+    /// A file that vanished between scan and commit is reported stale (there is
+    /// nothing to trash) rather than failing the run.
+    // AGENTS-INVARIANT: 5
+    func testMissingFileIsReportedStale() async throws {
+        let file = temporaryDirectoryURL.appendingPathComponent("gone.jpg")
+        try Data(repeating: 0xEF, count: 48).write(to: file)
+        let item = planItem(for: file)
+        try FileManager.default.removeItem(at: file)
+
+        let outcome = try await runCommit(DeduplicationPlan(items: [item]))
+
+        XCTAssertEqual(outcome.stale.map(\.path), [file.path])
+        XCTAssertTrue(outcome.trashed.isEmpty)
+        XCTAssertTrue(outcome.failed.isEmpty, "A vanished file is stale, not a failure")
+        XCTAssertEqual(outcome.summary?.deletedCount, 0)
+    }
+
     /// A symlink standing where a regular file was scanned must never be
     /// followed and trashed (AGENTS-INVARIANT 15).
     // AGENTS-INVARIANT: 5
