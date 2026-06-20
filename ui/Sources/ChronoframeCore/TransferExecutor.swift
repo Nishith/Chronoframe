@@ -892,6 +892,11 @@ public struct TransferExecutor: Sendable {
                     )
                 )
                 Thread.sleep(forTimeInterval: backoff)
+                // Finding #3: stop retrying as soon as the run is cancelled
+                // rather than waiting to start (and fail) another attempt.
+                if isCancelled() {
+                    throw error
+                }
             }
         }
 

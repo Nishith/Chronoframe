@@ -464,6 +464,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             let planner = self.planner
             let transferExecutor = self.transferExecutor
             let runID = UUID()
+            // Finding #3: the transfer's parallel copy/hash work runs on GCD
+            // queues where `Task.isCancelled` is always false (there is no
+            // current Task). Without a shared flag the workers never observe a
+            // cancel and can keep mutating after the UI reported the run
+            // stopped. Use the same `TaskCancellationCheck` the preview, revert,
+            // and reorganize streams already plumb through.
+            let isCancelledRef = TaskCancellationCheck()
             let task = Task.detached(priority: .userInitiated) {
                 defer {
                     Task { @MainActor in
@@ -541,6 +548,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             destinationURL: destinationURL,
                             transferExecutor: transferExecutor,
                             runLogger: runLogger,
+                            isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                             continuation: continuation
                         )
                     } else {
@@ -551,11 +559,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             destinationURL: destinationURL,
                             transferExecutor: transferExecutor,
                             runLogger: runLogger,
+                            isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                             continuation: continuation
                         )
                     }
                 } catch {
-                    if Task.isCancelled {
+                    if isCancelledRef.isCancelled || Task.isCancelled {
                         continuation.finish()
                     } else {
                         continuation.finish(throwing: error)
@@ -563,12 +572,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                 }
             }
 
-            // This transfer/resume stream relies on `Task.isCancelled`
-            // exclusively (no per-run polling flag plumbed through),
-            // so we don't have an `isCancelledRef` to register here.
-            self.setActiveTask(task, id: runID, cancellationRef: nil)
+            // Register the shared flag so `cancelCurrentRun()` flips it (the GCD
+            // workers poll it) in addition to cancelling the Swift Task.
+            self.setActiveTask(task, id: runID, cancellationRef: isCancelledRef)
             continuation.onTermination = { @Sendable _ in
                 task.cancel()
+                isCancelledRef.cancel()
             }
         }
     }
@@ -593,6 +602,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         destinationURL: URL,
         transferExecutor: TransferExecutor,
         runLogger: PersistentRunLogger,
+        isCancelled: @escaping @Sendable () -> Bool,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
     ) async throws {
         let result = try await planner.planAsync(
@@ -601,11 +611,11 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             workerCount: max(1, configuration.workerCount),
             folderStructure: configuration.folderStructure,
             eventSuggestionMode: configuration.eventSuggestionMode,
-            isCancelled: { Task.isCancelled },
+            isCancelled: isCancelled,
             onEvent: { continuation.yield($0) }
         )
 
-        if Task.isCancelled {
+        if isCancelled() {
             continuation.finish()
             return
         }
@@ -678,10 +688,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     continuation.yield(.issue(issue))
                 }
             ),
-            isCancelled: { Task.isCancelled }
+            isCancelled: isCancelled
         )
 
-        if Task.isCancelled {
+        if isCancelled() {
             continuation.finish()
             return
         }
@@ -730,6 +740,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         destinationURL: URL,
         transferExecutor: TransferExecutor,
         runLogger: PersistentRunLogger,
+        isCancelled: @escaping @Sendable () -> Bool,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
     ) throws {
         let pendingJobCount = try database.pendingJobCount()
@@ -791,10 +802,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     continuation.yield(.issue(issue))
                 }
             ),
-            isCancelled: { Task.isCancelled }
+            isCancelled: isCancelled
         )
 
-        if Task.isCancelled {
+        if isCancelled() {
             continuation.finish()
             return
         }

@@ -283,6 +283,77 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         XCTAssertTrue(logContents.contains("Run complete"))
     }
 
+    /// Finding #3: a parallel transfer paused on permanently-low disk must
+    /// observe `cancelCurrentRun()` and stop. The copy workers run on GCD
+    /// queues where `Task.isCancelled` is always false, so before the shared
+    /// cancellation flag was plumbed into the transfer stream a cancel never
+    /// reached them and the run hung in `group.wait()` while files could still
+    /// be written once space returned. With the fix the stream finishes
+    /// promptly and nothing is copied.
+    @MainActor
+    func testParallelTransferObservesCancellationWhilePausedOnLowDisk() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        // Two distinct files → two parallel copy jobs (not internal duplicates).
+        for index in 0..<2 {
+            let day = String(format: "%02d", index + 2) // 02, 03 — valid dates
+            let fileURL = sourceURL.appendingPathComponent("camera/IMG_202401\(day)_101010.jpg")
+            try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try Data("payload-\(index)-\(String(repeating: "x", count: index + 1))".utf8).write(to: fileURL)
+        }
+
+        // Permanent low disk forces every copy worker to park in
+        // `checkDiskSpace`; pin power/thermal so concurrency isn't throttled to 1.
+        var executor = TransferExecutor()
+        executor.freeDiskSpaceProvider = { _ in 0 }
+        executor.isLowPowerModeEnabledProvider = { false }
+        executor.thermalStateProvider = { .nominal }
+
+        let engine = SwiftOrganizerEngine(
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            ),
+            transferExecutor: executor
+        )
+
+        let stream = try engine.start(
+            RunConfiguration(
+                mode: .transfer,
+                sourcePath: sourceURL.path,
+                destinationPath: destinationURL.path,
+                verifyCopies: false,
+                parallelTransferEnabled: true,
+                workerCount: 2
+            )
+        )
+
+        // Consume events; the moment a worker reports the low-disk pause, cancel.
+        // If cancellation did not propagate to the GCD workers this loop would
+        // never terminate (the run stays parked), so reaching the end of the
+        // stream is itself the assertion that the fix works.
+        var sawPause = false
+        for try await event in stream {
+            if case let .issue(issue) = event,
+               issue.message.contains("Paused: Insufficient disk space") {
+                sawPause = true
+                engine.cancelCurrentRun()
+            }
+        }
+
+        XCTAssertTrue(sawPause, "Expected the low-disk pause to be reported before cancellation")
+
+        // Nothing may be copied into the destination after cancellation.
+        let copiedMedia = FileManager.default
+            .enumerator(at: destinationURL, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }
+            .filter { $0.pathExtension.lowercased() == "jpg" } ?? []
+        XCTAssertTrue(copiedMedia.isEmpty, "No media may be written after the run was cancelled: \(copiedMedia)")
+    }
+
     @MainActor
     func testResumeTransferUsesPersistedRawQueueAndEmitsCopyOnlyEvents() async throws {
         let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)

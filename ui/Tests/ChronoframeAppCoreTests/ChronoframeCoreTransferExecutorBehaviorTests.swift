@@ -919,6 +919,55 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// Finding #3: the parallel copy path must observe the shared cancellation
+    /// flag (not just `Task.isCancelled`, which is always false on the GCD
+    /// worker queues). With permanent low disk every worker parks in
+    /// `checkDiskSpace`; flipping the flag when the pause is reported must
+    /// unblock `group.wait()` promptly and leave nothing copied.
+    func testParallelLowDiskTransferStopsPromptlyWhenCancelled() throws {
+        let env = try makeEnvironment(jobCount: 2)
+        defer { env.logger.close() }
+
+        let cancelFlag = CancelBox()
+        let observer = TransferExecutionObserver(onIssue: { issue in
+            if issue.severity == .warning, issue.message.contains("Paused: Insufficient disk space") {
+                cancelFlag.cancel()
+            }
+        })
+
+        var executor = TransferExecutor()
+        executor.freeDiskSpaceProvider = { _ in 0 }
+        executor.isLowPowerModeEnabledProvider = { false }
+        executor.thermalStateProvider = { .nominal }
+
+        let result = try executor.executeQueuedJobs(
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: false,
+            runLogger: env.logger,
+            status: .pending,
+            maxConcurrentCopies: 2,
+            observer: observer,
+            isCancelled: { cancelFlag.isCancelled }
+        )
+
+        XCTAssertEqual(result.copiedCount, 0, "No job should copy while the disk stays full")
+        for job in env.jobs {
+            XCTAssertFalse(
+                FileManager.default.fileExists(atPath: job.destinationPath),
+                "No destination file may be written after cancellation"
+            )
+        }
+        XCTAssertEqual(temporaryFilesUnder(env.destinationRoot), [], "No orphaned .tmp files after cancel")
+    }
+
+    private final class CancelBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var cancelled = false
+        var isCancelled: Bool { lock.lock(); defer { lock.unlock() }; return cancelled }
+        func cancel() { lock.lock(); defer { lock.unlock() }; cancelled = true }
+    }
+
     private struct PreparedEnvironment {
         var sourceRoot: URL
         var destinationRoot: URL
