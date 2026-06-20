@@ -11,7 +11,10 @@ public enum VideoPerceptualAnalysis {
     // to become ready with two usable samples.
     public static let analyzerVersion = 2
     /// Bumped when the sampled timestamps change.
-    public static let sampleStrategyVersion = 1
+    // Version 2: frames are sampled near the requested PTS with a small bounded
+    // generator tolerance instead of snapping to the nearest keyframe, so
+    // re-encodes (whose keyframes sit at different timestamps) align.
+    public static let sampleStrategyVersion = 2
     /// Interior, transform-corrected sample positions as fractions of duration.
     /// Interior-biased (no 0% / 100%) to avoid intro/outro black frames; see
     /// the low-variance discard in the extractor (Milestone 2b).

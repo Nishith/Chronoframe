@@ -1,0 +1,17 @@
+{
+  "items": [
+    { "path": "/ABSOLUTE/PATH/corpus/beach/beach_original.mov",  "truthGroup": "beach",   "class": "original" },
+    { "path": "/ABSOLUTE/PATH/corpus/beach/beach_hevc.mov",      "truthGroup": "beach",   "class": "transcode" },
+    { "path": "/ABSOLUTE/PATH/corpus/beach/beach_rewrap.mp4",    "truthGroup": "beach",   "class": "container" },
+    { "path": "/ABSOLUTE/PATH/corpus/beach/beach_1080p.mp4",     "truthGroup": "beach",   "class": "resize" },
+    { "path": "/ABSOLUTE/PATH/corpus/beach/beach_letterbox.mp4", "truthGroup": "beach",   "class": "letterbox" },
+
+    { "path": "/ABSOLUTE/PATH/corpus/party-a/clipA.mov",         "truthGroup": "party-a", "class": "same-event" },
+    { "path": "/ABSOLUTE/PATH/corpus/party-b/clipB.mov",         "truthGroup": "party-b", "class": "same-event" },
+
+    { "path": "/ABSOLUTE/PATH/corpus/_solo/intro_bumper_x.mp4",  "truthGroup": "solo-1",  "class": "shared-intro" },
+    { "path": "/ABSOLUTE/PATH/corpus/_solo/intro_bumper_y.mp4",  "truthGroup": "solo-2",  "class": "shared-intro" },
+    { "path": "/ABSOLUTE/PATH/corpus/_solo/black_fade.mp4",      "truthGroup": "solo-3",  "class": "black-frames" },
+    { "path": "/ABSOLUTE/PATH/corpus/_solo/talking_head.mov",    "truthGroup": "solo-4",  "class": "static-slideshow" }
+  ]
+}
