@@ -72,11 +72,7 @@ jobs:
         run: |
           mkdir -p .tmp/home/Library/Caches .tmp/modulecache
           set +e
-          HOME="$PWD/.tmp/home" \
-          XDG_CACHE_HOME="$PWD/.tmp/home/Library/Caches" \
-          CLANG_MODULE_CACHE_PATH="$PWD/.tmp/modulecache" \
-          SWIFTPM_MODULECACHE_OVERRIDE="$PWD/.tmp/modulecache" \
-          swift test --package-path ui --disable-sandbox 2>&1 | tee .tmp/swiftpm-tests.log
+          script/run_swift_test_suites.sh 2>&1 | tee .tmp/swiftpm-tests.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
             diagnostic=$(grep -E '(^error:|:[0-9]+: error:| failed \(|with [1-9][0-9]* failure|XCTAssert|Fatal error|signal|Test Case .* failed)' .tmp/swiftpm-tests.log | tail -80)

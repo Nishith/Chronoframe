@@ -301,6 +301,19 @@ private struct DeduplicateSettingsTab: View {
                     .font(.callout)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
+                Toggle(isOn: $preferencesStore.dedupePerceptualVideoMatchingEnabled) {
+                    Label("Find visually similar videos", systemImage: "film")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
+
+                if preferencesStore.dedupePerceptualVideoMatchingEnabled {
+                    Text(preferencesStore.dedupeSimilarityPreset.allowsPerceptualVideoMatching
+                        ? "Video frames are analyzed on this Mac. Matches stay review-only."
+                        : "Exact Copies only finds byte-identical videos; choose Balanced or Similar Shots for visual video matching.")
+                        .font(.callout)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                }
+
                 if preferencesStore.dedupeBurstModeEnabled {
                     Stepper(value: $preferencesStore.dedupeTimeWindowSeconds, in: 5...600, step: 5) {
                         LabeledContent {
@@ -318,8 +331,8 @@ private struct DeduplicateSettingsTab: View {
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
                 Text(preferencesStore.dedupeBurstModeEnabled
-                    ? "Burst mode only compares photos taken within the time window — fast, ideal for catching burst sequences and rapid retakes. Stricter similarity presets reduce false positives; looser presets surface more potential duplicates."
-                    : "Without burst mode, every photo in the destination is compared against every other. Slower on large libraries, but catches duplicates that don't share a capture time.")
+                    ? "Burst mode only compares photos taken within the time window — fast, ideal for catching burst sequences and rapid retakes. Visual video matching is a separate, optional pass and may take longer on its first scan."
+                    : "Without burst mode, every photo in the destination is compared against every other. Visual video matching remains a separate, optional pass and may take longer on its first scan.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 

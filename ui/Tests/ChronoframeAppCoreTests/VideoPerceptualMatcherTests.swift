@@ -19,6 +19,8 @@ final class VideoPerceptualMatcherTests: XCTestCase {
         width: Int = 1920,
         height: Int = 1080,
         folderRoot: String? = nil,
+        estimatedDataRate: Double = 0,
+        metadataCompleteness: Int = 0,
         status: VideoDecodeStatus = .ready
     ) -> VideoPerceptualFeatures {
         VideoPerceptualFeatures(
@@ -28,6 +30,8 @@ final class VideoPerceptualMatcherTests: XCTestCase {
             durationSeconds: duration,
             transformedWidth: width,
             transformedHeight: height,
+            estimatedDataRate: estimatedDataRate,
+            metadataCompleteness: metadataCompleteness,
             frameHashes: frames,
             status: status,
             folderRoot: folderRoot
@@ -63,6 +67,18 @@ final class VideoPerceptualMatcherTests: XCTestCase {
     func testCompareReturnsNilBelowMinimumSamples() {
         let twoSlots: [UInt64?] = [1, 2]
         XCTAssertNil(VideoPerceptualMatcher.compareFrames(twoSlots, twoSlots, configuration: config))
+    }
+
+    func testShortClipsClusterWhenBothAvailableFramesAgree() {
+        let twoFrames: [UInt64?] = [0x1010, 0x2020, nil, nil, nil]
+        let clusters = VideoPerceptualMatcher.cluster(
+            features: [
+                feature("/lib/a.mp4", duration: 2, frames: twoFrames),
+                feature("/lib/b.mp4", duration: 2.1, frames: twoFrames),
+            ],
+            configuration: config
+        )
+        XCTAssertEqual(clusters.count, 1)
     }
 
     func testCompareToleratesSingleOutlierFrame() {
@@ -119,6 +135,19 @@ final class VideoPerceptualMatcherTests: XCTestCase {
         XCTAssertFalse(VideoPerceptualMatcher.aspectCompatible(landscape, portrait, tolerance: 0.10))
     }
 
+    func testMetadataPrefilterKeepsBoundaryPairAndSkipsUniqueDuration() {
+        let probes = [
+            VideoMetadataProbe(path: "/a", size: 1, modificationTime: 0, durationSeconds: 14.98, transformedWidth: 1920, transformedHeight: 1080),
+            VideoMetadataProbe(path: "/b", size: 1, modificationTime: 0, durationSeconds: 15.02, transformedWidth: 3840, transformedHeight: 2160),
+            VideoMetadataProbe(path: "/unique", size: 1, modificationTime: 0, durationSeconds: 40, transformedWidth: 1920, transformedHeight: 1080),
+        ]
+
+        XCTAssertEqual(
+            VideoPerceptualMatcher.metadataCandidatePaths(probes: probes, configuration: config),
+            Set(["/a", "/b"])
+        )
+    }
+
     // MARK: - cluster
 
     func testIdenticalVideosWithinToleranceFormOneCluster() {
@@ -167,6 +196,19 @@ final class VideoPerceptualMatcherTests: XCTestCase {
         XCTAssertEqual(clusters.count, 1)
     }
 
+    func testBandIndexDoesNotDropMatchWhenFirstFrameIsOutlier() {
+        var firstFrameOutlier = framesA
+        firstFrameOutlier[0] = ~(framesA[0]!)
+        let clusters = VideoPerceptualMatcher.cluster(
+            features: [
+                feature("/lib/a.mp4", duration: 10, frames: framesA),
+                feature("/lib/b.mp4", duration: 10, frames: firstFrameOutlier),
+            ],
+            configuration: config
+        )
+        XCTAssertEqual(clusters.count, 1)
+    }
+
     func testTransitiveClusteringAcrossSlidingWindow() {
         // 10.0—10.8—11.5: ends are 1.5s apart (no direct compare at T=1.0) but
         // the middle bridges them into one component.
@@ -204,6 +246,26 @@ final class VideoPerceptualMatcherTests: XCTestCase {
         XCTAssertEqual(clusters.count, 1)
         // Keeper is the higher-resolution copy.
         XCTAssertEqual(clusters.first?.suggestedKeeperIDs, ["/lib/uhd.mp4"])
+    }
+
+    func testEqualResolutionKeeperUsesDataRateThenMetadataCompleteness() {
+        let clusters = VideoPerceptualMatcher.cluster(
+            features: [
+                feature("/lib/low.mp4", duration: 10, frames: framesA, estimatedDataRate: 2_000_000, metadataCompleteness: 3),
+                feature("/lib/high.mp4", duration: 10, frames: framesA, estimatedDataRate: 8_000_000, metadataCompleteness: 1),
+            ],
+            configuration: config
+        )
+        XCTAssertEqual(clusters.first?.suggestedKeeperIDs, ["/lib/high.mp4"])
+
+        let metadataTieBreak = VideoPerceptualMatcher.cluster(
+            features: [
+                feature("/lib/sparse.mp4", duration: 10, frames: framesA, estimatedDataRate: 8_000_000, metadataCompleteness: 1),
+                feature("/lib/complete.mp4", duration: 10, frames: framesA, estimatedDataRate: 8_000_000, metadataCompleteness: 3),
+            ],
+            configuration: config
+        )
+        XCTAssertEqual(metadataTieBreak.first?.suggestedKeeperIDs, ["/lib/complete.mp4"])
     }
 
     func testNonReadyFeaturesAreIgnored() {

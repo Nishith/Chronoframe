@@ -37,11 +37,11 @@ struct OnboardingCard: View {
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
+                    Text(LocalizedStringKey(title))
                         .scaledFont(.cardTitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
-                    Text(subtitle)
+                    Text(LocalizedStringKey(subtitle))
                         .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -53,7 +53,7 @@ struct OnboardingCard: View {
                                     Text("•")
                                         .foregroundStyle(DesignTokens.ColorSystem.separatorText)
                                         .accessibilityHidden(true)
-                                    Text(bullet)
+                                    Text(LocalizedStringKey(bullet))
                                         .scaledFont(.subtitle)
                                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
@@ -81,6 +81,6 @@ struct OnboardingCard: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(accessibilitySummary)
+        .accessibilityLabel(LocalizedStringKey(accessibilitySummary))
     }
 }

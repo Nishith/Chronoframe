@@ -52,6 +52,16 @@ public struct VideoFeatureExtractionConfiguration: Sendable, Equatable {
 /// without ever decoding a real file. `AVFoundationVideoFeatureExtractor` is
 /// the production conformer.
 public protocol VideoFeatureProviding: Sendable {
+    /// Read only the cheap comparison metadata needed to decide whether this
+    /// video has a plausible neighbor. This must not decode sample frames.
+    func probeMetadata(
+        path: String,
+        size: Int64,
+        modificationTime: TimeInterval,
+        folderRoot: String?,
+        isCancelled: @Sendable () -> Bool
+    ) -> VideoMetadataProbe
+
     /// Extract perceptual features for one video. Must honor `isCancelled()`
     /// promptly and return the appropriate `VideoDecodeStatus` on any failure
     /// path (never throw). The returned features carry the supplied
@@ -64,8 +74,74 @@ public protocol VideoFeatureProviding: Sendable {
         isCancelled: @Sendable () -> Bool
     ) -> VideoPerceptualFeatures
 
+    /// Extract using an already-loaded metadata probe. Test doubles may rely on
+    /// the default implementation; the AVFoundation provider avoids reloading
+    /// track metadata.
+    func extractFeatures(
+        metadata: VideoMetadataProbe,
+        isCancelled: @Sendable () -> Bool
+    ) -> VideoPerceptualFeatures
+
     /// Cancel all in-flight generation immediately.
     func cancelAll()
+}
+
+public extension VideoFeatureProviding {
+    func extractFeatures(
+        metadata: VideoMetadataProbe,
+        isCancelled: @Sendable () -> Bool
+    ) -> VideoPerceptualFeatures {
+        extractFeatures(
+            path: metadata.path,
+            size: metadata.size,
+            modificationTime: metadata.modificationTime,
+            folderRoot: metadata.folderRoot,
+            isCancelled: isCancelled
+        )
+    }
+}
+
+/// Cheap, frame-free metadata used by the cold-scan candidate index.
+public struct VideoMetadataProbe: Sendable, Equatable {
+    public var path: String
+    public var size: Int64
+    public var modificationTime: TimeInterval
+    public var durationSeconds: Double
+    public var transformedWidth: Int
+    public var transformedHeight: Int
+    public var estimatedDataRate: Double
+    public var metadataCompleteness: Int
+    public var folderRoot: String?
+    public var status: VideoDecodeStatus
+
+    public init(
+        path: String,
+        size: Int64,
+        modificationTime: TimeInterval,
+        durationSeconds: Double,
+        transformedWidth: Int,
+        transformedHeight: Int,
+        estimatedDataRate: Double = 0,
+        metadataCompleteness: Int = 0,
+        folderRoot: String? = nil,
+        status: VideoDecodeStatus = .ready
+    ) {
+        self.path = path
+        self.size = size
+        self.modificationTime = modificationTime
+        self.durationSeconds = durationSeconds
+        self.transformedWidth = transformedWidth
+        self.transformedHeight = transformedHeight
+        self.estimatedDataRate = estimatedDataRate
+        self.metadataCompleteness = metadataCompleteness
+        self.folderRoot = folderRoot
+        self.status = status
+    }
+
+    public var aspectRatio: Double {
+        guard transformedHeight > 0 else { return 0 }
+        return Double(transformedWidth) / Double(transformedHeight)
+    }
 }
 
 // MARK: - Pure decision helpers
@@ -116,8 +192,14 @@ public enum VideoFrameAnalysis {
     /// low-variance discard, the file decoded fine but lacks visual evidence
     /// (`insufficientVisualEvidence`). Both non-ready outcomes are cached so the
     /// expensive decode is not retried every scan.
-    public static func status(usableSamples: Int, generatedSamples: Int) -> VideoDecodeStatus {
-        if usableSamples >= VideoPerceptualAnalysis.minimumUsableSamples {
+    public static func status(
+        usableSamples: Int,
+        generatedSamples: Int,
+        durationSeconds: Double? = nil
+    ) -> VideoDecodeStatus {
+        let minimum = durationSeconds.map { VideoPerceptualAnalysis.minimumUsableSamples(forDuration: $0) }
+            ?? VideoPerceptualAnalysis.minimumUsableSamples
+        if usableSamples >= minimum {
             return .ready
         }
         return generatedSamples == 0 ? .decodeFailed : .insufficientVisualEvidence
@@ -164,6 +246,60 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
         registry.cancelAll()
     }
 
+    public func probeMetadata(
+        path: String,
+        size: Int64,
+        modificationTime: TimeInterval,
+        folderRoot: String?,
+        isCancelled: @Sendable () -> Bool
+    ) -> VideoMetadataProbe {
+        guard !isCancelled() else {
+            return VideoMetadataProbe(
+                path: path,
+                size: size,
+                modificationTime: modificationTime,
+                durationSeconds: 0,
+                transformedWidth: 0,
+                transformedHeight: 0,
+                folderRoot: folderRoot,
+                status: .decodeFailed
+            )
+        }
+        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        guard let metadata = Self.loadTrackMetadata(asset: asset),
+              metadata.duration.isFinite, metadata.duration > 0 else {
+            return VideoMetadataProbe(
+                path: path,
+                size: size,
+                modificationTime: modificationTime,
+                durationSeconds: 0,
+                transformedWidth: 0,
+                transformedHeight: 0,
+                folderRoot: folderRoot,
+                status: .unsupported
+            )
+        }
+        let dimensions = VideoFrameAnalysis.transformedDimensions(
+            naturalSize: metadata.naturalSize,
+            transform: metadata.transform
+        )
+        var completeness = 1 // duration
+        if dimensions.width > 0, dimensions.height > 0 { completeness += 1 }
+        if metadata.estimatedDataRate > 0 { completeness += 1 }
+        return VideoMetadataProbe(
+            path: path,
+            size: size,
+            modificationTime: modificationTime,
+            durationSeconds: metadata.duration,
+            transformedWidth: dimensions.width,
+            transformedHeight: dimensions.height,
+            estimatedDataRate: metadata.estimatedDataRate,
+            metadataCompleteness: completeness,
+            folderRoot: folderRoot,
+            status: .ready
+        )
+    }
+
     public func extractFeatures(
         path: String,
         size: Int64,
@@ -171,6 +307,24 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
         folderRoot: String?,
         isCancelled: @Sendable () -> Bool
     ) -> VideoPerceptualFeatures {
+        let metadata = probeMetadata(
+            path: path,
+            size: size,
+            modificationTime: modificationTime,
+            folderRoot: folderRoot,
+            isCancelled: isCancelled
+        )
+        return extractFeatures(metadata: metadata, isCancelled: isCancelled)
+    }
+
+    public func extractFeatures(
+        metadata: VideoMetadataProbe,
+        isCancelled: @Sendable () -> Bool
+    ) -> VideoPerceptualFeatures {
+        let path = metadata.path
+        let size = metadata.size
+        let modificationTime = metadata.modificationTime
+        let folderRoot = metadata.folderRoot
         let slotCount = VideoPerceptualAnalysis.sampleFractions.count
 
         func makeFeatures(
@@ -187,6 +341,8 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
                 durationSeconds: duration,
                 transformedWidth: width,
                 transformedHeight: height,
+                estimatedDataRate: metadata.estimatedDataRate,
+                metadataCompleteness: metadata.metadataCompleteness,
                 frameHashes: frameHashes,
                 status: status,
                 folderRoot: folderRoot
@@ -195,19 +351,13 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
 
         if isCancelled() { return makeFeatures(status: .decodeFailed) }
 
-        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
-        // No readable video track / unreadable metadata (covers containers
-        // AVFoundation can't open, e.g. some .mkv/.avi/.wmv) → unsupported.
-        // A non-finite or non-positive duration is likewise unusable.
-        guard let metadata = Self.loadTrackMetadata(asset: asset),
-              metadata.duration.isFinite, metadata.duration > 0 else {
-            return makeFeatures(status: .unsupported)
+        guard metadata.status == .ready else {
+            return makeFeatures(status: metadata.status)
         }
-        let duration = metadata.duration
-        let (width, height) = VideoFrameAnalysis.transformedDimensions(
-            naturalSize: metadata.naturalSize,
-            transform: metadata.transform
-        )
+        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        let duration = metadata.durationSeconds
+        let width = metadata.transformedWidth
+        let height = metadata.transformedHeight
 
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
@@ -248,7 +398,11 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
         }
 
         let usable = slots.reduce(0) { $0 + ($1 == nil ? 0 : 1) }
-        let status = VideoFrameAnalysis.status(usableSamples: usable, generatedSamples: generatedSamples)
+        let status = VideoFrameAnalysis.status(
+            usableSamples: usable,
+            generatedSamples: generatedSamples,
+            durationSeconds: duration
+        )
         return makeFeatures(
             status: status,
             duration: duration,
@@ -340,10 +494,12 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
                 let duration = try await asset.load(.duration)
                 let naturalSize = try await track.load(.naturalSize)
                 let transform = try await track.load(.preferredTransform)
+                let estimatedDataRate = (try? await track.load(.estimatedDataRate)) ?? 0
                 box.value = TrackMetadata(
                     duration: CMTimeGetSeconds(duration),
                     naturalSize: naturalSize,
-                    transform: transform
+                    transform: transform,
+                    estimatedDataRate: Double(estimatedDataRate)
                 )
             } catch {
                 // Leave box.value nil → caller treats as unsupported.
@@ -357,6 +513,7 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
         var duration: Double
         var naturalSize: CGSize
         var transform: CGAffineTransform
+        var estimatedDataRate: Double
     }
 
     private final class LoadedTrackMetadataBox: @unchecked Sendable {

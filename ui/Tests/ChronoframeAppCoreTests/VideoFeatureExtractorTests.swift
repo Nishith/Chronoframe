@@ -100,6 +100,17 @@ final class VideoFeatureExtractorTests: XCTestCase {
         XCTAssertEqual(VideoFrameAnalysis.status(usableSamples: 0, generatedSamples: 5), .insufficientVisualEvidence)
     }
 
+    func testShortClipCanProceedWithTwoInformativeFrames() {
+        XCTAssertEqual(
+            VideoFrameAnalysis.status(usableSamples: 2, generatedSamples: 2, durationSeconds: 2),
+            .ready
+        )
+        XCTAssertEqual(
+            VideoFrameAnalysis.status(usableSamples: 2, generatedSamples: 2, durationSeconds: 10),
+            .insufficientVisualEvidence
+        )
+    }
+
     // MARK: - Pure helpers: resample offsets
 
     func testResampleOffsetsZeroAttemptsIsJustTheTarget() {

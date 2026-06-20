@@ -12,7 +12,7 @@ import Foundation
 //   swift run --package-path ui ChronoframeVideoCalibrationTool \
 //       --manifest /corpus/manifest.json [--duration-tolerance 1.0] \
 //       [--frame-hamming 8] [--median 6] [--aspect-tolerance 0.10] \
-//       [--low-variance 12.0]
+//       [--low-variance 12.0] [--output-json /path/to/report.json]
 
 func failHard(_ message: String) -> Never {
     FileHandle.standardError.write(Data("error: \(message)\n".utf8))
@@ -40,6 +40,7 @@ let matchConfig = VideoPerceptualMatchConfiguration(
 let extractionConfig = VideoFeatureExtractionConfiguration(
     lowVarianceThreshold: value(for: "--low-variance").flatMap(Double.init) ?? 12.0
 )
+let jsonOutputPath = value(for: "--output-json")
 
 let manifest: CalibrationManifest
 do {
@@ -103,6 +104,44 @@ let throughput = cold.seconds > 0 ? Double(manifest.items.count) / cold.seconds 
 let warm = extractAll()
 let warmClusters = VideoPerceptualMatcher.cluster(features: Array(warm.features.values), configuration: matchConfig)
 let stable = CalibrationMetrics.normalizedSignature(clusters) == CalibrationMetrics.normalizedSignature(warmClusters)
+let residentBytes = residentMemoryBytes()
+
+if let jsonOutputPath {
+    let configurationReport: [String: Any] = [
+        "durationToleranceSeconds": matchConfig.durationToleranceSeconds,
+        "frameHammingThreshold": matchConfig.frameHammingThreshold,
+        "aggregateMedianThreshold": matchConfig.aggregateMedianThreshold,
+        "aspectRatioTolerance": matchConfig.aspectRatioTolerance,
+        "lowVarianceThreshold": extractionConfig.lowVarianceThreshold,
+        "analyzerVersion": VideoPerceptualAnalysis.analyzerVersion,
+        "sampleStrategyVersion": VideoPerceptualAnalysis.sampleStrategyVersion,
+    ]
+    let metricsReport: [String: Any] = [
+        "candidateIndexRecall": candidateRecall,
+        "pairPrecision": pairScore.precision,
+        "pairRecall": pairScore.recall,
+        "hardNegativeFalsePositiveRate": pairScore.hardNegativeFalsePositiveRate,
+        "clusterPurity": purity,
+        "predictedClusterCount": clusters.count,
+        "coldThroughputVideosPerSecond": throughput,
+        "residentMemoryBytes": residentBytes,
+        "warmColdStable": stable,
+    ]
+    let report: [String: Any] = [
+        "generatedAt": ISO8601DateFormatter().string(from: Date()),
+        "manifest": manifestPath,
+        "itemCount": manifest.items.count,
+        "configuration": configurationReport,
+        "metrics": metricsReport,
+        "decodeStatus": Dictionary(uniqueKeysWithValues: statusCounts.map { ($0.key.rawValue, $0.value) }),
+    ]
+    do {
+        let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+        try data.write(to: URL(fileURLWithPath: jsonOutputPath), options: .atomic)
+    } catch {
+        failHard("could not write JSON report at \(jsonOutputPath): \(error.localizedDescription)")
+    }
+}
 
 // MARK: - Report
 
@@ -139,8 +178,9 @@ if !perClass.isEmpty {
 }
 print("Performance:")
 print(String(format: "  throughput:              %.2f videos/sec (cold)", throughput))
-print(String(format: "  resident memory:         %@", formatBytes(residentMemoryBytes())))
+print(String(format: "  resident memory:         %@", formatBytes(residentBytes)))
 print("  warm-vs-cold stable:     \(stable ? "yes" : "NO — nondeterministic!")")
+if let jsonOutputPath { print("  JSON report:             \(jsonOutputPath)") }
 print("")
 
 // MARK: - Threshold sensitivity sweep

@@ -17,11 +17,12 @@ struct ClusterDetailPane: View {
     @Binding var focusedMemberPath: String?
     @ObservedObject var sessionStore: DeduplicateSessionStore
     @ObservedObject var thumbnailLoader: DedupeThumbnailLoader
+    @Binding var showingComparisonOverlay: Bool
     var onAcceptAndAdvance: (() -> Void)? = nil
+    var onPreview: ((String) -> Void)? = nil
     @State private var thumbnailStripHeight = DeduplicateDetailPreviewLayout.defaultThumbnailStripHeight
     @State private var dragStartThumbnailStripHeight: CGFloat?
     @State private var showingReasonDetail = false
-    @State private var showingComparisonOverlay = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
@@ -46,7 +47,9 @@ struct ClusterDetailPane: View {
                             .keyboardShortcut("d", modifiers: [])
                         Button { setFocusedDecision(.delete, in: cluster) } label: { EmptyView() }
                             .keyboardShortcut(.delete, modifiers: [])
-                        Button { showingComparisonOverlay = true } label: { EmptyView() }
+                        Button {
+                            if let path = focusedMemberPath { onPreview?(path) }
+                        } label: { EmptyView() }
                             .keyboardShortcut(.space, modifiers: [])
                     }
                     .opacity(0)
@@ -114,11 +117,6 @@ struct ClusterDetailPane: View {
                 memberStripArea(cluster: cluster, height: stripHeight)
             }
             .background(DesignTokens.ColorSystem.imageStage)
-            .sheet(isPresented: $showingComparisonOverlay) {
-                if let pair = sideBySidePair(for: focused, in: cluster) {
-                    ComparisonOverlayView(leftPath: pair.left.path, rightPath: pair.right.path)
-                }
-            }
         }
     }
 
@@ -297,6 +295,7 @@ struct ClusterDetailPane: View {
                 )
         }
         .contextMenu {
+            Button("Quick Look") { onPreview?(member.path) }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.selectFile(member.path, inFileViewerRootedAtPath: "")
             }
@@ -395,14 +394,20 @@ struct ClusterDetailPane: View {
 
                     Divider().padding(.vertical, 2)
 
-                    qualityRow("Quality", score: member.qualityScore)
-                    sharpnessRow("Sharpness", score: member.sharpness)
-                    if let face = member.faceScore {
-                        faceRow("Face", detected: face > 0.5)
-                    }
-                    if member.isRaw {
-                        Label("RAW", systemImage: "camera.aperture")
-                            .scaledFont(.label)
+                    if member.mediaKind == .video {
+                        if let rate = member.videoEstimatedDataRate, rate > 0 {
+                            metaRow("Data rate", value: Self.formattedDataRate(rate))
+                        }
+                    } else {
+                        qualityRow("Quality", score: member.qualityScore)
+                        sharpnessRow("Sharpness", score: member.sharpness)
+                        if let face = member.faceScore {
+                            faceRow("Face", detected: face > 0.5)
+                        }
+                        if member.isRaw {
+                            Label("RAW", systemImage: "camera.aperture")
+                                .scaledFont(.label)
+                        }
                     }
                     if let pairedPath = member.pairedPath {
                         Label("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", systemImage: "link")
@@ -414,6 +419,16 @@ struct ClusterDetailPane: View {
                 .accessibilityLabel(DeduplicateAccessibilityText.detailsLabel(member))
                 .accessibilityValue(metadataAccessibilityValue(for: member, cluster: cluster))
                 .accessibilityAddTraits(.isImage)
+
+                Button {
+                    onPreview?(member.path)
+                } label: {
+                    Image(systemName: "eye")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Preview in Quick Look")
+                .accessibilityLabel("Preview \(DeduplicateAccessibilityText.mediaNoun(member)) in Quick Look")
 
                 Divider().padding(.vertical, 2)
 
@@ -512,6 +527,10 @@ struct ClusterDetailPane: View {
         }
     }
 
+    static func formattedDataRate(_ bitsPerSecond: Double) -> String {
+        String(format: "%.1f Mbps", bitsPerSecond / 1_000_000)
+    }
+
     private func metadataAccessibilityValue(for member: PhotoCandidate, cluster: DuplicateCluster) -> String {
         var parts: [String] = [
             DeduplicateInspectorText.title(forCaptureDate: member.captureDate),
@@ -521,13 +540,19 @@ struct ClusterDetailPane: View {
         if let width = member.pixelWidth, let height = member.pixelHeight {
             parts.append("Dimensions \(width) by \(height)")
         }
-        parts.append("Quality \(Self.qualityLabel(member.qualityScore).1)")
-        parts.append("Sharpness \(Self.sharpnessLabel(member.sharpness))")
-        if let face = member.faceScore {
-            parts.append(face > 0.5 ? "Face detected" : "No face detected")
-        }
-        if member.isRaw {
-            parts.append("RAW")
+        if member.mediaKind == .video {
+            if let rate = member.videoEstimatedDataRate, rate > 0 {
+                parts.append("Data rate \(Self.formattedDataRate(rate))")
+            }
+        } else {
+            parts.append("Quality \(Self.qualityLabel(member.qualityScore).1)")
+            parts.append("Sharpness \(Self.sharpnessLabel(member.sharpness))")
+            if let face = member.faceScore {
+                parts.append(face > 0.5 ? "Face detected" : "No face detected")
+            }
+            if member.isRaw {
+                parts.append("RAW")
+            }
         }
         if let pairedPath = member.pairedPath {
             parts.append("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)")
@@ -590,6 +615,7 @@ struct ClusterDetailPane: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            Button("Quick Look") { onPreview?(member.path) }
             Button("Reveal in Finder") {
                 NSWorkspace.shared.selectFile(member.path, inFileViewerRootedAtPath: "")
             }
@@ -697,7 +723,7 @@ struct ClusterDetailPane: View {
 
             if showingReasonDetail {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(MatchReasonFormatter.summary(annotation.matchReason, in: cluster, videoEvidence: annotation.videoEvidence))
+                    Text(MatchReasonFormatter.summary(annotation, in: cluster))
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     if let keeperReason = annotation.keeperReason {

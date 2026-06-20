@@ -115,7 +115,10 @@ public struct DestinationIndexSnapshot: Equatable, Sendable {
     }
 }
 
-public final class OrganizerDatabase {
+/// The connection is opened with `SQLITE_OPEN_FULLMUTEX`, so SQLite serializes
+/// access when planning workers perform concurrent point reads. Callers still
+/// own the lifecycle and must not close the connection while work is active.
+public final class OrganizerDatabase: @unchecked Sendable {
     private let url: URL
     private var database: OpaquePointer?
 
@@ -405,6 +408,41 @@ public final class OrganizerDatabase {
             }
             return typedRecord
         }
+    }
+
+    public func loadRawCacheRecord(namespace: CacheNamespace, path: String) throws -> RawFileCacheRecord? {
+        let statement = try prepare("SELECT id, path, hash, size, mtime FROM FileCache WHERE id = ? AND path = ?")
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_int(statement, 1, Int32(namespace.rawValue))
+        sqlite3_bind_text(statement, 2, path, -1, Self.sqliteTransient)
+
+        let stepResult = sqlite3_step(statement)
+        guard stepResult == SQLITE_ROW else {
+            if stepResult == SQLITE_DONE {
+                return nil
+            }
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+
+        guard
+            let namespaceValue = CacheNamespace(rawValue: Int(sqlite3_column_int(statement, 0))),
+            let hash = Self.sqliteString(statement, column: 2)
+        else {
+            throw OrganizerDatabaseError.invalidIdentity(Self.sqliteString(statement, column: 2) ?? "")
+        }
+
+        return RawFileCacheRecord(
+            namespace: namespaceValue,
+            path: path,
+            hash: hash,
+            size: sqlite3_column_int64(statement, 3),
+            modificationTime: sqlite3_column_double(statement, 4)
+        )
+    }
+
+    public func loadCacheRecord(namespace: CacheNamespace, path: String) throws -> FileCacheRecord? {
+        try loadRawCacheRecord(namespace: namespace, path: path)?.typedRecord
     }
 
     public func saveRawCacheRecords(_ records: [RawFileCacheRecord]) throws {

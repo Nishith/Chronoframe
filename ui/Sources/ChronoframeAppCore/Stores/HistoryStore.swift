@@ -82,6 +82,9 @@ public final class HistoryStore: ObservableObject {
         if let entries = outcome.entries {
             self.entries = entries
             self.lastRefreshError = nil
+            #if canImport(CoreSpotlight)
+            SpotlightIndexer.indexHistoryEntries(entries)
+            #endif
         }
         if let errorMessage = outcome.errorMessage {
             self.lastRefreshError = errorMessage
@@ -118,13 +121,23 @@ public final class HistoryStore: ObservableObject {
     public func remove(entry: RunHistoryEntry) {
         let url = URL(fileURLWithPath: entry.path)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            entries.removeAll { $0.id == entry.id }
+            if let index = entries.firstIndex(where: { $0.id == entry.id }) {
+                entries.remove(at: index)
+                #if canImport(CoreSpotlight)
+                SpotlightIndexer.deindexHistoryEntry(path: entry.path)
+                #endif
+            }
             return
         }
 
         do {
             try trashItem(url)
-            entries.removeAll { $0.id == entry.id }
+            if let index = entries.firstIndex(where: { $0.id == entry.id }) {
+                entries.remove(at: index)
+                #if canImport(CoreSpotlight)
+                SpotlightIndexer.deindexHistoryEntry(path: entry.path)
+                #endif
+            }
         } catch {
             lastRefreshError = UserFacingErrorMessage.withDetails(
                 "Chronoframe could not move this history item to Trash. Open it in Finder and remove it manually.",

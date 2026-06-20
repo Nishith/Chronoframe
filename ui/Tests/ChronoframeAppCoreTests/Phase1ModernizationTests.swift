@@ -250,5 +250,102 @@ final class Phase1ModernizationTests: XCTestCase {
         XCTAssertTrue(collector.issues.contains { $0.severity == .warning && $0.message.contains("Paused: Insufficient disk space") })
         // Verify that it resumed (emitted Disk space check passed issue)
         XCTAssertTrue(collector.issues.contains { $0.severity == .warning && $0.message.contains("Disk space check passed") })
+     }
+
+    // MARK: - 5. Phase 2 Concurrency & Cache Tests
+
+    func testSingleRecordCacheLookup() throws {
+        let dbURL = temporaryDirectoryURL.appendingPathComponent("queue.db")
+        let database = try OrganizerDatabase(url: dbURL)
+        defer { database.close() }
+
+        let record = RawFileCacheRecord(
+            namespace: .source,
+            path: "/path/to/file.jpg",
+            hash: "1234_testhash",
+            size: 1234,
+            modificationTime: 5678.0
+        )
+        try database.saveRawCacheRecords([record])
+
+        let loadedRaw = try database.loadRawCacheRecord(namespace: .source, path: "/path/to/file.jpg")
+        XCTAssertNotNil(loadedRaw)
+        XCTAssertEqual(loadedRaw?.hash, "1234_testhash")
+        XCTAssertEqual(loadedRaw?.size, 1234)
+        XCTAssertEqual(loadedRaw?.modificationTime, 5678.0)
+
+        let loadedTyped = try database.loadCacheRecord(namespace: .source, path: "/path/to/file.jpg")
+        XCTAssertNotNil(loadedTyped)
+        XCTAssertEqual(loadedTyped?.identity, FileIdentity(rawValue: "1234_testhash"))
+
+        let missing = try database.loadRawCacheRecord(namespace: .source, path: "/missing.jpg")
+        XCTAssertNil(missing)
+    }
+
+    func testDryRunPlannerStructuredCancellation() async throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("cancel-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("cancel-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        // Write a few media files
+        for index in 1...10 {
+            let fileURL = sourceRoot.appendingPathComponent("IMG_\(index).jpg")
+            try Data("test".utf8).write(to: fileURL)
+        }
+
+        let isCancelledFlag = ManagedAtomicBool()
+        let planner = DryRunPlanner()
+
+        // We run planning asynchronously and cancel it midway
+        let task = Task {
+            try await planner.planAsync(
+                sourceRoot: sourceRoot,
+                destinationRoot: destinationRoot,
+                isCancelled: { isCancelledFlag.get() }
+            )
+        }
+
+        isCancelledFlag.set(true) // Immediately cancel
+
+        do {
+            _ = try await task.value
+            XCTFail("Should have thrown CancellationError")
+        } catch is CancellationError {
+            // Success!
+        } catch {
+            XCTFail("Expected CancellationError, got: \(error)")
+        }
+    }
+
+    func testDynamicConcurrencyScaling() throws {
+        var executor = TransferExecutor()
+
+        // 1. Standard conditions: Should scale based on activeProcessorCount capped at 4-6
+        executor.isLowPowerModeEnabledProvider = { false }
+        executor.thermalStateProvider = { .nominal }
+
+        let (concurrencyNominal, reasonNominal) = executor.determineConcurrency(requested: 8)
+        XCTAssertNil(reasonNominal)
+        XCTAssertEqual(concurrencyNominal, min(max(4, ProcessInfo.processInfo.activeProcessorCount), 6))
+
+        // 2. Low Power Mode: Should throttle to 1
+        executor.isLowPowerModeEnabledProvider = { true }
+        let (concurrencyLPM, reasonLPM) = executor.determineConcurrency(requested: 4)
+        XCTAssertEqual(concurrencyLPM, 1)
+        XCTAssertEqual(reasonLPM, "Low Power Mode is on")
+
+        // 3. Serious Thermal State: Should throttle to 1
+        executor.isLowPowerModeEnabledProvider = { false }
+        executor.thermalStateProvider = { .serious }
+        let (concurrencySerious, reasonSerious) = executor.determineConcurrency(requested: 4)
+        XCTAssertEqual(concurrencySerious, 1)
+        XCTAssertEqual(reasonSerious, "Device thermal state is elevated")
+
+        // 4. Critical Thermal State: Should throttle to 1
+        executor.thermalStateProvider = { .critical }
+        let (concurrencyCritical, reasonCritical) = executor.determineConcurrency(requested: 4)
+        XCTAssertEqual(concurrencyCritical, 1)
+        XCTAssertEqual(reasonCritical, "Device thermal state is elevated")
     }
 }

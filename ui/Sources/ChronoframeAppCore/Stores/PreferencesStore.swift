@@ -123,9 +123,6 @@ public final class PreferencesStore: ObservableObject {
         didSet { persist(dedupeIncludeExactDuplicates, key: "dedupeIncludeExactDuplicates") }
     }
 
-    /// Opt-in perceptual video matching. Off by default: when off the scanner
-    /// does no video decoding at all. Perceptual video clusters are always
-    /// review-only (medium-capped, never auto-commit eligible).
     @Published public var dedupePerceptualVideoMatchingEnabled: Bool {
         didSet { persist(dedupePerceptualVideoMatchingEnabled, key: "dedupePerceptualVideoMatchingEnabled") }
     }
@@ -183,6 +180,8 @@ public final class PreferencesStore: ObservableObject {
             enableExactDuplicateGroup: dedupeIncludeExactDuplicates,
             workerCount: workerCount,
             perceptualVideoMatchingEnabled: dedupePerceptualVideoMatchingEnabled
+                && dedupeSimilarityPreset.allowsPerceptualVideoMatching,
+            videoPerceptualMatchConfiguration: dedupeSimilarityPreset.videoPerceptualConfiguration
         )
     }
 

@@ -30,6 +30,8 @@ final class DedupeVideoFeatureCacheTests: XCTestCase {
             durationSeconds: 12.34,
             transformedWidth: 1920,
             transformedHeight: 1080,
+            estimatedDataRate: 8_000_000,
+            metadataCompleteness: 3,
             frameHashes: frames,
             status: status,
             folderRoot: "/lib"
@@ -65,6 +67,8 @@ final class DedupeVideoFeatureCacheTests: XCTestCase {
         XCTAssertEqual(loaded["/lib/a.mp4"], record)
         XCTAssertEqual(loaded["/lib/a.mp4"]?.features.frameHashes, [1, nil, 3, 4, nil])
         XCTAssertEqual(loaded["/lib/a.mp4"]?.features.status, .ready)
+        XCTAssertEqual(loaded["/lib/a.mp4"]?.features.estimatedDataRate, 8_000_000)
+        XCTAssertEqual(loaded["/lib/a.mp4"]?.features.metadataCompleteness, 3)
     }
 
     func testNonReadyStatusesArePersisted() throws {
@@ -102,6 +106,22 @@ final class DedupeVideoFeatureCacheTests: XCTestCase {
             sampleStrategyVersion: VideoPerceptualAnalysis.sampleStrategyVersion + 1
         )
         XCTAssertFalse(staleStrategy.isValid(size: 1000, modificationTime: 50), "different sample-strategy version invalidates")
+    }
+
+    func testShortClipReadinessRuleInvalidatesVersionOneRows() {
+        XCTAssertEqual(VideoPerceptualAnalysis.analyzerVersion, 2)
+        let previouslyInsufficientShortClip = DedupeVideoFeatureRecord(
+            features: feature(
+                "/lib/short.mp4",
+                size: 1000,
+                mtime: 50,
+                frames: [1, 2, nil, nil, nil],
+                status: .insufficientVisualEvidence
+            ),
+            analyzerVersion: 1
+        )
+
+        XCTAssertFalse(previouslyInsufficientShortClip.isValid(size: 1000, modificationTime: 50))
     }
 
     // MARK: - Prune isolation

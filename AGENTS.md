@@ -39,7 +39,7 @@ The app uses `SwiftOrganizerEngine` for preview, transfer, revert, and reorganiz
 
 Shared on-disk artifacts include:
 
-- `.organize_cache.db` (organize source/destination file identity hashes are checkpointed during planning; also hosts a `DedupeFeatures` table caching per-photo Vision feature prints, dHash, and quality scores so dedupe re-scans are incremental)
+- `.organize_cache.db` (organize source/destination file identity hashes are checkpointed during planning; also hosts `DedupeFeatures` for per-photo Vision/dHash/quality data and `DedupeVideoFeatures` for versioned video frame hashes, decode outcomes, dimensions, and keeper metadata so dedupe re-scans are incremental)
 - `.organize_logs/dry_run_report_*.csv`
 - `.organize_logs/audit_receipt_*.json` (organize transfer audit receipt; versioned, UUID-suffixed, status-aware)
 - `.organize_logs/dedupe_audit_receipt_*.json` (Deduplicate run audit receipt — used by Run History → Revert)
@@ -74,6 +74,7 @@ Do not weaken these unless the user explicitly asks for a product change.
 `ui/Sources/ChronoframeCore/DeduplicateScanner.swift` runs the scan; `DeduplicationPlanner.plan` is the single source of truth for "what files will the executor mutate". Both the commit-footer preview and `DeduplicateExecutor.commit` consume the same `DeduplicationPlan` so what the user sees in the footer is exactly what happens.
 
 - Exact hashes and valid Vision feature-print confirmation can produce high-confidence automatic suggestions. dHash-only clusters are intentionally excluded from automatic deletion and must remain review-only.
+- Perceptual video matching is an explicit, off-by-default preference. Its cold scan probes duration/dimensions before decoding frames, caches all decode outcomes separately from photo features, and structurally caps every non-exact video cluster at medium confidence so it can never be accepted automatically.
 - Per-pair-kind toggles (`treatRawJpegPairsAsUnit`, `treatLivePhotoPairsAsUnit`) are honored independently. Disabling RAW pairing must not affect Live Photo behaviour and vice versa.
 - The plan carries owning-cluster metadata for **every** mutation, including pair partners that aren't cluster members on their own (Live Photo MOV halves, mainly), so the audit receipt is exhaustive and Run History → Revert can restore everything the executor touched.
 - `DeduplicateExecutor` preflights `.organize_logs/`, writes a `PENDING` receipt before moving anything to Trash, updates the same receipt as each item moves, and finalizes it to `COMPLETED` or `ABORTED`.
@@ -169,6 +170,7 @@ Be precise when discussing coverage.
 - Default branch is `main`, not `master`.
 - Use `codex/...` branch names for Codex work unless the user asks otherwise.
 - The `app-layer-test-check` CI job (PRs only) runs `script/check_app_layer_changes_have_tests.sh` against the PR base. It fails if the diff touches App-layer source (`ChronoframeApp/**` or `ChronoframeAppCore/Stores/**`) with no test change. This backstops the coverage gate, which only reaches `ChronoframeCore`. Escape hatch for genuinely test-free edits: `[skip-app-test-check]` in a commit message.
+- SwiftPM CI and the meaningful coverage script use `script/run_swift_test_suites.sh` to execute dynamically discovered groups of at most five XCTestCase suites in fresh processes. GitHub's `macos-14-arm64` image currently selects Swift 6.0.3, whose long-lived XCTest process can stop advancing partway through the 865-test suite even though every completed test passed. Keep the suite sharding until the runner toolchain is upgraded and a combined CI run is verified.
 - GitHub authentication is configured for `gh` in this workspace.
 - CodeQL workflow is `.github/workflows/codeql.yml`.
 - CodeQL analyzes Swift on macOS.

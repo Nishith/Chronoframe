@@ -23,7 +23,7 @@ public enum DedupeSimilarityPreset: String, CaseIterable, Sendable, Codable, Ide
 
     public var subtitle: String {
         switch self {
-        case .strict: return "Only files that are clearly the same photo"
+        case .strict: return "Only exact video copies and the closest photo matches"
         case .balanced: return "Recommended for most libraries"
         case .loose: return "Casts a wider net — expect more groups to check"
         }
@@ -42,6 +42,34 @@ public enum DedupeSimilarityPreset: String, CaseIterable, Sendable, Codable, Ide
         case .strict: return 6
         case .balanced: return 10
         case .loose: return 16
+        }
+    }
+
+    /// Explicit media × preset behavior. Perceptual video remains opt-in and
+    /// participates only in Balanced/Similar Shots; Exact Copies keeps video
+    /// matching byte-identical while preserving the existing strict photo lane.
+    public var allowsPerceptualVideoMatching: Bool {
+        self != .strict
+    }
+
+    public var videoPerceptualConfiguration: VideoPerceptualMatchConfiguration {
+        switch self {
+        case .strict:
+            return VideoPerceptualMatchConfiguration(
+                durationToleranceSeconds: 0.5,
+                frameHammingThreshold: 6,
+                aggregateMedianThreshold: 4,
+                aspectRatioTolerance: 0.05
+            )
+        case .balanced:
+            return VideoPerceptualMatchConfiguration()
+        case .loose:
+            return VideoPerceptualMatchConfiguration(
+                durationToleranceSeconds: 2.0,
+                frameHammingThreshold: 10,
+                aggregateMedianThreshold: 8,
+                aspectRatioTolerance: 0.12
+            )
         }
     }
 }
@@ -149,6 +177,7 @@ public enum DeduplicatePhase: String, CaseIterable, Sendable {
     case discovery
     case identityHashing
     case featureExtraction
+    case videoAnalysis
     case clustering
 
     public var title: String {
@@ -156,6 +185,7 @@ public enum DeduplicatePhase: String, CaseIterable, Sendable {
         case .discovery: return "Discovering files"
         case .identityHashing: return "Hashing for exact duplicates"
         case .featureExtraction: return "Analyzing photo similarity"
+        case .videoAnalysis: return "Analyzing video similarity"
         case .clustering: return "Grouping similar shots"
         }
     }
@@ -245,6 +275,10 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
     /// faceScore, expression scores) are absent and must never influence
     /// keeper selection or confidence. Defaults to `.photo`.
     public var mediaKind: MediaKind
+    /// Video-only keeper signals populated by the perceptual lane. They remain
+    /// nil for photos and exact-video candidates.
+    public var videoEstimatedDataRate: Double?
+    public var videoMetadataCompleteness: Int?
 
     public init(
         path: String,
@@ -266,7 +300,9 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
         subjectSharpness: Double? = nil,
         subjectMotionBlur: Double? = nil,
         folderRoot: String? = nil,
-        mediaKind: MediaKind = .photo
+        mediaKind: MediaKind = .photo,
+        videoEstimatedDataRate: Double? = nil,
+        videoMetadataCompleteness: Int? = nil
     ) {
         self.path = path
         self.size = size
@@ -288,6 +324,8 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
         self.subjectMotionBlur = subjectMotionBlur
         self.folderRoot = folderRoot
         self.mediaKind = mediaKind
+        self.videoEstimatedDataRate = videoEstimatedDataRate
+        self.videoMetadataCompleteness = videoMetadataCompleteness
     }
 }
 
@@ -391,7 +429,7 @@ public struct DeduplicateSummary: Sendable, Equatable {
 /// Per-scan accounting for the opt-in perceptual video lane. Only populated
 /// when `perceptualVideoMatchingEnabled` was true. Every candidate video is
 /// counted in exactly one of `analyzed`/`unsupported`/`decodeFailed`/
-/// `insufficientVisualEvidence` (the four decode outcomes), plus a separate
+/// `insufficientVisualEvidence`/`prefilteredNoNeighbor`, plus a separate
 /// `deferredPendingExactCleanup` tally for videos held out of the lane because
 /// they were already members of an exact-duplicate cluster.
 public struct VideoPerceptualAnalysisMetrics: Sendable, Equatable {
@@ -403,12 +441,16 @@ public struct VideoPerceptualAnalysisMetrics: Sendable, Equatable {
     public var decodeFailed: Int
     /// Videos that decoded but yielded too few informative frames.
     public var insufficientVisualEvidence: Int
+    /// Videos whose metadata had no plausible duration/aspect neighbor. These
+    /// are intentionally not frame-decoded on a cold scan.
+    public var prefilteredNoNeighbor: Int
     /// Videos excluded from the perceptual lane because they were already in an
     /// exact-duplicate cluster (exact wins; they resurface only after the user
     /// cleans exacts and rescans).
     public var deferredPendingExactCleanup: Int
     /// Feature-cache hits/misses for the video lane (a hit reuses a cached
-    /// `DedupeVideoFeatures` row; a miss decodes via the extractor).
+    /// `DedupeVideoFeatures` row; a miss performs a metadata probe and only
+    /// decodes frames when the prefilter finds a plausible neighbor).
     public var cacheHits: Int
     public var cacheMisses: Int
 
@@ -417,6 +459,7 @@ public struct VideoPerceptualAnalysisMetrics: Sendable, Equatable {
         unsupported: Int = 0,
         decodeFailed: Int = 0,
         insufficientVisualEvidence: Int = 0,
+        prefilteredNoNeighbor: Int = 0,
         deferredPendingExactCleanup: Int = 0,
         cacheHits: Int = 0,
         cacheMisses: Int = 0
@@ -425,6 +468,7 @@ public struct VideoPerceptualAnalysisMetrics: Sendable, Equatable {
         self.unsupported = unsupported
         self.decodeFailed = decodeFailed
         self.insufficientVisualEvidence = insufficientVisualEvidence
+        self.prefilteredNoNeighbor = prefilteredNoNeighbor
         self.deferredPendingExactCleanup = deferredPendingExactCleanup
         self.cacheHits = cacheHits
         self.cacheMisses = cacheMisses
@@ -433,18 +477,18 @@ public struct VideoPerceptualAnalysisMetrics: Sendable, Equatable {
     /// Total videos that went through the decode/cache path (excludes the
     /// exact-deferred set, which is never decoded).
     public var totalConsidered: Int {
-        analyzed + unsupported + decodeFailed + insufficientVisualEvidence
+        analyzed + unsupported + decodeFailed + insufficientVisualEvidence + prefilteredNoNeighbor
     }
 }
 
 /// Snapshot of the cache's behaviour across one scan.
-/// `hits + misses == totalCandidatesScanned` whenever the scan completes.
+/// Cache metrics describe expensive analysis work, not discovery totals.
 /// For photos, a miss incurs a Vision feature print + dHash + quality score
 /// computation and a hit reads the prior row from the DedupeFeatures table.
 /// For videos, the counts cover identity hashing of the size-collision groups
 /// only (a hit reuses a FileCache row, a miss re-hashes); size-unique videos
-/// are skipped by the size prefilter and excluded from both the counts and
-/// `totalCandidatesScanned`.
+/// are skipped by the size prefilter and therefore excluded from cache counts,
+/// while still contributing to `DeduplicateSummary.totalCandidatesScanned`.
 public struct DedupeCacheMetrics: Sendable, Equatable {
     public var hits: Int
     public var misses: Int

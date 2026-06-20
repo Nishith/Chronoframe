@@ -252,7 +252,16 @@ public enum DuplicateClusterer {
         let lhsArea = pixelArea(for: lhs)
         let rhsArea = pixelArea(for: rhs)
         if lhsArea != rhsArea { return lhsArea > rhsArea }
-        // 3. Deterministic final tiebreak.
+        // 3. Prefer the less aggressively compressed representation when the
+        //    display resolution is equal. File size is deliberately not used.
+        let lhsRate = lhs.videoEstimatedDataRate ?? 0
+        let rhsRate = rhs.videoEstimatedDataRate ?? 0
+        if lhsRate != rhsRate { return lhsRate > rhsRate }
+        // 4. Prefer the file whose track exposed more useful metadata.
+        let lhsCompleteness = lhs.videoMetadataCompleteness ?? 0
+        let rhsCompleteness = rhs.videoMetadataCompleteness ?? 0
+        if lhsCompleteness != rhsCompleteness { return lhsCompleteness > rhsCompleteness }
+        // 5. Deterministic final tiebreak.
         return lhs.path < rhs.path
     }
 

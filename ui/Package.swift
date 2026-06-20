@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "ChronoframeUI",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14),
     ],
@@ -27,7 +28,8 @@ let package = Package(
         ),
         .target(
             name: "ChronoframeAppCore",
-            dependencies: ["ChronoframeCore"]
+            dependencies: ["ChronoframeCore"],
+            resources: [.process("Resources")]
         ),
         .target(
             name: "ChronoframeCLIKit",
@@ -38,7 +40,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "ChronoframeApp",
-            dependencies: ["ChronoframeAppCore"]
+            dependencies: ["ChronoframeAppCore"],
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "ChronoframeCLI",

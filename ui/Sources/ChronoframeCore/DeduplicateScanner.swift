@@ -82,9 +82,6 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         let ext = MediaLibraryRules.normalizedExtension(for: $0)
                         return ext == ".mov" || ext == ".m4v"
                     }
-                    continuation.yield(.phaseStarted(phase: .discovery, total: imagePaths.count))
-                    continuation.yield(.phaseCompleted(phase: .discovery))
-
                     // 2. Open the cache database in the destination root.
                     let dbURL = rootURL.appendingPathComponent(".organize_cache.db")
                     let database = try OrganizerDatabase(url: dbURL)
@@ -102,19 +99,30 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     let videoPaths = allPaths.filter {
                         MediaLibraryRules.isVideoFile(path: $0) && pairs[$0]?.kind != .livePhoto
                     }
+                    continuation.yield(.phaseStarted(
+                        phase: .discovery,
+                        total: imagePaths.count + videoPaths.count
+                    ))
+                    continuation.yield(.phaseCompleted(phase: .discovery))
+
+                    let videoExactCollisionPaths = configuration.enableExactDuplicateGroup
+                        ? Self.videoExactCollisionPaths(in: videoPaths)
+                        : []
+                    let identityHashTotal = imagePaths.count + videoExactCollisionPaths.count
 
                     // 4. Identity hashing — finds exact duplicates, reuses
                     // FileCache rows when (size, mtime) match.
-                    continuation.yield(.phaseStarted(phase: .identityHashing, total: imagePaths.count))
+                    continuation.yield(.phaseStarted(phase: .identityHashing, total: identityHashTotal))
                     let cacheRecords = (try? database.loadCacheRecords(namespace: .destination)) ?? []
                     let cacheIndex = Dictionary(uniqueKeysWithValues: cacheRecords.map { ($0.path, $0) })
-                    let identityResults = Self.processIdentityHashes(
+                    let identityResults = try await Self.processIdentityHashes(
                         paths: imagePaths,
                         cacheIndex: cacheIndex,
                         identityHasher: identityHasher,
                         workerCount: configuration.workerCount,
                         cancelFlag: cancelFlag,
-                        continuation: continuation
+                        continuation: continuation,
+                        progressTotal: identityHashTotal
                     )
                     if cancelFlag.get() { continuation.finish(); return }
 
@@ -130,14 +138,16 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     // can never share a FileIdentity, so video candidates
                     // simply join exact clustering. Size-prefiltered so a
                     // video with a unique size is never read.
-                    let videoLane = Self.processVideoExactLane(
-                        videoPaths: videoPaths,
+                    let videoLane = try await Self.processVideoExactLane(
+                        collisionPaths: videoExactCollisionPaths,
                         cacheIndex: cacheIndex,
                         folderRootByPath: folderRootByPath,
                         identityHasher: identityHasher,
                         workerCount: configuration.workerCount,
                         cancelFlag: cancelFlag,
-                        continuation: continuation
+                        continuation: continuation,
+                        progressOffset: imagePaths.count,
+                        progressTotal: identityHashTotal
                     )
                     for (path, identity) in videoLane.identityByPath {
                         identityByPath[path] = identity
@@ -157,9 +167,9 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     var freshRecords: [DedupeFeatureRecord] = []
                     var candidatesByPath: [String: PhotoCandidate] = [:]
                     var analysisRequests: [DedupeAnalysisRequest] = []
-                    // Seed with the video identity-hash cache outcomes so the
-                    // summary's `hits + misses == totalCandidatesScanned`
-                    // contract holds across the combined photo + video scan.
+                    // Fold exact-video identity-hash cache outcomes into the
+                    // analysis cache snapshot. Size-unique videos do not incur
+                    // hashing work and therefore do not affect these metrics.
                     var cacheHits = videoLane.cacheHits
                     var cacheMisses = videoLane.cacheMisses
 
@@ -251,7 +261,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         )
                     }
 
-                    let analysisResults = Self.processAnalysisRequests(
+                    let analysisResults = try await Self.processAnalysisRequests(
                         analysisRequests,
                         analyzer: imageAnalyzer,
                         workerCount: configuration.workerCount,
@@ -378,6 +388,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         if cluster.kind == .exactDuplicate { return true }
                         return !cluster.members.allSatisfy { exactPaths.contains($0.path) }
                     }
+                    continuation.yield(.phaseCompleted(phase: .clustering))
 
                     // 6b. Perceptual video lane (Milestone 2b) — opt-in, always
                     // review-only. Skipped entirely when off (no decode).
@@ -392,7 +403,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         database: database,
                         provider: videoFeatureProvider,
                         configuration: configuration,
-                        cancelFlag: cancelFlag
+                        cancelFlag: cancelFlag,
+                        continuation: continuation
                     )
                     if cancelFlag.get() { continuation.finish(); return }
 
@@ -402,8 +414,6 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         if cancelFlag.get() { continuation.finish(); return }
                         continuation.yield(.clusterDiscovered(cluster))
                     }
-                    continuation.yield(.phaseCompleted(phase: .clustering))
-
                     // 7. Summary.
                     var counts: [ClusterKind: Int] = [:]
                     for cluster in emittedClusters {
@@ -417,7 +427,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     continuation.yield(.complete(DeduplicateSummary(
                         clusterCounts: counts,
                         totalRecoverableBytes: defaultPlan.totalBytes,
-                        totalCandidatesScanned: imagePaths.count + videoLane.cacheHits + videoLane.cacheMisses,
+                        totalCandidatesScanned: imagePaths.count + videoPaths.count,
                         scanDuration: Date().timeIntervalSince(started),
                         cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses),
                         videoPerceptualMetrics: perceptualVideoLane.metrics
@@ -467,8 +477,10 @@ public final class DeduplicateScanner: @unchecked Sendable {
         workerCount: Int,
         cancelFlag: ManagedAtomicBool,
         continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation,
-        emitProgress: Bool = true
-    ) -> [ProcessedFileIdentity] {
+        emitProgress: Bool = true,
+        progressOffset: Int = 0,
+        progressTotal: Int? = nil
+    ) async throws -> [ProcessedFileIdentity] {
         guard !paths.isEmpty else { return [] }
         let maxWorkers = max(1, workerCount)
         if maxWorkers == 1 || paths.count == 1 {
@@ -481,36 +493,59 @@ public final class DeduplicateScanner: @unchecked Sendable {
                 }
                 results.append(identityHasher.processFile(at: path, cachedRecord: cacheIndex[path]))
                 if emitProgress, (offset + 1) % 50 == 0 || offset == paths.count - 1 {
-                    continuation.yield(.phaseProgress(phase: .identityHashing, completed: offset + 1, total: paths.count))
+                    continuation.yield(.phaseProgress(
+                        phase: .identityHashing,
+                        completed: progressOffset + offset + 1,
+                        total: progressTotal ?? progressOffset + paths.count
+                    ))
                 }
             }
             return results
         }
 
         let results = OrderedIdentityResults(count: paths.count)
-        let queue = OperationQueue()
-        queue.name = "Chronoframe.DeduplicateScanner.identity"
-        queue.maxConcurrentOperationCount = maxWorkers
 
-        for (index, path) in paths.enumerated() {
-            let cachedRecord = cacheIndex[path]
-            queue.addOperation {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            var activeTasks = 0
+            for (index, path) in paths.enumerated() {
                 if cancelFlag.get() {
-                    _ = results.store(
-                        ProcessedFileIdentity(identity: nil, size: 0, modificationTime: 0, wasHashed: false),
-                        at: index
-                    )
-                    return
+                    break
                 }
-                let processed = identityHasher.processFile(at: path, cachedRecord: cachedRecord)
-                let completed = results.store(processed, at: index)
-                if emitProgress, completed % 50 == 0 || completed == paths.count {
-                    continuation.yield(.phaseProgress(phase: .identityHashing, completed: completed, total: paths.count))
+
+                if activeTasks >= maxWorkers {
+                    _ = try await group.next()
+                    activeTasks -= 1
                 }
+
+                activeTasks += 1
+                let cachedRecord = cacheIndex[path]
+
+                group.addTask {
+                    if cancelFlag.get() {
+                        _ = results.store(
+                            ProcessedFileIdentity(identity: nil, size: 0, modificationTime: 0, wasHashed: false),
+                            at: index
+                        )
+                        return
+                    }
+                    let processed = identityHasher.processFile(at: path, cachedRecord: cachedRecord)
+                    let completed = results.store(processed, at: index)
+                    if emitProgress, completed % 50 == 0 || completed == paths.count {
+                        continuation.yield(.phaseProgress(
+                            phase: .identityHashing,
+                            completed: progressOffset + completed,
+                            total: progressTotal ?? progressOffset + paths.count
+                        ))
+                    }
+                }
+            }
+
+            while activeTasks > 0 {
+                _ = try await group.next()
+                activeTasks -= 1
             }
         }
 
-        queue.waitUntilAllOperationsAreFinished()
         return results.values()
     }
 
@@ -533,45 +568,42 @@ public final class DeduplicateScanner: @unchecked Sendable {
     }
 
     static func processVideoExactLane(
-        videoPaths: [String],
+        collisionPaths: [String],
         cacheIndex: [String: FileCacheRecord],
         folderRootByPath: [String: String],
         identityHasher: FileIdentityHasher,
         workerCount: Int,
         cancelFlag: ManagedAtomicBool,
-        continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation
-    ) -> VideoExactLaneResult {
-        guard !videoPaths.isEmpty else { return VideoExactLaneResult() }
+        continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation,
+        progressOffset: Int = 0,
+        progressTotal: Int? = nil
+    ) async throws -> VideoExactLaneResult {
+        guard !collisionPaths.isEmpty else { return VideoExactLaneResult() }
 
         var pathsBySize: [Int64: [String]] = [:]
-        for path in videoPaths {
+        for path in collisionPaths {
             var st = stat()
             guard lstat(path, &st) == 0 else { continue }
             pathsBySize[Int64(st.st_size), default: []].append(path)
         }
-
-        // Only size-collision groups can contain byte-identical duplicates.
-        let collisionPaths = pathsBySize.values
+        let validatedCollisionPaths = pathsBySize.values
             .filter { $0.count > 1 }
             .flatMap { $0 }
             .sorted()
-        guard !collisionPaths.isEmpty else { return VideoExactLaneResult() }
 
-        // Hash silently: this runs inside the identity-hashing phase but emits
-        // no progress so it can't make the photo-driven progress bar jump
-        // backward to a smaller zero-based total.
-        let identities = processIdentityHashes(
-            paths: collisionPaths,
+        let identities = try await processIdentityHashes(
+            paths: validatedCollisionPaths,
             cacheIndex: cacheIndex,
             identityHasher: identityHasher,
             workerCount: workerCount,
             cancelFlag: cancelFlag,
             continuation: continuation,
-            emitProgress: false
+            progressOffset: progressOffset,
+            progressTotal: progressTotal
         )
 
         var result = VideoExactLaneResult()
-        for (index, path) in collisionPaths.enumerated() {
+        for (index, path) in validatedCollisionPaths.enumerated() {
             guard index < identities.count, let identity = identities[index].identity else { continue }
             let processed = identities[index]
             result.identityByPath[path] = identity
@@ -596,6 +628,19 @@ public final class DeduplicateScanner: @unchecked Sendable {
             ))
         }
         return result
+    }
+
+    static func videoExactCollisionPaths(in videoPaths: [String]) -> [String] {
+        var pathsBySize: [Int64: [String]] = [:]
+        for path in videoPaths {
+            var st = stat()
+            guard lstat(path, &st) == 0 else { continue }
+            pathsBySize[Int64(st.st_size), default: []].append(path)
+        }
+        return pathsBySize.values
+            .filter { $0.count > 1 }
+            .flatMap { $0 }
+            .sorted()
     }
 
     private static func cachedFeatureRecord(
@@ -629,7 +674,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
         database: OrganizerDatabase,
         provider: any VideoFeatureProviding,
         configuration: DeduplicateConfiguration,
-        cancelFlag: ManagedAtomicBool
+        cancelFlag: ManagedAtomicBool,
+        continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation
     ) -> VideoPerceptualLaneResult {
         // Off by default: no decode, no DB mutation, no metrics.
         guard configuration.perceptualVideoMatchingEnabled else {
@@ -643,11 +689,13 @@ public final class DeduplicateScanner: @unchecked Sendable {
         let deferred = videoPaths.count - candidatePaths.count
 
         var metrics = VideoPerceptualAnalysisMetrics(deferredPendingExactCleanup: deferred)
+        continuation.yield(.phaseStarted(phase: .videoAnalysis, total: candidatePaths.count))
 
         // Nothing to analyze: report the lane ran but leave the cache untouched
         // (never prune to an empty set — that would drop still-present deferred
         // videos' cached features and force a cold re-decode after cleanup).
         guard !candidatePaths.isEmpty else {
+            continuation.yield(.phaseCompleted(phase: .videoAnalysis))
             return VideoPerceptualLaneResult(clusters: [], metrics: metrics)
         }
 
@@ -656,6 +704,41 @@ public final class DeduplicateScanner: @unchecked Sendable {
 
         var readyFeatures: [VideoPerceptualFeatures] = []
         var freshRecords: [DedupeVideoFeatureRecord] = []
+        var probes: [VideoMetadataProbe] = []
+        var pendingExtractions: [VideoMetadataProbe] = []
+        var completed = 0
+
+        func reportProgress() {
+            completed += 1
+            continuation.yield(.phaseProgress(
+                phase: .videoAnalysis,
+                completed: completed,
+                total: candidatePaths.count
+            ))
+        }
+
+        func checkpoint(_ features: VideoPerceptualFeatures) {
+            freshRecords.append(DedupeVideoFeatureRecord(features: features))
+            if freshRecords.count >= videoFeatureFlushBatch {
+                try? database.saveDedupeVideoFeatureRecords(freshRecords)
+                freshRecords.removeAll(keepingCapacity: true)
+            }
+        }
+
+        func probe(from features: VideoPerceptualFeatures) -> VideoMetadataProbe {
+            VideoMetadataProbe(
+                path: features.path,
+                size: features.size,
+                modificationTime: features.modificationTime,
+                durationSeconds: features.durationSeconds,
+                transformedWidth: features.transformedWidth,
+                transformedHeight: features.transformedHeight,
+                estimatedDataRate: features.estimatedDataRate,
+                metadataCompleteness: features.metadataCompleteness,
+                folderRoot: features.folderRoot,
+                status: features.status
+            )
+        }
 
         func tally(_ status: VideoDecodeStatus) {
             switch status {
@@ -669,7 +752,11 @@ public final class DeduplicateScanner: @unchecked Sendable {
         for path in candidatePaths {
             if cancelFlag.get() { break }
             var st = stat()
-            guard lstat(path, &st) == 0 else { continue }
+            guard lstat(path, &st) == 0 else {
+                metrics.decodeFailed += 1
+                reportProgress()
+                continue
+            }
             let size = Int64(st.st_size)
             let mtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
             let folderRoot = folderRootByPath[path]
@@ -680,31 +767,75 @@ public final class DeduplicateScanner: @unchecked Sendable {
             if let record = cached[path] ?? cached[URL(fileURLWithPath: path).standardizedFileURL.path],
                record.isValid(size: size, modificationTime: mtime) {
                 metrics.cacheHits += 1
-                tally(record.features.status)
-                if record.features.status == .ready { readyFeatures.append(record.features) }
+                var features = record.features
+                features.folderRoot = folderRoot
+                tally(features.status)
+                if features.status == .ready {
+                    readyFeatures.append(features)
+                    probes.append(probe(from: features))
+                }
+                reportProgress()
                 continue
             }
 
-            // Cache miss: extract and persist (even non-ready outcomes).
+            // Cache miss: first read cheap track metadata. Full frame extraction
+            // happens only after all probes establish a plausible neighbor.
             metrics.cacheMisses += 1
-            let features = provider.extractFeatures(
+            let metadata = provider.probeMetadata(
                 path: path,
                 size: size,
                 modificationTime: mtime,
                 folderRoot: folderRoot,
                 isCancelled: { cancelFlag.get() }
             )
-            // A cancelled extractor reports `.decodeFailed` because it has no
-            // complete feature set. Do not persist that transient outcome or
-            // the unchanged video would be skipped by every later scan.
             guard !cancelFlag.get() else { break }
-            tally(features.status)
-            if features.status == .ready { readyFeatures.append(features) }
-            freshRecords.append(DedupeVideoFeatureRecord(features: features))
-            if freshRecords.count >= videoFeatureFlushBatch {
-                try? database.saveDedupeVideoFeatureRecords(freshRecords)
-                freshRecords.removeAll(keepingCapacity: true)
+            if metadata.status == .ready {
+                probes.append(metadata)
+                pendingExtractions.append(metadata)
+            } else {
+                let features = VideoPerceptualFeatures(
+                    path: path,
+                    size: size,
+                    modificationTime: mtime,
+                    durationSeconds: metadata.durationSeconds,
+                    transformedWidth: metadata.transformedWidth,
+                    transformedHeight: metadata.transformedHeight,
+                    estimatedDataRate: metadata.estimatedDataRate,
+                    metadataCompleteness: metadata.metadataCompleteness,
+                    frameHashes: Array(repeating: nil, count: VideoPerceptualAnalysis.sampleFractions.count),
+                    status: metadata.status,
+                    folderRoot: folderRoot
+                )
+                tally(features.status)
+                checkpoint(features)
+                reportProgress()
             }
+        }
+
+        let decodePaths = VideoPerceptualMatcher.metadataCandidatePaths(
+            probes: probes,
+            configuration: configuration.videoPerceptualMatchConfiguration
+        )
+        for metadata in pendingExtractions {
+            if cancelFlag.get() { break }
+            if decodePaths.contains(metadata.path) {
+                let pacingDelay = videoDecodePacingDelay(
+                    lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
+                    thermalState: ProcessInfo.processInfo.thermalState
+                )
+                if pacingDelay > 0 { Thread.sleep(forTimeInterval: pacingDelay) }
+                let features = provider.extractFeatures(
+                    metadata: metadata,
+                    isCancelled: { cancelFlag.get() }
+                )
+                guard !cancelFlag.get() else { break }
+                tally(features.status)
+                if features.status == .ready { readyFeatures.append(features) }
+                checkpoint(features)
+            } else {
+                metrics.prefilteredNoNeighbor += 1
+            }
+            reportProgress()
         }
 
         if !freshRecords.isEmpty {
@@ -713,14 +844,29 @@ public final class DeduplicateScanner: @unchecked Sendable {
         // Prune only here — the perceptual lane is the only writer/owner of the
         // video feature cache, so an exact-only / perceptual-off scan must
         // never reach this and cold-evict the rows.
-        try? database.pruneDedupeVideoFeatureRecords(notIn: Set(candidatePaths))
+        try? database.pruneDedupeVideoFeatureRecords(notIn: Set(videoPaths))
 
         let clusters = VideoPerceptualMatcher.cluster(
             features: readyFeatures,
             configuration: configuration.videoPerceptualMatchConfiguration,
             folderPriority: folderPriority
         )
+        continuation.yield(.phaseCompleted(phase: .videoAnalysis))
         return VideoPerceptualLaneResult(clusters: clusters, metrics: metrics)
+    }
+
+    static func videoDecodePacingDelay(
+        lowPowerMode: Bool,
+        thermalState: ProcessInfo.ThermalState
+    ) -> TimeInterval {
+        let thermalDelay: TimeInterval
+        switch thermalState {
+        case .nominal: thermalDelay = 0
+        case .fair: thermalDelay = 0.01
+        case .serious, .critical: thermalDelay = 0.05
+        @unknown default: thermalDelay = 0.05
+        }
+        return max(thermalDelay, lowPowerMode ? 0.025 : 0)
     }
 
     private static func processAnalysisRequests(
@@ -728,7 +874,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
         analyzer: any DedupeImageAnalyzing,
         workerCount: Int,
         cancelFlag: ManagedAtomicBool
-    ) -> [Int: DedupeImageAnalysis] {
+    ) async throws -> [Int: DedupeImageAnalysis] {
         guard !requests.isEmpty else { return [:] }
         let maxWorkers = max(1, workerCount)
         if maxWorkers == 1 || requests.count == 1 {
@@ -741,19 +887,34 @@ public final class DeduplicateScanner: @unchecked Sendable {
         }
 
         let results = AnalysisResults()
-        let queue = OperationQueue()
-        queue.name = "Chronoframe.DeduplicateScanner.analysis"
-        queue.maxConcurrentOperationCount = maxWorkers
 
-        for request in requests {
-            queue.addOperation {
-                guard !cancelFlag.get() else { return }
-                let analysis = analyzer.analyze(url: request.url, size: request.size)
-                results.store(analysis, at: request.offset)
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            var activeTasks = 0
+            for request in requests {
+                if cancelFlag.get() {
+                    break
+                }
+
+                if activeTasks >= maxWorkers {
+                    _ = try await group.next()
+                    activeTasks -= 1
+                }
+
+                activeTasks += 1
+
+                group.addTask {
+                    guard !cancelFlag.get() else { return }
+                    let analysis = analyzer.analyze(url: request.url, size: request.size)
+                    results.store(analysis, at: request.offset)
+                }
+            }
+
+            while activeTasks > 0 {
+                _ = try await group.next()
+                activeTasks -= 1
             }
         }
 
-        queue.waitUntilAllOperationsAreFinished()
         return results.values()
     }
 }

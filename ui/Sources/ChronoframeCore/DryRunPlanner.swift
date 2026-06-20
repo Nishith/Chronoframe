@@ -90,6 +90,10 @@ public struct DryRunPlanner: Sendable {
     /// Low enough for responsive UI on slow volumes; high enough to avoid event flood.
     public static let planningProgressStride = 100
 
+    /// Source-compatible entry point for CLI/tests and older callers. The app
+    /// uses the async overload below; this wrapper preserves the established
+    /// synchronous API while the planner internals migrate to structured
+    /// concurrency.
     public func plan(
         sourceRoot: URL,
         destinationRoot: URL,
@@ -99,8 +103,6 @@ public struct DryRunPlanner: Sendable {
         folderStructure: FolderStructure = .yyyyMMDD,
         eventSuggestionMode: EventSuggestionMode = .off,
         isCancelled: @escaping @Sendable () -> Bool = { false },
-        /// Called with incremental `RunEvent`s while the walks are in progress.
-        /// Allows callers to stream progress to the UI without waiting for `plan()` to return.
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
     ) throws -> DryRunPlanningResult {
         let organizerDatabaseURL = databaseURL
@@ -121,7 +123,7 @@ public struct DryRunPlanner: Sendable {
         onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
         try Self.throwIfCancelled(isCancelled)
 
-        let destinationIndex = try buildDestinationIndex(
+        let destinationIndex = try buildDestinationIndexSync(
             destinationRoot: destinationRoot,
             database: database,
             workerCount: workerCount,
@@ -130,7 +132,6 @@ public struct DryRunPlanner: Sendable {
             onEvent: onEvent
         )
 
-        let sourceCacheByPath = try loadTypedCacheRecordsByPath(namespace: .source, database: database)
         let reviewOverrides = try database.loadReviewOverrides()
         let reviewOverridesByKey = Dictionary(
             uniqueKeysWithValues: reviewOverrides.map { (Self.reviewOverrideKey(identity: $0.identity, sourcePath: $0.sourcePath), $0) }
@@ -145,9 +146,359 @@ public struct DryRunPlanner: Sendable {
 
         onEvent?(.phaseStarted(phase: .sourceHashing, total: sourcePaths.count))
         let sourceCheckpoint = FileCacheCheckpointWriter(namespace: .source, database: database)
-        let sourceResults = try processFiles(
+        let sourceResults = try processFilesSync(
             sourcePaths,
-            cachedRowsByPath: sourceCacheByPath,
+            database: database,
+            workerCount: workerCount,
+            phase: .sourceHashing,
+            total: sourcePaths.count,
+            checkpoint: sourceCheckpoint,
+            isCancelled: isCancelled,
+            onEvent: onEvent
+        )
+
+        for (index, path) in sourcePaths.enumerated() {
+            try Self.throwIfCancelled(isCancelled)
+            let result = sourceResults[index]
+            let resolvedWithoutOverride = dateResolver.resolveResolvedDate(for: path)
+
+            guard let identity = result.identity else {
+                counts.hashErrorCount += 1
+                reviewItemsBySourcePath[path] = PreviewReviewItem(
+                    sourcePath: path,
+                    identityRawValue: nil,
+                    resolvedDate: resolvedWithoutOverride.date,
+                    dateSource: resolvedWithoutOverride.source,
+                    dateConfidence: resolvedWithoutOverride.confidence,
+                    plannedDestinationPath: nil,
+                    status: .hashError,
+                    issues: Self.reviewIssues(
+                        for: resolvedWithoutOverride,
+                        status: .hashError
+                    )
+                )
+                continue
+            }
+
+            let override = reviewOverridesByKey[Self.reviewOverrideKey(identity: identity, sourcePath: path)]
+                ?? Self.identityOnlyOverride(identity: identity, overridesByIdentity: reviewOverridesByIdentity)
+            let resolvedDate = resolvedWithoutOverride.applying(override)
+            let dateBucket = DateClassification.bucket(
+                for: resolvedDate.date,
+                namingRules: namingRules
+            )
+            let acceptedEventName = ReviewOverride.normalizedEventName(override?.eventName)
+
+            if eventSuggestionMode == .suggest,
+               let capturedAt = resolvedDate.date,
+               dateBucket != namingRules.unknownDateDirectoryName,
+               acceptedEventName == nil {
+                eventCandidates.append(
+                    EventSuggestionCandidate(
+                        sourcePath: path,
+                        sourceRoot: sourceRoot.path,
+                        capturedAt: capturedAt,
+                        dateBucket: dateBucket
+                    )
+                )
+            }
+
+            if let existingDestinationPath = destinationIndex.snapshot.pathsByIdentity[identity] {
+                counts.alreadyInDestinationCount += 1
+                reviewItemsBySourcePath[path] = PreviewReviewItem(
+                    sourcePath: path,
+                    identityRawValue: identity.rawValue,
+                    resolvedDate: resolvedDate.date,
+                    dateSource: resolvedDate.source,
+                    dateConfidence: resolvedDate.confidence,
+                    plannedDestinationPath: existingDestinationPath,
+                    status: .alreadyInDestination,
+                    issues: Self.reviewIssues(
+                        for: resolvedDate,
+                        status: .alreadyInDestination
+                    ),
+                    acceptedEventName: acceptedEventName
+                )
+                continue
+            }
+
+            if !sourceSeen.insert(identity).inserted {
+                do {
+                    try planningSpool.appendDuplicate(
+                        sourcePath: path,
+                        identity: identity,
+                        dateBucket: dateBucket,
+                        eventNameOverride: acceptedEventName
+                    )
+                    counts.duplicateCount += 1
+                    reviewItemsBySourcePath[path] = PreviewReviewItem(
+                        sourcePath: path,
+                        identityRawValue: identity.rawValue,
+                        resolvedDate: resolvedDate.date,
+                        dateSource: resolvedDate.source,
+                        dateConfidence: resolvedDate.confidence,
+                        plannedDestinationPath: nil,
+                        status: .duplicate,
+                        issues: Self.reviewIssues(
+                            for: resolvedDate,
+                            status: .duplicate
+                        ),
+                        acceptedEventName: acceptedEventName
+                    )
+                } catch {
+                    planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
+                }
+                continue
+            }
+
+            do {
+                try planningSpool.appendPrimary(
+                    sourcePath: path,
+                    identity: identity,
+                    dateBucket: dateBucket,
+                    eventNameOverride: acceptedEventName
+                )
+                counts.newCount += 1
+                reviewItemsBySourcePath[path] = PreviewReviewItem(
+                    sourcePath: path,
+                    identityRawValue: identity.rawValue,
+                    resolvedDate: resolvedDate.date,
+                    dateSource: resolvedDate.source,
+                    dateConfidence: resolvedDate.confidence,
+                    plannedDestinationPath: nil,
+                    status: .ready,
+                    issues: Self.reviewIssues(
+                        for: resolvedDate,
+                        status: .ready
+                    ),
+                    acceptedEventName: acceptedEventName
+                )
+            } catch {
+                planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
+            }
+        }
+
+        onEvent?(.phaseCompleted(phase: .sourceHashing, result: RunPhaseResult(found: discoveredSourceCount)))
+
+        var primarySequences = destinationIndex.snapshot.sequenceState.primaryByDate
+        var duplicateSequences = destinationIndex.snapshot.sequenceState.duplicatesByDate
+        var overflowDates: Set<String> = []
+        var infoMessages: [String] = []
+        var transfers: [PlannedTransfer] = []
+
+        for dateBucket in planningSpool.primaryDateBuckets.sorted() {
+            try Self.throwIfCancelled(isCancelled)
+            let groupedFileTotal = planningSpool.primaryCount(for: dateBucket)
+            let existingMaxSequence = primarySequences[dateBucket] ?? 0
+            let startSequence = existingMaxSequence + 1
+            let dayWidth = CopyPlanBuilder.plannedSequenceWidth(
+                existingMaxSequence: existingMaxSequence,
+                newItemCount: groupedFileTotal,
+                defaultWidth: namingRules.sequenceWidth
+            )
+
+            if CopyPlanBuilder.shouldWarnAboutSequenceWidth(
+                existingMaxSequence: existingMaxSequence,
+                plannedWidth: dayWidth,
+                defaultWidth: namingRules.sequenceWidth
+            ) {
+                overflowDates.insert(dateBucket)
+            } else if CopyPlanBuilder.shouldEmitSequenceWidthInfo(
+                existingMaxSequence: existingMaxSequence,
+                plannedWidth: dayWidth,
+                defaultWidth: namingRules.sequenceWidth
+            ) {
+                infoMessages.append(
+                    CopyPlanBuilder.sequenceWidthInfoMessage(
+                        dateBucket: dateBucket,
+                        count: groupedFileTotal,
+                        width: dayWidth
+                    )
+                )
+            }
+
+            var groupedFileCount = 0
+
+            try planningSpool.enumeratePrimaryRecords(for: dateBucket) { record in
+                try Self.throwIfCancelled(isCancelled)
+                groupedFileCount += 1
+                let sequence = startSequence + groupedFileCount - 1
+
+                transfers.append(
+                    PlannedTransfer(
+                        sourcePath: record.sourcePath,
+                        destinationPath: PlanningPathBuilder.buildDestinationPath(
+                            for: record.sourcePath,
+                            destinationRoot: destinationRoot.path,
+                            dateBucket: dateBucket,
+                            sequence: sequence,
+                            duplicateDirectoryName: nil,
+                            namingRules: namingRules,
+                            folderStructure: folderStructure,
+                            sourceRoot: sourceRoot.path,
+                            eventNameOverride: record.eventNameOverride,
+                            minimumSequenceWidth: dayWidth
+                        ),
+                        identity: record.identity,
+                        dateBucket: dateBucket,
+                        isDuplicate: false
+                    )
+                )
+            }
+
+            if groupedFileCount > 0 {
+                primarySequences[dateBucket] = startSequence + groupedFileCount - 1
+            }
+        }
+
+        for dateBucket in planningSpool.duplicateDateBuckets.sorted() {
+            try Self.throwIfCancelled(isCancelled)
+            let groupedFileCount = planningSpool.duplicateCount(for: dateBucket)
+            let existingMaxSequence = duplicateSequences[dateBucket] ?? 0
+            let startSequence = existingMaxSequence + 1
+            let dayWidth = CopyPlanBuilder.plannedSequenceWidth(
+                existingMaxSequence: existingMaxSequence,
+                newItemCount: groupedFileCount,
+                defaultWidth: namingRules.sequenceWidth
+            )
+            var plannedCount = 0
+
+            try planningSpool.enumerateDuplicateRecords(for: dateBucket) { duplicate in
+                try Self.throwIfCancelled(isCancelled)
+                plannedCount += 1
+                let sequence = startSequence + plannedCount - 1
+
+                transfers.append(
+                    PlannedTransfer(
+                        sourcePath: duplicate.sourcePath,
+                        destinationPath: PlanningPathBuilder.buildDestinationPath(
+                            for: duplicate.sourcePath,
+                            destinationRoot: destinationRoot.path,
+                            dateBucket: dateBucket,
+                            sequence: sequence,
+                            duplicateDirectoryName: namingRules.duplicateDirectoryName,
+                            namingRules: namingRules,
+                            folderStructure: folderStructure,
+                            sourceRoot: sourceRoot.path,
+                            eventNameOverride: duplicate.eventNameOverride,
+                            minimumSequenceWidth: dayWidth
+                        ),
+                        identity: duplicate.identity,
+                        dateBucket: dateBucket,
+                        isDuplicate: true
+                    )
+                )
+            }
+
+            if plannedCount > 0 {
+                duplicateSequences[dateBucket] = startSequence + plannedCount - 1
+            }
+        }
+
+        let sortedOverflowDates = overflowDates.sorted()
+        var warningMessages = sortedOverflowDates.isEmpty
+            ? [String]()
+            : [
+                "Sequence overflow on dates (>\(PlanningPathBuilder.maxSequence(for: namingRules.sequenceWidth)) files/day): \(sortedOverflowDates.joined(separator: ", "))",
+            ]
+
+        if !planningErrors.isEmpty {
+            warningMessages.append(contentsOf: planningErrors)
+        }
+
+        for transfer in transfers {
+            guard var item = reviewItemsBySourcePath[transfer.sourcePath] else { continue }
+            item.plannedDestinationPath = transfer.destinationPath
+            reviewItemsBySourcePath[transfer.sourcePath] = item
+        }
+
+        if eventSuggestionMode == .suggest {
+            try Self.throwIfCancelled(isCancelled)
+            let suggestions = EventSuggestionEngine.suggestions(for: eventCandidates)
+            for (sourcePath, suggestion) in suggestions {
+                try Self.throwIfCancelled(isCancelled)
+                guard var item = reviewItemsBySourcePath[sourcePath] else { continue }
+                item.eventSuggestion = suggestion
+                reviewItemsBySourcePath[sourcePath] = item
+            }
+        }
+
+        let reviewItems = sourcePaths.compactMap { reviewItemsBySourcePath[$0] }
+
+        return DryRunPlanningResult(
+            discoveredSourceCount: discoveredSourceCount,
+            destinationIndexedCount: destinationIndex.indexedFileCount,
+            sourceHashedCount: discoveredSourceCount,
+            copyPlan: CopyPlanResult(
+                transfers: transfers,
+                counts: counts,
+                warningMessages: warningMessages,
+                sequenceState: SequenceCounterState(
+                    primaryByDate: primarySequences,
+                    duplicatesByDate: duplicateSequences
+                ),
+                infoMessages: infoMessages,
+                dateHistogram: CopyPlanBuilder.dateHistogram(from: transfers, namingRules: namingRules)
+            ),
+            previewReviewItems: reviewItems
+        )
+    }
+
+    public func planAsync(
+        sourceRoot: URL,
+        destinationRoot: URL,
+        databaseURL: URL? = nil,
+        workerCount: Int = 1,
+        namingRules: PlannerNamingRules = .chronoframeDefault,
+        folderStructure: FolderStructure = .yyyyMMDD,
+        eventSuggestionMode: EventSuggestionMode = .off,
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onEvent: (@Sendable (RunEvent) -> Void)? = nil
+    ) async throws -> DryRunPlanningResult {
+        let organizerDatabaseURL = databaseURL
+            ?? destinationRoot.appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
+        let database = try OrganizerDatabase(url: organizerDatabaseURL)
+        defer { database.close() }
+
+        try Self.throwIfCancelled(isCancelled)
+        onEvent?(.phaseStarted(phase: .discovery, total: nil))
+        let sourcePaths = try MediaDiscovery.discoverMediaFiles(
+            at: sourceRoot,
+            isCancelled: isCancelled,
+            onDirectoryIssue: { issue in
+                onEvent?(.issue(RunIssue(severity: .warning, message: issue.message)))
+            }
+        )
+        let discoveredSourceCount = sourcePaths.count
+        onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
+        try Self.throwIfCancelled(isCancelled)
+
+        let destinationIndex = try await buildDestinationIndex(
+            destinationRoot: destinationRoot,
+            database: database,
+            workerCount: workerCount,
+            namingRules: namingRules,
+            isCancelled: isCancelled,
+            onEvent: onEvent
+        )
+
+        let reviewOverrides = try database.loadReviewOverrides()
+        let reviewOverridesByKey = Dictionary(
+            uniqueKeysWithValues: reviewOverrides.map { (Self.reviewOverrideKey(identity: $0.identity, sourcePath: $0.sourcePath), $0) }
+        )
+        let reviewOverridesByIdentity = Dictionary(grouping: reviewOverrides) { $0.identity }
+        let planningSpool = try PlanningSpool()
+        var counts = CopyPlanCounts()
+        var sourceSeen: Set<FileIdentity> = []
+        var planningErrors: [String] = []
+        var reviewItemsBySourcePath: [String: PreviewReviewItem] = [:]
+        var eventCandidates: [EventSuggestionCandidate] = []
+
+        onEvent?(.phaseStarted(phase: .sourceHashing, total: sourcePaths.count))
+        let sourceCheckpoint = FileCacheCheckpointWriter(namespace: .source, database: database)
+        let sourceResults = try await processFiles(
+            sourcePaths,
+            database: database,
             workerCount: workerCount,
             phase: .sourceHashing,
             total: sourcePaths.count,
@@ -479,7 +830,7 @@ public struct DryRunPlanner: Sendable {
         return issues
     }
 
-    private func buildDestinationIndex(
+    private func buildDestinationIndexSync(
         destinationRoot: URL,
         database: OrganizerDatabase,
         workerCount: Int,
@@ -487,7 +838,126 @@ public struct DryRunPlanner: Sendable {
         isCancelled: @escaping @Sendable () -> Bool,
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
     ) throws -> DestinationIndexBuildResult {
-        let cachedRowsByPath = try loadTypedCacheRecordsByPath(namespace: .destination, database: database)
+        var snapshotBuilder = DestinationIndexSnapshotBuilder(namingRules: namingRules)
+        var indexedFileCount = 0
+
+        guard FileManager.default.fileExists(atPath: destinationRoot.path) else {
+            return DestinationIndexBuildResult(indexedFileCount: 0, snapshot: snapshotBuilder.snapshot)
+        }
+
+        let destinationPaths = try MediaDiscovery.discoverMediaFiles(
+            at: destinationRoot,
+            isCancelled: isCancelled,
+            onDirectoryIssue: { issue in
+                onEvent?(.issue(RunIssue(severity: .warning, message: issue.message)))
+            }
+        )
+        onEvent?(.phaseStarted(phase: .destinationIndexing, total: destinationPaths.count))
+        let destinationCheckpoint = FileCacheCheckpointWriter(namespace: .destination, database: database)
+        let destinationResults = try processFilesSync(
+            destinationPaths,
+            database: database,
+            workerCount: workerCount,
+            phase: .destinationIndexing,
+            total: destinationPaths.count,
+            checkpoint: destinationCheckpoint,
+            isCancelled: isCancelled,
+            onEvent: onEvent
+        )
+
+        for (index, path) in destinationPaths.enumerated() {
+            try Self.throwIfCancelled(isCancelled)
+            let result = destinationResults[index]
+            snapshotBuilder.consume(path: path, identity: result.identity)
+            if result.identity != nil {
+                indexedFileCount += 1
+            }
+        }
+
+        onEvent?(.phaseCompleted(phase: .destinationIndexing, result: RunPhaseResult(found: destinationPaths.count)))
+        return DestinationIndexBuildResult(indexedFileCount: indexedFileCount, snapshot: snapshotBuilder.snapshot)
+    }
+
+    private func processFilesSync(
+        _ paths: [String],
+        database: OrganizerDatabase,
+        workerCount: Int,
+        phase: RunPhase,
+        total: Int,
+        checkpoint: FileCacheCheckpointWriter? = nil,
+        isCancelled: @escaping @Sendable () -> Bool,
+        onEvent: (@Sendable (RunEvent) -> Void)?
+    ) throws -> [ProcessedFileIdentity] {
+        guard !paths.isEmpty else {
+            return []
+        }
+
+        let maxWorkers = max(1, workerCount)
+        let namespace: CacheNamespace = (phase == .sourceHashing) ? .source : .destination
+
+        if maxWorkers == 1 || paths.count == 1 {
+            var results: [ProcessedFileIdentity] = []
+            results.reserveCapacity(paths.count)
+            for (index, path) in paths.enumerated() {
+                try Self.throwIfCancelled(isCancelled)
+                let cachedRecord = try? database.loadCacheRecord(namespace: namespace, path: path)
+                let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
+                checkpoint?.append(path: path, result: result)
+                try checkpoint?.throwIfNeeded()
+                results.append(result)
+                let completed = index + 1
+                if completed % Self.planningProgressStride == 0 || completed == total {
+                    onEvent?(.phaseProgress(phase: phase, completed: completed,
+                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            currentFilePath: nil))
+                }
+            }
+            try checkpoint?.finish()
+            return results
+        }
+
+        let results = OrderedFileProcessingResults(count: paths.count)
+        let semaphore = DispatchSemaphore(value: maxWorkers)
+        let group = DispatchGroup()
+
+        for (index, path) in paths.enumerated() {
+            if checkpoint?.hasError == true || isCancelled() {
+                break
+            }
+            semaphore.wait()
+            let fileHasher = self.fileHasher
+            let checkpoint = checkpoint
+            let database = database
+            let onEvent = onEvent
+
+            DispatchQueue.global(qos: .userInitiated).async(group: group) {
+                defer { semaphore.signal() }
+                let cachedRecord = try? database.loadCacheRecord(namespace: namespace, path: path)
+                let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
+                checkpoint?.append(path: path, result: result)
+                let completed = results.store(result, at: index)
+                if completed % Self.planningProgressStride == 0 || completed == total {
+                    onEvent?(.phaseProgress(phase: phase, completed: completed,
+                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            currentFilePath: nil))
+                }
+            }
+        }
+        group.wait()
+
+        try Self.throwIfCancelled(isCancelled)
+        try checkpoint?.finish()
+        return results.values()
+    }
+
+    private func buildDestinationIndex(
+        destinationRoot: URL,
+        database: OrganizerDatabase,
+        workerCount: Int,
+        namingRules: PlannerNamingRules,
+        isCancelled: @escaping @Sendable () -> Bool,
+        onEvent: (@Sendable (RunEvent) -> Void)? = nil
+    ) async throws -> DestinationIndexBuildResult {
         var snapshotBuilder = DestinationIndexSnapshotBuilder(namingRules: namingRules)
         var indexedFileCount = 0
 
@@ -500,9 +970,9 @@ public struct DryRunPlanner: Sendable {
         )
         onEvent?(.phaseStarted(phase: .destinationIndexing, total: destinationPaths.count))
         let destinationCheckpoint = FileCacheCheckpointWriter(namespace: .destination, database: database)
-        let destinationResults = try processFiles(
+        let destinationResults = try await processFiles(
             destinationPaths,
-            cachedRowsByPath: cachedRowsByPath,
+            database: database,
             workerCount: workerCount,
             phase: .destinationIndexing,
             total: destinationPaths.count,
@@ -528,25 +998,28 @@ public struct DryRunPlanner: Sendable {
 
     private func processFiles(
         _ paths: [String],
-        cachedRowsByPath: [String: FileCacheRecord],
+        database: OrganizerDatabase,
         workerCount: Int,
         phase: RunPhase,
         total: Int,
         checkpoint: FileCacheCheckpointWriter? = nil,
         isCancelled: @escaping @Sendable () -> Bool,
         onEvent: (@Sendable (RunEvent) -> Void)?
-    ) throws -> [ProcessedFileIdentity] {
+    ) async throws -> [ProcessedFileIdentity] {
         guard !paths.isEmpty else {
             return []
         }
 
         let maxWorkers = max(1, workerCount)
+        let namespace: CacheNamespace = (phase == .sourceHashing) ? .source : .destination
+
         if maxWorkers == 1 || paths.count == 1 {
             var results: [ProcessedFileIdentity] = []
             results.reserveCapacity(paths.count)
             for (index, path) in paths.enumerated() {
                 try Self.throwIfCancelled(isCancelled)
-                let result = fileHasher.processFile(at: path, cachedRecord: cachedRowsByPath[path])
+                let cachedRecord = try? database.loadCacheRecord(namespace: namespace, path: path)
+                let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
                 checkpoint?.append(path: path, result: result)
                 try checkpoint?.throwIfNeeded()
                 results.append(result)
@@ -562,51 +1035,51 @@ public struct DryRunPlanner: Sendable {
         }
 
         let results = OrderedFileProcessingResults(count: paths.count)
-        let queue = OperationQueue()
-        queue.name = "Chronoframe.DryRunPlanner.\(phase.rawValue)"
-        queue.maxConcurrentOperationCount = maxWorkers
 
-        for (index, path) in paths.enumerated() {
-            let cachedRecord = cachedRowsByPath[path]
-            let fileHasher = self.fileHasher
-            queue.addOperation {
-                guard checkpoint?.hasError != true, !isCancelled() else {
-                    queue.cancelAllOperations()
-                    return
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            var activeTasks = 0
+            for (index, path) in paths.enumerated() {
+                try Self.throwIfCancelled(isCancelled)
+                if checkpoint?.hasError == true {
+                    break
                 }
-                let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
-                checkpoint?.append(path: path, result: result)
-                if checkpoint?.hasError == true || isCancelled() {
-                    queue.cancelAllOperations()
+
+                if activeTasks >= maxWorkers {
+                    _ = try await group.next()
+                    activeTasks -= 1
                 }
-                let completed = results.store(result, at: index)
-                if completed % Self.planningProgressStride == 0 || completed == total {
-                    onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
-                                            currentFilePath: nil))
+
+                activeTasks += 1
+                let fileHasher = self.fileHasher
+                let checkpoint = checkpoint
+                let database = database
+                let onEvent = onEvent
+
+                group.addTask {
+                    let cachedRecord = try? database.loadCacheRecord(namespace: namespace, path: path)
+                    let result = fileHasher.processFile(at: path, cachedRecord: cachedRecord)
+                    checkpoint?.append(path: path, result: result)
+                    if checkpoint?.hasError == true {
+                        throw CancellationError()
+                    }
+                    let completed = results.store(result, at: index)
+                    if completed % Self.planningProgressStride == 0 || completed == total {
+                        onEvent?(.phaseProgress(phase: phase, completed: completed,
+                                                total: total, bytesCopied: nil, bytesTotal: nil,
+                                                currentFilePath: nil))
+                    }
                 }
+            }
+
+            while activeTasks > 0 {
+                _ = try await group.next()
+                activeTasks -= 1
             }
         }
 
-        queue.waitUntilAllOperationsAreFinished()
         try Self.throwIfCancelled(isCancelled)
         try checkpoint?.finish()
         return results.values()
-    }
-
-    private func loadTypedCacheRecordsByPath(
-        namespace: CacheNamespace,
-        database: OrganizerDatabase
-    ) throws -> [String: FileCacheRecord] {
-        var recordsByPath: [String: FileCacheRecord] = [:]
-        try database.enumerateRawCacheRecordBatches(namespace: namespace) { batch in
-            for rawRecord in batch {
-                if let typedRecord = rawRecord.typedRecord {
-                    recordsByPath[rawRecord.path] = typedRecord
-                }
-            }
-        }
-        return recordsByPath
     }
 
     private static func throwIfCancelled(_ isCancelled: @Sendable () -> Bool) throws {

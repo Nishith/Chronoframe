@@ -45,7 +45,7 @@ struct WorkspaceTabStrip<Tab: Hashable & Identifiable>: View {
                 HStack(spacing: 6) {
                     Image(systemName: systemImage(tab))
                         .font(.system(size: 12, weight: .medium))
-                    Text(title(tab))
+                    Text(LocalizedStringKey(title(tab)))
                         .font(.subheadline.weight(isSelected ? .semibold : .regular))
                 }
                 .foregroundStyle(isSelected
