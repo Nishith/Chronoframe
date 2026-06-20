@@ -94,6 +94,16 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     // from the live filesystem — never cached — so a sidecar
                     // added or removed between scans is always reflected.
                     let sidecarsByPath = DeduplicatePairDetector.detectSidecars(for: imagePaths)
+                    // Reverse map across EVERY scanned image (sidecar → all
+                    // owners), surfaced so the planner's deletion gate sees
+                    // singleton owners that never join a duplicate cluster
+                    // (Finding #2 / AGENTS-INVARIANT 14).
+                    var sidecarOwners: [String: Set<String>] = [:]
+                    for (owner, sidecars) in sidecarsByPath {
+                        for sidecar in sidecars {
+                            sidecarOwners[sidecar, default: []].insert(owner)
+                        }
+                    }
 
                     // Standalone videos for the exact-duplicate lane: every
                     // discovered video file except the .mov half of a Live
@@ -428,7 +438,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     let defaultPlan = DeduplicationPlanner.plan(
                         decisions: DedupeDecisions(),
                         clusters: emittedClusters,
-                        configuration: configuration
+                        configuration: configuration,
+                        allSidecarOwners: sidecarOwners
                     )
                     continuation.yield(.complete(DeduplicateSummary(
                         clusterCounts: counts,
@@ -436,7 +447,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         totalCandidatesScanned: imagePaths.count + videoPaths.count,
                         scanDuration: Date().timeIntervalSince(started),
                         cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses),
-                        videoPerceptualMetrics: perceptualVideoLane.metrics
+                        videoPerceptualMetrics: perceptualVideoLane.metrics,
+                        sidecarOwners: sidecarOwners
                     )))
                     continuation.finish()
                 } catch {

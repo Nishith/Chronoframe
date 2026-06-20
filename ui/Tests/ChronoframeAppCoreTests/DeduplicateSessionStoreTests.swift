@@ -112,6 +112,74 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         XCTAssertEqual(commitTracker.closeCount, 1, "Reset after completion must not double-close the security scope")
     }
 
+    /// Finding #2: the scan's complete reverse sidecar-ownership map must be
+    /// forwarded to the executor at commit, so the deletion gate can see
+    /// owners that are not duplicate-cluster members.
+    @MainActor
+    func testCommitForwardsScanSidecarOwnersToEngine() async throws {
+        let owners: [String: Set<String>] = ["/dest/A.xmp": ["/dest/A.jpg", "/dest/A.heic"]]
+        let engine = MockDeduplicateEngine(
+            summary: DeduplicateSummary(totalCandidatesScanned: 1, sidecarOwners: owners),
+            commitEvents: [
+                .started(totalToDelete: 0),
+                .complete(DeduplicateCommitSummary(
+                    deletedCount: 0,
+                    failedCount: 0,
+                    bytesReclaimed: 0,
+                    receiptPath: nil,
+                    hardDelete: false
+                )),
+            ]
+        )
+        let store = DeduplicateSessionStore(engine: engine)
+        let configuration = DeduplicateConfiguration(destinationPath: "/dest")
+
+        store.startScan(configuration: configuration)
+        XCTAssertTrue(await waitForCondition { store.status == .readyToReview })
+
+        store.commitReviewed(configuration: configuration)
+        XCTAssertTrue(await waitForCondition { store.status == .completed })
+
+        XCTAssertEqual(engine.lastCommitSidecarOwners, owners)
+    }
+
+    /// Finding #1: an `.itemStale` commit event surfaces as a non-fatal
+    /// warning (the file was deliberately preserved) and still advances the
+    /// progress counter.
+    @MainActor
+    func testItemStaleEventSurfacesAsWarning() async throws {
+        let engine = MockDeduplicateEngine(
+            summary: DeduplicateSummary(totalCandidatesScanned: 1),
+            commitEvents: [
+                .started(totalToDelete: 1),
+                .itemStale(originalPath: "/dest/changed.jpg", reason: "changed on disk"),
+                .complete(DeduplicateCommitSummary(
+                    deletedCount: 0,
+                    failedCount: 0,
+                    bytesReclaimed: 0,
+                    receiptPath: nil,
+                    hardDelete: false
+                )),
+            ]
+        )
+        let store = DeduplicateSessionStore(engine: engine)
+        let configuration = DeduplicateConfiguration(destinationPath: "/dest")
+
+        store.startScan(configuration: configuration)
+        XCTAssertTrue(await waitForCondition { store.status == .readyToReview })
+
+        store.commitReviewed(configuration: configuration)
+        XCTAssertTrue(await waitForCondition { store.status == .completed })
+
+        let warnings = store.issues.filter { $0.severity == .warning }
+        XCTAssertEqual(warnings.count, 1)
+        XCTAssertEqual(warnings.first?.path, "/dest/changed.jpg")
+        XCTAssertFalse(
+            store.issues.contains { $0.severity == .error },
+            "A stale (preserved) item must not be reported as an error"
+        )
+    }
+
     /// The same plan-driven count must reflect a user toggle in real
     /// time: flipping the JPEG from delete back to keep removes both
     /// the JPEG and its RAW partner from the count.
