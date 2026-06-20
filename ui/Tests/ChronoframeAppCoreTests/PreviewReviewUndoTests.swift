@@ -18,19 +18,22 @@ import XCTest
 /// drive the restore primitive directly, which is where the real logic lives.
 @MainActor
 final class PreviewReviewUndoTests: XCTestCase {
-    private var tempDir: URL!
+    // Touched only from setUp/tearDown and serially-run test bodies, so it does
+    // not need the class's MainActor isolation; opting out keeps the synchronous
+    // XCTest setUp/tearDown overrides (which must stay nonisolated) able to reach it.
+    nonisolated(unsafe) private var tempDir: URL!
 
-    override func setUp() async throws {
-        try await super.setUp()
+    override func setUp() {
+        super.setUp()
         tempDir = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("PreviewReviewUndoTests-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
     }
 
-    override func tearDown() async throws {
+    override func tearDown() {
         try? FileManager.default.removeItem(at: tempDir)
         tempDir = nil
-        try await super.tearDown()
+        super.tearDown()
     }
 
     private final class Box<T> { var value: T? }
