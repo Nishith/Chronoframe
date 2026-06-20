@@ -3,6 +3,7 @@ import ChronoframeAppCore
 #endif
 import SwiftUI
 import QuickLook
+import TipKit
 
 /// Top-level workspace for the Deduplicate sidebar destination. Branches
 /// between idle / scanning / reviewing / committing / completed states and
@@ -159,6 +160,7 @@ struct DeduplicateView: View {
                     .keyboardShortcut(.return, modifiers: .command)
                     .buttonStyle(.borderedProminent)
                     .disabled(appState.deduplicateDestinationPath.isEmpty)
+                    .popoverTip(DeduplicateWorkspaceTip(), arrowEdge: .top)
                 }
             }
             .padding(DesignTokens.Layout.contentPadding)
@@ -590,6 +592,7 @@ struct DeduplicateView: View {
                 .accessibilityLabel("Accept High-Confidence Clusters")
                 .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptHighConfidenceButton)
                 .accessibilityHint("Accepts suggestions for all high-confidence clusters")
+                .popoverTip(AcceptSafeSuggestionsTip(), arrowEdge: .bottom)
             }
 
             let reviewedCount = sessionStore.reviewedClusters.count

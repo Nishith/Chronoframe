@@ -3,6 +3,7 @@ import ChronoframeAppCore
 #endif
 import AppKit
 import SwiftUI
+import TipKit
 
 /// The emotional centerpiece of the Run view: a chronological histogram of
 /// the photos and videos found in the source. Each bar is one year-month;
@@ -330,6 +331,7 @@ struct RunPhaseStrip: View {
         }
         .frame(height: 4)
         .help(model.phaseStripTooltip)
+        .popoverTip(TimelineScrubbingTip(), arrowEdge: .top)
     }
 
     private func color(for state: RunPhaseTimelineEntry.State) -> Color {

@@ -24,6 +24,7 @@ struct ChronoframeApp: App {
         self._appState = StateObject(wrappedValue: AppState())
         #endif
         RunSessionStore.requestNotificationPermission()
+        TipConfiguration.configureIfNeeded(isUITest: uiTestScenario != nil)
     }
 
     var body: some Scene {
