@@ -60,34 +60,46 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
 
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.md) {
-            icon
+            // Icon + status copy read as one VoiceOver announcement; the
+            // decorative icon is ignored and the text fragments are composed so
+            // the surface isn't four separate swipes plus an SF Symbol name.
+            VStack(spacing: DesignTokens.Spacing.md) {
+                icon
 
-            VStack(spacing: 6) {
-                Text(title)
-                    .font(.headline)
-                    .multilineTextAlignment(.center)
-                if let detail, !detail.isEmpty {
-                    Text(detail)
-                        .font(.caption)
+                VStack(spacing: 6) {
+                    Text(title)
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                            .monospacedDigit()
+                    }
+                }
+
+                if let message, !message.isEmpty {
+                    Text(message)
+                        .multilineTextAlignment(.center)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                        .monospacedDigit()
+                        .padding(.horizontal)
+                }
+
+                if let warning, !warning.isEmpty {
+                    Text(warning)
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
+                        .padding(.horizontal)
                 }
             }
-
-            if let message, !message.isEmpty {
-                Text(message)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                    .padding(.horizontal)
-            }
-
-            if let warning, !warning.isEmpty {
-                Text(warning)
-                    .font(.caption)
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(DesignTokens.ColorSystem.statusDanger)
-                    .padding(.horizontal)
-            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(DeduplicateAccessibilityText.statusLabel(
+                title: title,
+                detail: detail,
+                message: message,
+                warning: warning
+            ))
 
             HStack(spacing: DesignTokens.Spacing.sm) {
                 secondary()
