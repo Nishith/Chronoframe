@@ -11,6 +11,7 @@ struct CurrentRunView: View {
     @ObservedObject private var historyStore: HistoryStore
     @ObservedObject private var previewReviewStore: PreviewReviewStore
     @State private var workspaceTab: RunWorkspaceTab = .overview
+    @Environment(\.undoManager) private var undoManager
 
     init(appState: AppState) {
         self.appState = appState
@@ -71,6 +72,10 @@ struct CurrentRunView: View {
         }
         .darkroom()
         .navigationTitle("Run")
+        .onAppear {
+            // Bind the window's undo manager so Preview Triage edits are ⌘Z-able.
+            previewReviewStore.undoManager = undoManager
+        }
         .onChange(of: runSessionStore.status) { newValue in
             if newValue == .finished {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)

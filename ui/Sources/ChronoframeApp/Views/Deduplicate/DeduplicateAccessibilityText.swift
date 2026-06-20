@@ -262,4 +262,28 @@ enum DeduplicateAccessibilityText {
         }
         return summary
     }
+
+    // MARK: - Status surface
+
+    /// Composes the full-screen deduplicate status surface (scanning, completed,
+    /// reverted, failed, …) into a single spoken announcement. The decorative
+    /// state icon is hidden from VoiceOver — the status meaning lives in the
+    /// title and message — so without this the surface would otherwise read as
+    /// the SF Symbol name plus several separate text fragments.
+    static func statusLabel(
+        title: String,
+        detail: String?,
+        message: String?,
+        warning: String?
+    ) -> String {
+        [title, detail, message, warning]
+            .compactMap { piece -> String? in
+                guard let piece else { return nil }
+                let trimmed = piece.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return nil }
+                // Drop a trailing period so joining with ". " can't double it.
+                return trimmed.hasSuffix(".") ? String(trimmed.dropLast()) : trimmed
+            }
+            .joined(separator: ". ")
+    }
 }
