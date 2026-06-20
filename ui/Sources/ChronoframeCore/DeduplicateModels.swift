@@ -252,6 +252,12 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
     /// The pair member is always carried alongside this candidate when
     /// keep/delete decisions are committed.
     public var pairedPath: String?
+    /// Co-located metadata sidecars (e.g. `.xmp`) that share this photo's
+    /// basename. Sidecars are not dedup candidates; they travel with their
+    /// parent as a unit and are deleted only when every photo that references
+    /// them is also deleted (Keep-wins). Populated fresh each scan, never
+    /// cached.
+    public var sidecarPaths: [String]
 
     // MARK: Expression analysis (Phase 1 — Feature 2)
 
@@ -302,7 +308,8 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
         folderRoot: String? = nil,
         mediaKind: MediaKind = .photo,
         videoEstimatedDataRate: Double? = nil,
-        videoMetadataCompleteness: Int? = nil
+        videoMetadataCompleteness: Int? = nil,
+        sidecarPaths: [String] = []
     ) {
         self.path = path
         self.size = size
@@ -326,6 +333,7 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
         self.mediaKind = mediaKind
         self.videoEstimatedDataRate = videoEstimatedDataRate
         self.videoMetadataCompleteness = videoMetadataCompleteness
+        self.sidecarPaths = sidecarPaths
     }
 }
 
@@ -595,6 +603,8 @@ public struct DeduplicationPlan: Sendable, Equatable {
     public enum PairOrigin: String, Sendable, Codable, Equatable {
         case rawJpeg
         case livePhoto
+        /// A metadata sidecar pulled in alongside its parent photo's deletion.
+        case sidecar
     }
 
     public struct Item: Sendable, Equatable {

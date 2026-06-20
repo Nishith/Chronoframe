@@ -18,6 +18,17 @@ public enum DeduplicatePairDetector {
         ".jpg", ".jpeg", ".heic",
     ]
 
+    /// Metadata sidecar extensions. A sidecar carries edits/ratings for a photo
+    /// and is not itself a dedup candidate (never hashed or clustered) — it must
+    /// travel with its parent photo as a unit.
+    public static let sidecarExtensions: Set<String> = [".xmp"]
+
+    /// Injection seam for sidecar existence checks so `detectSidecars` is
+    /// unit-testable without a real filesystem. Production hits disk.
+    nonisolated(unsafe) public static var sidecarFileExists: @Sendable (String) -> Bool = { path in
+        FileManager.default.fileExists(atPath: path)
+    }
+
     public struct Pair: Sendable, Equatable {
         public var primaryPath: String
         public var secondaryPath: String
@@ -79,6 +90,41 @@ public enum DeduplicatePairDetector {
         }
 
         return pairs
+    }
+
+    /// Maps each media path to any co-located sidecar files that share its
+    /// basename. A sidecar may replace the extension (`photo.xmp`) or be
+    /// appended to the full filename (`photo.jpg.xmp`); both forms are matched
+    /// in the same directory. Sidecars are deduplicated per media path.
+    ///
+    /// Note both `photo.raw` and `photo.jpg` resolve `photo.xmp` to the same
+    /// shared sidecar — so a sidecar can have multiple owners, which is why
+    /// deletion fanout is gated on *every* owner being deleted (Keep-wins).
+    public static func detectSidecars(for mediaPaths: [String]) -> [String: [String]] {
+        var result: [String: [String]] = [:]
+        for path in mediaPaths {
+            let url = URL(fileURLWithPath: path)
+            let directory = url.deletingLastPathComponent()
+            let stem = url.deletingPathExtension().lastPathComponent
+            let fullName = url.lastPathComponent
+            var found: [String] = []
+            for ext in sidecarExtensions {
+                // Replaced-extension form: photo.xmp
+                let replaced = directory.appendingPathComponent(stem + ext).path
+                if sidecarFileExists(replaced) {
+                    found.append(replaced)
+                }
+                // Appended form: photo.jpg.xmp
+                let appended = directory.appendingPathComponent(fullName + ext).path
+                if appended != replaced, sidecarFileExists(appended) {
+                    found.append(appended)
+                }
+            }
+            if !found.isEmpty {
+                result[path] = found
+            }
+        }
+        return result
     }
 
     static func groupByBasename(_ paths: [String]) -> [String: [String]] {

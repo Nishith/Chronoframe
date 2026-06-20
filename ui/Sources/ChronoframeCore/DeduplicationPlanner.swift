@@ -154,6 +154,46 @@ public enum DeduplicationPlanner {
             }
         }
 
+        // 6. Sidecar fanout. A metadata sidecar (e.g. `.xmp`) travels with its
+        // parent photo as a unit. It is deleted only when EVERY photo that
+        // references it is also being deleted — Keep-wins, mirroring step 2 for
+        // pairs. Because a sidecar can be shared across a basename unit
+        // (`photo.xmp` applies to both `photo.raw` and `photo.jpg`), and a pair
+        // partner that shares the basename may be surviving outside this
+        // cluster, the guard is conservative: any surviving owner — or any
+        // owner whose pair partner survives — keeps the sidecar. Over-keeping a
+        // sidecar is safe; deleting one whose parent survives is data loss.
+        var ownersBySidecar: [String: Set<String>] = [:]
+        var memberByPath: [String: PhotoCandidate] = [:]
+        for cluster in clusters {
+            for member in cluster.members {
+                memberByPath[member.path] = member
+                for sidecar in member.sidecarPaths {
+                    ownersBySidecar[sidecar, default: []].insert(member.path)
+                }
+            }
+        }
+        for (sidecar, owners) in ownersBySidecar {
+            guard planItems[sidecar] == nil else { continue }
+            let everyOwnerDeleted = owners.allSatisfy { planItems[$0] != nil }
+            guard everyOwnerDeleted else { continue }
+            let anyOwnerHasSurvivingPartner = owners.contains { ownerPath in
+                guard let partner = memberByPath[ownerPath]?.pairedPath else { return false }
+                return planItems[partner] == nil
+            }
+            guard !anyOwnerHasSurvivingPartner else { continue }
+            guard let anchorPath = owners.sorted().first,
+                  let anchorItem = planItems[anchorPath] else { continue }
+            planItems[sidecar] = DeduplicationPlan.Item(
+                path: sidecar,
+                sizeBytes: fileSize(at: sidecar),
+                owningClusterID: anchorItem.owningClusterID,
+                owningClusterKind: anchorItem.owningClusterKind,
+                pairOrigin: .sidecar,
+                mediaKind: .photo
+            )
+        }
+
         return DeduplicationPlan(items: planItems.values.sorted { $0.path < $1.path })
     }
 
