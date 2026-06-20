@@ -713,6 +713,13 @@ struct RunHistoryView: View {
                     appState.revealHistoryEntry(entry)
                 }
                 .accessibilityIdentifier(AccessibilityIdentifiers.revealArtifact(entry.id))
+                Button("Copy Path") {
+                    PathClipboard.copy(entry.path, to: SystemPathPasteboard.shared)
+                }
+                .accessibilityIdentifier(AccessibilityIdentifiers.copyArtifactPath(entry.id))
+                ShareLink(item: RunArtifactShare.fileURL(for: entry)) {
+                    Text("Share…")
+                }
                 if entry.kind == .auditReceipt || entry.kind == .dedupeAuditReceipt || entry.kind == .reorganizeAuditReceipt {
                     Divider()
                     Button("Revert this run…") {
