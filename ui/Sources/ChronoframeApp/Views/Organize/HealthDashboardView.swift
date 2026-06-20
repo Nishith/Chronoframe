@@ -54,6 +54,10 @@ struct HealthDashboardView: View {
                             HealthCardView(card: card, appState: appState)
                         }
                     }
+                } else if healthStore.isRefreshing {
+                    // First scan with no prior summary: show skeleton cards so the
+                    // layout settles in place rather than popping in after a spinner.
+                    HealthDashboardSkeleton()
                 } else {
                     EmptyStateView(
                         title: "No Health Check Yet",
