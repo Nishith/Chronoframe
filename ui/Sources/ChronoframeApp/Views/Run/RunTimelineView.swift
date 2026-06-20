@@ -335,7 +335,7 @@ struct RunPhaseStrip: View {
                         .onAppear {
                             guard !reduceMotion else { return }
                             landedScale = 1.6
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
+                            Motion.withMotion(.spring(response: 0.45, dampingFraction: 0.55), reduceMotion: reduceMotion) {
                                 landedScale = 1.0
                             }
                         }

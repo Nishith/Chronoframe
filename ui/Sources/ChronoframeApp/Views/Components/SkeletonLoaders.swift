@@ -31,10 +31,11 @@ struct SkeletonTile: View {
             }
             .onAppear {
                 guard !reduceMotion else { return }
-                withAnimation(
+                Motion.withMotion(
                     .easeInOut(duration: 1.1)
                         .repeatForever(autoreverses: false)
-                        .delay(0.08 * Double(index))
+                        .delay(0.08 * Double(index)),
+                    reduceMotion: reduceMotion
                 ) {
                     animating = true
                 }
