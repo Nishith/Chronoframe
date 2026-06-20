@@ -866,6 +866,104 @@ final class DeduplicateTests: XCTestCase {
             "Pair Keep-wins should rescue the marked-Delete half, leaving the cluster intact")
     }
 
+    // MARK: - Sidecar fanout (PR D) — extends pair-as-unit Keep-wins to sidecars
+
+    /// A sidecar is trashed with its parent when every photo that references it
+    /// is also being deleted.
+    // AGENTS-INVARIANT: 14
+    func testPlannerTrashesSidecarWhenEveryOwnerIsDeleted() {
+        let keeper = candidate(path: "/dest/KEEP.JPG")
+        let dupe = candidate(path: "/dest/DUPE.JPG", sidecarPaths: ["/dest/DUPE.xmp"])
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [keeper, dupe],
+            suggestedKeeperIDs: ["/dest/KEEP.JPG"],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/KEEP.JPG": .keep,
+            "/dest/DUPE.JPG": .delete,
+        ])
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertTrue(paths.contains("/dest/DUPE.JPG"))
+        XCTAssertTrue(paths.contains("/dest/DUPE.xmp"), "Sidecar must travel with its deleted parent")
+        XCTAssertEqual(
+            plan.items.first { $0.path == "/dest/DUPE.xmp" }?.pairOrigin, .sidecar
+        )
+        // Receipt exhaustiveness: the sidecar carries owning-cluster metadata.
+        XCTAssertEqual(
+            plan.items.first { $0.path == "/dest/DUPE.xmp" }?.owningClusterID, cluster.id
+        )
+    }
+
+    /// A sidecar shared across a basename unit survives when ANY owner is kept —
+    /// Keep-wins. Deleting the JPEG must not delete a sidecar the kept RAW
+    /// (or another kept owner) still depends on.
+    // AGENTS-INVARIANT: 14
+    func testPlannerKeepsSidecarSharedWithASurvivingOwner() {
+        // RAW and JPEG share IMG.xmp; both are cluster members; only JPEG deleted.
+        let raw = candidate(path: "/dest/IMG.CR2", pairedPath: "/dest/IMG.JPG", sidecarPaths: ["/dest/IMG.xmp"])
+        let jpeg = candidate(path: "/dest/IMG.JPG", pairedPath: "/dest/IMG.CR2", sidecarPaths: ["/dest/IMG.xmp"])
+        let other = candidate(path: "/dest/OTHER.JPG")
+        // Disable pairing so the JPEG deletion is NOT rescued by pair Keep-wins —
+        // isolating the sidecar guard itself.
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [raw, jpeg, other],
+            suggestedKeeperIDs: ["/dest/IMG.CR2"],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/IMG.CR2": .keep,
+            "/dest/IMG.JPG": .delete,
+            "/dest/OTHER.JPG": .keep,
+        ])
+        let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: false)
+
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertTrue(paths.contains("/dest/IMG.JPG"))
+        XCTAssertFalse(
+            paths.contains("/dest/IMG.xmp"),
+            "Sidecar shared with the surviving RAW must NOT be deleted (Keep-wins)"
+        )
+    }
+
+    /// Conservative guard: even when a sidecar's only listed owner is deleted,
+    /// a surviving pair partner that shares the basename keeps it. (The partner
+    /// shares the sidecar on disk even if the planner only sees it via pairing.)
+    // AGENTS-INVARIANT: 14
+    func testPlannerKeepsSidecarWhenOwnersPairPartnerSurvives() {
+        // Only the JPEG lists the sidecar; its RAW partner survives outside the
+        // cluster (added via pair fanout would delete it — but here pairing is
+        // off so the RAW is simply not deleted).
+        let jpeg = candidate(path: "/dest/IMG.JPG", pairedPath: "/dest/IMG.CR2", sidecarPaths: ["/dest/IMG.xmp"])
+        let twin = candidate(path: "/dest/IMG2.JPG")
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [jpeg, twin],
+            suggestedKeeperIDs: ["/dest/IMG2.JPG"],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            "/dest/IMG.JPG": .delete,
+            "/dest/IMG2.JPG": .keep,
+        ])
+        // Pairing disabled → RAW partner is not fanned into the plan → survives.
+        let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: false)
+
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertTrue(paths.contains("/dest/IMG.JPG"))
+        XCTAssertFalse(
+            paths.contains("/dest/IMG.xmp"),
+            "Surviving pair partner sharing the basename must keep the sidecar"
+        )
+    }
+
     func testPlannerRefusesAllDelete() {
         let a = candidate(path: "/dest/a.jpg")
         let b = candidate(path: "/dest/b.jpg")
@@ -2258,7 +2356,8 @@ final class DeduplicateTests: XCTestCase {
         smileScore: Double? = nil,
         subjectSharpness: Double? = nil,
         subjectMotionBlur: Double? = nil,
-        folderRoot: String? = nil
+        folderRoot: String? = nil,
+        sidecarPaths: [String] = []
     ) -> PhotoCandidate {
         PhotoCandidate(
             path: path,
@@ -2279,7 +2378,8 @@ final class DeduplicateTests: XCTestCase {
             smileScore: smileScore,
             subjectSharpness: subjectSharpness,
             subjectMotionBlur: subjectMotionBlur,
-            folderRoot: folderRoot
+            folderRoot: folderRoot,
+            sidecarPaths: sidecarPaths
         )
     }
 
