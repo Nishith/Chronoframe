@@ -299,6 +299,9 @@ struct ClusterDetailPane: View {
             Button("Reveal in Finder") {
                 NSWorkspace.shared.selectFile(member.path, inFileViewerRootedAtPath: "")
             }
+            Button("Copy Path") {
+                PathClipboard.copy(member.path, to: SystemPathPasteboard.shared)
+            }
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)

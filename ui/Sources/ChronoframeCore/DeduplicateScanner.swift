@@ -90,6 +90,10 @@ public final class DeduplicateScanner: @unchecked Sendable {
 
                     // 3. Pair detection.
                     let pairs = DeduplicatePairDetector.detectPairs(in: imagePaths + movPaths)
+                    // Sidecar detection (e.g. .xmp). Derived fresh each scan
+                    // from the live filesystem — never cached — so a sidecar
+                    // added or removed between scans is always reflected.
+                    let sidecarsByPath = DeduplicatePairDetector.detectSidecars(for: imagePaths)
 
                     // Standalone videos for the exact-duplicate lane: every
                     // discovered video file except the .mov half of a Live
@@ -236,7 +240,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                                 smileScore: cached.smileScore,
                                 subjectSharpness: cached.subjectSharpness,
                                 subjectMotionBlur: cached.subjectMotionBlur,
-                                folderRoot: cached.folderRoot ?? folderRoot
+                                folderRoot: cached.folderRoot ?? folderRoot,
+                                sidecarPaths: sidecarsByPath[path] ?? []
                             )
                             candidatesByPath[path] = candidate
                             if (offset + 1) % 50 == 0 || offset == imagePaths.count - 1 {
@@ -293,7 +298,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                             smileScore: analysis.smileScore,
                             subjectSharpness: analysis.subjectSharpness,
                             subjectMotionBlur: analysis.subjectMotionBlur,
-                            folderRoot: request.folderRoot
+                            folderRoot: request.folderRoot,
+                            sidecarPaths: sidecarsByPath[request.path] ?? []
                         )
                         candidatesByPath[request.path] = candidate
                         freshRecords.append(

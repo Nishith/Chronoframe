@@ -95,6 +95,8 @@ enum AccessibilityIdentifiers {
     static func revealArtifact(_ id: some CustomStringConvertible) -> String { "revealArtifact_\(id)" }
     /// Identifier for the "Revert" action of a history artifact row.
     static func revertArtifact(_ id: some CustomStringConvertible) -> String { "revertArtifact_\(id)" }
+    /// Identifier for the "Copy Path" action of a history artifact row.
+    static func copyArtifactPath(_ id: some CustomStringConvertible) -> String { "copyArtifactPath_\(id)" }
     /// Identifier for a saved-profile row, keyed by profile name.
     static func profileName(_ name: some CustomStringConvertible) -> String { "profileName-\(name)" }
     /// Identifier for a primary sidebar destination, keyed by its raw value.
