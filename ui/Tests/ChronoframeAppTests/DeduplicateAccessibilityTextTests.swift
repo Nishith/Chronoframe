@@ -9,6 +9,32 @@ import XCTest
 /// framing, warning flag, review state) so accidental changes are caught.
 final class DeduplicateAccessibilityTextTests: XCTestCase {
 
+    // MARK: - Status surface composition (PR C)
+
+    func testStatusLabelJoinsAllNonEmptyParts() {
+        let label = DeduplicateAccessibilityText.statusLabel(
+            title: "Deduplicate complete",
+            detail: "12 photos reviewed",
+            message: "Moved 4 duplicates to the Trash.",
+            warning: "1 file could not be moved."
+        )
+        // Parts with their own trailing period are not double-punctuated.
+        XCTAssertEqual(
+            label,
+            "Deduplicate complete. 12 photos reviewed. Moved 4 duplicates to the Trash. 1 file could not be moved"
+        )
+    }
+
+    func testStatusLabelSkipsNilAndBlankParts() {
+        let label = DeduplicateAccessibilityText.statusLabel(
+            title: "Scanning…",
+            detail: nil,
+            message: "   ",
+            warning: nil
+        )
+        XCTAssertEqual(label, "Scanning…")
+    }
+
     func testAccessibilityFocusSelectsRotorTargetWithoutClearingSelectionWhenFocusLeaves() {
         let current = UUID()
         let rotorTarget = UUID()
