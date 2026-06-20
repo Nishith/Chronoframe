@@ -135,10 +135,12 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         let configuration = DeduplicateConfiguration(destinationPath: "/dest")
 
         store.startScan(configuration: configuration)
-        XCTAssertTrue(await waitForCondition { store.status == .readyToReview })
+        let scanned = await waitForCondition { store.status == .readyToReview }
+        XCTAssertTrue(scanned)
 
         store.commitReviewed(configuration: configuration)
-        XCTAssertTrue(await waitForCondition { store.status == .completed })
+        let committed = await waitForCondition { store.status == .completed }
+        XCTAssertTrue(committed)
 
         XCTAssertEqual(engine.lastCommitSidecarOwners, owners)
     }
@@ -166,10 +168,12 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         let configuration = DeduplicateConfiguration(destinationPath: "/dest")
 
         store.startScan(configuration: configuration)
-        XCTAssertTrue(await waitForCondition { store.status == .readyToReview })
+        let scanned = await waitForCondition { store.status == .readyToReview }
+        XCTAssertTrue(scanned)
 
         store.commitReviewed(configuration: configuration)
-        XCTAssertTrue(await waitForCondition { store.status == .completed })
+        let committed = await waitForCondition { store.status == .completed }
+        XCTAssertTrue(committed)
 
         let warnings = store.issues.filter { $0.severity == .warning }
         XCTAssertEqual(warnings.count, 1)
