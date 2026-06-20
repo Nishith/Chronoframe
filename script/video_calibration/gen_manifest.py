@@ -70,7 +70,10 @@ def build_items(corpus_dir: str, explode_underscore: bool) -> list[dict]:
             if not is_video(name):
                 continue
             abs_path = os.path.abspath(os.path.join(group_dir, name))
-            truth_group = f"{group}-{os.path.splitext(name)[0]}" if explode else group
+            # Include the full filename (with extension) so two hard negatives
+            # sharing a stem (clip.mov / clip.mp4) stay distinct singleton
+            # groups instead of being mislabeled as duplicates.
+            truth_group = f"{group}-{name}" if explode else group
             item: dict = {"path": abs_path, "truthGroup": truth_group}
             cls = derive_class(name)
             if cls:

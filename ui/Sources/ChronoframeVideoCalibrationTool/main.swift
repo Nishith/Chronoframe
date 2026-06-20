@@ -114,6 +114,7 @@ if let jsonOutputPath {
         "aggregateMedianThreshold": matchConfig.aggregateMedianThreshold,
         "aspectRatioTolerance": matchConfig.aspectRatioTolerance,
         "lowVarianceThreshold": extractionConfig.lowVarianceThreshold,
+        "frameTimeToleranceSeconds": extractionConfig.frameTimeToleranceSeconds,
         "analyzerVersion": VideoPerceptualAnalysis.analyzerVersion,
         "sampleStrategyVersion": VideoPerceptualAnalysis.sampleStrategyVersion,
     ]
@@ -154,6 +155,7 @@ print("manifest:                  \(manifestPath)")
 print("items:                     \(manifest.items.count)")
 print("operating point:           T=\(matchConfig.durationToleranceSeconds)s  H=\(matchConfig.frameHammingThreshold)  A=\(matchConfig.aggregateMedianThreshold)  aspectTol=\(matchConfig.aspectRatioTolerance)")
 print("low-variance threshold:    \(extractionConfig.lowVarianceThreshold)")
+print("frame-time tolerance:      \(extractionConfig.frameTimeToleranceSeconds)s")
 print("")
 print("Decode status:")
 for status in [VideoDecodeStatus.ready, .unsupported, .decodeFailed, .insufficientVisualEvidence] {
