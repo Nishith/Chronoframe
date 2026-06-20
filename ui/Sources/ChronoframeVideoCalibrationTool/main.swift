@@ -38,7 +38,8 @@ let matchConfig = VideoPerceptualMatchConfiguration(
     aspectRatioTolerance: value(for: "--aspect-tolerance").flatMap(Double.init) ?? 0.10
 )
 let extractionConfig = VideoFeatureExtractionConfiguration(
-    lowVarianceThreshold: value(for: "--low-variance").flatMap(Double.init) ?? 12.0
+    lowVarianceThreshold: value(for: "--low-variance").flatMap(Double.init) ?? 12.0,
+    frameTimeToleranceSeconds: value(for: "--frame-tolerance").flatMap(Double.init) ?? 0.25
 )
 let jsonOutputPath = value(for: "--output-json")
 

@@ -56,6 +56,38 @@ final class VideoFeatureExtractorTests: XCTestCase {
         XCTAssertEqual(dims.height, 600)
     }
 
+    // MARK: - Frame-time tolerance guard
+
+    // Regression guard for the two sampling failure modes calibration exposed
+    // (see AGENTS.md "Perceptual video matching"). The extractor feeds
+    // `frameTimeToleranceSeconds` into the image generator's requested-time
+    // tolerance; both ends of the range are broken:
+    //   - infinite tolerance snaps to the nearest keyframe, whose timestamp
+    //     differs between codecs, so re-encodes never align (recall collapses);
+    //   - zero tolerance makes B-frame HEVC-in-MP4 seeks fail or return the
+    //     wrong frame.
+    // This can't observe the private generator without real decode, so it
+    // guards the default that drives it: non-zero, finite, and a sane CMTime.
+    func testFrameTimeToleranceDefaultIsNonZeroAndFinite() {
+        let tolerance = VideoFeatureExtractionConfiguration().frameTimeToleranceSeconds
+        XCTAssertGreaterThan(tolerance, 0, "zero tolerance reintroduces fragile exact-seek failures")
+        XCTAssertTrue(tolerance.isFinite, "infinite tolerance snaps to keyframes and breaks cross-codec matching")
+        // Stay well under a typical keyframe interval so it can't snap to a
+        // distant keyframe; calibration put the safe plateau at 0.1–0.25s.
+        XCTAssertLessThanOrEqual(tolerance, 0.5)
+    }
+
+    func testFrameTimeToleranceConvertsToValidPositiveCMTime() {
+        // Mirror the exact conversion the extractor performs so a default that
+        // produced an indefinite/infinite/zero CMTime is caught here.
+        let tolerance = VideoFeatureExtractionConfiguration().frameTimeToleranceSeconds
+        let cmTime = CMTime(seconds: tolerance, preferredTimescale: 600)
+        XCTAssertTrue(cmTime.isValid)
+        // isNumeric == valid && not indefinite && not ±infinity.
+        XCTAssertTrue(cmTime.isNumeric)
+        XCTAssertGreaterThan(CMTimeGetSeconds(cmTime), 0)
+    }
+
     // MARK: - Pure helpers: luma variance / low-variance discard
 
     func testUniformBufferHasZeroVariance() {

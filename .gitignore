@@ -26,3 +26,12 @@ profiles.yaml
 ui/build/
 ui/.build/
 ui/.tmp/
+
+# Perceptual video dedupe calibration (local-only corpus + generated reports).
+# The corpus and absolute-path manifests must never be committed; only redacted
+# JSON reports belong in a PR. See script/video_calibration/README.md.
+script/video_calibration/reports/
+script/video_calibration/**/corpus/
+**/chronoframe-video-corpus/
+manifest.json
+!script/video_calibration/manifest.example.json

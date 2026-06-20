@@ -29,19 +29,28 @@ public struct VideoFeatureExtractionConfiguration: Sendable, Equatable {
     /// Square edge (pixels) of the tiny grayscale buffer used for the
     /// low-variance check. Independent of the dHash grid.
     public var varianceProbeDimension: Int
+    /// Symmetric tolerance (seconds) the image generator is allowed when
+    /// resolving a sample time. Must be small enough to never snap to a distant
+    /// keyframe (which would misalign re-encodes whose keyframes sit at
+    /// different timestamps) yet non-zero so exact-PTS seeks don't fail or
+    /// return the wrong frame on B-frame-heavy HEVC-in-MP4 streams. Calibrated
+    /// against a labeled corpus in Milestone 2c.
+    public var frameTimeToleranceSeconds: Double
 
     public init(
         maximumDecodeDimension: Int = 64,
         lowVarianceThreshold: Double = 12.0,
         resampleOffsetFraction: Double = 0.025,
         maxResampleAttempts: Int = 2,
-        varianceProbeDimension: Int = 16
+        varianceProbeDimension: Int = 16,
+        frameTimeToleranceSeconds: Double = 0.25
     ) {
         self.maximumDecodeDimension = maximumDecodeDimension
         self.lowVarianceThreshold = lowVarianceThreshold
         self.resampleOffsetFraction = resampleOffsetFraction
         self.maxResampleAttempts = maxResampleAttempts
         self.varianceProbeDimension = varianceProbeDimension
+        self.frameTimeToleranceSeconds = frameTimeToleranceSeconds
     }
 }
 
@@ -361,9 +370,16 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
 
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
-        // We want *a* nearby frame, not an exact PTS — far cheaper to decode.
-        generator.requestedTimeToleranceBefore = .positiveInfinity
-        generator.requestedTimeToleranceAfter = .positiveInfinity
+        // Sample at (near) the requested PTS with a small symmetric tolerance.
+        // Infinite tolerance returns the nearest *keyframe*, whose timestamp
+        // differs between codecs — so re-encodes sample different frames and
+        // never match. Exactly-zero tolerance aligns but is fragile: B-frame
+        // HEVC-in-MP4 seeks can fail or return the wrong frame. A small
+        // tolerance (< keyframe interval) keeps re-encodes aligned while letting
+        // the decoder reliably resolve a frame.
+        let tolerance = CMTime(seconds: configuration.frameTimeToleranceSeconds, preferredTimescale: 600)
+        generator.requestedTimeToleranceBefore = tolerance
+        generator.requestedTimeToleranceAfter = tolerance
         // Memory cap: decode straight to a tiny target, never hold a full frame.
         let edge = CGFloat(configuration.maximumDecodeDimension)
         generator.maximumSize = CGSize(width: edge, height: edge)
