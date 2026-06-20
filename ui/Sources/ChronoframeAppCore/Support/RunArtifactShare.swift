@@ -1,4 +1,6 @@
+#if canImport(ChronoframeCore)
 import ChronoframeCore
+#endif
 import Foundation
 
 /// Pure builder for the payload behind the Run History `ShareLink`. We share the
