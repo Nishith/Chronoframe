@@ -9,6 +9,26 @@ import XCTest
 /// framing, warning flag, review state) so accidental changes are caught.
 final class DeduplicateAccessibilityTextTests: XCTestCase {
 
+    func testAccessibilityFocusSelectsRotorTargetWithoutClearingSelectionWhenFocusLeaves() {
+        let current = UUID()
+        let rotorTarget = UUID()
+
+        XCTAssertEqual(
+            DedupeAccessibilityFocusSelection.selectedClusterID(
+                accessibilityFocusedClusterID: rotorTarget,
+                currentSelection: current
+            ),
+            rotorTarget
+        )
+        XCTAssertEqual(
+            DedupeAccessibilityFocusSelection.selectedClusterID(
+                accessibilityFocusedClusterID: nil,
+                currentSelection: current
+            ),
+            current
+        )
+    }
+
     // MARK: - confidenceLabel
 
     func testConfidenceLabelUsesPlainVocabularyAndDefaultsToMedium() {

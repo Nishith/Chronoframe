@@ -401,7 +401,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     // before the (potentially long) planning walk begins.
                     continuation.yield(.startup)
 
-                    let result = try planner.plan(
+                    let result = try await planner.planAsync(
                         sourceRoot: URL(fileURLWithPath: configuration.sourcePath, isDirectory: true),
                         destinationRoot: URL(fileURLWithPath: configuration.destinationPath, isDirectory: true),
                         workerCount: max(1, configuration.workerCount),
@@ -544,7 +544,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             continuation: continuation
                         )
                     } else {
-                        try Self.startTransfer(
+                        try await Self.startTransfer(
                             configuration: configuration,
                             planner: planner,
                             database: database,
@@ -594,8 +594,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         transferExecutor: TransferExecutor,
         runLogger: PersistentRunLogger,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
-    ) throws {
-        let result = try planner.plan(
+    ) async throws {
+        let result = try await planner.planAsync(
             sourceRoot: URL(fileURLWithPath: configuration.sourcePath, isDirectory: true),
             destinationRoot: destinationURL,
             workerCount: max(1, configuration.workerCount),

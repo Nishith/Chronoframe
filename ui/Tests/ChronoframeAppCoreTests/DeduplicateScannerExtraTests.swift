@@ -347,11 +347,11 @@ final class DeduplicateScannerExtraTests: XCTestCase {
         let attrs4 = try FileManager.default.attributesOfItem(atPath: img4URL.path)
         let attrs5 = try FileManager.default.attributesOfItem(atPath: img5URL.path)
 
-        let mtime1 = (attrs1[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let mtime2 = (attrs2[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let mtime3 = (attrs3[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let mtime4 = (attrs4[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let mtime5 = (attrs5[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        let mtime1 = Double((attrs1[.modificationDate] as! Date).timeIntervalSince1970)
+        let mtime2 = Double((attrs2[.modificationDate] as! Date).timeIntervalSince1970)
+        let mtime3 = Double((attrs3[.modificationDate] as! Date).timeIntervalSince1970)
+        let mtime4 = Double((attrs4[.modificationDate] as! Date).timeIntervalSince1970)
+        let mtime5 = Double((attrs5[.modificationDate] as! Date).timeIntervalSince1970)
 
         let dbURL = temporaryDirectory.appendingPathComponent(".organize_cache.db")
         let db = try OrganizerDatabase(url: dbURL)
@@ -454,7 +454,6 @@ final class DeduplicateScannerExtraTests: XCTestCase {
 
         db.close()
 
-
         let config = DeduplicateConfiguration(
             destinationPath: temporaryDirectory.standardizedFileURL.path,
             timeWindowSeconds: 30,
@@ -479,21 +478,11 @@ final class DeduplicateScannerExtraTests: XCTestCase {
             }
         }
 
-
         let summary = try XCTUnwrap(finalSummary)
         XCTAssertEqual(summary.totalCandidatesScanned, 5)
         XCTAssertEqual(summary.cacheMetrics.hits, 5)
         XCTAssertEqual(summary.cacheMetrics.misses, 0)
 
-        // Exact clusters:
-        // 1. [img1, img2]
-        // 2. [img4, img5]
-        //
-        // Near duplicate clusters candidate:
-        // 1. [img1, img2, img3] (kept because img3 is not in exactPaths)
-        // 2. [img4, img5] (dropped because both are in exactPaths)
-        //
-        // Total expected clusters after filter: 3 (2 exact, 1 near)
         XCTAssertEqual(clusters.count, 3)
         XCTAssertEqual(clusters.filter({ $0.kind == .exactDuplicate }).count, 2)
         XCTAssertEqual(clusters.filter({ $0.kind == .nearDuplicate }).count, 1)

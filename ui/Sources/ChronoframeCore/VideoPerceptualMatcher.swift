@@ -7,7 +7,9 @@ import Foundation
 /// change to how frames are sampled or hashed deliberately forces re-analysis.
 public enum VideoPerceptualAnalysis {
     /// Bumped when the frame hashing / decode path changes.
-    public static let analyzerVersion = 1
+    // Version 2 invalidates rows classified before short clips were allowed
+    // to become ready with two usable samples.
+    public static let analyzerVersion = 2
     /// Bumped when the sampled timestamps change.
     public static let sampleStrategyVersion = 1
     /// Interior, transform-corrected sample positions as fractions of duration.

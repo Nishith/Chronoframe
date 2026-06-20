@@ -108,6 +108,22 @@ final class DedupeVideoFeatureCacheTests: XCTestCase {
         XCTAssertFalse(staleStrategy.isValid(size: 1000, modificationTime: 50), "different sample-strategy version invalidates")
     }
 
+    func testShortClipReadinessRuleInvalidatesVersionOneRows() {
+        XCTAssertEqual(VideoPerceptualAnalysis.analyzerVersion, 2)
+        let previouslyInsufficientShortClip = DedupeVideoFeatureRecord(
+            features: feature(
+                "/lib/short.mp4",
+                size: 1000,
+                mtime: 50,
+                frames: [1, 2, nil, nil, nil],
+                status: .insufficientVisualEvidence
+            ),
+            analyzerVersion: 1
+        )
+
+        XCTAssertFalse(previouslyInsufficientShortClip.isValid(size: 1000, modificationTime: 50))
+    }
+
     // MARK: - Prune isolation
 
     func testPruneRemovesOnlyMissingPathsAndLeavesPhotoTableAlone() throws {

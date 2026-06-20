@@ -1,0 +1,2126 @@
+{
+  "sourceLanguage": "en",
+  "version": "1.0",
+  "strings": {
+    "Triage Decision": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Triage Decision"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decisión de triaje"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Décision de tri"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Triage-Entscheidung"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仕分けの決定"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分流决定"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decisione di classificazione"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Decisão de triagem"
+          }
+        }
+      }
+    },
+    "Approve Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve Group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aprobar grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approuver le groupe"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gruppe genehmigen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループを承認"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "批准组"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approva gruppo"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aprovar grupo"
+          }
+        }
+      }
+    },
+    "Accept Suggestion": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept Suggestion"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar sugerencia"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepter la suggestion"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorschlag akzeptieren"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提案を受け入れる"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接受建议"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accetta suggerimento"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceitar sugestão"
+          }
+        }
+      }
+    },
+    "Keep All in Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep All in Group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantener todo en el grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout conserver dans le groupe"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle in der Gruppe behalten"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ内をすべて残す"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保留组内所有"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conserva tutto nel gruppo"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manter tudo no grupo"
+          }
+        }
+      }
+    },
+    "Delete All in Group": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete All in Group"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eliminar todo en el grupo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout supprimer dans le groupe"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle in der Gruppe löschen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グループ内をすべて削除"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除组内所有"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elimina tutto nel gruppo"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Excluir tudo no grupo"
+          }
+        }
+      }
+    },
+    "Accept All Suggestions": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept All Suggestions"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar todas las sugerencias"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepter toutes les suggestions"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Vorschläge akzeptieren"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての提案を受け入れる"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接受所有建议"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accetta tutti i suggerimenti"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceitar todas as sugestões"
+          }
+        }
+      }
+    },
+    "Accept All Safe": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept All Safe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceptar todo lo seguro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accepter tout ce qui est sûr"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle sicheren akzeptieren"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "安全な提案をすべて受け入れる"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接受所有安全建议"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accetta tutti i sicuri"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aceitar todas as seguras"
+          }
+        }
+      }
+    },
+    "Chronoframe ran into a problem. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ran into a problem. Try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe encontró un problema. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe a rencontré un problème. Veuillez réessayer."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat ein Problem festgestellt. Bitte versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeで問題が発生しました。もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 遇到了一个问题。请重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ha riscontrato un problema. Riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe encontrou um problema. Tente novamente."
+          }
+        }
+      }
+    },
+    "Chronoframe could not update Setup. Choose the folder again, or check that the drive is connected.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not update Setup. Choose the folder again, or check that the drive is connected."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo actualizar la configuración. Elige la carpeta de nuevo, o verifica que la unidad esté conectada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu mettre à jour la configuration. Choisissez à nouveau le dossier ou vérifiez que le lecteur est connecté."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte das Setup nicht aktualisieren. Wählen Sie den Ordner erneut aus oder prüfen Sie, ob das Laufwerk angeschlossen ist."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeは設定を更新できませんでした。フォルダーを再選択するか、ドライブが接続されていることを確認してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法更新设置。请重新选择文件夹，或检查驱动器是否已连接。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto aggiornare la configurazione. Scegli nuovamente la cartella o verifica che l'unità sia connessa."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde atualizar a Configuração. Escolha a pasta novamente ou verifique se o disco está conectado."
+          }
+        }
+      }
+    },
+    "Chronoframe could not use the dropped items. Try choosing the source folder with the picker instead.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not use the dropped items. Try choosing the source folder with the picker instead."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo usar los elementos soltados. Intenta elegir la carpeta de origen con el selector en su lugar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu utiliser les éléments déposés. Essayez plutôt de choisir le dossier source avec le sélecteur."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die abgelegten Elemente nicht verwenden. Versuchen Sie stattdessen, den Quellordner über die Auswahl zu wählen."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeはドロップされたアイテムを使用できませんでした。代わりに選択ツールのダイアログでソースフォルダーを選択してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法使用拖入的项目。请尝试使用选择器选择源文件夹。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto utilizzare gli elementi rilasciati. Prova a scegliere la cartella sorgente con il selettore."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde usar os itens soltos. Tente escolher a pasta de origem com o seletor."
+          }
+        }
+      }
+    },
+    "Chronoframe could not update saved profiles. Check that Chronoframe can write to its settings, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not update saved profiles. Check that Chronoframe can write to its settings, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo actualizar los perfiles guardados. Verifica que Chronoframe pueda escribir en su configuración, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu mettre à jour les profils enregistrés. Vérifiez que Chronoframe peut écrire dans ses paramètres, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die gespeicherten Profile nicht aktualisieren. Prüfen Sie, ob Chronoframe in die Einstellungen schreiben kann, und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeは保存されたプロファイルを更新できませんでした。Chronoframeが設定を書き込める状態か確認してから、やり直してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法更新保存的配置文件。请检查 Chronoframe 是否能够写入其设置，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto aggiornare i profili salvati. Verifica que Chronoframe possa scrivere nelle sue impostazioni, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde atualizar os perfis salvos. Verifique se o Chronoframe tem permissão para gravar nas suas configurações e tente novamente."
+          }
+        }
+      }
+    },
+    "Chronoframe could not finish this run. Your source files were left untouched. Check that both folders are available, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not finish this run. Your source files were left untouched. Check that both folders are available, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo finalizar esta ejecución. Tus archivos de origen no fueron modificados. Verifica que ambas carpetas estén disponibles, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu terminer cette exécution. Vos fichiers sources n'ont pas été touchés. Vérifiez que les deux dossiers sont disponibles, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diesen Durchlauf nicht beenden. Ihre Quelldateien wurden nicht verändert. Prüfen Sie, ob beide Ordner verfügbar sind, und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeはこの処理を完了できませんでした。元のソースファイルは変更されていません。両方のフォルダーが利用可能であることを確認し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法完成此次运行。您的源文件未被修改。请检查这两个文件夹是否可用，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto completare questa esecuzione. I file sorgente non sono stati modificati. Verifica che entrambe le cartelle siano disponibili, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde concluir esta execução. Seus arquivos de origem não foram modificados. Verifique se ambas as pastas estão disponíveis e tente novamente."
+          }
+        }
+      }
+    },
+    "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo actualizar el Historial de ejecuciones. Verifica que la unidad de destino esté conectada, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu actualiser l'historique des exécutions. Vérifiez que le lecteur de destination est connecté, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den Verlauf nicht aktualisieren. Prüfen Sie, ob das Ziellaufwerk angeschlossen ist, und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeは実行履歴を更新できませんでした。同期先のドライブが接続されていることを確認し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法刷新运行历史记录。请检查目标驱动器是否已连接，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto aggiornare la cronologia delle esecuzioni. Verifica che l'unità di destinazione sia connessa, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde atualizar o Histórico de Execuções. Verifique se o disco de destino está conectado e tente novamente."
+          }
+        }
+      }
+    },
+    "Chronoframe could not read one of its saved files because the file format looked different than expected. Run a new preview or transfer to create a fresh file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read one of its saved files because the file format looked different than expected. Run a new preview or transfer to create a fresh file."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo leer uno de sus archivos guardados porque el formato del archivo parecía diferente de lo esperado. Ejecuta una nueva vista previa o transferencia para crear un archivo nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu lire l'un de ses fichiers enregistrés car le format du fichier semblait différent de celui attendu. Lancez un nouvel aperçu ou un transfert pour créer un fichier propre."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte eine seiner gespeicherten Dateien nicht lesen, da das Dateiformat nicht den Erwartungen entsprach. Starten Sie eine neue Vorschau oder einen Transfer, um eine neue Datei zu erstellen."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存されたファイルの一つが予想と異なるフォーマットであるため、Chronoframeは読み込めませんでした。新規にプレビューまたは転送を行って新しいファイルを作成してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法读取其保存的文件，因为文件格式与预期不同。请运行新的预览或传输以创建新文件。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto leggere uno dei suoi file salvati perché il formato del file sembrava diverso da quello previsto. Esegui una nuova anteprima o trasferimento per creare un file pulito."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde ler um dos seus arquivos salvos porque o formato do arquivo parecia diferente do esperado. Execute uma nova pré-visualização ou transferência para criar um arquivo limpo."
+          }
+        }
+      }
+    },
+    "Chronoframe needs one more choice before it can continue. Review Setup, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe needs one more choice before it can continue. Review Setup, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe necesita una decisión más antes de poder continuar. Revisa la configuración, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe a besoin d'un choix supplémentaire avant de pouvoir continuer. Vérifiez la configuration, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe benötigt eine weitere Entscheidung, bevor fortgefahren werden kann. Überprüfen Sie das Setup und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "処理を継続するためには、もう一つの選択肢を決定する必要があります。設定を確認し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 需要您再做一个选择才能继续。请检查设置，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ha bisogno di un'altra scelta prima di poter continuare. Verifica la configurazione, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe precisa de mais uma escolha antes de poder continuar. Revise a Configuração e tente novamente."
+          }
+        }
+      }
+    },
+    "Choose both a source folder and a destination folder before starting.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose both a source folder and a destination folder before starting."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elige tanto una carpeta de origen como una de destino antes de comenzar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choisissez à la fois un dossier source et un dossier de destination avant de démarrer."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie vor dem Start sowohl einen Quellordner als auch einen Zielordner aus."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開始する前に、ソースフォルダーとデスティネーションフォルダーの両方を選択してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在开始之前，请同时选择源文件夹和目标文件夹。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scegli sia una cartella sorgente sia una cartella di destinazione prima di iniziare."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Escolha tanto uma pasta de origem quanto uma de destino antes de iniciar."
+          }
+        }
+      }
+    },
+    "Chronoframe did not find supported photo or video files in the source. Choose a different source folder, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe did not find supported photo or video files in the source. Choose a different source folder, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no encontró archivos de foto o video compatibles en el origen. Elige una carpeta de origen diferente, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a trouvé aucun fichier photo ou vidéo pris en charge dans la source. Choisissez un autre dossier source, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat keine unterstützten Foto- oder Videodateien in der Quelle gefunden. Wählen Sie einen anderen Quellordner und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ソース内にサポートされている写真や動画ファイルが見つかりませんでした。別のソースフォルダーを選択し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 在源中未找到支持的的照片或视频文件。请选择不同的源文件夹，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha trovato file foto o video supportati nella sorgente. Scegli una cartella sorgente diversa, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não encontrou arquivos de foto ou vídeo compatíveis na origem. Escolha uma pasta de origem diferente e tente novamente."
+          }
+        }
+      }
+    },
+    "Chronoframe needs attention before it can continue. Review the message below, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe needs attention before it can continue. Review the message below, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe necesita atención antes de poder continuar. Revisa el mensaje a continuación, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe nécessite votre attention avant de pouvoir continuer. Vérifiez le message ci-dessous, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe erfordert Aufmerksamkeit, bevor fortgefahren werden kann. Lesen Sie die folgende Meldung und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "処理を継続する前に注意が必要です。以下のメッセージを確認し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 需要您的处理才能继续。请查看下方的消息，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe richiede attenzione prima di poter continuare. Verifica il messaggio qui sotto, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe precisa de atenção antes de poder continuar. Revise a mensagem abaixo e tente novamente."
+          }
+        }
+      }
+    },
+    "Chronoframe reported an update.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe reported an update."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe reportó una actualización."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe a signalé une mise à jour."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat eine Aktualisierung gemeldet."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeが更新を報告しました。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 报告了一个更新。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ha segnalato un aggiornamento."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe relatou uma atualização."
+          }
+        }
+      }
+    },
+    "Chronoframe reported a warning, but did not include details.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe reported a warning, but did not include details."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe reportó una advertencia, pero no incluyó detalles."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe a signalé un avertissement, mais n'a pas inclus de détails."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat eine Warnung gemeldet, aber keine Details angegeben."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeが警告を報告しましたが、詳細はありませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 报告了一个警告，但没有包含详细信息。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ha segnalato un avvertimento, ma non ha incluso dettagli."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe relatou um aviso, mas não incluiu detalhes."
+          }
+        }
+      }
+    },
+    "Chronoframe reported a problem, but did not include details.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe reported a problem, but did not include details."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe reportó un problema, pero no incluyó detalles."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe a signalé un problème, mais n'a pas inclus de détails."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat ein Problem gemeldet, aber keine Details angegeben."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeが問題を報告しましたが、詳細はありませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 报告了一个问题，但没有包含详细信息。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ha segnalato un problema, ma non ha incluso dettagli."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe relatou um problema, mas não incluiu detalhes."
+          }
+        }
+      }
+    },
+    "Chronoframe copied this file but could not verify the copy, so the destination copy was removed and the source was left untouched. Source: %@. Destination: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe copied this file but could not verify the copy, so the destination copy was removed and the source was left untouched. Source: %@. Destination: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe copió este archivo pero no pudo verificar la copia, por lo que la copia de destino fue eliminada y el origen no fue modificado. Origen: %@. Destino: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe a copié ce fichier mais n'a pas pu vérifier la copie. La copie de destination a donc été supprimée et la source n'a pas été modifiée. Source : %@. Destination : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat diese Datei kopiert, konnte die Kopie jedoch nicht verifizieren, sodass die Zielkopie entfernt und die Quelle unverändert gelassen wurde. Quelle: %@. Ziel: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeはこのファイルをコピーしましたが、コピーを検証できなかったため、コピー先が削除され、元ファイルは変更されませんでした。コピー元: %@。コピー先: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 复制了此文件但无法验证副本，因此目标副本已删除，源文件保持不变。源：%@。目标：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ha copiato questo file ma non ha potuto verificare la copia, quindi la copia di destinazione è stata rimossa e la sorgente è stata lasciata intatta. Sorgente: %@. Destinazione: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe copiou este arquivo, mas não pôde verificar a cópia, portanto, a cópia de destino foi removida e a origem não foi modificada. Origem: %@. Destino: %@."
+          }
+        }
+      }
+    },
+    "Chronoframe could not copy this file, so the source was left untouched. Source: %@. Destination: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not copy this file, so the source was left untouched. Source: %@. Destination: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo copiar este archivo, por lo que el origen no fue modificado. Origen: %@. Destino: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu copier ce fichier. La source n'a donc pas été modifiée. Source : %@. Destination : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Datei nicht kopieren, sodass die Quelle unverändert gelassen wurde. Quelle: %@. Ziel: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeはこのファイルをコピーできませんでした。元ファイルは変更されていません。コピー元: %@。コピー先: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法复制此文件，源文件保持不变。源：%@。目标：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto copiare questo file, quindi la sorgente è stata lasciata intatta. Sorgente: %@. Destinazione: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde copiar este arquivo, portanto, a origem não foi modificada. Origem: %@. Destino: %@."
+          }
+        }
+      }
+    },
+    "Chronoframe could not check this file, so it skipped it. File: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not check this file, so it skipped it. File: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo verificar este archivo, por lo que lo omitió. Archivo: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu vérifier ce fichier. Il a donc été ignoré. Fichier : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Datei nicht überprüfen und hat sie daher übersprungen. Datei: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeはこのファイルを確認できなかったため、スキップしました。ファイル: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法检查此文件，因此已跳过它。文件：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto verificare questo file, quindi lo ha ignorato. File: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde verificar este arquivo e o ignorou. Arquivo: %@."
+          }
+        }
+      }
+    },
+    "The selected revert receipt could not be found. It may have been moved or deleted. Receipt: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected revert receipt could not be found. It may have been moved or deleted. Receipt: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo encontrar el recibo de reversión seleccionado. Puede haber sido movido o eliminado. Recibo: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le reçu de restauration sélectionné n'a pas pu être trouvé. Il a peut-être été déplacé ou supprimé. Reçu : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der ausgewählte Revert-Beleg konnte nicht gefunden werden. Er wurde möglicherweise verschoben oder gelöscht. Beleg: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択された差し戻し用のレシートが見つかりませんでした。移動または削除された可能性があります。レシート: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到选定的恢复收据。它可能已被移动或删除。收据：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La ricevuta di ripristino selezionata non è stata trovata. Potrebbe essere stata spostata o eliminata. Ricevuta: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O recibo de reversão selecionado não pôde ser encontrado. Pode ter sido movido ou excluído. Recibo: %@."
+          }
+        }
+      }
+    },
+    "Chronoframe could not read this revert receipt. Choose a different receipt or run a new transfer.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read this revert receipt. Choose a different receipt or run a new transfer."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo leer este recibo de reversión. Elige un recibo diferente o ejecuta una nueva transferencia."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu lire ce reçu de restauration. Choisissez un autre reçu ou effectuez un nouveau transfert."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diesen Revert-Beleg nicht lesen. Wählen Sie einen anderen Beleg oder führen Sie einen neuen Transfer durch."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeはこの差し戻し用レシートを読み込めませんでした。別のレシートを選択するか、新規に転送を行ってください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法读取此恢复收据。请选择其他收据或运行新的传输。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto leggere questa ricevuta di ripristino. Scegli una ricevuta diversa o esegui un nuovo trasferimento."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde ler este recibo de reversão. Escolha um recibo diferente ou execute uma nova transferência."
+          }
+        }
+      }
+    },
+    "Chronoframe could not remove this copied file during revert, so it was left in place. File: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not remove this copied file during revert, so it was left in place. File: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo eliminar este archivo copiado durante la reversión, por lo que fue dejado en su lugar. Archivo: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu supprimer ce fichier copié pendant la restauration. Il a donc été laissé sur place. Fichier : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese kopierte Datei während des Reverts nicht entfernen, sodass sie unverändert gelassen wurde. Datei: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "差し戻し中にChronoframeはこのコピーされたファイルを削除できなかったため、そのまま残されました。ファイル: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 在恢复期间无法删除此复制的文件，因此已将其保留在原处。文件：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto rimuovere questo file copiato durante il ripristino, quindi lo ha lasciato intatto. File: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde remover este arquivo copiado durante a reversão, portanto, ele foi deixado no lugar. Arquivo: %@."
+          }
+        }
+      }
+    },
+    "Chronoframe could not check whether this file changed, so it was left in place. File: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not check whether this file changed, so it was left in place. File: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo verificar si este archivo cambió, por lo que fue dejado en su lugar. Archivo: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu vérifier si ce fichier a été modifié. Il a donc été laissé sur place. Fichier : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte nicht überprüfen, ob sich diese Datei geändert hat, sodass sie unverändert gelassen wurde. Datei: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeはこのファイルが変更されたかどうか確認できなかったため、そのまま残されました。ファイル: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法检查此文件是否已更改，因此已将其保留在原处。文件：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto verificare se questo file sia cambiato, quindi lo ha lasciato intatto. File: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde verificar se este arquivo foi alterado, portanto, ele foi deixado no lugar. Arquivo: %@."
+          }
+        }
+      }
+    },
+    "Chronoframe kept this file because it has changed since the original transfer. File: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe kept this file because it has changed since the original transfer. File: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe conservó este archivo porque cambió desde la transferencia original. Archivo: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe a conservé ce fichier car il a été modifié depuis le transfert d'origine. Fichier : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat diese Datei behalten, da sie sich seit dem ursprünglichen Transfer geändert hat. Datei: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オリジナルの転送後に変更されているため、Chronoframeはこのファイルを保持しました。ファイル: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 保留了此文件，因为它自原始传输以来已更改。文件：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe ha conservato questo file perché è cambiato dal trasferimento originale. File: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe manteve este arquivo porque ele foi alterado desde a transferência original. Arquivo: %@."
+          }
+        }
+      }
+    },
+    "A file disappeared before Chronoframe could move it. File: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A file disappeared before Chronoframe could move it. File: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un archivo desapareció antes de que Chronoframe pudiera moverlo. Archivo: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un fichier a disparu avant que Chronoframe ne puisse le déplacer. Fichier : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Datei ist verschwunden, bevor Chronoframe sie verschieben konnte. Datei: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeが移動する前にファイルが消失しました。ファイル: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 Chronoframe 移动文件之前，该文件已消失。文件：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un file è scomparso prima che Chronoframe potesse spostarlo. File: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um arquivo desapareceu antes que o Chronoframe pudesse movê-lo. Arquivo: %@."
+          }
+        }
+      }
+    },
+    "A file already exists at the new location, so Chronoframe left the original in place. Destination: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A file already exists at the new location, so Chronoframe left the original in place. Destination: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ya existe un archivo en la nueva ubicación, por lo que Chronoframe dejó el original en su lugar. Destino: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un fichier existe déjà à l'emplacement indiqué. Chronoframe a donc laissé l'original sur place. Destination : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Am neuen Ort existiert bereits eine Datei, daher hat Chronoframe das Original unverändert gelassen. Ziel: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しい場所にファイルが既に存在するため、Chronoframeはオリジナルをそのままにしました。コピー先: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新位置已存在同名文件，因此 Chronoframe 将原文件保留在原处。目标：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un file esiste già nella nuova posizione, quindi Chronoframe ha lasciato l'originale intatto. Destinazione: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um arquivo já existe no novo local, portanto, o Chronoframe deixou o original no lugar. Destino: %@."
+          }
+        }
+      }
+    },
+    "Chronoframe could not move this file inside the destination. It was left where it is. File: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not move this file inside the destination. It was left where it is. File: %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo mover este archivo dentro del destino. Fue dejado donde está. Archivo: %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu déplacer ce fichier à l'emplacement de destination. Il a été laissé sur place. Fichier : %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Datei nicht innerhalb des Ziels verschieben. Sie wurde unverändert gelassen. Datei: %@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeは宛先内部でこのファイルを移動できませんでした。そのまま残されました。ファイル: %@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法在目标位置内移动此文件。它已被保留在原处。文件：%@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto spostare questo file all'interno della destinazione. È stato lasciato dove si trova. File: %@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde mover este arquivo dentro do destino. Ele foi deixado onde está. Arquivo: %@."
+          }
+        }
+      }
+    },
+    "temporary files left by an interrupted run": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "temporary files left by an interrupted run"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "archivos temporales dejados por una ejecución interrumpida"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "fichiers temporaires laissés par une exécution interrompue"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "temporäre Dateien, die von einem unterbrochenen Durchlauf übrig geblieben sind"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中断された処理によって残された一時ファイル"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "由于运行中断遗留的临时文件"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "file temporanei lasciati da un'esecuzione interrotta"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "arquivos temporários deixados por uma execução interrompida"
+          }
+        }
+      }
+    },
+    "%@ Details: %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Details: %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Detalles: %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Détails : %2$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Details: %2$@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 詳細: %2$@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 详细信息：%2$@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Dettagli: %2$@"
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Detalhes: %2$@"
+          }
+        }
+      }
+    },
+    "A file or folder Chronoframe needs is no longer available. Reconnect the drive or choose the folder again, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A file or folder Chronoframe needs is no longer available. Reconnect the drive or choose the folder again, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un archivo o carpeta que Chronoframe necesita ya no está disponible. Reconecta la unidad o elige la carpeta de nuevo, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un fichier ou dossier nécessaire à Chronoframe n'est plus disponible. Rebranchez le lecteur ou choisissez à nouveau le dossier, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine Datei oder ein Ordner, den Chronoframe benötigt, ist nicht mehr verfügbar. Verbinden Sie das Laufwerk erneut oder wählen Sie den Ordner erneut aus, und versuchen Sie es dann noch einmal."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeが必要とするファイルまたはフォルダーが利用できなくなりました。ドライブを再接続するかフォルダーを再選択し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 所需的文件或文件夹已不可用。请重新连接驱动器或重新选择文件夹，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un file o una cartella di cui Chronoframe ha bisogno non è più disponibile. Riconnetti l'unità o scegli nuovamente la cartella, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um arquivo ou pasta de que o Chronoframe precisa não está mais disponível. Reconecte o disco ou escolha a pasta novamente e tente novamente."
+          }
+        }
+      }
+    },
+    "macOS is blocking access to a file or folder. Choose the folder again to grant access, or check Privacy & Security settings.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS is blocking access to a file or folder. Choose the folder again to grant access, or check Privacy & Security settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS está bloqueando el acceso a un archivo o carpeta. Elige la carpeta de nuevo para otorgar acceso, o verifica la configuración de Privacidad y seguridad."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS bloque l'accès à un fichier ou un dossier. Choisissez à nouveau le dossier pour accorder l'accès ou vérifiez les paramètres de confidentialité et de sécurité."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS blockiert den Zugriff auf eine Datei oder einen Ordner. Wählen Sie den Ordner erneut aus, um den Zugriff zu gestatten, oder überprüfen Sie die Datenschutz- und Sicherheitseinstellungen."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOSによってファイルまたはフォルダーへのアクセスがブロックされています。アクセスを許可するためにフォルダーを再選択するか、「プライバシーとセキュリティ」設定を確認してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 正在阻止对文件或文件夹的访问。请重新选择文件夹以授予访问权限，或检查“隐私与安全”设置。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS sta bloccando l'accesso a un file o a una cartella. Scegli nuovamente la cartella per concedere l'accesso o verifica le impostazioni di Privacy e Sicurezza."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O macOS está bloqueando o acesso a um arquivo ou pasta. Escolha a pasta novamente para conceder acesso ou verifique as configurações de Privacidade e Segurança."
+          }
+        }
+      }
+    },
+    "The destination drive is out of space. Free up space or choose a different destination, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The destination drive is out of space. Free up space or choose a different destination, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La unidad de destino no tiene espacio. Libera espacio o elige un destino diferente, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le lecteur de destination est saturé. Libérez de l'espace ou choisissez une autre destination, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Ziellaufwerk ist voll. Geben Sie Speicherplatz frei oder wählen Sie ein anderes Ziel und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同期先のドライブの空き容量が不足しています。空き容量を増やすか別の同期先を選択し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标驱动器空间不足。请释放空间或选择其他目标，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'unità di destinazione ha esaurito lo spazio. Libera spazio o scegli una destinazione diversa, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O disco de destino está sem espaço. Libere espaço ou escolha um destino diferente e tente novamente."
+          }
+        }
+      }
+    },
+    "The destination is read-only. Choose a writable folder or change the drive permissions, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The destination is read-only. Choose a writable folder or change the drive permissions, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El destino es de solo lectura. Elige una carpeta con permisos de escritura o cambia los permisos de la unidad, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le dossier de destination est en lecture seule. Choisissez un dossier accessible en écriture ou modifiez les autorisations du lecteur, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Ziel ist schreibgeschützt. Wählen Sie einen beschreibbaren Ordner oder ändern Sie die Laufwerksberechtigungen und versuchen Sie es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同期先は読み取り専用です。書き込み可能なフォルダーを選択するかドライブのアクセス権を変更し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标是只读的。请选择可写文件夹或更改驱动器权限，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La destinazione è di sola lettura. Scegli una cartella scrivibile o modifica i permessi dell'unità, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O destino é somente leitura. Escolha uma pasta gravável ou altere as permissões do disco e tente novamente."
+          }
+        }
+      }
+    },
+    "Chronoframe could not read a saved file because it appears to be damaged. Run a new preview or transfer to create a fresh file.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read a saved file because it appears to be damaged. Run a new preview or transfer to create a fresh file."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo leer un archivo guardado porque parece estar dañado. Ejecuta una nueva vista previa o transferencia para crear un archivo nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu lire un fichier enregistré car il semble endommagé. Lancez un nouvel aperçu ou un transfert pour créer un fichier propre."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte eine gespeicherte Datei nicht lesen, da sie beschädigt zu sein scheint. Starten Sie eine neue Vorschau oder einen Transfer, um eine neue Datei zu erstellen."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファイルが破損している可能性があるため、Chronoframeは保存されたファイルを読み込めませんでした。新規にプレビューまたは転送を行って新しいファイルを作成してください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法读取已保存的文件，因为它似乎已损坏。请运行新的预览或传输以创建新文件。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto leggere un file salvato perché sembra essere danneggiato. Esegui una nuova anteprima o trasferimento per creare un file pulito."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde ler um arquivo salvo porque ele parece estar corrompido. Execute uma nova pré-visualização ou transferência para criar um arquivo limpo."
+          }
+        }
+      }
+    },
+    "%@ Path: %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Path: %2$@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Ruta: %2$@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Chemin : %2$@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Pfad: %2$@."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ パス: %2$@。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ 路径：%2$@。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Percorso: %2$@."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Caminho: %2$@."
+          }
+        }
+      }
+    }
+  }
+}

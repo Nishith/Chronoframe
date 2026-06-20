@@ -35,6 +35,27 @@ public final class DeduplicateSessionStore: ObservableObject {
     @Published public private(set) var runHistory: [DeduplicateFolderHistoryRecord]
     @Published public var decisions: DedupeDecisions = DedupeDecisions()
     @Published public var approvedClusterIDs: Set<DuplicateCluster.ID> = []
+    public weak var undoManager: UndoManager?
+
+    private func registerUndo(oldDecisions: DedupeDecisions, oldApproved: Set<DuplicateCluster.ID>, actionName: String) {
+        guard let undoManager = undoManager else { return }
+        let currentDecisions = decisions
+        let currentApproved = approvedClusterIDs
+        undoManager.registerUndo(withTarget: self) { target in
+            // UndoManager invokes handlers synchronously on the thread where
+            // undo/redo was requested. This store and its manager are owned by
+            // the main actor, so preserve synchronous undo semantics while
+            // making that isolation guarantee explicit to Swift 6.
+            MainActor.assumeIsolated {
+                target.decisions = oldDecisions
+                target.approvedClusterIDs = oldApproved
+                target.registerUndo(oldDecisions: currentDecisions, oldApproved: currentApproved, actionName: actionName)
+            }
+        }
+        if !undoManager.isUndoing {
+            undoManager.setActionName(actionName)
+        }
+    }
 
     private let engine: any DeduplicateEngine
     private let runHistoryStore: any DeduplicateRunHistoryStoring
@@ -288,6 +309,8 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func setDecision(_ decision: DedupeDecision, forPath path: String) {
+        let oldDecisions = decisions
+        let oldApproved = approvedClusterIDs
         var byPath = decisions.byPath
         byPath[path] = decision
         decisions = DedupeDecisions(byPath: byPath)
@@ -296,37 +319,70 @@ public final class DeduplicateSessionStore: ObservableObject {
         }) {
             approvedClusterIDs.insert(cluster.id)
         }
+        registerUndo(
+            oldDecisions: oldDecisions,
+            oldApproved: oldApproved,
+            actionName: String(localized: "Triage Decision", bundle: Bundle.module)
+        )
     }
 
     public func approveCluster(_ clusterID: DuplicateCluster.ID) {
+        let oldDecisions = decisions
+        let oldApproved = approvedClusterIDs
         approvedClusterIDs.insert(clusterID)
+        registerUndo(
+            oldDecisions: oldDecisions,
+            oldApproved: oldApproved,
+            actionName: String(localized: "Approve Group", bundle: Bundle.module)
+        )
     }
 
     public func acceptSuggestionsForCluster(_ cluster: DuplicateCluster) {
+        let oldDecisions = decisions
+        let oldApproved = approvedClusterIDs
         var byPath = decisions.byPath
         for (path, decision) in suggestedDecisions(for: [cluster]).byPath {
             byPath[path] = decision
         }
         decisions = DedupeDecisions(byPath: byPath)
         approvedClusterIDs.insert(cluster.id)
+        registerUndo(
+            oldDecisions: oldDecisions,
+            oldApproved: oldApproved,
+            actionName: String(localized: "Accept Suggestion", bundle: Bundle.module)
+        )
     }
 
     public func keepAllInCluster(_ cluster: DuplicateCluster) {
+        let oldDecisions = decisions
+        let oldApproved = approvedClusterIDs
         var byPath = decisions.byPath
         for member in cluster.members {
             byPath[member.path] = .keep
         }
         decisions = DedupeDecisions(byPath: byPath)
         approvedClusterIDs.insert(cluster.id)
+        registerUndo(
+            oldDecisions: oldDecisions,
+            oldApproved: oldApproved,
+            actionName: String(localized: "Keep All in Group", bundle: Bundle.module)
+        )
     }
 
     public func deleteAllInCluster(_ cluster: DuplicateCluster) {
+        let oldDecisions = decisions
+        let oldApproved = approvedClusterIDs
         var byPath = decisions.byPath
         for member in cluster.members {
             byPath[member.path] = .delete
         }
         decisions = DedupeDecisions(byPath: byPath)
         approvedClusterIDs.insert(cluster.id)
+        registerUndo(
+            oldDecisions: oldDecisions,
+            oldApproved: oldApproved,
+            actionName: String(localized: "Delete All in Group", bundle: Bundle.module)
+        )
     }
 
     public func acceptAllSuggestions() {
@@ -340,12 +396,19 @@ public final class DeduplicateSessionStore: ObservableObject {
         // commit.
         let eligibleClusters = clusters.filter(DeduplicationPlanner.isAutomaticCommitEligible)
         guard !eligibleClusters.isEmpty else { return }
+        let oldDecisions = decisions
+        let oldApproved = approvedClusterIDs
         var byPath = decisions.byPath
         for (path, decision) in suggestedDecisions(for: eligibleClusters).byPath {
             byPath[path] = decision
         }
         decisions = DedupeDecisions(byPath: byPath)
         approvedClusterIDs.formUnion(eligibleClusters.map(\.id))
+        registerUndo(
+            oldDecisions: oldDecisions,
+            oldApproved: oldApproved,
+            actionName: String(localized: "Accept All Suggestions", bundle: Bundle.module)
+        )
     }
 
     // MARK: - Confidence Triage
@@ -367,12 +430,19 @@ public final class DeduplicateSessionStore: ObservableObject {
         // bulk-accepted into explicit delete decisions the planner can't undo.
         let highClusters = (triageBuckets[.high] ?? []).filter(DeduplicationPlanner.isAutomaticCommitEligible)
         guard !highClusters.isEmpty else { return }
+        let oldDecisions = decisions
+        let oldApproved = approvedClusterIDs
         var byPath = decisions.byPath
         for (path, decision) in suggestedDecisions(for: highClusters).byPath {
             byPath[path] = decision
         }
         decisions = DedupeDecisions(byPath: byPath)
         approvedClusterIDs.formUnion(highClusters.map(\.id))
+        registerUndo(
+            oldDecisions: oldDecisions,
+            oldApproved: oldApproved,
+            actionName: String(localized: "Accept All Safe", bundle: Bundle.module)
+        )
     }
 
     public func pauseReview() {
@@ -659,5 +729,11 @@ public final class UserDefaultsDeduplicateRunHistoryStore: DeduplicateRunHistory
     private func persist(_ records: [DeduplicateFolderHistoryRecord]) {
         guard let data = try? JSONEncoder().encode(records) else { return }
         defaults.set(data, forKey: Self.key)
+    }
+}
+
+extension String {
+    fileprivate init(localized key: String.LocalizationValue, bundle: Bundle) {
+        self = String(localized: key, table: "LocalizableCore", bundle: bundle)
     }
 }

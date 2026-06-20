@@ -57,6 +57,15 @@ enum DedupeReviewOrder {
     }
 }
 
+enum DedupeAccessibilityFocusSelection {
+    static func selectedClusterID(
+        accessibilityFocusedClusterID: UUID?,
+        currentSelection: UUID?
+    ) -> UUID? {
+        accessibilityFocusedClusterID ?? currentSelection
+    }
+}
+
 /// Left pane: scrollable list of all clusters grouped by kind. Each row
 /// shows a thumbnail strip of the cluster's members, member count, and
 /// recoverable bytes. Selecting a row sets the focused cluster in the
@@ -74,6 +83,7 @@ struct ClusterListPane: View {
     var onKeepAll: (DuplicateCluster) -> Void = { _ in }
     var onAcceptSuggestion: (DuplicateCluster) -> Void = { _ in }
     var onDeleteAll: (DuplicateCluster) -> Void = { _ in }
+    var accessibilityFocusedClusterID: AccessibilityFocusState<UUID?>.Binding
 
     private var filteredClusters: [DuplicateCluster] {
         DedupeClusterConfidenceFilter.filtered(clusters, by: confidenceFilter)
@@ -151,11 +161,37 @@ struct ClusterListPane: View {
                             )
                             .tag(cluster.id)
                             .contentShape(Rectangle())
+                            .accessibilityFocused(accessibilityFocusedClusterID, equals: cluster.id)
                         }
                     }
                 }
             }
             .listStyle(.sidebar)
+            .accessibilityRotor(LocalizedStringKey("Safe Matches")) {
+                ForEach(filteredClusters.filter { ($0.annotation?.confidence ?? .medium) == .high }) { cluster in
+                    AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
+                }
+            }
+            .accessibilityRotor(LocalizedStringKey("Check Matches")) {
+                ForEach(filteredClusters.filter { ($0.annotation?.confidence ?? .medium) == .medium }) { cluster in
+                    AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
+                }
+            }
+            .accessibilityRotor(LocalizedStringKey("Risky Matches")) {
+                ForEach(filteredClusters.filter { ($0.annotation?.confidence ?? .medium) == .low }) { cluster in
+                    AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
+                }
+            }
+            .accessibilityRotor(LocalizedStringKey("Exact Duplicates")) {
+                ForEach(filteredClusters.filter { $0.kind == .exactDuplicate }) { cluster in
+                    AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
+                }
+            }
+            .accessibilityRotor(LocalizedStringKey("Perceptual Matches")) {
+                ForEach(filteredClusters.filter { $0.kind != .exactDuplicate }) { cluster in
+                    AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
+                }
+            }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewClusterList)
         .onChange(of: focusedClusterID) { newID in

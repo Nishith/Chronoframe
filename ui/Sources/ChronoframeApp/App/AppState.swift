@@ -651,13 +651,16 @@ final class MenuBarStatusManager: NSObject {
             let progressStr = String(format: "%.0f%%", appState.runSessionStore.progress * 100)
             button.title = " ⚬ \(progressStr)"
             button.image = NSImage(systemSymbolName: "circle.dashed", accessibilityDescription: "Chronoframe Running")
+            DockProgressRenderer.update(progress: appState.runSessionStore.progress, isRunning: true)
         } else if deduplicateStatus == .committing {
             button.title = " ⚬ Trashing"
             button.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: "Chronoframe Deduplicating")
+            DockProgressRenderer.update(progress: 0, isRunning: false)
         } else {
             button.title = ""
             button.image = NSImage(systemSymbolName: "circle", accessibilityDescription: "Chronoframe Idle")
             button.image?.isTemplate = true
+            DockProgressRenderer.update(progress: 0, isRunning: false)
         }
 
         let menu = NSMenu()

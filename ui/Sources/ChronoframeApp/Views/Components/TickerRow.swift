@@ -100,7 +100,7 @@ struct TickerRow: View {
             Text(entry.value)
                 .fontWeight(.medium)
                 .foregroundStyle(color(for: entry.tone))
-            Text(entry.label)
+            Text(LocalizedStringKey(entry.label))
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
         .accessibilityElement(children: .combine)
@@ -111,7 +111,8 @@ struct TickerRow: View {
             Text(entry.value)
                 .scaledFont(.metric)
                 .foregroundStyle(color(for: entry.tone))
-            Text(entry.label.uppercased())
+            Text(LocalizedStringKey(entry.label))
+                .textCase(.uppercase)
                 .scaledFont(.label)
                 .tracking(0.8)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
