@@ -76,7 +76,7 @@ struct CurrentRunView: View {
             // Bind the window's undo manager so Preview Triage edits are ⌘Z-able.
             previewReviewStore.undoManager = undoManager
         }
-        .onChange(of: runSessionStore.status) { newValue in
+        .onChange(of: runSessionStore.status) { _, newValue in
             if newValue == .finished {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
             }

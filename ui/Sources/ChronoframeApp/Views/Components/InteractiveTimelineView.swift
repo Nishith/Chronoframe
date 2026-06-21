@@ -103,7 +103,7 @@ struct InteractiveTimelineView: View {
                 break
             }
         }
-        .onChange(of: buckets) { newBuckets in
+        .onChange(of: buckets) { _, newBuckets in
             if let selected = selectedBucketKey, !newBuckets.contains(where: { $0.key == selected }) {
                 selectedBucketKey = nil
             }

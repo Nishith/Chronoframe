@@ -199,9 +199,9 @@ private struct PreviewReviewRow: View {
         // bindings stay attached to the stale values. Mirror the
         // backing values from `item` whenever it changes.
         //
-        // Using the single-arg `onChange(of:perform:)` form because
-        // the package targets macOS 13 and the two-arg form is 14+.
-        .onChange(of: item) { newItem in
+        // Using the two-arg `onChange(of:perform:)` form because
+        // the package targets macOS 14+.
+        .onChange(of: item) { _, newItem in
             selectedDate = newItem.resolvedDate ?? selectedDate
             eventName = newItem.acceptedEventName
                 ?? newItem.eventSuggestion?.suggestedName

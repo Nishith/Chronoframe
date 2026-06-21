@@ -450,7 +450,7 @@ private struct FlickerComparisonView: View {
             rightFinishedLoading = true
         }
         .onAppear { updateFlickerTask() }
-        .onChange(of: reduceMotion) { _ in updateFlickerTask() }
+        .onChange(of: reduceMotion) { updateFlickerTask() }
         .onDisappear { flickerTask?.cancel() }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Flicker comparison")

@@ -82,7 +82,7 @@ final class ChronoframeAppDelegate: NSObject, NSApplicationDelegate, UNUserNotif
         guard !Self.isRunningUITestScenario else { return }
 
         if let existingApplication = Self.alreadyRunningApplication() {
-            existingApplication.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
+            existingApplication.activate(options: [.activateAllWindows])
             NSApp.terminate(nil)
         }
     }
