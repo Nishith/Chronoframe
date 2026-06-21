@@ -51,7 +51,7 @@ struct ContactSheetView: View {
             GeometryReader { geometry in
                 Color.clear
                     .onAppear { columnWidth = geometry.size.width }
-                    .onChange(of: geometry.size.width) { columnWidth = $0 }
+                    .onChange(of: geometry.size.width) { _, newValue in columnWidth = newValue }
             }
         }
         .padding(10)

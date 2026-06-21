@@ -43,7 +43,7 @@ struct NowCopyingCard: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Now: \(model.context.currentTaskTitle). Progress: \(model.progressAccessibilityValue)")
-        .onChange(of: model.context.progress) { newProgress in
+        .onChange(of: model.context.progress) { _, newProgress in
             announceProgressThrottled(progress: newProgress)
         }
     }
@@ -139,9 +139,7 @@ private struct NowCopyingThumbnail: View {
                 .strokeBorder(DesignTokens.ColorSystem.photoEdgeHighlight, lineWidth: 0.5)
         }
         .motion(Motion.instant, value: renderedPath)
-        .onChange(of: fileURL?.path) { _ in
-            loadThumbnail()
-        }
+        .onChange(of: fileURL?.path) { loadThumbnail() }
         .onAppear { loadThumbnail() }
     }
 
@@ -214,7 +212,7 @@ struct WaypointRunway: View {
             RoundedRectangle(cornerRadius: DesignTokens.Corner.innerCard, style: .continuous)
                 .strokeBorder(DesignTokens.ColorSystem.hairline, lineWidth: 0.5)
         )
-        .onChange(of: currentFileURL) { newURL in
+        .onChange(of: currentFileURL) { _, newURL in
             if let newURL {
                 Motion.withMotion(.spring(response: 0.38, dampingFraction: 0.72), reduceMotion: reduceMotion) {
                     if !history.contains(newURL) {

@@ -405,7 +405,7 @@ private struct DiagnosticsSettingsTab: View {
             }
         }
         .formStyle(.grouped)
-        .onChange(of: preferencesStore.logBufferCapacity) { newValue in
+        .onChange(of: preferencesStore.logBufferCapacity) { _, newValue in
             appState.runLogStore.capacity = newValue
         }
     }

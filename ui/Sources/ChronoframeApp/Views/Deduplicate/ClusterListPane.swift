@@ -194,7 +194,7 @@ struct ClusterListPane: View {
             }
         }
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeReviewClusterList)
-        .onChange(of: focusedClusterID) { newID in
+        .onChange(of: focusedClusterID) { _, newID in
             guard let newID, let cluster = clusters.first(where: { $0.id == newID }) else { return }
             focusedMemberPath = cluster.members.first?.path
         }

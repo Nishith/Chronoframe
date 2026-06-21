@@ -59,7 +59,7 @@ struct DeduplicateView: View {
         }
         .modifier(DeduplicateNavigationTitle(title: navigationTitle))
         .onDisappear { thumbnailLoader.purgeCache() }
-        .onChange(of: sessionStore.status) { newValue in
+        .onChange(of: sessionStore.status) { _, newValue in
             if newValue == .completed || newValue == .reverted {
                 #if canImport(AppKit)
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
@@ -69,7 +69,7 @@ struct DeduplicateView: View {
         .onAppear {
             sessionStore.undoManager = undoManager
         }
-        .onChange(of: undoManager) { newUndoManager in
+        .onChange(of: undoManager) { _, newUndoManager in
             sessionStore.undoManager = newUndoManager
         }
     }
@@ -302,14 +302,14 @@ struct DeduplicateView: View {
             }
         }
         .onAppear { alignFocusWithVisibleClusters() }
-        .onChange(of: sessionStore.clusters.map(\.id)) { _ in alignFocusWithVisibleClusters() }
-        .onChange(of: confidenceFilter) { _ in alignFocusWithVisibleClusters() }
-        .onChange(of: focusedClusterID) { newID in
+        .onChange(of: sessionStore.clusters.map(\.id)) { alignFocusWithVisibleClusters() }
+        .onChange(of: confidenceFilter) { alignFocusWithVisibleClusters() }
+        .onChange(of: focusedClusterID) { _, newID in
             if accessibilityFocusedClusterID != newID {
                 accessibilityFocusedClusterID = newID
             }
         }
-        .onChange(of: accessibilityFocusedClusterID) { newID in
+        .onChange(of: accessibilityFocusedClusterID) { _, newID in
             let selection = DedupeAccessibilityFocusSelection.selectedClusterID(
                 accessibilityFocusedClusterID: newID,
                 currentSelection: focusedClusterID
