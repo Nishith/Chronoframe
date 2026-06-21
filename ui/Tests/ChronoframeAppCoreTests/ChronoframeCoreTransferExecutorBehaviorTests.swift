@@ -635,6 +635,45 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         XCTAssertTrue(progress.values.contains(3))
     }
 
+    /// Regression guard for the SQLite read-cursor-during-write interaction:
+    /// `executeQueuedJobs` keeps a SELECT cursor over `status = 'pending'` rows
+    /// open while the per-job body issues UPDATEs that flip those same rows out
+    /// of the result set. SQLite saves/restores same-connection cursors by key,
+    /// but only a run spanning multiple 512-row enumeration batches actually
+    /// exercises the interleave. Prove every job is processed exactly once —
+    /// no skips, no double-copies — across the batch boundaries.
+    func testExecuteQueuedJobsProcessesEveryJobExactlyOnceAcrossBatchBoundaries() throws {
+        let jobCount = 600 // spans two enumeration batches (batchSize 512)
+        let env = try makeEnvironment(jobCount: jobCount)
+        defer {
+            env.database.close()
+            env.logger.close()
+        }
+
+        let result = try TransferExecutor().executeQueuedJobs(
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: false,
+            runLogger: env.logger
+        )
+
+        XCTAssertEqual(result.copiedCount, jobCount)
+        XCTAssertEqual(result.failedCount, 0)
+        XCTAssertEqual(result.skippedCount, 0)
+
+        let rows = try env.database.loadQueuedJobs()
+        XCTAssertEqual(rows.count, jobCount)
+        XCTAssertTrue(
+            rows.allSatisfy { $0.status == .copied },
+            "every job must end copied — none skipped, dropped, or left pending across the cursor boundary"
+        )
+
+        for job in env.jobs {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: job.destinationPath))
+        }
+        XCTAssertEqual(temporaryFilesUnder(env.destinationRoot), [], "no orphaned staging files")
+    }
+
     func testCollisionResolvedPathHandlesExtensionlessAndExtensionNames() throws {
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("collisions", isDirectory: true)
         try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
