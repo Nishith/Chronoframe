@@ -44,7 +44,7 @@ Shared on-disk artifacts include:
 - `.organize_logs/audit_receipt_*.json` (organize transfer audit receipt; versioned, UUID-suffixed, status-aware)
 - `.organize_logs/dedupe_audit_receipt_*.json` (Deduplicate run audit receipt — used by Run History → Revert)
 - `.organize_logs/reorganize_audit_receipt_*.json` (Reorganize move audit receipt — used by Run History → Revert)
-- `.organize_logs/.chronoframe-operation.lock` (cross-process destination mutation lock; diagnostic JSON is advisory only)
+- `.organize_logs/.chronoframe-operation.lock` (cross-process destination mutation lock; diagnostic JSON is advisory only). The lock is `flock`-based and only guarantees mutual exclusion on a single machine — `flock` is unreliable over SMB/AFP, so concurrent multi-host use of a network destination is unsupported. `DestinationOperationLock.isRemoteVolume` detects network destinations and `NetworkDestinationAdvisory` surfaces a one-time per-destination warning (organize and dedupe entry points); it does not change locking behavior.
 - `.organize_log.txt`
 
 The macOS app sidebar consolidates the original Setup / Run / Run History flows under a single **Organize** destination (`ui/Sources/ChronoframeApp/Views/Organize/OrganizeContainerView.swift`) and adds a peer **Deduplicate** destination (`ui/Sources/ChronoframeApp/Views/Deduplicate/`). Both share the active organize destination by default; Deduplicate may also point at a user-picked dedicated folder.

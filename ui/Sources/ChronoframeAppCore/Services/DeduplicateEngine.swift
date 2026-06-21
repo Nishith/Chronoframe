@@ -38,6 +38,9 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     private let recoveryCoordinator: MutationRecoveryCoordinator
     private var activeLease: DestinationOperationLease?
     private var activeLeaseDestination: String?
+    /// Surfaces a one-time warning when the dedupe destination is on a network
+    /// volume. Internal so tests can inject a stub advisory + scratch defaults.
+    var networkAdvisory = NetworkDestinationAdvisory()
 
     public init(
         scanner: DeduplicateScanner = DeduplicateScanner(),
@@ -63,7 +66,11 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
         _ = recoveryCoordinator.recover(destinationRoot: destinationURL)
         activeLease = lease
         activeLeaseDestination = destinationURL.standardizedFileURL.path
-        return scanHoldingStream(scanner.scan(configuration: configuration))
+        let networkWarning = networkAdvisory.warningIfNeeded(for: destinationURL)
+        return scanHoldingStream(
+            scanner.scan(configuration: configuration),
+            leadingWarning: networkWarning
+        )
     }
 
     public func cancelCurrentScan() {
@@ -137,11 +144,15 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     }
 
     private func scanHoldingStream(
-        _ stream: AsyncThrowingStream<DeduplicateEvent, Error>
+        _ stream: AsyncThrowingStream<DeduplicateEvent, Error>,
+        leadingWarning: String? = nil
     ) -> AsyncThrowingStream<DeduplicateEvent, Error> {
         AsyncThrowingStream { continuation in
             Task { @MainActor [weak self] in
                 var reachedReview = false
+                if let leadingWarning {
+                    continuation.yield(.issue(DeduplicateIssue(severity: .warning, message: leadingWarning)))
+                }
                 do {
                     for try await event in stream {
                         if case .complete = event { reachedReview = true }

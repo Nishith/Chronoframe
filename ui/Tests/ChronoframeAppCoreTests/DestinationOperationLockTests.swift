@@ -81,4 +81,22 @@ final class DestinationOperationLockTests: XCTestCase {
         )
         next.release()
     }
+
+    func testIsRemoteVolumeTreatsUnknownVolumeAsLocal() throws {
+        // A path that does not exist has no readable volume attribute; the
+        // helper must fail toward "local" so the app never warns spuriously.
+        let missing = URL(fileURLWithPath: "/nonexistent-\(UUID().uuidString)/folder", isDirectory: true)
+        XCTAssertFalse(DestinationOperationLock.isRemoteVolume(missing))
+
+        // A real local temp directory is local.
+        let local = try makeDestination()
+        XCTAssertFalse(DestinationOperationLock.isRemoteVolume(local))
+    }
+
+    func testIsRemoteVolumeHonorsDebugProviderSeam() throws {
+        let destination = try makeDestination()
+        DestinationOperationLock.isRemoteVolumeProvider = { _ in true }
+        defer { DestinationOperationLock.isRemoteVolumeProvider = nil }
+        XCTAssertTrue(DestinationOperationLock.isRemoteVolume(destination))
+    }
 }
