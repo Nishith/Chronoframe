@@ -788,17 +788,17 @@ public struct TransferExecutor: Sendable {
         job: QueuedCopyJob,
         verifyCopies: Bool,
         runLogger: PersistentRunLogger,
-        precomputedSourceIdentity: FileIdentity? = nil,
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) -> TransferJobOutcome {
         do {
-            // The serial path re-hashes the source in `process()` to decide
-            // whether to skip; reuse that identity instead of reading the
-            // whole file a second time. The parallel path passes nil and
-            // hashes here once.
-            let identity = try precomputedSourceIdentity
-                ?? fileHasher.hashIdentity(at: URL(fileURLWithPath: job.sourcePath))
+            // Hash the source here — immediately before the copy — so a source
+            // edited or replaced after planning is caught and skipped rather
+            // than copied with the stale planned hash recorded. This is the
+            // single source read per job (both serial and parallel paths reach
+            // it); the earlier double-hash in the serial path was the
+            // redundant one and has been removed from `process()`.
+            let identity = try fileHasher.hashIdentity(at: URL(fileURLWithPath: job.sourcePath))
             if isTrustedPlannedIdentity(job.hash), identity.rawValue != job.hash {
                 let message = "Source modified since planning, skipping: \(job.sourcePath)"
                 return .skipped(message: message, logMessage: message)
@@ -1459,11 +1459,13 @@ private final class TransferExecutionContext {
     }
 
     func process(job: QueuedCopyJob, attemptedJobs: Int) throws -> Bool {
-        let preflight = sourceSkipOutcomeIfNeeded(for: job)
-        if let skippedOutcome = preflight.outcome {
-            return try apply(outcome: skippedOutcome, for: job, attemptedJobs: attemptedJobs)
-        }
         let observerRef = self.observer
+        // `prepareCopy` hashes the source right before copying and returns a
+        // `.skipped` outcome for a modified or unreadable source; the brief
+        // `.intended` mutation row written here is reconciled to `.skipped`/
+        // `.failed` by `apply` and is ignored by recovery (it only acts on
+        // jobs still `.pending`). Hashing inside `prepareCopy` keeps it the
+        // single source read and within the pre-copy window.
         try database.updateJobMutation(
             sourcePath: job.sourcePath,
             runID: runID,
@@ -1475,7 +1477,6 @@ private final class TransferExecutionContext {
             job: job,
             verifyCopies: verifyCopies,
             runLogger: runLogger,
-            precomputedSourceIdentity: preflight.identity,
             isCancelled: isCancelled,
             onIssue: { issue in observerRef.onIssue(issue) }
         )
@@ -1652,26 +1653,6 @@ private final class TransferExecutionContext {
         }
 
         return !isCancelled()
-    }
-
-    /// Re-hash the source once to decide whether it changed since planning.
-    /// Returns the skip outcome when it did (or is unreadable), otherwise the
-    /// freshly computed identity so `prepareCopy` can reuse it instead of
-    /// reading the whole file a second time.
-    private func sourceSkipOutcomeIfNeeded(
-        for job: QueuedCopyJob
-    ) -> (outcome: TransferJobOutcome?, identity: FileIdentity?) {
-        do {
-            let identity = try executor.fileHasher.hashIdentity(at: URL(fileURLWithPath: job.sourcePath))
-            if isTrustedPlannedIdentity(job.hash), identity.rawValue != job.hash {
-                let message = "Source modified since planning, skipping: \(job.sourcePath)"
-                return (.skipped(message: message, logMessage: message), nil)
-            }
-            return (nil, identity)
-        } catch {
-            let message = "Source unreadable, skipping: \(job.sourcePath): \(error.localizedDescription)"
-            return (.skipped(message: message, logMessage: message), nil)
-        }
     }
 
     func finish(attemptedJobs: Int) throws -> TransferExecutionResult {
