@@ -26,6 +26,14 @@ final class LivePhotoMetadataLoaderTests: XCTestCase {
         }
     }
 
+    private static func delayIgnoringTaskCancellation(for interval: TimeInterval) async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().asyncAfter(deadline: .now() + interval) {
+                continuation.resume()
+            }
+        }
+    }
+
     func testTimeoutCircuitBreakerKeepsOutstandingWorkBounded() async {
         let probe = BlockingProbe()
         let loader = BoundedLivePhotoMetadataLoader(
@@ -47,13 +55,12 @@ final class LivePhotoMetadataLoaderTests: XCTestCase {
     }
 
     func testCancellationReturnsPromptlyAndCancelsOutstandingLoads() async {
-        let probe = BlockingProbe()
         let loader = BoundedLivePhotoMetadataLoader(
             workerCount: 4,
             timeoutSeconds: 10,
             circuitBreakerTimeoutCount: 4,
             identifierLoader: { _ in
-                probe.block(for: 2)
+                await Self.delayIgnoringTaskCancellation(for: 2)
                 return nil
             }
         )
