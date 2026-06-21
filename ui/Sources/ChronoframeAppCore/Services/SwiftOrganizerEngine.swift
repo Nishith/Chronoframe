@@ -464,6 +464,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             let planner = self.planner
             let transferExecutor = self.transferExecutor
             let runID = UUID()
+            // Finding #3: the transfer's parallel copy/hash work runs on GCD
+            // queues where `Task.isCancelled` is always false (there is no
+            // current Task). Without a shared flag the workers never observe a
+            // cancel and can keep mutating after the UI reported the run
+            // stopped. Use the same `TaskCancellationCheck` the preview, revert,
+            // and reorganize streams already plumb through.
+            let isCancelledRef = TaskCancellationCheck()
             let task = Task.detached(priority: .userInitiated) {
                 defer {
                     Task { @MainActor in
@@ -541,6 +548,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             destinationURL: destinationURL,
                             transferExecutor: transferExecutor,
                             runLogger: runLogger,
+                            isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                             continuation: continuation
                         )
                     } else {
@@ -551,11 +559,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             destinationURL: destinationURL,
                             transferExecutor: transferExecutor,
                             runLogger: runLogger,
+                            isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                             continuation: continuation
                         )
                     }
                 } catch {
-                    if Task.isCancelled {
+                    if isCancelledRef.isCancelled || Task.isCancelled {
                         continuation.finish()
                     } else {
                         continuation.finish(throwing: error)
@@ -563,12 +572,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                 }
             }
 
-            // This transfer/resume stream relies on `Task.isCancelled`
-            // exclusively (no per-run polling flag plumbed through),
-            // so we don't have an `isCancelledRef` to register here.
-            self.setActiveTask(task, id: runID, cancellationRef: nil)
+            // Register the shared flag so `cancelCurrentRun()` flips it (the GCD
+            // workers poll it) in addition to cancelling the Swift Task.
+            self.setActiveTask(task, id: runID, cancellationRef: isCancelledRef)
             continuation.onTermination = { @Sendable _ in
                 task.cancel()
+                isCancelledRef.cancel()
             }
         }
     }
@@ -593,6 +602,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         destinationURL: URL,
         transferExecutor: TransferExecutor,
         runLogger: PersistentRunLogger,
+        isCancelled: @escaping @Sendable () -> Bool,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
     ) async throws {
         let result = try await planner.planAsync(
@@ -601,11 +611,11 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             workerCount: max(1, configuration.workerCount),
             folderStructure: configuration.folderStructure,
             eventSuggestionMode: configuration.eventSuggestionMode,
-            isCancelled: { Task.isCancelled },
+            isCancelled: isCancelled,
             onEvent: { continuation.yield($0) }
         )
 
-        if Task.isCancelled {
+        if isCancelled() {
             continuation.finish()
             return
         }
@@ -623,6 +633,32 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         }
 
         if result.transferCount == 0 {
+            // Finding #4: zero planned copies is only genuinely "up to date"
+            // when every discovered file was accounted for. If some sources
+            // could not be hashed, files are missing from the destination and
+            // reporting success would be a lie.
+            if result.counts.hashErrorCount > 0 {
+                runLogger.warn("Nothing planned to copy, but \(result.counts.hashErrorCount) source file(s) could not be read")
+                continuation.yield(
+                    .complete(
+                        RunSummary(
+                            status: .failed,
+                            title: "Some files couldn't be read",
+                            metrics: RunMetrics(
+                                discoveredCount: result.discoveredSourceCount,
+                                plannedCount: 0,
+                                alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
+                                duplicateCount: result.counts.duplicateCount,
+                                hashErrorCount: result.counts.hashErrorCount,
+                                dateHistogram: result.dateHistogram
+                            ),
+                            artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
+                        )
+                    )
+                )
+                continuation.finish()
+                return
+            }
             runLogger.log("Nothing to copy — all files already in destination")
             continuation.yield(
                 .complete(
@@ -678,10 +714,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     continuation.yield(.issue(issue))
                 }
             ),
-            isCancelled: { Task.isCancelled }
+            isCancelled: isCancelled
         )
 
-        if Task.isCancelled {
+        if isCancelled() {
             continuation.finish()
             return
         }
@@ -696,8 +732,26 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             )
         )
         runLogger.log("Run complete")
-        let completedStatus: RunStatus = executionResult.status == "COMPLETED" ? .finished : .failed
-        let completedTitle = executionResult.status == "COMPLETED" ? "Done" : "Transfer stopped"
+        // Finding #4: a run that finished without hitting the abort threshold is
+        // not necessarily a success. If any planned file failed to copy, was
+        // skipped (source changed or unreadable), or could not be hashed during
+        // planning, files are missing from the destination — report it honestly
+        // rather than as "Done".
+        let leftUnprocessed = executionResult.failedCount > 0
+            || executionResult.skippedCount > 0
+            || result.counts.hashErrorCount > 0
+        let completedStatus: RunStatus
+        let completedTitle: String
+        if executionResult.status != "COMPLETED" {
+            completedStatus = .failed
+            completedTitle = "Transfer stopped"
+        } else if leftUnprocessed {
+            completedStatus = .failed
+            completedTitle = "Transfer incomplete"
+        } else {
+            completedStatus = .finished
+            completedTitle = "Done"
+        }
         continuation.yield(
             .complete(
                 RunSummary(
@@ -730,6 +784,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         destinationURL: URL,
         transferExecutor: TransferExecutor,
         runLogger: PersistentRunLogger,
+        isCancelled: @escaping @Sendable () -> Bool,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
     ) throws {
         let pendingJobCount = try database.pendingJobCount()
@@ -791,10 +846,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     continuation.yield(.issue(issue))
                 }
             ),
-            isCancelled: { Task.isCancelled }
+            isCancelled: isCancelled
         )
 
-        if Task.isCancelled {
+        if isCancelled() {
             continuation.finish()
             return
         }
@@ -809,11 +864,26 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             )
         )
         runLogger.log("Resumed session complete")
+        // Finding #4: mirror the fresh-transfer honesty — a resumed run that
+        // failed or skipped any pending job did not finish the job queue.
+        let leftUnprocessed = executionResult.failedCount > 0 || executionResult.skippedCount > 0
+        let completedStatus: RunStatus
+        let completedTitle: String
+        if executionResult.status != "COMPLETED" {
+            completedStatus = .failed
+            completedTitle = "Transfer stopped"
+        } else if leftUnprocessed {
+            completedStatus = .failed
+            completedTitle = "Transfer incomplete"
+        } else {
+            completedStatus = .finished
+            completedTitle = "Done"
+        }
         continuation.yield(
             .complete(
                 RunSummary(
-                    status: executionResult.status == "COMPLETED" ? .finished : .failed,
-                    title: executionResult.status == "COMPLETED" ? "Done" : "Transfer stopped",
+                    status: completedStatus,
+                    title: completedTitle,
                     metrics: RunMetrics(
                         plannedCount: pendingJobCount,
                         copiedCount: executionResult.copiedCount,

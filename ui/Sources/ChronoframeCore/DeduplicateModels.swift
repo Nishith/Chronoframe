@@ -416,6 +416,13 @@ public struct DeduplicateSummary: Sendable, Equatable {
     /// similar videos found" from "nothing could be analyzed" from "deferred
     /// pending exact cleanup".
     public var videoPerceptualMetrics: VideoPerceptualAnalysisMetrics?
+    /// Complete reverse sidecar-ownership map observed across **every**
+    /// scanned image (keyed by sidecar path → the set of all photos that
+    /// reference it), not just duplicate-cluster members. The planner needs
+    /// the full map so a sidecar shared with a surviving singleton owner is
+    /// never deleted (Finding #2 / AGENTS-INVARIANT 14). Empty when no
+    /// sidecars were discovered.
+    public var sidecarOwners: [String: Set<String>]
 
     public init(
         clusterCounts: [ClusterKind: Int] = [:],
@@ -423,7 +430,8 @@ public struct DeduplicateSummary: Sendable, Equatable {
         totalCandidatesScanned: Int = 0,
         scanDuration: TimeInterval = 0,
         cacheMetrics: DedupeCacheMetrics = DedupeCacheMetrics(),
-        videoPerceptualMetrics: VideoPerceptualAnalysisMetrics? = nil
+        videoPerceptualMetrics: VideoPerceptualAnalysisMetrics? = nil,
+        sidecarOwners: [String: Set<String>] = [:]
     ) {
         self.clusterCounts = clusterCounts
         self.totalRecoverableBytes = totalRecoverableBytes
@@ -431,6 +439,7 @@ public struct DeduplicateSummary: Sendable, Equatable {
         self.scanDuration = scanDuration
         self.cacheMetrics = cacheMetrics
         self.videoPerceptualMetrics = videoPerceptualMetrics
+        self.sidecarOwners = sidecarOwners
     }
 }
 
@@ -562,6 +571,13 @@ public enum DeduplicateCommitEvent: Sendable {
     /// render this as "this file failed" — that's a false negative.
     /// Phase 1 finding #7.
     case itemTrashedReceiptStale(originalPath: String, trashURL: URL?, sizeBytes: Int64, errorMessage: String)
+    /// The planned file changed on disk between scan and commit (replaced
+    /// with a different file, a symlink, or a directory; or its size/mtime
+    /// no longer match what was scanned), so it was **left untouched**
+    /// instead of trashed (Finding #1). Distinct from `itemFailed`: nothing
+    /// went wrong with the operation — Chronoframe deliberately preserved an
+    /// unreviewed file. It is not recorded in the receipt as a deletion.
+    case itemStale(originalPath: String, reason: String)
     /// Receipt could not be finalized at end-of-run. Distinct from
     /// `itemFailed` (which used to be emitted with `originalPath: ""`)
     /// so consumers don't render a ghost row for an empty path.
@@ -607,6 +623,23 @@ public struct DeduplicationPlan: Sendable, Equatable {
         case sidecar
     }
 
+    /// The file's identity as observed at scan/plan time. The executor
+    /// re-stats the live path immediately before moving it to Trash and
+    /// refuses to delete anything whose live identity no longer matches
+    /// (Finding #1). `modificationTime` is seconds since the Unix epoch with
+    /// nanosecond precision — the same value the scanner records on
+    /// `PhotoCandidate` — so an unchanged file compares equal while an
+    /// editor/sync replacement (which gets a fresh mtime) does not.
+    public struct ScanIdentity: Sendable, Equatable {
+        public let sizeBytes: Int64
+        public let modificationTime: TimeInterval?
+
+        public init(sizeBytes: Int64, modificationTime: TimeInterval? = nil) {
+            self.sizeBytes = sizeBytes
+            self.modificationTime = modificationTime
+        }
+    }
+
     public struct Item: Sendable, Equatable {
         public let path: String
         public let sizeBytes: Int64
@@ -620,6 +653,11 @@ public struct DeduplicationPlan: Sendable, Equatable {
         /// so revert never has to re-classify by extension. Defaults to
         /// `.photo` for existing call sites.
         public let mediaKind: MediaKind
+        /// Scan-time identity used by the executor to reject a stale plan
+        /// item before Trash (Finding #1). `nil` only for legacy call sites
+        /// that never captured it; the executor still applies its file-type
+        /// guard (non-symlink, regular file) in that case.
+        public let scanIdentity: ScanIdentity?
 
         public init(
             path: String,
@@ -627,7 +665,8 @@ public struct DeduplicationPlan: Sendable, Equatable {
             owningClusterID: UUID,
             owningClusterKind: ClusterKind,
             pairOrigin: PairOrigin? = nil,
-            mediaKind: MediaKind = .photo
+            mediaKind: MediaKind = .photo,
+            scanIdentity: ScanIdentity? = nil
         ) {
             self.path = path
             self.sizeBytes = sizeBytes
@@ -635,6 +674,7 @@ public struct DeduplicationPlan: Sendable, Equatable {
             self.owningClusterKind = owningClusterKind
             self.pairOrigin = pairOrigin
             self.mediaKind = mediaKind
+            self.scanIdentity = scanIdentity
         }
     }
 

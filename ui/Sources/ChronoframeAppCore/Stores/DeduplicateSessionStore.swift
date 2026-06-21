@@ -161,7 +161,10 @@ public final class DeduplicateSessionStore: ObservableObject {
             let stream = try engine.commit(
                 decisions: decisions,
                 clusters: reviewedClusters,
-                configuration: commitConfiguration
+                configuration: commitConfiguration,
+                // The scan's complete sidecar-ownership map gates deletion of
+                // sidecars shared with surviving singleton owners (Finding #2).
+                allSidecarOwners: summary?.sidecarOwners ?? [:]
             )
             let epoch = currentRunEpoch
             streamTask = Task { [weak self] in
@@ -547,6 +550,13 @@ public final class DeduplicateSessionStore: ObservableObject {
                 severity: .warning,
                 message: "File was moved to Trash, but the audit receipt could not be updated: \(message)"
             ))
+            phaseCompleted += 1
+        case let .itemStale(path, reason):
+            // Finding #1: the file changed between scan and commit and was
+            // deliberately preserved. This is not a failure — surface it as a
+            // warning so the user knows one selection was skipped, and advance
+            // progress so the UI doesn't appear stuck.
+            issues.append(DeduplicateIssue(severity: .warning, path: path, message: reason))
             phaseCompleted += 1
         case let .itemFailed(_, message):
             issues.append(DeduplicateIssue(severity: .error, message: message))

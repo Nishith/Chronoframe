@@ -41,6 +41,10 @@ final class MockOrganizerEngine: OrganizerEngine {
     var reorganizeRequests: [(destinationRoot: String, targetStructure: FolderStructure)] = []
     var cancelCallCount = 0
     var pendingContinuation: AsyncThrowingStream<RunEvent, Error>.Continuation?
+    /// Optional hook invoked inside `preflight` before it returns. Tests use it
+    /// to deterministically interleave a second operation (or a cancel) while a
+    /// preflight is in flight, exercising the stale-completion epoch guard.
+    var preflightHook: (@MainActor () async -> Void)?
 
     init(
         preflightResult: Result<RunPreflight, Error>,
@@ -57,7 +61,10 @@ final class MockOrganizerEngine: OrganizerEngine {
     }
 
     func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight {
-        try preflightResult.get()
+        if let preflightHook {
+            await preflightHook()
+        }
+        return try preflightResult.get()
     }
 
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
@@ -121,6 +128,7 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     var lastCommitDecisions: DedupeDecisions?
     var lastCommitClusters: [DuplicateCluster] = []
     var lastCommitConfiguration: DeduplicateConfiguration?
+    var lastCommitSidecarOwners: [String: Set<String>] = [:]
 
     init(
         clusters: [DuplicateCluster] = [],
@@ -158,11 +166,13 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     func commit(
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration
+        configuration: DeduplicateConfiguration,
+        allSidecarOwners: [String: Set<String>]
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         lastCommitDecisions = decisions
         lastCommitClusters = clusters
         lastCommitConfiguration = configuration
+        lastCommitSidecarOwners = allSidecarOwners
         let events = commitEvents
         return AsyncThrowingStream { continuation in
             Task { @MainActor in

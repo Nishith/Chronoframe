@@ -351,6 +351,61 @@ final class CLIIntegrationTests: XCTestCase {
             "Error message should reference the offending flag")
     }
 
+    @MainActor
+    func testUnreadableOnlyInputReportsFailureAndNonZeroExit() async throws {
+        // Finding #4: a source that can't be hashed produces zero planned
+        // copies. That must NOT be reported as "Already up to date" / exit 0.
+        let source = try makeDirectory("source")
+        let destination = try makeDirectory("destination")
+        let unreadable = source.appendingPathComponent("camera/IMG_20240501_120000.jpg")
+        try writeFile(unreadable, contents: "secret")
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o000)], ofItemAtPath: unreadable.path
+        )
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o644)], ofItemAtPath: unreadable.path
+            )
+        }
+
+        let recorder = LineRecorder()
+        let exitCode = await ChronoframeCLI.run(
+            arguments: ["--source", source.path, "--dest", destination.path, "--yes", "--json", "--workers", "1"],
+            output: recorder.append
+        )
+
+        XCTAssertEqual(exitCode, 1, "An unreadable-only run is not a success")
+        let complete = try lastJSONPayload(ofType: "complete", in: recorder.lines)
+        XCTAssertEqual(complete["status"] as? String, "failed")
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destination.appendingPathComponent("2024/05/01/2024-05-01_001.jpg").path
+        ))
+    }
+
+    @MainActor
+    func testGenuineNothingToCopyKeepsZeroExit() async throws {
+        // Finding #4 regression guard: an honestly clean rerun still exits 0.
+        let source = try makeDirectory("source")
+        let destination = try makeDirectory("destination")
+        try writeFile(source.appendingPathComponent("camera/IMG_20240501_120000.jpg"), contents: "clean")
+
+        let first = LineRecorder()
+        let firstExit = await ChronoframeCLI.run(
+            arguments: ["--source", source.path, "--dest", destination.path, "--yes", "--workers", "1"],
+            output: first.append
+        )
+        XCTAssertEqual(firstExit, 0)
+
+        let second = LineRecorder()
+        let secondExit = await ChronoframeCLI.run(
+            arguments: ["--source", source.path, "--dest", destination.path, "--yes", "--json", "--workers", "1"],
+            output: second.append
+        )
+        XCTAssertEqual(secondExit, 0)
+        let complete = try lastJSONPayload(ofType: "complete", in: second.lines)
+        XCTAssertEqual(complete["status"] as? String, "nothing_to_copy")
+    }
+
     private func makeDirectory(_ name: String) throws -> URL {
         let url = temporaryDirectory.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

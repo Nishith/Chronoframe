@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 /// Single source of truth for "what files will the executor mutate, given
@@ -25,7 +26,8 @@ public enum DeduplicationPlanner {
     public static func plan(
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration
+        configuration: DeduplicateConfiguration,
+        allSidecarOwners: [String: Set<String>] = [:]
     ) -> DeduplicationPlan {
         // 1. Effective decision per cluster member.
         struct Effective {
@@ -111,7 +113,12 @@ public enum DeduplicationPlanner {
                     owningClusterID: cluster.id,
                     owningClusterKind: cluster.kind,
                     pairOrigin: nil,
-                    mediaKind: member.mediaKind
+                    mediaKind: member.mediaKind,
+                    // Identity from the in-memory candidate — no extra I/O.
+                    scanIdentity: DeduplicationPlan.ScanIdentity(
+                        sizeBytes: member.size,
+                        modificationTime: member.modificationTime
+                    )
                 )
             }
         }
@@ -149,7 +156,10 @@ public enum DeduplicationPlanner {
                     owningClusterID: owningItem.owningClusterID,
                     owningClusterKind: owningItem.owningClusterKind,
                     pairOrigin: kind == .livePhoto ? .livePhoto : .rawJpeg,
-                    mediaKind: partnerMediaKind
+                    mediaKind: partnerMediaKind,
+                    // Partner may be a singleton outside any cluster, so its
+                    // identity isn't in `effective`; capture it live.
+                    scanIdentity: fileIdentity(at: partner, knownSize: partnerSize)
                 )
             }
         }
@@ -163,7 +173,14 @@ public enum DeduplicationPlanner {
         // cluster, the guard is conservative: any surviving owner — or any
         // owner whose pair partner survives — keeps the sidecar. Over-keeping a
         // sidecar is safe; deleting one whose parent survives is data loss.
-        var ownersBySidecar: [String: Set<String>] = [:]
+        // Seed with the complete reverse map the scanner observed across
+        // EVERY image (Finding #2). Without it, an owner that isn't a
+        // duplicate-cluster member — e.g. a surviving singleton `A.heic`
+        // sharing `A.xmp` with a clustered `A.jpg` — is invisible to the
+        // deletion gate, so the sidecar would be trashed while a referencing
+        // photo survives. Merging the cluster-derived owners below keeps the
+        // map correct even when an older caller passes nothing.
+        var ownersBySidecar: [String: Set<String>] = allSidecarOwners
         var memberByPath: [String: PhotoCandidate] = [:]
         for cluster in clusters {
             for member in cluster.members {
@@ -184,13 +201,15 @@ public enum DeduplicationPlanner {
             guard !anyOwnerHasSurvivingPartner else { continue }
             guard let anchorPath = owners.sorted().first,
                   let anchorItem = planItems[anchorPath] else { continue }
+            let sidecarIdentity = fileIdentity(at: sidecar)
             planItems[sidecar] = DeduplicationPlan.Item(
                 path: sidecar,
-                sizeBytes: fileSize(at: sidecar),
+                sizeBytes: sidecarIdentity.sizeBytes,
                 owningClusterID: anchorItem.owningClusterID,
                 owningClusterKind: anchorItem.owningClusterKind,
                 pairOrigin: .sidecar,
-                mediaKind: .photo
+                mediaKind: .photo,
+                scanIdentity: sidecarIdentity
             )
         }
 
@@ -282,5 +301,20 @@ public enum DeduplicationPlanner {
     static func fileSize(at path: String) -> Int64 {
         let attrs = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
         return (attrs[.size] as? NSNumber)?.int64Value ?? 0
+    }
+
+    /// Capture a file's identity (size + modification time) for stale-plan
+    /// detection at commit time (Finding #1). Uses `lstat` so the recorded
+    /// mtime is in the same Unix-epoch/nanosecond form the scanner stores on
+    /// `PhotoCandidate`, letting the executor compare them exactly. A missing
+    /// file yields `modificationTime == nil`; the executor's own re-stat then
+    /// catches it as stale.
+    static func fileIdentity(at path: String, knownSize: Int64? = nil) -> DeduplicationPlan.ScanIdentity {
+        var st = stat()
+        guard lstat(path, &st) == 0 else {
+            return DeduplicationPlan.ScanIdentity(sizeBytes: knownSize ?? 0, modificationTime: nil)
+        }
+        let mtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
+        return DeduplicationPlan.ScanIdentity(sizeBytes: knownSize ?? Int64(st.st_size), modificationTime: mtime)
     }
 }

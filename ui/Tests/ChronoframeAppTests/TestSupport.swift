@@ -122,6 +122,18 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     var lastCommitDecisions: DedupeDecisions?
     var lastCommitClusters: [DuplicateCluster] = []
     var lastCommitConfiguration: DeduplicateConfiguration?
+    var lastCommitSidecarOwners: [String: Set<String>] = [:]
+    /// When true, `scan` emits `.startup` and then leaves the stream open so the
+    /// session store stays in its working (`.scanning`) state until
+    /// `finishHeldScan()` is called. Lets a test assert that a concurrent
+    /// organize run is rejected while a deduplicate scan is in flight.
+    var holdScanOpen = false
+    private var heldScanContinuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation?
+
+    func finishHeldScan() {
+        heldScanContinuation?.finish()
+        heldScanContinuation = nil
+    }
 
     func scan(_ configuration: DeduplicateConfiguration) throws -> AsyncThrowingStream<DeduplicateEvent, Error> {
         lastScanConfiguration = configuration
@@ -130,9 +142,14 @@ final class MockDeduplicateEngine: DeduplicateEngine {
         }
         let clusters = clustersToEmit
         let summary = summary
+        let hold = holdScanOpen
         return AsyncThrowingStream { continuation in
             Task { @MainActor in
                 continuation.yield(.startup)
+                if hold {
+                    self.heldScanContinuation = continuation
+                    return
+                }
                 for cluster in clusters {
                     continuation.yield(.clusterDiscovered(cluster))
                 }
@@ -147,10 +164,12 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     func commit(
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration
+        configuration: DeduplicateConfiguration,
+        allSidecarOwners: [String: Set<String>]
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         lastCommitDecisions = decisions
         lastCommitClusters = clusters
+        lastCommitSidecarOwners = allSidecarOwners
         lastCommitConfiguration = configuration
         let events = commitEvents
         return AsyncThrowingStream { continuation in

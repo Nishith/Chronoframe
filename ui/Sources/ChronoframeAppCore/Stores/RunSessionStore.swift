@@ -64,7 +64,11 @@ public final class RunSessionStore: ObservableObject {
     }
 
     public var isRunning: Bool {
-        status == .running
+        // Finding #7: preflight is part of an in-flight operation. Excluding it
+        // let a second run (or a dedupe operation) start during the preflight
+        // window. Callers that gate "can another operation begin?" must see the
+        // app as busy from the moment a run is requested.
+        status == .running || status == .preflighting
     }
 
     public var logLines: [String] {
@@ -81,12 +85,20 @@ public final class RunSessionStore: ObservableObject {
         securityScope: SecurityScopedFolderAccess? = nil
     ) async {
         resetSessionState(mode: mode)
+        // Finding #7: capture the epoch AFTER resetSessionState bumps it. If a
+        // newer run starts (or the user cancels) while we await preflight, the
+        // epoch advances and this completion is stale — its security scope has
+        // already been closed and its UI state replaced. Discarding it prevents
+        // a stale preflight from overwriting the newer request's prompt or
+        // running against an access scope that is no longer held.
+        let epoch = currentRunEpoch
         self.securityScope = securityScope
         status = .preflighting
         currentTaskTitle = "Preparing \(mode.title)..."
 
         do {
             let preflight = try await engine.preflight(configuration)
+            guard currentRunEpoch == epoch else { return }
             lastPreflight = preflight
 
             if mode == .transfer {
@@ -109,6 +121,7 @@ public final class RunSessionStore: ObservableObject {
 
             beginStream(using: preflight, resumePendingJobs: false)
         } catch {
+            guard currentRunEpoch == epoch else { return }
             handleFailure(error: error)
         }
     }
@@ -313,7 +326,11 @@ public final class RunSessionStore: ObservableObject {
         streamTask = nil
         currentRunEpoch &+= 1
 
-        if isRunning {
+        // Only an actively-running stream produces a "Cancelled" summary. A
+        // cancel during preflight is handled below by resetting to idle, so
+        // this checks `.running` explicitly rather than `isRunning` (which now
+        // also covers `.preflighting`).
+        if status == .running {
             status = .cancelled
             currentTaskTitle = "Cancelled"
             metrics.speedMBps = 0

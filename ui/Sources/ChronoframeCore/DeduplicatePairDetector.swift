@@ -162,15 +162,15 @@ public enum DeduplicatePairDetector {
 
     /// Read the Apple Content Identifier from a QuickTime movie's metadata.
     /// Returns nil if the file is not the .mov half of a Live Photo.
+    /// Upper bound on how long reading one movie's Live Photo identifier may
+    /// block pairing (Finding #6). A stalled/offline container is treated as
+    /// "not a Live Photo" past this deadline instead of hanging the scan.
+    static let livePhotoMetadataTimeoutSeconds: Double = 30
+
     public static func livePhotoIdentifier(forMovieAt url: URL) -> String? {
-        let result = LockedMetadataResult()
-        let semaphore = DispatchSemaphore(value: 0)
-        Task.detached {
-            result.value = await livePhotoIdentifierForMovie(at: url)
-            semaphore.signal()
+        BoundedAsyncBridge.run(timeout: .now() + livePhotoMetadataTimeoutSeconds) {
+            await livePhotoIdentifierForMovie(at: url)
         }
-        semaphore.wait()
-        return result.value
     }
 
     private static func livePhotoIdentifierForMovie(at url: URL) async -> String? {
@@ -188,8 +188,4 @@ public enum DeduplicatePairDetector {
         }
         return nil
     }
-}
-
-private final class LockedMetadataResult: @unchecked Sendable {
-    var value: String?
 }
