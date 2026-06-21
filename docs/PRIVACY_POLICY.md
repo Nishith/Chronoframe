@@ -1,6 +1,6 @@
 # Chronoframe Privacy Policy
 
-Effective date: 2026-05-20
+Effective date: 2026-06-20
 
 Chronoframe is designed to organize and deduplicate photo and video files on your Mac without uploading your library or collecting analytics.
 
@@ -26,7 +26,7 @@ For each destination folder you choose, Chronoframe may create local support fil
 - `.organize_logs/`
 - `.organize_log.txt`
 
-These files support previews, receipts, history, revert, and faster future scans. They stay in the destination folder you selected.
+These files may include validated file identities, photo/video analysis features, copy-queue state, operation-lock diagnostics, receipts, and temporary recovery journals. They support previews, interruption recovery, history, revert, and faster future scans. They stay in the destination folder you selected.
 
 ## Network Use
 
@@ -34,7 +34,7 @@ Chronoframe does not use the network for photo processing, analytics, advertisin
 
 ## Deletion Behavior
 
-Chronoframe does not permanently delete duplicates. Deduplicate moves files you approve to the macOS Trash.
+Chronoframe does not permanently delete duplicates. Deduplicate may temporarily rename approved files to a hidden same-folder quarantine path so it can verify and recover the mutation as a unit, then moves the verified files to the macOS Trash. Recovery metadata and filesystem bookmarks remain on-device.
 
 ## Contact
 

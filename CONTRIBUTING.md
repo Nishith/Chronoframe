@@ -32,6 +32,9 @@ By opening a pull request, you confirm that you wrote the contribution or have t
 Pull requests should:
 
 - Preserve Chronoframe's safety invariants: source folders are read-only, destination files are not overwritten, and destructive operations must be receipt-backed and reversible where applicable.
+- Preserve preview/executor parity: destructive dedupe changes must flow through the immutable `DeduplicationPlan`, with expected identities for every target.
+- Preserve destination serialization and recovery: hold the cross-process lease through prompts and finalization, never equate inaccessible paths with missing ones, and keep receipt/journal changes backward-tolerant.
+- Treat RAW+JPEG, Live Photo, and shared-sidecar Keep-wins behavior as a filesystem safety boundary, not just a UI preference.
 - Add or update tests for behavior changes.
 - Keep SwiftPM and `ui/Chronoframe.xcodeproj/project.pbxproj` in sync when adding Swift files used by the app.
 - Keep user-facing errors plain, specific, reassuring, and free of raw tracebacks.
@@ -39,7 +42,13 @@ Pull requests should:
 
 ## Local Validation
 
-Run the checks that match your change. Chronoframe is Swift-only — there is no Python test suite.
+Run the checks that match your change. Chronoframe is Swift-only — there is no Python test suite. The CI-equivalent unit lane uses fresh-process suite shards:
+
+```bash
+/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache script/run_swift_test_suites.sh"
+```
+
+A direct SwiftPM run is still useful while iterating:
 
 ```bash
 /bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift test --package-path ui"
@@ -47,6 +56,12 @@ Run the checks that match your change. Chronoframe is Swift-only — there is no
 
 ```bash
 script/swift_meaningful_coverage.sh
+```
+
+Safety-critical changes should also run the invariant guard:
+
+```bash
+script/check_agents_invariants_have_tests.sh
 ```
 
 ```bash

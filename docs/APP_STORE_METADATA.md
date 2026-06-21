@@ -1,6 +1,6 @@
 # App Store Connect Metadata
 
-Copy-paste-ready listing copy for Chronoframe's first Mac App Store submission. Character limits are noted so nothing gets truncated in App Store Connect. Update the three URLs once the site is hosted.
+Copy-paste-ready source for Chronoframe's current Mac App Store listing. Character limits are noted so nothing gets truncated in App Store Connect. Re-verify version, pricing, screenshots, and hosted URLs for every submission.
 
 ## Identity
 
@@ -39,7 +39,7 @@ Editable after release without a review. Good place for launch or update notes.
 > Point Chronoframe at a messy folder and a destination, pick a date-based layout, and preview the plan. Chronoframe resolves each file's date from photo metadata, filename patterns, and the filesystem, and lets you review or correct uncertain dates before a single file is copied. Your source folder is read-only — nothing is moved, renamed, edited, or deleted.
 >
 > DEDUPLICATE
-> Find exact copies by content, not filename, plus near-duplicates, burst groups, RAW+JPEG pairs, and Live Photo pairs. You decide what to keep. Selected files move to the macOS Trash, never a permanent delete, so you can always recover them.
+> Find exact copies by content, not filename, plus near-duplicates, burst groups, RAW+JPEG pairs, Live Photo pairs, and optional review-only visual video matches. You decide what to keep. Selected files move to the macOS Trash, never a permanent delete.
 >
 > SAFE BY DESIGN
 > • Originals stay untouched — Chronoframe only reads your source folder.
@@ -47,12 +47,14 @@ Editable after release without a review. Good place for launch or update notes.
 > • No overwrites — filename collisions get a distinct name instead of replacing a file.
 > • Copies are verified — transfers are written atomically and re-hashed by default.
 > • Receipts and revert — History records each run, and supported runs can be reverted when files still match the receipt.
+> • Interruption-aware — durable recovery state reconciles recorded work on relaunch and tells you when a drive or manual action is needed.
+> • One operation at a time — app, command-line, and system actions cannot race on the same destination.
 >
 > PRIVATE
 > Chronoframe works only on folders you choose, processes everything on-device, and never uploads your library. There is no account, no analytics, no advertising, and no tracking. Cache, log, and receipt files are written inside the destination folder you select, so you can inspect or remove them anytime.
 >
 > REQUIREMENTS
-> macOS 13.0 or later. Apple Silicon and Intel. Works fully offline.
+> macOS 14.0 or later. Apple Silicon and Intel. Works fully offline.
 
 ## Keywords (100 char max, comma-separated, no spaces after commas)
 
@@ -66,11 +68,12 @@ Editable after release without a review. Good place for launch or update notes.
 >
 > • Organize scattered photos and videos into a clean date-based library without changing your originals.
 > • Deduplicate exact copies, near-duplicates, bursts, RAW+JPEG pairs, and Live Photos — safely to the Trash.
-> • Preview every plan before anything changes, with run history and revert.
+> • Optionally review visually similar video transcodes and re-exports; these matches are never auto-accepted.
+> • Preview every plan before anything changes, with interruption recovery, run history, and content-verified revert.
 
 ## App Review Notes
 
-> Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders the reviewer selects through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. The app runs entirely on-device, does not upload photos, and includes no analytics, telemetry, advertising, or crash-reporting services. Local cache, log, and receipt files are created in the selected destination to support preview, history, and revert. No sign-in or demo account is required.
+> Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders the reviewer selects through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Before Trash, approved mutation units may be temporarily renamed within the same selected folder for content verification and crash recovery. The app runs entirely on-device, does not upload photos, and includes no analytics, telemetry, advertising, or crash-reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, interruption recovery, history, and revert. No sign-in or demo account is required.
 
 ## App Privacy (questionnaire answers)
 

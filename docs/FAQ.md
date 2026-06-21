@@ -8,7 +8,15 @@ A: No. Chronoframe only *reads* your source folder. Your originals are never mov
 
 **Q: What if something goes wrong during the transfer?**
 
-A: Chronoframe writes files atomically (to a temporary location, then renames them into place). If the transfer is interrupted, partially-copied files are left untouched. Use **History** to review what was copied, and **Revert** if needed.
+A: Chronoframe writes files atomically (to a temporary location, then renames them into place), records mutation state durably, and reconciles interrupted work on the next launch. A completed copy is re-hashed by default; an incomplete temporary copy is never presented as a finished media file. Use **History** to review what was recovered, resume pending work, or **Revert** supported copies.
+
+**Q: What if an external drive disconnects during a run?**
+
+A: Chronoframe does not treat a disconnected or permission-denied drive as proof that files disappeared. Reconnect and unlock the drive, reopen Chronoframe, and refresh **History**. An interrupted entry may show **Needs Drive**, **Trash Location Unverified**, or **Manual Recovery Needed** until the filesystem state can be proven safely.
+
+**Q: Why does Chronoframe say another operation is using the destination?**
+
+A: Only one organize, deduplicate, reorganize, revert, CLI, or system-integrated mutation can use a destination at a time. Wait for the active operation to finish, then try again. This cross-process lock prevents two valid plans from racing each other.
 
 **Q: Can I undo an organize operation?**
 
@@ -87,6 +95,14 @@ A: Yes. Use the **Deduplicate** workspace:
 
 Visual video matching is off by default. Enable it in **Settings → Deduplicate** with the Balanced or Similar Shots preset. These groups are always review-only and never accepted automatically.
 
+**Q: What if a file changes after a deduplicate scan?**
+
+A: Chronoframe's commit summary and executor use the same immutable plan with the expected content identity for every target. Before Trash, the app quarantines and verifies each mutation unit without following symlinks. If a file, pair partner, or owned sidecar no longer matches, Chronoframe leaves or restores the unit and reports it as stale instead of deleting it.
+
+**Q: What happens if Deduplicate is interrupted while moving files to Trash?**
+
+A: Deduplicate writes a pending receipt and append-only recovery journal before and during the commit. On relaunch, Chronoframe checks the original path, quarantine path, and recorded Trash candidates by content. It restores or finalizes only when the evidence is unambiguous; otherwise History preserves the record and asks for a drive or manual action.
+
 **Q: Can I organize into a folder that already has photos?**
 
 A: Yes. Chronoframe detects existing files and won't overwrite them. If a destination collision happens, it gives the new file a distinct name (e.g., `photo_2.jpg`).
@@ -115,12 +131,12 @@ You can review these errors in the Review tab or History logs.
 
 **Q: Deduplicate didn't find duplicates I know exist.**
 
-A: Chronoframe uses **content hashing** (not filename matching). Two files are duplicates only if their bytes are identical. If you have:
+A: Exact matching uses **content hashing** (not filename matching). Two files are exact duplicates only if their bytes are identical. If you have:
 - Compressed differently (e.g., JPEG quality settings)
 - Different metadata but same image data
 - Very similar but not identical
 
-…they won't match. You can adjust similarity thresholds in Deduplicate settings (strict, balanced, loose).
+…they won't be exact matches. Photo similarity and the optional visual-video lane can still surface them for review. You can adjust similarity thresholds in Deduplicate settings (Strict, Balanced, or Loose).
 
 **Q: Can I organize to the same folder as source?**
 
@@ -155,10 +171,10 @@ A: Yes. Save a **Profile** in **Settings → Profiles** with your source and des
 
 A: Inside your destination folder:
 - `.organize_cache.db` — metadata cache, review edits, dedupe cache
-- `.organize_logs/` — transfer logs, receipts, and reports
+- `.organize_logs/` — transfer logs, receipts, recovery journals, and reports
 
-You can safely delete these to free space; Chronoframe will recreate them next time.
+Do not delete these while an operation is active or History shows interrupted work. Removing them can discard resume, recovery, history, or revert evidence. If every run is complete and you intentionally accept losing that history, Chronoframe can recreate performance caches later.
 
 ---
 
-**Still have questions?** Check the [README](../README.md), [Troubleshooting](./TROUBLESHOOTING.md), or [Technical Documentation](./TECHNICAL.md).
+**Still have questions?** Check the [README](../README.md), [Safety and Recovery](./SAFETY_AND_RECOVERY.md), [Troubleshooting](./TROUBLESHOOTING.md), or [Technical Documentation](./TECHNICAL.md).

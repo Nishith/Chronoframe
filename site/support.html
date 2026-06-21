@@ -41,6 +41,7 @@
       <ul>
         <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or reuse a recent one.</li>
         <li>Pick a <strong>Detection</strong> preset (Strict, Balanced, or Loose), click <strong>Start Scan</strong>, review each group, and choose what to keep.</li>
+        <li>Exact videos are always matched by content. Enable <strong>Find visually similar videos</strong> in <strong>Settings &rarr; Deduplicate</strong> to review transcodes and re-exports; those groups are never auto-accepted.</li>
         <li>Click <strong>Move to Trash</strong> only after the plan looks right. Selected duplicates move to the macOS Trash.</li>
       </ul>
 
@@ -55,6 +56,14 @@
         <p class="a">Open <strong>Organize &rarr; History</strong> to undo supported transfers, dedupe commits, and reorganize runs. Chronoframe acts only when each file still matches its receipt, so it won't touch files that already existed or were changed afterward.</p>
       </div>
       <div class="qa">
+        <p class="q">What happens after an interrupted run?</p>
+        <p class="a">Reopen Chronoframe with the destination drive connected. It reconciles durable copy, Trash, and move evidence before new work starts. History shows <strong>Interrupted &middot; Needs Drive</strong>, <strong>Trash Location Unverified</strong>, or <strong>Manual Recovery Needed</strong> when it cannot safely finish without more evidence.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Why is another Chronoframe operation using my destination?</p>
+        <p class="a">The app, command-line tool, and system actions share one destination lock. Wait for the active run to finish, then try again. This prevents two valid plans from changing the same library at once.</p>
+      </div>
+      <div class="qa">
         <p class="q">What are the system requirements?</p>
         <p class="a">macOS 14.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p>
       </div>
@@ -64,7 +73,7 @@
       </div>
       <div class="qa">
         <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>
-        <p class="a">Exact-duplicate detection compares file content, not filenames, so two photo or video files match only when their bytes are identical. Photos saved with different compression, metadata, or formats won't be exact matches. Use the similar-photos review and adjust the <strong>Detection</strong> preset (Strict, Balanced, or Loose) to surface more photo candidates.</p>
+        <p class="a">Exact-duplicate detection compares file content, not filenames, so two photo or video files match only when their bytes are identical. Files saved with different compression, metadata, or formats won't be exact matches. Use similar-photo review, the optional visual-video setting, and the <strong>Detection</strong> preset (Strict, Balanced, or Loose) to surface more candidates.</p>
       </div>
       <div class="qa">
         <p class="q">Does Deduplicate find similar videos?</p>
@@ -80,7 +89,7 @@
       </div>
       <div class="qa">
         <p class="q">Where does Chronoframe store its data?</p>
-        <p class="a">Inside your destination folder, in <code>.organize_cache.db</code> and <code>.organize_logs/</code>. You can safely delete these to free space; Chronoframe recreates them as needed.</p>
+        <p class="a">Inside your destination folder, in <code>.organize_cache.db</code>, <code>.organize_logs/</code>, and <code>.organize_log.txt</code>. Keep them while a run is active or interrupted: they can contain resume, recovery, History, and Revert evidence. Completed-run caches can be rebuilt if you intentionally remove them later.</p>
       </div>
       <div class="qa">
         <p class="q">How do I uninstall Chronoframe?</p>
@@ -95,7 +104,7 @@
       </div>
       <div class="qa">
         <p class="q">A transfer stopped partway through.</p>
-        <p class="a">Check that you have write access and enough free space on the destination, and that no other app is locking the files. You can safely retry. Chronoframe skips files already in the destination and copies the rest. Your originals are untouched.</p>
+        <p class="a">Check that you have write access and enough free space on the destination, and that no other app is locking the files. Reconnect the destination drive, reopen Chronoframe, and check History before retrying. Chronoframe reconciles recorded copies and resumes pending work; your originals are untouched.</p>
       </div>
       <div class="qa">
         <p class="q">Chronoframe is asking for permission to access a folder.</p>
@@ -108,6 +117,10 @@
       <div class="qa">
         <p class="q">The Move to Trash button in Deduplicate is grayed out.</p>
         <p class="a">It activates once you've marked at least one file for removal. Select a group and choose what to keep and what to remove, or use <strong>Auto-Accept Safe</strong> to clear the obvious exact copies.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Deduplicate says a planned file changed.</p>
+        <p class="a">Chronoframe rechecks every planned mutation by content before Trash. Close any editor or sync process changing the folder, start a new scan, and review the updated group. A changed file, pair, or sidecar is preserved instead of being deleted from a stale plan.</p>
       </div>
 
       <h2>Contact us</h2>

@@ -10,7 +10,13 @@ All commands run from the repo root unless noted.
 
 ### SwiftPM tests (authoritative unit-test lane)
 
-Always use a local home and module cache to avoid sandbox noise:
+CI uses fresh-process XCTest shards because the hosted Swift 6.0.3 runner can stop advancing in one long-lived test process. Use the same lane for final validation:
+
+```bash
+/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache script/run_swift_test_suites.sh"
+```
+
+Use a direct SwiftPM run with the same local home and module cache while iterating:
 
 ```bash
 /bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift test --package-path ui"
@@ -117,10 +123,12 @@ ui/Sources/
 
 | Path | Purpose |
 |------|---------|
-| `.organize_cache.db` | SQLite: `FileCache`, `CopyJobs`, `DedupeFeatures`, `ReviewOverrides` |
+| `.organize_cache.db` | SQLite: `FileCache`, `CopyJobs`, `DedupeFeatures`, `DedupeVideoFeatures`, `ReviewOverrides` |
 | `.organize_logs/audit_receipt_*.json` | Organize transfer receipt (used by revert) |
 | `.organize_logs/dedupe_audit_receipt_*.json` | Deduplicate receipt |
+| `.organize_logs/dedupe_audit_receipt_*.json.spool` | Versioned append-only dedupe recovery journal, retained when needed |
 | `.organize_logs/reorganize_audit_receipt_*.json` | Reorganize receipt |
+| `.organize_logs/.chronoframe-operation.lock` | Cross-process destination mutation lock and diagnostics |
 | `.organize_logs/dry_run_report_*.csv` | Dry-run plan export |
 | `.organize_logs/preview_review_*.jsonl` | Review tab data |
 
@@ -129,6 +137,10 @@ ui/Sources/
 **SwiftPM ↔ Xcode project sync.** When adding a Swift source file that must compile in the app, add it to both `ui/Package.swift` and `ui/Chronoframe.xcodeproj/project.pbxproj`. CodeQL builds the Xcode project, not the Swift package, so a file missing from the Xcode project will cause CodeQL to fail silently.
 
 **Safety invariants.** Before weakening any invariant (source read-only, no overwrites, Trash-only delete, receipt-before-mutation, revert hash-checks), confirm it's an explicit product change. Add `// AGENTS-INVARIANT: N` to at least one test covering the invariant and re-run `script/check_agents_invariants_have_tests.sh`.
+
+**Lock and recovery lifecycle.** Every destination-changing surface must acquire `DestinationOperationLock` and hold its lease through prompts, execution, receipt finalization, and recovery. Use `MutationRecoveryCoordinator` for pending-state reconciliation. Never infer that an inaccessible path is missing, and never delete pending receipts, journals, or quarantine paths as generic cleanup.
+
+**Dedupe plan integrity.** `DeduplicationPlanner.plan` is the single source of truth for the commit footer and executor. Plans derive from immutable scan snapshots, and every mutation target requires an expected identity. Preserve Keep-wins pair/sidecar behavior, quarantine plus `O_NOFOLLOW` verification, and unit rollback.
 
 **User-facing error text.** Use `UserFacingErrorMessage.swift` to format technical errors. Keep wording plain, specific, and reassuring. When a run fails, copy must note that originals were untouched. Never surface raw `NSError`, POSIX codes, SQLite messages, or Swift decoding language directly in the UI.
 

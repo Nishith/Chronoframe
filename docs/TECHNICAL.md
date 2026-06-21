@@ -36,6 +36,8 @@ CLI flags:
 
 The native app is still ahead of the CLI for Review editing, Smart Event acceptance, Library Health, and Deduplicate UI workflows. The CLI covers the important organize, transfer, cache, profile, JSON event, and revert flows through the same Swift engine as the app.
 
+The CLI participates in the same destination-wide operation lock as the app, App Intents, recovery, and reorganize flows. If another process owns the selected destination, it exits immediately with a plain-language busy error and does not scan or mutate media.
+
 ## Generated Files
 
 Chronoframe writes shared artifacts inside the destination:
@@ -48,6 +50,9 @@ Chronoframe writes shared artifacts inside the destination:
 | `.organize_logs/preview_review_*.jsonl` | Review data for the app's Review tab |
 | `.organize_logs/audit_receipt_*.json` | Transfer receipt used by revert |
 | `.organize_logs/dedupe_audit_receipt_*.json` | Deduplicate receipt used by dedupe revert |
+| `.organize_logs/dedupe_audit_receipt_*.json.spool` | Versioned newline-delimited dedupe mutation journal, retained only when recovery evidence is needed |
+| `.organize_logs/reorganize_audit_receipt_*.json` | Reorganize move receipt used by revert and interruption recovery |
+| `.organize_logs/.chronoframe-operation.lock` | Cross-process destination lock plus advisory diagnostic JSON |
 
 Important SQLite tables:
 
@@ -56,6 +61,7 @@ Important SQLite tables:
 | `FileCache` | Source and destination path identity cache |
 | `CopyJobs` | Persisted copy queue for resume |
 | `DedupeFeatures` | Cached Vision feature prints, dHash, dimensions, dates, and quality scores |
+| `DedupeVideoFeatures` | Versioned sampled-frame hashes, decode outcomes, dimensions, and keeper metadata for perceptual video matching |
 | `ReviewOverrides` | User date and event corrections for future preview and transfer planning |
 
 ## Architecture
@@ -92,9 +98,26 @@ Native Swift core modules include:
 | `DeduplicateScanner` | Exact and visual duplicate analysis |
 | `DeduplicationPlanner` | Keep/delete mutation planning |
 | `DeduplicateExecutor` | Trash commit and dedupe revert |
+| `DestinationOperationLock` | Non-blocking cross-process destination mutation lease |
+| `MutationRecoveryCoordinator` | Idempotent reconciliation of pending organize, dedupe, and reorganize state |
+| `LivePhotoMetadataLoader` | Bounded and cancellable Live Photo movie metadata loading |
 | `LibraryHealthScanner` | On-demand destination health checks |
 
 The app and CLI use the Swift engine for preview, transfer, revert, and reorganize. The old backend and hybrid adapter have been retired.
+
+## Mutation Safety And Recovery
+
+Every destination-changing surface acquires `.organize_logs/.chronoframe-operation.lock` with `flock(LOCK_EX | LOCK_NB)`. The lease is held across prompts, execution, receipt finalization, and startup recovery. The JSON stored in the lock file is diagnostic only; the open descriptor lock is authoritative and is released automatically if a process exits.
+
+Durable mutation evidence is operation-specific:
+
+- **Organize:** `CopyJobs` stores the run ID, intended/actual destination, and mutation state. A `PENDING` receipt and transfer spool are written before final receipt assembly. Recovery hashes a finalized-but-unrecorded destination before promoting it to copied state.
+- **Deduplicate:** a `PENDING` receipt plus schema-v2 JSONL journal records intent, quarantine, expected identity, predicted/actual Trash locations, and bookmark recovery data. Recovery restores a surviving quarantine entry or verifies Trash content before finalizing the receipt.
+- **Reorganize:** a `PENDING` receipt contains every planned move and its expected hash before execution. Recovery reconciles source/destination presence and content into moved, intended, or failed states.
+
+`MutationRecoveryCoordinator` runs after bookmark restoration and under the destination lock. Filesystem checks distinguish `missing` from `inaccessible`; permission denial and an unavailable volume never count as absence. Ambiguous records remain in place with `needsVolume`, `trashLocationUnverified`, or `manualActionRequired` state for History to display.
+
+See [Safety and Recovery](SAFETY_AND_RECOVERY.md) for the user-facing contract and artifact-retention guidance.
 
 ## Organize Details
 
@@ -162,10 +185,15 @@ It can find:
 - Burst-like groups using capture-time proximity.
 - RAW+JPEG pairs.
 - Live Photo HEIC+MOV pairs.
+- Visually similar video transcodes, re-wraps, and resizes when the off-by-default perceptual video lane is enabled.
 
 The **Settings → Deduplicate** tab exposes a Strict/Balanced/Loose similarity preset, a burst-mode toggle with an adjustable time window, RAW+JPEG and Live Photo "treat as a unit" toggles, and an option to surface exact duplicates as their own group. The same Strict/Balanced/Loose presets are also available inline on the Deduplicate setup screen.
 
-Deduplicate caches feature prints, dHash values, dimensions, dates, and quality scores in `.organize_cache.db` so later scans are incremental. Commit writes a dedupe audit receipt before mutating anything, then moves selected files to Trash by default.
+Deduplicate caches photo feature prints, dHash values, dimensions, dates, and quality scores plus versioned video frame features and decode outcomes in `.organize_cache.db` so later scans are incremental. Perceptual video clusters are structurally capped at medium confidence and are never eligible for automatic commit.
+
+The scan summary carries an immutable `DeduplicateScanSnapshot`. `DeduplicationPlanner` resolves every mutation—including pair partners and sidecars—without reading live filesystem identity, and the commit footer and executor consume the same `DeduplicationPlan`. A missing expected hash excludes the path from deletion.
+
+Commit preflights the receipt directory, writes a pending receipt and recovery journal, then handles RAW+JPEG, Live Photo, and sidecar ownership with Keep-wins semantics. Each mutation unit is renamed to a unique same-directory quarantine path, opened with `O_NOFOLLOW`, content-verified through the descriptor, and only then moved to Trash. Unit failures roll back together where the filesystem evidence permits.
 
 ## Date Resolution
 
@@ -237,7 +265,13 @@ In the Deduplicate review, `←`/`→` move between photos in a group, `Return` 
 
 ### SwiftPM Tests
 
-Use a local home and module cache to avoid system cache noise:
+Use a local home and module cache to avoid system cache noise. CI discovers XCTestCase suites and runs groups of at most five in fresh processes through `script/run_swift_test_suites.sh`:
+
+```bash
+/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache script/run_swift_test_suites.sh"
+```
+
+For a direct local run:
 
 ```bash
 /bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift test --package-path ui"
@@ -313,5 +347,7 @@ git diff --check
 - The GUI is macOS-specific.
 - The Swift CLI is developed and tested on macOS alongside the app.
 - The destination cache is a performance optimization. Use `--rebuild-cache` when you need a guaranteed fresh destination index.
+- Cached destination rows are still validated against current size and modification time; stale or missing rows are refreshed or removed.
 - Use `--start-fresh` to ignore a resumable copy queue from an interrupted run and start the transfer from scratch.
+- Do not remove `.organize_cache.db`, recovery journals, pending receipts, or quarantine paths while interrupted work is unresolved.
 - Releases can be packaged with the Release Package GitHub Actions workflow or locally with `ui/archive.sh`, then uploaded to GitHub Releases with a checksum.

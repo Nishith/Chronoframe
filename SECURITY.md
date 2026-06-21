@@ -28,7 +28,11 @@ Helpful reports include:
 - Source files being modified, moved, renamed, or deleted unexpectedly.
 - Destination overwrite or collision bugs.
 - Hash-verification, audit-receipt, Trash, hard-delete, or revert bypasses.
+- Preview/executor divergence, stale-plan deletion, quarantine escape, pair-unit rollback, or recovery-journal omissions.
+- Concurrent app, CLI, App Intent, scan, commit, revert, or reorganize operations reaching the same destination despite the operation lock.
+- Interrupted-run recovery that treats an inaccessible path as missing, mutates ambiguous state, or loses the ability to account for a moved file.
 - Unsafe handling of symlinks, aliases, package contents, or unusual filesystem entries.
+- Security-scoped bookmark, App Sandbox, external-volume, or Trash behavior that weakens the same guarantees in a distributed build.
 - Dependency or packaging vulnerabilities that affect shipped Chronoframe builds.
 
 ## Out Of Scope
@@ -40,3 +44,8 @@ Helpful reports include:
 ## Response
 
 I aim to acknowledge valid reports within a few days, confirm impact, and coordinate a fix or mitigation before public disclosure.
+
+For the intended safety model and artifact map, see
+[Safety and Recovery](docs/SAFETY_AND_RECOVERY.md). Preserve pending receipts,
+journals, quarantine paths, and the destination cache when collecting evidence
+from an interrupted run.

@@ -3,6 +3,7 @@
 Certification date: 2026-06-20
 Candidate branch: `codex/production-readiness-remediation`
 Baseline: `origin/main` at `081e00f`
+Implementation evidence commit: `80ff492`
 
 ## Release decision
 
@@ -27,13 +28,31 @@ This report intentionally distinguishes implementation evidence from environment
 | Full SwiftPM suite after remediation | PASS | `script/run_swift_test_suites.sh`; every discovered XCTest suite passed in five-suite shards |
 | Invariant guard | PASS | All 19 `AGENTS-INVARIANT` bullets have tagged tests |
 | Animation guard | PASS | No raw reduce-motion-bypassing view animations |
-| App-layer test guard | PENDING | The guard compares committed PR diffs and reported “no commits beyond origin/main”; affected App/AppCore behavior has regression tests, but rerun after commits exist |
+| App-layer test guard | PASS | Hosted PR run `27896063597` passed against the committed PR diff |
 | `git diff --check` | PASS | No whitespace errors on 2026-06-20 |
 | Meaningful Swift coverage ≥95% | PASS | 95.51% (14,581 / 15,267 meaningful lines), including destination locking, mutation recovery, and bounded Live Photo metadata |
 | Warning-clean Xcode Debug build | PASS | Universal macOS Debug build succeeded with `CODE_SIGNING_ALLOWED=NO`; no compiler warnings |
-| macOS UI/accessibility suite | PASS | 21/21 tests passed, including all-scenario accessibility audit; xcresult: `.tmp/ChronoframeXcodeTestDerivedData/Logs/Test/Test-Chronoframe-2026.06.20_23-09-37--0700.xcresult` |
+| macOS UI/accessibility suite | PASS | 21/21 local tests passed; hosted UI tests and the accessibility audit also passed in run `27896063597` |
 | CI-like arm64 Swift build | PASS | `swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store` |
-| CodeQL and all hosted CI checks | PENDING | Local CodeQL build path passes; hosted analysis requires a pushed PR/CI run |
+| Hosted CI checks | PASS | Run `27896063597`: SwiftPM, meaningful coverage, Xcode build, UI tests, accessibility audit, release archive smoke, whitespace, invariant, animation, and app-layer guards all passed |
+| Hosted CodeQL | PENDING | Run `27896063603` is analyzing Swift for implementation commit `80ff492`; do not mark PASS until the hosted conclusion is success |
+
+## Implemented hardening evidence
+
+- `DestinationOperationLock` serializes app, CLI, App Intent, scan, commit,
+  revert, reorganize, and recovery mutations across processes.
+- `DeduplicateScanSnapshot` and `DeduplicationPlan` keep commit preview and
+  executor scope immutable and content-verified.
+- Deduplicate uses same-directory quarantine, `O_NOFOLLOW` descriptor hashing,
+  pair-unit rollback, and a schema-v2 append-only recovery journal.
+- `MutationRecoveryCoordinator` reconciles organize, dedupe, and reorganize
+  state without treating sandbox denial or disconnected volumes as absence.
+- Live Photo movie metadata work is bounded to four workers, has per-item
+  deadlines and a timeout circuit breaker, and cancels promptly without
+  blocking the cooperative executor in its regression fixture.
+- Focused fault-injection, stale-identity, lock-race, process-boundary,
+  recovery-state, and user-facing failure-copy tests are present and covered by
+  the invariant and app-layer guards.
 
 ## Developer ID distribution
 
@@ -71,13 +90,13 @@ script/video_calibration/run_calibration.sh --corpus <local-corpus> --explode-un
 
 | Metric | Required | Candidate result |
 |---|---:|---:|
-| Candidate-index recall | 100% | PENDING |
-| Pair recall | 100% | PENDING |
-| Pair precision | ≥99% | PENDING |
-| Hard-negative false positives | ≤0.1% | PENDING |
-| Warm/cold stability | identical decisions | PENDING |
+| Candidate-index recall | 100% | PASS — 100% |
+| Pair recall | 100% | PASS — 100% |
+| Pair precision | ≥99% | PASS — 99.1% |
+| Hard-negative false positives | ≤0.1% | PASS — 0.1% |
+| Warm/cold stability | identical decisions | PASS |
 
-The repository does not contain the labeled video corpus, so this gate cannot be certified from a clean checkout.
+Calibration ran on 2026-06-20 against a local labeled corpus (5 duplicate groups × 7 variants plus 12 hard negatives) using `script/video_calibration/run_calibration.sh --explode-underscore`. The corpus remains local-only, so a clean checkout can reproduce the tooling but not the exact evidence. The chosen thresholds and frame-tolerance rationale are recorded in `AGENTS.md`; a larger hard-negative set remains desirable for stronger threshold confidence.
 
 ## 100,000-file / 1-TB certification
 

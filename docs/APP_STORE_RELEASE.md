@@ -1,14 +1,16 @@
 # Mac App Store Release Checklist
 
-This checklist is the release source of truth for Chronoframe's first Mac App Store submission.
+This checklist is the release source of truth for the next Chronoframe Mac App Store candidate.
 
 ## Release Gate
 
 Chronoframe is ready to submit only when all items below are complete:
 
-- PR #83 or equivalent app icon cleanup is merged to the release branch.
-- `swift test --package-path ui` passes with the local cache/home environment from `AGENTS.md`.
+- Every mandatory row in [production-readiness-certification.md](production-readiness-certification.md) is `PASS`, with the final candidate commit and artifact checksum recorded.
+- `script/run_swift_test_suites.sh` passes with the local cache/home environment from `AGENTS.md`.
+- `script/check_agents_invariants_have_tests.sh` and `script/swift_meaningful_coverage.sh` pass.
 - `xcodebuild -project ui/Chronoframe.xcodeproj -scheme Chronoframe -configuration Debug -derivedDataPath .tmp/ChronoframeDerivedData -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO build` passes.
+- The macOS UI/accessibility suite passes without regressing the stored baseline.
 - `./ui/archive-mas.sh --local` passes bundle structure validation.
 - A signed non-local `./ui/archive-mas.sh` archive exports successfully with Apple Distribution or 3rd Party Mac Developer Application signing.
 - The exported build uploads to App Store Connect and processes successfully.
@@ -38,7 +40,7 @@ Keywords:
 
 Review notes:
 
-> Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders selected by the reviewer through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. The app runs on-device, does not upload photos, and does not include analytics, telemetry, advertising, or crash reporting services. Local cache, log, and receipt files are created in the selected destination to support preview, history, and revert.
+> Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders selected by the reviewer through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Approved mutation units may be temporarily renamed inside the selected folder for content verification and interruption recovery. The app runs on-device, does not upload photos, and does not include analytics, telemetry, advertising, or crash reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, recovery, history, and revert.
 
 ## Screenshot Set
 
@@ -66,9 +68,12 @@ Run these against the signed App Store build:
 - Organize from iCloud Drive with originals downloaded locally.
 - Deny folder access, then retry with valid access.
 - Quit during preview and transfer; relaunch and verify user-facing recovery.
+- Force termination after each organize, deduplicate, and reorganize journal boundary; relaunch and verify idempotent recovery.
+- Start competing app, CLI, and App Intent mutations against one destination; verify exactly one lease succeeds and every loser fails before touching media.
 - Deduplicate exact duplicates, similar photos, RAW+JPEG pairs, and Live Photo pairs.
+- Change a planned dedupe target, pair partner, and sidecar after scan; verify every stale unit is preserved.
 - Confirm dedupe moves to Trash and Run History can restore supported receipts.
-- Unplug or unmount a selected drive before scan/transfer and verify plain-language failure copy.
+- Unplug or unmount a selected drive during pending recovery; verify **Needs Drive**, reconnect, and verify recovery remains idempotent.
 - Scan a large library of at least 25,000 files.
 - Verify no network connections are required for organize, dedupe, history, help, or settings.
 

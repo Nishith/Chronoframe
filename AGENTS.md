@@ -103,6 +103,15 @@ Exact (byte-identical) video duplicates are always detected. **Perceptual** vide
 
 Release packaging defaults to Developer ID signed, hardened-runtime, notarized, stapled artifacts. Local ad hoc archives require the explicit `ui/archive.sh --local` mode and must not be treated as releasable assets.
 
+## Documentation Sources Of Truth
+
+- `README.md`, `docs/QUICK_START.md`, `docs/FAQ.md`, and `docs/TROUBLESHOOTING.md` are the public product guidance.
+- `docs/SAFETY_AND_RECOVERY.md` is the shared plain-language and technical contract for locking, content verification, journals, interruption states, and artifact retention.
+- `docs/TECHNICAL.md` is the current developer architecture and artifact reference.
+- `docs/production-readiness-certification.md` is the release-gate evidence ledger.
+- `docs/remaining-work-plan.md` lists only unfinished certification and product-decision work.
+- `prodsec/Chronoframe/` contains historical review artifacts. Keep their findings for audit traceability, but do not treat old proposed implementations as current architecture.
+
 ## User-Facing Error Handling
 
 Recent work improved error handling for nontechnical users. Preserve that tone.
@@ -209,14 +218,14 @@ Past Swift CodeQL failures included Swift 6 sendability issues, especially aroun
 
 ## Recent Known State
 
-As of 2026-04-25:
+As of 2026-06-20:
 
-- `main` was clean and matched `origin/main`.
-- PR #20 merged user-facing error handling.
-- PR #21 merged coverage improvements.
-- Post-merge CodeQL run `24944239628` passed on `main` before the repo became Swift-only.
+- PR #160 (`codex/production-readiness-remediation`) implements destination locking, immutable content-verified dedupe plans, quarantine verification, durable organize/dedupe/reorganize recovery, and bounded Live Photo metadata work.
+- Implementation commit `80ff492` passed hosted CI run `27896063597`, including SwiftPM, meaningful coverage, Xcode build, UI tests, accessibility audit, release archive smoke, and all repository guards.
+- Hosted CodeQL for that implementation commit was still in progress when the certification documentation was refreshed; check the current PR status before claiming it passed.
+- The release remains blocked on Developer ID/notarization credentials, the signed sandbox/external-volume matrix, the real 100,000-file / 1-TB benchmark, and final human sign-off. The video calibration gate passed on the local labeled corpus, with larger-negative-set follow-up recommended for stronger threshold confidence.
 
-Verify freshness before relying on these historical details for a new CI/debugging task.
+Verify freshness before relying on these details for a new CI/debugging or release task.
 
 ## Packaging And Launch Notes
 

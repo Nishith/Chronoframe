@@ -58,8 +58,8 @@ If the issue persists, [report it on GitHub](https://github.com/Nishith/Chronofr
 - Those files are likely corrupted or locked by another app
 - In Review, scroll to **Errors** to see which files failed
 - You have three options:
-  1. Delete the problematic file from source and retry preview
-  2. Skip it (Chronoframe will skip errors during transfer)
+  1. Leave it skipped and inspect it with another media app
+  2. Make a separate backup, then move it out of the selected source yourself if you do not want it included
   3. Check if the file is locked (right-click → Get Info → Locked) and unlock it
 
 ### Preview shows "Unknown Date" for many files
@@ -90,6 +90,19 @@ If the issue persists, [report it on GitHub](https://github.com/Nishith/Chronofr
 - **Network drive slow?** Transfer to a local drive instead
 
 You can safely retry the transfer—Chronoframe will skip files already in destination and copy the rest.
+
+If the app or Mac stopped unexpectedly, reconnect the destination drive before reopening Chronoframe. The app reconciles recorded copy state on launch. Check **History** for the recovered or pending run before removing `.organize_cache.db` or anything in `.organize_logs/`.
+
+### "Another Chronoframe operation is already using this destination"
+
+**Problem:** A preview, transfer, deduplicate commit, revert, reorganize run, CLI command, or system action refuses to start.
+
+**Solution:**
+- Let the active Chronoframe operation finish, then try again
+- Check other Chronoframe windows and Terminal sessions using `ChronoframeCLI`
+- If another Mac is writing to the same network destination, stop that run first
+- Do not delete `.chronoframe-operation.lock` to force progress; the live operating-system lock, not the file's text, controls ownership
+- If no operation is running after a crash, reopen Chronoframe normally—the operating system releases abandoned locks automatically
 
 ### Destination folder has permission issues
 
@@ -163,6 +176,26 @@ You can safely retry the transfer—Chronoframe will skip files already in desti
 - Click a group on the left and choose which items to keep and which to delete (or use **Auto-Accept Safe** for the obvious exact copies)
 - The **Move to Trash** button activates once at least one file is marked for removal
 
+### Deduplicate says a file changed after the scan
+
+**Problem:** A planned file, pair, or sidecar was skipped as stale when you clicked **Move to Trash**.
+
+**Solution:**
+- Chronoframe intentionally stops that mutation because the live content no longer matches the reviewed plan
+- Close any editor, sync client, or metadata tool changing the folder
+- Start a new Deduplicate scan and review the updated group
+- Do not rename quarantine-looking files manually; if a commit was interrupted, reopen Chronoframe and let recovery reconcile them
+
+### History shows an interrupted recovery badge
+
+**Problem:** A run shows **Interrupted · Needs Drive**, **Trash Location Unverified**, or **Manual Recovery Needed**.
+
+**Solution:**
+- **Needs Drive:** reconnect and unlock the named external volume, then reopen Chronoframe or refresh History
+- **Trash Location Unverified:** keep the receipt and journal in place; do not empty Trash until the state is resolved
+- **Manual Recovery Needed:** preserve `.organize_cache.db`, `.organize_logs/`, and any reported path, then contact support with sanitized logs
+- Never treat a permission prompt or disconnected drive as a missing file and clean up the evidence by hand
+
 ---
 
 ## Performance
@@ -207,9 +240,10 @@ You can safely retry the transfer—Chronoframe will skip files already in desti
 **Problem:** The folder picker is disabled or doesn't open.
 
 **Solution:**
-1. Make sure Chronoframe has folder access (System Preferences → Security & Privacy → Full Disk Access)
-2. If the folder is on an external drive, make sure it's mounted
-3. Try closing and reopening the app
+1. Re-select the folder with Chronoframe's standard folder picker
+2. Check **System Settings → Privacy & Security → Files and Folders** if macOS previously denied access
+3. If the folder is on an external drive, make sure it's mounted and unlocked
+4. Try closing and reopening the app
 
 ### External drive isn't showing up
 
@@ -230,8 +264,9 @@ You can safely retry the transfer—Chronoframe will skip files already in desti
 **Answer:**
 - Source data is **never stored** — Chronoframe reads and copies it
 - Destination data is **your files** in the folder you selected
-- Chronoframe metadata is in `.organize_cache.db` and `.organize_logs/` inside your destination folder
-- You can safely delete these folders; Chronoframe will recreate them
+- Chronoframe metadata is in `.organize_cache.db`, `.organize_logs/`, and `.organize_log.txt` inside your destination folder
+- Keep those files while a run is active, resumable, interrupted, or still needed for History/Revert
+- If all work is complete and you intentionally accept losing history and recovery evidence, Chronoframe can rebuild performance caches later
 
 ### How can I delete Chronoframe?
 
@@ -250,8 +285,9 @@ That's it—Chronoframe doesn't install anything system-wide.
 If your issue isn't covered here:
 1. Check the [FAQ](./FAQ.md) for general questions
 2. Review the [Technical Documentation](./TECHNICAL.md) for command-line and architecture details
-3. Check the [Releases page](https://github.com/Nishith/Chronoframe/releases) for known issues
-4. [Open a GitHub issue](https://github.com/Nishith/Chronoframe/issues) with details about what's happening
+3. Read [Safety and Recovery](./SAFETY_AND_RECOVERY.md) before manually changing interrupted-run artifacts
+4. Check the [Releases page](https://github.com/Nishith/Chronoframe/releases) for known issues
+5. [Open a GitHub issue](https://github.com/Nishith/Chronoframe/issues) with details about what's happening
 
 **When reporting a bug, include:**
 - Your macOS version and hardware (Intel vs. Apple Silicon)
