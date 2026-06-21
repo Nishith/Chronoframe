@@ -406,6 +406,48 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testOrganizeRunRejectedWhileDeduplicateWorking() async {
+        // Finding #7: organize and deduplicate touch the same destination and
+        // must not run concurrently.
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.deduplicateEngine.holdScanOpen = true
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        appState.startDeduplicateScan()
+        let working = await waitForCondition { harness.deduplicateSessionStore.isWorking }
+        XCTAssertTrue(working)
+
+        await appState.startPreview()
+
+        XCTAssertEqual(harness.engine.startConfigurations.count, 0, "Organize must not start while dedupe is working")
+        XCTAssertNotNil(appState.transientErrorMessage)
+
+        harness.deduplicateEngine.finishHeldScan()
+    }
+
+    @MainActor
+    func testDeduplicateScanRejectedWhileOrganizeRunning() async {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.engine.startMode = .pending
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        await appState.startPreview()
+        let running = await waitForCondition { appState.runSessionStore.isRunning }
+        XCTAssertTrue(running)
+
+        appState.startDeduplicateScan()
+
+        XCTAssertNil(harness.deduplicateEngine.lastScanConfiguration, "Dedupe must not scan while an organize run is active")
+        XCTAssertNotNil(appState.transientErrorMessage)
+
+        appState.cancelRun()
+    }
+
+    @MainActor
     func testDeduplicateScanUsesDedicatedFolderWhenSetAndFallsBackOtherwise() {
         let harness = AppStateHarness()
         harness.setupStore.destinationPath = "/Volumes/Organize"
