@@ -603,6 +603,47 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(store.logLines.contains("Finished: Revert complete"))
     }
 
+    /// A direct destination mutation (here: revert) on a network volume must
+    /// surface the same one-time network-drive advisory the organize stream
+    /// emits — the cross-host `flock` limitation applies to these paths too.
+    @MainActor
+    func testRevertOnRemoteDestinationEmitsNetworkWarning() async throws {
+        let suite = "RunSessionStoreNetworkWarn-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        addTeardownBlock { UserDefaults().removePersistentDomain(forName: suite) }
+
+        let receiptURL = tempDestinationURL
+            .appendingPathComponent(".organize_logs", isDirectory: true)
+            .appendingPathComponent("audit_receipt.json")
+        let summary = RunSummary(
+            status: .reverted,
+            title: "Revert complete",
+            metrics: RunMetrics(revertedCount: 1, skippedCount: 0, missingCount: 0),
+            artifacts: RunArtifactPaths(destinationRoot: tempDestinationURL.path, reportPath: receiptURL.path)
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(
+                RunPreflight(
+                    configuration: RunConfiguration(mode: .preview, sourcePath: "", destinationPath: tempDestinationURL.path),
+                    resolvedSourcePath: "",
+                    resolvedDestinationPath: tempDestinationURL.path
+                )
+            ),
+            revertMode: .events([.complete(summary)])
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+        store.networkAdvisory = NetworkDestinationAdvisory(defaults: defaults, isRemote: { _ in true })
+
+        store.requestRevert(receiptURL: receiptURL, destinationRoot: tempDestinationURL.path)
+        let finished = await waitForCondition { store.status == .reverted }
+        XCTAssertTrue(finished)
+
+        XCTAssertTrue(
+            store.logLines.contains { $0.contains(NetworkDestinationAdvisory.warningMessage) },
+            "revert on a network destination must emit the advisory; log was: \(store.logLines)"
+        )
+    }
+
     @MainActor
     func testReorganizeStreamUpdatesMetricsAndCompletionCopy() async throws {
         let summary = RunSummary(

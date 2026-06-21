@@ -46,6 +46,10 @@ public final class RunSessionStore: ObservableObject {
     /// epoch value at start; `consumeIfCurrent` drops events whose epoch
     /// no longer matches.
     private var currentRunEpoch: UInt64 = 0
+    /// Surfaces a one-time warning when the destination is on a network volume,
+    /// where the cross-process lock can't guarantee single-machine access.
+    /// Internal so tests can inject a stubbed advisory + scratch defaults.
+    var networkAdvisory = NetworkDestinationAdvisory()
 
     public init(engine: any OrganizerEngine, logStore: RunLogStore, historyStore: HistoryStore) {
         self.engine = engine
@@ -161,6 +165,7 @@ public final class RunSessionStore: ObservableObject {
             logsDirectoryPath: URL(fileURLWithPath: destinationRoot)
                 .appendingPathComponent(".organize_logs", isDirectory: true).path
         )
+        emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
@@ -208,6 +213,7 @@ public final class RunSessionStore: ObservableObject {
         status = .running
         currentTaskTitle = "Reorganizing…"
         artifacts = RunArtifactPaths(destinationRoot: destinationRoot)
+        emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
@@ -259,6 +265,7 @@ public final class RunSessionStore: ObservableObject {
             logsDirectoryPath: URL(fileURLWithPath: destinationRoot)
                 .appendingPathComponent(".organize_logs", isDirectory: true).path
         )
+        emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
@@ -467,6 +474,8 @@ public final class RunSessionStore: ObservableObject {
             logsDirectoryPath: URL(fileURLWithPath: preflight.resolvedDestinationPath).appendingPathComponent(".organize_logs", isDirectory: true).path
         )
 
+        emitNetworkDestinationWarningIfNeeded(forDestinationPath: preflight.resolvedDestinationPath)
+
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -488,6 +497,14 @@ public final class RunSessionStore: ObservableObject {
                 self.handleFailure(error: error)
             }
         }
+    }
+
+    /// Emit a one-time warning issue when the run targets a network volume.
+    /// Best-effort and advisory only — it never blocks the run.
+    private func emitNetworkDestinationWarningIfNeeded(forDestinationPath path: String) {
+        let root = URL(fileURLWithPath: path, isDirectory: true)
+        guard let message = networkAdvisory.warningIfNeeded(for: root) else { return }
+        consume(.issue(RunIssue(severity: .warning, message: message)))
     }
 
     private func consume(_ event: RunEvent) {
