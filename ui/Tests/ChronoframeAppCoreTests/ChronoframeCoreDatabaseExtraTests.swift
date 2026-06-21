@@ -196,7 +196,7 @@ final class ChronoframeCoreDatabaseExtraTests: XCTestCase {
         let journal = try db.journalMode()
         XCTAssertEqual(journal.lowercased(), "wal")
         let sync = try db.synchronousMode()
-        XCTAssertEqual(sync, 1) // NORMAL
+        XCTAssertEqual(sync, 2) // FULL
         // checkpoint should succeed on an empty WAL.
         try db.checkpoint()
     }

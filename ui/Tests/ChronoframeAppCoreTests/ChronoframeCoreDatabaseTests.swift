@@ -33,7 +33,7 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
         defer { database.close() }
 
         XCTAssertEqual(try database.journalMode().lowercased(), "wal")
-        XCTAssertEqual(try database.synchronousMode(), 1)
+        XCTAssertEqual(try database.synchronousMode(), 2)
 
         var rawDatabase: OpaquePointer?
         XCTAssertEqual(sqlite3_open_v2(databaseURL.path, &rawDatabase, SQLITE_OPEN_READONLY, nil), SQLITE_OK)
@@ -56,6 +56,10 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
                 SchemaColumn(name: "dst_path", type: "TEXT", primaryKeyPosition: 0),
                 SchemaColumn(name: "hash", type: "TEXT", primaryKeyPosition: 0),
                 SchemaColumn(name: "status", type: "TEXT", primaryKeyPosition: 0),
+                SchemaColumn(name: "run_id", type: "TEXT", primaryKeyPosition: 0),
+                SchemaColumn(name: "intended_dst_path", type: "TEXT", primaryKeyPosition: 0),
+                SchemaColumn(name: "actual_dst_path", type: "TEXT", primaryKeyPosition: 0),
+                SchemaColumn(name: "mutation_state", type: "TEXT", primaryKeyPosition: 0),
             ]
         )
         XCTAssertEqual(
@@ -66,6 +70,15 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
                 SchemaColumn(name: "capture_date", type: "REAL", primaryKeyPosition: 0),
                 SchemaColumn(name: "event_name", type: "TEXT", primaryKeyPosition: 0),
                 SchemaColumn(name: "updated_at", type: "REAL", primaryKeyPosition: 0),
+            ]
+        )
+        XCTAssertEqual(
+            try schemaColumns(table: "DedupeMutationIdentities", database: rawDatabase),
+            [
+                SchemaColumn(name: "path", type: "TEXT", primaryKeyPosition: 1),
+                SchemaColumn(name: "size", type: "INTEGER", primaryKeyPosition: 0),
+                SchemaColumn(name: "mtime", type: "REAL", primaryKeyPosition: 0),
+                SchemaColumn(name: "identity", type: "TEXT", primaryKeyPosition: 0),
             ]
         )
     }

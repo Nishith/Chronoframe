@@ -1,5 +1,13 @@
 # Chronoframe — Top 10 Highest Impact Improvements
 
+> **Historical prioritized findings.** This ranking records the 2026-05-24
+> review and is intentionally not rewritten as findings are fixed. The
+> remediation series through PR #160 implemented the code and test work,
+> including CI guards, durable receipts/recovery, destination serialization,
+> dedupe quarantine, and stale-plan verification. See
+> `docs/production-readiness-certification.md` for evidence and
+> `docs/remaining-work-plan.md` for the actual open gates.
+
 _Generated: 2026-05-24. Pass type: REFRESH. Supersedes prior documents in this directory._
 
 ---

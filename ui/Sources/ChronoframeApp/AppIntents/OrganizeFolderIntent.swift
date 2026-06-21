@@ -7,6 +7,14 @@ import ChronoframeAppCore
 #endif
 import Foundation
 
+enum OrganizeIntentFailureMessage {
+    static func message(summary: RunSummary?, lastErrorMessage: String?) -> String {
+        summary?.failureMessage
+            ?? lastErrorMessage
+            ?? "Chronoframe could not complete the transfer. Check that both folders are available and try again."
+    }
+}
+
 @available(macOS 14.0, *)
 public struct OrganizeFolderIntent: AppIntent {
     public static let title: LocalizedStringResource = "Organize Folder with Chronoframe"
@@ -86,7 +94,10 @@ public struct OrganizeFolderIntent: AppIntent {
         case .nothingToCopy:
             return .result(value: "No files to copy. Everything is already organized.")
         case .failed:
-            let errorMsg = session.lastErrorMessage ?? "Unknown error"
+            let errorMsg = OrganizeIntentFailureMessage.message(
+                summary: session.summary,
+                lastErrorMessage: session.lastErrorMessage
+            )
             throw NSError(
                 domain: "com.chronoframe.AppIntents",
                 code: 1002,

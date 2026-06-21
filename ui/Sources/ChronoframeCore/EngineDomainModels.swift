@@ -59,6 +59,22 @@ public struct FileCacheRecord: Equatable, Codable, Sendable {
     }
 }
 
+/// Content identity cache for files that may be mutated by deduplication but
+/// do not belong in the organizer's destination index (notably XMP sidecars).
+public struct DedupeMutationIdentityRecord: Equatable, Codable, Sendable {
+    public var path: String
+    public var size: Int64
+    public var modificationTime: TimeInterval
+    public var identity: FileIdentity
+
+    public init(path: String, size: Int64, modificationTime: TimeInterval, identity: FileIdentity) {
+        self.path = path
+        self.size = size
+        self.modificationTime = modificationTime
+        self.identity = identity
+    }
+}
+
 public struct RawFileCacheRecord: Equatable, Codable, Sendable {
     public var namespace: CacheNamespace
     public var path: String
@@ -116,22 +132,41 @@ public enum CopyJobStatus: String, Codable, CaseIterable, Sendable {
     case skipped = "SKIPPED"
 }
 
+public enum CopyMutationState: String, Codable, Sendable {
+    case intended = "INTENDED"
+    case temporaryWritten = "TEMP_WRITTEN"
+    case finalized = "FINALIZED"
+    case failed = "FAILED"
+}
+
 public struct CopyJobRecord: Equatable, Codable, Sendable {
     public var sourcePath: String
     public var destinationPath: String
     public var identity: FileIdentity
     public var status: CopyJobStatus
+    public var runID: UUID?
+    public var intendedDestinationPath: String?
+    public var actualDestinationPath: String?
+    public var mutationState: CopyMutationState?
 
     public init(
         sourcePath: String,
         destinationPath: String,
         identity: FileIdentity,
-        status: CopyJobStatus
+        status: CopyJobStatus,
+        runID: UUID? = nil,
+        intendedDestinationPath: String? = nil,
+        actualDestinationPath: String? = nil,
+        mutationState: CopyMutationState? = nil
     ) {
         self.sourcePath = sourcePath
         self.destinationPath = destinationPath
         self.identity = identity
         self.status = status
+        self.runID = runID
+        self.intendedDestinationPath = intendedDestinationPath
+        self.actualDestinationPath = actualDestinationPath
+        self.mutationState = mutationState
     }
 
     public init(plannedTransfer: PlannedTransfer, status: CopyJobStatus = .pending) {
@@ -153,17 +188,29 @@ public struct QueuedCopyJob: Equatable, Codable, Sendable {
     public var destinationPath: String
     public var hash: String
     public var status: CopyJobStatus
+    public var runID: UUID?
+    public var intendedDestinationPath: String?
+    public var actualDestinationPath: String?
+    public var mutationState: CopyMutationState?
 
     public init(
         sourcePath: String,
         destinationPath: String,
         hash: String,
-        status: CopyJobStatus
+        status: CopyJobStatus,
+        runID: UUID? = nil,
+        intendedDestinationPath: String? = nil,
+        actualDestinationPath: String? = nil,
+        mutationState: CopyMutationState? = nil
     ) {
         self.sourcePath = sourcePath
         self.destinationPath = destinationPath
         self.hash = hash
         self.status = status
+        self.runID = runID
+        self.intendedDestinationPath = intendedDestinationPath
+        self.actualDestinationPath = actualDestinationPath
+        self.mutationState = mutationState
     }
 
     public init(copyJob: CopyJobRecord) {
@@ -171,7 +218,11 @@ public struct QueuedCopyJob: Equatable, Codable, Sendable {
             sourcePath: copyJob.sourcePath,
             destinationPath: copyJob.destinationPath,
             hash: copyJob.identityString,
-            status: copyJob.status
+            status: copyJob.status,
+            runID: copyJob.runID,
+            intendedDestinationPath: copyJob.intendedDestinationPath,
+            actualDestinationPath: copyJob.actualDestinationPath,
+            mutationState: copyJob.mutationState
         )
     }
 
@@ -197,7 +248,11 @@ public struct QueuedCopyJob: Equatable, Codable, Sendable {
             sourcePath: sourcePath,
             destinationPath: destinationPath,
             identity: identity,
-            status: status
+            status: status,
+            runID: runID,
+            intendedDestinationPath: intendedDestinationPath,
+            actualDestinationPath: actualDestinationPath,
+            mutationState: mutationState
         )
     }
 }

@@ -827,7 +827,7 @@ final class DeduplicateTests: XCTestCase {
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: true)
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let paths = Set(plan.pathsToDelete)
         XCTAssertTrue(paths.contains("/dest/IMG.JPG"))
         XCTAssertTrue(paths.contains("/dest/IMG.CR2"), "Singleton RAW partner must be fanned into the plan")
@@ -857,7 +857,7 @@ final class DeduplicateTests: XCTestCase {
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: true)
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let paths = Set(plan.pathsToDelete)
         XCTAssertFalse(paths.contains("/dest/IMG.CR2"),
             "Finding #1: defaultKeep RAW partner must NOT be fanned into the plan")
@@ -886,7 +886,7 @@ final class DeduplicateTests: XCTestCase {
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest")
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let paths = Set(plan.pathsToDelete)
         XCTAssertTrue(paths.contains("/dest/DUPE.JPG"))
         XCTAssertTrue(paths.contains("/dest/DUPE.xmp"), "Sidecar must travel with its deleted parent")
@@ -923,7 +923,7 @@ final class DeduplicateTests: XCTestCase {
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: false)
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let paths = Set(plan.pathsToDelete)
         XCTAssertTrue(paths.contains("/dest/IMG.JPG"))
         XCTAssertFalse(
@@ -961,7 +961,8 @@ final class DeduplicateTests: XCTestCase {
         let blindPlan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: config
+            configuration: config,
+            snapshot: testScanSnapshot(for: [cluster])
         )
         XCTAssertTrue(
             Set(blindPlan.pathsToDelete).contains("/dest/A.xmp"),
@@ -974,7 +975,10 @@ final class DeduplicateTests: XCTestCase {
             decisions: decisions,
             clusters: [cluster],
             configuration: config,
-            allSidecarOwners: ["/dest/A.xmp": ["/dest/A.jpg", "/dest/A.heic"]]
+            snapshot: testScanSnapshot(
+                for: [cluster],
+                sidecarOwners: ["/dest/A.xmp": ["/dest/A.jpg", "/dest/A.heic"]]
+            )
         )
         let fullPaths = Set(fullPlan.pathsToDelete)
         XCTAssertTrue(fullPaths.contains("/dest/A.jpg"))
@@ -1007,7 +1011,10 @@ final class DeduplicateTests: XCTestCase {
             decisions: decisions,
             clusters: [cluster],
             configuration: config,
-            allSidecarOwners: ["/dest/A.xmp": ["/dest/A.jpg"]]
+            snapshot: testScanSnapshot(
+                for: [cluster],
+                sidecarOwners: ["/dest/A.xmp": ["/dest/A.jpg"]]
+            )
         )
         let paths = Set(plan.pathsToDelete)
         XCTAssertTrue(paths.contains("/dest/A.jpg"))
@@ -1040,7 +1047,7 @@ final class DeduplicateTests: XCTestCase {
         // Pairing disabled → RAW partner is not fanned into the plan → survives.
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: false)
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let paths = Set(plan.pathsToDelete)
         XCTAssertTrue(paths.contains("/dest/IMG.JPG"))
         XCTAssertFalse(
@@ -1065,9 +1072,28 @@ final class DeduplicateTests: XCTestCase {
         let plan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: DeduplicateConfiguration(destinationPath: "/dest")
+            configuration: DeduplicateConfiguration(destinationPath: "/dest"),
+            snapshot: testScanSnapshot(for: [cluster])
         )
         XCTAssertTrue(plan.items.isEmpty, "Safety rail: never delete every member of a cluster")
+    }
+
+    func testPlannerFailsClosedWhenMutationIdentityIsMissing() {
+        let keep = candidate(path: "/dest/keep.jpg")
+        let delete = candidate(path: "/dest/delete.jpg")
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [keep, delete],
+            suggestedKeeperIDs: [keep.id],
+            bytesIfPruned: delete.size
+        )
+        let plan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(byPath: [keep.path: .keep, delete.path: .delete]),
+            clusters: [cluster],
+            configuration: DeduplicateConfiguration(destinationPath: "/dest"),
+            snapshot: DeduplicateScanSnapshot()
+        )
+        XCTAssertTrue(plan.items.isEmpty)
     }
 
     /// Regression: previously the executor collapsed both pair toggles
@@ -1102,7 +1128,8 @@ final class DeduplicateTests: XCTestCase {
         let planRawOff = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: configRawOff
+            configuration: configRawOff,
+            snapshot: testScanSnapshot(for: [cluster])
         )
         XCTAssertTrue(Set(planRawOff.pathsToDelete).contains("/dest/IMG.JPG"))
         XCTAssertFalse(
@@ -1119,7 +1146,8 @@ final class DeduplicateTests: XCTestCase {
         let planRawOn = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: configRawOn
+            configuration: configRawOn,
+            snapshot: testScanSnapshot(for: [cluster])
         )
         XCTAssertTrue(Set(planRawOn.pathsToDelete).contains("/dest/IMG.CR2"))
     }
@@ -1153,7 +1181,8 @@ final class DeduplicateTests: XCTestCase {
         let plan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: configLivePhotoOff
+            configuration: configLivePhotoOff,
+            snapshot: testScanSnapshot(for: [cluster])
         )
         XCTAssertTrue(Set(plan.pathsToDelete).contains("/dest/IMG.HEIC"))
         XCTAssertFalse(
@@ -1194,7 +1223,8 @@ final class DeduplicateTests: XCTestCase {
         let baselinePlan = DeduplicationPlanner.plan(
             decisions: baselineDecisions,
             clusters: [cluster],
-            configuration: config
+            configuration: config,
+            snapshot: testScanSnapshot(for: [cluster])
         )
         XCTAssertTrue(
             Set(baselinePlan.pathsToDelete).contains("/dest/IMG.MOV"),
@@ -1213,7 +1243,8 @@ final class DeduplicateTests: XCTestCase {
         let overridePlan = DeduplicationPlanner.plan(
             decisions: overrideDecisions,
             clusters: [cluster],
-            configuration: config
+            configuration: config,
+            snapshot: testScanSnapshot(for: [cluster])
         )
         let overridePaths = Set(overridePlan.pathsToDelete)
         XCTAssertTrue(overridePaths.contains("/dest/IMG.HEIC"))
@@ -1254,7 +1285,8 @@ final class DeduplicateTests: XCTestCase {
         let plan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: configBothOff
+            configuration: configBothOff,
+            snapshot: testScanSnapshot(for: [cluster])
         )
         let paths = Set(plan.pathsToDelete)
         XCTAssertTrue(paths.contains("/dest/IMG.JPG"))
@@ -1283,7 +1315,7 @@ final class DeduplicateTests: XCTestCase {
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: true)
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let paths = Set(plan.pathsToDelete)
         XCTAssertFalse(paths.contains("/dest/IMG.JPG"), "Explicit Keep must never be deleted")
         XCTAssertFalse(paths.contains("/dest/IMG.CR2"), "Pair Keep-wins must protect the RAW partner")
@@ -1310,7 +1342,7 @@ final class DeduplicateTests: XCTestCase {
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatRawJpegPairsAsUnit: true)
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let paths = Set(plan.pathsToDelete)
         XCTAssertFalse(paths.contains("/dest/IMG.CR2"), "Explicit Keep must never be deleted")
         XCTAssertFalse(paths.contains("/dest/IMG.JPG"), "Pair Keep-wins must protect the partner too")
@@ -1342,7 +1374,7 @@ final class DeduplicateTests: XCTestCase {
         ])
         let config = DeduplicateConfiguration(destinationPath: "/dest", treatLivePhotoPairsAsUnit: true)
 
-        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config)
+        let plan = DeduplicationPlanner.plan(decisions: decisions, clusters: [cluster], configuration: config, snapshot: testScanSnapshot(for: [cluster]))
         let movItem = plan.items.first { $0.path == "/dest/IMG.MOV" }
         XCTAssertNotNil(movItem, "Live Photo MOV partner must be in the plan")
         XCTAssertEqual(movItem?.owningClusterID, cluster.id, "MOV partner must inherit cluster ownership for receipt")
@@ -1390,7 +1422,11 @@ final class DeduplicateTests: XCTestCase {
         let plan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: DeduplicateConfiguration(destinationPath: temporaryDirectory.path, treatLivePhotoPairsAsUnit: true)
+            configuration: DeduplicateConfiguration(destinationPath: temporaryDirectory.path, treatLivePhotoPairsAsUnit: true),
+            snapshot: testScanSnapshot(
+                for: [cluster],
+                additionalIdentities: [movURL.path: testFileIdentity(at: movURL)]
+            )
         )
         let movItem = try XCTUnwrap(plan.items.first { $0.path == movURL.path })
         XCTAssertEqual(movItem.sizeBytes, 64)
@@ -1424,7 +1460,8 @@ final class DeduplicateTests: XCTestCase {
                 sizeBytes: 16,
                 owningClusterID: UUID(),
                 owningClusterKind: .burst,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: fileURL)
             )
         ])
 
@@ -1470,20 +1507,25 @@ final class DeduplicateTests: XCTestCase {
         try Data(repeating: 0xBB, count: 64).write(to: movURL)
 
         let clusterID = UUID()
+        let mutationUnitID = UUID()
         let plan = DeduplicationPlan(items: [
             DeduplicationPlan.Item(
                 path: heicURL.path,
                 sizeBytes: 32,
                 owningClusterID: clusterID,
                 owningClusterKind: .burst,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: heicURL),
+                mutationUnitID: mutationUnitID
             ),
             DeduplicationPlan.Item(
                 path: movURL.path,
                 sizeBytes: 64,
                 owningClusterID: clusterID,
                 owningClusterKind: .burst,
-                pairOrigin: .livePhoto
+                pairOrigin: .livePhoto,
+                expectedIdentity: testFileIdentity(at: movURL),
+                mutationUnitID: mutationUnitID
             ),
         ])
 
@@ -1564,7 +1606,8 @@ final class DeduplicateTests: XCTestCase {
                 sizeBytes: 24,
                 owningClusterID: UUID(),
                 owningClusterKind: .exactDuplicate,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: fileURL)
             ),
         ])
 
@@ -1626,14 +1669,16 @@ final class DeduplicateTests: XCTestCase {
                 sizeBytes: 1,
                 owningClusterID: UUID(),
                 owningClusterKind: .exactDuplicate,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: firstURL)
             ),
             DeduplicationPlan.Item(
                 path: secondURL.path,
                 sizeBytes: 1,
                 owningClusterID: UUID(),
                 owningClusterKind: .exactDuplicate,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: secondURL)
             ),
         ])
 
@@ -1654,7 +1699,7 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertEqual(receipt.items.compactMap(\.trashURL).count, 1)
     }
 
-    func testConvenienceCommitBuildsPlanAndUsesTrashOnly() async throws {
+    func testImmutablePlanCommitUsesTrashOnly() async throws {
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("DedupeConvenienceCommit-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
@@ -1693,10 +1738,19 @@ final class DeduplicateTests: XCTestCase {
         ))
 
         var summary: DeduplicateCommitSummary?
-        for try await event in executor.commit(
+        let plan = DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: [cluster],
-            configuration: DeduplicateConfiguration(destinationPath: temporaryDirectory.path)
+            configuration: DeduplicateConfiguration(destinationPath: temporaryDirectory.path),
+            snapshot: DeduplicateScanSnapshot(identitiesByPath: [
+                deleteURL.path: testFileIdentity(at: deleteURL),
+                keepURL.path: testFileIdentity(at: keepURL),
+            ])
+        )
+        for try await event in executor.commit(
+            plan: plan,
+            destinationRoot: temporaryDirectory.path,
+            hardDelete: false
         ) {
             if case let .complete(commitSummary) = event {
                 summary = commitSummary
@@ -1730,14 +1784,16 @@ final class DeduplicateTests: XCTestCase {
                 sizeBytes: 1,
                 owningClusterID: UUID(),
                 owningClusterKind: .exactDuplicate,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: failingURL)
             ),
             DeduplicationPlan.Item(
                 path: okURL.path,
                 sizeBytes: 2,
                 owningClusterID: UUID(),
                 owningClusterKind: .exactDuplicate,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: okURL)
             ),
         ])
 
@@ -2649,7 +2705,10 @@ private final class MockDeduplicateFileOperations: DeduplicateFileOperations, @u
     }
 
     func trashItem(at url: URL) throws -> URL? {
-        if let error = trashErrors[url.path] {
+        let matchingError = trashErrors.first { originalPath, _ in
+            url.lastPathComponent.hasSuffix(URL(fileURLWithPath: originalPath).lastPathComponent)
+        }?.value
+        if let error = matchingError {
             throw error
         }
         let root = trashRoot ?? URL(fileURLWithPath: NSTemporaryDirectory())

@@ -376,7 +376,8 @@ public struct ChronoframeCLI {
 
         let engine = SwiftOrganizerEngine(profilesRepository: profilesRepository)
         let configuration = options.runConfiguration()
-        let preflight = try await engine.preflight(configuration)
+        let preparedRun = try await engine.prepare(configuration)
+        let preflight = preparedRun.preflight
         let stream: AsyncThrowingStream<RunEvent, Error>
 
         if configuration.mode == .transfer {
@@ -396,7 +397,12 @@ public struct ChronoframeCLI {
             stream = try engine.start(preflight.configuration)
         }
 
-        return try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
+        return try await withTaskCancellationHandler {
+            defer { preparedRun.lease.release() }
+            return try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
+        } onCancel: {
+            preparedRun.lease.release()
+        }
     }
 
     private static func transferDecision(
@@ -453,9 +459,21 @@ public struct ChronoframeCLI {
     private static func runRevert(options: CLIOptions, receiptPath: String, output: Output) async throws -> RunStatus? {
         let receiptURL = URL(fileURLWithPath: receiptPath)
         let destinationRoot = options.destinationPath ?? destinationBoundary(for: receiptURL)
+        let rootURL = URL(fileURLWithPath: destinationRoot, isDirectory: true)
+        let lease = try DestinationOperationLock.acquire(
+            destinationRoot: rootURL,
+            surface: "CLI",
+            operation: "revert"
+        )
+        _ = MutationRecoveryCoordinator().recover(destinationRoot: rootURL)
         let engine = SwiftOrganizerEngine()
         let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
-        return try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
+        return try await withTaskCancellationHandler {
+            defer { lease.release() }
+            return try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
+        } onCancel: {
+            lease.release()
+        }
     }
 
     /// Streams events to `output` and returns the run's terminal status (from

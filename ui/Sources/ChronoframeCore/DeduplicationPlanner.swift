@@ -1,4 +1,3 @@
-import Darwin
 import Foundation
 
 /// Single source of truth for "what files will the executor mutate, given
@@ -27,7 +26,7 @@ public enum DeduplicationPlanner {
         decisions: DedupeDecisions,
         clusters: [DuplicateCluster],
         configuration: DeduplicateConfiguration,
-        allSidecarOwners: [String: Set<String>] = [:]
+        snapshot: DeduplicateScanSnapshot
     ) -> DeduplicationPlan {
         // 1. Effective decision per cluster member.
         struct Effective {
@@ -42,6 +41,7 @@ public enum DeduplicationPlanner {
             case defaultKeep
         }
         var effective: [String: Effective] = [:]
+        var mutationUnitByPath: [String: UUID] = [:]
         for cluster in clusters {
             let suggestedKeepers = Set(cluster.suggestedKeeperIDs.prefix(1))
             let canAutoSelectDeletes = isAutomaticCommitEligible(cluster)
@@ -64,6 +64,15 @@ public enum DeduplicationPlanner {
                     cluster: cluster,
                     member: member
                 )
+                if let partner = member.pairedPath,
+                   pairKindEnabled(pairKind(for: member), in: configuration)
+                {
+                    let unitID = mutationUnitByPath[member.path]
+                        ?? mutationUnitByPath[partner]
+                        ?? UUID()
+                    mutationUnitByPath[member.path] = unitID
+                    mutationUnitByPath[partner] = unitID
+                }
             }
         }
 
@@ -107,18 +116,18 @@ public enum DeduplicationPlanner {
         for cluster in clusters where !skipped.contains(cluster.id) {
             for member in cluster.members {
                 guard effective[member.path]?.decision == .delete else { continue }
+                guard let expectedIdentity = snapshot.identitiesByPath[member.path] else {
+                    continue
+                }
                 planItems[member.path] = DeduplicationPlan.Item(
                     path: member.path,
-                    sizeBytes: member.size,
+                    sizeBytes: expectedIdentity.size,
                     owningClusterID: cluster.id,
                     owningClusterKind: cluster.kind,
                     pairOrigin: nil,
                     mediaKind: member.mediaKind,
-                    // Identity from the in-memory candidate — no extra I/O.
-                    scanIdentity: DeduplicationPlan.ScanIdentity(
-                        sizeBytes: member.size,
-                        modificationTime: member.modificationTime
-                    )
+                    expectedIdentity: expectedIdentity,
+                    mutationUnitID: mutationUnitByPath[member.path]
                 )
             }
         }
@@ -147,19 +156,20 @@ public enum DeduplicationPlanner {
                     continue
                 }
                 if planItems[partner] != nil { continue }
-                let partnerSize = effective[partner]?.member.size ?? fileSize(at: partner)
+                guard let expectedIdentity = snapshot.identitiesByPath[partner] else {
+                    continue
+                }
                 let partnerMediaKind = effective[partner]?.member.mediaKind
                     ?? (MediaLibraryRules.isVideoFile(path: partner) ? .video : .photo)
                 planItems[partner] = DeduplicationPlan.Item(
                     path: partner,
-                    sizeBytes: partnerSize,
+                    sizeBytes: expectedIdentity.size,
                     owningClusterID: owningItem.owningClusterID,
                     owningClusterKind: owningItem.owningClusterKind,
                     pairOrigin: kind == .livePhoto ? .livePhoto : .rawJpeg,
                     mediaKind: partnerMediaKind,
-                    // Partner may be a singleton outside any cluster, so its
-                    // identity isn't in `effective`; capture it live.
-                    scanIdentity: fileIdentity(at: partner, knownSize: partnerSize)
+                    expectedIdentity: expectedIdentity,
+                    mutationUnitID: mutationUnitByPath[partner] ?? mutationUnitByPath[member.path]
                 )
             }
         }
@@ -180,7 +190,7 @@ public enum DeduplicationPlanner {
         // deletion gate, so the sidecar would be trashed while a referencing
         // photo survives. Merging the cluster-derived owners below keeps the
         // map correct even when an older caller passes nothing.
-        var ownersBySidecar: [String: Set<String>] = allSidecarOwners
+        var ownersBySidecar: [String: Set<String>] = snapshot.sidecarOwners
         var memberByPath: [String: PhotoCandidate] = [:]
         for cluster in clusters {
             for member in cluster.members {
@@ -201,15 +211,18 @@ public enum DeduplicationPlanner {
             guard !anyOwnerHasSurvivingPartner else { continue }
             guard let anchorPath = owners.sorted().first,
                   let anchorItem = planItems[anchorPath] else { continue }
-            let sidecarIdentity = fileIdentity(at: sidecar)
+            guard let sidecarIdentity = snapshot.identitiesByPath[sidecar] else {
+                continue
+            }
             planItems[sidecar] = DeduplicationPlan.Item(
                 path: sidecar,
-                sizeBytes: sidecarIdentity.sizeBytes,
+                sizeBytes: sidecarIdentity.size,
                 owningClusterID: anchorItem.owningClusterID,
                 owningClusterKind: anchorItem.owningClusterKind,
                 pairOrigin: .sidecar,
                 mediaKind: .photo,
-                scanIdentity: sidecarIdentity
+                expectedIdentity: sidecarIdentity,
+                sidecarOwnerPaths: owners
             )
         }
 
@@ -298,23 +311,4 @@ public enum DeduplicationPlanner {
         }
     }
 
-    static func fileSize(at path: String) -> Int64 {
-        let attrs = (try? FileManager.default.attributesOfItem(atPath: path)) ?? [:]
-        return (attrs[.size] as? NSNumber)?.int64Value ?? 0
-    }
-
-    /// Capture a file's identity (size + modification time) for stale-plan
-    /// detection at commit time (Finding #1). Uses `lstat` so the recorded
-    /// mtime is in the same Unix-epoch/nanosecond form the scanner stores on
-    /// `PhotoCandidate`, letting the executor compare them exactly. A missing
-    /// file yields `modificationTime == nil`; the executor's own re-stat then
-    /// catches it as stale.
-    static func fileIdentity(at path: String, knownSize: Int64? = nil) -> DeduplicationPlan.ScanIdentity {
-        var st = stat()
-        guard lstat(path, &st) == 0 else {
-            return DeduplicationPlan.ScanIdentity(sizeBytes: knownSize ?? 0, modificationTime: nil)
-        }
-        let mtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
-        return DeduplicationPlan.ScanIdentity(sizeBytes: knownSize ?? Int64(st.st_size), modificationTime: mtime)
-    }
 }

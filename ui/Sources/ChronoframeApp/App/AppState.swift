@@ -162,8 +162,35 @@ final class AppState: ObservableObject {
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
             restoreDeduplicateDestinationBookmark()
+            recoverInterruptedMutationsAfterBootstrap()
         }
         self.menuBarManager = MenuBarStatusManager(appState: self)
+    }
+
+    private func recoverInterruptedMutationsAfterBootstrap() {
+        let paths = Set([
+            setupStore.destinationPath,
+            deduplicateDestinationPath,
+        ].map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+        for path in paths {
+            let scope = destinationSecurityScope(destinationRoot: path)
+            let root = URL(fileURLWithPath: path, isDirectory: true)
+            do {
+                let lease = try DestinationOperationLock.acquire(
+                    destinationRoot: root,
+                    surface: "app launch",
+                    operation: "recovery"
+                )
+                _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+                lease.release()
+            } catch is DestinationBusyError {
+                // A live process owns the destination. Its journal remains
+                // intact and recovery will be retried on history refresh.
+            } catch {
+                transientErrorMessage = UserFacingErrorMessage.message(for: error, context: .history)
+            }
+            scope?.close()
+        }
     }
 
     var canStartRun: Bool {

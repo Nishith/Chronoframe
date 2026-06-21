@@ -274,7 +274,7 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
                 status: .decodeFailed
             )
         }
-        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        let asset = Self.restrictedAsset(path: path)
         guard let metadata = Self.loadTrackMetadata(asset: asset),
               metadata.duration.isFinite, metadata.duration > 0 else {
             return VideoMetadataProbe(
@@ -363,7 +363,7 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
         guard metadata.status == .ready else {
             return makeFeatures(status: metadata.status)
         }
-        let asset = AVURLAsset(url: URL(fileURLWithPath: path))
+        let asset = Self.restrictedAsset(path: path)
         let duration = metadata.durationSeconds
         let width = metadata.transformedWidth
         let height = metadata.transformedHeight
@@ -425,6 +425,20 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
             width: width,
             height: height,
             frameHashes: slots
+        )
+    }
+
+    private static func restrictedAsset(path: String) -> AVURLAsset {
+        // Preserve AVFoundation's calibrated timing behavior for perceptual
+        // frame extraction while preventing containers from resolving any
+        // external media references.
+        AVURLAsset(
+            url: URL(fileURLWithPath: path),
+            options: [
+                AVURLAssetReferenceRestrictionsKey: NSNumber(
+                    value: AVAssetReferenceRestrictions.forbidAll.rawValue
+                ),
+            ]
         )
     }
 

@@ -11,6 +11,15 @@ import ImageIO
 ///    Apple Content Identifier (ImageIO key 17 in maker-Apple, QuickTime
 ///    `com.apple.quicktime.content.identifier` in the movie).
 public enum DeduplicatePairDetector {
+    public struct DetectionResult: Sendable, Equatable {
+        public var pairs: [String: Pair]
+        public var unsupportedMoviePaths: Set<String>
+
+        public init(pairs: [String: Pair] = [:], unsupportedMoviePaths: Set<String> = []) {
+            self.pairs = pairs
+            self.unsupportedMoviePaths = unsupportedMoviePaths
+        }
+    }
     public static let rawExtensions: Set<String> = [
         ".dng", ".nef", ".cr2", ".cr3", ".arw", ".raf", ".orf", ".rw2",
     ]
@@ -43,7 +52,23 @@ public enum DeduplicatePairDetector {
     /// Scan the given paths and return a map from path → partner path for
     /// every detected pair. Paths that have no partner are absent from the
     /// map. Each pair's two members both appear as keys (mutual link).
-    public static func detectPairs(in paths: [String]) -> [String: Pair] {
+    public static func detectPairs(
+        in paths: [String],
+        includeLivePhotos: Bool,
+        movieMetadataLoader: any LivePhotoMetadataLoading = BoundedLivePhotoMetadataLoader()
+    ) async -> [String: Pair] {
+        await detectPairResult(
+            in: paths,
+            includeLivePhotos: includeLivePhotos,
+            movieMetadataLoader: movieMetadataLoader
+        ).pairs
+    }
+
+    public static func detectPairResult(
+        in paths: [String],
+        includeLivePhotos: Bool,
+        movieMetadataLoader: any LivePhotoMetadataLoading = BoundedLivePhotoMetadataLoader()
+    ) async -> DetectionResult {
         var pairs: [String: Pair] = [:]
 
         let rawJpegByBasename = groupByBasename(paths)
@@ -63,6 +88,8 @@ public enum DeduplicatePairDetector {
             }
         }
 
+        guard includeLivePhotos, !Task.isCancelled else { return DetectionResult(pairs: pairs) }
+
         // Live Photo: read content identifier from each HEIC and from each
         // sibling MOV; match within the same parent directory.
         let heicByDirectory = groupByDirectory(paths.filter { $0.lowercased().hasSuffix(".heic") })
@@ -70,13 +97,15 @@ public enum DeduplicatePairDetector {
             let ext = MediaLibraryRules.normalizedExtension(for: $0)
             return ext == ".mov" || ext == ".m4v"
         })
+        let allMovieMetadata = await movieMetadataLoader.loadIdentifiers(
+            for: movByDirectory.values.flatMap { $0 }.map { URL(fileURLWithPath: $0) }
+        )
 
         for (directory, heics) in heicByDirectory {
             guard let movs = movByDirectory[directory] else { continue }
-            let movByIdentifier = movs.reduce(into: [String: String]()) { acc, path in
-                if let id = livePhotoIdentifier(forMovieAt: URL(fileURLWithPath: path)) {
-                    acc[id] = path
-                }
+            let moviePaths = Set(movs)
+            let movByIdentifier = allMovieMetadata.identifiersByPath.reduce(into: [String: String]()) { acc, entry in
+                if moviePaths.contains(entry.key) { acc[entry.value] = entry.key }
             }
             guard !movByIdentifier.isEmpty else { continue }
 
@@ -89,7 +118,10 @@ public enum DeduplicatePairDetector {
             }
         }
 
-        return pairs
+        return DetectionResult(
+            pairs: pairs,
+            unsupportedMoviePaths: allMovieMetadata.unsupportedPaths
+        )
     }
 
     /// Maps each media path to any co-located sidecar files that share its
@@ -162,30 +194,9 @@ public enum DeduplicatePairDetector {
 
     /// Read the Apple Content Identifier from a QuickTime movie's metadata.
     /// Returns nil if the file is not the .mov half of a Live Photo.
-    /// Upper bound on how long reading one movie's Live Photo identifier may
-    /// block pairing (Finding #6). A stalled/offline container is treated as
-    /// "not a Live Photo" past this deadline instead of hanging the scan.
-    static let livePhotoMetadataTimeoutSeconds: Double = 30
-
-    public static func livePhotoIdentifier(forMovieAt url: URL) -> String? {
-        BoundedAsyncBridge.run(timeout: .now() + livePhotoMetadataTimeoutSeconds) {
-            await livePhotoIdentifierForMovie(at: url)
-        }
-    }
-
-    private static func livePhotoIdentifierForMovie(at url: URL) async -> String? {
-        let asset = AVURLAsset(url: url)
-        guard let metadata = try? await asset.load(.metadata) else { return nil }
-        for item in metadata {
-            guard
-                item.identifier?.rawValue == "mdta/com.apple.quicktime.content.identifier"
-            else {
-                continue
-            }
-            if let value = try? await item.load(.stringValue) {
-                return value
-            }
-        }
-        return nil
+    public static func livePhotoIdentifier(forMovieAt url: URL) async -> String? {
+        await BoundedLivePhotoMetadataLoader()
+            .loadIdentifiers(for: [url])
+            .identifiersByPath[url.path]
     }
 }

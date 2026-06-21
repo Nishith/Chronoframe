@@ -1,5 +1,13 @@
 # Chronoframe — Implementation Plans for Top 3
 
+> **Historical audit artifact.** This file preserves the 2026-05-24 proposals
+> and should not be used as the current implementation plan. The invariant CI
+> guard, durable receipt finalization, destination locking, dedupe quarantine,
+> mutation journaling, and startup recovery are implemented through PRs
+> #152–#160. Use `AGENTS.md`, `docs/SAFETY_AND_RECOVERY.md`,
+> `docs/TECHNICAL.md`, and `docs/remaining-work-plan.md` for current behavior and
+> remaining work.
+
 _Generated: 2026-05-24. Supersedes prior documents in this directory._
 
 Plans for the three findings with the highest SEV × LIK × BLAST × LEV scores:

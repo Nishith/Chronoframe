@@ -1,6 +1,6 @@
 # Chronoframe Redesign — Execution State
 
-**Linked plan:** [`~/.claude/plans/vivid-crafting-firefly.md`](../../../../.claude/plans/vivid-crafting-firefly.md)
+**Historical plan:** `~/.claude/plans/vivid-crafting-firefly.md` (local planning artifact; not stored in this repository)
 **Branch:** `claude/stoic-swirles-4e4c34` (worktree `stoic-swirles-4e4c34`)
 
 > **Historical record.** All phases below are complete and this redesign effort has shipped. The doc is kept as a point-in-time log, not a description of the current app — some specifics captured mid-effort have since evolved (for example, Settings has grown past the 3 tabs noted in Phase 5). For the current visual language see [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) and the "UI language" notes in `AGENTS.md`.
@@ -30,7 +30,7 @@ Legend: ⚪ not started · 🟡 in progress · 🟢 complete · 🔴 blocked
 **Goal:** Swap tokens, typography scale, and dark-mode-aware colors. No view redesign yet.
 
 **Deliverables**
-- [x] `DesignTokens.swift` rewritten with semantic palette (`ColorSystem.*`) using `NSColor(name:dynamicProvider:)` for macOS 13+ dynamic colors
+- [x] `DesignTokens.swift` rewritten with semantic palette (`ColorSystem.*`) using native dynamic `NSColor` providers
 - [x] Typography moved from SF Rounded (`.rounded` design) to SF Pro (`.default` design)
 - [x] New `Spacing` enum added in `DesignTokens`
 - [x] New `Motion` enum + `.motion(_:value:)` reduce-motion-aware view modifier (`Motion.swift`)
@@ -50,7 +50,7 @@ Legend: ⚪ not started · 🟡 in progress · 🟢 complete · 🔴 blocked
 - `swift test --package-path ui --filter ChronoframePackagingTests` — ✅ 6 pass
 
 **Notes for future phases**
-- Minimum deployment is macOS 13; `Color(light:dark:)` requires macOS 14. We use `NSColor(name:dynamicProvider:)` wrapped via `Color(nsColor:)` — works on 13+.
+- The shipped source now targets macOS 14 or later. This historical implementation used `NSColor(name:dynamicProvider:)` rather than `Color(light:dark:)`; retain that choice unless the current design system deliberately migrates it.
 - The legacy `Color.mist` and `Color.cloud` are still literal `Color.white.opacity(...)` — intentional; they're only referenced by the `MeridianSurfaceCard` gradients which get retired in Phase 2.
 - The `accessibilityReduceMotion` gate lives in `ReduceMotionAnimationModifier` — use `.motion(_:value:)` everywhere instead of `.animation(_:value:)` for any animation that should respect Reduce Motion.
 

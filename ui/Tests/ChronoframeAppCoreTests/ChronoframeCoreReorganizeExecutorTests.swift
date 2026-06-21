@@ -340,7 +340,7 @@ final class ChronoframeCoreReorganizeExecutorTests: XCTestCase {
         let result = try ReorganizeExecutor().execute(plan: plan)
         let receipt = try decodeReceipt(at: try XCTUnwrap(result.receiptPath))
 
-        XCTAssertEqual(receipt.schemaVersion, 1)
+        XCTAssertEqual(receipt.schemaVersion, 2)
         XCTAssertEqual(receipt.operation, "reorganize")
         XCTAssertEqual(receipt.status, "COMPLETED")
         XCTAssertEqual(receipt.destinationRoot, temporaryDirectoryURL.standardizedFileURL.path)

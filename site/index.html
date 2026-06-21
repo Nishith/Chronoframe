@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Chronoframe: Organize photos &amp; find duplicate media on Mac</title>
-  <meta name="description" content="Chronoframe organizes scattered photos and videos into one clean, dated library, finds exact duplicate photos and videos, and helps you review similar photos safely. On-device, no uploads." />
+  <meta name="description" content="Chronoframe safely organizes scattered photos and videos, reviews exact and similar duplicates, and records interruption recovery. On-device, no uploads." />
   <meta name="theme-color" content="#161618" />
   <link rel="canonical" href="https://chronoframe.app/" />
   <meta property="og:title" content="Chronoframe: Organize photos &amp; find duplicate media on Mac" />
-  <meta property="og:description" content="Turn scattered photo and video folders into one clean, dated library, then review exact duplicates and similar photos without touching your originals." />
+  <meta property="og:description" content="Turn scattered photo and video folders into one clean, dated library, review duplicates safely, and recover recorded work after interruptions without touching your originals." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://chronoframe.app/" />
   <meta property="og:image" content="https://chronoframe.app/og-card.jpg?v=20260525" />
@@ -16,7 +16,7 @@
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Chronoframe: Organize photos &amp; find duplicate media on Mac" />
-  <meta name="twitter:description" content="Turn scattered photo and video folders into one clean, dated library, then review exact duplicates and similar photos without touching your originals." />
+  <meta name="twitter:description" content="Organize scattered media, review duplicates safely, and recover recorded work after interruptions without touching your originals." />
   <meta name="twitter:image" content="https://chronoframe.app/og-card.jpg?v=20260525" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20260523-f" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260523-f" />
@@ -45,7 +45,7 @@
       <ul class="hero-assurance">
         <li>Read-only on your originals</li>
         <li>Preview every change</li>
-        <li>Undo supported runs</li>
+        <li>Recover or undo supported runs</li>
       </ul>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">Download on the Mac App Store</a>
@@ -92,7 +92,7 @@
           <img src="assets/screenshots/dedupe-savings.jpg" alt="Chronoframe Deduplicate showing recent folders with files removed and space saved." />
           <div class="icon">&#128269;</div>
           <h3>Get your storage back</h3>
-          <p>Find exact photo and video copies by content, not filename, then review similar photos, bursts, RAW+JPEG pairs, and Live Photos. You choose what to keep; everything you approve moves to the macOS Trash, never a hard delete.</p>
+          <p>Find exact photo and video copies by content, not filename, then review similar photos, bursts, RAW+JPEG pairs, Live Photos, and optional visual video matches. You choose what to keep; everything you approve moves to the macOS Trash, never a hard delete.</p>
         </article>
       </div>
       <div class="grid grid-3 feature-details">
@@ -104,7 +104,7 @@
         <article class="card">
           <div class="icon">&#9825;</div>
           <h3>Check library health</h3>
-          <p>Scan for unknown dates, exact duplicate hints, interrupted work, folder-structure drift, and anything that could make an undo unsafe.</p>
+          <p>Scan for unknown dates, exact duplicate hints, interrupted work, folder-structure drift, and anything that could make an undo unsafe. Recovery badges tell you when a drive or manual action is needed.</p>
         </article>
         <article class="card">
           <div class="icon">&#8634;</div>
@@ -168,6 +168,14 @@
           <span class="check">&#10003;</span>
           <span><strong>Duplicates go to Trash</strong>Files you approve for removal move to the macOS Trash, never permanent delete.</span>
         </li>
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>Interruptions leave evidence</strong>Chronoframe records mutation state, reconciles it on relaunch, and fails closed when a drive or filesystem state cannot be verified.</span>
+        </li>
+        <li>
+          <span class="check">&#10003;</span>
+          <span><strong>Runs cannot race each other</strong>Only one app, command-line, or system action can change a destination at a time.</span>
+        </li>
       </ul>
     </div>
   </section>
@@ -180,7 +188,7 @@
         <div class="step"><span class="num"></span><div><strong>Choose a folder to organize or scan.</strong> Pick source and destination folders for Organize, or point Deduplicate at the library you want to review.</div></div>
         <div class="step"><span class="num"></span><div><strong>Preview before anything changes.</strong> See what will copy, what needs attention, and what duplicate groups need a keep/delete decision.</div></div>
         <div class="step"><span class="num"></span><div><strong>Organize into a clean library.</strong> Copy files into a date-based destination while originals remain untouched.</div></div>
-        <div class="step"><span class="num"></span><div><strong>Deduplicate with review.</strong> Find exact photo and video copies, compare similar photos, and move only approved files to Trash.</div></div>
+        <div class="step"><span class="num"></span><div><strong>Deduplicate with review.</strong> Find exact copies, compare similar photos and optional visual video matches, and move only content-verified approved files to Trash.</div></div>
       </div>
     </div>
   </section>
@@ -235,7 +243,7 @@
         </div>
         <div class="qa">
           <p class="q">What happens if a transfer is interrupted?</p>
-          <p class="a">Each file is written safely to a temporary spot and only then put into place, so an interrupted run can't leave a half-written photo. Your originals stay untouched, and you can simply run it again.</p>
+          <p class="a">Each file is written safely to a temporary spot and only then put into place. Chronoframe records mutation state and reconciles interrupted work when you reopen it with the destination drive connected. History shows when a drive or manual action is still needed; your originals stay untouched.</p>
         </div>
         <div class="qa">
           <p class="q">Can I undo it?</p>

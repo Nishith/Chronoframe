@@ -38,9 +38,20 @@ public enum OrganizerEngineError: LocalizedError {
     }
 }
 
+public final class PreparedRun: @unchecked Sendable {
+    public let preflight: RunPreflight
+    public let lease: DestinationOperationLease
+
+    public init(preflight: RunPreflight, lease: DestinationOperationLease) {
+        self.preflight = preflight
+        self.lease = lease
+    }
+}
+
 @MainActor
 public protocol OrganizerEngine: AnyObject {
     func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight
+    func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error>
     func resume(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error>
     func cancelCurrentRun()
@@ -61,6 +72,19 @@ public protocol OrganizerEngine: AnyObject {
 }
 
 extension OrganizerEngine {
+    public func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
+        let preflight = try await preflight(configuration)
+        let lease = try DestinationOperationLock.acquire(
+            destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true),
+            surface: "app",
+            operation: configuration.mode.rawValue
+        )
+        _ = MutationRecoveryCoordinator().recover(
+            destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true)
+        )
+        return PreparedRun(preflight: preflight, lease: lease)
+    }
+
     public func revert(receiptURL: URL, destinationRoot: String) throws -> AsyncThrowingStream<RunEvent, Error> {
         throw OrganizerEngineError.failedToLaunch("Revert is not supported by this engine.")
     }

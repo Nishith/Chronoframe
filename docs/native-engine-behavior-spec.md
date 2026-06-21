@@ -5,6 +5,29 @@ was ported against. The old backend is no longer shipped, but these rules and
 fixtures remain useful compatibility guardrails for existing Chronoframe
 artifacts.
 
+This is a compatibility document, not the complete current safety architecture.
+The native engine now adds UUID-suffixed status-aware receipts, destination-wide
+operation locking, durable mutation intent, startup reconciliation, immutable
+dedupe plans, quarantine verification, and sandbox-aware recovery. Those are
+documented in [Safety and Recovery](SAFETY_AND_RECOVERY.md),
+[Technical Documentation](TECHNICAL.md), and `AGENTS.md`; they may strengthen
+this frozen contract but must not weaken it.
+
+## Current Native Safety Extensions
+
+- Every destination-changing operation acquires the non-blocking cross-process
+  lock at `.organize_logs/.chronoframe-operation.lock`.
+- Organize, deduplicate, and reorganize persist recoverable state before
+  mutation where possible and reconcile pending work on relaunch.
+- Destination cache hits are hints only: current existence, size, and mtime are
+  validated before a cached identity is trusted.
+- Deduplicate previews and commits consume one immutable, content-verified
+  `DeduplicationPlan`; missing target identities fail closed.
+- Dedupe mutation units use same-directory quarantine, `O_NOFOLLOW` descriptor
+  verification, pair-unit rollback, and Trash-only commit.
+- Filesystem permission denial or a disconnected volume is represented as
+  inaccessible recovery state, never silently collapsed into "missing."
+
 ## Stable CLI Surface
 
 - Keep the current flags and meanings unchanged:

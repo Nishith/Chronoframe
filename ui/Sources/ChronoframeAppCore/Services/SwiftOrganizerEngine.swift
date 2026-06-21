@@ -652,7 +652,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                                 hashErrorCount: result.counts.hashErrorCount,
                                 dateHistogram: result.dateHistogram
                             ),
-                            artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
+                            artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL),
+                            failureMessage: "Chronoframe could not read \(result.counts.hashErrorCount) source file(s), so nothing was copied. Originals were left untouched; check file access and try again."
                         )
                     )
                 )
@@ -771,7 +772,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         skippedCount: executionResult.skippedCount,
                         dateHistogram: result.dateHistogram
                     ),
-                    artifacts: executionResult.artifacts
+                    artifacts: executionResult.artifacts,
+                    failureMessage: completedStatus == .failed
+                        ? "The transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched."
+                        : nil
                 )
             )
         )
@@ -894,7 +898,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         skippedCount: executionResult.skippedCount,
                         dateHistogram: resumedHistogram
                     ),
-                    artifacts: executionResult.artifacts
+                    artifacts: executionResult.artifacts,
+                    failureMessage: completedStatus == .failed
+                        ? "The resumed transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched."
+                        : nil
                 )
             )
         )

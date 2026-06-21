@@ -1,5 +1,12 @@
 # System Understanding: Chronoframe
 
+> **Historical architecture snapshot.** This document describes the system as
+> reviewed on 2026-05-24. It predates the PR #160 destination lock, immutable
+> dedupe scan snapshot/plan, same-directory quarantine, schema-v2 mutation
+> journal, sandbox-aware recovery coordinator, and bounded Live Photo metadata
+> loader. Use `AGENTS.md`, `docs/TECHNICAL.md`, and
+> `docs/SAFETY_AND_RECOVERY.md` for the current architecture.
+
 _Generated: 2026-05-24. Pass type: REFRESH (prior review artifacts exist; code has changed since prior pass). This review supersedes prior documents in this directory._
 
 ---

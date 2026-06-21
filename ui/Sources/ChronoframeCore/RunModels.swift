@@ -413,17 +413,20 @@ public struct RunSummary: Equatable, Codable, Sendable {
     public var title: String
     public var metrics: RunMetrics
     public var artifacts: RunArtifactPaths
+    public var failureMessage: String?
 
     public init(
         status: RunStatus,
         title: String,
         metrics: RunMetrics,
-        artifacts: RunArtifactPaths
+        artifacts: RunArtifactPaths,
+        failureMessage: String? = nil
     ) {
         self.status = status
         self.title = title
         self.metrics = metrics
         self.artifacts = artifacts
+        self.failureMessage = failureMessage
     }
 }
 

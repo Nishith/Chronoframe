@@ -1,5 +1,14 @@
 # Chronoframe — Phase 2 Findings
 
+> **Historical audit artifact.** Finding descriptions and original source-line
+> references are retained for traceability, but they are not a current defect
+> list. The remediation series through PR #160 addressed the implementation
+> findings and added destination locking, immutable dedupe plans, quarantine,
+> durable recovery, and process-boundary tests. Current sources of truth are
+> `AGENTS.md`, `docs/SAFETY_AND_RECOVERY.md`,
+> `docs/production-readiness-certification.md`, and
+> `docs/remaining-work-plan.md`.
+
 Findings surfaced by the second pass: property tests (`DeduplicationPlanner`), fault injection (`DeduplicateExecutor`), real-FileManager integration (`DeduplicateFileOperations.live`), receipt golden-file tests, and targeted probes of three previously-skimmed surfaces (CLI, drag-drop / FileSystemMonitor, SwiftUI views).
 
 The Phase 1 review at [TOP_IMPROVEMENTS.md](TOP_IMPROVEMENTS.md) raised 10 findings + 25 lower-priority notes. This pass adds the following **new** items (a few extend or confirm prior items).

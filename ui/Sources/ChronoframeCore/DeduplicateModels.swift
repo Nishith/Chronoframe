@@ -179,6 +179,7 @@ public enum DeduplicatePhase: String, CaseIterable, Sendable {
     case featureExtraction
     case videoAnalysis
     case clustering
+    case targetHashing
 
     public var title: String {
         switch self {
@@ -187,6 +188,7 @@ public enum DeduplicatePhase: String, CaseIterable, Sendable {
         case .featureExtraction: return "Analyzing photo similarity"
         case .videoAnalysis: return "Analyzing video similarity"
         case .clustering: return "Grouping similar shots"
+        case .targetHashing: return "Verifying files selected for review"
         }
     }
 }
@@ -423,6 +425,10 @@ public struct DeduplicateSummary: Sendable, Equatable {
     /// never deleted (Finding #2 / AGENTS-INVARIANT 14). Empty when no
     /// sidecars were discovered.
     public var sidecarOwners: [String: Set<String>]
+    /// Immutable filesystem evidence captured by the scan. Every mutation
+    /// plan is derived from this value without performing live filesystem
+    /// reads, so the preview and executor consume the same identities.
+    public var scanSnapshot: DeduplicateScanSnapshot
 
     public init(
         clusterCounts: [ClusterKind: Int] = [:],
@@ -431,7 +437,8 @@ public struct DeduplicateSummary: Sendable, Equatable {
         scanDuration: TimeInterval = 0,
         cacheMetrics: DedupeCacheMetrics = DedupeCacheMetrics(),
         videoPerceptualMetrics: VideoPerceptualAnalysisMetrics? = nil,
-        sidecarOwners: [String: Set<String>] = [:]
+        sidecarOwners: [String: Set<String>] = [:],
+        scanSnapshot: DeduplicateScanSnapshot = DeduplicateScanSnapshot()
     ) {
         self.clusterCounts = clusterCounts
         self.totalRecoverableBytes = totalRecoverableBytes
@@ -439,6 +446,24 @@ public struct DeduplicateSummary: Sendable, Equatable {
         self.scanDuration = scanDuration
         self.cacheMetrics = cacheMetrics
         self.videoPerceptualMetrics = videoPerceptualMetrics
+        self.sidecarOwners = sidecarOwners
+        self.scanSnapshot = scanSnapshot
+    }
+}
+
+/// Immutable evidence produced by one deduplicate scan generation.
+public struct DeduplicateScanSnapshot: Sendable, Equatable {
+    public let generationID: UUID
+    public let identitiesByPath: [String: FileIdentity]
+    public let sidecarOwners: [String: Set<String>]
+
+    public init(
+        generationID: UUID = UUID(),
+        identitiesByPath: [String: FileIdentity] = [:],
+        sidecarOwners: [String: Set<String>] = [:]
+    ) {
+        self.generationID = generationID
+        self.identitiesByPath = identitiesByPath
         self.sidecarOwners = sidecarOwners
     }
 }
@@ -623,23 +648,6 @@ public struct DeduplicationPlan: Sendable, Equatable {
         case sidecar
     }
 
-    /// The file's identity as observed at scan/plan time. The executor
-    /// re-stats the live path immediately before moving it to Trash and
-    /// refuses to delete anything whose live identity no longer matches
-    /// (Finding #1). `modificationTime` is seconds since the Unix epoch with
-    /// nanosecond precision — the same value the scanner records on
-    /// `PhotoCandidate` — so an unchanged file compares equal while an
-    /// editor/sync replacement (which gets a fresh mtime) does not.
-    public struct ScanIdentity: Sendable, Equatable {
-        public let sizeBytes: Int64
-        public let modificationTime: TimeInterval?
-
-        public init(sizeBytes: Int64, modificationTime: TimeInterval? = nil) {
-            self.sizeBytes = sizeBytes
-            self.modificationTime = modificationTime
-        }
-    }
-
     public struct Item: Sendable, Equatable {
         public let path: String
         public let sizeBytes: Int64
@@ -653,11 +661,14 @@ public struct DeduplicationPlan: Sendable, Equatable {
         /// so revert never has to re-classify by extension. Defaults to
         /// `.photo` for existing call sites.
         public let mediaKind: MediaKind
-        /// Scan-time identity used by the executor to reject a stale plan
-        /// item before Trash (Finding #1). `nil` only for legacy call sites
-        /// that never captured it; the executor still applies its file-type
-        /// guard (non-symlink, regular file) in that case.
-        public let scanIdentity: ScanIdentity?
+        /// Content identity captured by the scan. Plan construction fails
+        /// closed by omitting any target for which this evidence is absent.
+        public let expectedIdentity: FileIdentity
+        /// Members of one RAW+JPEG or Live Photo mutation unit share this ID.
+        /// The executor validates the entire unit before trashing any member.
+        public let mutationUnitID: UUID?
+        /// Captured owners for a sidecar. Empty for media items.
+        public let sidecarOwnerPaths: Set<String>
 
         public init(
             path: String,
@@ -666,7 +677,9 @@ public struct DeduplicationPlan: Sendable, Equatable {
             owningClusterKind: ClusterKind,
             pairOrigin: PairOrigin? = nil,
             mediaKind: MediaKind = .photo,
-            scanIdentity: ScanIdentity? = nil
+            expectedIdentity: FileIdentity,
+            mutationUnitID: UUID? = nil,
+            sidecarOwnerPaths: Set<String> = []
         ) {
             self.path = path
             self.sizeBytes = sizeBytes
@@ -674,7 +687,9 @@ public struct DeduplicationPlan: Sendable, Equatable {
             self.owningClusterKind = owningClusterKind
             self.pairOrigin = pairOrigin
             self.mediaKind = mediaKind
-            self.scanIdentity = scanIdentity
+            self.expectedIdentity = expectedIdentity
+            self.mutationUnitID = mutationUnitID
+            self.sidecarOwnerPaths = sidecarOwnerPaths
         }
     }
 
@@ -780,6 +795,44 @@ public enum ReceiptMediaKind: Sendable, Equatable, Codable {
 
 // MARK: - Audit receipt (revertible)
 
+public enum MutationRecoveryState: Sendable, Equatable, Codable {
+    case needsVolume(volumeName: String, volumeIdentifier: String?)
+    case trashLocationUnverified
+    case manualActionRequired
+
+    private enum CodingKeys: String, CodingKey { case kind, volumeName, volumeIdentifier }
+    private enum Kind: String, Codable { case needsVolume, trashLocationUnverified, manualActionRequired }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        switch try container.decode(Kind.self, forKey: .kind) {
+        case .needsVolume:
+            self = .needsVolume(
+                volumeName: try container.decode(String.self, forKey: .volumeName),
+                volumeIdentifier: try container.decodeIfPresent(String.self, forKey: .volumeIdentifier)
+            )
+        case .trashLocationUnverified:
+            self = .trashLocationUnverified
+        case .manualActionRequired:
+            self = .manualActionRequired
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .needsVolume(name, identifier):
+            try container.encode(Kind.needsVolume, forKey: .kind)
+            try container.encode(name, forKey: .volumeName)
+            try container.encodeIfPresent(identifier, forKey: .volumeIdentifier)
+        case .trashLocationUnverified:
+            try container.encode(Kind.trashLocationUnverified, forKey: .kind)
+        case .manualActionRequired:
+            try container.encode(Kind.manualActionRequired, forKey: .kind)
+        }
+    }
+}
+
 public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
     public enum Method: String, Codable, Sendable, Equatable {
         case trash
@@ -833,6 +886,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
     public var items: [Item]
     public var bytesReclaimed: Int64
     public var abortReason: String?
+    public var recoveryState: MutationRecoveryState?
 
     private enum CodingKeys: String, CodingKey {
         case kind
@@ -847,10 +901,11 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         case items
         case bytesReclaimed
         case abortReason
+        case recoveryState
     }
 
     public init(
-        schemaVersion: Int = 4,
+        schemaVersion: Int = 5,
         runID: UUID = UUID(),
         operation: String = "deduplicate",
         status: String = "PENDING",
@@ -860,7 +915,8 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         additionalSourceRoots: [String] = [],
         items: [Item],
         bytesReclaimed: Int64,
-        abortReason: String? = nil
+        abortReason: String? = nil,
+        recoveryState: MutationRecoveryState? = nil
     ) {
         self.kind = "dedupe"
         self.schemaVersion = schemaVersion
@@ -874,6 +930,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         self.items = items
         self.bytesReclaimed = bytesReclaimed
         self.abortReason = abortReason
+        self.recoveryState = recoveryState
     }
 
     public init(from decoder: Decoder) throws {
@@ -890,5 +947,6 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         self.items = try container.decodeIfPresent([Item].self, forKey: .items) ?? []
         self.bytesReclaimed = try container.decodeIfPresent(Int64.self, forKey: .bytesReclaimed) ?? 0
         self.abortReason = try container.decodeIfPresent(String.self, forKey: .abortReason)
+        self.recoveryState = try container.decodeIfPresent(MutationRecoveryState.self, forKey: .recoveryState)
     }
 }

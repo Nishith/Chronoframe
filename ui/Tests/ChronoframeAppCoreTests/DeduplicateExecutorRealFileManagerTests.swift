@@ -62,7 +62,8 @@ final class DeduplicateExecutorRealFileManagerTests: XCTestCase {
                 sizeBytes: 1024,
                 owningClusterID: UUID(),
                 owningClusterKind: .exactDuplicate,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: targetB)
             )
         ])
         let stream = executor.commit(plan: plan, destinationRoot: dst.path, hardDelete: false)

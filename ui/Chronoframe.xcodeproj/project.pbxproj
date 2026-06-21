@@ -16,6 +16,7 @@
 		AA000000000000000000022D /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000133 /* AccessibilityTests.swift */; };
 		AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000196 /* RunHistoryViewTests.swift */; };
 		AA0000000000000000000262 /* DeduplicateStatusViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */; };
+		AA0000000000000000000270 /* OrganizeFolderIntentFailureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000001A0 /* OrganizeFolderIntentFailureTests.swift */; };
 		AA0000000000000000000A01 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000A00 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -49,6 +50,7 @@
 		AA0000000000000000000183 /* ChronoframeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ChronoframeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA0000000000000000000196 /* RunHistoryViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunHistoryViewTests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeduplicateStatusViewTests.swift; sourceTree = "<group>"; };
+		AA00000000000000000001A0 /* OrganizeFolderIntentFailureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrganizeFolderIntentFailureTests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000A00 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -142,6 +144,7 @@
 				AA0000000000000000000133 /* AccessibilityTests.swift */,
 				AA0000000000000000000196 /* RunHistoryViewTests.swift */,
 				AA0000000000000000000198 /* DeduplicateStatusViewTests.swift */,
+				AA00000000000000000001A0 /* OrganizeFolderIntentFailureTests.swift */,
 			);
 			path = ChronoframeAppTests;
 			sourceTree = "<group>";
@@ -332,6 +335,7 @@
 				AA000000000000000000022D /* AccessibilityTests.swift in Sources */,
 				AA0000000000000000000260 /* RunHistoryViewTests.swift in Sources */,
 				AA0000000000000000000262 /* DeduplicateStatusViewTests.swift in Sources */,
+				AA0000000000000000000270 /* OrganizeFolderIntentFailureTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -573,7 +573,7 @@ final class AppStateTests: XCTestCase {
     /// matches and deleting more files than the confirmation dialog (which
     /// shows the reviewed count) stated.
     @MainActor
-    func testPrimaryDeduplicateCommitOnlyTrashesReviewedClusters() async {
+    func testPrimaryDeduplicateCommitOnlyTrashesReviewedClusters() async throws {
         let harness = AppStateHarness()
         harness.setupStore.destinationPath = "/dest"
 
@@ -622,16 +622,11 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(committed)
 
         // The executor must only ever see the reviewed cluster.
-        let committedClusterIDs = Set(harness.deduplicateEngine.lastCommitClusters.map(\.id))
+        let committedPlan = try XCTUnwrap(harness.deduplicateEngine.lastCommitPlan)
+        let committedClusterIDs = Set(committedPlan.items.map(\.owningClusterID))
         XCTAssertEqual(committedClusterIDs, [highCluster.id],
             "Primary commit must scope the executor to reviewed clusters only.")
 
-        let committedPlan = DeduplicationPlanner.plan(
-            decisions: harness.deduplicateEngine.lastCommitDecisions ?? DedupeDecisions(byPath: [:]),
-            clusters: harness.deduplicateEngine.lastCommitClusters,
-            configuration: harness.deduplicateEngine.lastCommitConfiguration
-                ?? DeduplicateConfiguration(destinationPath: "/dest")
-        )
         let pathsToDelete = Set(committedPlan.pathsToDelete)
         XCTAssertTrue(pathsToDelete.contains("/dest/high-delete.jpg"),
             "Reviewed high-confidence non-keeper should be trashed.")

@@ -667,6 +667,12 @@ struct RunHistoryView: View {
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+                if let badge = RecoveryBadgeFormatter.title(for: entry.recoveryState) {
+                    Text(badge)
+                        .scaledFont(.label)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+                }
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
                     Text(entry.kind.title)
@@ -868,6 +874,7 @@ struct ReceiptDetailSheet: View {
         let schemaVersion: Int
         let totalFiles: Int
         let bytesReclaimed: Int64?
+        let recoveryState: MutationRecoveryState?
     }
 
     var body: some View {
@@ -882,6 +889,12 @@ struct ReceiptDetailSheet: View {
                         Text("Run: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)")
                             .font(.subheadline)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        if let badge = RecoveryBadgeFormatter.title(for: meta.recoveryState) {
+                            Text(badge)
+                                .scaledFont(.label)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+                        }
                     }
                 }
                 Spacer()
@@ -1036,7 +1049,8 @@ struct ReceiptDetailSheet: View {
                     status: dedupeReceipt.status,
                     schemaVersion: dedupeReceipt.schemaVersion,
                     totalFiles: dedupeReceipt.items.count,
-                    bytesReclaimed: dedupeReceipt.bytesReclaimed
+                    bytesReclaimed: dedupeReceipt.bytesReclaimed,
+                    recoveryState: dedupeReceipt.recoveryState
                 )
                 self.transfers = dedupeReceipt.items.map {
                     ReceiptVisualItem(source: $0.originalPath, dest: $0.originalPath, hash: "", sizeBytes: $0.sizeBytes)
@@ -1052,7 +1066,8 @@ struct ReceiptDetailSheet: View {
                     status: reorganizeReceipt.status,
                     schemaVersion: reorganizeReceipt.schemaVersion,
                     totalFiles: reorganizeReceipt.items.count,
-                    bytesReclaimed: nil
+                    bytesReclaimed: nil,
+                    recoveryState: nil
                 )
                 self.transfers = reorganizeReceipt.items.map {
                     ReceiptVisualItem(source: $0.sourcePath, dest: $0.destinationPath, hash: $0.hash, sizeBytes: nil)
@@ -1073,7 +1088,8 @@ struct ReceiptDetailSheet: View {
                     status: revertReceipt.status ?? "COMPLETED",
                     schemaVersion: revertReceipt.schemaVersion ?? 1,
                     totalFiles: revertReceipt.transfers.count,
-                    bytesReclaimed: nil
+                    bytesReclaimed: nil,
+                    recoveryState: nil
                 )
                 self.transfers = revertReceipt.transfers.map {
                     ReceiptVisualItem(source: $0.source, dest: $0.dest, hash: $0.hash, sizeBytes: nil)

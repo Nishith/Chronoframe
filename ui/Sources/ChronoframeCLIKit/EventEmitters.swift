@@ -85,10 +85,11 @@ public enum JSONLineEmitter {
         case let .prompt(message):
             return ["type": "prompt", "message": message]
         case let .complete(summary):
-            return [
+            return compact([
                 "type": "complete",
                 "status": backendStatus(for: summary.status),
                 "title": summary.title,
+                "failure_message": summary.failureMessage,
                 "metrics": metricsPayload(summary.metrics),
                 "artifacts": compact([
                     "destination": summary.artifacts.destinationRoot,
@@ -97,7 +98,7 @@ public enum JSONLineEmitter {
                     "log": summary.artifacts.logFilePath,
                     "logs_directory": summary.artifacts.logsDirectoryPath,
                 ]),
-            ]
+            ])
         }
     }
 
@@ -210,7 +211,7 @@ public enum HumanLineEmitter {
         case .nothingToReorganize:
             return "Layout already correct."
         case .failed:
-            return "Run failed."
+            return summary.failureMessage ?? "Run failed. Originals were left untouched."
         case .cancelled:
             return "Cancelled."
         case .idle, .preflighting, .running:

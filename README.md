@@ -10,7 +10,7 @@ Chronoframe is a macOS app for people with years of photos and videos spread acr
 - **Organize** copies scattered media into a date-based folder structure.
 - **Deduplicate** finds exact photo and video copies plus similar photos so you can choose what to keep.
 
-Chronoframe always shows you a plan before it changes anything. Your source folder is read-only, transfers can be reviewed before copying, and dedupe choices move files to the macOS Trash instead of permanently deleting them.
+Chronoframe always shows you a plan before it changes anything. Your source folder is read-only, transfers can be reviewed before copying, and dedupe choices move files to the macOS Trash instead of permanently deleting them. Durable receipts and recovery state help Chronoframe reconcile interrupted work without guessing.
 
 ![Chronoframe Setup — choose a source and destination, with a contact sheet of the frames it will organize.](docs/screenshots/setup.jpg)
 
@@ -26,6 +26,7 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 | Compare similar shots | Review near-duplicate photos, bursts, RAW+JPEG pairs, and Live Photos |
 | Change the library layout | Safely reorganize an existing destination into a new date structure |
 | Undo a supported run | Revert transfers, dedupe commits, and reorganize runs from History when their receipts still match |
+| Recover after an interruption | Reconcile recorded work on relaunch, or show exactly when a drive or manual action is needed |
 
 ## Safety First
 
@@ -34,7 +35,10 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 - **No overwrites.** If a destination filename already exists, Chronoframe creates a distinct name.
 - **Copies are checked.** Transfers are written safely and verified by default.
 - **Trash, not hard delete.** Deduplicate sends selected files to the macOS Trash.
-- **Receipts are kept.** History records what happened so you can inspect or revert supported runs.
+- **The preview and commit agree.** Deduplicate executes the same immutable, content-verified plan shown in the commit summary.
+- **One operation at a time.** The app, CLI, and system integrations cannot mutate the same destination concurrently.
+- **Receipts are kept.** History records what happened so you can inspect, recover, or revert supported runs.
+- **Ambiguity stops the run.** Changed files, missing recovery evidence, and unavailable drives fail closed instead of being guessed away.
 
 ## Install
 
@@ -66,7 +70,7 @@ The **Health** tab scans the destination on demand and surfaces cleanup opportun
 
 ### Review and undo from History
 
-The **History** tab keeps every run's reports and receipts. Reuse a past source, inspect logs, or open the **Undo Center** to revert a transfer, dedupe commit, or reorganize run when its files still match the receipt.
+The **History** tab keeps every run's reports and receipts. Reuse a past source, inspect logs, or open the **Undo Center** to revert a transfer, dedupe commit, or reorganize run when its files still match the receipt. If a run was interrupted, History distinguishes work that was recovered from work that needs a drive reconnected or manual attention.
 
 ![Run History — archived frames, reusable sources, an undo center, and a list of run reports and receipts.](docs/screenshots/run-history.jpg)
 
@@ -82,13 +86,14 @@ The **History** tab keeps every run's reports and receipts. Reuse a past source,
 
 ![Deduplicate review — two similar photos compared side by side, with keep and delete choices.](docs/screenshots/dedupe-compare.jpg)
 
-Exact photo and video duplicates are matched by file content and can be accepted automatically. Similar-photo groups, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call. Visual matching for video transcodes and re-exports is available as an off-by-default option in **Settings → Deduplicate**; those video matches are always review-only.
+Exact photo and video duplicates are matched by file content and can be accepted automatically. Similar-photo groups, bursts, RAW+JPEG pairs, and Live Photo pairs stay reviewable so you can make the final call. Visual matching for video transcodes and re-exports is available as an off-by-default option in **Settings → Deduplicate**; those video matches are always review-only. Before Trash, Chronoframe rechecks each planned file and preserves pair units when anything changed after the scan.
 
 ## Helpful Guides
 
 - [Quick Start](docs/QUICK_START.md) for a short walkthrough.
 - [FAQ](docs/FAQ.md) for common questions.
 - [Troubleshooting](docs/TROUBLESHOOTING.md) for installation, permission, preview, transfer, and dedupe issues.
+- [Safety and Recovery](docs/SAFETY_AND_RECOVERY.md) for the exact guarantees, interruption states, and on-disk evidence.
 - [Technical Documentation](docs/TECHNICAL.md) for command-line use, architecture, generated files, build commands, and developer notes.
 
 ## Command Line
@@ -107,6 +112,6 @@ Run the full test suite with the sandbox-friendly cache setup used by the projec
 
 ## Privacy
 
-Chronoframe works on folders you choose on your Mac. It does not upload your photo library. Its cache, reports, and receipts are stored inside the destination folder so you can inspect or remove them when you no longer need them.
+Chronoframe works on folders you choose on your Mac. It does not upload your photo library. Its cache, journals, reports, and receipts are stored inside the destination folder so you can inspect them and retain recovery evidence for as long as you need it.
 
 See the [privacy policy](docs/PRIVACY_POLICY.md) and [Mac App Store release checklist](docs/APP_STORE_RELEASE.md) for release-readiness details.

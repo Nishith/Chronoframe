@@ -72,7 +72,7 @@ let package = Package(
             name: "ChronoframeAppCoreTests",
             dependencies: ["ChronoframeAppCore", "ChronoframeCore"],
             path: "Tests/ChronoframeAppCoreTests",
-            exclude: ["Fixtures"]
+            exclude: ["Fixtures", "mock_print.txt"]
         ),
         .testTarget(
             name: "ChronoframeAppTests",
@@ -85,7 +85,7 @@ let package = Package(
             // build the CLI binary as part of `swift test`, which lets
             // the subprocess-boundary regression tests exec it directly
             // (PHASE2_FINDINGS.md NEW15).
-            dependencies: ["ChronoframeCLIKit", "ChronoframeCLI"],
+            dependencies: ["ChronoframeCLIKit", "ChronoframeCLI", "ChronoframeCore"],
             path: "Tests/ChronoframeCLIKitTests"
         ),
         .testTarget(

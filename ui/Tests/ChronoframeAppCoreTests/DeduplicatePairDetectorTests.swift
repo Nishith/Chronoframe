@@ -4,14 +4,24 @@ import XCTest
 
 final class DeduplicatePairDetectorTests: XCTestCase {
 
-    func testDetectRawJpegPairs() {
+    private actor RecordingMetadataLoader: LivePhotoMetadataLoading {
+        private(set) var callCount = 0
+        func loadIdentifiers(for movieURLs: [URL]) async -> LivePhotoMetadataBatchResult {
+            callCount += 1
+            return LivePhotoMetadataBatchResult()
+        }
+
+        nonisolated func cancelAll() {}
+    }
+
+    func testDetectRawJpegPairs() async {
         let paths = [
             "/dest/IMG_0001.JPG",
             "/dest/IMG_0001.CR2",
             "/dest/IMG_0002.JPG",
         ]
 
-        let pairs = DeduplicatePairDetector.detectPairs(in: paths)
+        let pairs = await DeduplicatePairDetector.detectPairs(in: paths, includeLivePhotos: false)
 
         XCTAssertEqual(pairs.count, 2)
         XCTAssertEqual(pairs["/dest/IMG_0001.JPG"]?.primaryPath, "/dest/IMG_0001.CR2")
@@ -22,7 +32,7 @@ final class DeduplicatePairDetectorTests: XCTestCase {
         XCTAssertEqual(pairs["/dest/IMG_0001.CR2"]?.kind, .rawJpeg)
     }
 
-    func testDetectsAdvertisedCr3AndRw2RawPairs() {
+    func testDetectsAdvertisedCr3AndRw2RawPairs() async {
         let paths = [
             "/dest/canon/IMG_1001.CR3",
             "/dest/canon/IMG_1001.JPG",
@@ -30,12 +40,23 @@ final class DeduplicatePairDetectorTests: XCTestCase {
             "/dest/panasonic/P1000420.jpeg",
         ]
 
-        let pairs = DeduplicatePairDetector.detectPairs(in: paths)
+        let pairs = await DeduplicatePairDetector.detectPairs(in: paths, includeLivePhotos: false)
 
         XCTAssertEqual(pairs["/dest/canon/IMG_1001.CR3"]?.secondaryPath, "/dest/canon/IMG_1001.JPG")
         XCTAssertEqual(pairs["/dest/canon/IMG_1001.JPG"]?.primaryPath, "/dest/canon/IMG_1001.CR3")
         XCTAssertEqual(pairs["/dest/panasonic/P1000420.RW2"]?.secondaryPath, "/dest/panasonic/P1000420.jpeg")
         XCTAssertEqual(pairs["/dest/panasonic/P1000420.jpeg"]?.primaryPath, "/dest/panasonic/P1000420.RW2")
+    }
+
+    func testLivePhotoPairingDisabledDoesNotLoadMovieMetadata() async {
+        let loader = RecordingMetadataLoader()
+        _ = await DeduplicatePairDetector.detectPairs(
+            in: ["/dest/IMG.HEIC", "/dest/IMG.MOV"],
+            includeLivePhotos: false,
+            movieMetadataLoader: loader
+        )
+        let callCount = await loader.callCount
+        XCTAssertEqual(callCount, 0)
     }
 
     // MARK: - Sidecar detection (PR D)

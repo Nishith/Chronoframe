@@ -6,6 +6,8 @@ import ChronoframeAppCore
 
 @MainActor
 final class MockOrganizerEngine: OrganizerEngine {
+    private let lockRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("UITestOrganizerEngine-\(UUID().uuidString)", isDirectory: true)
     enum StreamMode {
         case events([RunEvent])
         case fails(Error)
@@ -32,6 +34,16 @@ final class MockOrganizerEngine: OrganizerEngine {
 
     func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight {
         try preflightResult.get()
+    }
+
+    func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
+        let preflight = try await preflight(configuration)
+        let lease = try DestinationOperationLock.acquire(
+            destinationRoot: lockRoot,
+            surface: "UI test",
+            operation: configuration.mode.rawValue
+        )
+        return PreparedRun(preflight: preflight, lease: lease)
     }
 
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
@@ -77,8 +89,7 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     var summary: DeduplicateSummary
     var commitEvents: [DeduplicateCommitEvent]
     var lastScanConfiguration: DeduplicateConfiguration?
-    var lastCommitDecisions: DedupeDecisions?
-    var lastCommitClusters: [DuplicateCluster] = []
+    var lastCommitPlan: DeduplicationPlan?
     var lastCommitConfiguration: DeduplicateConfiguration?
 
     init(
@@ -87,6 +98,14 @@ final class MockDeduplicateEngine: DeduplicateEngine {
         commitEvents: [DeduplicateCommitEvent] = []
     ) {
         self.clustersToEmit = clusters
+        var summary = summary
+        if summary.scanSnapshot.identitiesByPath.isEmpty {
+            summary.scanSnapshot = DeduplicateScanSnapshot(identitiesByPath: Dictionary(
+                uniqueKeysWithValues: clusters.flatMap(\.members).map { member in
+                    (member.path, FileIdentity(size: member.size, digest: Data(member.path.utf8).base64EncodedString()))
+                }
+            ))
+        }
         self.summary = summary
         self.commitEvents = commitEvents
     }
@@ -110,13 +129,10 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     func cancelCurrentScan() {}
 
     func commit(
-        decisions: DedupeDecisions,
-        clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration,
-        allSidecarOwners: [String: Set<String>]
+        plan: DeduplicationPlan,
+        configuration: DeduplicateConfiguration
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
-        lastCommitDecisions = decisions
-        lastCommitClusters = clusters
+        lastCommitPlan = plan
         lastCommitConfiguration = configuration
         let events = commitEvents
         return AsyncThrowingStream { continuation in

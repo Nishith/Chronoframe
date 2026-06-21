@@ -26,30 +26,6 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         cancelFlag.set(true)
     }
 
-    /// Convenience overload that builds the deletion plan from raw user
-    /// decisions. Existing callers continue to use this; the UI footer
-    /// uses `DeduplicationPlanner.plan` directly so its preview matches
-    /// the executor exactly.
-    public func commit(
-        decisions: DedupeDecisions,
-        clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration,
-        allSidecarOwners: [String: Set<String>] = [:]
-    ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
-        let plan = DeduplicationPlanner.plan(
-            decisions: decisions,
-            clusters: clusters,
-            configuration: configuration,
-            allSidecarOwners: allSidecarOwners
-        )
-        return commit(
-            plan: plan,
-            destinationRoot: configuration.destinationPath,
-            additionalSourceRoots: configuration.additionalSources.map(\.path),
-            hardDelete: false
-        )
-    }
-
     /// Stream the commit. Preflights the receipt directory first; aborts
     /// the entire commit if it isn't writable. Once mutation begins,
     /// every plan item produces either an `itemTrashed` or `itemFailed`
@@ -147,76 +123,116 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                 // They are dropped from the final receipt so revert never tries
                 // to restore something that was never trashed.
                 var staleIndices: Set<Int> = []
+                var unresolvedIndices: Set<Int> = []
+                var journalFailure = false
+                var outcomes: [String: MutationOutcome] = [:]
+                let receiptIndexByPath = Dictionary(uniqueKeysWithValues: plan.items.enumerated().map {
+                    ($0.element.path, $0.offset)
+                })
+                let mediaItems = plan.items.filter { $0.pairOrigin != .sidecar }
+                let sidecarItems = plan.items.filter { $0.pairOrigin == .sidecar }
+                var processedPaths = Set<String>()
 
-                for (index, planItem) in plan.items.enumerated() {
+                // Media always precedes sidecars. A sidecar's mutation is
+                // conditional on the observed outcomes of every owner.
+                for planItem in mediaItems + sidecarItems {
+                    guard !processedPaths.contains(planItem.path) else { continue }
                     if cancelFlag.get() {
                         abortReason = "Deduplicate was cancelled before all selected files moved to Trash."
                         break
                     }
-                    let url = URL(fileURLWithPath: planItem.path)
 
-                    // Finding #1: a stale plan can target a file the user never
-                    // reviewed. Between scan and commit an editor or sync client
-                    // may have replaced this path with a different file, a
-                    // symlink, or a directory. Re-stat the live path and skip
-                    // anything whose identity no longer matches — preserving the
-                    // replacement rather than trashing it.
-                    if let staleReason = Self.staleReason(for: planItem) {
-                        staleIndices.insert(index)
-                        continuation.yield(.itemStale(
-                            originalPath: planItem.path,
-                            reason: staleReason
-                        ))
-                        continue
+                    if planItem.pairOrigin == .sidecar {
+                        let currentOwners = Self.currentSidecarOwners(for: planItem.path)
+                        let allCurrentOwnersCaptured = currentOwners.isSubset(of: planItem.sidecarOwnerPaths)
+                        let everyCapturedOwnerTrashed = planItem.sidecarOwnerPaths.allSatisfy {
+                            if case .trashed = outcomes[$0] { return true }
+                            return false
+                        }
+                        guard allCurrentOwnersCaptured, everyCapturedOwnerTrashed else {
+                            let reason = allCurrentOwnersCaptured
+                                ? "A photo that owns this metadata sidecar was kept, so the sidecar was left untouched."
+                                : "A new photo now shares this metadata sidecar, so the sidecar was left untouched. Scan again to review the updated group."
+                            outcomes[planItem.path] = .untouched(reason)
+                            processedPaths.insert(planItem.path)
+                            if let index = receiptIndexByPath[planItem.path] { staleIndices.insert(index) }
+                            continuation.yield(.itemStale(originalPath: planItem.path, reason: reason))
+                            continue
+                        }
                     }
 
-                    // Phase 1 finding #7: split trash from receipt write
-                    // so a successful trash + failed receipt update
-                    // doesn't get double-reported as `itemFailed` for
-                    // the SAME path (a false negative: the file is
-                    // really in Trash). Use a distinct event class for
-                    // "trashed but receipt is stale".
-                    let trashedURL: URL?
-                    do {
-                        trashedURL = try fileOperations.trashItem(at: url)
-                    } catch {
-                        failedCount += 1
-                        continuation.yield(.itemFailed(
-                            originalPath: planItem.path,
-                            errorMessage: error.localizedDescription
-                        ))
-                        continue
+                    let unitItems: [DeduplicationPlan.Item]
+                    if let unitID = planItem.mutationUnitID {
+                        unitItems = mediaItems.filter { $0.mutationUnitID == unitID }
+                    } else {
+                        unitItems = [planItem]
                     }
-
+                    let results: [MutationResult]
                     do {
-                        try Self.appendSpoolRecord(
-                            DeduplicateSpoolRecord(
-                                originalPath: planItem.path,
-                                trashURL: trashedURL?.absoluteString
-                            ),
-                            to: spoolHandle
+                        results = try Self.quarantineValidateAndTrash(
+                            items: unitItems,
+                            fileOperations: fileOperations,
+                            prepareJournal: { item, quarantineURL in
+                                let record = try Self.makeIntentRecord(
+                                    item: item,
+                                    quarantineURL: quarantineURL
+                                )
+                                try Self.appendSpoolRecord(record, to: spoolHandle)
+                                return record
+                            },
+                            recordJournal: { record in
+                                try Self.appendSpoolRecord(record, to: spoolHandle)
+                            }
                         )
                     } catch {
-                        failedCount += 1
-                        abortReason = "Deduplicate stopped because the audit spool could not be updated after a file moved to Trash."
+                        journalFailure = true
+                        failedCount += unitItems.count
+                        abortReason = "Deduplicate stopped because its recovery journal could not be updated safely."
                         continuation.yield(.criticalReceiptFailure(
-                            errorMessage: "Critical: a file moved to Trash but Chronoframe could not update the recovery spool. Details: \(error.localizedDescription)"
+                            errorMessage: "Chronoframe stopped before continuing because recovery metadata could not be persisted. No further files were touched. Details: \(error.localizedDescription)"
                         ))
                         break
                     }
 
-                    deletedCount += 1
-                    bytesReclaimed += planItem.sizeBytes
-                    receiptItems[index].trashURL = trashedURL?.absoluteString
-                    continuation.yield(.itemTrashed(
-                        originalPath: planItem.path,
-                        trashURL: trashedURL,
-                        sizeBytes: planItem.sizeBytes
-                    ))
+                    for result in results {
+                        processedPaths.insert(result.item.path)
+                        outcomes[result.item.path] = result.outcome
+                        guard let index = receiptIndexByPath[result.item.path] else { continue }
+                        switch result.outcome {
+                        case let .trashed(trashedURL):
+                            // The `.trashed` journal transition was
+                            // synchronized inside the atomic helper before
+                            // this user-facing event is emitted.
+                            deletedCount += 1
+                            bytesReclaimed += result.item.sizeBytes
+                            receiptItems[index].trashURL = trashedURL?.absoluteString
+                            continuation.yield(.itemTrashed(
+                                originalPath: result.item.path,
+                                trashURL: trashedURL,
+                                sizeBytes: result.item.sizeBytes
+                            ))
+                        case let .stale(reason), let .untouched(reason):
+                            staleIndices.insert(index)
+                            if reason.localizedCaseInsensitiveContains("manual recovery") {
+                                unresolvedIndices.insert(index)
+                            }
+                            continuation.yield(.itemStale(originalPath: result.item.path, reason: reason))
+                        case let .restored(reason), let .failed(reason):
+                            staleIndices.insert(index)
+                            if reason.localizedCaseInsensitiveContains("manual recovery") {
+                                unresolvedIndices.insert(index)
+                            }
+                            failedCount += 1
+                            continuation.yield(.itemFailed(originalPath: result.item.path, errorMessage: reason))
+                        }
+                    }
+                    if abortReason != nil { break }
                 }
 
                 var receiptError: Error?
-                let finalStatus = abortReason == nil ? "COMPLETED" : "ABORTED"
+                let finalStatus = abortReason == nil && unresolvedIndices.isEmpty && !journalFailure
+                    ? "COMPLETED"
+                    : "ABORTED"
                 do {
                     let recordedTrashURLs = try Self.loadSpoolRecords(from: spoolURL)
                     for index in receiptItems.indices {
@@ -228,7 +244,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                     // so the durable receipt records only real Trash moves and
                     // revert never tries to restore a file that was preserved.
                     let finalItems = receiptItems.enumerated()
-                        .filter { !staleIndices.contains($0.offset) }
+                        .filter { !staleIndices.contains($0.offset) || unresolvedIndices.contains($0.offset) }
                         .map(\.element)
                     try Self.writeReceipt(
                         receiptURL: receiptURL,
@@ -240,9 +256,12 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         additionalSourceRoots: additionalSourceRoots,
                         items: finalItems,
                         bytesReclaimed: bytesReclaimed,
-                        abortReason: abortReason
+                        abortReason: abortReason,
+                        recoveryState: unresolvedIndices.isEmpty && !journalFailure ? nil : .manualActionRequired
                     )
-                    try? FileManager.default.removeItem(at: spoolURL)
+                    if unresolvedIndices.isEmpty && !journalFailure {
+                        try? FileManager.default.removeItem(at: spoolURL)
+                    }
                 } catch {
                     receiptError = error
                     // Phase 1 finding #7: emit a dedicated event for a
@@ -387,44 +406,349 @@ public final class DeduplicateExecutor: @unchecked Sendable {
 
     // MARK: - Helpers
 
+    enum MutationOutcome: Sendable, Equatable {
+        case trashed(URL?)
+        case stale(String)
+        case failed(String)
+        case restored(String)
+        case untouched(String)
+    }
+
+    struct MutationResult: Sendable {
+        let item: DeduplicationPlan.Item
+        let outcome: MutationOutcome
+    }
+
+    /// Rename every member of a mutation unit out of the namespace first,
+    /// then verify the exact inode through an O_NOFOLLOW descriptor. Pair
+    /// units only proceed to Trash after every member validates.
+    static func quarantineValidateAndTrash(
+        items: [DeduplicationPlan.Item],
+        fileOperations: any DeduplicateFileOperations,
+        prepareJournal: (DeduplicationPlan.Item, URL) throws -> DeduplicateSpoolRecord,
+        recordJournal: (DeduplicateSpoolRecord) throws -> Void
+    ) throws -> [MutationResult] {
+        var quarantined: [(item: DeduplicationPlan.Item, url: URL)] = []
+        if let staleItem = items.first(where: { cheapPreflightReason(for: $0) != nil }),
+           let reason = cheapPreflightReason(for: staleItem)
+        {
+            return items.map { item in
+                item.path == staleItem.path
+                    ? MutationResult(item: item, outcome: .stale(reason))
+                    : MutationResult(
+                        item: item,
+                        outcome: .untouched("This mutation unit was left untouched because another member was no longer safe to delete.")
+                    )
+            }
+        }
+        let planned = items.map { item in
+            let originalURL = URL(fileURLWithPath: item.path)
+            return (
+                item: item,
+                quarantineURL: originalURL.deletingLastPathComponent().appendingPathComponent(
+                    ".chronoframe-quarantine-\(UUID().uuidString)-\(originalURL.lastPathComponent)"
+                )
+            )
+        }
+        var journalByPath: [String: DeduplicateSpoolRecord] = [:]
+
+        // Persist recovery metadata for the complete pair before renaming its
+        // first member. A failure here leaves every original path untouched.
+        for entry in planned {
+            journalByPath[entry.item.path] = try prepareJournal(entry.item, entry.quarantineURL)
+        }
+
+        for entry in planned {
+            let item = entry.item
+            let originalURL = URL(fileURLWithPath: item.path)
+            let quarantineURL = entry.quarantineURL
+            do {
+                try fileOperations.quarantineItem(at: originalURL, to: quarantineURL)
+            } catch {
+                let restoration = restoreQuarantined(quarantined, fileOperations: fileOperations)
+                return items.map { candidate in
+                    if candidate.path == item.path {
+                        return MutationResult(
+                            item: candidate,
+                            outcome: .failed("Chronoframe could not safely quarantine this file, so the mutation unit was left untouched. \(error.localizedDescription)")
+                        )
+                    }
+                    return MutationResult(
+                        item: candidate,
+                        outcome: .restored(restoration[candidate.path] ?? "This pair was restored after quarantine failed.")
+                    )
+                }
+            }
+            quarantined.append((item, quarantineURL))
+            do {
+                if var journal = journalByPath[item.path] {
+                    journal.state = .quarantined
+                    try recordJournal(journal)
+                    journalByPath[item.path] = journal
+                }
+            } catch {
+                _ = restoreQuarantined(quarantined, fileOperations: fileOperations)
+                throw error
+            }
+
+            if let reason = quarantinedIdentityMismatch(item: item, url: quarantineURL) {
+                let restoration = restoreQuarantined(quarantined, fileOperations: fileOperations)
+                return items.map { candidate in
+                    let detail = restoration[candidate.path]
+                    if candidate.path == item.path {
+                        return MutationResult(
+                            item: candidate,
+                            outcome: .stale(detail.map { reason + " " + $0 } ?? reason)
+                        )
+                    }
+                    return MutationResult(
+                        item: candidate,
+                        outcome: .restored(detail ?? "This pair was restored because another member changed after the scan.")
+                    )
+                }
+            }
+        }
+
+        var trashed: [(item: DeduplicationPlan.Item, trashURL: URL?)] = []
+        for (offset, entry) in quarantined.enumerated() {
+            do {
+                let trashURL = try fileOperations.trashItem(at: entry.url)
+                trashed.append((entry.item, trashURL))
+                if var journal = journalByPath[entry.item.path] {
+                    journal.state = .trashed
+                    journal.actualTrashURL = trashURL?.absoluteString
+                    do {
+                        try recordJournal(journal)
+                        journalByPath[entry.item.path] = journal
+                    } catch {
+                        for moved in trashed.reversed() {
+                            guard let movedTrashURL = moved.trashURL else { continue }
+                            _ = restoreItem(
+                                from: movedTrashURL,
+                                to: URL(fileURLWithPath: moved.item.path),
+                                fileOperations: fileOperations,
+                                context: "journal rollback"
+                            )
+                        }
+                        for remaining in quarantined.dropFirst(offset + 1) {
+                            _ = restoreItem(
+                                from: remaining.url,
+                                to: URL(fileURLWithPath: remaining.item.path),
+                                fileOperations: fileOperations,
+                                context: "journal rollback"
+                            )
+                        }
+                        throw DedupeJournalTransitionError(underlying: error)
+                    }
+                }
+            } catch let journalError as DedupeJournalTransitionError {
+                // The rollback above has already preserved every reachable
+                // member. Propagate so the run stops; continuing without a
+                // durable transition would make recovery ambiguous.
+                throw journalError.underlying
+            } catch {
+                var messages: [String: String] = [:]
+
+                for moved in trashed.reversed() {
+                    guard let trashURL = moved.trashURL else {
+                        messages[moved.item.path] = "A paired file reached Trash, but its Trash location was unavailable for automatic restoration. Manual recovery is required."
+                        continue
+                    }
+                    messages[moved.item.path] = restoreItem(
+                        from: trashURL,
+                        to: URL(fileURLWithPath: moved.item.path),
+                        fileOperations: fileOperations,
+                        context: "Trash rollback"
+                    )
+                }
+                for remaining in quarantined[offset...] {
+                    messages[remaining.item.path] = restoreItem(
+                        from: remaining.url,
+                        to: URL(fileURLWithPath: remaining.item.path),
+                        fileOperations: fileOperations,
+                        context: "quarantine rollback"
+                    )
+                }
+
+                return items.map { candidate in
+                    let message = messages[candidate.path]
+                        ?? "The pair was restored because one member could not be moved to Trash."
+                    if candidate.path == entry.item.path {
+                        let failure = error.localizedDescription
+                        return MutationResult(
+                            item: candidate,
+                            outcome: .failed(
+                                message.localizedCaseInsensitiveContains("manual recovery")
+                                    ? "\(failure) \(message)"
+                                    : failure
+                            )
+                        )
+                    }
+                    if message.localizedCaseInsensitiveContains("manual recovery") {
+                        return MutationResult(item: candidate, outcome: .failed(message))
+                    }
+                    return MutationResult(item: candidate, outcome: .restored(message))
+                }
+            }
+        }
+
+        return trashed.map { MutationResult(item: $0.item, outcome: .trashed($0.trashURL)) }
+    }
+
+    private struct DedupeJournalTransitionError: Error {
+        let underlying: Error
+    }
+
+    static func cheapPreflightReason(for item: DeduplicationPlan.Item) -> String? {
+        var st = stat()
+        guard lstat(item.path, &st) == 0 else {
+            return "The selected file no longer exists at its scanned location, so it was left untouched."
+        }
+        switch st.st_mode & S_IFMT {
+        case S_IFLNK:
+            return "A symlink now stands where a regular file was scanned, so it was left untouched."
+        case S_IFREG:
+            return Int64(st.st_size) == item.expectedIdentity.size
+                ? nil
+                : "The selected file changed size since the scan, so it was left untouched."
+        default:
+            return "The scanned path is no longer a regular file, so it was left untouched."
+        }
+    }
+
+    static func quarantinedIdentityMismatch(item: DeduplicationPlan.Item, url: URL) -> String? {
+        let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW) }
+        guard descriptor >= 0 else {
+            return "Chronoframe could not reopen the quarantined file safely, so it was preserved."
+        }
+        defer { _ = Darwin.close(descriptor) }
+
+        var st = stat()
+        guard fstat(descriptor, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else {
+            return "The quarantined object is not the regular file that was scanned, so it was preserved."
+        }
+        guard Int64(st.st_size) == item.expectedIdentity.size else {
+            return "The selected file changed size after the scan, so it was preserved."
+        }
+        do {
+            let identity = try FileIdentityHasher().hashIdentity(descriptor: descriptor, size: Int64(st.st_size))
+            return identity == item.expectedIdentity
+                ? nil
+                : "The selected file's contents changed after the scan, so it was preserved."
+        } catch {
+            return "Chronoframe could not verify the selected file's contents, so it was preserved."
+        }
+    }
+
+    static func restoreQuarantined(
+        _ entries: [(item: DeduplicationPlan.Item, url: URL)],
+        fileOperations: any DeduplicateFileOperations
+    ) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: entries.map { entry in
+            (
+                entry.item.path,
+                restoreItem(
+                    from: entry.url,
+                    to: URL(fileURLWithPath: entry.item.path),
+                    fileOperations: fileOperations,
+                    context: "quarantine recovery"
+                )
+            )
+        })
+    }
+
+    static func restoreItem(
+        from source: URL,
+        to original: URL,
+        fileOperations: any DeduplicateFileOperations,
+        context: String
+    ) -> String {
+        var st = stat()
+        if lstat(original.path, &st) == 0 {
+            return "The original path was recreated during \(context). Both objects were preserved; recover the quarantined item at \(source.path). Manual recovery is required."
+        }
+        do {
+            try fileOperations.moveItem(at: source, to: original)
+            return "This file was restored because another member of its mutation unit could not be safely deleted."
+        } catch {
+            return "Chronoframe could not complete \(context). Recover the preserved item at \(source.path). Manual recovery is required."
+        }
+    }
+
+    static func currentSidecarOwners(for sidecarPath: String) -> Set<String> {
+        let sidecarURL = URL(fileURLWithPath: sidecarPath).standardizedFileURL
+        let directory = sidecarURL.deletingLastPathComponent()
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            // Fail closed: an inaccessible directory is represented by a
+            // synthetic owner that cannot be present in the captured plan.
+            return ["<inaccessible-directory>"]
+        }
+        return Set(urls.compactMap { candidate -> String? in
+            let path = candidate.standardizedFileURL.path
+            guard MediaLibraryRules.isPhotoFile(path: path) else { return nil }
+            let stem = candidate.deletingPathExtension().lastPathComponent
+            let replaced = directory.appendingPathComponent(stem + ".xmp").standardizedFileURL.path
+            let appended = directory.appendingPathComponent(candidate.lastPathComponent + ".xmp").standardizedFileURL.path
+            return replaced == sidecarURL.path || appended == sidecarURL.path ? path : nil
+        })
+    }
+
+    static func makeIntentRecord(
+        item: DeduplicationPlan.Item,
+        quarantineURL: URL
+    ) throws -> DeduplicateSpoolRecord {
+        let originalURL = URL(fileURLWithPath: item.path)
+        let trashDirectory = try FileManager.default.url(
+            for: .trashDirectory,
+            in: .userDomainMask,
+            appropriateFor: originalURL,
+            create: true
+        )
+        let predictedTrashURL = trashDirectory.appendingPathComponent(
+            quarantineURL.lastPathComponent,
+            isDirectory: false
+        )
+        var st = stat()
+        guard lstat(predictedTrashURL.path, &st) != 0, errno == ENOENT else {
+            throw NSError(
+                domain: NSCocoaErrorDomain,
+                code: CocoaError.fileWriteFileExists.rawValue,
+                userInfo: [
+                    NSFilePathErrorKey: predictedTrashURL.path,
+                    NSLocalizedDescriptionKey: "Chronoframe could not reserve a collision-free Trash recovery path.",
+                ]
+            )
+        }
+        let bookmark = try originalURL.bookmarkData(
+            options: [.withSecurityScope],
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        return DeduplicateSpoolRecord(
+            state: .intent,
+            originalPath: item.path,
+            quarantinePath: quarantineURL.path,
+            expectedIdentity: item.expectedIdentity,
+            predictedTrashURL: predictedTrashURL.absoluteString,
+            preTrashBookmarkData: bookmark
+        )
+    }
+
     /// Re-stat a plan item's live path immediately before Trash and decide
     /// whether it still identifies the regular file that was scanned
     /// (Finding #1 / AGENTS-INVARIANT 5, 15). Returns a human-readable
     /// reason when the item is stale and must be preserved, or `nil` when the
     /// live file matches and is safe to trash.
     ///
-    /// Uses `lstat` so a symlink standing where a regular file was scanned is
-    /// treated as a mismatch rather than being followed, and so the live
-    /// mtime is read in the same Unix-epoch/nanosecond form the planner
-    /// captured. When the item carries no `scanIdentity` (legacy callers) the
-    /// file-type guard still applies.
+    /// Retained as a focused test seam. Production uses quarantine +
+    /// descriptor hashing above to close the path-based TOCTOU window.
     static func staleReason(for item: DeduplicationPlan.Item) -> String? {
-        var st = stat()
-        guard lstat(item.path, &st) == 0 else {
-            return "The selected file no longer exists at its scanned location, so it was left untouched."
-        }
-        let fileType = st.st_mode & S_IFMT
-        if fileType == S_IFLNK {
-            return "A symlink now stands where a regular file was scanned, so it was left untouched."
-        }
-        guard fileType == S_IFREG else {
-            return "The scanned path is no longer a regular file, so it was left untouched."
-        }
-        guard let identity = item.scanIdentity else { return nil }
-        if Int64(st.st_size) != identity.sizeBytes {
-            return "The selected file changed size since the scan, so it was left untouched."
-        }
-        if let scannedMtime = identity.modificationTime {
-            let liveMtime = Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1_000_000_000
-            // Identical filesystem + identical formula → an unchanged file
-            // compares bit-equal; a tiny epsilon guards only against double
-            // round-off, not against a genuine re-write (which moves mtime by
-            // far more than a microsecond).
-            if abs(liveMtime - scannedMtime) > 0.000_001 {
-                return "The selected file changed on disk since the scan, so it was left untouched."
-            }
-        }
-        return nil
+        if let reason = cheapPreflightReason(for: item) { return reason }
+        return quarantinedIdentityMismatch(item: item, url: URL(fileURLWithPath: item.path))
     }
 
     /// Verify the receipt directory exists and is writable BEFORE we
@@ -557,10 +881,32 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         guard let raw = String(data: data, encoding: .utf8) else { return [:] }
         var records: [String: String] = [:]
         for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
-            let record = try JSONDecoder.dedupe.decode(DeduplicateSpoolRecord.self, from: Data(line.utf8))
-            if let trashURL = record.trashURL {
+            // A process can terminate in the middle of the final append. Keep
+            // every complete prior line and ignore only the malformed tail.
+            guard let record = try? JSONDecoder.dedupe.decode(
+                DeduplicateSpoolRecord.self,
+                from: Data(line.utf8)
+            ) else { continue }
+            if record.state == .trashed,
+               let trashURL = record.actualTrashURL ?? record.predictedTrashURL
+            {
                 records[record.originalPath] = trashURL
             }
+        }
+        return records
+    }
+
+    static func loadLatestJournalRecords(from spoolURL: URL) throws -> [String: DeduplicateSpoolRecord] {
+        guard FileManager.default.fileExists(atPath: spoolURL.path) else { return [:] }
+        let data = try Data(contentsOf: spoolURL)
+        guard let raw = String(data: data, encoding: .utf8) else { return [:] }
+        var records: [String: DeduplicateSpoolRecord] = [:]
+        for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard let record = try? JSONDecoder.dedupe.decode(
+                DeduplicateSpoolRecord.self,
+                from: Data(line.utf8)
+            ) else { continue }
+            records[record.originalPath] = record
         }
         return records
     }
@@ -622,7 +968,8 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         additionalSourceRoots: [String] = [],
         items: [DeduplicateAuditReceipt.Item],
         bytesReclaimed: Int64,
-        abortReason: String?
+        abortReason: String?,
+        recoveryState: MutationRecoveryState? = nil
     ) throws {
         let receipt = DeduplicateAuditReceipt(
             runID: runID,
@@ -633,16 +980,91 @@ public final class DeduplicateExecutor: @unchecked Sendable {
             additionalSourceRoots: additionalSourceRoots,
             items: items,
             bytesReclaimed: bytesReclaimed,
-            abortReason: abortReason
+            abortReason: abortReason,
+            recoveryState: recoveryState
         )
         let data = try JSONEncoder.dedupe.encode(receipt)
         try ReceiptDurability.durablyWrite(data: data, to: receiptURL)
     }
 }
 
+enum DedupeJournalItemState: String, Codable, Sendable {
+    case intent
+    case quarantined
+    case trashed
+    case restored
+    case untouched
+    case manualActionRequired
+}
+
 struct DeduplicateSpoolRecord: Codable, Sendable {
+    var schemaVersion: Int
+    var state: DedupeJournalItemState
     var originalPath: String
-    var trashURL: String?
+    var quarantinePath: String?
+    var expectedIdentity: FileIdentity?
+    var predictedTrashURL: String?
+    var actualTrashURL: String?
+    var preTrashBookmarkData: Data?
+
+    init(
+        schemaVersion: Int = 2,
+        state: DedupeJournalItemState,
+        originalPath: String,
+        quarantinePath: String? = nil,
+        expectedIdentity: FileIdentity? = nil,
+        predictedTrashURL: String? = nil,
+        actualTrashURL: String? = nil,
+        preTrashBookmarkData: Data? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.state = state
+        self.originalPath = originalPath
+        self.quarantinePath = quarantinePath
+        self.expectedIdentity = expectedIdentity
+        self.predictedTrashURL = predictedTrashURL
+        self.actualTrashURL = actualTrashURL
+        self.preTrashBookmarkData = preTrashBookmarkData
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case state
+        case originalPath
+        case quarantinePath
+        case expectedIdentity
+        case predictedTrashURL
+        case actualTrashURL
+        // Legacy v1 key.
+        case trashURL
+        case preTrashBookmarkData
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        originalPath = try container.decode(String.self, forKey: .originalPath)
+        quarantinePath = try container.decodeIfPresent(String.self, forKey: .quarantinePath)
+        expectedIdentity = try container.decodeIfPresent(FileIdentity.self, forKey: .expectedIdentity)
+        predictedTrashURL = try container.decodeIfPresent(String.self, forKey: .predictedTrashURL)
+        actualTrashURL = try container.decodeIfPresent(String.self, forKey: .actualTrashURL)
+            ?? container.decodeIfPresent(String.self, forKey: .trashURL)
+        preTrashBookmarkData = try container.decodeIfPresent(Data.self, forKey: .preTrashBookmarkData)
+        state = try container.decodeIfPresent(DedupeJournalItemState.self, forKey: .state)
+            ?? (actualTrashURL == nil ? .intent : .trashed)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(state, forKey: .state)
+        try container.encode(originalPath, forKey: .originalPath)
+        try container.encodeIfPresent(quarantinePath, forKey: .quarantinePath)
+        try container.encodeIfPresent(expectedIdentity, forKey: .expectedIdentity)
+        try container.encodeIfPresent(predictedTrashURL, forKey: .predictedTrashURL)
+        try container.encodeIfPresent(actualTrashURL, forKey: .actualTrashURL)
+        try container.encodeIfPresent(preTrashBookmarkData, forKey: .preTrashBookmarkData)
+    }
 }
 
 public enum DeduplicateReceiptValidationError: LocalizedError, Equatable {
@@ -664,6 +1086,27 @@ protocol DeduplicateFileOperations: Sendable {
     func trashItem(at url: URL) throws -> URL?
     func moveItem(at sourceURL: URL, to destinationURL: URL) throws
     func createDirectory(at url: URL, withIntermediateDirectories createIntermediates: Bool) throws
+    func quarantineItem(at sourceURL: URL, to quarantineURL: URL) throws
+}
+
+extension DeduplicateFileOperations {
+    func quarantineItem(at sourceURL: URL, to quarantineURL: URL) throws {
+        let result = sourceURL.path.withCString { source in
+            quarantineURL.path.withCString { destination in
+                Darwin.rename(source, destination)
+            }
+        }
+        guard result == 0 else {
+            throw NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(errno),
+                userInfo: [
+                    NSFilePathErrorKey: sourceURL.path,
+                    NSLocalizedDescriptionKey: "Could not atomically quarantine the selected file: \(String(cString: strerror(errno)))",
+                ]
+            )
+        }
+    }
 }
 
 private struct FileManagerDeduplicateFileOperations: DeduplicateFileOperations {
