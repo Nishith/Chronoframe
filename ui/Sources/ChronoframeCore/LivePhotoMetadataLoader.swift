@@ -67,6 +67,7 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
 
     private let lock = NSLock()
     private var active: [UUID: ActiveLoad] = [:]
+    private var generation: UInt64 = 0
     private var timeoutCount = 0
     private var circuitOpen = false
     private let workerCount: Int
@@ -102,11 +103,12 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
     }
 
     public func loadIdentifiers(for movieURLs: [URL]) async -> LivePhotoMetadataBatchResult {
-        lock.synchronized {
+        let loadGeneration = lock.synchronized { () -> UInt64 in
             if active.isEmpty {
                 timeoutCount = 0
                 circuitOpen = false
             }
+            return generation
         }
         return await withTaskCancellationHandler {
             var result = LivePhotoMetadataBatchResult()
@@ -116,7 +118,9 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
                 let batch = Array(movieURLs[batchStart..<batchEnd])
                 await withTaskGroup(of: (URL, Outcome).self) { group in
                     for url in batch {
-                        group.addTask { [self] in (url, await loadOne(url: url)) }
+                        group.addTask { [self] in
+                            (url, await loadOne(url: url, generation: loadGeneration))
+                        }
                     }
                     for await (url, outcome) in group {
                         switch outcome {
@@ -127,7 +131,7 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
                         }
                     }
                 }
-                if isCircuitOpen {
+                if isCircuitOpen(for: loadGeneration) {
                     for url in movieURLs.dropFirst(batchEnd) { result.unsupportedPaths.insert(url.path) }
                     break
                 }
@@ -139,7 +143,12 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
     }
 
     public func cancelAll() {
-        let loads: [ActiveLoad] = lock.synchronized { Array(active.values) }
+        let loads: [ActiveLoad] = lock.synchronized {
+            generation &+= 1
+            let loads = Array(active.values)
+            active.removeAll()
+            return loads
+        }
         for load in loads {
             load.task.cancel()
             load.asset.value.cancelLoading()
@@ -147,9 +156,11 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
         }
     }
 
-    private var isCircuitOpen: Bool { lock.synchronized { circuitOpen } }
+    private func isCircuitOpen(for loadGeneration: UInt64) -> Bool {
+        lock.synchronized { loadGeneration == generation && circuitOpen }
+    }
 
-    private func loadOne(url: URL) async -> Outcome {
+    private func loadOne(url: URL, generation loadGeneration: UInt64) async -> Outcome {
         if Task.isCancelled { return .cancelled }
         let loadID = UUID()
         let asset = assetFactory(url)
@@ -160,15 +171,16 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
         let operation = Task.detached(priority: .utility) {
             await identifierLoader(assetBox.value)
         }
-        let registered = lock.synchronized { () -> Bool in
-            guard !circuitOpen, active.count < workerCount else { return false }
+        let rejection = lock.synchronized { () -> Outcome? in
+            guard loadGeneration == generation else { return .cancelled }
+            guard !circuitOpen, active.count < workerCount else { return .circuitOpen }
             active[loadID] = ActiveLoad(task: operation, asset: assetBox, gate: gate)
-            return true
+            return nil
         }
-        guard registered else {
+        if let rejection {
             operation.cancel()
             asset.cancelLoading()
-            return .circuitOpen
+            return rejection
         }
 
         // Cleanup follows the actual AVFoundation operation, not the caller's
@@ -201,6 +213,7 @@ public final class BoundedLivePhotoMetadataLoader: LivePhotoMetadataLoading, @un
             operation.cancel()
             asset.cancelLoading()
             lock.synchronized {
+                guard loadGeneration == generation else { return }
                 timeoutCount += 1
                 if timeoutCount >= circuitBreakerTimeoutCount { circuitOpen = true }
             }

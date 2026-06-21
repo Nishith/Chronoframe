@@ -4,6 +4,23 @@ import XCTest
 @testable import ChronoframeCore
 
 final class LivePhotoMetadataLoaderTests: XCTestCase {
+    private final class InvocationProbe: @unchecked Sendable {
+        private let lock = NSLock()
+        private var paths: Set<String> = []
+
+        func record(_ path: String) {
+            lock.lock()
+            paths.insert(path)
+            lock.unlock()
+        }
+
+        func contains(_ path: String) -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            return paths.contains(path)
+        }
+    }
+
     private final class BlockingProbe: @unchecked Sendable {
         private let lock = NSLock()
         private var active = 0
@@ -72,7 +89,48 @@ final class LivePhotoMetadataLoaderTests: XCTestCase {
         task.cancel()
         _ = await task.value
         XCTAssertLessThan(Date().timeIntervalSince(started), 1)
-        XCTAssertLessThanOrEqual(loader.outstandingLoadCount, 4)
+        XCTAssertEqual(loader.outstandingLoadCount, 0)
+    }
+
+    func testCancelledGenerationDoesNotBlockNextMetadataLoad() async {
+        let probe = InvocationProbe()
+        let firstURL = URL(fileURLWithPath: "/tmp/chronoframe-live-photo-stuck.mov")
+        let secondURL = URL(fileURLWithPath: "/tmp/chronoframe-live-photo-next.mov")
+        let loader = BoundedLivePhotoMetadataLoader(
+            workerCount: 1,
+            timeoutSeconds: 10,
+            circuitBreakerTimeoutCount: 1,
+            identifierLoader: { asset in
+                probe.record(asset.url.path)
+                if asset.url.path == firstURL.path {
+                    await Self.delayIgnoringTaskCancellation(for: 0.5)
+                    return nil
+                }
+                return "next-generation-identifier"
+            }
+        )
+
+        let firstLoad = Task {
+            await loader.loadIdentifiers(for: [firstURL])
+        }
+
+        for _ in 0..<100 where !probe.contains(firstURL.path) {
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        XCTAssertTrue(probe.contains(firstURL.path))
+
+        firstLoad.cancel()
+        _ = await firstLoad.value
+        XCTAssertEqual(loader.outstandingLoadCount, 0)
+
+        let secondResult = await loader.loadIdentifiers(for: [secondURL])
+
+        XCTAssertEqual(
+            secondResult.identifiersByPath[secondURL.path],
+            "next-generation-identifier"
+        )
+        XCTAssertFalse(secondResult.unsupportedPaths.contains(secondURL.path))
+        XCTAssertTrue(probe.contains(secondURL.path))
     }
 
     func testMetadataAssetsForbidExternalReferencesAndDisablePreciseTiming() {
