@@ -406,7 +406,6 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
-    @MainActor
     func testOrganizeRunRejectedWhileDeduplicateWorking() async {
         // Finding #7: organize and deduplicate touch the same destination and
         // must not run concurrently.
@@ -448,6 +447,7 @@ final class AppStateTests: XCTestCase {
         appState.cancelRun()
     }
 
+    @MainActor
     func testDeduplicateScanUsesDedicatedFolderWhenSetAndFallsBackOtherwise() {
         let harness = AppStateHarness()
         harness.setupStore.destinationPath = "/Volumes/Organize"
