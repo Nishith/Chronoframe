@@ -1829,7 +1829,10 @@ final class DeduplicateTests: XCTestCase {
         let moveFailureOriginal = temporaryDirectory.appendingPathComponent("move-failure.jpg")
         let fakeTrashURL = temporaryDirectory.appendingPathComponent("fake-trash.jpg")
         try Data([0xAA]).write(to: fakeTrashURL)
+        // Legacy (schema ≤5) receipt: these items carry no recorded identity, so
+        // the integrity gate is skipped and the move-failure path is exercised.
         let receipt = DeduplicateAuditReceipt(
+            schemaVersion: 5,
             createdAt: Date(timeIntervalSince1970: 1_700_000_000),
             destinationRoot: temporaryDirectory.path,
             items: [
@@ -2063,14 +2066,16 @@ final class DeduplicateTests: XCTestCase {
         let trashFile = temporaryDirectory.appendingPathComponent("trashed-photo.jpg")
         try Data("legacy trashed bytes that were later edited".utf8).write(to: trashFile)
 
-        // No recorded identity (legacy), and the bytes differ from anything the
-        // receipt could have captured — must still restore.
+        // A genuine legacy receipt is schema ≤5 with no recorded identity; the
+        // bytes differ from anything the receipt could have captured — it must
+        // still restore unconditionally for backward compatibility.
         let receiptURL = try writeRestoreReceipt(
             in: temporaryDirectory,
             original: original,
             trashFile: trashFile,
             sizeBytes: 1,
-            expectedIdentity: nil
+            expectedIdentity: nil,
+            schemaVersion: 5
         )
 
         let outcome = try await drainRevert(receiptURL: receiptURL, boundary: temporaryDirectory)
@@ -2080,14 +2085,47 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: original.path), "legacy item must restore unconditionally")
     }
 
+    // AGENTS-INVARIANT: 20
+    /// A current-schema (v6+) receipt whose item is missing its recorded
+    /// identity is corrupt or hand-edited. It must fail closed — the legacy
+    /// unconditional-restore exception applies only to schema ≤5.
+    func testRevertFailsSchemaV6ItemMissingRecordedIdentity() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeRestoreV6Missing-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let original = temporaryDirectory.appendingPathComponent("photo.jpg")
+        let trashFile = temporaryDirectory.appendingPathComponent("trashed-photo.jpg")
+        try Data("v6 receipt but identity field was stripped".utf8).write(to: trashFile)
+
+        let receiptURL = try writeRestoreReceipt(
+            in: temporaryDirectory,
+            original: original,
+            trashFile: trashFile,
+            sizeBytes: 1,
+            expectedIdentity: nil,
+            schemaVersion: 6
+        )
+
+        let outcome = try await drainRevert(receiptURL: receiptURL, boundary: temporaryDirectory)
+
+        XCTAssertEqual(outcome.deletedCount, 0)
+        XCTAssertEqual(outcome.failedCount, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: original.path), "v6 item without identity must not be restored")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: trashFile.path), "the unverifiable item stays in Trash")
+    }
+
     private func writeRestoreReceipt(
         in directory: URL,
         original: URL,
         trashFile: URL,
         sizeBytes: Int64,
-        expectedIdentity: FileIdentity?
+        expectedIdentity: FileIdentity?,
+        schemaVersion: Int = 6
     ) throws -> URL {
         let receipt = DeduplicateAuditReceipt(
+            schemaVersion: schemaVersion,
             status: "COMPLETED",
             createdAt: Date(timeIntervalSince1970: 1_700_000_000),
             destinationRoot: directory.path,
