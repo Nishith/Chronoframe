@@ -1105,7 +1105,10 @@ struct ReceiptDetailSheet: View {
     /// path, so a `hashIdentity` throw (common on a flaky disk/NAS) leaked the
     /// open file descriptor. `defer` now closes it on every exit, including the
     /// `catch`, keeping descriptor use bounded across many read failures.
-    static func verifyStatus(
+    ///
+    /// `nonisolated` so the detached verification task can call it off the main
+    /// actor (the function touches no view state).
+    nonisolated static func verifyStatus(
         forDestination dest: String,
         expectedHash: String,
         fileManager: FileManager = .default,
