@@ -78,7 +78,8 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         method: .trash,
                         clusterID: planItem.owningClusterID,
                         clusterKind: ReceiptClusterKind(planItem.owningClusterKind),
-                        mediaKind: ReceiptMediaKind(planItem.mediaKind)
+                        mediaKind: ReceiptMediaKind(planItem.mediaKind),
+                        expectedIdentity: planItem.expectedIdentity
                     )
                 }
                 do {
@@ -372,6 +373,46 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                             continuation.yield(.itemFailed(originalPath: item.originalPath, errorMessage: "Original path already exists. Chronoframe left it untouched."))
                             continue
                         }
+                        // Verify the Trash item still holds the exact bytes that
+                        // were trashed before restoring it. The Trash is a
+                        // user-writable location, so a tampered or replaced item
+                        // must not be silently moved back to the library.
+                        var verifiedTrashEntry: (device: dev_t, inode: ino_t)?
+                        if let expected = item.expectedIdentity {
+                            switch Self.verifyTrashItem(at: trashURL, expected: expected) {
+                            case let .mismatch(reason):
+                                failedCount += 1
+                                continuation.yield(.itemFailed(originalPath: item.originalPath, errorMessage: reason))
+                                continue
+                            case let .verified(device, inode):
+                                verifiedTrashEntry = (device, inode)
+                            }
+                        } else if receipt.schemaVersion >= 6 {
+                            // A current-schema (v6+) receipt must carry an identity
+                            // for every trashed item; a missing one means the
+                            // receipt is corrupt or hand-edited. Fail closed rather
+                            // than treating it as a legacy unconditional restore —
+                            // the legacy exception applies only to schema ≤5.
+                            failedCount += 1
+                            continuation.yield(.itemFailed(
+                                originalPath: item.originalPath,
+                                errorMessage: "This receipt is missing the integrity information needed to safely restore this item, so it was left in Trash."
+                            ))
+                            continue
+                        }
+                        // Re-bind the verification to the entry we are about to
+                        // move: confirm the path still resolves to the exact inode
+                        // we hashed, immediately before the move closes the
+                        // verify→restore window against a Trash-entry swap.
+                        if let verifiedTrashEntry,
+                           !Self.trashEntryStillMatches(trashURL, device: verifiedTrashEntry.device, inode: verifiedTrashEntry.inode) {
+                            failedCount += 1
+                            continuation.yield(.itemFailed(
+                                originalPath: item.originalPath,
+                                errorMessage: "The item in Trash changed during restore, so it was left in Trash."
+                            ))
+                            continue
+                        }
                         do {
                             try fileOperations.createDirectory(
                                 at: originalURL.deletingLastPathComponent(),
@@ -638,6 +679,60 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         } catch {
             return "Chronoframe could not verify the selected file's contents, so it was preserved."
         }
+    }
+
+    /// Re-open a Trash item through an `O_NOFOLLOW` descriptor and confirm its
+    /// contents still match the identity captured when it was trashed. Returns
+    /// a human-readable reason when it does not (so revert leaves it in Trash),
+    /// or `nil` when it is safe to restore. Mirrors `quarantinedIdentityMismatch`
+    /// but operates on a receipt's recorded identity rather than a live plan.
+    enum TrashRestoreVerification: Equatable {
+        /// The Trash item matched the recorded identity; carries the device/inode
+        /// it was verified against so the caller can re-bind the restore to the
+        /// exact entry immediately before moving it.
+        case verified(device: dev_t, inode: ino_t)
+        case mismatch(String)
+    }
+
+    /// Re-open a Trash item through an `O_NOFOLLOW` descriptor and confirm its
+    /// contents still match the identity captured when it was trashed. On
+    /// success returns the verified `(device, inode)`; on any problem returns a
+    /// human-readable reason so revert leaves the item in Trash. Mirrors
+    /// `quarantinedIdentityMismatch` but operates on a receipt's recorded
+    /// identity rather than a live plan.
+    static func verifyTrashItem(at url: URL, expected: FileIdentity) -> TrashRestoreVerification {
+        let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW) }
+        guard descriptor >= 0 else {
+            return .mismatch("Chronoframe could not reopen this item in Trash to verify it, so it was left in Trash. Restore it manually if you trust it.")
+        }
+        defer { _ = Darwin.close(descriptor) }
+
+        var st = stat()
+        guard fstat(descriptor, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else {
+            return .mismatch("The item in Trash is no longer the regular file that was deleted, so it was left in Trash.")
+        }
+        guard Int64(st.st_size) == expected.size else {
+            return .mismatch("The item in Trash changed size since it was deleted, so it was left in Trash to avoid restoring altered contents.")
+        }
+        do {
+            let identity = try FileIdentityHasher().hashIdentity(descriptor: descriptor, size: Int64(st.st_size))
+            guard identity == expected else {
+                return .mismatch("The item in Trash was modified since it was deleted, so it was left in Trash to avoid restoring altered contents.")
+            }
+            return .verified(device: st.st_dev, inode: st.st_ino)
+        } catch {
+            return .mismatch("Chronoframe could not verify this item's contents in Trash, so it was left in Trash. Restore it manually if you trust it.")
+        }
+    }
+
+    /// Confirm the Trash path still resolves (no symlink) to the exact
+    /// regular-file inode `verifyTrashItem` hashed. Called immediately before
+    /// the path-based move so a swap of the user-writable Trash entry in the
+    /// verify→restore window cannot redirect the restore to a different file.
+    static func trashEntryStillMatches(_ url: URL, device: dev_t, inode: ino_t) -> Bool {
+        var st = stat()
+        let ok = url.path.withCString { lstat($0, &st) == 0 }
+        return ok && (st.st_mode & S_IFMT) == S_IFREG && st.st_dev == device && st.st_ino == inode
     }
 
     static func restoreQuarantined(
