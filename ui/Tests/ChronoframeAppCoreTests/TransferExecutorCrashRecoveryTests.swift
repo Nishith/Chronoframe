@@ -83,6 +83,58 @@ final class TransferExecutorCrashRecoveryTests: XCTestCase {
         XCTAssertEqual(transfers[1]["dest"] as? String, "/dst/2024/01/02/IMG_02.jpg")
     }
 
+    private static let obj1 = #"{"dest":"/dst/IMG_01.jpg","hash":"100_aaa","source":"/src/IMG_01.jpg"}"#
+    private static let obj2 = #"{"dest":"/dst/IMG_02.jpg","hash":"200_bbb","source":"/src/IMG_02.jpg"}"#
+
+    /// A crash between `appendTransfer`'s separator and object writes can
+    /// leave the spool ending in a trailing `,\n`. Recovery must drop that
+    /// dangling separator and still produce a receipt that parses and reverts.
+    func testRecoveryToleratesTrailingSeparatorInSpool() throws {
+        // Mirrors a SIGKILL right after the separator for a third transfer was
+        // written but before its object: `…{obj2},\n`.
+        let receiptURL = try writePendingRun(
+            spoolBody: framedSpool([Self.obj1, Self.obj2]) + ",\n"
+        )
+
+        let recovered = makeExecutor().recoverInterruptedRuns(at: temporaryDirectoryURL)
+        XCTAssertEqual(recovered, 1)
+
+        let transfers = try transfers(in: receiptURL)
+        XCTAssertEqual(transfers.count, 2, "the dangling separator must be dropped, both complete entries kept")
+        XCTAssertEqual(transfers[1]["source"] as? String, "/src/IMG_02.jpg")
+
+        // The recovered receipt must be loadable by the revert path.
+        let receipt = try RevertExecutor().loadReceipt(at: receiptURL)
+        XCTAssertEqual(receipt.transfers.count, 2)
+    }
+
+    /// A crash mid-object leaves a half-written final fragment. Recovery must
+    /// drop only that fragment and keep every complete prior transfer.
+    func testRecoveryDropsPartialTrailingObjectInSpool() throws {
+        let receiptURL = try writePendingRun(
+            spoolBody: framedSpool([Self.obj1, Self.obj2]) + ",\n    " + #"{"dest":"/dst/IMG_03.jpg","hash":"300_cc"#
+        )
+
+        let recovered = makeExecutor().recoverInterruptedRuns(at: temporaryDirectoryURL)
+        XCTAssertEqual(recovered, 1)
+
+        let transfers = try transfers(in: receiptURL)
+        XCTAssertEqual(transfers.count, 2, "the truncated third object must be dropped")
+        XCTAssertEqual(transfers[0]["dest"] as? String, "/dst/IMG_01.jpg")
+        XCTAssertEqual(transfers[1]["dest"] as? String, "/dst/IMG_02.jpg")
+
+        let receipt = try RevertExecutor().loadReceipt(at: receiptURL)
+        XCTAssertEqual(receipt.transfers.count, 2)
+    }
+
+    /// Frame JSON objects exactly as `StreamingAuditReceiptWriter.appendTransfer`
+    /// does: each entry indented four spaces, entries joined by `,\n`.
+    private func framedSpool(_ objects: [String]) -> String {
+        objects.enumerated()
+            .map { index, object in (index > 0 ? ",\n" : "") + "    " + object }
+            .joined()
+    }
+
     func testRecoveryLeavesCompletedReceiptsAlone() throws {
         let logsDirectory = temporaryDirectoryURL.appendingPathComponent(".organize_logs", isDirectory: true)
         try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
@@ -109,5 +161,40 @@ final class TransferExecutorCrashRecoveryTests: XCTestCase {
 
     private func makeExecutor() -> TransferExecutor {
         TransferExecutor()
+    }
+
+    /// Write a PENDING receipt header + spool pair (mirroring a crashed run)
+    /// and return the receipt URL.
+    @discardableResult
+    private func writePendingRun(spoolBody: String) throws -> URL {
+        let logsDirectory = temporaryDirectoryURL.appendingPathComponent(".organize_logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+        let runID = UUID().uuidString
+        let stem = "audit_receipt_20260518_120000_\(runID)"
+        let receiptURL = logsDirectory.appendingPathComponent("\(stem).json")
+        let spoolURL = logsDirectory.appendingPathComponent("\(stem).transfers.tmp")
+
+        let pendingHeader: [String: Any] = [
+            "schemaVersion": 2,
+            "runID": runID,
+            "operation": "organize",
+            "status": "PENDING",
+            "timestamp": "2026-05-18T12:00:00Z",
+            "startedAt": "2026-05-18T12:00:00Z",
+            "transferSpool": spoolURL.lastPathComponent,
+            "transfers": [],
+        ]
+        try JSONSerialization.data(withJSONObject: pendingHeader, options: [.prettyPrinted])
+            .write(to: receiptURL, options: [.atomic])
+        try Data(spoolBody.utf8).write(to: spoolURL, options: [.atomic])
+        return receiptURL
+    }
+
+    private func transfers(in receiptURL: URL) throws -> [[String: Any]] {
+        let data = try Data(contentsOf: receiptURL)
+        let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["status"] as? String, "ABORTED")
+        return try XCTUnwrap(object["transfers"] as? [[String: Any]])
     }
 }

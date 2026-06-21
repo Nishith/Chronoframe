@@ -356,7 +356,7 @@ public struct TransferExecutor: Sendable {
         out += "  \"recoveredAt\" : \(jsonStringEscape(ISO8601DateFormatter().string(from: Date()))),\n"
         out += "  \"abortReason\" : \"Chronoframe was interrupted before this run finished. The transfers below completed and are revertable.\",\n"
         out += "  \"transfers\" : [\n"
-        out += spoolBody
+        out += sanitizedSpoolBody(spoolBody)
         out += "\n  ]\n}\n"
 
         let tempURL = receiptURL.appendingPathExtension("recovery.tmp")
@@ -370,6 +370,35 @@ public struct TransferExecutor: Sendable {
             try? FileManager.default.removeItem(at: tempURL)
             return false
         }
+    }
+
+    /// Parse the transfer spool into individually-validated JSON object
+    /// fragments and re-frame them for embedding in the receipt's
+    /// "transfers" array. A process can be SIGKILL'd / lose power between
+    /// `appendTransfer`'s separate `,\n`, indent, and object writes, leaving
+    /// the spool ending in a trailing separator or a half-written object.
+    /// Splicing that raw tail into the receipt produced invalid JSON that
+    /// `RevertExecutor.loadReceipt` then rejected — losing revertability for
+    /// the *entire* recovered run, not just the partial last entry. Each
+    /// `appendTransfer` object is compact (no interior newlines), so the
+    /// `,\n` separator is unambiguous; we validate every fragment as a JSON
+    /// object and drop only the malformed trailing one.
+    private func sanitizedSpoolBody(_ body: String) -> String {
+        body
+            .components(separatedBy: ",\n")
+            .compactMap { fragment -> String? in
+                let trimmed = fragment.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard
+                    !trimmed.isEmpty,
+                    let data = trimmed.data(using: .utf8),
+                    let object = try? JSONSerialization.jsonObject(with: data),
+                    object is [String: Any]
+                else {
+                    return nil
+                }
+                return "    " + trimmed
+            }
+            .joined(separator: ",\n")
     }
 
     private func jsonStringEscape(_ value: String) -> String {
@@ -759,11 +788,17 @@ public struct TransferExecutor: Sendable {
         job: QueuedCopyJob,
         verifyCopies: Bool,
         runLogger: PersistentRunLogger,
+        precomputedSourceIdentity: FileIdentity? = nil,
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) -> TransferJobOutcome {
         do {
-            let identity = try fileHasher.hashIdentity(at: URL(fileURLWithPath: job.sourcePath))
+            // The serial path re-hashes the source in `process()` to decide
+            // whether to skip; reuse that identity instead of reading the
+            // whole file a second time. The parallel path passes nil and
+            // hashes here once.
+            let identity = try precomputedSourceIdentity
+                ?? fileHasher.hashIdentity(at: URL(fileURLWithPath: job.sourcePath))
             if isTrustedPlannedIdentity(job.hash), identity.rawValue != job.hash {
                 let message = "Source modified since planning, skipping: \(job.sourcePath)"
                 return .skipped(message: message, logMessage: message)
@@ -1424,7 +1459,8 @@ private final class TransferExecutionContext {
     }
 
     func process(job: QueuedCopyJob, attemptedJobs: Int) throws -> Bool {
-        if let skippedOutcome = sourceSkipOutcomeIfNeeded(for: job) {
+        let preflight = sourceSkipOutcomeIfNeeded(for: job)
+        if let skippedOutcome = preflight.outcome {
             return try apply(outcome: skippedOutcome, for: job, attemptedJobs: attemptedJobs)
         }
         let observerRef = self.observer
@@ -1439,6 +1475,7 @@ private final class TransferExecutionContext {
             job: job,
             verifyCopies: verifyCopies,
             runLogger: runLogger,
+            precomputedSourceIdentity: preflight.identity,
             isCancelled: isCancelled,
             onIssue: { issue in observerRef.onIssue(issue) }
         )
@@ -1617,17 +1654,23 @@ private final class TransferExecutionContext {
         return !isCancelled()
     }
 
-    private func sourceSkipOutcomeIfNeeded(for job: QueuedCopyJob) -> TransferJobOutcome? {
+    /// Re-hash the source once to decide whether it changed since planning.
+    /// Returns the skip outcome when it did (or is unreadable), otherwise the
+    /// freshly computed identity so `prepareCopy` can reuse it instead of
+    /// reading the whole file a second time.
+    private func sourceSkipOutcomeIfNeeded(
+        for job: QueuedCopyJob
+    ) -> (outcome: TransferJobOutcome?, identity: FileIdentity?) {
         do {
             let identity = try executor.fileHasher.hashIdentity(at: URL(fileURLWithPath: job.sourcePath))
             if isTrustedPlannedIdentity(job.hash), identity.rawValue != job.hash {
                 let message = "Source modified since planning, skipping: \(job.sourcePath)"
-                return .skipped(message: message, logMessage: message)
+                return (.skipped(message: message, logMessage: message), nil)
             }
-            return nil
+            return (nil, identity)
         } catch {
             let message = "Source unreadable, skipping: \(job.sourcePath): \(error.localizedDescription)"
-            return .skipped(message: message, logMessage: message)
+            return (.skipped(message: message, logMessage: message), nil)
         }
     }
 

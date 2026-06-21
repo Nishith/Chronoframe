@@ -28,7 +28,17 @@ public struct FileIdentityHasher: Sendable {
 
     public init() {}
 
+    #if DEBUG
+    /// Test-only seam: invoked at the top of every path-based hash so tests
+    /// can assert how many times a given source is read (e.g. that the serial
+    /// transfer path hashes each source exactly once). No-op in release.
+    public var onPathHash: @Sendable (URL) -> Void = { _ in }
+    #endif
+
     public func hashIdentity(at url: URL, knownSize: Int64? = nil) throws -> FileIdentity {
+        #if DEBUG
+        onPathHash(url)
+        #endif
         let size: Int64
         if let knownSize {
             size = knownSize
