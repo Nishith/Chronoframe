@@ -233,11 +233,22 @@ final class AppState: ObservableObject {
     }
 
     func startPreview() async {
+        // Finding #7: organize and deduplicate mutate the same destination, so
+        // they must never run concurrently. Reject an organize run while a
+        // deduplicate scan/commit is in flight.
+        guard !deduplicateSessionStore.isWorking else {
+            transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+            return
+        }
         previewReviewStore.reset()
         await runCoordinator.startPreview()
     }
 
     func startTransfer() async {
+        guard !deduplicateSessionStore.isWorking else {
+            transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+            return
+        }
         if previewReviewStore.isStale {
             transientErrorMessage = "Rebuild the preview before transferring so Chronoframe copies exactly the corrected plan."
             return
@@ -383,6 +394,12 @@ final class AppState: ObservableObject {
     }
 
     func startDeduplicateScan() {
+        // Finding #7: don't scan for duplicates while an organize run (including
+        // its preflight) is mutating or about to mutate the destination.
+        guard !runSessionStore.isRunning else {
+            transientErrorMessage = "Finish the current organize run before scanning for duplicates."
+            return
+        }
         let destination = deduplicateDestinationPath
         guard !destination.isEmpty else {
             transientErrorMessage = "Choose a destination folder before running a deduplicate scan."
@@ -396,6 +413,10 @@ final class AppState: ObservableObject {
     }
 
     func commitDeduplicateDecisions() {
+        guard !runSessionStore.isRunning else {
+            transientErrorMessage = "Finish the current organize run before deleting duplicates."
+            return
+        }
         let destination = deduplicateDestinationPath
         guard !destination.isEmpty else { return }
         let configuration = preferencesStore.makeDeduplicateConfiguration(destinationPath: destination)
