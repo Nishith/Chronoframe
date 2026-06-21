@@ -165,6 +165,7 @@ public final class RunSessionStore: ObservableObject {
             logsDirectoryPath: URL(fileURLWithPath: destinationRoot)
                 .appendingPathComponent(".organize_logs", isDirectory: true).path
         )
+        emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
@@ -212,6 +213,7 @@ public final class RunSessionStore: ObservableObject {
         status = .running
         currentTaskTitle = "Reorganizing…"
         artifacts = RunArtifactPaths(destinationRoot: destinationRoot)
+        emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
@@ -263,6 +265,7 @@ public final class RunSessionStore: ObservableObject {
             logsDirectoryPath: URL(fileURLWithPath: destinationRoot)
                 .appendingPathComponent(".organize_logs", isDirectory: true).path
         )
+        emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
