@@ -101,7 +101,7 @@ struct RunHeroSection: View {
                 .allowsHitTesting(false)
                 .blendMode(.plusLighter)
         }
-        .onChange(of: model.context.status) { newValue in
+        .onChange(of: model.context.status) { _, newValue in
             guard newValue == .finished, !reduceMotion else { return }
             Motion.withMotion(Motion.wash, reduceMotion: reduceMotion) {
                 washOpacity = 0.18
@@ -112,7 +112,7 @@ struct RunHeroSection: View {
                 }
             }
         }
-        .onChange(of: announcementSnapshot) { newSnapshot in
+        .onChange(of: announcementSnapshot) { _, newSnapshot in
             announceRunStateChange(to: newSnapshot)
         }
     }

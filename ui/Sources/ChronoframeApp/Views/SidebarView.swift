@@ -53,12 +53,12 @@ struct SidebarView: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle("Chronoframe")
-        .onChange(of: appState.organizeSubSelection) { sub in
+        .onChange(of: appState.organizeSubSelection) { _, sub in
             if appState.selection == .organize && sub == .history {
                 lastSeenHistoryCount = historyStore.entries.count
             }
         }
-        .onChange(of: appState.selection) { selection in
+        .onChange(of: appState.selection) { _, selection in
             if selection == .organize && appState.organizeSubSelection == .history {
                 lastSeenHistoryCount = historyStore.entries.count
             }
@@ -66,9 +66,7 @@ struct SidebarView: View {
                 markCurrentDeduplicateStatusSeen()
             }
         }
-        .onChange(of: deduplicateSessionStore.status) { _ in
-            refreshDeduplicateAttentionMarker()
-        }
+        .onChange(of: deduplicateSessionStore.status) { refreshDeduplicateAttentionMarker() }
         .onAppear {
             refreshDeduplicateAttentionMarker()
         }
