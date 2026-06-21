@@ -59,6 +59,65 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         XCTAssertEqual(DateClassification.bucket(for: makeDate("2023-06-15")), "2023-06-15")
     }
 
+    // MARK: - Date-bucketing boundaries (missing-test coverage)
+
+    /// Filename dates land in the right day folder across year/month/leap-day
+    /// rollovers — the time-of-day component must never bump the bucket.
+    func testFilenameDateBucketingAcrossYearAndMonthBoundaries() {
+        let cases: [(String, String)] = [
+            ("/p/IMG_20231231_235959.jpg", "2023-12-31"), // last second of the year
+            ("/p/IMG_20240101_000000.jpg", "2024-01-01"), // first second of the year
+            ("/p/IMG_20240229_120000.jpg", "2024-02-29"), // valid leap day
+            ("/p/IMG_20240301_000000.jpg", "2024-03-01"), // month rollover
+        ]
+        for (path, expected) in cases {
+            XCTAssertEqual(
+                DateClassification.bucket(for: FilenameDateParser.parse(from: path)),
+                expected,
+                "Filename \(path) should bucket to \(expected)"
+            )
+        }
+        // 2023 is not a leap year — Feb 29 must be rejected, not rolled to Mar 1.
+        XCTAssertNil(FilenameDateParser.parse(from: "/p/IMG_20230229_120000.jpg"))
+    }
+
+    /// `DateClassification.bucket` keys on the UTC calendar day. An instant at
+    /// exactly UTC midnight belongs to the new day; one second earlier belongs
+    /// to the previous day.
+    func testDateBucketUsesUTCCalendarDayAtMidnight() {
+        let utcMidnight = makeDate("2024-01-01") // 2024-01-01T00:00:00Z
+        XCTAssertEqual(DateClassification.bucket(for: utcMidnight), "2024-01-01")
+        XCTAssertEqual(DateClassification.bucket(for: utcMidnight.addingTimeInterval(-1)), "2023-12-31")
+        XCTAssertEqual(DateClassification.bucket(for: utcMidnight.addingTimeInterval(-86_400)), "2023-12-31")
+    }
+
+    /// EXIF timestamps without an offset are read as UTC wall-clock, so a late
+    /// evening shot keeps its own day rather than rolling forward.
+    func testNoOffsetExifNearMidnightKeepsWallClockDay() {
+        let lateNight = NativeMediaMetadataDateReader.parseImagePropertyDate("2023:12:31 23:59:00")
+        XCTAssertEqual(DateClassification.bucket(for: lateNight), "2023-12-31")
+        let earlyMorning = NativeMediaMetadataDateReader.parseImagePropertyDate("2024:01:01 00:30:00")
+        XCTAssertEqual(DateClassification.bucket(for: earlyMorning), "2024-01-01")
+    }
+
+    /// Characterization: when EXIF carries an explicit UTC offset, Chronoframe
+    /// buckets by the resulting **UTC instant**, not the local wall-clock day.
+    /// A 02:00 shot at +05:00 (still "Jan 1" locally) is 21:00 the previous day
+    /// in UTC and is filed under Dec 31; a 22:00 shot at -05:00 is filed under
+    /// the next UTC day. This pins current behavior — if local-day bucketing is
+    /// ever desired, this is the test that must change deliberately.
+    func testOffsetExifNearLocalMidnightBucketsByUTCInstant() {
+        let earlyLocalJan1 = NativeMediaMetadataDateReader.parseImagePropertyDate("2024:01:01 02:00:00", offset: "+05:00")
+        XCTAssertEqual(DateClassification.bucket(for: earlyLocalJan1), "2023-12-31")
+
+        let lateLocalDec31 = NativeMediaMetadataDateReader.parseImagePropertyDate("2023:12:31 22:00:00", offset: "-05:00")
+        XCTAssertEqual(DateClassification.bucket(for: lateLocalDec31), "2024-01-01")
+
+        // An offset shot away from midnight keeps its local day either way.
+        let middayJan1 = NativeMediaMetadataDateReader.parseImagePropertyDate("2024:01:01 12:00:00", offset: "+05:00")
+        XCTAssertEqual(DateClassification.bucket(for: middayJan1), "2024-01-01")
+    }
+
     func testFileDateResolverUsesPhotoMetadataForPhotosBeforeFilenameFallback() {
         let reader = StubMetadataReader(
             photoDate: makeDate("2023-06-15"),
