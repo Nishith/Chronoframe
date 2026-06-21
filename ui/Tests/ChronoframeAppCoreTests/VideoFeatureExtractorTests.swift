@@ -372,6 +372,27 @@ final class VideoFeatureExtractorTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Finding #6: bounded async→sync bridge
+
+    func testBoundedAsyncBridgeReturnsNilPromptlyWhenOperationExceedsTimeout() {
+        let start = Date()
+        let result: Int? = BoundedAsyncBridge.run(timeout: .now() + 0.2) {
+            // Far longer than the timeout — simulates a stalled metadata load.
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            return 1
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        XCTAssertNil(result, "Bridge must return nil when the operation exceeds the timeout")
+        XCTAssertLessThan(elapsed, 3.0, "Bridge must return at the deadline, not wait for the operation")
+    }
+
+    func testBoundedAsyncBridgeReturnsValueWhenOperationFinishesInTime() {
+        let result: Int? = BoundedAsyncBridge.run(timeout: .now() + 5) {
+            42
+        }
+        XCTAssertEqual(result, 42)
+    }
 }
 
 /// A `@Sendable`-safe cancellation flag that reads `false` for the first

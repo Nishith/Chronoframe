@@ -495,34 +495,34 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
         return pixels
     }
 
+    /// Upper bound on how long a single video's metadata load may block the
+    /// scan. A malformed, offline, or stalled container could otherwise hang
+    /// the async AVFoundation load forever (Finding #6); past this deadline the
+    /// item is treated as unsupported and the scan moves on.
+    static let metadataLoadTimeoutSeconds: Double = 30
+
     /// Load duration + first-video-track geometry using the modern async
-    /// AVFoundation API, bridged to this synchronous decode path with a
-    /// semaphore (the extractor runs off the main thread on a worker queue, the
-    /// same pattern `DeduplicatePairDetector` uses). Returns `nil` on any
-    /// failure — the caller maps that to `.unsupported`.
+    /// AVFoundation API, bridged to this synchronous decode path with a bounded
+    /// wait (the extractor runs off the main thread on a worker queue). Returns
+    /// `nil` on any failure or timeout — the caller maps that to `.unsupported`.
     private static func loadTrackMetadata(asset: AVURLAsset) -> TrackMetadata? {
-        let box = LoadedTrackMetadataBox()
-        let semaphore = DispatchSemaphore(value: 0)
-        Task.detached {
-            defer { semaphore.signal() }
+        BoundedAsyncBridge.run(timeout: .now() + metadataLoadTimeoutSeconds) {
             do {
-                guard let track = try await asset.loadTracks(withMediaType: .video).first else { return }
+                guard let track = try await asset.loadTracks(withMediaType: .video).first else { return nil }
                 let duration = try await asset.load(.duration)
                 let naturalSize = try await track.load(.naturalSize)
                 let transform = try await track.load(.preferredTransform)
                 let estimatedDataRate = (try? await track.load(.estimatedDataRate)) ?? 0
-                box.value = TrackMetadata(
+                return TrackMetadata(
                     duration: CMTimeGetSeconds(duration),
                     naturalSize: naturalSize,
                     transform: transform,
                     estimatedDataRate: Double(estimatedDataRate)
                 )
             } catch {
-                // Leave box.value nil → caller treats as unsupported.
+                return nil
             }
         }
-        semaphore.wait()
-        return box.value
     }
 
     private struct TrackMetadata {
@@ -531,9 +531,39 @@ public final class AVFoundationVideoFeatureExtractor: VideoFeatureProviding, @un
         var transform: CGAffineTransform
         var estimatedDataRate: Double
     }
+}
 
-    private final class LoadedTrackMetadataBox: @unchecked Sendable {
-        var value: TrackMetadata?
+// MARK: - Bounded async→sync bridge
+
+/// Runs an async `operation` on a detached task and blocks the calling worker
+/// thread until it finishes or `timeout` elapses, returning `nil` on timeout.
+///
+/// Finding #6: AVFoundation metadata loads were bridged to the synchronous
+/// dedupe/extraction paths with an *unbounded* `DispatchSemaphore.wait()`, so a
+/// single malformed or stalled file could hang a scan forever. Every such
+/// bridge now goes through this helper with a deadline. On timeout the orphaned
+/// task is abandoned (AVFoundation loads don't reliably honor cancellation);
+/// its eventual result is harmlessly discarded because no one reads the box
+/// after the timeout return.
+enum BoundedAsyncBridge {
+    static func run<T: Sendable>(
+        timeout: DispatchTime,
+        operation: @escaping @Sendable () async -> T?
+    ) -> T? {
+        let box = ResultBox<T>()
+        let semaphore = DispatchSemaphore(value: 0)
+        Task.detached {
+            box.value = await operation()
+            semaphore.signal()
+        }
+        guard semaphore.wait(timeout: timeout) == .success else {
+            return nil
+        }
+        return box.value
+    }
+
+    private final class ResultBox<T>: @unchecked Sendable {
+        var value: T?
     }
 }
 

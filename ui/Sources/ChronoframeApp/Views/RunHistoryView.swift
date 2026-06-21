@@ -840,6 +840,11 @@ struct ReceiptDetailSheet: View {
     @State private var verificationResults: [String: VerificationStatus] = [:]
     @State private var isVerifying = false
     @State private var errorMessage: String? = nil
+    /// Finding #9: an explicit decode-completed flag. `transfers.isEmpty` was
+    /// used as the loading signal, so a valid receipt with zero items showed an
+    /// endless "Loading…" spinner. Tracking load completion separately lets a
+    /// genuinely empty receipt render its own empty state.
+    @State private var hasLoaded = false
 
     enum VerificationStatus: String {
         case pending = "Pending"
@@ -894,9 +899,15 @@ struct ReceiptDetailSheet: View {
                 Text(error)
                     .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
                     .padding()
-            } else if transfers.isEmpty {
+            } else if !hasLoaded {
                 VStack {
                     ProgressView("Loading receipt content...")
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if transfers.isEmpty {
+                VStack {
+                    Text("This receipt has no recorded items.")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -1005,6 +1016,9 @@ struct ReceiptDetailSheet: View {
     }
 
     private func loadReceipt() {
+        // Finding #9: mark the load complete on every exit so a valid zero-item
+        // receipt renders its empty state instead of an endless spinner.
+        defer { hasLoaded = true }
         let fileURL = URL(fileURLWithPath: entry.path)
         guard let data = try? Data(contentsOf: fileURL) else {
             errorMessage = "Could not read the receipt file from disk."
@@ -1074,40 +1088,53 @@ struct ReceiptDetailSheet: View {
         isVerifying = true
         let items = transfers
         await Task.detached(priority: .userInitiated) {
-            let fileManager = FileManager.default
-            let hasher = FileIdentityHasher()
             var results: [String: VerificationStatus] = [:]
-
             for item in items {
-                if !fileManager.fileExists(atPath: item.dest) {
-                    results[item.dest] = .missing
-                } else if item.hash.isEmpty {
-                    results[item.dest] = .matching
-                } else {
-                    do {
-                        let fd = Darwin.open(item.dest, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
-                        if fd >= 0 {
-                            var fdStat = stat()
-                            if fstat(fd, &fdStat) == 0 {
-                                let identity = try hasher.hashIdentity(descriptor: fd, size: Int64(fdStat.st_size))
-                                results[item.dest] = (identity.rawValue == item.hash) ? .matching : .mismatch
-                            } else {
-                                results[item.dest] = .mismatch
-                            }
-                            Darwin.close(fd)
-                        } else {
-                            results[item.dest] = .mismatch
-                        }
-                    } catch {
-                        results[item.dest] = .mismatch
-                    }
-                }
+                results[item.dest] = Self.verifyStatus(forDestination: item.dest, expectedHash: item.hash)
             }
-
             await MainActor.run {
                 self.verificationResults = results
                 self.isVerifying = false
             }
         }.value
+    }
+
+    /// Verify a single destination file against its receipt hash.
+    ///
+    /// Finding #8: the descriptor was previously closed only on the success
+    /// path, so a `hashIdentity` throw (common on a flaky disk/NAS) leaked the
+    /// open file descriptor. `defer` now closes it on every exit, including the
+    /// `catch`, keeping descriptor use bounded across many read failures.
+    ///
+    /// `nonisolated` so the detached verification task can call it off the main
+    /// actor (the function touches no view state).
+    nonisolated static func verifyStatus(
+        forDestination dest: String,
+        expectedHash: String,
+        fileManager: FileManager = .default,
+        hasher: FileIdentityHasher = FileIdentityHasher()
+    ) -> VerificationStatus {
+        if !fileManager.fileExists(atPath: dest) {
+            return .missing
+        }
+        if expectedHash.isEmpty {
+            return .matching
+        }
+        let fd = Darwin.open(dest, O_RDONLY | O_CLOEXEC | O_NOFOLLOW)
+        guard fd >= 0 else {
+            return .mismatch
+        }
+        defer { Darwin.close(fd) }
+
+        var fdStat = stat()
+        guard fstat(fd, &fdStat) == 0 else {
+            return .mismatch
+        }
+        do {
+            let identity = try hasher.hashIdentity(descriptor: fd, size: Int64(fdStat.st_size))
+            return identity.rawValue == expectedHash ? .matching : .mismatch
+        } catch {
+            return .mismatch
+        }
     }
 }
