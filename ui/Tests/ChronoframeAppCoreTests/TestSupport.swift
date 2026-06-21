@@ -41,6 +41,10 @@ final class MockOrganizerEngine: OrganizerEngine {
     var reorganizeRequests: [(destinationRoot: String, targetStructure: FolderStructure)] = []
     var cancelCallCount = 0
     var pendingContinuation: AsyncThrowingStream<RunEvent, Error>.Continuation?
+    /// Optional hook invoked inside `preflight` before it returns. Tests use it
+    /// to deterministically interleave a second operation (or a cancel) while a
+    /// preflight is in flight, exercising the stale-completion epoch guard.
+    var preflightHook: (@MainActor () async -> Void)?
 
     init(
         preflightResult: Result<RunPreflight, Error>,
@@ -57,7 +61,10 @@ final class MockOrganizerEngine: OrganizerEngine {
     }
 
     func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight {
-        try preflightResult.get()
+        if let preflightHook {
+            await preflightHook()
+        }
+        return try preflightResult.get()
     }
 
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {

@@ -87,6 +87,60 @@ final class RunSessionStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testIsRunningIsTrueDuringPreflight() async {
+        // Finding #7: preflight must count as "running" so a second operation
+        // cannot slip in during the preflight window.
+        let config = RunConfiguration(mode: .preview, sourcePath: "/tmp/s", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: config,
+            resolvedSourcePath: config.sourcePath,
+            resolvedDestinationPath: config.destinationPath
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight))
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        let observed = MutableFlagBox()
+        engine.preflightHook = { [weak store] in
+            observed.value = store?.isRunning ?? false
+        }
+
+        await store.requestRun(mode: .preview, configuration: config)
+        XCTAssertTrue(observed.value)
+    }
+
+    @MainActor
+    func testStalePreflightCompletionIsDiscardedWhenNewerRunStarts() async {
+        // Finding #7: if a newer run begins while an earlier run's preflight is
+        // still in flight, the earlier (stale) completion must not run — its
+        // security scope is already closed and its state replaced.
+        let configA = RunConfiguration(mode: .preview, sourcePath: "/tmp/a", destinationPath: tempDestinationURL.appendingPathComponent("A").path)
+        let configB = RunConfiguration(mode: .preview, sourcePath: "/tmp/b", destinationPath: tempDestinationURL.appendingPathComponent("B").path)
+        let preflightA = RunPreflight(configuration: configA, resolvedSourcePath: configA.sourcePath, resolvedDestinationPath: configA.destinationPath)
+        let preflightB = RunPreflight(configuration: configB, resolvedSourcePath: configB.sourcePath, resolvedDestinationPath: configB.destinationPath)
+        let engine = MockOrganizerEngine(preflightResult: .success(preflightA))
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        let scopeA = SecurityScopeCloseTracker()
+        let scopeB = SecurityScopeCloseTracker()
+
+        // While A's preflight is in flight, start B — which advances the epoch.
+        engine.preflightHook = { [weak engine, weak store] in
+            engine?.preflightHook = nil
+            engine?.preflightResult = .success(preflightB)
+            await store?.requestRun(mode: .preview, configuration: configB, securityScope: scopeB.makeScope())
+        }
+
+        await store.requestRun(mode: .preview, configuration: configA, securityScope: scopeA.makeScope())
+
+        // Only the latest run (B) reached the engine; A's stale completion was
+        // discarded instead of launching a second stream.
+        let started = await waitForCondition { engine.startConfigurations == [configB] }
+        XCTAssertTrue(started, "Expected only the latest run to start, got \(engine.startConfigurations)")
+        // A's security scope was released when B reset the session.
+        XCTAssertEqual(scopeA.closeCount, 1)
+    }
+
+    @MainActor
     func testSecurityScopeClosesAfterRunCompletionAndPromptDismissal() async throws {
         let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
         let preflight = RunPreflight(
@@ -694,4 +748,11 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.currentTaskTitle, "Hashing source... 42 files…")
         XCTAssertNil(store.metrics.etaSeconds)
     }
+}
+
+/// Reference holder so a `@MainActor` preflight hook can record an observation
+/// without capturing and mutating a local `var` (which strict concurrency would
+/// reject). All access happens on the main actor in these tests.
+private final class MutableFlagBox: @unchecked Sendable {
+    var value = false
 }
