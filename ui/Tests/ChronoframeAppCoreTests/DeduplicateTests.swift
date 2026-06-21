@@ -1983,6 +1983,143 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: outsideOriginal.path))
     }
 
+    // AGENTS-INVARIANT: 18
+    // AGENTS-INVARIANT: 20
+    /// Dedupe revert must not restore a Trash item whose bytes were altered
+    /// after deletion. The receipt records the identity captured at Trash time;
+    /// revert re-hashes the item through an O_NOFOLLOW descriptor and refuses to
+    /// move a mismatched item back into the library.
+    func testRevertRefusesToRestoreTamperedTrashItem() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeRestoreTamper-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let original = temporaryDirectory.appendingPathComponent("photo.jpg")
+        let trashFile = temporaryDirectory.appendingPathComponent("trashed-photo.jpg")
+        try Data("the original trashed bytes".utf8).write(to: trashFile)
+        let expected = try FileIdentityHasher().hashIdentity(at: trashFile)
+
+        // Tamper: replace the Trash item's contents after deletion.
+        try Data("totally different bytes now, and longer".utf8).write(to: trashFile)
+
+        let receiptURL = try writeRestoreReceipt(
+            in: temporaryDirectory,
+            original: original,
+            trashFile: trashFile,
+            sizeBytes: expected.size,
+            expectedIdentity: expected
+        )
+
+        let outcome = try await drainRevert(receiptURL: receiptURL, boundary: temporaryDirectory)
+
+        XCTAssertEqual(outcome.failedCount, 1)
+        XCTAssertEqual(outcome.deletedCount, 0)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: original.path), "tampered item must not be restored")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: trashFile.path), "tampered item stays in Trash")
+    }
+
+    // AGENTS-INVARIANT: 18
+    // AGENTS-INVARIANT: 20
+    /// The happy path: an untouched Trash item that still matches the recorded
+    /// identity is restored to its original location.
+    func testRevertRestoresTrashItemMatchingRecordedIdentity() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeRestoreMatch-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let original = temporaryDirectory.appendingPathComponent("photo.jpg")
+        let trashFile = temporaryDirectory.appendingPathComponent("trashed-photo.jpg")
+        try Data("untouched trashed bytes".utf8).write(to: trashFile)
+        let expected = try FileIdentityHasher().hashIdentity(at: trashFile)
+
+        let receiptURL = try writeRestoreReceipt(
+            in: temporaryDirectory,
+            original: original,
+            trashFile: trashFile,
+            sizeBytes: expected.size,
+            expectedIdentity: expected
+        )
+
+        let outcome = try await drainRevert(receiptURL: receiptURL, boundary: temporaryDirectory)
+
+        XCTAssertEqual(outcome.deletedCount, 1)
+        XCTAssertEqual(outcome.failedCount, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.path), "matching item must be restored")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: trashFile.path), "restored item moved out of Trash")
+    }
+
+    // AGENTS-INVARIANT: 20
+    /// Legacy receipts (schema ≤5) carry no recorded identity. They must keep
+    /// restoring unconditionally so old Run History entries stay revertable.
+    func testRevertRestoresLegacyReceiptItemWithoutRecordedIdentity() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeRestoreLegacy-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let original = temporaryDirectory.appendingPathComponent("photo.jpg")
+        let trashFile = temporaryDirectory.appendingPathComponent("trashed-photo.jpg")
+        try Data("legacy trashed bytes that were later edited".utf8).write(to: trashFile)
+
+        // No recorded identity (legacy), and the bytes differ from anything the
+        // receipt could have captured — must still restore.
+        let receiptURL = try writeRestoreReceipt(
+            in: temporaryDirectory,
+            original: original,
+            trashFile: trashFile,
+            sizeBytes: 1,
+            expectedIdentity: nil
+        )
+
+        let outcome = try await drainRevert(receiptURL: receiptURL, boundary: temporaryDirectory)
+
+        XCTAssertEqual(outcome.deletedCount, 1)
+        XCTAssertEqual(outcome.failedCount, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: original.path), "legacy item must restore unconditionally")
+    }
+
+    private func writeRestoreReceipt(
+        in directory: URL,
+        original: URL,
+        trashFile: URL,
+        sizeBytes: Int64,
+        expectedIdentity: FileIdentity?
+    ) throws -> URL {
+        let receipt = DeduplicateAuditReceipt(
+            status: "COMPLETED",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            destinationRoot: directory.path,
+            items: [
+                DeduplicateAuditReceipt.Item(
+                    originalPath: original.path,
+                    sizeBytes: sizeBytes,
+                    trashURL: trashFile.absoluteString,
+                    method: .trash,
+                    clusterID: UUID(),
+                    clusterKind: .burst,
+                    expectedIdentity: expectedIdentity
+                ),
+            ],
+            bytesReclaimed: sizeBytes
+        )
+        let receiptURL = directory.appendingPathComponent("restore-receipt.json")
+        try JSONEncoder.dedupe.encode(receipt).write(to: receiptURL)
+        return receiptURL
+    }
+
+    private func drainRevert(
+        receiptURL: URL,
+        boundary: URL
+    ) async throws -> (deletedCount: Int, failedCount: Int) {
+        var summary: DeduplicateCommitSummary?
+        for try await event in DeduplicateExecutor().revert(receiptURL: receiptURL, destinationBoundary: boundary) {
+            if case let .complete(value) = event { summary = value }
+        }
+        return (summary?.deletedCount ?? 0, summary?.failedCount ?? 0)
+    }
+
     /// Codex P1 review: a tampered receipt can specify
     /// `additionalSourceRoots: ["/"]` (or `/etc`, `/System`, …) to make
     /// the revert containment check pass for arbitrary `originalPath`

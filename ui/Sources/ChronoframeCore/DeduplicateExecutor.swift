@@ -78,7 +78,8 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         method: .trash,
                         clusterID: planItem.owningClusterID,
                         clusterKind: ReceiptClusterKind(planItem.owningClusterKind),
-                        mediaKind: ReceiptMediaKind(planItem.mediaKind)
+                        mediaKind: ReceiptMediaKind(planItem.mediaKind),
+                        expectedIdentity: planItem.expectedIdentity
                     )
                 }
                 do {
@@ -372,6 +373,18 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                             continuation.yield(.itemFailed(originalPath: item.originalPath, errorMessage: "Original path already exists. Chronoframe left it untouched."))
                             continue
                         }
+                        // Verify the Trash item still holds the exact bytes that
+                        // were trashed before restoring it. The Trash is a
+                        // user-writable location, so a tampered or replaced item
+                        // must not be silently moved back to the library. Legacy
+                        // receipts (schema ≤5) carry no identity and keep the
+                        // prior unconditional-restore behavior.
+                        if let expected = item.expectedIdentity,
+                           let mismatch = Self.trashedIdentityMismatch(at: trashURL, expected: expected) {
+                            failedCount += 1
+                            continuation.yield(.itemFailed(originalPath: item.originalPath, errorMessage: mismatch))
+                            continue
+                        }
                         do {
                             try fileOperations.createDirectory(
                                 at: originalURL.deletingLastPathComponent(),
@@ -637,6 +650,35 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                 : "The selected file's contents changed after the scan, so it was preserved."
         } catch {
             return "Chronoframe could not verify the selected file's contents, so it was preserved."
+        }
+    }
+
+    /// Re-open a Trash item through an `O_NOFOLLOW` descriptor and confirm its
+    /// contents still match the identity captured when it was trashed. Returns
+    /// a human-readable reason when it does not (so revert leaves it in Trash),
+    /// or `nil` when it is safe to restore. Mirrors `quarantinedIdentityMismatch`
+    /// but operates on a receipt's recorded identity rather than a live plan.
+    static func trashedIdentityMismatch(at url: URL, expected: FileIdentity) -> String? {
+        let descriptor = url.path.withCString { Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW) }
+        guard descriptor >= 0 else {
+            return "Chronoframe could not reopen this item in Trash to verify it, so it was left in Trash. Restore it manually if you trust it."
+        }
+        defer { _ = Darwin.close(descriptor) }
+
+        var st = stat()
+        guard fstat(descriptor, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else {
+            return "The item in Trash is no longer the regular file that was deleted, so it was left in Trash."
+        }
+        guard Int64(st.st_size) == expected.size else {
+            return "The item in Trash changed size since it was deleted, so it was left in Trash to avoid restoring altered contents."
+        }
+        do {
+            let identity = try FileIdentityHasher().hashIdentity(descriptor: descriptor, size: Int64(st.st_size))
+            return identity == expected
+                ? nil
+                : "The item in Trash was modified since it was deleted, so it was left in Trash to avoid restoring altered contents."
+        } catch {
+            return "Chronoframe could not verify this item's contents in Trash, so it was left in Trash. Restore it manually if you trust it."
         }
     }
 
