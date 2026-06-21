@@ -91,6 +91,7 @@ public struct RunHistoryEntry: Identifiable, Equatable, Sendable {
     public let relativePath: String
     public let fileSizeBytes: Int64?
     public let createdAt: Date
+    public let recoveryState: MutationRecoveryState?
 
     public init(
         id: UUID = UUID(),
@@ -99,7 +100,8 @@ public struct RunHistoryEntry: Identifiable, Equatable, Sendable {
         path: String,
         relativePath: String? = nil,
         fileSizeBytes: Int64? = nil,
-        createdAt: Date
+        createdAt: Date,
+        recoveryState: MutationRecoveryState? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -108,6 +110,7 @@ public struct RunHistoryEntry: Identifiable, Equatable, Sendable {
         self.relativePath = relativePath ?? URL(fileURLWithPath: path).lastPathComponent
         self.fileSizeBytes = fileSizeBytes
         self.createdAt = createdAt
+        self.recoveryState = recoveryState
     }
 }
 

@@ -150,7 +150,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
             // immediately when another connection holds a write lock.
             try execute("PRAGMA busy_timeout=30000;")
             try execute("PRAGMA journal_mode=WAL;")
-            try execute("PRAGMA synchronous=NORMAL;")
+            try execute("PRAGMA synchronous=FULL;")
             // The SQLite default is 1000 pages; making it explicit prevents
             // surprises if a future change to the open-time PRAGMA order
             // accidentally disables auto-checkpointing on long-running
@@ -193,7 +193,11 @@ public final class OrganizerDatabase: @unchecked Sendable {
                 src_path TEXT PRIMARY KEY,
                 dst_path TEXT,
                 hash TEXT,
-                status TEXT
+                status TEXT,
+                run_id TEXT,
+                intended_dst_path TEXT,
+                actual_dst_path TEXT,
+                mutation_state TEXT
             );
             """
         )
@@ -217,6 +221,8 @@ public final class OrganizerDatabase: @unchecked Sendable {
             """
         )
 
+        try Self.createDedupeMutationIdentitiesTable(in: self)
+
         // Schema-version registry. Future structural changes register a
         // migration in `Self.migrations` keyed by the target version and
         // bump `currentSchemaVersion`; on next open the missing migrations
@@ -236,7 +242,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
     /// Bump this when adding a new entry to `Self.migrations`. Existing
     /// databases will run every migration whose key is `> oldVersion &&
     /// <= currentSchemaVersion` on next open.
-    public static let currentSchemaVersion: Int = 1
+    public static let currentSchemaVersion: Int = 3
 
     /// Migrations keyed by *target* version. v1 introduces the Meta table
     /// itself; the bare `CREATE TABLE IF NOT EXISTS` calls in
@@ -253,7 +259,34 @@ public final class OrganizerDatabase: @unchecked Sendable {
             // had no Meta table; reaching this point means they have it
             // now (initializeSchema just created it) and are version-managed.
         },
+        2: { database in
+            try createDedupeMutationIdentitiesTable(in: database)
+        },
+        3: { database in
+            for statement in [
+                "ALTER TABLE CopyJobs ADD COLUMN run_id TEXT",
+                "ALTER TABLE CopyJobs ADD COLUMN intended_dst_path TEXT",
+                "ALTER TABLE CopyJobs ADD COLUMN actual_dst_path TEXT",
+                "ALTER TABLE CopyJobs ADD COLUMN mutation_state TEXT",
+            ] {
+                do { try database.execute(statement) }
+                catch let error as OrganizerDatabaseError where error.isDuplicateColumnName { continue }
+            }
+        },
     ]
+
+    private static func createDedupeMutationIdentitiesTable(in database: OrganizerDatabase) throws {
+        try database.execute(
+            """
+            CREATE TABLE IF NOT EXISTS DedupeMutationIdentities (
+                path TEXT PRIMARY KEY,
+                size INTEGER NOT NULL,
+                mtime REAL NOT NULL,
+                identity TEXT NOT NULL
+            );
+            """
+        )
+    }
 
     /// Returns the current schema version recorded in `Meta`. Returns 0 if
     /// no row is present (legacy database, or a freshly created one before
@@ -410,6 +443,73 @@ public final class OrganizerDatabase: @unchecked Sendable {
         }
     }
 
+    public func loadDedupeMutationIdentityRecords() throws -> [DedupeMutationIdentityRecord] {
+        let statement = try prepare(
+            "SELECT path, size, mtime, identity FROM DedupeMutationIdentities"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        var records: [DedupeMutationIdentityRecord] = []
+        while true {
+            switch sqlite3_step(statement) {
+            case SQLITE_ROW:
+                guard
+                    let path = Self.sqliteString(statement, column: 0),
+                    let identityRaw = Self.sqliteString(statement, column: 3),
+                    let identity = FileIdentity(rawValue: identityRaw)
+                else {
+                    continue
+                }
+                records.append(DedupeMutationIdentityRecord(
+                    path: path,
+                    size: sqlite3_column_int64(statement, 1),
+                    modificationTime: sqlite3_column_double(statement, 2),
+                    identity: identity
+                ))
+            case SQLITE_DONE:
+                return records
+            default:
+                throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+            }
+        }
+    }
+
+    public func saveDedupeMutationIdentityRecords(
+        _ records: [DedupeMutationIdentityRecord]
+    ) throws {
+        guard !records.isEmpty else { return }
+        let statement = try prepare(
+            """
+            INSERT INTO DedupeMutationIdentities(path, size, mtime, identity)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(path) DO UPDATE SET
+                size = excluded.size,
+                mtime = excluded.mtime,
+                identity = excluded.identity
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+
+        try execute("BEGIN IMMEDIATE TRANSACTION;")
+        do {
+            for record in records {
+                sqlite3_reset(statement)
+                sqlite3_clear_bindings(statement)
+                sqlite3_bind_text(statement, 1, record.path, -1, Self.sqliteTransient)
+                sqlite3_bind_int64(statement, 2, record.size)
+                sqlite3_bind_double(statement, 3, record.modificationTime)
+                sqlite3_bind_text(statement, 4, record.identity.rawValue, -1, Self.sqliteTransient)
+                guard sqlite3_step(statement) == SQLITE_DONE else {
+                    throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+                }
+            }
+            try execute("COMMIT;")
+        } catch {
+            try? execute("ROLLBACK;")
+            throw error
+        }
+    }
+
     public func loadRawCacheRecord(namespace: CacheNamespace, path: String) throws -> RawFileCacheRecord? {
         let statement = try prepare("SELECT id, path, hash, size, mtime FROM FileCache WHERE id = ? AND path = ?")
         defer { sqlite3_finalize(statement) }
@@ -526,12 +626,19 @@ public final class OrganizerDatabase: @unchecked Sendable {
     public func enqueueQueuedJobs<S: Sequence>(_ jobs: S) throws where S.Element == QueuedCopyJob {
         let statement = try prepare(
             """
-            INSERT INTO CopyJobs (src_path, dst_path, hash, status)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO CopyJobs (
+                src_path, dst_path, hash, status,
+                run_id, intended_dst_path, actual_dst_path, mutation_state
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(src_path) DO UPDATE SET
                 dst_path = excluded.dst_path,
                 hash = excluded.hash,
-                status = excluded.status
+                status = excluded.status,
+                run_id = excluded.run_id,
+                intended_dst_path = excluded.intended_dst_path,
+                actual_dst_path = excluded.actual_dst_path,
+                mutation_state = excluded.mutation_state
             """
         )
         defer { sqlite3_finalize(statement) }
@@ -551,6 +658,18 @@ public final class OrganizerDatabase: @unchecked Sendable {
                 sqlite3_bind_text(statement, 2, job.destinationPath, -1, Self.sqliteTransient)
                 sqlite3_bind_text(statement, 3, job.hash, -1, Self.sqliteTransient)
                 sqlite3_bind_text(statement, 4, job.status.rawValue, -1, Self.sqliteTransient)
+                if let runID = job.runID?.uuidString {
+                    sqlite3_bind_text(statement, 5, runID, -1, Self.sqliteTransient)
+                } else { sqlite3_bind_null(statement, 5) }
+                if let intended = job.intendedDestinationPath {
+                    sqlite3_bind_text(statement, 6, intended, -1, Self.sqliteTransient)
+                } else { sqlite3_bind_null(statement, 6) }
+                if let actual = job.actualDestinationPath {
+                    sqlite3_bind_text(statement, 7, actual, -1, Self.sqliteTransient)
+                } else { sqlite3_bind_null(statement, 7) }
+                if let mutationState = job.mutationState?.rawValue {
+                    sqlite3_bind_text(statement, 8, mutationState, -1, Self.sqliteTransient)
+                } else { sqlite3_bind_null(statement, 8) }
 
                 guard sqlite3_step(statement) == SQLITE_DONE else {
                     throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
@@ -605,9 +724,9 @@ public final class OrganizerDatabase: @unchecked Sendable {
         let sql: String
         let orderClause = orderByInsertion ? " ORDER BY rowid" : " ORDER BY src_path"
         if status != nil {
-            sql = "SELECT src_path, dst_path, hash, status FROM CopyJobs WHERE status = ?\(orderClause)"
+            sql = "SELECT src_path, dst_path, hash, status, run_id, intended_dst_path, actual_dst_path, mutation_state FROM CopyJobs WHERE status = ?\(orderClause)"
         } else {
-            sql = "SELECT src_path, dst_path, hash, status FROM CopyJobs\(orderClause)"
+            sql = "SELECT src_path, dst_path, hash, status, run_id, intended_dst_path, actual_dst_path, mutation_state FROM CopyJobs\(orderClause)"
         }
 
         let statement = try prepare(sql)
@@ -644,7 +763,11 @@ public final class OrganizerDatabase: @unchecked Sendable {
                     sourcePath: sourcePath,
                     destinationPath: destinationPath,
                     hash: hash,
-                    status: jobStatus
+                    status: jobStatus,
+                    runID: Self.sqliteString(statement, column: 4).flatMap(UUID.init(uuidString:)),
+                    intendedDestinationPath: Self.sqliteString(statement, column: 5),
+                    actualDestinationPath: Self.sqliteString(statement, column: 6),
+                    mutationState: Self.sqliteString(statement, column: 7).flatMap(CopyMutationState.init(rawValue:))
                 )
             )
 
@@ -839,6 +962,37 @@ public final class OrganizerDatabase: @unchecked Sendable {
         sqlite3_bind_text(statement, 1, status.rawValue, -1, Self.sqliteTransient)
         sqlite3_bind_text(statement, 2, sourcePath, -1, Self.sqliteTransient)
 
+        guard sqlite3_step(statement) == SQLITE_DONE else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+    }
+
+    public func updateJobMutation(
+        sourcePath: String,
+        runID: UUID?,
+        intendedDestinationPath: String?,
+        actualDestinationPath: String?,
+        mutationState: CopyMutationState
+    ) throws {
+        let statement = try prepare(
+            """
+            UPDATE CopyJobs SET
+                run_id = ?,
+                intended_dst_path = ?,
+                actual_dst_path = ?,
+                mutation_state = ?
+            WHERE src_path = ?
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+        if let runID { sqlite3_bind_text(statement, 1, runID.uuidString, -1, Self.sqliteTransient) }
+        else { sqlite3_bind_null(statement, 1) }
+        if let intendedDestinationPath { sqlite3_bind_text(statement, 2, intendedDestinationPath, -1, Self.sqliteTransient) }
+        else { sqlite3_bind_null(statement, 2) }
+        if let actualDestinationPath { sqlite3_bind_text(statement, 3, actualDestinationPath, -1, Self.sqliteTransient) }
+        else { sqlite3_bind_null(statement, 3) }
+        sqlite3_bind_text(statement, 4, mutationState.rawValue, -1, Self.sqliteTransient)
+        sqlite3_bind_text(statement, 5, sourcePath, -1, Self.sqliteTransient)
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
         }

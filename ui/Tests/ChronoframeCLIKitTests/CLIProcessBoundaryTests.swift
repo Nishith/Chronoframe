@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import ChronoframeCore
 
 /// Regression tests for PHASE2_FINDINGS.md NEW15 — every existing
 /// "integration" test invokes `ChronoframeCLI.run` in-process, so the
@@ -93,5 +94,37 @@ final class CLIProcessBoundaryTests: XCTestCase {
         XCTAssertEqual(dict["type"] as? String, "error")
         XCTAssertEqual(dict["event_version"] as? Int, 1)
         XCTAssertEqual(dict["kind"] as? String, "usage")
+    }
+
+    func testCLILosesDestinationRaceImmediatelyAndMutatesNoMedia() throws {
+        let executable = try locateExecutable()
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("CLILockRace-\(UUID().uuidString)", isDirectory: true)
+        let source = root.appendingPathComponent("source", isDirectory: true)
+        let destination = root.appendingPathComponent("destination", isDirectory: true)
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("photo".utf8).write(to: source.appendingPathComponent("photo.jpg"))
+
+        let lease = try DestinationOperationLock.acquire(
+            destinationRoot: destination,
+            surface: "active test host",
+            operation: "transfer"
+        )
+        defer { lease.release() }
+        let started = Date()
+        let result = try runProcess(executable, args: [
+            "--source", source.path,
+            "--dest", destination.path,
+            "--yes",
+        ])
+
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 2)
+        XCTAssertTrue(result.stdout.localizedCaseInsensitiveContains("already"))
+        let media = try FileManager.default.contentsOfDirectory(atPath: destination.path)
+            .filter { !$0.hasPrefix(".") }
+        XCTAssertTrue(media.isEmpty)
     }
 }

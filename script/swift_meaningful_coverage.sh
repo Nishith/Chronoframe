@@ -81,6 +81,9 @@ MEANINGFUL_BASENAMES=(
     MediaDateResolver
     DeduplicatePairDetector
     DeduplicateScanner
+    DestinationOperationLock
+    LivePhotoMetadataLoader
+    MutationRecoveryCoordinator
 )
 
 missing_basenames=()

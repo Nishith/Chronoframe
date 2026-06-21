@@ -67,11 +67,33 @@ public struct ReorganizeExecutionResult: Equatable, Sendable {
 }
 
 public struct ReorganizeAuditReceipt: Codable, Equatable, Sendable {
+    public enum MutationState: String, Codable, Sendable {
+        case intended = "INTENDED"
+        case moved = "MOVED"
+        case skipped = "SKIPPED"
+        case failed = "FAILED"
+    }
+
     public struct Item: Codable, Equatable, Sendable {
         public var sourcePath: String
         public var destinationPath: String
         public var hash: String
         public var completed: Bool
+        public var mutationState: MutationState?
+
+        public init(
+            sourcePath: String,
+            destinationPath: String,
+            hash: String,
+            completed: Bool,
+            mutationState: MutationState? = nil
+        ) {
+            self.sourcePath = sourcePath
+            self.destinationPath = destinationPath
+            self.hash = hash
+            self.completed = completed
+            self.mutationState = mutationState
+        }
     }
 
     public var schemaVersion: Int
@@ -360,7 +382,8 @@ public struct ReorganizeExecutor: Sendable {
                         sourcePath: move.sourcePath,
                         destinationPath: move.destinationPath,
                         hash: identity.rawValue,
-                        completed: false
+                        completed: false,
+                        mutationState: .intended
                     )
                 )
             } catch {
@@ -402,15 +425,16 @@ public struct ReorganizeExecutor: Sendable {
             let destinationURL = URL(fileURLWithPath: move.destinationPath)
 
             do {
-                // Phase 1 finding: re-hash the source immediately
-                // before moving so a swap-out between plan-time
-                // hashing and move-time can't poison the receipt's
-                // recorded `hash` with stale content. The previous
-                // code wrote the plan-time hash into the receipt
-                // unconditionally; revert would then refuse all such
-                // entries as "modified since" with no clear signal.
-                if let liveHash = try? hasher.hashIdentity(at: sourceURL) {
-                    receiptItems[index].hash = liveHash.rawValue
+                let liveHash = try hasher.hashIdentity(at: sourceURL)
+                guard liveHash.rawValue == receiptItems[index].hash else {
+                    skippedCount += 1
+                    receiptItems[index].mutationState = .skipped
+                    observer.onIssue(RunIssue(
+                        severity: .warning,
+                        message: "The source changed after reorganize was planned, so it was left untouched: \(move.sourcePath)"
+                    ))
+                    observer.onTaskProgress(movedCount + skippedCount + failedCount, plan.moves.count)
+                    continue
                 }
                 try fileOperations.createDirectory(
                     at: destinationURL.deletingLastPathComponent(),
@@ -419,6 +443,7 @@ public struct ReorganizeExecutor: Sendable {
                 try fileOperations.moveItem(at: sourceURL, to: destinationURL)
                 movedCount += 1
                 receiptItems[index].completed = true
+                receiptItems[index].mutationState = .moved
                 let shouldCheckpoint = (movedCount % receiptCheckpointInterval == 0)
                 if shouldCheckpoint {
                     try Self.writeReorganizeReceipt(
@@ -443,6 +468,7 @@ public struct ReorganizeExecutor: Sendable {
                 }
             } catch {
                 failedCount += 1
+                receiptItems[index].mutationState = .failed
                 observer.onIssue(
                     RunIssue(
                         severity: .error,
@@ -706,7 +732,7 @@ public struct ReorganizeExecutor: Sendable {
         abortReason: String?
     ) throws {
         let receipt = ReorganizeAuditReceipt(
-            schemaVersion: 1,
+            schemaVersion: 2,
             runID: runID,
             operation: "reorganize",
             status: status,

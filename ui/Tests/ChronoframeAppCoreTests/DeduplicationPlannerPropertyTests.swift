@@ -31,7 +31,8 @@ final class DeduplicationPlannerPropertyTests: XCTestCase {
             let plan = DeduplicationPlanner.plan(
                 decisions: scenario.decisions,
                 clusters: scenario.clusters,
-                configuration: scenario.configuration
+                configuration: scenario.configuration,
+                snapshot: testScanSnapshot(for: scenario.clusters)
             )
             for item in plan.items {
                 guard let partner = scenario.pairPartners[item.path] else { continue }
@@ -71,7 +72,8 @@ final class DeduplicationPlannerPropertyTests: XCTestCase {
             let plan = DeduplicationPlanner.plan(
                 decisions: scenario.decisions,
                 clusters: scenario.clusters,
-                configuration: scenario.configuration
+                configuration: scenario.configuration,
+                snapshot: testScanSnapshot(for: scenario.clusters)
             )
             for item in plan.items {
                 let ownerConfidence = scenario.clusters
@@ -97,7 +99,8 @@ final class DeduplicationPlannerPropertyTests: XCTestCase {
             let plan = DeduplicationPlanner.plan(
                 decisions: scenario.decisions,
                 clusters: scenario.clusters,
-                configuration: scenario.configuration
+                configuration: scenario.configuration,
+                snapshot: testScanSnapshot(for: scenario.clusters)
             )
             let deletedPaths = Set(plan.items.map(\.path))
             for cluster in scenario.clusters {
@@ -135,8 +138,9 @@ final class DeduplicationPlannerPropertyTests: XCTestCase {
                 treatRawJpegPairsAsUnit: true,
                 treatLivePhotoPairsAsUnit: false
             )
-            let planLive = DeduplicationPlanner.plan(decisions: base.decisions, clusters: base.clusters, configuration: onlyLive)
-            let planRaw = DeduplicationPlanner.plan(decisions: base.decisions, clusters: base.clusters, configuration: onlyRaw)
+            let snapshot = testScanSnapshot(for: base.clusters)
+            let planLive = DeduplicationPlanner.plan(decisions: base.decisions, clusters: base.clusters, configuration: onlyLive, snapshot: snapshot)
+            let planRaw = DeduplicationPlanner.plan(decisions: base.decisions, clusters: base.clusters, configuration: onlyRaw, snapshot: snapshot)
             for item in planLive.items {
                 if scenarioPairKind(for: item.path, in: base) == .rawJpeg {
                     XCTAssertNotEqual(
@@ -165,7 +169,8 @@ final class DeduplicationPlannerPropertyTests: XCTestCase {
             let plan = DeduplicationPlanner.plan(
                 decisions: scenario.decisions,
                 clusters: scenario.clusters,
-                configuration: scenario.configuration
+                configuration: scenario.configuration,
+                snapshot: testScanSnapshot(for: scenario.clusters)
             )
             let paths = plan.items.map(\.path)
             XCTAssertEqual(
@@ -186,7 +191,8 @@ final class DeduplicationPlannerPropertyTests: XCTestCase {
             let plan = DeduplicationPlanner.plan(
                 decisions: scenario.decisions,
                 clusters: scenario.clusters,
-                configuration: scenario.configuration
+                configuration: scenario.configuration,
+                snapshot: testScanSnapshot(for: scenario.clusters)
             )
             let validClusterIDs = Set(scenario.clusters.map(\.id))
             for item in plan.items {

@@ -16,6 +16,13 @@ enum AppTestFailure: Error, LocalizedError {
     }
 }
 
+func appTestScanSnapshot(for clusters: [DuplicateCluster]) -> DeduplicateScanSnapshot {
+    let identities = Dictionary(uniqueKeysWithValues: clusters.flatMap(\.members).map { member in
+        (member.path, FileIdentity(size: member.size, digest: Data(member.path.utf8).base64EncodedString()))
+    })
+    return DeduplicateScanSnapshot(identitiesByPath: identities)
+}
+
 @MainActor
 func waitForCondition(
     timeoutNanoseconds: UInt64 = 1_000_000_000,
@@ -119,10 +126,8 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     var revertEvents: [DeduplicateCommitEvent] = []
     var scanError: Error?
     var lastScanConfiguration: DeduplicateConfiguration?
-    var lastCommitDecisions: DedupeDecisions?
-    var lastCommitClusters: [DuplicateCluster] = []
+    var lastCommitPlan: DeduplicationPlan?
     var lastCommitConfiguration: DeduplicateConfiguration?
-    var lastCommitSidecarOwners: [String: Set<String>] = [:]
     /// When true, `scan` emits `.startup` and then leaves the stream open so the
     /// session store stays in its working (`.scanning`) state until
     /// `finishHeldScan()` is called. Lets a test assert that a concurrent
@@ -141,7 +146,10 @@ final class MockDeduplicateEngine: DeduplicateEngine {
             throw scanError
         }
         let clusters = clustersToEmit
-        let summary = summary
+        var summary = summary
+        if summary.scanSnapshot.identitiesByPath.isEmpty {
+            summary.scanSnapshot = appTestScanSnapshot(for: clusters)
+        }
         let hold = holdScanOpen
         return AsyncThrowingStream { continuation in
             Task { @MainActor in
@@ -162,14 +170,10 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     func cancelCurrentScan() {}
 
     func commit(
-        decisions: DedupeDecisions,
-        clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration,
-        allSidecarOwners: [String: Set<String>]
+        plan: DeduplicationPlan,
+        configuration: DeduplicateConfiguration
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
-        lastCommitDecisions = decisions
-        lastCommitClusters = clusters
-        lastCommitSidecarOwners = allSidecarOwners
+        lastCommitPlan = plan
         lastCommitConfiguration = configuration
         let events = commitEvents
         return AsyncThrowingStream { continuation in

@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -147,6 +148,56 @@ final class DeduplicateScannerExtraTests: XCTestCase {
         try db.ensureDedupeFeaturesSchema()
         let cached = try db.loadDedupeFeatureMetadataRecords()
         XCTAssertEqual(cached.count, 3)
+    }
+
+    func testDeferredTargetHashingOnlyCachesClusterTargetsAndReusesIdentity() async throws {
+        let temporaryDirectory = try makeTemp("target-hashing")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let first = temporaryDirectory.appendingPathComponent("A.jpg")
+        let duplicate = temporaryDirectory.appendingPathComponent("B.jpg")
+        let singleton = temporaryDirectory.appendingPathComponent("C.jpg")
+        let clusteredSidecar = temporaryDirectory.appendingPathComponent("A.xmp")
+        let singletonSidecar = temporaryDirectory.appendingPathComponent("C.xmp")
+        try Data("duplicate".utf8).write(to: first)
+        try Data("duplicate".utf8).write(to: duplicate)
+        try Data("singleton".utf8).write(to: singleton)
+        try Data("cluster metadata".utf8).write(to: clusteredSidecar)
+        try Data("singleton metadata".utf8).write(to: singletonSidecar)
+
+        let scanner = DeduplicateScanner(imageAnalyzer: TargetHashingImageAnalyzer())
+        let configuration = DeduplicateConfiguration(
+            destinationPath: temporaryDirectory.path,
+            dhashHammingThreshold: 0
+        )
+        var targetHashingTotal: Int?
+        for try await event in scanner.scan(configuration: configuration) {
+            if case let .phaseStarted(.targetHashing, total) = event { targetHashingTotal = total }
+        }
+        XCTAssertEqual(targetHashingTotal, 1)
+
+        let database = try OrganizerDatabase(
+            url: temporaryDirectory.appendingPathComponent(".organize_cache.db")
+        )
+        let records = try database.loadDedupeMutationIdentityRecords()
+        let clusteredSidecarPath = try XCTUnwrap(records.first?.path)
+        XCTAssertEqual(records.count, 1)
+        XCTAssertEqual(URL(fileURLWithPath: clusteredSidecarPath).lastPathComponent, "A.xmp")
+        database.close()
+
+        // A valid size/mtime cache row avoids reopening the sidecar contents.
+        // Removing read permission would make a cold hash fail.
+        _ = chmod(clusteredSidecar.path, 0o000)
+        defer { _ = chmod(clusteredSidecar.path, 0o644) }
+        var secondSummary: DeduplicateSummary?
+        for try await event in scanner.scan(configuration: configuration) {
+            if case let .complete(summary) = event { secondSummary = summary }
+        }
+        XCTAssertNotNil(secondSummary?.scanSnapshot.identitiesByPath[clusteredSidecarPath])
+        XCTAssertFalse(
+            secondSummary?.scanSnapshot.identitiesByPath.keys.contains {
+                URL(fileURLWithPath: $0).lastPathComponent == "C.xmp"
+            } == true
+        )
     }
 
     func testCacheHitBranchRehydratesPairedPathFromCurrentPairs() async throws {
@@ -501,6 +552,20 @@ private final class StubDedupeImageAnalyzerForExtraTests: DedupeImageAnalyzing, 
             dhash: 0xCAFE,
             featurePrintData: Data([1, 2, 3]),
             featurePrintFailureMessage: nil,
+            quality: PhotoQualityScore(composite: 0.7, sharpness: 0.7, faceScore: nil)
+        )
+    }
+}
+
+private final class TargetHashingImageAnalyzer: DedupeImageAnalyzing, @unchecked Sendable {
+    func analyze(url: URL, size: Int64) -> DedupeImageAnalysis {
+        DedupeImageAnalysis(
+            captureDate: Date(timeIntervalSince1970: 1_700_000_000),
+            pixelWidth: 32,
+            pixelHeight: 32,
+            dhash: url.lastPathComponent == "C.jpg" ? UInt64.max : 0,
+            featurePrintData: nil,
+            featurePrintFailureMessage: "fixture",
             quality: PhotoQualityScore(composite: 0.7, sharpness: 0.7, faceScore: nil)
         )
     }

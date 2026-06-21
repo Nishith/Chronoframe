@@ -33,6 +33,8 @@ public final class RunSessionStore: ObservableObject {
     private let historyStore: HistoryStore
     private var streamTask: Task<Void, Never>?
     private var securityScope: SecurityScopedFolderAccess?
+    private var preparedRun: PreparedRun?
+    private var directOperationLease: DestinationOperationLease?
     private var copySpeedLastSampleDate = Date()
     private var copySpeedLastBytes = 0
     private var currentPhaseStartDate: Date?
@@ -97,8 +99,10 @@ public final class RunSessionStore: ObservableObject {
         currentTaskTitle = "Preparing \(mode.title)..."
 
         do {
-            let preflight = try await engine.preflight(configuration)
+            let preparedRun = try await engine.prepare(configuration)
             guard currentRunEpoch == epoch else { return }
+            self.preparedRun = preparedRun
+            let preflight = preparedRun.preflight
             lastPreflight = preflight
 
             if mode == .transfer {
@@ -135,6 +139,18 @@ public final class RunSessionStore: ObservableObject {
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
         resetSessionState(mode: .revert)
+        do {
+            let root = URL(fileURLWithPath: destinationRoot, isDirectory: true)
+            directOperationLease = try DestinationOperationLock.acquire(
+                destinationRoot: root,
+                surface: "app",
+                operation: "revert"
+            )
+            _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+        } catch {
+            handleFailure(error: error)
+            return
+        }
         self.securityScope = securityScope
         status = .running
         currentTaskTitle = "Reverting…"
@@ -155,6 +171,11 @@ public final class RunSessionStore: ObservableObject {
                     guard self.currentRunEpoch == epoch else { return }
                     self.consume(event)
                 }
+                guard self.currentRunEpoch == epoch else { return }
+                self.preparedRun?.lease.release()
+                self.preparedRun = nil
+                self.directOperationLease?.release()
+                self.directOperationLease = nil
             } catch {
                 guard self.currentRunEpoch == epoch else { return }
                 self.handleFailure(error: error)
@@ -171,6 +192,18 @@ public final class RunSessionStore: ObservableObject {
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
         resetSessionState(mode: .reorganize)
+        do {
+            let root = URL(fileURLWithPath: destinationRoot, isDirectory: true)
+            directOperationLease = try DestinationOperationLock.acquire(
+                destinationRoot: root,
+                surface: "app",
+                operation: "reorganize"
+            )
+            _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+        } catch {
+            handleFailure(error: error)
+            return
+        }
         self.securityScope = securityScope
         status = .running
         currentTaskTitle = "Reorganizing…"
@@ -188,6 +221,9 @@ public final class RunSessionStore: ObservableObject {
                     guard self.currentRunEpoch == epoch else { return }
                     self.consume(event)
                 }
+                guard self.currentRunEpoch == epoch else { return }
+                self.directOperationLease?.release()
+                self.directOperationLease = nil
             } catch {
                 guard self.currentRunEpoch == epoch else { return }
                 self.handleFailure(error: error)
@@ -201,6 +237,18 @@ public final class RunSessionStore: ObservableObject {
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
         resetSessionState(mode: .reorganize)
+        do {
+            let root = URL(fileURLWithPath: destinationRoot, isDirectory: true)
+            directOperationLease = try DestinationOperationLock.acquire(
+                destinationRoot: root,
+                surface: "app",
+                operation: "reorganize revert"
+            )
+            _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+        } catch {
+            handleFailure(error: error)
+            return
+        }
         self.securityScope = securityScope
         status = .running
         currentTaskTitle = "Undoing Reorganize…"
@@ -314,6 +362,8 @@ public final class RunSessionStore: ObservableObject {
     public func dismissPrompt() {
         prompt = nil
         if status == .preflighting {
+            preparedRun?.lease.release()
+            preparedRun = nil
             status = .idle
             currentTaskTitle = "Idle"
             closeSecurityScope()
@@ -349,6 +399,10 @@ public final class RunSessionStore: ObservableObject {
         // preflight status if we were sitting on it — the prior path
         // only cleared status when `isRunning` was already true.
         prompt = nil
+        preparedRun?.lease.release()
+        preparedRun = nil
+        directOperationLease?.release()
+        directOperationLease = nil
         if status == .preflighting {
             status = .idle
             currentTaskTitle = ""
@@ -363,6 +417,10 @@ public final class RunSessionStore: ObservableObject {
         streamTask?.cancel()
         streamTask = nil
         currentRunEpoch &+= 1
+        preparedRun?.lease.release()
+        preparedRun = nil
+        directOperationLease?.release()
+        directOperationLease = nil
         closeSecurityScope()
         currentMode = mode
         currentPhase = nil
@@ -422,6 +480,9 @@ public final class RunSessionStore: ObservableObject {
                     guard self.currentRunEpoch == epoch else { return }
                     self.consume(event)
                 }
+                guard self.currentRunEpoch == epoch else { return }
+                self.preparedRun?.lease.release()
+                self.preparedRun = nil
             } catch {
                 guard self.currentRunEpoch == epoch else { return }
                 self.handleFailure(error: error)
@@ -597,11 +658,20 @@ public final class RunSessionStore: ObservableObject {
                 status: summary.status,
                 title: summary.title,
                 metrics: finalMetrics,
-                artifacts: summary.artifacts
+                artifacts: summary.artifacts,
+                failureMessage: summary.failureMessage
             )
             metrics = finalMetrics
             artifacts = summary.artifacts
             self.summary = finalSummary
+            if finalSummary.status == .failed {
+                lastErrorMessage = finalSummary.failureMessage
+                    ?? "Chronoframe could not complete this run. Originals were left untouched."
+            }
+            preparedRun?.lease.release()
+            preparedRun = nil
+            directOperationLease?.release()
+            directOperationLease = nil
             if finalSummary.status == .dryRunFinished {
                 latestPreviewReviewPath = finalSummary.artifacts.previewReviewPath
             }
@@ -670,7 +740,7 @@ public final class RunSessionStore: ObservableObject {
             content.body = "All source files are already in the destination."
         case .failed:
             content.title = "Transfer failed"
-            content.body = summary.title
+            content.body = summary.failureMessage ?? summary.title
         case .cancelled:
             return  // user-initiated, no notification needed
         default:
@@ -749,7 +819,17 @@ public final class RunSessionStore: ObservableObject {
         metrics.etaSeconds = nil
         lastErrorMessage = message
         logStore.append("ERROR: \(message)")
-        summary = RunSummary(status: .failed, title: "Failed", metrics: metrics, artifacts: artifacts)
+        summary = RunSummary(
+            status: .failed,
+            title: "Failed",
+            metrics: metrics,
+            artifacts: artifacts,
+            failureMessage: message
+        )
+        preparedRun?.lease.release()
+        preparedRun = nil
+        directOperationLease?.release()
+        directOperationLease = nil
         closeSecurityScope()
     }
 

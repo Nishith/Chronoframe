@@ -14,6 +14,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
     private let identityHasher: FileIdentityHasher
     private let imageAnalyzer: any DedupeImageAnalyzing
     private let videoFeatureProvider: any VideoFeatureProviding
+    private let livePhotoMetadataLoader: any LivePhotoMetadataLoading
     private var cancelFlag = ManagedAtomicBool()
 
     public init(
@@ -24,18 +25,21 @@ public final class DeduplicateScanner: @unchecked Sendable {
         self.identityHasher = identityHasher
         self.imageAnalyzer = DefaultDedupeImageAnalyzer(dateResolver: dateResolver)
         self.videoFeatureProvider = AVFoundationVideoFeatureExtractor()
+        self.livePhotoMetadataLoader = BoundedLivePhotoMetadataLoader()
     }
 
     init(
         dateResolver: FileDateResolver = FileDateResolver(),
         identityHasher: FileIdentityHasher = FileIdentityHasher(),
         imageAnalyzer: any DedupeImageAnalyzing,
-        videoFeatureProvider: any VideoFeatureProviding = AVFoundationVideoFeatureExtractor()
+        videoFeatureProvider: any VideoFeatureProviding = AVFoundationVideoFeatureExtractor(),
+        livePhotoMetadataLoader: any LivePhotoMetadataLoading = BoundedLivePhotoMetadataLoader()
     ) {
         self.dateResolver = dateResolver
         self.identityHasher = identityHasher
         self.imageAnalyzer = imageAnalyzer
         self.videoFeatureProvider = videoFeatureProvider
+        self.livePhotoMetadataLoader = livePhotoMetadataLoader
     }
 
     public func cancel() {
@@ -44,6 +48,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
         // these two calls sees the flag and aborts (see GeneratorRegistry).
         cancelFlag.set(true)
         videoFeatureProvider.cancelAll()
+        livePhotoMetadataLoader.cancelAll()
     }
 
     public func scan(configuration: DeduplicateConfiguration) -> AsyncThrowingStream<DeduplicateEvent, Error> {
@@ -51,6 +56,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
         let identityHasher = self.identityHasher
         let imageAnalyzer = self.imageAnalyzer
         let videoFeatureProvider = self.videoFeatureProvider
+        let livePhotoMetadataLoader = self.livePhotoMetadataLoader
         let cancelFlag = self.cancelFlag
 
         return AsyncThrowingStream { continuation in
@@ -89,7 +95,19 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     let cache = try database.loadDedupeFeatureMetadataRecords()
 
                     // 3. Pair detection.
-                    let pairs = DeduplicatePairDetector.detectPairs(in: imagePaths + movPaths)
+                    let pairDetection = await DeduplicatePairDetector.detectPairResult(
+                        in: imagePaths + movPaths,
+                        includeLivePhotos: configuration.treatLivePhotoPairsAsUnit,
+                        movieMetadataLoader: livePhotoMetadataLoader
+                    )
+                    let pairs = pairDetection.pairs
+                    for path in pairDetection.unsupportedMoviePaths.sorted() {
+                        continuation.yield(.issue(DeduplicateIssue(
+                            severity: .info,
+                            path: path,
+                            message: "Chronoframe could not safely read this movie's Live Photo metadata, so it was excluded from deletion."
+                        )))
+                    }
                     // Sidecar detection (e.g. .xmp). Derived fresh each scan
                     // from the live filesystem — never cached — so a sidecar
                     // added or removed between scans is always reflected.
@@ -111,7 +129,9 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     // by pair-as-unit fanout, never as independently
                     // deletable video duplicates).
                     let videoPaths = allPaths.filter {
-                        MediaLibraryRules.isVideoFile(path: $0) && pairs[$0]?.kind != .livePhoto
+                        MediaLibraryRules.isVideoFile(path: $0)
+                            && pairs[$0]?.kind != .livePhoto
+                            && !pairDetection.unsupportedMoviePaths.contains($0)
                     }
                     continuation.yield(.phaseStarted(
                         phase: .discovery,
@@ -426,11 +446,85 @@ public final class DeduplicateScanner: @unchecked Sendable {
 
                     let emittedClusters = dedupedClusters + perceptualVideoLane.clusters
 
+                    // 7. Capture immutable content identities for every path
+                    // that a later user decision could place in a mutation
+                    // plan. This deliberately runs after clustering so
+                    // unrelated singleton files and sidecars are not read.
+                    var mutationTargets = Set(emittedClusters.flatMap { cluster in
+                        cluster.members.map(\.path)
+                    })
+                    for member in emittedClusters.flatMap(\.members) {
+                        if let partner = member.pairedPath {
+                            let pairKind = DeduplicationPlanner.pairKind(for: member)
+                            if DeduplicationPlanner.pairKindEnabled(pairKind, in: configuration) {
+                                mutationTargets.insert(partner)
+                            }
+                        }
+                        mutationTargets.formUnion(member.sidecarPaths)
+                    }
+
+                    let pathsNeedingIdentity = mutationTargets
+                        .filter { identityByPath[$0] == nil }
+                        .sorted()
+                    continuation.yield(.phaseStarted(
+                        phase: .targetHashing,
+                        total: pathsNeedingIdentity.count
+                    ))
+
+                    let mutationCacheRecords = (try? database.loadDedupeMutationIdentityRecords()) ?? []
+                    var targetCacheIndex = cacheIndex
+                    for record in mutationCacheRecords {
+                        targetCacheIndex[record.path] = FileCacheRecord(
+                            namespace: .destination,
+                            path: record.path,
+                            identity: record.identity,
+                            size: record.size,
+                            modificationTime: record.modificationTime
+                        )
+                    }
+                    let targetResults = try await Self.processIdentityHashes(
+                        paths: pathsNeedingIdentity,
+                        cacheIndex: targetCacheIndex,
+                        identityHasher: identityHasher,
+                        workerCount: configuration.workerCount,
+                        cancelFlag: cancelFlag,
+                        continuation: continuation,
+                        progressPhase: .targetHashing
+                    )
+                    if cancelFlag.get() { continuation.finish(); return }
+
+                    var mutationRecords: [DedupeMutationIdentityRecord] = []
+                    for (index, path) in pathsNeedingIdentity.enumerated() {
+                        let result = targetResults[index]
+                        guard let identity = result.identity else {
+                            continuation.yield(.issue(DeduplicateIssue(
+                                severity: .warning,
+                                path: path,
+                                message: "This file could not be verified, so Chronoframe will keep it. Check that the file and its drive are readable, then scan again."
+                            )))
+                            continue
+                        }
+                        identityByPath[path] = identity
+                        mutationRecords.append(DedupeMutationIdentityRecord(
+                            path: path,
+                            size: result.size,
+                            modificationTime: result.modificationTime,
+                            identity: identity
+                        ))
+                    }
+                    try database.saveDedupeMutationIdentityRecords(mutationRecords)
+                    continuation.yield(.phaseCompleted(phase: .targetHashing))
+
+                    let scanSnapshot = DeduplicateScanSnapshot(
+                        identitiesByPath: identityByPath.filter { mutationTargets.contains($0.key) },
+                        sidecarOwners: sidecarOwners
+                    )
+
                     for cluster in emittedClusters {
                         if cancelFlag.get() { continuation.finish(); return }
                         continuation.yield(.clusterDiscovered(cluster))
                     }
-                    // 7. Summary.
+                    // 8. Summary.
                     var counts: [ClusterKind: Int] = [:]
                     for cluster in emittedClusters {
                         counts[cluster.kind, default: 0] += 1
@@ -439,7 +533,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         decisions: DedupeDecisions(),
                         clusters: emittedClusters,
                         configuration: configuration,
-                        allSidecarOwners: sidecarOwners
+                        snapshot: scanSnapshot
                     )
                     continuation.yield(.complete(DeduplicateSummary(
                         clusterCounts: counts,
@@ -448,7 +542,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
                         scanDuration: Date().timeIntervalSince(started),
                         cacheMetrics: DedupeCacheMetrics(hits: cacheHits, misses: cacheMisses),
                         videoPerceptualMetrics: perceptualVideoLane.metrics,
-                        sidecarOwners: sidecarOwners
+                        sidecarOwners: sidecarOwners,
+                        scanSnapshot: scanSnapshot
                     )))
                     continuation.finish()
                 } catch {
@@ -497,7 +592,8 @@ public final class DeduplicateScanner: @unchecked Sendable {
         continuation: AsyncThrowingStream<DeduplicateEvent, Error>.Continuation,
         emitProgress: Bool = true,
         progressOffset: Int = 0,
-        progressTotal: Int? = nil
+        progressTotal: Int? = nil,
+        progressPhase: DeduplicatePhase = .identityHashing
     ) async throws -> [ProcessedFileIdentity] {
         guard !paths.isEmpty else { return [] }
         let maxWorkers = max(1, workerCount)
@@ -512,7 +608,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                 results.append(identityHasher.processFile(at: path, cachedRecord: cacheIndex[path]))
                 if emitProgress, (offset + 1) % 50 == 0 || offset == paths.count - 1 {
                     continuation.yield(.phaseProgress(
-                        phase: .identityHashing,
+                        phase: progressPhase,
                         completed: progressOffset + offset + 1,
                         total: progressTotal ?? progressOffset + paths.count
                     ))
@@ -550,7 +646,7 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     let completed = results.store(processed, at: index)
                     if emitProgress, completed % 50 == 0 || completed == paths.count {
                         continuation.yield(.phaseProgress(
-                            phase: .identityHashing,
+                            phase: progressPhase,
                             completed: progressOffset + completed,
                             total: progressTotal ?? progressOffset + paths.count
                         ))

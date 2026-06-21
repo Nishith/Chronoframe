@@ -184,6 +184,10 @@ public enum UserFacingErrorMessage {
             return error.errorDescription
         case let error as OrganizerDatabaseError:
             return error.errorDescription
+        case let error as DestinationBusyError:
+            return error.errorDescription
+        case let error as ReceiptPreflightError:
+            return error.errorDescription
         default:
             return nil
         }

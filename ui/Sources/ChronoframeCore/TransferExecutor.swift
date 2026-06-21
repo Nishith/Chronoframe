@@ -755,57 +755,6 @@ public struct TransferExecutor: Sendable {
         try database.saveRawCacheRecords(updates)
     }
 
-    fileprivate func performCopy(
-        job: QueuedCopyJob,
-        verifyCopies: Bool,
-        runLogger: PersistentRunLogger,
-        isCancelled: @escaping @Sendable () -> Bool = { false },
-        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
-    ) -> TransferJobOutcome {
-        do {
-            let actualDestinationPath = try safeCopyAtomic(
-                sourcePath: job.sourcePath,
-                requestedDestinationPath: job.destinationPath,
-                isCancelled: isCancelled,
-                onIssue: onIssue
-            )
-
-            var verifiedHash: String?
-            if verifyCopies {
-                do {
-                    let verifiedIdentity = try fileHasher.hashIdentity(at: URL(fileURLWithPath: actualDestinationPath))
-                    verifiedHash = verifiedIdentity.rawValue
-                    if verifiedIdentity.rawValue != job.hash {
-                        removeUnverifiedCopyIfNeeded(atPath: actualDestinationPath, runLogger: runLogger)
-                        return .failed(
-                            message: "Verification failed: \(job.sourcePath) -> \(actualDestinationPath)",
-                            logMessage: "Verification failed: \(job.sourcePath) → \(actualDestinationPath)"
-                        )
-                    }
-                } catch {
-                    runLogger.warn("Verification could not read copied file; copy retained but not marked complete: \(actualDestinationPath): \(error.localizedDescription)")
-                    return .failed(
-                        message: "Verification could not read the copied file, so Chronoframe left it in place but did not mark it complete: \(actualDestinationPath)",
-                        logMessage: "Verification hash error after copy: \(job.sourcePath) → \(actualDestinationPath): \(error.localizedDescription)"
-                    )
-                }
-            }
-
-            let fileAttributes = try FileManager.default.attributesOfItem(atPath: actualDestinationPath)
-            return .copied(
-                destinationPath: actualDestinationPath,
-                size: (fileAttributes[.size] as? NSNumber)?.int64Value ?? 0,
-                modificationTime: (fileAttributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0,
-                verifiedHash: verifiedHash
-            )
-        } catch {
-            return .failed(
-                message: "Copy failed: \(job.sourcePath) -> \(job.destinationPath): \(error.localizedDescription)",
-                logMessage: "Copy failed: \(job.sourcePath) → \(job.destinationPath): \(error.localizedDescription)"
-            )
-        }
-    }
-
     fileprivate func prepareCopy(
         job: QueuedCopyJob,
         verifyCopies: Bool,
@@ -825,7 +774,7 @@ public struct TransferExecutor: Sendable {
         }
 
         do {
-            let temporaryPath = try prepareAtomicCopy(
+            let temporaryPath = try prepareAtomicCopyWithRetry(
                 sourcePath: job.sourcePath,
                 requestedDestinationPath: job.destinationPath,
                 isCancelled: isCancelled,
@@ -862,79 +811,6 @@ public struct TransferExecutor: Sendable {
         }
     }
 
-    fileprivate func safeCopyAtomic(
-        sourcePath: String,
-        requestedDestinationPath: String,
-        isCancelled: @escaping @Sendable () -> Bool = { false },
-        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
-    ) throws -> String {
-        var lastError: Error?
-
-        for attempt in 1...max(1, retryPolicy.maxAttempts) {
-            do {
-                return try safeCopyAtomicOnce(
-                    sourcePath: sourcePath,
-                    requestedDestinationPath: requestedDestinationPath,
-                    isCancelled: isCancelled,
-                    onIssue: onIssue
-                )
-            } catch {
-                lastError = error
-                guard shouldRetry(after: error), attempt < retryPolicy.maxAttempts else {
-                    throw error
-                }
-
-                let backoff = min(
-                    retryPolicy.maximumBackoffSeconds,
-                    max(
-                        retryPolicy.minimumBackoffSeconds,
-                        pow(2, Double(attempt - 1)) * retryPolicy.minimumBackoffSeconds
-                    )
-                )
-                Thread.sleep(forTimeInterval: backoff)
-                // Finding #3: stop retrying as soon as the run is cancelled
-                // rather than waiting to start (and fail) another attempt.
-                if isCancelled() {
-                    throw error
-                }
-            }
-        }
-
-        throw lastError ?? CocoaError(.fileWriteUnknown)
-    }
-
-    private func safeCopyAtomicOnce(
-        sourcePath: String,
-        requestedDestinationPath: String,
-        isCancelled: @escaping @Sendable () -> Bool = { false },
-        onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
-    ) throws -> String {
-        let destinationURL = URL(fileURLWithPath: requestedDestinationPath)
-        let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
-        try checkDiskSpace(
-            sourcePath: sourcePath,
-            destinationDirectoryPath: destinationDirectoryURL.path,
-            isCancelled: isCancelled,
-            onIssue: onIssue
-        )
-
-        let finalDestinationPath = try collisionResolvedPath(for: requestedDestinationPath)
-        let temporaryDestinationPath = try uniqueTemporaryCopyPath(for: finalDestinationPath)
-
-        do {
-            try copyFileContents(from: sourcePath, to: temporaryDestinationPath)
-            try fsyncFile(atPath: temporaryDestinationPath)
-            try renameFile(from: temporaryDestinationPath, to: finalDestinationPath)
-            return finalDestinationPath
-        } catch {
-            if FileManager.default.fileExists(atPath: temporaryDestinationPath) {
-                try? FileManager.default.removeItem(atPath: temporaryDestinationPath)
-            }
-            throw error
-        }
-    }
-
     private func prepareAtomicCopy(
         sourcePath: String,
         requestedDestinationPath: String,
@@ -965,15 +841,57 @@ public struct TransferExecutor: Sendable {
         }
     }
 
+    private func prepareAtomicCopyWithRetry(
+        sourcePath: String,
+        requestedDestinationPath: String,
+        isCancelled: @escaping @Sendable () -> Bool,
+        onIssue: @escaping @Sendable (RunIssue) -> Void
+    ) throws -> String {
+        var lastError: Error?
+
+        for attempt in 1...max(1, retryPolicy.maxAttempts) {
+            do {
+                return try prepareAtomicCopy(
+                    sourcePath: sourcePath,
+                    requestedDestinationPath: requestedDestinationPath,
+                    isCancelled: isCancelled,
+                    onIssue: onIssue
+                )
+            } catch {
+                lastError = error
+                guard shouldRetry(after: error), attempt < retryPolicy.maxAttempts else {
+                    throw error
+                }
+
+                let backoff = min(
+                    retryPolicy.maximumBackoffSeconds,
+                    max(
+                        retryPolicy.minimumBackoffSeconds,
+                        pow(2, Double(attempt - 1)) * retryPolicy.minimumBackoffSeconds
+                    )
+                )
+                Thread.sleep(forTimeInterval: backoff)
+                if isCancelled() { throw error }
+            }
+        }
+
+        throw lastError ?? CocoaError(.fileWriteUnknown)
+    }
+
     fileprivate func finalizePreparedCopy(
         temporaryPath: String,
-        requestedDestinationPath: String
+        requestedDestinationPath: String,
+        beforeRename: (String) throws -> Void = { _ in }
     ) throws -> (destinationPath: String, size: Int64, modificationTime: TimeInterval) {
         var lastExclusiveRenameError: Error?
 
         for _ in 0...Self.maxCollisionCount {
             let finalDestinationPath = try collisionResolvedPath(for: requestedDestinationPath)
             do {
+                // Persist the exact collision-free destination before the
+                // namespace mutation. Recovery can now distinguish a missing
+                // final from a finalized copy after process termination.
+                try beforeRename(finalDestinationPath)
                 try renameFile(from: temporaryPath, to: finalDestinationPath)
                 let fileAttributes = try FileManager.default.attributesOfItem(atPath: finalDestinationPath)
                 return (
@@ -1336,6 +1254,7 @@ private final class StreamingAuditReceiptWriter {
         }
         try spoolHandle?.write(contentsOf: Data("    ".utf8))
         try spoolHandle?.write(contentsOf: data)
+        try spoolHandle?.synchronize()
         transferCount += 1
     }
 
@@ -1458,6 +1377,7 @@ private final class TransferExecutionContext {
     private let bytesTotal: Int64
     private let artifacts: RunArtifactPaths
     private let receiptWriter: StreamingAuditReceiptWriter
+    private let runID = UUID()
 
     private var copiedCount = 0
     private var failedCount = 0
@@ -1508,7 +1428,14 @@ private final class TransferExecutionContext {
             return try apply(outcome: skippedOutcome, for: job, attemptedJobs: attemptedJobs)
         }
         let observerRef = self.observer
-        let outcome = executor.performCopy(
+        try database.updateJobMutation(
+            sourcePath: job.sourcePath,
+            runID: runID,
+            intendedDestinationPath: job.destinationPath,
+            actualDestinationPath: nil,
+            mutationState: .intended
+        )
+        let outcome = executor.prepareCopy(
             job: job,
             verifyCopies: verifyCopies,
             runLogger: runLogger,
@@ -1529,9 +1456,32 @@ private final class TransferExecutionContext {
         switch outcome {
         case let .prepared(temporaryPath, verifiedHash):
             do {
+                try database.updateJobMutation(
+                    sourcePath: job.sourcePath,
+                    runID: runID,
+                    intendedDestinationPath: job.destinationPath,
+                    actualDestinationPath: temporaryPath,
+                    mutationState: .temporaryWritten
+                )
                 let finalizedCopy = try executor.finalizePreparedCopy(
                     temporaryPath: temporaryPath,
-                    requestedDestinationPath: job.destinationPath
+                    requestedDestinationPath: job.destinationPath,
+                    beforeRename: { finalPath in
+                        try self.database.updateJobMutation(
+                            sourcePath: job.sourcePath,
+                            runID: self.runID,
+                            intendedDestinationPath: finalPath,
+                            actualDestinationPath: nil,
+                            mutationState: .intended
+                        )
+                    }
+                )
+                try database.updateJobMutation(
+                    sourcePath: job.sourcePath,
+                    runID: runID,
+                    intendedDestinationPath: finalizedCopy.destinationPath,
+                    actualDestinationPath: finalizedCopy.destinationPath,
+                    mutationState: .finalized
                 )
                 try database.updateJobStatus(sourcePath: job.sourcePath, status: .copied)
                 completedCopy = (
@@ -1542,6 +1492,13 @@ private final class TransferExecutionContext {
                 )
             } catch {
                 executor.removeUnverifiedCopyIfNeeded(atPath: temporaryPath, runLogger: runLogger)
+                try? database.updateJobMutation(
+                    sourcePath: job.sourcePath,
+                    runID: runID,
+                    intendedDestinationPath: job.destinationPath,
+                    actualDestinationPath: nil,
+                    mutationState: .failed
+                )
                 try database.updateJobStatus(sourcePath: job.sourcePath, status: .failed)
 
                 let message = "Copy failed: \(job.sourcePath) -> \(job.destinationPath): \(error.localizedDescription)"
@@ -1566,6 +1523,13 @@ private final class TransferExecutionContext {
             }
 
         case let .copied(destinationPath, size, modificationTime, verifiedHash):
+            try database.updateJobMutation(
+                sourcePath: job.sourcePath,
+                runID: runID,
+                intendedDestinationPath: destinationPath,
+                actualDestinationPath: destinationPath,
+                mutationState: .finalized
+            )
             try database.updateJobStatus(sourcePath: job.sourcePath, status: .copied)
             completedCopy = (
                 destinationPath: destinationPath,
@@ -1575,6 +1539,13 @@ private final class TransferExecutionContext {
             )
 
         case let .failed(message, logMessage):
+            try? database.updateJobMutation(
+                sourcePath: job.sourcePath,
+                runID: runID,
+                intendedDestinationPath: job.destinationPath,
+                actualDestinationPath: nil,
+                mutationState: .failed
+            )
             try database.updateJobStatus(sourcePath: job.sourcePath, status: .failed)
 
             runLogger.error(logMessage)
@@ -1596,6 +1567,13 @@ private final class TransferExecutionContext {
             }
 
         case let .skipped(message, logMessage):
+            try? database.updateJobMutation(
+                sourcePath: job.sourcePath,
+                runID: runID,
+                intendedDestinationPath: job.destinationPath,
+                actualDestinationPath: nil,
+                mutationState: .failed
+            )
             try database.updateJobStatus(sourcePath: job.sourcePath, status: .skipped)
 
             runLogger.warn(logMessage)

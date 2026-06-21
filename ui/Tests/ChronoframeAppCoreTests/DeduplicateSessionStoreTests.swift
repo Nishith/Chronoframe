@@ -4,6 +4,32 @@ import XCTest
 @testable import ChronoframeCore
 
 final class DeduplicateSessionStoreTests: XCTestCase {
+    @MainActor
+    // AGENTS-INVARIANT: 17
+    func testPreparedDialogPlanIsExactEngineCommitPlan() async throws {
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/keep.jpg", size: 20, modificationTime: 0),
+                PhotoCandidate(path: "/dest/delete.jpg", size: 10, modificationTime: 0),
+            ],
+            suggestedKeeperIDs: ["/dest/keep.jpg"],
+            bytesIfPruned: 10
+        )
+        let engine = MockDeduplicateEngine(clusters: [cluster])
+        let store = DeduplicateSessionStore(engine: engine)
+        let configuration = DeduplicateConfiguration(destinationPath: "/dest")
+        store.startScan(configuration: configuration)
+        _ = await waitForCondition { store.status == .readyToReview }
+        store.acceptSuggestionsForCluster(cluster)
+
+        let dialogPlan = store.prepareReviewedCommitPlan()
+        store.commitReviewed(configuration: configuration)
+
+        XCTAssertEqual(engine.lastCommitPlan, dialogPlan)
+        XCTAssertEqual(dialogPlan.count, 1)
+        XCTAssertEqual(dialogPlan.totalBytes, 10)
+    }
     private var suiteName: String!
     private var defaults: UserDefaults!
 
@@ -118,8 +144,22 @@ final class DeduplicateSessionStoreTests: XCTestCase {
     @MainActor
     func testCommitForwardsScanSidecarOwnersToEngine() async throws {
         let owners: [String: Set<String>] = ["/dest/A.xmp": ["/dest/A.jpg", "/dest/A.heic"]]
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/A.jpg", size: 100, modificationTime: 0, sidecarPaths: ["/dest/A.xmp"]),
+                PhotoCandidate(path: "/dest/B.jpg", size: 100, modificationTime: 0),
+            ],
+            suggestedKeeperIDs: ["/dest/B.jpg"],
+            bytesIfPruned: 100
+        )
         let engine = MockDeduplicateEngine(
-            summary: DeduplicateSummary(totalCandidatesScanned: 1, sidecarOwners: owners),
+            clusters: [cluster],
+            summary: DeduplicateSummary(
+                totalCandidatesScanned: 2,
+                sidecarOwners: owners,
+                scanSnapshot: testScanSnapshot(for: [cluster], sidecarOwners: owners)
+            ),
             commitEvents: [
                 .started(totalToDelete: 0),
                 .complete(DeduplicateCommitSummary(
@@ -138,11 +178,12 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         let scanned = await waitForCondition { store.status == .readyToReview }
         XCTAssertTrue(scanned)
 
+        store.acceptSuggestionsForCluster(cluster)
         store.commitReviewed(configuration: configuration)
         let committed = await waitForCondition { store.status == .completed }
         XCTAssertTrue(committed)
 
-        XCTAssertEqual(engine.lastCommitSidecarOwners, owners)
+        XCTAssertFalse(engine.lastCommitPlan?.items.contains(where: { $0.path == "/dest/A.xmp" }) == true)
     }
 
     /// Finding #1: an `.itemStale` commit event surfaces as a non-fatal
@@ -625,15 +666,9 @@ final class DeduplicateSessionStoreTests: XCTestCase {
 
         XCTAssertEqual(engine.lastCommitConfiguration?.treatLivePhotoPairsAsUnit, true)
         XCTAssertEqual(engine.lastCommitConfiguration?.treatRawJpegPairsAsUnit, true)
-        XCTAssertEqual(Set(engine.lastCommitClusters.map(\.id)), [cluster.id],
+        let commitPlan = try XCTUnwrap(engine.lastCommitPlan)
+        XCTAssertEqual(Set(commitPlan.items.map(\.owningClusterID)), [cluster.id],
             "commitReviewed must scope the executor to reviewed clusters only")
-        let commitDecisions = try XCTUnwrap(engine.lastCommitDecisions)
-        let commitConfiguration = try XCTUnwrap(engine.lastCommitConfiguration)
-        let commitPlan = DeduplicationPlanner.plan(
-            decisions: commitDecisions,
-            clusters: engine.lastCommitClusters,
-            configuration: commitConfiguration
-        )
         XCTAssertEqual(Set(commitPlan.pathsToDelete), Set(reviewedPlan.pathsToDelete))
     }
 
@@ -917,9 +952,10 @@ final class DeduplicateSessionStoreTests: XCTestCase {
 
         store.commitReviewed(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
 
-        XCTAssertEqual(engine.lastCommitClusters.map(\.id), [clusterA.id],
+        let committedClusterIDs = Set(engine.lastCommitPlan?.items.map(\.owningClusterID) ?? [])
+        XCTAssertEqual(committedClusterIDs, [clusterA.id],
             "commitReviewed must pass only the reviewed cluster to the engine")
-        XCTAssertFalse(engine.lastCommitClusters.map(\.id).contains(clusterB.id),
+        XCTAssertFalse(committedClusterIDs.contains(clusterB.id),
             "Unreviewed cluster must not be passed to the engine")
     }
 

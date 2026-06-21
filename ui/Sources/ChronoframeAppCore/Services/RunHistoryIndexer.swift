@@ -108,6 +108,7 @@ public struct RunHistoryIndexer: RunHistoryIndexing {
             ?? values?.creationDate
             ?? .distantPast
         let fileSizeBytes = values?.fileSize.map(Int64.init)
+        let recoveryState = kind == .dedupeAuditReceipt ? dedupeRecoveryState(at: url) : nil
 
         return RunHistoryEntry(
             kind: kind,
@@ -115,8 +116,16 @@ public struct RunHistoryIndexer: RunHistoryIndexing {
             path: url.path,
             relativePath: relativePath(for: url, rootURL: rootURL),
             fileSizeBytes: fileSizeBytes,
-            createdAt: createdAt
+            createdAt: createdAt,
+            recoveryState: recoveryState
         )
+    }
+
+    private func dedupeRecoveryState(at url: URL) -> MutationRecoveryState? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode(DeduplicateAuditReceipt.self, from: data))?.recoveryState
     }
 
     private func timestampFromFilename(_ filename: String) -> Date? {

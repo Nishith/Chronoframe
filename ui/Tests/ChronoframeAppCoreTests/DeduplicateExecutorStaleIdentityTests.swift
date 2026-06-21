@@ -42,13 +42,14 @@ final class DeduplicateExecutorStaleIdentityTests: XCTestCase {
     /// Build a plan item carrying the file's current scan-time identity, the
     /// same way the planner does.
     private func planItem(for url: URL) -> DeduplicationPlan.Item {
-        DeduplicationPlan.Item(
+        let identity = try! FileIdentityHasher().hashIdentity(at: url)
+        return DeduplicationPlan.Item(
             path: url.path,
-            sizeBytes: DeduplicationPlanner.fileIdentity(at: url.path).sizeBytes,
+            sizeBytes: identity.size,
             owningClusterID: UUID(),
             owningClusterKind: .exactDuplicate,
             pairOrigin: nil,
-            scanIdentity: DeduplicationPlanner.fileIdentity(at: url.path)
+            expectedIdentity: identity
         )
     }
 
@@ -104,20 +105,21 @@ final class DeduplicateExecutorStaleIdentityTests: XCTestCase {
         XCTAssertEqual(try receiptPaths(outcome), [file.path])
     }
 
-    /// A same-size replacement with a different modification time is a
-    /// different file the user never reviewed — preserve it.
+    /// A same-size replacement with the same modification time is still a
+    /// different file. Content identity, not metadata, is authoritative.
     // AGENTS-INVARIANT: 5
     func testSameSizeReplacementIsPreservedAsStale() async throws {
         let file = temporaryDirectoryURL.appendingPathComponent("dup.jpg")
         try Data(repeating: 0x22, count: 512).write(to: file)
+        let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+        let originalMtime = try XCTUnwrap(attributes[.modificationDate] as? Date)
         let item = planItem(for: file)
 
-        // Replace with unique content of the SAME size, then force a clearly
-        // different mtime so the swap is unambiguous regardless of timer
-        // resolution.
+        // Replace with unique content of the SAME size and restore the exact
+        // prior mtime. A size/mtime ScanIdentity would miss this replacement.
         try Data(repeating: 0x33, count: 512).write(to: file)
         try FileManager.default.setAttributes(
-            [.modificationDate: Date(timeIntervalSince1970: 1_000_000_000)],
+            [.modificationDate: originalMtime],
             ofItemAtPath: file.path
         )
 

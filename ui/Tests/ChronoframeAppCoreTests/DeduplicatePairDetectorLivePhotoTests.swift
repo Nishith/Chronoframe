@@ -159,19 +159,21 @@ final class DeduplicatePairDetectorLivePhotoTests: XCTestCase {
         XCTAssertNil(DeduplicatePairDetector.livePhotoIdentifier(forImageAt: url))
     }
 
-    func testLivePhotoIdentifierReadsContentIdFromQuickTimeMovie() throws {
+    func testLivePhotoIdentifierReadsContentIdFromQuickTimeMovie() async throws {
         let url = temporaryDirectoryURL.appendingPathComponent("video.mov")
         try writeQuickTimeMovie(at: url, contentIdentifier: "live-id-abc")
-        XCTAssertEqual(DeduplicatePairDetector.livePhotoIdentifier(forMovieAt: url), "live-id-abc")
+        let identifier = await DeduplicatePairDetector.livePhotoIdentifier(forMovieAt: url)
+        XCTAssertEqual(identifier, "live-id-abc")
     }
 
-    func testLivePhotoIdentifierReturnsNilForMovieWithoutContentIdentifier() throws {
+    func testLivePhotoIdentifierReturnsNilForMovieWithoutContentIdentifier() async throws {
         let url = temporaryDirectoryURL.appendingPathComponent("plain.mov")
         try writeQuickTimeMovie(at: url, contentIdentifier: nil)
-        XCTAssertNil(DeduplicatePairDetector.livePhotoIdentifier(forMovieAt: url))
+        let identifier = await DeduplicatePairDetector.livePhotoIdentifier(forMovieAt: url)
+        XCTAssertNil(identifier)
     }
 
-    func testDetectPairsRunsHEICAndMovIterationEvenWhenIdentifiersDoNotMatch() throws {
+    func testDetectPairsRunsHEICAndMovIterationEvenWhenIdentifiersDoNotMatch() async throws {
         // The HEIC writer pads MakerApple ASCII fields while AVAssetWriter
         // does not. End-to-end "the pair links" matching requires byte-for-byte
         // identifier equality, which CGImageDestination's padding breaks for
@@ -183,12 +185,15 @@ final class DeduplicatePairDetectorLivePhotoTests: XCTestCase {
         try writeOnePixelHEIC(at: heicURL, contentIdentifier: "84211230-1F4C-4ADD-8AAA-D6FAC5B59A2A")
         try writeQuickTimeMovie(at: movURL, contentIdentifier: "non-matching-identifier")
 
-        let pairs = DeduplicatePairDetector.detectPairs(in: [heicURL.path, movURL.path])
+        let pairs = await DeduplicatePairDetector.detectPairs(
+            in: [heicURL.path, movURL.path],
+            includeLivePhotos: true
+        )
         XCTAssertNil(pairs[heicURL.path])
         XCTAssertNil(pairs[movURL.path])
     }
 
-    func testDetectPairsSkipsHEICWhenNoSiblingMovieInDirectory() throws {
+    func testDetectPairsSkipsHEICWhenNoSiblingMovieInDirectory() async throws {
         let heicURL = temporaryDirectoryURL.appendingPathComponent("IMG_0002.heic")
         try writeOnePixelHEIC(at: heicURL, contentIdentifier: "84211230-1F4C-4ADD-8AAA-D6FAC5B59A2A")
         // Place a MOV in a SIBLING directory so directory grouping splits them.
@@ -197,7 +202,10 @@ final class DeduplicatePairDetectorLivePhotoTests: XCTestCase {
         let movURL = siblingDir.appendingPathComponent("IMG_0002.mov")
         try writeQuickTimeMovie(at: movURL, contentIdentifier: "84211230-1F4C-4ADD-8AAA-D6FAC5B59A2A")
 
-        let pairs = DeduplicatePairDetector.detectPairs(in: [heicURL.path, movURL.path])
+        let pairs = await DeduplicatePairDetector.detectPairs(
+            in: [heicURL.path, movURL.path],
+            includeLivePhotos: true
+        )
         XCTAssertNil(pairs[heicURL.path])
         XCTAssertNil(pairs[movURL.path])
     }

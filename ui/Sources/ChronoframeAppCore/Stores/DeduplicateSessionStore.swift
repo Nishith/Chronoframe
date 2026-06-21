@@ -32,6 +32,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     @Published public private(set) var commitSummary: DeduplicateCommitSummary?
     @Published public private(set) var lastErrorMessage: String?
     @Published public private(set) var issues: [DeduplicateIssue] = []
+    @Published public private(set) var preparedCommitPlan: DeduplicationPlan?
     @Published public private(set) var runHistory: [DeduplicateFolderHistoryRecord]
     @Published public var decisions: DedupeDecisions = DedupeDecisions()
     @Published public var approvedClusterIDs: Set<DuplicateCluster.ID> = []
@@ -108,7 +109,8 @@ public final class DeduplicateSessionStore: ObservableObject {
         return DeduplicationPlanner.plan(
             decisions: withSuggestions,
             clusters: clusters,
-            configuration: configuration
+            configuration: configuration,
+            snapshot: summary?.scanSnapshot ?? DeduplicateScanSnapshot()
         )
     }
 
@@ -135,8 +137,22 @@ public final class DeduplicateSessionStore: ObservableObject {
         return DeduplicationPlanner.plan(
             decisions: decisions,
             clusters: reviewedClusters,
-            configuration: configuration
+            configuration: configuration,
+            snapshot: summary?.scanSnapshot ?? DeduplicateScanSnapshot()
         )
+    }
+
+    /// Freezes the exact plan shown by the destructive confirmation dialog.
+    /// The same value is later passed to the engine without recomputation.
+    @discardableResult
+    public func prepareReviewedCommitPlan() -> DeduplicationPlan {
+        let plan = reviewedDeletionPlan()
+        preparedCommitPlan = plan
+        return plan
+    }
+
+    public func discardPreparedCommitPlan() {
+        preparedCommitPlan = nil
     }
 
     /// Commits delete decisions for reviewed clusters only; unreviewed clusters
@@ -157,14 +173,12 @@ public final class DeduplicateSessionStore: ObservableObject {
         status = .committing
         let commitConfiguration = lastScanConfiguration ?? configuration
         activeCommitConfiguration = commitConfiguration
+        let plan = preparedCommitPlan ?? prepareReviewedCommitPlan()
+        preparedCommitPlan = nil
         do {
             let stream = try engine.commit(
-                decisions: decisions,
-                clusters: reviewedClusters,
-                configuration: commitConfiguration,
-                // The scan's complete sidecar-ownership map gates deletion of
-                // sidecars shared with surviving singleton owners (Finding #2).
-                allSidecarOwners: summary?.sidecarOwners ?? [:]
+                plan: plan,
+                configuration: commitConfiguration
             )
             let epoch = currentRunEpoch
             streamTask = Task { [weak self] in
@@ -225,6 +239,7 @@ public final class DeduplicateSessionStore: ObservableObject {
         self.securityScope = securityScope
         clusters = []
         summary = nil
+        preparedCommitPlan = nil
         commitSummary = nil
         issues = []
         lastErrorMessage = nil
@@ -469,9 +484,11 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func reset() {
+        engine.cancelCurrentScan()
         cancelStream()
         clusters = []
         summary = nil
+        preparedCommitPlan = nil
         commitSummary = nil
         issues = []
         lastErrorMessage = nil
@@ -647,6 +664,7 @@ public struct DeduplicateFolderHistoryRecord: Identifiable, Codable, Equatable, 
     public var totalBytesReclaimed: Int64
     public var lastReceiptPath: String?
     public var lastHardDelete: Bool
+    public var recoveryState: MutationRecoveryState?
 
     public init(
         folderPath: String,
@@ -659,7 +677,8 @@ public struct DeduplicateFolderHistoryRecord: Identifiable, Codable, Equatable, 
         totalFailedCount: Int,
         totalBytesReclaimed: Int64,
         lastReceiptPath: String?,
-        lastHardDelete: Bool
+        lastHardDelete: Bool,
+        recoveryState: MutationRecoveryState? = nil
     ) {
         self.folderPath = folderPath
         self.lastRunAt = lastRunAt
@@ -672,6 +691,7 @@ public struct DeduplicateFolderHistoryRecord: Identifiable, Codable, Equatable, 
         self.totalBytesReclaimed = totalBytesReclaimed
         self.lastReceiptPath = lastReceiptPath
         self.lastHardDelete = lastHardDelete
+        self.recoveryState = recoveryState
     }
 }
 
@@ -728,7 +748,8 @@ public final class UserDefaultsDeduplicateRunHistoryStore: DeduplicateRunHistory
             totalFailedCount: (previous?.totalFailedCount ?? 0) + summary.failedCount,
             totalBytesReclaimed: (previous?.totalBytesReclaimed ?? 0) + summary.bytesReclaimed,
             lastReceiptPath: summary.receiptPath,
-            lastHardDelete: summary.hardDelete
+            lastHardDelete: summary.hardDelete,
+            recoveryState: previous?.recoveryState
         )
         records.insert(updated, at: 0)
         records = Array(records.prefix(limit))
@@ -739,6 +760,17 @@ public final class UserDefaultsDeduplicateRunHistoryStore: DeduplicateRunHistory
     private func persist(_ records: [DeduplicateFolderHistoryRecord]) {
         guard let data = try? JSONEncoder().encode(records) else { return }
         defaults.set(data, forKey: Self.key)
+    }
+}
+
+public enum RecoveryBadgeFormatter {
+    public static func title(for state: MutationRecoveryState?) -> String? {
+        switch state {
+        case .none: return nil
+        case .needsVolume: return "Interrupted · Needs Drive"
+        case .trashLocationUnverified: return "Trash Location Unverified"
+        case .manualActionRequired: return "Manual Recovery Needed"
+        }
     }
 }
 

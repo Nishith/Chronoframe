@@ -362,7 +362,7 @@ final class DeduplicateVideoTests: XCTestCase {
         )
         let data = try JSONEncoder.dedupe.encode(receipt)
         let decoded = try JSONDecoder.dedupe.decode(DeduplicateAuditReceipt.self, from: data)
-        XCTAssertEqual(decoded.schemaVersion, 4)
+        XCTAssertEqual(decoded.schemaVersion, 5)
         XCTAssertEqual(decoded.items.first?.clusterKind, .exactDuplicate)
         XCTAssertEqual(decoded.items.first?.mediaKind, .video)
     }

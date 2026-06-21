@@ -69,6 +69,14 @@ public final class HistoryStore: ObservableObject {
             var entries: [RunHistoryEntry]?
             var errorMessage: String?
             do {
+                let rootURL = URL(fileURLWithPath: trimmed, isDirectory: true)
+                let lease = try DestinationOperationLock.acquire(
+                    destinationRoot: rootURL,
+                    surface: "run history",
+                    operation: "recovery"
+                )
+                defer { lease.release() }
+                _ = MutationRecoveryCoordinator().recover(destinationRoot: rootURL)
                 entries = try indexer.index(destinationRoot: trimmed)
             } catch {
                 errorMessage = UserFacingErrorMessage.message(for: error, context: .history)

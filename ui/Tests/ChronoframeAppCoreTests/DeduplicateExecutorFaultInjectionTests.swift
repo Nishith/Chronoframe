@@ -36,13 +36,11 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
         }
     }
 
-    /// Finding #7 (prodsec/Chronoframe/TOP_IMPROVEMENTS.md): a successful
-    /// trash must be recorded durably before final receipt assembly. If the
-    /// final receipt cannot be written, recovery consolidates the spool into an
-    /// ABORTED receipt with the trash URL intact.
+    /// A final receipt failure after a durable `.trashed` transition retains
+    /// the journal so relaunch recovery can finalize an ABORTED receipt.
     // AGENTS-INVARIANT: 9
     // AGENTS-INVARIANT: 13
-    func testReceiptWriteFailureMidRunDoubleEmitsItemAndDropsTrashURLFromReceipt() async throws {
+    func testFinalReceiptFailureRetainsJournalForRecovery() async throws {
         let dst = temporaryDirectoryURL.appendingPathComponent("destination", isDirectory: true)
         try FileManager.default.createDirectory(at: dst, withIntermediateDirectories: true)
 
@@ -60,7 +58,8 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
                 sizeBytes: 256,
                 owningClusterID: UUID(),
                 owningClusterKind: .exactDuplicate,
-                pairOrigin: nil
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: target)
             )
         ])
         let stream = executor.commit(plan: plan, destinationRoot: dst.path, hardDelete: false)
@@ -92,14 +91,11 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
 
         XCTAssertEqual(trashedSuccessPaths.count, 1)
         XCTAssertEqual(trashedSuccessPaths.first?.path, target.path)
-        XCTAssertNotNil(trashedSuccessPaths.first?.trashURL)
         XCTAssertTrue(trashedStalePaths.isEmpty,
             "Spool durability replaces per-item stale receipt events.")
-        XCTAssertTrue(failedEvents.isEmpty,
-            "Should NOT emit itemFailed for a path whose trash succeeded.")
-        XCTAssertEqual(criticalReceiptMessages.count, 1,
-            "Finalize failure should produce exactly one criticalReceiptFailure event.")
-        XCTAssertTrue(criticalReceiptMessages[0].contains("Critical"))
+        XCTAssertTrue(failedEvents.isEmpty)
+        XCTAssertEqual(criticalReceiptMessages.count, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.path))
 
         let s = try XCTUnwrap(summary)
         XCTAssertEqual(s.deletedCount, 1)
@@ -114,7 +110,8 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
         let receiptURL = logsDir.appendingPathComponent(receiptName)
         let spoolURL = DeduplicateExecutor.spoolURL(for: receiptURL)
         XCTAssertTrue(FileManager.default.fileExists(atPath: spoolURL.path))
-        XCTAssertTrue(try DeduplicateExecutor.consolidatePendingReceipt(pendingURL: receiptURL, spoolURL: spoolURL))
+        let recovery = MutationRecoveryCoordinator().recover(destinationRoot: dst)
+        XCTAssertGreaterThanOrEqual(recovery.recoveredItemCount, 1)
 
         let recovered = try JSONDecoder.dedupe.decode(
             DeduplicateAuditReceipt.self,
@@ -122,6 +119,7 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
         )
         XCTAssertEqual(recovered.status, "ABORTED")
         XCTAssertEqual(recovered.items.first?.trashURL, trashedSuccessPaths.first?.trashURL?.absoluteString)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: spoolURL.path))
     }
 }
 

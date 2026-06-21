@@ -435,10 +435,12 @@ struct DeduplicateView: View {
             Button("Move to Trash", role: .destructive) {
                 appState.commitDeduplicateDecisions()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                sessionStore.discardPreparedCommitPlan()
+            }
         } message: {
             Text(Self.trashCommitMessage(
-                byteCount: sessionStore.reviewedDeletionPlan().totalBytes,
+                byteCount: sessionStore.preparedCommitPlan?.totalBytes ?? bytes,
                 availableCapacity: deduplicateVolumeAvailableCapacity
             ))
         }
@@ -449,17 +451,19 @@ struct DeduplicateView: View {
             Button("Move to Trash", role: .destructive) {
                 appState.commitDeduplicateDecisions()
             }
-            Button("Cancel", role: .cancel) {}
+            Button("Cancel", role: .cancel) {
+                sessionStore.discardPreparedCommitPlan()
+            }
         } message: {
             Text("Only groups you have fully reviewed will be affected. Unreviewed groups stay untouched. " + Self.trashCommitMessage(
-                byteCount: sessionStore.reviewedDeletionPlan().totalBytes,
+                byteCount: sessionStore.preparedCommitPlan?.totalBytes ?? bytes,
                 availableCapacity: deduplicateVolumeAvailableCapacity
             ))
         }
     }
 
     private var reviewedCommitDialogTitle: String {
-        let plan = sessionStore.reviewedDeletionPlan()
+        let plan = sessionStore.preparedCommitPlan ?? sessionStore.reviewedDeletionPlan()
         let count = plan.count
         let reviewed = sessionStore.reviewedClusters.count
         if count == 0 {
@@ -599,6 +603,7 @@ struct DeduplicateView: View {
             if reviewedCount > 0 {
                 Divider()
                 Button("Move Reviewed to Trash (\(reviewedCount) group\(reviewedCount == 1 ? "" : "s"))") {
+                    sessionStore.prepareReviewedCommitPlan()
                     showingCommitReviewedConfirmation = true
                 }
                 .accessibilityIdentifier(AccessibilityIdentifiers.dedupeCommitReviewedButton)
@@ -642,6 +647,7 @@ struct DeduplicateView: View {
         Spacer().frame(width: DesignTokens.Spacing.lg)
 
         Button(density.commitTitle(fileCount: toDelete), role: .destructive) {
+            sessionStore.prepareReviewedCommitPlan()
             showingCommitConfirmation = true
         }
         .keyboardShortcut(.return, modifiers: .command)
@@ -1278,6 +1284,12 @@ private struct DeduplicateRunHistoryRow: View {
                 Text("Last run \(Self.dateFormatter.string(from: record.lastRunAt))")
                     .font(.caption)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                if let badge = RecoveryBadgeFormatter.title(for: record.recoveryState) {
+                    Text(badge)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+                        .accessibilityLabel(badge)
+                }
             }
         }
     }

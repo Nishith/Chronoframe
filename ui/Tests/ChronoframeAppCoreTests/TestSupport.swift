@@ -12,6 +12,38 @@ enum TestFailure: Error, LocalizedError {
     }
 }
 
+func testScanSnapshot(
+    for clusters: [DuplicateCluster],
+    sidecarOwners: [String: Set<String>] = [:],
+    additionalIdentities: [String: FileIdentity] = [:]
+) -> DeduplicateScanSnapshot {
+    func filesystemSize(_ path: String, fallback: Int64) -> Int64 {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path),
+              let size = attributes[.size] as? NSNumber
+        else { return fallback }
+        return size.int64Value
+    }
+    var sizes: [String: Int64] = [:]
+    for member in clusters.flatMap(\.members) {
+        sizes[member.path] = member.size
+        if let partner = member.pairedPath, sizes[partner] == nil {
+            sizes[partner] = filesystemSize(partner, fallback: member.size)
+        }
+        for sidecar in member.sidecarPaths where sizes[sidecar] == nil {
+            sizes[sidecar] = filesystemSize(sidecar, fallback: 0)
+        }
+    }
+    var identities = Dictionary(uniqueKeysWithValues: sizes.map { path, size in
+        (path, FileIdentity(size: size, digest: Data(path.utf8).base64EncodedString()))
+    })
+    identities.merge(additionalIdentities) { _, explicit in explicit }
+    return DeduplicateScanSnapshot(identitiesByPath: identities, sidecarOwners: sidecarOwners)
+}
+
+func testFileIdentity(at url: URL) -> FileIdentity {
+    try! FileIdentityHasher().hashIdentity(at: url)
+}
+
 final class SecurityScopeCloseTracker {
     private(set) var closeCount = 0
 
@@ -45,6 +77,8 @@ final class MockOrganizerEngine: OrganizerEngine {
     /// to deterministically interleave a second operation (or a cancel) while a
     /// preflight is in flight, exercising the stale-completion epoch guard.
     var preflightHook: (@MainActor () async -> Void)?
+    private let lockRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent("MockOrganizerEngine-\(UUID().uuidString)", isDirectory: true)
 
     init(
         preflightResult: Result<RunPreflight, Error>,
@@ -65,6 +99,16 @@ final class MockOrganizerEngine: OrganizerEngine {
             await preflightHook()
         }
         return try preflightResult.get()
+    }
+
+    func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
+        let preflight = try await preflight(configuration)
+        let lease = try DestinationOperationLock.acquire(
+            destinationRoot: lockRoot,
+            surface: "test",
+            operation: configuration.mode.rawValue
+        )
+        return PreparedRun(preflight: preflight, lease: lease)
     }
 
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
@@ -125,10 +169,8 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     var revertEvents: [DeduplicateCommitEvent] = []
     var scanError: Error?
     var lastScanConfiguration: DeduplicateConfiguration?
-    var lastCommitDecisions: DedupeDecisions?
-    var lastCommitClusters: [DuplicateCluster] = []
+    var lastCommitPlan: DeduplicationPlan?
     var lastCommitConfiguration: DeduplicateConfiguration?
-    var lastCommitSidecarOwners: [String: Set<String>] = [:]
 
     init(
         clusters: [DuplicateCluster] = [],
@@ -137,6 +179,10 @@ final class MockDeduplicateEngine: DeduplicateEngine {
         revertEvents: [DeduplicateCommitEvent] = []
     ) {
         self.clustersToEmit = clusters
+        var summary = summary
+        if summary.scanSnapshot.identitiesByPath.isEmpty {
+            summary.scanSnapshot = testScanSnapshot(for: clusters, sidecarOwners: summary.sidecarOwners)
+        }
         self.summary = summary
         self.commitEvents = commitEvents
         self.revertEvents = revertEvents
@@ -164,15 +210,11 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     func cancelCurrentScan() {}
 
     func commit(
-        decisions: DedupeDecisions,
-        clusters: [DuplicateCluster],
-        configuration: DeduplicateConfiguration,
-        allSidecarOwners: [String: Set<String>]
+        plan: DeduplicationPlan,
+        configuration: DeduplicateConfiguration
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
-        lastCommitDecisions = decisions
-        lastCommitClusters = clusters
+        lastCommitPlan = plan
         lastCommitConfiguration = configuration
-        lastCommitSidecarOwners = allSidecarOwners
         let events = commitEvents
         return AsyncThrowingStream { continuation in
             Task { @MainActor in
