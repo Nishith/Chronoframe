@@ -50,15 +50,26 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
     public var date: Date?
     public var source: DateResolutionSource
     public var confidence: DateResolutionConfidence
+    /// When the resolved date came from an EXIF timestamp carrying an explicit
+    /// UTC offset (e.g. `+05:00`), the offset in seconds. `date` stays a true
+    /// UTC instant for sorting/clustering; this only steers which calendar day
+    /// the file buckets into, so a `02:00 +05:00` shot files under its local
+    /// day rather than the previous UTC day. `nil` for offset-less EXIF
+    /// (interpreted as UTC wall-clock), filename, filesystem, and user-override
+    /// dates — all of which bucket by their UTC day as before. Absent in
+    /// legacy persisted review rows (decodes to `nil`).
+    public var bucketTimeZoneOffsetSeconds: Int?
 
     public init(
         date: Date?,
         source: DateResolutionSource,
-        confidence: DateResolutionConfidence
+        confidence: DateResolutionConfidence,
+        bucketTimeZoneOffsetSeconds: Int? = nil
     ) {
         self.date = date
         self.source = source
         self.confidence = confidence
+        self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
     }
 
     public static let unknown = ResolvedMediaDate(
@@ -71,6 +82,7 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
         guard let override, let captureDate = override.captureDate else {
             return self
         }
+        // A user-entered date carries no timezone, so it buckets by its UTC day.
         return ResolvedMediaDate(
             date: captureDate,
             source: .userOverride,

@@ -4,17 +4,23 @@ public struct PlanningFileCandidate: Equatable, Codable, Sendable {
     public var sourcePath: String
     public var identity: FileIdentity?
     public var capturedAt: Date?
+    /// EXIF UTC offset (seconds) when `capturedAt` came from an offset-bearing
+    /// timestamp, so the file buckets by its local day. `nil` (the default)
+    /// preserves the historical UTC-day bucketing. See `ResolvedMediaDate`.
+    public var capturedAtBucketOffsetSeconds: Int?
     public var eventNameOverride: String?
 
     public init(
         sourcePath: String,
         identity: FileIdentity?,
         capturedAt: Date?,
+        capturedAtBucketOffsetSeconds: Int? = nil,
         eventNameOverride: String? = nil
     ) {
         self.sourcePath = sourcePath
         self.identity = identity
         self.capturedAt = capturedAt
+        self.capturedAtBucketOffsetSeconds = capturedAtBucketOffsetSeconds
         self.eventNameOverride = ReviewOverride.normalizedEventName(eventNameOverride)
     }
 }
@@ -112,7 +118,11 @@ public enum CopyPlanBuilder {
                 continue
             }
 
-            let dateBucket = dateBucket(for: file.capturedAt, namingRules: namingRules)
+            let dateBucket = dateBucket(
+                for: file.capturedAt,
+                timeZoneOffsetSeconds: file.capturedAtBucketOffsetSeconds,
+                namingRules: namingRules
+            )
 
             if destinationSnapshot.pathsByIdentity[identity] != nil {
                 counts.alreadyInDestinationCount += 1
@@ -408,9 +418,14 @@ public enum CopyPlanBuilder {
 
     private static func dateBucket(
         for capturedAt: Date?,
+        timeZoneOffsetSeconds: Int? = nil,
         namingRules: PlannerNamingRules
     ) -> String {
-        DateClassification.bucket(for: capturedAt, namingRules: namingRules)
+        DateClassification.bucket(
+            for: capturedAt,
+            timeZoneOffsetSeconds: timeZoneOffsetSeconds,
+            namingRules: namingRules
+        )
     }
 
     private static func histogramKey(

@@ -96,17 +96,31 @@ Before changing `frameHammingThreshold`, `aggregateMedianThreshold`, or another
 default, expand the hard-negative set and follow
 `docs/video-dedupe-calibration-rubric.md` §6.
 
-## Product Decision Still Open
+## Product Decision Resolved — Local-Day EXIF Bucketing (implemented 2026-06-21)
 
-`DateClassification.bucket` currently keys explicit-offset EXIF timestamps on
-the UTC calendar day. A photo at `02:00 +05:00` on January 1 therefore lands in
-the December 31 UTC bucket. The current behavior is pinned by
-`testOffsetExifNearLocalMidnightBucketsByUTCInstant`.
+**Decision (owner):** explicit-offset EXIF timestamps now bucket by the
+photographer's **local calendar day**, not the UTC instant. A `02:00 +05:00`
+shot (locally Jan 1) files under **Jan 1**; a `22:00 -05:00` shot (locally
+Dec 31) files under **Dec 31**.
 
-Change this only after an explicit product decision to preserve the
-photographer's local calendar day. Such a change alters destination layout for
-existing offset-tagged libraries and needs migration/release notes plus boundary
-tests.
+**Implementation.** `NativeMediaMetadataDateReader` retains the EXIF UTC offset
+(`parseImagePropertyDateWithOffset` / `offsetSeconds`) and surfaces it via
+`PhotoMetadataDate`. `ResolvedMediaDate.bucketTimeZoneOffsetSeconds` carries it
+through `FileDateResolver` into `DryRunPlanner` (and `CopyPlanBuilder`), where
+`DateClassification.bucket(for:timeZoneOffsetSeconds:)` formats the folder day in
+that offset's timezone. The resolved `date` stays a **true UTC instant**, so
+sorting, capture-date clustering, and dedupe proximity are unchanged. Offset-less
+EXIF (UTC wall-clock), filename, filesystem, and user-override dates keep their
+prior UTC-day bucketing byte-for-byte. New `Codable`/protocol fields are
+optional/defaulted, so older persisted review rows and external readers stay
+compatible. Covered by `ChronoframeCoreMediaDateTests` (updated characterization
+test `testOffsetExifNearLocalMidnightBucketsByLocalDay` plus `+`/`-` boundary,
+offset-string-parsing, and resolver-plumbing tests).
+
+> ⚠️ **Release note required.** This changes destination folder layout for
+> offset-tagged libraries organized before this change. A re-run/reorganize is
+> needed to move affected near-midnight files into their new local-day folders;
+> call this out in the release notes.
 
 ## Validation Before Every Push
 

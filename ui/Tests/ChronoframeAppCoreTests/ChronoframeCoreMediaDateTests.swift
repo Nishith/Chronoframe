@@ -100,22 +100,95 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         XCTAssertEqual(DateClassification.bucket(for: earlyMorning), "2024-01-01")
     }
 
-    /// Characterization: when EXIF carries an explicit UTC offset, Chronoframe
-    /// buckets by the resulting **UTC instant**, not the local wall-clock day.
-    /// A 02:00 shot at +05:00 (still "Jan 1" locally) is 21:00 the previous day
-    /// in UTC and is filed under Dec 31; a 22:00 shot at -05:00 is filed under
-    /// the next UTC day. This pins current behavior — if local-day bucketing is
-    /// ever desired, this is the test that must change deliberately.
-    func testOffsetExifNearLocalMidnightBucketsByUTCInstant() {
-        let earlyLocalJan1 = NativeMediaMetadataDateReader.parseImagePropertyDate("2024:01:01 02:00:00", offset: "+05:00")
-        XCTAssertEqual(DateClassification.bucket(for: earlyLocalJan1), "2023-12-31")
+    /// When EXIF carries an explicit UTC offset, Chronoframe buckets by the
+    /// photographer's **local calendar day**, not the UTC instant. A 02:00 shot
+    /// at +05:00 (still "Jan 1" locally) is 21:00 the previous day in UTC but is
+    /// filed under **Jan 1**; a 22:00 shot at -05:00 (still "Dec 31" locally) is
+    /// the next UTC day but is filed under **Dec 31**. The resolved `date`
+    /// remains the true UTC instant — only the folder day follows the offset.
+    func testOffsetExifNearLocalMidnightBucketsByLocalDay() {
+        let earlyLocalJan1 = NativeMediaMetadataDateReader.parseImagePropertyDateWithOffset("2024:01:01 02:00:00", offset: "+05:00")
+        XCTAssertEqual(earlyLocalJan1?.bucketTimeZoneOffsetSeconds, 5 * 3600)
+        XCTAssertEqual(
+            DateClassification.bucket(for: earlyLocalJan1?.date, timeZoneOffsetSeconds: earlyLocalJan1?.bucketTimeZoneOffsetSeconds),
+            "2024-01-01"
+        )
+        // The instant itself is the previous UTC day — sorting/clustering unaffected.
+        XCTAssertEqual(dayString(earlyLocalJan1?.date), "2023-12-31")
 
-        let lateLocalDec31 = NativeMediaMetadataDateReader.parseImagePropertyDate("2023:12:31 22:00:00", offset: "-05:00")
-        XCTAssertEqual(DateClassification.bucket(for: lateLocalDec31), "2024-01-01")
+        let lateLocalDec31 = NativeMediaMetadataDateReader.parseImagePropertyDateWithOffset("2023:12:31 22:00:00", offset: "-05:00")
+        XCTAssertEqual(lateLocalDec31?.bucketTimeZoneOffsetSeconds, -5 * 3600)
+        XCTAssertEqual(
+            DateClassification.bucket(for: lateLocalDec31?.date, timeZoneOffsetSeconds: lateLocalDec31?.bucketTimeZoneOffsetSeconds),
+            "2023-12-31"
+        )
+        XCTAssertEqual(dayString(lateLocalDec31?.date), "2024-01-01")
 
         // An offset shot away from midnight keeps its local day either way.
-        let middayJan1 = NativeMediaMetadataDateReader.parseImagePropertyDate("2024:01:01 12:00:00", offset: "+05:00")
-        XCTAssertEqual(DateClassification.bucket(for: middayJan1), "2024-01-01")
+        let middayJan1 = NativeMediaMetadataDateReader.parseImagePropertyDateWithOffset("2024:01:01 12:00:00", offset: "+05:00")
+        XCTAssertEqual(
+            DateClassification.bucket(for: middayJan1?.date, timeZoneOffsetSeconds: middayJan1?.bucketTimeZoneOffsetSeconds),
+            "2024-01-01"
+        )
+    }
+
+    /// `bucket(timeZoneOffsetSeconds:)` files by the day in that offset's zone,
+    /// while a `nil` offset keeps the historical UTC-day behavior byte-for-byte.
+    func testDateBucketOffsetParameterMatchesLocalDay() {
+        // 2023-12-31T21:00:00Z == 2024-01-01 02:00 at +05:00.
+        let instant = makeDateTimeUTC("2023-12-31T21:00:00Z")
+        XCTAssertEqual(DateClassification.bucket(for: instant), "2023-12-31")
+        XCTAssertEqual(DateClassification.bucket(for: instant, timeZoneOffsetSeconds: 5 * 3600), "2024-01-01")
+        XCTAssertEqual(DateClassification.bucket(for: instant, timeZoneOffsetSeconds: 0), "2023-12-31")
+        // A malformed/absent offset falls back to UTC.
+        XCTAssertEqual(DateClassification.bucket(for: instant, timeZoneOffsetSeconds: nil), "2023-12-31")
+    }
+
+    /// EXIF offset strings parse to signed seconds; malformed offsets yield nil
+    /// so bucketing safely falls back to UTC.
+    func testExifOffsetStringParsing() {
+        XCTAssertEqual(NativeMediaMetadataDateReader.offsetSeconds(from: "+05:00"), 5 * 3600)
+        XCTAssertEqual(NativeMediaMetadataDateReader.offsetSeconds(from: "-05:30"), -(5 * 3600 + 30 * 60))
+        XCTAssertEqual(NativeMediaMetadataDateReader.offsetSeconds(from: "+0000"), 0)
+        XCTAssertEqual(NativeMediaMetadataDateReader.offsetSeconds(from: "Z"), 0)
+        XCTAssertNil(NativeMediaMetadataDateReader.offsetSeconds(from: ""))
+        XCTAssertNil(NativeMediaMetadataDateReader.offsetSeconds(from: "garbage"))
+        XCTAssertNil(NativeMediaMetadataDateReader.offsetSeconds(from: "+5:00"))
+    }
+
+    /// The resolver carries the EXIF offset through `ResolvedMediaDate` so the
+    /// planner buckets by local day, while the resolved instant stays UTC.
+    func testResolverCarriesExifOffsetForLocalDayBucketing() {
+        let instant = makeDateTimeUTC("2023-12-31T21:00:00Z") // 02:00 Jan 1 at +05:00
+        let reader = OffsetStubMetadataReader(
+            resolved: PhotoMetadataDate(date: instant, bucketTimeZoneOffsetSeconds: 5 * 3600)
+        )
+        let resolver = FileDateResolver(metadataReader: reader)
+        let resolved = resolver.resolveResolvedDate(for: "/photos/IMG_offset.jpg")
+
+        XCTAssertEqual(resolved.date, instant, "Resolved instant must stay the true UTC instant")
+        XCTAssertEqual(resolved.bucketTimeZoneOffsetSeconds, 5 * 3600)
+        XCTAssertEqual(
+            DateClassification.bucket(for: resolved.date, timeZoneOffsetSeconds: resolved.bucketTimeZoneOffsetSeconds),
+            "2024-01-01"
+        )
+    }
+
+    /// An offset-less photo metadata date carries no bucket offset, so it keeps
+    /// UTC-day bucketing (no regression for the common case).
+    func testResolverWithoutOffsetKeepsUtcDayBucketing() {
+        let instant = makeDateTimeUTC("2023-12-31T23:30:00Z")
+        let reader = OffsetStubMetadataReader(
+            resolved: PhotoMetadataDate(date: instant, bucketTimeZoneOffsetSeconds: nil)
+        )
+        let resolver = FileDateResolver(metadataReader: reader)
+        let resolved = resolver.resolveResolvedDate(for: "/photos/IMG_plain.jpg")
+
+        XCTAssertNil(resolved.bucketTimeZoneOffsetSeconds)
+        XCTAssertEqual(
+            DateClassification.bucket(for: resolved.date, timeZoneOffsetSeconds: resolved.bucketTimeZoneOffsetSeconds),
+            "2023-12-31"
+        )
     }
 
     func testFileDateResolverUsesPhotoMetadataForPhotosBeforeFilenameFallback() {
@@ -281,6 +354,12 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         Self.dayFormatter.date(from: rawValue)!
     }
 
+    private func makeDateTimeUTC(_ iso8601: String) -> Date {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: iso8601)!
+    }
+
     private func dayString(_ date: Date?) -> String? {
         guard let date else { return nil }
         return Self.dayFormatter.string(from: date)
@@ -324,4 +403,19 @@ private final class StubMetadataReader: MediaMetadataDateReading, @unchecked Sen
         modificationDateCallCount += 1
         return modificationDate
     }
+}
+
+/// Stub reader that exercises the offset-aware metadata path directly, so the
+/// resolver-plumbing tests don't need a real on-disk image with EXIF.
+private final class OffsetStubMetadataReader: MediaMetadataDateReading, @unchecked Sendable {
+    let resolved: PhotoMetadataDate?
+
+    init(resolved: PhotoMetadataDate?) {
+        self.resolved = resolved
+    }
+
+    func photoMetadataDate(at url: URL) -> Date? { resolved?.date }
+    func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? { resolved }
+    func fileSystemCreationDate(at url: URL) -> Date? { nil }
+    func fileSystemModificationDate(at url: URL) -> Date? { nil }
 }

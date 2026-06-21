@@ -185,6 +185,7 @@ public struct DryRunPlanner: Sendable {
             let resolvedDate = resolvedWithoutOverride.applying(override)
             let dateBucket = DateClassification.bucket(
                 for: resolvedDate.date,
+                timeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds,
                 namingRules: namingRules
             )
             let acceptedEventName = ReviewOverride.normalizedEventName(override?.eventName)
@@ -535,6 +536,7 @@ public struct DryRunPlanner: Sendable {
             let resolvedDate = resolvedWithoutOverride.applying(override)
             let dateBucket = DateClassification.bucket(
                 for: resolvedDate.date,
+                timeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds,
                 namingRules: namingRules
             )
             let acceptedEventName = ReviewOverride.normalizedEventName(override?.eventName)
