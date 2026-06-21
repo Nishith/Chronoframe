@@ -123,12 +123,28 @@ public enum DateClassification {
 
     public static func bucket(
         for date: Date?,
+        timeZoneOffsetSeconds: Int? = nil,
         namingRules: PlannerNamingRules = .chronoframeDefault
     ) -> String {
         guard let date, !isUnknown(date) else {
             return namingRules.unknownDateDirectoryName
         }
-        return dayFormatter.string(from: date)
+        // Offset-less dates keep the historical UTC-day formatter byte-for-byte.
+        // An offset-bearing EXIF date buckets by its day in that offset's
+        // timezone, so a `02:00 +05:00` shot files under its local day.
+        guard let timeZoneOffsetSeconds,
+              let timeZone = TimeZone(secondsFromGMT: timeZoneOffsetSeconds) else {
+            return dayFormatter.string(from: date)
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        guard let year = components.year,
+              let month = components.month,
+              let day = components.day else {
+            return dayFormatter.string(from: date)
+        }
+        return String(format: "%04d-%02d-%02d", year, month, day)
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -141,16 +157,45 @@ public enum DateClassification {
     }()
 }
 
+/// A photo-metadata capture date plus, when the EXIF timestamp carried an
+/// explicit UTC offset, that offset in seconds. The `date` is always a true
+/// UTC instant; `bucketTimeZoneOffsetSeconds` only steers date-folder
+/// bucketing (local-day vs UTC-day).
+public struct PhotoMetadataDate: Equatable, Sendable {
+    public var date: Date
+    public var bucketTimeZoneOffsetSeconds: Int?
+
+    public init(date: Date, bucketTimeZoneOffsetSeconds: Int? = nil) {
+        self.date = date
+        self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
+    }
+}
+
 public protocol MediaMetadataDateReading: Sendable {
     func photoMetadataDate(at url: URL) -> Date?
+    /// Like `photoMetadataDate`, but also surfaces the EXIF UTC offset when the
+    /// timestamp carried one, so bucketing can file the photo under its local
+    /// calendar day. Defaulted to wrap `photoMetadataDate` (offset `nil`), so
+    /// existing readers and test doubles need not implement it.
+    func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate?
     func fileSystemCreationDate(at url: URL) -> Date?
     func fileSystemModificationDate(at url: URL) -> Date?
+}
+
+public extension MediaMetadataDateReading {
+    func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? {
+        photoMetadataDate(at: url).map { PhotoMetadataDate(date: $0, bucketTimeZoneOffsetSeconds: nil) }
+    }
 }
 
 public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
     public init() {}
 
     public func photoMetadataDate(at url: URL) -> Date? {
+        photoMetadataResolvedDate(at: url)?.date
+    }
+
+    public func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? {
         guard MediaLibraryRules.isPhotoFile(path: url.path) else {
             return nil
         }
@@ -165,7 +210,7 @@ public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
         if
             let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
             let rawValue = exif[kCGImagePropertyExifDateTimeOriginal] as? String,
-            let parsed = Self.parseImagePropertyDate(
+            let parsed = Self.parseImagePropertyDateWithOffset(
                 rawValue,
                 offset: exif[kCGImagePropertyExifOffsetTimeOriginal] as? String
             )
@@ -178,7 +223,7 @@ public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
             let rawValue = tiff[kCGImagePropertyTIFFDateTime] as? String,
             let parsed = Self.parseImagePropertyDate(rawValue)
         {
-            return parsed
+            return PhotoMetadataDate(date: parsed, bucketTimeZoneOffsetSeconds: nil)
         }
 
         return nil
@@ -193,19 +238,50 @@ public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
     }
 
     static func parseImagePropertyDate(_ rawValue: String, offset: String? = nil) -> Date? {
-        if let offset, !offset.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            for formatter in offsetDateFormatters {
-                if let date = formatter.date(from: "\(rawValue) \(offset)") {
-                    return date
+        parseImagePropertyDateWithOffset(rawValue, offset: offset)?.date
+    }
+
+    /// Parse an EXIF/TIFF timestamp, retaining the UTC offset (in seconds) when
+    /// the timestamp carried one and parsed successfully against an
+    /// offset-aware formatter. Offset-less timestamps yield a `nil` offset and
+    /// continue to be read as UTC wall-clock.
+    static func parseImagePropertyDateWithOffset(_ rawValue: String, offset: String? = nil) -> PhotoMetadataDate? {
+        if let offset {
+            let trimmedOffset = offset.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedOffset.isEmpty {
+                for formatter in offsetDateFormatters {
+                    if let date = formatter.date(from: "\(rawValue) \(trimmedOffset)") {
+                        return PhotoMetadataDate(
+                            date: date,
+                            bucketTimeZoneOffsetSeconds: offsetSeconds(from: trimmedOffset)
+                        )
+                    }
                 }
             }
         }
         for formatter in dateFormatters {
             if let date = formatter.date(from: rawValue) {
-                return date
+                return PhotoMetadataDate(date: date, bucketTimeZoneOffsetSeconds: nil)
             }
         }
         return nil
+    }
+
+    /// Parse an EXIF UTC-offset string (`+05:00`, `-0530`, `Z`) into seconds.
+    /// Returns `nil` for malformed offsets so bucketing falls back to UTC.
+    static func offsetSeconds(from raw: String) -> Int? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed == "Z" || trimmed == "z" { return 0 }
+        guard let sign = trimmed.first, sign == "+" || sign == "-" else { return nil }
+        let digits = trimmed.dropFirst().filter(\.isNumber)
+        guard digits.count == 4,
+              let hours = Int(digits.prefix(2)),
+              let minutes = Int(digits.suffix(2)),
+              hours <= 14, minutes < 60 else {
+            return nil
+        }
+        let magnitude = hours * 3600 + minutes * 60
+        return sign == "-" ? -magnitude : magnitude
     }
 
     private static var dateFormatters: [DateFormatter] {
@@ -306,12 +382,13 @@ public struct FileDateResolver: Sendable {
             }
 
             if shouldReadPhotoMetadata,
-               let metadataDate = metadataReader.photoMetadataDate(at: url),
-               !DateClassification.isUnknown(metadataDate) {
+               let metadata = metadataReader.photoMetadataResolvedDate(at: url),
+               !DateClassification.isUnknown(metadata.date) {
                 return ResolvedMediaDate(
-                    date: metadataDate,
+                    date: metadata.date,
                     source: .photoMetadata,
-                    confidence: .high
+                    confidence: .high,
+                    bucketTimeZoneOffsetSeconds: metadata.bucketTimeZoneOffsetSeconds
                 )
             }
         }
