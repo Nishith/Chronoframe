@@ -849,6 +849,11 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
         /// Whether the trashed file was a photo or a video. Absent in
         /// schema ≤3 receipts (decodes to `nil`); always present from v4.
         public var mediaKind: ReceiptMediaKind?
+        /// Content identity captured by the scan and validated immediately
+        /// before the file was moved to Trash. Persisted so revert can refuse
+        /// to restore a Trash item whose bytes were altered after deletion.
+        /// Absent in schema ≤5 receipts (decodes to `nil`); present from v6.
+        public var expectedIdentity: FileIdentity?
 
         public init(
             originalPath: String,
@@ -857,7 +862,8 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
             method: Method,
             clusterID: UUID,
             clusterKind: ReceiptClusterKind,
-            mediaKind: ReceiptMediaKind? = nil
+            mediaKind: ReceiptMediaKind? = nil,
+            expectedIdentity: FileIdentity? = nil
         ) {
             self.originalPath = originalPath
             self.sizeBytes = sizeBytes
@@ -866,6 +872,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
             self.clusterID = clusterID
             self.clusterKind = clusterKind
             self.mediaKind = mediaKind
+            self.expectedIdentity = expectedIdentity
         }
     }
 
@@ -905,7 +912,7 @@ public struct DeduplicateAuditReceipt: Codable, Sendable, Equatable {
     }
 
     public init(
-        schemaVersion: Int = 5,
+        schemaVersion: Int = 6,
         runID: UUID = UUID(),
         operation: String = "deduplicate",
         status: String = "PENDING",
