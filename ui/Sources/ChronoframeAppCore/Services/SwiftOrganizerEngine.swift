@@ -633,6 +633,32 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         }
 
         if result.transferCount == 0 {
+            // Finding #4: zero planned copies is only genuinely "up to date"
+            // when every discovered file was accounted for. If some sources
+            // could not be hashed, files are missing from the destination and
+            // reporting success would be a lie.
+            if result.counts.hashErrorCount > 0 {
+                runLogger.warn("Nothing planned to copy, but \(result.counts.hashErrorCount) source file(s) could not be read")
+                continuation.yield(
+                    .complete(
+                        RunSummary(
+                            status: .failed,
+                            title: "Some files couldn't be read",
+                            metrics: RunMetrics(
+                                discoveredCount: result.discoveredSourceCount,
+                                plannedCount: 0,
+                                alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
+                                duplicateCount: result.counts.duplicateCount,
+                                hashErrorCount: result.counts.hashErrorCount,
+                                dateHistogram: result.dateHistogram
+                            ),
+                            artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
+                        )
+                    )
+                )
+                continuation.finish()
+                return
+            }
             runLogger.log("Nothing to copy — all files already in destination")
             continuation.yield(
                 .complete(
@@ -706,8 +732,26 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             )
         )
         runLogger.log("Run complete")
-        let completedStatus: RunStatus = executionResult.status == "COMPLETED" ? .finished : .failed
-        let completedTitle = executionResult.status == "COMPLETED" ? "Done" : "Transfer stopped"
+        // Finding #4: a run that finished without hitting the abort threshold is
+        // not necessarily a success. If any planned file failed to copy, was
+        // skipped (source changed or unreadable), or could not be hashed during
+        // planning, files are missing from the destination — report it honestly
+        // rather than as "Done".
+        let leftUnprocessed = executionResult.failedCount > 0
+            || executionResult.skippedCount > 0
+            || result.counts.hashErrorCount > 0
+        let completedStatus: RunStatus
+        let completedTitle: String
+        if executionResult.status != "COMPLETED" {
+            completedStatus = .failed
+            completedTitle = "Transfer stopped"
+        } else if leftUnprocessed {
+            completedStatus = .failed
+            completedTitle = "Transfer incomplete"
+        } else {
+            completedStatus = .finished
+            completedTitle = "Done"
+        }
         continuation.yield(
             .complete(
                 RunSummary(
@@ -820,11 +864,26 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             )
         )
         runLogger.log("Resumed session complete")
+        // Finding #4: mirror the fresh-transfer honesty — a resumed run that
+        // failed or skipped any pending job did not finish the job queue.
+        let leftUnprocessed = executionResult.failedCount > 0 || executionResult.skippedCount > 0
+        let completedStatus: RunStatus
+        let completedTitle: String
+        if executionResult.status != "COMPLETED" {
+            completedStatus = .failed
+            completedTitle = "Transfer stopped"
+        } else if leftUnprocessed {
+            completedStatus = .failed
+            completedTitle = "Transfer incomplete"
+        } else {
+            completedStatus = .finished
+            completedTitle = "Done"
+        }
         continuation.yield(
             .complete(
                 RunSummary(
-                    status: executionResult.status == "COMPLETED" ? .finished : .failed,
-                    title: executionResult.status == "COMPLETED" ? "Done" : "Transfer stopped",
+                    status: completedStatus,
+                    title: completedTitle,
                     metrics: RunMetrics(
                         plannedCount: pendingJobCount,
                         copiedCount: executionResult.copiedCount,
