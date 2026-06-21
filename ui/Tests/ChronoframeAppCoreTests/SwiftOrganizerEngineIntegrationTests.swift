@@ -283,6 +283,84 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         XCTAssertTrue(logContents.contains("Run complete"))
     }
 
+    /// Finding #4: a source that cannot be hashed yields zero planned copies.
+    /// That is not "Already up to date" — files are missing from the
+    /// destination, so the run must complete as `.failed`.
+    @MainActor
+    func testTransferWithOnlyUnreadableSourceReportsFailedNotUpToDate() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let fileURL = sourceURL.appendingPathComponent("camera/IMG_20240102_101010.jpg")
+        try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("unreadable".utf8).write(to: fileURL)
+        try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o000)], ofItemAtPath: fileURL.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o644)], ofItemAtPath: fileURL.path) }
+
+        let engine = SwiftOrganizerEngine(
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .failed)
+        XCTAssertEqual(summary.title, "Some files couldn't be read")
+        XCTAssertEqual(summary.metrics.hashErrorCount, 1)
+        XCTAssertEqual(summary.metrics.copiedCount, 0)
+    }
+
+    /// Finding #4: a run that copies some files but leaves others unprocessed
+    /// (here an unreadable source) is incomplete, not "Done" — even though it
+    /// never hit the abort threshold. The readable file is still copied.
+    @MainActor
+    func testTransferWithMixedSourcesCopiesGoodFileButReportsIncomplete() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let goodURL = sourceURL.appendingPathComponent("camera/IMG_20240102_101010.jpg")
+        let badURL = sourceURL.appendingPathComponent("camera/IMG_20240103_101010.jpg")
+        try FileManager.default.createDirectory(at: goodURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("good".utf8).write(to: goodURL)
+        try Data("bad".utf8).write(to: badURL)
+        try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o000)], ofItemAtPath: badURL.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o644)], ofItemAtPath: badURL.path) }
+
+        let engine = SwiftOrganizerEngine(
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .failed)
+        XCTAssertEqual(summary.title, "Transfer incomplete")
+        XCTAssertEqual(summary.metrics.copiedCount, 1)
+        XCTAssertEqual(summary.metrics.hashErrorCount, 1)
+        // The readable file was still organized.
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.appendingPathComponent("2024/01/02/2024-01-02_001.jpg").path
+        ))
+    }
+
     /// Finding #3: a parallel transfer paused on permanently-low disk must
     /// observe `cancelCurrentRun()` and stop. The copy workers run on GCD
     /// queues where `Task.isCancelled` is always false, so before the shared

@@ -307,8 +307,13 @@ public struct ChronoframeCLI {
         let jsonRequested = arguments.contains("--json")
         do {
             let options = try CLIParser.parse(arguments)
-            try await run(options: options, output: output, input: input)
-            return 0
+            let terminalStatus = try await run(options: options, output: output, input: input)
+            // Finding #4: the exit code must reflect the run's terminal status.
+            // A run that completed without throwing can still be incomplete —
+            // failed/skipped copies or unreadable sources are surfaced as
+            // `.failed` — and automation must be able to detect that. Any other
+            // terminal status (or a command that streamed no run) is a success.
+            return terminalStatus == .failed ? 1 : 0
         } catch let error as CLIError {
             if case .help = error {
                 // --help intentionally bypasses JSON formatting: the help
@@ -346,14 +351,18 @@ public struct ChronoframeCLI {
     }
 
     @MainActor
+    /// Runs the requested command and returns the run's terminal `RunStatus`
+    /// (or `nil` for commands that don't stream a run, e.g. cache rebuild).
+    /// Finding #4: the public `run(arguments:)` entry point turns this into the
+    /// process exit code.
+    @discardableResult
     public static func run(
         options: CLIOptions,
         output: Output = { print($0) },
         input: Input = { readLine() }
-    ) async throws {
+    ) async throws -> RunStatus? {
         if let receiptPath = options.revertReceiptPath {
-            try await runRevert(options: options, receiptPath: receiptPath, output: output)
-            return
+            return try await runRevert(options: options, receiptPath: receiptPath, output: output)
         }
 
         let profilesRepository = ProfilesRepository()
@@ -387,7 +396,7 @@ public struct ChronoframeCLI {
             stream = try engine.start(preflight.configuration)
         }
 
-        try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
+        return try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
     }
 
     private static func transferDecision(
@@ -441,26 +450,36 @@ public struct ChronoframeCLI {
     }
 
     @MainActor
-    private static func runRevert(options: CLIOptions, receiptPath: String, output: Output) async throws {
+    private static func runRevert(options: CLIOptions, receiptPath: String, output: Output) async throws -> RunStatus? {
         let receiptURL = URL(fileURLWithPath: receiptPath)
         let destinationRoot = options.destinationPath ?? destinationBoundary(for: receiptURL)
         let engine = SwiftOrganizerEngine()
         let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
-        try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
+        return try await consume(stream: stream, jsonOutput: options.jsonOutput, output: output)
     }
 
+    /// Streams events to `output` and returns the run's terminal status (from
+    /// the final `.complete` event), or `nil` if the stream produced none.
+    /// Finding #4: the caller maps this to the process exit code so automation
+    /// can tell a genuine success from a partial/failed run.
+    @discardableResult
     private static func consume(
         stream: AsyncThrowingStream<RunEvent, Error>,
         jsonOutput: Bool,
         output: Output
-    ) async throws {
+    ) async throws -> RunStatus? {
+        var terminalStatus: RunStatus?
         for try await event in stream {
+            if case let .complete(summary) = event {
+                terminalStatus = summary.status
+            }
             if jsonOutput {
                 output(try JSONLineEmitter.line(for: event))
             } else if let line = HumanLineEmitter.line(for: event) {
                 output(line)
             }
         }
+        return terminalStatus
     }
 
     private static func destinationForCacheRebuild(
