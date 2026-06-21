@@ -1061,6 +1061,44 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         var transferCount: Int
     }
 
+    /// The serial transfer path used to hash every source twice: once in
+    /// `process()` to detect mid-run source changes, then again inside
+    /// `prepareCopy`. The computed identity is now threaded through, so each
+    /// source is read exactly once even with verification enabled (which
+    /// hashes the destination, not the source).
+    func testSerialTransferHashesEachSourceExactlyOnce() throws {
+        let env = try makeEnvironment(jobCount: 3)
+        defer {
+            env.database.close()
+            env.logger.close()
+        }
+
+        let counter = HashInvocationCounter()
+        let sourcePaths = Set(env.jobs.map(\.sourcePath))
+        var hasher = FileIdentityHasher()
+        hasher.onPathHash = { url in
+            if sourcePaths.contains(url.path) {
+                counter.record(url.path)
+            }
+        }
+
+        _ = try TransferExecutor(fileHasher: hasher).execute(
+            queuedJobs: env.jobs,
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: true,
+            runLogger: env.logger
+        )
+
+        for job in env.jobs {
+            XCTAssertEqual(
+                counter.count(for: job.sourcePath),
+                1,
+                "source \(job.sourcePath) should be hashed exactly once in the serial path"
+            )
+        }
+    }
+
     /// Creates a fresh source/destination pair, a SQLite cache, and N seeded
     /// PENDING jobs whose source files exist on disk with deterministic content.
     /// `payloadStride` lets a test vary the file sizes (useful for byte tracking).
@@ -1135,5 +1173,25 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             }
         }
         return files.sorted()
+    }
+}
+
+/// Thread-safe tally of how many times each path was hashed. The hash seam is
+/// `@Sendable`, so even though the serial path runs on one thread this stays
+/// lock-guarded to remain safe if reused by a parallel-path test.
+private final class HashInvocationCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var counts: [String: Int] = [:]
+
+    func record(_ path: String) {
+        lock.lock()
+        counts[path, default: 0] += 1
+        lock.unlock()
+    }
+
+    func count(for path: String) -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return counts[path] ?? 0
     }
 }

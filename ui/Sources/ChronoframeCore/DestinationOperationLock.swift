@@ -56,6 +56,27 @@ public final class DestinationOperationLease: @unchecked Sendable {
 public enum DestinationOperationLock {
     public static let filename = ".chronoframe-operation.lock"
 
+    #if DEBUG
+    /// Test seam: override remote-volume detection so tests don't need a real
+    /// network mount. Production leaves this nil and queries the live volume.
+    public nonisolated(unsafe) static var isRemoteVolumeProvider: (@Sendable (URL) -> Bool)?
+    #endif
+
+    /// Whether `destinationRoot` lives on a non-local (network) volume. The
+    /// cross-process `flock` lock only reliably guards same-machine access; on
+    /// SMB/AFP mounts two machines could both proceed. Callers use this to warn
+    /// the user — it does not change locking behavior. An unreadable or unknown
+    /// volume attribute is treated as **local** so the app never warns spuriously.
+    public static func isRemoteVolume(_ destinationRoot: URL) -> Bool {
+        #if DEBUG
+        if let isRemoteVolumeProvider {
+            return isRemoteVolumeProvider(destinationRoot)
+        }
+        #endif
+        let values = try? destinationRoot.resourceValues(forKeys: [.volumeIsLocalKey])
+        return values?.volumeIsLocal == false
+    }
+
     public static func acquire(
         destinationRoot: URL,
         surface: String,
