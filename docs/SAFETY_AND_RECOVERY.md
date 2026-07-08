@@ -44,6 +44,13 @@ asks you to wait. It does not queue a second mutation or try to infer that a
 stale-looking diagnostic file means the destination is free; the operating
 system lock is authoritative.
 
+This lock reliably enforces mutual exclusion on **one machine**. It is not a
+substitute for keeping a shared/NAS destination single-host: the underlying
+file lock is unreliable over SMB/AFP, so two Macs pointed at the same network
+volume could both proceed. Chronoframe detects a network destination and shows
+a one-time warning per destination so you know this configuration isn't
+supported; it does not change locking behavior.
+
 ## Content-Verified Deduplicate Plans
 
 A deduplicate scan produces an immutable snapshot containing the expected

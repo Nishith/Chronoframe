@@ -64,6 +64,10 @@ A: It checks in this order:
 
 Each source gets a confidence level (high, medium, low, unknown). Photos with unknown dates go to `Unknown_Date/` unless you provide an override.
 
+**Q: Why did a photo taken near midnight land in a different date folder than I expected?**
+
+A: When a photo's EXIF metadata includes a timezone offset, Chronoframe files it by the photographer's **local calendar day** at capture time, not the UTC day. A shot at 11 PM in a UTC-5 timezone stays on that local date even though its UTC instant has already rolled into the next day. Photos without an offset-tagged timestamp keep using the source's own day boundary as before. This only affects which date folder a file lands in — sorting and duplicate detection still use the exact capture instant.
+
 **Q: Can I edit dates before organizing?**
 
 A: Yes. In the **Review** tab during the Preview, you can click on an item's date and edit it. Chronoframe saves your correction and rebuilds the preview with your changes.

@@ -210,6 +210,8 @@ Sources:
 
 Confidence values are high, medium, low, or unknown. Unknown dates still route to `Unknown_Date/` unless the user saves an override in Review.
 
+Photo metadata dates that carry an explicit EXIF UTC offset bucket into the destination day folder using the photographer's **local calendar day** at that offset, via `DateClassification.bucket(for:timeZoneOffsetSeconds:)`; the resolved `ResolvedMediaDate.date` itself stays a true UTC instant, so sorting, capture-time clustering, and dedupe proximity are unaffected. Offset-less EXIF, filename, and filesystem dates keep the historical UTC-day bucket formatter.
+
 ## JSON Event Protocol
 
 The Swift CLI can emit one JSON object per line with `--json`. The app normalizes native Swift engine events into the same high-level run model.
