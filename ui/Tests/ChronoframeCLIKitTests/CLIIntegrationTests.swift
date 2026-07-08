@@ -63,6 +63,39 @@ final class CLIIntegrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: artifacts["logs_directory"] as? String ?? ""))
     }
 
+    /// The CLI shares SwiftOrganizerEngine's preflight, so an
+    /// overlapping source/destination pair is rejected before any work,
+    /// with the plain user-facing message and a failure exit code.
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testRunRejectsSourceInsideDestination() async throws {
+        let destination = try makeDirectory("destination")
+        let source = destination.appendingPathComponent("incoming", isDirectory: true)
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try writeFile(source.appendingPathComponent("IMG_20240501_120000.jpg"), contents: "overlap")
+
+        let recorder = LineRecorder()
+        let exitCode = await ChronoframeCLI.run(
+            arguments: [
+                "--source", source.path,
+                "--dest", destination.path,
+                "--dry-run",
+                "--workers", "1",
+            ],
+            output: recorder.append
+        )
+
+        XCTAssertEqual(exitCode, 1)
+        XCTAssertTrue(
+            recorder.lines.joined(separator: "\n").contains("inside the destination folder"),
+            "Overlap rejection must reach the user in plain language"
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: destination.appendingPathComponent(".organize_logs").path),
+            "A rejected run must not create destination artifacts"
+        )
+    }
+
     @MainActor
     func testTransferCopiesByDefaultAndWritesReceipt() async throws {
         let source = try makeDirectory("source")

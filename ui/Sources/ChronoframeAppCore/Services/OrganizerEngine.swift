@@ -7,6 +7,7 @@ public enum OrganizerEngineError: LocalizedError {
     case profileNotFound(String)
     case sourceDoesNotExist(String)
     case destinationMissing
+    case sourceOverlapsDestination(SourceDestinationDisjointness.Conflict)
     case failedToLaunch(String)
     case invalidPreflight(String)
     case invalidOutput(String)
@@ -19,6 +20,10 @@ public enum OrganizerEngineError: LocalizedError {
             return "The source folder is no longer available. Reconnect the drive or choose the source folder again. Path: \(path)."
         case .destinationMissing:
             return "Choose a destination folder before starting this run."
+        case .sourceOverlapsDestination(.sourceInsideDestination):
+            return "The source folder is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a source outside the destination. No files were changed."
+        case .sourceOverlapsDestination(.destinationInsideSource):
+            return "The destination folder is inside the source folder, so copies would land back inside the folder being organized. Choose a destination outside the source. No files were changed."
         case let .failedToLaunch(message):
             return UserFacingErrorMessage.withDetails(
                 "Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe.",

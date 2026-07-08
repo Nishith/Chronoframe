@@ -73,6 +73,7 @@ Do not weaken these unless the user explicitly asks for a product change.
 - Every destructive dedupe target is atomically quarantined in its source directory and verified through an `O_NOFOLLOW` file descriptor before Trash. RAW/Live Photo units validate and roll back together.
 - All destination operations acquire the non-blocking cross-process destination lock. Hold its lease through prompts, execution, receipt finalization, and recovery.
 - Deduplicate revert restores a Trash item only when its current contents still hash to the identity recorded in the receipt; an altered or replaced Trash item is left in place and reported as a failure. Legacy receipts (schema ≤5) that carry no recorded identity restore unconditionally for backward compatibility.
+- Organize preview and transfer preflight reject overlapping source/destination roots (source inside destination, destination inside source, or equal, after resolving existing symlinks). The check runs at every engine entry point — preflight, start, and resume — across app, CLI, and App Intents, so a root that changed after folder selection cannot slip an overlapping pair through.
 
 ## Deduplicate Workspace
 
