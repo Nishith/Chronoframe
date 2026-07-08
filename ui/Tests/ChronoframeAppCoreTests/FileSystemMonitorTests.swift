@@ -2,6 +2,40 @@ import XCTest
 @testable import ChronoframeCore
 
 final class FileSystemMonitorTests: XCTestCase {
+    private typealias PollingStamp = FileSystemMonitor.PollingStamp
+
+    /// Shared collector that flattens `FileSystemMonitorOutput` into
+    /// per-file events and reconcile reasons.
+    private actor OutputCollector {
+        var events: [FileSystemEvent] = []
+        var reasons: [FileSystemReconcileReason] = []
+
+        func record(_ output: FileSystemMonitorOutput) {
+            switch output {
+            case .events(let batch):
+                events.append(contentsOf: batch)
+            case .reconcileRequired(let reason):
+                reasons.append(reason)
+            }
+        }
+
+        func contains(path: String) -> Bool { events.contains { $0.path.contains(path) } }
+        func first(path: String) -> FileSystemEvent? { events.first { $0.path.contains(path) } }
+        func containsRemoved(path: String) -> Bool {
+            events.contains { $0.path.contains(path) && $0.isRemoved }
+        }
+        func containsCreated(suffix: String) -> Bool {
+            events.contains { $0.path.hasSuffix(suffix) && $0.isCreated }
+        }
+        func containsModified(suffix: String) -> Bool {
+            events.contains { $0.path.hasSuffix(suffix) && $0.isModified }
+        }
+        func createdCount(path: String) -> Int {
+            events.filter { $0.path == path && $0.isCreated }.count
+        }
+        var isEmpty: Bool { events.isEmpty }
+    }
+
     func testFileSystemMonitorEmitsEventsOnCreation() async throws {
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("FSMonitorTest-\(UUID().uuidString)")
@@ -13,21 +47,12 @@ final class FileSystemMonitorTests: XCTestCase {
 
         let fileURL = temporaryDirectory.appendingPathComponent("test.txt")
 
-        // Use a task to collect events
         let expectation = XCTestExpectation(description: "Wait for FS events")
-
-        actor EventCollector {
-            var events: [FileSystemEvent] = []
-            func append(_ newEvents: [FileSystemEvent]) { events.append(contentsOf: newEvents) }
-            func contains(path: String) -> Bool { events.contains { $0.path.contains(path) } }
-            func first(path: String) -> FileSystemEvent? { events.first { $0.path.contains(path) } }
-            var isEmpty: Bool { events.isEmpty }
-        }
-        let collector = EventCollector()
+        let collector = OutputCollector()
 
         let task = Task {
-            for await events in stream {
-                await collector.append(events)
+            for await output in stream {
+                await collector.record(output)
                 if await collector.contains(path: "test.txt") {
                     expectation.fulfill()
                 }
@@ -46,6 +71,7 @@ final class FileSystemMonitorTests: XCTestCase {
         let firstEvent = await collector.first(path: "test.txt")
         let event = try XCTUnwrap(firstEvent)
         XCTAssertTrue(event.isFile)
+        XCTAssertFalse(monitor.isDegraded, "FSEvents path should not report degraded watching")
 
         task.cancel()
         monitor.stop()
@@ -64,17 +90,11 @@ final class FileSystemMonitorTests: XCTestCase {
         let stream = monitor.start()
 
         let expectation = XCTestExpectation(description: "Wait for deletion event")
-
-        actor EventCollector {
-            var events: [FileSystemEvent] = []
-            func append(_ newEvents: [FileSystemEvent]) { events.append(contentsOf: newEvents) }
-            func containsRemoved(path: String) -> Bool { events.contains { $0.path.contains(path) && $0.isRemoved } }
-        }
-        let collector = EventCollector()
+        let collector = OutputCollector()
 
         let task = Task {
-            for await events in stream {
-                await collector.append(events)
+            for await output in stream {
+                await collector.record(output)
                 if await collector.containsRemoved(path: "to_delete.txt") {
                     expectation.fulfill()
                 }
@@ -111,21 +131,37 @@ final class FileSystemMonitorTests: XCTestCase {
             missingURL.path
         ])
 
-        XCTAssertEqual(snapshot[temporaryDirectory.path], false)
-        XCTAssertEqual(snapshot.first { $0.key.hasSuffix("/Nested") }?.value, false)
-        XCTAssertEqual(snapshot.first { $0.key.hasSuffix("/Nested/image.jpg") }?.value, true)
-        XCTAssertEqual(snapshot[rootFileURL.path], true)
+        XCTAssertEqual(snapshot[temporaryDirectory.path]?.isFile, false)
+        XCTAssertEqual(snapshot.first { $0.key.hasSuffix("/Nested") }?.value.isFile, false)
+        XCTAssertEqual(snapshot.first { $0.key.hasSuffix("/Nested/image.jpg") }?.value.isFile, true)
+        XCTAssertEqual(snapshot[rootFileURL.path]?.isFile, true)
         XCTAssertNil(snapshot[missingURL.path])
     }
 
+    func testPollingSnapshotRecordsSizeAndModificationStamps() throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("FSMonitorStampTest-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let fileURL = temporaryDirectory.appendingPathComponent("stamped.jpg")
+        try Data("12345".utf8).write(to: fileURL)
+
+        let snapshot = FileSystemMonitor.pollingSnapshot(paths: [temporaryDirectory.path])
+        let stamp = try XCTUnwrap(snapshot[fileURL.path])
+        XCTAssertTrue(stamp.isFile)
+        XCTAssertEqual(stamp.sizeBytes, 5)
+        XCTAssertGreaterThan(stamp.modifiedAt, 0, "Modification stamp should be captured")
+    }
+
     func testPollingEventsReportsCreatedAndRemovedPathsInStableOrder() {
-        let previous = [
-            "/tmp/a-old-directory": false,
-            "/tmp/z-old-file": true
+        let previous: [String: PollingStamp] = [
+            "/tmp/a-old-directory": PollingStamp(isFile: false),
+            "/tmp/z-old-file": PollingStamp(isFile: true, sizeBytes: 1, modifiedAt: 1)
         ]
-        let current = [
-            "/tmp/b-new-file": true,
-            "/tmp/c-new-directory": false
+        let current: [String: PollingStamp] = [
+            "/tmp/b-new-file": PollingStamp(isFile: true, sizeBytes: 2, modifiedAt: 2),
+            "/tmp/c-new-directory": PollingStamp(isFile: false)
         ]
 
         let events = FileSystemMonitor.pollingEvents(previous: previous, current: current)
@@ -139,6 +175,32 @@ final class FileSystemMonitorTests: XCTestCase {
         XCTAssertEqual(events.map(\.isCreated), [true, true, false, false])
         XCTAssertEqual(events.map(\.isRemoved), [false, false, true, true])
         XCTAssertEqual(events.map(\.isFile), [true, false, false, true])
+    }
+
+    /// The polling fallback must detect in-place modifications — a file
+    /// replaced or rewritten keeps its path but changes size or mtime.
+    /// The old presence-only snapshot missed these entirely.
+    func testPollingEventsDetectsInPlaceModification() {
+        let previous: [String: PollingStamp] = [
+            "/tmp/photo.jpg": PollingStamp(isFile: true, sizeBytes: 100, modifiedAt: 10),
+            "/tmp/rewritten.jpg": PollingStamp(isFile: true, sizeBytes: 100, modifiedAt: 10),
+            "/tmp/same.jpg": PollingStamp(isFile: true, sizeBytes: 50, modifiedAt: 5),
+            "/tmp/dir": PollingStamp(isFile: false)
+        ]
+        let current: [String: PollingStamp] = [
+            "/tmp/photo.jpg": PollingStamp(isFile: true, sizeBytes: 200, modifiedAt: 10),
+            "/tmp/rewritten.jpg": PollingStamp(isFile: true, sizeBytes: 100, modifiedAt: 20),
+            "/tmp/same.jpg": PollingStamp(isFile: true, sizeBytes: 50, modifiedAt: 5),
+            "/tmp/dir": PollingStamp(isFile: false)
+        ]
+
+        let events = FileSystemMonitor.pollingEvents(previous: previous, current: current)
+
+        let modified = events.filter { $0.isModified }.map(\.path).sorted()
+        XCTAssertEqual(modified, ["/tmp/photo.jpg", "/tmp/rewritten.jpg"],
+                       "Size change and mtime change must both surface as modifications")
+        XCTAssertTrue(events.allSatisfy { !$0.isCreated && !$0.isRemoved },
+                      "No spurious create/remove events for stable paths")
     }
 
     /// Regression for PHASE2_FINDINGS.md NEW3 — `start()` used to launch
@@ -158,18 +220,11 @@ final class FileSystemMonitorTests: XCTestCase {
         let monitor = FileSystemMonitor(paths: [temporaryDirectory.path], latency: 0.1)
         let stream = monitor.start()
 
-        actor Counter {
-            var perPathCreated: [String: Int] = [:]
-            func bump(_ path: String) { perPathCreated[path, default: 0] += 1 }
-            func count(_ path: String) -> Int { perPathCreated[path] ?? 0 }
-        }
-        let counter = Counter()
+        let collector = OutputCollector()
 
         let task = Task {
-            for await events in stream {
-                for event in events where event.isCreated {
-                    await counter.bump(event.path)
-                }
+            for await output in stream {
+                await collector.record(output)
             }
         }
 
@@ -190,7 +245,7 @@ final class FileSystemMonitorTests: XCTestCase {
         try await Task.sleep(nanoseconds: 800_000_000)
 
         for url in urls {
-            let count = await counter.count(url.path)
+            let count = await collector.createdCount(path: url.path)
             XCTAssertLessThanOrEqual(
                 count, 1,
                 "NEW3 regression: path \(url.path) emitted \(count) created events; expected ≤1"
@@ -266,7 +321,7 @@ final class FileSystemMonitorTests: XCTestCase {
     /// (`startPollingFallback`) is covered without having to engineer an
     /// `FSEventStreamCreate` failure (which is rare and platform-
     /// specific in practice).
-    func testPollingFallbackEmitsCreatedAndRemovedEvents() async throws {
+    func testPollingFallbackEmitsCreatedModifiedAndRemovedEvents() async throws {
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("FSMonitorPolling-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
@@ -279,38 +334,69 @@ final class FileSystemMonitorTests: XCTestCase {
         )
         let stream = monitor.start()
 
-        actor Sink {
-            var created: Set<String> = []
-            var removed: Set<String> = []
-            func recordCreated(_ p: String) { created.insert(p) }
-            func recordRemoved(_ p: String) { removed.insert(p) }
-            func sawCreated(_ suffix: String) -> Bool { created.contains { $0.hasSuffix(suffix) } }
-            func sawRemoved(_ suffix: String) -> Bool { removed.contains { $0.hasSuffix(suffix) } }
-        }
-        let sink = Sink()
+        let collector = OutputCollector()
         let task = Task {
-            for await events in stream {
-                for event in events {
-                    if event.isCreated { await sink.recordCreated(event.path) }
-                    if event.isRemoved { await sink.recordRemoved(event.path) }
-                }
+            for await output in stream {
+                await collector.record(output)
             }
         }
 
         let target = temporaryDirectory.appendingPathComponent("poll-target.txt")
         try Data("poll".utf8).write(to: target)
-        // Polling interval is `max(latency, 0.1)` = 0.1s; give 3 ticks.
+        // Polling interval is `max(latency, 0.1)` = 0.1s; give 4 ticks.
         try await Task.sleep(nanoseconds: 400_000_000)
-        let created = await sink.sawCreated("poll-target.txt")
+        let created = await collector.containsCreated(suffix: "poll-target.txt")
         XCTAssertTrue(created, "Polling fallback should emit a created event for new file")
+
+        // In-place rewrite with a different size: must surface as a
+        // modification even though the path never changed.
+        try Data("poll-rewritten".utf8).write(to: target)
+        try await Task.sleep(nanoseconds: 400_000_000)
+        let modified = await collector.containsModified(suffix: "poll-target.txt")
+        XCTAssertTrue(modified, "Polling fallback should emit a modified event for in-place rewrite")
 
         try FileManager.default.removeItem(at: target)
         try await Task.sleep(nanoseconds: 400_000_000)
-        let removed = await sink.sawRemoved("poll-target.txt")
+        let removed = await collector.containsRemoved(path: "poll-target.txt")
         XCTAssertTrue(removed, "Polling fallback should emit a removed event for deleted file")
 
         task.cancel()
         monitor.stop()
+    }
+
+    /// The polling fallback is reduced-fidelity watching: it must flag
+    /// itself as degraded and open the stream with a reconcile signal so
+    /// the consumer runs a full scan instead of trusting incremental
+    /// state.
+    func testPollingFallbackReportsDegradedAndEmitsPollingGapReconcile() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("FSMonitorDegraded-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let monitor = FileSystemMonitor(
+            paths: [temporaryDirectory.path],
+            latency: 0.1,
+            forcePollingOnly: true
+        )
+        let stream = monitor.start()
+
+        var firstOutput: FileSystemMonitorOutput?
+        for await output in stream {
+            firstOutput = output
+            break
+        }
+
+        guard case .reconcileRequired(let reason) = firstOutput else {
+            XCTFail("Polling fallback must open with a reconcile signal, got \(String(describing: firstOutput))")
+            monitor.stop()
+            return
+        }
+        XCTAssertEqual(reason, .pollingGap)
+        XCTAssertTrue(monitor.isDegraded, "Polling fallback must report degraded watching")
+
+        monitor.stop()
+        XCTAssertFalse(monitor.isDegraded, "Degraded flag clears on stop")
     }
 
     /// Regression for PHASE2_FINDINGS.md NEW23 — when a watched root
@@ -318,14 +404,14 @@ final class FileSystemMonitorTests: XCTestCase {
     /// would emit one `isRemoved` event per previously-seen descendant.
     /// Collapsed flood: single `isRemoved` event on the root itself.
     func testPollingEventsCollapsesRootDisappearanceIntoOneRemovedEvent() {
-        let previous: [String: Bool] = [
-            "/Volumes/Drive": false,
-            "/Volumes/Drive/photo1.jpg": true,
-            "/Volumes/Drive/photo2.jpg": true,
-            "/Volumes/Drive/nested": false,
-            "/Volumes/Drive/nested/photo3.jpg": true,
+        let previous: [String: PollingStamp] = [
+            "/Volumes/Drive": PollingStamp(isFile: false),
+            "/Volumes/Drive/photo1.jpg": PollingStamp(isFile: true, sizeBytes: 1, modifiedAt: 1),
+            "/Volumes/Drive/photo2.jpg": PollingStamp(isFile: true, sizeBytes: 2, modifiedAt: 2),
+            "/Volumes/Drive/nested": PollingStamp(isFile: false),
+            "/Volumes/Drive/nested/photo3.jpg": PollingStamp(isFile: true, sizeBytes: 3, modifiedAt: 3),
         ]
-        let current: [String: Bool] = [:]  // entire root unmounted
+        let current: [String: PollingStamp] = [:]  // entire root unmounted
         let events = FileSystemMonitor.pollingEvents(
             previous: previous,
             current: current,
@@ -339,23 +425,114 @@ final class FileSystemMonitorTests: XCTestCase {
     /// Sanity: when `roots` isn't passed, behavior matches the
     /// pre-NEW23 contract — every removed path produces an event.
     func testPollingEventsWithoutRootsHintProducesPerPathRemovals() {
-        let previous: [String: Bool] = [
-            "/a/file1.jpg": true,
-            "/a/file2.jpg": true,
+        let previous: [String: PollingStamp] = [
+            "/a/file1.jpg": PollingStamp(isFile: true, sizeBytes: 1, modifiedAt: 1),
+            "/a/file2.jpg": PollingStamp(isFile: true, sizeBytes: 2, modifiedAt: 2),
         ]
-        let current: [String: Bool] = [:]
+        let current: [String: PollingStamp] = [:]
         let events = FileSystemMonitor.pollingEvents(previous: previous, current: current)
         XCTAssertEqual(events.count, 2)
         XCTAssertTrue(events.allSatisfy { $0.isRemoved })
     }
 
     func testPollingEventsReturnsNoEventsForUnchangedSnapshot() {
-        let snapshot = [
-            "/tmp/folder": false,
-            "/tmp/folder/photo.heic": true
+        let snapshot: [String: PollingStamp] = [
+            "/tmp/folder": PollingStamp(isFile: false),
+            "/tmp/folder/photo.heic": PollingStamp(isFile: true, sizeBytes: 9, modifiedAt: 9)
         ]
 
         XCTAssertTrue(FileSystemMonitor.pollingEvents(previous: snapshot, current: snapshot).isEmpty)
     }
 
+    // MARK: - FSEvents flag classification (pure)
+
+    func testOutputsClassifiesPlainFileEvents() {
+        let created = UInt32(kFSEventStreamEventFlagItemCreated) | UInt32(kFSEventStreamEventFlagItemIsFile)
+        let removed = UInt32(kFSEventStreamEventFlagItemRemoved) | UInt32(kFSEventStreamEventFlagItemIsFile)
+
+        let outputs = FileSystemMonitor.outputs(
+            eventPaths: ["/w/a.jpg", "/w/b.jpg"],
+            eventFlags: [created, removed]
+        )
+
+        XCTAssertEqual(outputs.count, 1)
+        guard case .events(let events) = outputs[0] else {
+            return XCTFail("Expected a single events batch")
+        }
+        XCTAssertEqual(events.map(\.path), ["/w/a.jpg", "/w/b.jpg"])
+        XCTAssertTrue(events[0].isCreated)
+        XCTAssertTrue(events[1].isRemoved)
+        XCTAssertTrue(events.allSatisfy(\.isFile))
+    }
+
+    /// Dropped-event flags mean FSEvents lost data — incremental state
+    /// can no longer be trusted and the consumer must reconcile.
+    func testOutputsSurfacesDroppedEventsAsReconcileRequired() {
+        for droppedFlag in [
+            UInt32(kFSEventStreamEventFlagUserDropped),
+            UInt32(kFSEventStreamEventFlagKernelDropped)
+        ] {
+            let outputs = FileSystemMonitor.outputs(
+                eventPaths: ["/w"],
+                eventFlags: [droppedFlag]
+            )
+            XCTAssertEqual(outputs.count, 1)
+            guard case .reconcileRequired(let reason) = outputs[0] else {
+                return XCTFail("Expected reconcileRequired for dropped-event flag \(droppedFlag)")
+            }
+            XCTAssertEqual(reason, .droppedEvents)
+        }
+    }
+
+    func testOutputsSurfacesMustScanSubDirsAsReconcileRequired() {
+        let outputs = FileSystemMonitor.outputs(
+            eventPaths: ["/w/sub"],
+            eventFlags: [UInt32(kFSEventStreamEventFlagMustScanSubDirs)]
+        )
+        XCTAssertEqual(outputs.count, 1)
+        guard case .reconcileRequired(let reason) = outputs[0] else {
+            return XCTFail("Expected reconcileRequired for MustScanSubDirs")
+        }
+        XCTAssertEqual(reason, .mustScanSubDirs)
+    }
+
+    /// With `kFSEventStreamCreateFlagWatchRoot`, a rename or move of the
+    /// watched root arrives as a RootChanged event — the path we were
+    /// watching no longer means what it did.
+    func testOutputsSurfacesRootChangedAsReconcileRequired() {
+        let outputs = FileSystemMonitor.outputs(
+            eventPaths: ["/w"],
+            eventFlags: [UInt32(kFSEventStreamEventFlagRootChanged)]
+        )
+        XCTAssertEqual(outputs.count, 1)
+        guard case .reconcileRequired(let reason) = outputs[0] else {
+            return XCTFail("Expected reconcileRequired for RootChanged")
+        }
+        XCTAssertEqual(reason, .rootChanged)
+    }
+
+    /// A mixed batch keeps reconcile signals first (deduplicated) and
+    /// the surviving per-file events in one trailing batch.
+    func testOutputsOrdersDeduplicatedReconcileSignalsBeforeEvents() {
+        let created = UInt32(kFSEventStreamEventFlagItemCreated) | UInt32(kFSEventStreamEventFlagItemIsFile)
+        let outputs = FileSystemMonitor.outputs(
+            eventPaths: ["/w/x", "/w/a.jpg", "/w/y", "/w/b.jpg"],
+            eventFlags: [
+                UInt32(kFSEventStreamEventFlagMustScanSubDirs),
+                created,
+                UInt32(kFSEventStreamEventFlagMustScanSubDirs),
+                created
+            ]
+        )
+
+        XCTAssertEqual(outputs.count, 2, "Duplicate reconcile reasons must collapse")
+        guard case .reconcileRequired(let reason) = outputs[0] else {
+            return XCTFail("Reconcile signal must come first")
+        }
+        XCTAssertEqual(reason, .mustScanSubDirs)
+        guard case .events(let events) = outputs[1] else {
+            return XCTFail("Expected trailing events batch")
+        }
+        XCTAssertEqual(events.map(\.path), ["/w/a.jpg", "/w/b.jpg"])
+    }
 }
