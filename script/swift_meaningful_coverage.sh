@@ -76,6 +76,7 @@ MEANINGFUL_BASENAMES=(
     FileIdentityHasher
     FileSystemMonitor
     WatchedSourceFreshness
+    WatchedSourceCheckpointDatabase
     EngineDomainModels
     BundleValidator
     OrganizerDatabase
