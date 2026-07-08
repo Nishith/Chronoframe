@@ -61,7 +61,7 @@
       </div>
       <div class="qa">
         <p class="q">Why is another Chronoframe operation using my destination?</p>
-        <p class="a">The app, command-line tool, and system actions share one destination lock. Wait for the active run to finish, then try again. This prevents two valid plans from changing the same library at once.</p>
+        <p class="a">The app, command-line tool, and system actions share one destination lock. Wait for the active run to finish, then try again. This prevents two valid plans from changing the same library at once. This lock only reliably works on one Mac — if your destination is on a network drive, Chronoframe shows a one-time warning that two Macs writing to it at once isn't supported.</p>
       </div>
       <div class="qa">
         <p class="q">What are the system requirements?</p>
@@ -70,6 +70,10 @@
       <div class="qa">
         <p class="q">How does Chronoframe figure out photo dates?</p>
         <p class="a">It checks photo metadata (EXIF capture time) first, then filename date patterns, then file creation and modification dates, and always defers to any date you set yourself in Review. Photos with an unknown date go to an <code>Unknown_Date</code> folder unless you provide one.</p>
+      </div>
+      <div class="qa">
+        <p class="q">Why did a photo taken near midnight land in a different date folder than I expected?</p>
+        <p class="a">When a photo's EXIF metadata includes a timezone offset, Chronoframe files it by the photographer's local calendar day at capture time, not the UTC day. Photos without an offset-tagged timestamp keep using the source's own day boundary. This only affects which date folder a file lands in — sorting and duplicate detection still use the exact capture instant.</p>
       </div>
       <div class="qa">
         <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>

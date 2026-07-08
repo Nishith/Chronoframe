@@ -11,7 +11,7 @@ Copy-paste-ready source for Chronoframe's current Mac App Store listing. Charact
 | Bundle ID | `com.nishith.chronoframe` |
 | Primary category | Photo & Video |
 | Secondary category | Utilities |
-| Version | `1.1` |
+| Version | `1.2` |
 | Copyright | `2026 Nishith Nand` |
 | Age rating | 4+ (no objectionable content) |
 
@@ -61,6 +61,12 @@ Editable after release without a review. Good place for launch or update notes.
 > `duplicate,dedupe,photos,organizer,EXIF,cleanup,media,folder,backup,video,sort,library,metadata`
 
 (94 characters. Apple counts spaces, so commas have no trailing space. Don't repeat the app name or subtitle words here — they're already indexed.)
+
+## What's New (release notes for version 1.2)
+
+> • Photos with a timezone-tagged capture date near midnight now file under your local calendar day instead of UTC. If you organized a library before this update, re-run Organize or use Health → Reorganize to move any affected files into their corrected date folder.
+> • Chronoframe now warns you once if a chosen destination is on a network volume, since two Macs writing to the same network share at once isn't supported.
+> • Deduplicate's Revert now re-verifies a Trash item's identity before restoring it, so a changed or replaced item in Trash is left alone instead of being restored.
 
 ## What's New (release notes for version 1.1)
 
