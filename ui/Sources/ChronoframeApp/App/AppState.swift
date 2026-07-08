@@ -62,6 +62,12 @@ final class AppState: ObservableObject {
         },
         makeSecurityScope: { [weak self] _ in
             self?.organizeSecurityScope()
+        },
+        makeWatchedImportSecurityScope: { [weak self] context in
+            self?.watchedImportSecurityScope(for: context)
+        },
+        reportTransientError: { [weak self] message in
+            self?.transientErrorMessage = message
         }
     )
     private lazy var historyCoordinator = HistoryCoordinator(
@@ -194,7 +200,16 @@ final class AppState: ObservableObject {
     }
 
     var canStartRun: Bool {
-        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
+        hasActiveWatchedImport
+            || setupStore.usingProfile
+            || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
+    }
+
+    /// True while a watched-source Review & Import flow is in flight;
+    /// the toolbar Transfer button stays enabled from the import context
+    /// even when Setup paths are empty.
+    var hasActiveWatchedImport: Bool {
+        runCoordinator.activeWatchedImportContext != nil
     }
 
     /// Single navigation entry point. Setting both sidebar selection and the
@@ -212,14 +227,17 @@ final class AppState: ObservableObject {
     }
 
     func chooseSourceFolder() async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.chooseSourceFolder()
     }
 
     func selectSourceFolder(_ url: URL) async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.selectSourceFolder(url)
     }
 
     func selectDestinationFolder(_ url: URL) async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.selectDestinationFolder(url)
     }
 
@@ -228,18 +246,22 @@ final class AppState: ObservableObject {
     /// a symlink directory so the existing pipeline can walk them. Falls
     /// back to `transientErrorMessage` on failure.
     func applyDrop(urls: [URL]) async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.applyDrop(urls: urls)
     }
 
     func chooseDestinationFolder() async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.chooseDestinationFolder()
     }
 
     func useProfile(named name: String) {
+        runCoordinator.invalidateWatchedImportContext()
         setupCoordinator.useProfile(named: name)
     }
 
     func clearSelectedProfile() {
+        runCoordinator.invalidateWatchedImportContext()
         setupCoordinator.clearSelectedProfile()
     }
 
@@ -585,6 +607,16 @@ final class AppState: ObservableObject {
         scopedAccess(forKeys: activeOrganizeBookmarkKeys())
     }
 
+    /// Scope for a watched-source import: the context's own source
+    /// bookmark plus the destination bookmarks it captured. Setup,
+    /// profile, and manual bookmarks are deliberately not consulted.
+    private func watchedImportSecurityScope(for context: WatchedImportContext) -> SecurityScopedFolderAccess? {
+        let destinationBookmarks = context.destinationBookmarkKeys.compactMap {
+            preferencesStore.bookmark(for: $0)
+        }
+        return folderAccessService.scopedAccess(for: [context.sourceBookmark] + destinationBookmarks)
+    }
+
     private func deduplicateSecurityScope(destination: String) -> SecurityScopedFolderAccess? {
         if hasDedicatedDeduplicateDestinationPath {
             return scopedAccess(forKeys: [Self.deduplicateDestinationBookmarkKey])
@@ -637,6 +669,7 @@ final class AppState: ObservableObject {
     /// Repopulates the Setup view with a previously-used source path and switches to it.
     /// Clears any active profile selection so the manual source path takes effect.
     func useHistoricalSource(_ record: TransferredSourceRecord) {
+        runCoordinator.invalidateWatchedImportContext()
         historyCoordinator.useHistoricalSource(record)
     }
 

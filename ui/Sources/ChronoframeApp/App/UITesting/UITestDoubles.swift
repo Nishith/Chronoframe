@@ -19,6 +19,11 @@ final class MockOrganizerEngine: OrganizerEngine {
     var resumeMode: StreamMode
     var startConfigurations: [RunConfiguration] = []
     var resumeConfigurations: [RunConfiguration] = []
+    /// Configurations as passed INTO preflight — unlike
+    /// `startConfigurations` (which reflect the canned preflight result),
+    /// these record exactly what the caller requested. Watched-import
+    /// tests assert against them.
+    var preflightConfigurations: [RunConfiguration] = []
     var cancelCallCount = 0
     var pendingContinuation: AsyncThrowingStream<RunEvent, Error>.Continuation?
 
@@ -33,7 +38,8 @@ final class MockOrganizerEngine: OrganizerEngine {
     }
 
     func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight {
-        try preflightResult.get()
+        preflightConfigurations.append(configuration)
+        return try preflightResult.get()
     }
 
     func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
