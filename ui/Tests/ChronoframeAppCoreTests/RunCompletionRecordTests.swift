@@ -7,6 +7,7 @@ import XCTest
 /// checkpoint advancement keys off — it must fire exactly once per run,
 /// with the run's own token and resolved paths, for success, failure,
 /// and cancellation alike.
+@MainActor
 final class RunCompletionRecordTests: XCTestCase {
     private func makeStores(engine: MockOrganizerEngine) -> RunSessionStore {
         RunSessionStore(

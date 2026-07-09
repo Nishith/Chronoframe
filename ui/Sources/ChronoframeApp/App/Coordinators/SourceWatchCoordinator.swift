@@ -687,9 +687,12 @@ final class SourceWatchCoordinator {
             let scanTime = now()
             let runScan = self.runScan
             let rootURL = URL(fileURLWithPath: state.source.path, isDirectory: true)
-            guard let result = try? await Task.detached(priority: .utility) {
+            // Trailing closures are not allowed inside a guard condition,
+            // so run the scan first and guard on the result.
+            let scanResult = try? await Task.detached(priority: .utility) {
                 try runScan(rootURL, scanTime)
-            }.value, result.completeness.isComplete else {
+            }.value
+            guard let result = scanResult, result.completeness.isComplete else {
                 reportTransientError("Chronoframe couldn't fully check this folder, so it can't safely ignore its items yet. Try again once the folder is readable.")
                 return
             }

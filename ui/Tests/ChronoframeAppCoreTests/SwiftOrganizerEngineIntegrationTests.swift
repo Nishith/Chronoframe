@@ -766,6 +766,7 @@ extension SwiftOrganizerEngineIntegrationTests {
 
     // MARK: - Source/destination disjointness preflight
 
+    @MainActor
     private func makeEngine() -> SwiftOrganizerEngine {
         SwiftOrganizerEngine(
             profilesRepository: TestProfilesRepository(
