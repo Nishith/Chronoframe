@@ -204,6 +204,17 @@ final class MockFolderAccessService: FolderAccessServicing {
         return SecurityScopedFolderAccess()
     }
 
+    /// Bookmark keys whose security scope should report as failed-to-start
+    /// from `verifiedScopedAccess`. Watched-source tests use this to
+    /// distinguish "volume absent" from "access lost".
+    var scopeStartFailures: Set<String> = []
+
+    func verifiedScopedAccess(for bookmarks: [FolderBookmark]) -> ScopedAccessOutcome {
+        scopedAccessRequests.append(bookmarks.map(\.key))
+        let startedKeys = Set(bookmarks.map(\.key)).subtracting(scopeStartFailures)
+        return ScopedAccessOutcome(access: SecurityScopedFolderAccess(), startedKeys: startedKeys)
+    }
+
     nonisolated func validateFolder(_ url: URL, role: FolderRole) throws {
         if let error = validationFailures[url.path] {
             throw error

@@ -22,10 +22,12 @@ final class AppState: ObservableObject {
     var previewReviewStore: PreviewReviewStore
     var libraryHealthStore: LibraryHealthStore
     var deduplicateSessionStore: DeduplicateSessionStore
+    var watchedSourcesStore: WatchedSourcesStore
 
     private let folderAccessService: any FolderAccessServicing
     private let finderService: any FinderServicing
     private let profilesRepository: any ProfilesRepositorying
+    private let watchedSourcesRepository: any WatchedSourcesRepositorying
     private let droppedItemStager: DroppedItemStager
     private let showSettingsWindowAction: @MainActor () -> Void
     private lazy var bookmarkPathResolver = BookmarkPathResolver(
@@ -65,6 +67,35 @@ final class AppState: ObservableObject {
         },
         makeWatchedImportSecurityScope: { [weak self] context in
             self?.watchedImportSecurityScope(for: context)
+        },
+        reportTransientError: { [weak self] message in
+            self?.transientErrorMessage = message
+        }
+    )
+    private lazy var sourceWatchCoordinator = SourceWatchCoordinator(
+        store: watchedSourcesStore,
+        preferencesStore: preferencesStore,
+        setupStore: setupStore,
+        runSessionStore: runSessionStore,
+        folderAccessService: folderAccessService,
+        repository: watchedSourcesRepository,
+        deduplicateDestinationPath: { [weak self] in
+            self?.deduplicateDestinationPath ?? ""
+        },
+        activeDestinationBookmarkKeys: { [weak self] in
+            self?.activeDestinationBookmarkKeys() ?? []
+        },
+        startImportPreview: { [weak self] context in
+            guard let self else { return }
+            guard !self.deduplicateSessionStore.isWorking else {
+                self.transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+                return
+            }
+            self.previewReviewStore.reset()
+            await self.runCoordinator.startPreview(importContext: context)
+        },
+        invalidateImportContext: { [weak self] in
+            self?.runCoordinator.invalidateWatchedImportContext()
         },
         reportTransientError: { [weak self] message in
             self?.transientErrorMessage = message
@@ -134,9 +165,11 @@ final class AppState: ObservableObject {
         previewReviewStore: PreviewReviewStore? = nil,
         libraryHealthStore: LibraryHealthStore? = nil,
         deduplicateSessionStore: DeduplicateSessionStore? = nil,
+        watchedSourcesStore: WatchedSourcesStore? = nil,
         folderAccessService: any FolderAccessServicing,
         finderService: any FinderServicing,
         profilesRepository: any ProfilesRepositorying,
+        watchedSourcesRepository: (any WatchedSourcesRepositorying)? = nil,
         droppedItemStager: DroppedItemStager = DroppedItemStager(),
         performInitialBootstrap: Bool = true,
         restoreBookmarksDuringBootstrap: Bool = true,
@@ -156,9 +189,11 @@ final class AppState: ObservableObject {
         self.previewReviewStore = previewReviewStore ?? PreviewReviewStore()
         self.libraryHealthStore = libraryHealthStore ?? LibraryHealthStore()
         self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine())
+        self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.folderAccessService = folderAccessService
         self.finderService = finderService
         self.profilesRepository = profilesRepository
+        self.watchedSourcesRepository = watchedSourcesRepository ?? WatchedSourcesRepository()
         self.droppedItemStager = droppedItemStager
         self.showSettingsWindowAction = showSettingsWindowAction
         self.previewReviewStore.setDestinationScopeProvider { [weak self] destinationRoot in
@@ -671,6 +706,47 @@ final class AppState: ObservableObject {
     func useHistoricalSource(_ record: TransferredSourceRecord) {
         runCoordinator.invalidateWatchedImportContext()
         historyCoordinator.useHistoricalSource(record)
+    }
+
+    // MARK: - Watched sources
+
+    /// Starts watching registered source folders. Called from the app's
+    /// post-launch async hook — never from init, which must not do
+    /// filesystem work.
+    func startWatchingSources() async {
+        await sourceWatchCoordinator.start()
+    }
+
+    func stopWatchingSources() {
+        sourceWatchCoordinator.stop()
+    }
+
+    func addWatchedSourceFolder() async {
+        await sourceWatchCoordinator.addSourceFolder()
+    }
+
+    func addWatchedSource(url: URL) async {
+        await sourceWatchCoordinator.addSource(url: url)
+    }
+
+    func removeWatchedSource(id: UUID) {
+        sourceWatchCoordinator.removeSource(id: id)
+    }
+
+    func refreshWatchedSources() {
+        sourceWatchCoordinator.refreshAll()
+    }
+
+    func ignoreWatchedSourceCurrentItems(id: UUID) async {
+        await sourceWatchCoordinator.ignoreCurrentItems(id: id)
+    }
+
+    func repickWatchedSource(id: UUID) async {
+        await sourceWatchCoordinator.repickSource(id: id)
+    }
+
+    func reviewAndImportWatchedSource(id: UUID) async {
+        await sourceWatchCoordinator.reviewAndImport(id: id)
     }
 
     func revealTransferredSource(_ record: TransferredSourceRecord) {

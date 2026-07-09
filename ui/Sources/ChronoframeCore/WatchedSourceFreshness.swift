@@ -170,8 +170,10 @@ public enum WatchedSourceFreshness {
     }
 
     /// lstat-based stamp; nil when the path vanished or cannot be
-    /// stat'ed (the caller skips it and a later scan reconciles).
-    static func stamp(forPath path: String) -> WatchedFileStamp? {
+    /// stat'ed (the caller skips it and a later scan reconciles). Public
+    /// so the watch coordinator's incremental dirty-path check uses the
+    /// exact same identity as full scans.
+    public static func stamp(forPath path: String) -> WatchedFileStamp? {
         var status = stat()
         guard lstat(path, &status) == 0 else { return nil }
         return WatchedFileStamp(

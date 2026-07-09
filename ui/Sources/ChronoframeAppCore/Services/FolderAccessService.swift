@@ -67,11 +67,32 @@ public enum FolderValidationError: LocalizedError, Equatable, Sendable {
     }
 }
 
+/// Result of a scoped-access request that reports, per bookmark key,
+/// whether `startAccessingSecurityScopedResource()` actually succeeded.
+/// `scopedAccess(for:)` silently drops bookmarks that fail to start;
+/// callers that must distinguish "volume absent" from "access lost"
+/// (watched sources) need the explicit report.
+public struct ScopedAccessOutcome: Sendable {
+    public let access: SecurityScopedFolderAccess
+    /// Keys of the bookmarks whose security scope actually started.
+    public let startedKeys: Set<String>
+
+    public init(access: SecurityScopedFolderAccess, startedKeys: Set<String>) {
+        self.access = access
+        self.startedKeys = startedKeys
+    }
+}
+
 public protocol FolderAccessServicing: AnyObject, Sendable {
     @MainActor func chooseFolder(startingAt path: String?, prompt: String) -> URL?
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark
     @MainActor func resolveBookmark(_ bookmark: FolderBookmark) -> ResolvedFolderBookmark?
     @MainActor func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess
+    /// Like `scopedAccess(for:)`, but reports per bookmark key whether
+    /// `startAccessingSecurityScopedResource()` actually succeeded. A
+    /// protocol requirement (not an extension default) so `any`-typed
+    /// callers dispatch to the real implementation.
+    @MainActor func verifiedScopedAccess(for bookmarks: [FolderBookmark]) -> ScopedAccessOutcome
     func validateFolder(_ url: URL, role: FolderRole) throws
 }
 
@@ -167,7 +188,16 @@ public final class FolderAccessService: FolderAccessServicing {
     }
 
     public func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess {
+        verifiedScopedAccess(for: bookmarks).access
+    }
+
+    /// Per-bookmark scope outcome: a key appears in `startedKeys` only
+    /// when its bookmark resolved AND `startAccessingSecurityScopedResource`
+    /// returned true. Watched sources use this to distinguish an ejected
+    /// volume from permanently lost access.
+    public func verifiedScopedAccess(for bookmarks: [FolderBookmark]) -> ScopedAccessOutcome {
         var accessedURLs: [URL] = []
+        var startedKeys: Set<String> = []
         for bookmark in bookmarks {
             var isStale = false
             guard let url = try? URL(
@@ -180,9 +210,13 @@ public final class FolderAccessService: FolderAccessServicing {
             }
             if url.startAccessingSecurityScopedResource() {
                 accessedURLs.append(url)
+                startedKeys.insert(bookmark.key)
             }
         }
-        return SecurityScopedFolderAccess(accessedURLs: accessedURLs)
+        return ScopedAccessOutcome(
+            access: SecurityScopedFolderAccess(accessedURLs: accessedURLs),
+            startedKeys: startedKeys
+        )
     }
 
     public nonisolated func validateFolder(_ url: URL, role: FolderRole) throws {
