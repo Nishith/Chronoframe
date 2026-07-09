@@ -123,6 +123,8 @@ struct RootSplitView: View {
         switch appState.selection {
         case .organize:
             OrganizeContainerView(appState: appState)
+        case .photos:
+            PhotosImportView(appState: appState)
         case .deduplicate:
             DeduplicateView(appState: appState)
         case .profiles:

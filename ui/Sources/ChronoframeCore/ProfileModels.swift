@@ -116,10 +116,11 @@ public struct RunHistoryEntry: Identifiable, Equatable, Sendable {
 
 public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Sendable {
     case organize
+    case photos
     case deduplicate
     case profiles
 
-    public static let primaryNavigationCases: [SidebarDestination] = [.organize, .deduplicate]
+    public static let primaryNavigationCases: [SidebarDestination] = [.organize, .photos, .deduplicate]
 
     public var id: String { rawValue }
 
@@ -127,6 +128,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
         switch self {
         case .organize:
             return "Organize"
+        case .photos:
+            return "Photos"
         case .deduplicate:
             return "Deduplicate"
         case .profiles:
@@ -138,6 +141,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
         switch self {
         case .organize:
             return "Setup, run, and run history"
+        case .photos:
+            return "Import from your Photos library"
         case .deduplicate:
             return "Find and remove duplicate photos"
         case .profiles:
@@ -149,6 +154,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
         switch self {
         case .organize:
             return "square.stack.3d.up"
+        case .photos:
+            return "photo.on.rectangle.angled"
         case .deduplicate:
             return "rectangle.on.rectangle.angled"
         case .profiles:
@@ -161,7 +168,7 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
     /// becoming a flat list.
     public var section: SidebarSection {
         switch self {
-        case .organize, .deduplicate:
+        case .organize, .photos, .deduplicate:
             return .library
         case .profiles:
             return .preferences
@@ -252,12 +259,14 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
 /// specific tab+sub-tab in one call.
 public enum AppRoute: Hashable, Sendable {
     case organize(OrganizeSubSection)
+    case photos
     case deduplicate
     case profiles
 
     public var sidebar: SidebarDestination {
         switch self {
         case .organize: return .organize
+        case .photos: return .photos
         case .deduplicate: return .deduplicate
         case .profiles: return .profiles
         }

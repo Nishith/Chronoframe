@@ -25,6 +25,7 @@ enum UITestAppStateFactory {
         let route: AppRoute
         var deduplicateSessionStore: DeduplicateSessionStore? = nil
         var watchedSourcesStore: WatchedSourcesStore? = nil
+        var photosImportStore: PhotosImportStore? = nil
 
         switch scenario {
         case .setupIncompleteRun:
@@ -59,6 +60,13 @@ enum UITestAppStateFactory {
             engine = previewReviewEngine(sourcePath: "/Volumes/Card/April Session", destinationPath: setupStore.destinationPath)
             watchedSourcesStore = sampleWatchedSourcesStore()
             route = .organize(.sources)
+
+        case .photosImport:
+            setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
+            historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
+            engine = previewReviewEngine(sourcePath: "/Volumes/Card/April Session", destinationPath: setupStore.destinationPath)
+            photosImportStore = samplePhotosImportStore()
+            route = .photos
 
         case .historyPopulated:
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
@@ -123,6 +131,7 @@ enum UITestAppStateFactory {
             runSessionStore: runSessionStore,
             deduplicateSessionStore: deduplicateSessionStore,
             watchedSourcesStore: watchedSourcesStore,
+            photosImportStore: photosImportStore,
             folderAccessService: folderAccessService,
             finderService: finderService,
             profilesRepository: repository,
@@ -266,6 +275,39 @@ enum UITestAppStateFactory {
                 destinationPath: "/Volumes/Archive/Studio"
             ),
         ]
+    }
+
+    /// Seeded Photos import browser: authorized access and a fixture album so
+    /// the accessibility audit exercises the album picker, asset grid, and
+    /// import footer.
+    private static func samplePhotosImportStore() -> PhotosImportStore {
+        let albums = [
+            PhotosAlbumSummary(id: PhotosCatalogWellKnown.allPhotosAlbumID, title: "All Photos", kind: .allPhotos, approximateCount: 6),
+            PhotosAlbumSummary(id: "album-favorites", title: "Favorites", kind: .smartAlbum, approximateCount: 2),
+        ]
+        let base = Date(timeIntervalSince1970: 1_717_000_000)
+        let assets = (0..<6).map { index in
+            PhotosAssetSummary(
+                id: "sample-asset-\(index)",
+                mediaKind: index % 3 == 0 ? .video : .photo,
+                creationDate: base.addingTimeInterval(Double(index) * -3600),
+                pixelWidth: 4032,
+                pixelHeight: 3024,
+                originalFilename: "IMG_\(1000 + index).HEIC",
+                isFavorite: index == 1,
+                isCloudStoredOnly: index == 4
+            )
+        }
+        let store = PhotosImportStore(
+            access: SamplePhotosLibraryAccess(),
+            catalog: SamplePhotosCatalog(albums: albums, assets: assets),
+            exporter: SamplePhotosExporter(),
+            stagingParentURL: FileManager.default.temporaryDirectory
+                .appendingPathComponent("UITestPhotosStaging-\(UUID().uuidString)", isDirectory: true)
+        )
+        store.loadAlbumsIfAuthorized()
+        store.toggleSelection("sample-asset-1")
+        return store
     }
 
     /// Seeded Sources tab: one folder with pending arrivals, one caught

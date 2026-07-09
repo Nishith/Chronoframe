@@ -272,4 +272,47 @@ final class MockProfilesRepository: ProfilesRepositorying {
         profiles.removeAll { $0.name == name }
     }
 }
+
+// MARK: - Photos import doubles
+
+/// Authorized access double so the Photos import scenario renders the browser
+/// instead of the permission gate. No real PhotoKit is touched.
+final class SamplePhotosLibraryAccess: PhotosLibraryAccessing, @unchecked Sendable {
+    func currentAuthorization() -> PhotosAuthorizationStatus { .authorized }
+    func requestReadAccess() async -> PhotosAuthorizationStatus { .authorized }
+}
+
+/// Fixture catalog for the Photos import scenario.
+final class SamplePhotosCatalog: PhotosCatalogReading, @unchecked Sendable {
+    private let albumList: [PhotosAlbumSummary]
+    private let assetList: [PhotosAssetSummary]
+
+    init(albums: [PhotosAlbumSummary], assets: [PhotosAssetSummary]) {
+        self.albumList = albums
+        self.assetList = assets
+    }
+
+    func albums() -> [PhotosAlbumSummary] { albumList }
+
+    func assetPage(in album: PhotosAlbumSummary, pageIndex: Int, pageSize: Int) -> PhotosCatalogPage {
+        let size = max(1, pageSize)
+        let start = max(0, pageIndex) * size
+        guard start < assetList.count else {
+            return .empty(pageIndex: pageIndex, pageSize: size, totalCount: assetList.count)
+        }
+        let end = min(start + size, assetList.count)
+        return PhotosCatalogPage(
+            assets: Array(assetList[start..<end]),
+            pageIndex: pageIndex,
+            pageSize: size,
+            totalCount: assetList.count
+        )
+    }
+}
+
+/// Inert exporter — the scenario never runs an actual import.
+final class SamplePhotosExporter: PhotosResourceExporting, @unchecked Sendable {
+    func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource] { [] }
+    func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {}
+}
 #endif

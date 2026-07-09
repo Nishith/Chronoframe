@@ -386,6 +386,8 @@ final class AppState: ObservableObject {
         switch selection {
         case .organize:
             runCoordinator.cancelRun()
+        case .photos:
+            runCoordinator.cancelRun()
         case .deduplicate:
             deduplicateSessionStore.cancel()
         case .profiles:
