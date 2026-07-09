@@ -803,6 +803,13 @@ final class MenuBarStatusManager: NSObject {
                 self?.updateStatusItem()
             }
             .store(in: &cancellables)
+
+        appState.watchedSourcesStore.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItem()
+            }
+            .store(in: &cancellables)
     }
 
     private func updateStatusItem() {
@@ -847,6 +854,17 @@ final class MenuBarStatusManager: NSObject {
             let item = NSMenuItem(title: "Chronoframe is Idle", action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
+
+            let pendingEstimate = appState.watchedSourcesStore.totalPendingEstimate
+            if pendingEstimate > 0 {
+                let pendingItem = NSMenuItem(
+                    title: "New items in watched folders: \(pendingEstimate)",
+                    action: nil,
+                    keyEquivalent: ""
+                )
+                pendingItem.isEnabled = false
+                menu.addItem(pendingItem)
+            }
         }
 
         menu.addItem(NSMenuItem.separator())
