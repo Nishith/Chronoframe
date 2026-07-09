@@ -77,6 +77,7 @@ MEANINGFUL_BASENAMES=(
     FileSystemMonitor
     WatchedSourceFreshness
     WatchedSourceCheckpointDatabase
+    PhotosAuthorization
     EngineDomainModels
     BundleValidator
     OrganizerDatabase
