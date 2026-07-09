@@ -74,8 +74,9 @@ public enum PhotosExportPlanner {
         let fallback = mediaKind == .video ? "Video" : "Photo"
         guard let originalFilename, !originalFilename.isEmpty else { return fallback }
 
-        var stem = (originalFilename as NSString).deletingPathExtension
-        if stem.isEmpty { stem = originalFilename }
+        // An empty stem (e.g. a dotfile-only name) flows through to the
+        // fallback below, so no special-casing is needed here.
+        let stem = (originalFilename as NSString).deletingPathExtension
 
         let scalars = stem.unicodeScalars.map { scalar -> Character in
             if scalar == "/" || scalar == ":" || scalar == "\\" {
