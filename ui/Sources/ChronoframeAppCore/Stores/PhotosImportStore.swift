@@ -175,7 +175,7 @@ public final class PhotosImportStore: ObservableObject {
             let receipt = try await PhotosExportExecutor(exporter: exporter)
                 .export(plan: plan, to: stagingDirectory)
             guard !receipt.isEmpty else {
-                try? FileManager.default.removeItem(at: stagingDirectory)
+                purgeStagingParent()
                 statusMessage = "Chronoframe couldn't read the selected items from Photos, so there is nothing to import. Your Photos library was not changed."
                 return nil
             }
@@ -190,7 +190,7 @@ public final class PhotosImportStore: ObservableObject {
                 assetIDs: receipt.exportedAssetIDs
             )
         } catch {
-            try? FileManager.default.removeItem(at: stagingDirectory)
+            purgeStagingParent()
             statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
             return nil
         }
