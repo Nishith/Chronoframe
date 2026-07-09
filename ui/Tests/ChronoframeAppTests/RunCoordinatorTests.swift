@@ -292,4 +292,183 @@ final class RunCoordinatorTests: XCTestCase {
         let cleared = await waitForCondition { coordinator.activeWatchedImportContext == nil }
         XCTAssertTrue(cleared, "A failed preview invalidates the context")
     }
+
+    // MARK: - Apple Photos import context
+
+    @MainActor
+    private func makePhotosCoordinator(
+        harness: AppStateHarness,
+        reportTransientError: @escaping @MainActor (String) -> Void = { _ in },
+        cleanupPhotosStaging: @escaping @MainActor (PhotosImportContext) -> Void = { _ in }
+    ) -> RunCoordinator {
+        RunCoordinator(
+            preferencesStore: harness.preferencesStore,
+            setupStore: harness.setupStore,
+            historyStore: harness.historyStore,
+            runSessionStore: harness.runSessionStore,
+            finderService: harness.finderService,
+            showSettingsWindowAction: {},
+            navigate: { _ in },
+            canStartRun: { true },
+            cleanupPhotosStaging: cleanupPhotosStaging,
+            reportTransientError: reportTransientError
+        )
+    }
+
+    private func makePhotosContext(destinationPath: String) throws -> PhotosImportContext {
+        let staging = FileManager.default.temporaryDirectory
+            .appendingPathComponent("photos-ctx-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: staging.appendingPathComponent("IMG_0001.jpg"))
+        return PhotosImportContext(
+            importID: UUID(),
+            stagingDirectoryURL: staging,
+            destinationPath: destinationPath,
+            destinationBookmarkKeys: ["manual.destination"],
+            assetIDs: ["a-1"]
+        )
+    }
+
+    @MainActor
+    func testPhotosImportPreviewPinsStagingSourceAndNoProfile() async throws {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/profile-src"
+        harness.setupStore.destinationPath = "/tmp/profile-dest"
+        harness.setupStore.selectedProfileName = "camera"
+        let coordinator = makePhotosCoordinator(harness: harness)
+        let context = try makePhotosContext(destinationPath: "/tmp/profile-dest")
+        defer { try? FileManager.default.removeItem(at: context.stagingDirectoryURL) }
+
+        await coordinator.startPreview(photosImportContext: context)
+        let finished = await waitForCondition { harness.runSessionStore.summary != nil }
+        XCTAssertTrue(finished)
+
+        let requested = harness.engine.preflightConfigurations.last
+        XCTAssertEqual(requested?.sourcePath, context.stagingDirectoryURL.path,
+                       "Photos imports run from the staging directory")
+        XCTAssertEqual(requested?.destinationPath, "/tmp/profile-dest")
+        XCTAssertNil(requested?.profileName, "Photos imports never carry a profile name")
+        XCTAssertEqual(harness.setupStore.selectedProfileName, "camera", "Setup profile untouched")
+        XCTAssertNotNil(coordinator.activePhotosImportContext)
+    }
+
+    @MainActor
+    func testPhotosTransferUsesContextCleansStagingAndClears() async throws {
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/tmp/photos-dest"
+        var cleaned: [UUID] = []
+        let coordinator = makePhotosCoordinator(harness: harness) { context in
+            cleaned.append(context.importID)
+            try? FileManager.default.removeItem(at: context.stagingDirectoryURL)
+        }
+        let context = try makePhotosContext(destinationPath: "/tmp/photos-dest")
+
+        await coordinator.startPreview(photosImportContext: context)
+        _ = await waitForCondition { harness.runSessionStore.summary != nil }
+
+        harness.engine.preflightResult = .success(
+            RunPreflight(
+                configuration: RunConfiguration(mode: .transfer, sourcePath: context.stagingDirectoryURL.path, destinationPath: "/tmp/photos-dest"),
+                resolvedSourcePath: context.stagingDirectoryURL.path,
+                resolvedDestinationPath: "/tmp/photos-dest"
+            )
+        )
+        harness.engine.startMode = .events([
+            .complete(
+                RunSummary(
+                    status: .finished,
+                    title: "Transfer complete",
+                    metrics: RunMetrics(copiedCount: 1),
+                    artifacts: RunArtifactPaths(destinationRoot: "/tmp/photos-dest")
+                )
+            )
+        ])
+
+        await coordinator.startTransfer()
+        XCTAssertEqual(harness.runSessionStore.prompt?.kind, .confirmTransfer)
+        coordinator.confirmRunPrompt()
+        let finished = await waitForCondition { harness.runSessionStore.summary?.status == .finished }
+        XCTAssertTrue(finished)
+
+        let requested = harness.engine.preflightConfigurations.last
+        XCTAssertEqual(requested?.mode, .transfer)
+        XCTAssertEqual(requested?.sourcePath, context.stagingDirectoryURL.path)
+
+        let cleared = await waitForCondition { coordinator.activePhotosImportContext == nil }
+        XCTAssertTrue(cleared, "A finished transfer consumes the Photos import context")
+        XCTAssertEqual(cleaned, [context.importID], "Staging is cleaned up after the run")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: context.stagingDirectoryURL.path))
+    }
+
+    @MainActor
+    func testPhotosTransferCancelsWhenDestinationChangedSincePreview() async throws {
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/tmp/photos-dest"
+        var reportedErrors: [String] = []
+        var cleaned: [UUID] = []
+        let coordinator = makePhotosCoordinator(
+            harness: harness,
+            reportTransientError: { reportedErrors.append($0) },
+            cleanupPhotosStaging: { cleaned.append($0.importID); try? FileManager.default.removeItem(at: $0.stagingDirectoryURL) }
+        )
+        let context = try makePhotosContext(destinationPath: "/tmp/photos-dest")
+
+        await coordinator.startPreview(photosImportContext: context)
+        _ = await waitForCondition { harness.runSessionStore.summary != nil }
+        let preflightCountAfterPreview = harness.engine.preflightConfigurations.count
+
+        harness.setupStore.destinationPath = "/tmp/somewhere-else"
+        await coordinator.startTransfer()
+
+        XCTAssertEqual(harness.engine.preflightConfigurations.count, preflightCountAfterPreview,
+                       "No run may start against a stale context")
+        XCTAssertNil(coordinator.activePhotosImportContext)
+        XCTAssertEqual(cleaned, [context.importID], "Staging is cleaned up when the import is cancelled")
+        XCTAssertEqual(reportedErrors.count, 1)
+        XCTAssertTrue(reportedErrors[0].contains("destination changed"),
+                      "Message must explain why the import did not start: \(reportedErrors)")
+    }
+
+    @MainActor
+    func testManualPreviewDiscardsPhotosImportContext() async throws {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/tmp/destination"
+        var cleaned: [UUID] = []
+        let coordinator = makePhotosCoordinator(harness: harness) {
+            cleaned.append($0.importID)
+            try? FileManager.default.removeItem(at: $0.stagingDirectoryURL)
+        }
+        let context = try makePhotosContext(destinationPath: "/tmp/destination")
+
+        await coordinator.startPreview(photosImportContext: context)
+        _ = await waitForCondition { harness.runSessionStore.summary != nil }
+        XCTAssertNotNil(coordinator.activePhotosImportContext)
+
+        await coordinator.startPreview()
+        XCTAssertNil(coordinator.activePhotosImportContext,
+                     "A Setup-driven preview replaces any pending Photos import")
+        XCTAssertEqual(cleaned, [context.importID])
+    }
+
+    @MainActor
+    func testFailedPhotosPreviewCleansStagingAndClears() async throws {
+        struct TestError: Error {}
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/tmp/photos-dest"
+        harness.engine.startMode = .fails(TestError())
+        var cleaned: [UUID] = []
+        let coordinator = makePhotosCoordinator(harness: harness) {
+            cleaned.append($0.importID)
+            try? FileManager.default.removeItem(at: $0.stagingDirectoryURL)
+        }
+        let context = try makePhotosContext(destinationPath: "/tmp/photos-dest")
+
+        await coordinator.startPreview(photosImportContext: context)
+        _ = await waitForCondition { harness.runSessionStore.status == .failed }
+
+        let cleared = await waitForCondition { coordinator.activePhotosImportContext == nil }
+        XCTAssertTrue(cleared, "A failed preview invalidates the Photos context")
+        XCTAssertEqual(cleaned, [context.importID])
+    }
 }
