@@ -14,12 +14,9 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
         let assetID: String
     }
 
-    private let lock = NSLock()
-    private var _calls: [Call] = []
-    var calls: [Call] {
-        lock.lock(); defer { lock.unlock() }
-        return _calls
-    }
+    // The executor awaits each call before the next, so access is serial and
+    // needs no lock (an async context can't use NSLock in Swift 6 anyway).
+    private(set) var calls: [Call] = []
 
     var resourcesByAsset: [String: [PhotosExportableResource]]
     var listFailures: Set<String> = []
@@ -30,13 +27,13 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
     }
 
     func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource] {
-        lock.lock(); _calls.append(Call(kind: .list, assetID: id)); lock.unlock()
+        calls.append(Call(kind: .list, assetID: id))
         if listFailures.contains(id) { throw ExporterTestError.boom }
         return resourcesByAsset[id] ?? []
     }
 
     func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
-        lock.lock(); _calls.append(Call(kind: .write, assetID: resource.assetID)); lock.unlock()
+        calls.append(Call(kind: .write, assetID: resource.assetID))
         if writeFailures.contains(resource.assetID) { throw ExporterTestError.boom }
         try Data("bytes:\(resource.fileExtension)".utf8).write(to: destinationURL)
     }

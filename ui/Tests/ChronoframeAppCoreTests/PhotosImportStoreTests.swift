@@ -5,22 +5,22 @@ import XCTest
 private enum StoreTestError: Error { case boom }
 
 private final class StubAccess: PhotosLibraryAccessing, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _current: PhotosAuthorizationStatus
+    // Tests drive this serially on the main actor, so no lock is needed (an
+    // async context can't use NSLock in Swift 6 anyway).
+    private var current: PhotosAuthorizationStatus
     private let promptResult: PhotosAuthorizationStatus
 
     init(current: PhotosAuthorizationStatus, promptResult: PhotosAuthorizationStatus) {
-        self._current = current
+        self.current = current
         self.promptResult = promptResult
     }
 
     func currentAuthorization() -> PhotosAuthorizationStatus {
-        lock.lock(); defer { lock.unlock() }
-        return _current
+        current
     }
 
     func requestReadAccess() async -> PhotosAuthorizationStatus {
-        lock.lock(); _current = promptResult; lock.unlock()
+        current = promptResult
         return promptResult
     }
 }
