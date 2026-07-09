@@ -206,6 +206,21 @@ public final class PreferencesStore: ObservableObject {
         defaults.removeObject(forKey: bookmarkPathDefaultsKey(for: key))
     }
 
+    /// All stored bookmark keys with the given prefix (e.g. "watched.").
+    /// The watched-sources startup sweep uses this to drop bookmarks
+    /// whose registry row was removed before a crash landed the
+    /// bookmark deletion.
+    public func bookmarkKeys(withPrefix prefix: String) -> [String] {
+        defaults.dictionaryRepresentation().keys.compactMap { defaultsKey in
+            guard defaultsKey.hasPrefix("bookmark.\(prefix)"),
+                  defaultsKey.hasSuffix(".data")
+            else {
+                return nil
+            }
+            return String(defaultsKey.dropFirst("bookmark.".count).dropLast(".data".count))
+        }
+    }
+
     private func persist(_ value: some Any, key: String) {
         defaults.set(value, forKey: key)
     }

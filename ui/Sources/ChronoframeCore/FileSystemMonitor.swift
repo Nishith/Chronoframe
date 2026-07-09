@@ -2,12 +2,32 @@ import Foundation
 import CoreServices
 
 /// FSEvents-based folder watcher that streams file-system change events.
-/// Designed for background duplicate monitoring (Feature 10).
+/// Production consumer: watched-source freshness tracking (Sources tab).
+///
+/// Ordering contract
+/// -----------------
+/// The FSEvents stream is created with `kFSEventStreamEventIdSinceNow`,
+/// so changes that happen before `start()` returns are never delivered.
+/// Callers must therefore `start()` the monitor *first* and only then run
+/// their catch-up scan; anything that changed in between is covered by
+/// the scan, and anything after it by the stream. Consumers should also
+/// tag scans with a monotonic generation so a slower, older scan can
+/// never overwrite the result of a newer one.
+///
+/// Fidelity contract
+/// -----------------
+/// FSEvents can drop events (kernel or user buffer exhaustion) and can
+/// coalesce a subtree into a single "must scan sub dirs" hint. Those
+/// conditions are surfaced as `.reconcileRequired(_:)` outputs instead of
+/// per-file events; on receipt the consumer must run a full reconciliation
+/// scan rather than trusting incremental state. The watched root itself is
+/// tracked with `kFSEventStreamCreateFlagWatchRoot`, so a rename or move
+/// of the root arrives as `.reconcileRequired(.rootChanged)`.
 ///
 /// Threading model
 /// ---------------
-/// `streamRef`, `continuation`, and `pollingTask` are guarded by
-/// `stateLock` (NSLock, recursive-safe in practice because we only
+/// `streamRef`, `continuation`, `pollingTask`, and `degraded` are guarded
+/// by `stateLock` (NSLock, recursive-safe in practice because we only
 /// hold it across short pointer-snapshot operations and never call out
 /// to FSEvents APIs or `Continuation.yield` while holding it).
 ///
@@ -32,6 +52,10 @@ import CoreServices
 /// Polling is a *fallback*, not a supplement. It only starts when
 /// `FSEventStreamCreate` returns nil. Running both at once would yield
 /// every event twice — once from FSEvents, once from the next poll tick.
+/// While the fallback is active `isDegraded` is true and the stream opens
+/// with `.reconcileRequired(.pollingGap)` so consumers know incremental
+/// fidelity is reduced. The fallback keeps per-path size/mtime stamps so
+/// in-place modifications are detected, not just additions and removals.
 public final class FileSystemMonitor: @unchecked Sendable {
     private let paths: [String]
     private let latency: TimeInterval
@@ -45,8 +69,15 @@ public final class FileSystemMonitor: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.chronoframe.fsmonitor", qos: .utility)
     private let stateLock = NSLock()
     private var streamRef: FSEventStreamRef?
-    private var continuation: AsyncStream<[FileSystemEvent]>.Continuation?
+    private var continuation: AsyncStream<FileSystemMonitorOutput>.Continuation?
     private var pollingTask: Task<Void, Never>?
+    private var degraded = false
+
+    /// True while the polling fallback is active in place of FSEvents.
+    /// Consumers may surface this as reduced-fidelity watching.
+    public var isDegraded: Bool {
+        withState { degraded }
+    }
 
     private func withState<T>(_ body: () -> T) -> T {
         stateLock.lock()
@@ -77,11 +108,14 @@ public final class FileSystemMonitor: @unchecked Sendable {
         teardown()
     }
 
-    public func start() -> AsyncStream<[FileSystemEvent]> {
+    public func start() -> AsyncStream<FileSystemMonitorOutput> {
         stop()
 
         return AsyncStream { continuation in
-            self.withState { self.continuation = continuation }
+            self.withState {
+                self.continuation = continuation
+                self.degraded = false
+            }
             continuation.onTermination = { @Sendable [weak self] _ in
                 self?.stop()
             }
@@ -106,13 +140,14 @@ public final class FileSystemMonitor: @unchecked Sendable {
         // FSEvents APIs and `Continuation.finish` never run while we
         // hold `stateLock` (some of those calls may themselves trigger
         // onTermination handlers that re-enter `stop()`).
-        let (stream, continuation, polling): (FSEventStreamRef?, AsyncStream<[FileSystemEvent]>.Continuation?, Task<Void, Never>?) = withState {
+        let (stream, continuation, polling): (FSEventStreamRef?, AsyncStream<FileSystemMonitorOutput>.Continuation?, Task<Void, Never>?) = withState {
             let s = self.streamRef
             let c = self.continuation
             let p = self.pollingTask
             self.streamRef = nil
             self.continuation = nil
             self.pollingTask = nil
+            self.degraded = false
             return (s, c, p)
         }
         polling?.cancel()
@@ -128,6 +163,12 @@ public final class FileSystemMonitor: @unchecked Sendable {
     /// when `FSEventStreamCreate` returned nil so the caller can start
     /// the polling fallback in its place.
     private func setupFSEvents() -> Bool {
+        // Keep this @convention(c) closure minimal: extract plain
+        // Sendable values and hand off to an instance method. Swift
+        // 6.0.3's TransferNonSendable region analysis crashes (signal 6,
+        // Partition::merge abort) when richer logic lives inside the C
+        // callback, so classification and yielding happen in
+        // `handleCallbackBatch` instead.
         let callback: FSEventStreamCallback = { _, clientInfo, numEvents, eventPaths, eventFlags, _ in
             guard let clientInfo else { return }
             // `takeUnretainedValue` is safe: the retain callback below
@@ -139,29 +180,8 @@ public final class FileSystemMonitor: @unchecked Sendable {
                 return
             }
 
-            let flags = UnsafeBufferPointer(start: eventFlags, count: numEvents)
-            var events: [FileSystemEvent] = []
-            for i in 0..<numEvents {
-                let f = flags[i]
-                events.append(FileSystemEvent(
-                    path: paths[i],
-                    flags: f,
-                    isFile: f & UInt32(kFSEventStreamEventFlagItemIsFile) != 0,
-                    isCreated: f & UInt32(kFSEventStreamEventFlagItemCreated) != 0,
-                    isModified: f & UInt32(kFSEventStreamEventFlagItemModified) != 0,
-                    isRemoved: f & UInt32(kFSEventStreamEventFlagItemRemoved) != 0
-                ))
-            }
-
-            if !events.isEmpty {
-                // Snapshot the continuation under `stateLock` so we
-                // never race the assignment in `start()` or the nil-out
-                // in `stop()`. Yielding is done outside the lock — yield
-                // itself is documented thread-safe and we don't want to
-                // hold `stateLock` across a callback into consumer code.
-                let continuation = monitor.withState { monitor.continuation }
-                continuation?.yield(events)
-            }
+            let flags = Array(UnsafeBufferPointer(start: eventFlags, count: numEvents))
+            monitor.handleCallbackBatch(eventPaths: paths, eventFlags: flags)
         }
 
         var context = FSEventStreamContext(
@@ -176,7 +196,8 @@ public final class FileSystemMonitor: @unchecked Sendable {
         let createFlags: FSEventStreamCreateFlags =
             UInt32(kFSEventStreamCreateFlagFileEvents) |
             UInt32(kFSEventStreamCreateFlagUseCFTypes) |
-            UInt32(kFSEventStreamCreateFlagNoDefer)
+            UInt32(kFSEventStreamCreateFlagNoDefer) |
+            UInt32(kFSEventStreamCreateFlagWatchRoot)
 
         guard let stream = FSEventStreamCreate(
             kCFAllocatorDefault,
@@ -196,9 +217,84 @@ public final class FileSystemMonitor: @unchecked Sendable {
         return true
     }
 
+    /// Classifies one FSEvents batch and yields the outputs. Called from
+    /// the C callback on the FSEvents dispatch queue.
+    private func handleCallbackBatch(eventPaths: [String], eventFlags: [UInt32]) {
+        let outputs = Self.outputs(eventPaths: eventPaths, eventFlags: eventFlags)
+        guard !outputs.isEmpty else { return }
+        // Snapshot the continuation under `stateLock` so we never race
+        // the assignment in `start()` or the nil-out in `stop()`.
+        // Yielding is done outside the lock — yield itself is documented
+        // thread-safe and we don't want to hold `stateLock` across a
+        // callback into consumer code.
+        let continuation = withState { self.continuation }
+        for output in outputs {
+            continuation?.yield(output)
+        }
+    }
+
+    /// Pure classification of one FSEvents callback batch into stream
+    /// outputs. Reconcile conditions (dropped events, must-scan-subdirs,
+    /// root changes) are surfaced as `.reconcileRequired` — deduplicated
+    /// per batch, ordered before the remaining per-file events — because
+    /// incremental state cannot be trusted once any of them occur.
+    static func outputs(
+        eventPaths: [String],
+        eventFlags: [UInt32]
+    ) -> [FileSystemMonitorOutput] {
+        var reasons: [FileSystemReconcileReason] = []
+        var events: [FileSystemEvent] = []
+
+        func noteReason(_ reason: FileSystemReconcileReason) {
+            if !reasons.contains(reason) {
+                reasons.append(reason)
+            }
+        }
+
+        for index in 0..<min(eventPaths.count, eventFlags.count) {
+            let flags = eventFlags[index]
+
+            if flags & UInt32(kFSEventStreamEventFlagUserDropped) != 0 ||
+                flags & UInt32(kFSEventStreamEventFlagKernelDropped) != 0 {
+                noteReason(.droppedEvents)
+                continue
+            }
+            if flags & UInt32(kFSEventStreamEventFlagMustScanSubDirs) != 0 {
+                noteReason(.mustScanSubDirs)
+                continue
+            }
+            if flags & UInt32(kFSEventStreamEventFlagRootChanged) != 0 {
+                noteReason(.rootChanged)
+                continue
+            }
+
+            events.append(FileSystemEvent(
+                path: eventPaths[index],
+                flags: flags,
+                isFile: flags & UInt32(kFSEventStreamEventFlagItemIsFile) != 0,
+                isCreated: flags & UInt32(kFSEventStreamEventFlagItemCreated) != 0,
+                isModified: flags & UInt32(kFSEventStreamEventFlagItemModified) != 0,
+                isRemoved: flags & UInt32(kFSEventStreamEventFlagItemRemoved) != 0
+            ))
+        }
+
+        var outputs: [FileSystemMonitorOutput] = reasons.map { .reconcileRequired($0) }
+        if !events.isEmpty {
+            outputs.append(.events(events))
+        }
+        return outputs
+    }
+
     private func startPollingFallback() {
         var snapshot = Self.pollingSnapshot(paths: paths)
         let interval = max(latency, 0.1)
+
+        withState { self.degraded = true }
+        // Polling cannot see anything that happened before its first
+        // snapshot and its fidelity is coarser than FSEvents; tell the
+        // consumer to reconcile rather than trust incremental state.
+        let initialContinuation = withState { self.continuation }
+        initialContinuation?.yield(.reconcileRequired(.pollingGap))
 
         let task = Task { [weak self] in
             while !Task.isCancelled {
@@ -213,7 +309,7 @@ public final class FileSystemMonitor: @unchecked Sendable {
                 )
                 if !events.isEmpty {
                     let continuation = self.withState { self.continuation }
-                    continuation?.yield(events)
+                    continuation?.yield(.events(events))
                 }
                 snapshot = nextSnapshot
             }
@@ -221,9 +317,24 @@ public final class FileSystemMonitor: @unchecked Sendable {
         self.withState { self.pollingTask = task }
     }
 
+    /// Per-path identity snapshot used by the polling fallback. Size and
+    /// mtime let the diff detect in-place modifications, not just
+    /// additions and removals.
+    struct PollingStamp: Equatable, Sendable {
+        var isFile: Bool
+        var sizeBytes: Int64
+        var modifiedAt: TimeInterval
+
+        init(isFile: Bool, sizeBytes: Int64 = 0, modifiedAt: TimeInterval = 0) {
+            self.isFile = isFile
+            self.sizeBytes = sizeBytes
+            self.modifiedAt = modifiedAt
+        }
+    }
+
     static func pollingEvents(
-        previous: [String: Bool],
-        current: [String: Bool],
+        previous: [String: PollingStamp],
+        current: [String: PollingStamp],
         roots: [String] = []
     ) -> [FileSystemEvent] {
         let oldPaths = Set(previous.keys)
@@ -246,9 +357,24 @@ public final class FileSystemMonitor: @unchecked Sendable {
         for path in newPaths.subtracting(oldPaths).sorted() {
             events.append(FileSystemEvent(
                 path: path,
-                isFile: current[path, default: false],
+                isFile: current[path]?.isFile ?? false,
                 isCreated: true
             ))
+        }
+
+        // In-place modifications: same path in both snapshots but the
+        // size or mtime stamp changed. Only files — directory mtimes
+        // churn on every child change and would double-report.
+        for path in newPaths.intersection(oldPaths).sorted() {
+            guard let before = previous[path], let after = current[path] else { continue }
+            guard after.isFile, before.isFile else { continue }
+            if before.sizeBytes != after.sizeBytes || before.modifiedAt != after.modifiedAt {
+                events.append(FileSystemEvent(
+                    path: path,
+                    isFile: true,
+                    isModified: true
+                ))
+            }
         }
 
         for path in oldPaths.subtracting(newPaths).sorted() {
@@ -262,7 +388,7 @@ public final class FileSystemMonitor: @unchecked Sendable {
 
             events.append(FileSystemEvent(
                 path: path,
-                isFile: previous[path, default: false],
+                isFile: previous[path]?.isFile ?? false,
                 isRemoved: true
             ))
         }
@@ -270,10 +396,22 @@ public final class FileSystemMonitor: @unchecked Sendable {
         return events
     }
 
-    static func pollingSnapshot(paths: [String]) -> [String: Bool] {
-        var snapshot: [String: Bool] = [:]
+    static func pollingSnapshot(paths: [String]) -> [String: PollingStamp] {
+        var snapshot: [String: PollingStamp] = [:]
         let fileManager = FileManager.default
-        let resourceKeys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey]
+        let resourceKeys: [URLResourceKey] = [
+            .isRegularFileKey, .isDirectoryKey, .fileSizeKey, .contentModificationDateKey
+        ]
+
+        func stamp(for url: URL) -> PollingStamp {
+            let resourceValues = try? url.resourceValues(forKeys: Set(resourceKeys))
+            let isFile = resourceValues?.isRegularFile ?? false
+            return PollingStamp(
+                isFile: isFile,
+                sizeBytes: Int64(resourceValues?.fileSize ?? 0),
+                modifiedAt: resourceValues?.contentModificationDate?.timeIntervalSinceReferenceDate ?? 0
+            )
+        }
 
         for rootPath in paths {
             let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
@@ -282,7 +420,11 @@ public final class FileSystemMonitor: @unchecked Sendable {
                 continue
             }
 
-            snapshot[rootURL.path] = !isDirectory.boolValue
+            if isDirectory.boolValue {
+                snapshot[rootURL.path] = PollingStamp(isFile: false)
+            } else {
+                snapshot[rootURL.path] = stamp(for: URL(fileURLWithPath: rootPath))
+            }
 
             guard isDirectory.boolValue,
                   let enumerator = fileManager.enumerator(
@@ -295,8 +437,7 @@ public final class FileSystemMonitor: @unchecked Sendable {
             }
 
             for case let url as URL in enumerator {
-                let resourceValues = try? url.resourceValues(forKeys: Set(resourceKeys))
-                snapshot[url.path] = resourceValues?.isRegularFile ?? false
+                snapshot[url.path] = stamp(for: url)
             }
         }
 
@@ -315,6 +456,27 @@ private func fileSystemMonitorRetainCallback(_ ptr: UnsafeRawPointer?) -> Unsafe
 private func fileSystemMonitorReleaseCallback(_ ptr: UnsafeRawPointer?) {
     guard let ptr else { return }
     Unmanaged<FileSystemMonitor>.fromOpaque(ptr).release()
+}
+
+/// Why incremental event state can no longer be trusted and a full
+/// reconciliation scan is required.
+public enum FileSystemReconcileReason: Sendable, Equatable {
+    /// FSEvents reported kernel- or user-space event loss.
+    case droppedEvents
+    /// FSEvents coalesced a subtree; per-file fidelity was lost.
+    case mustScanSubDirs
+    /// The watched root itself moved or was renamed (WatchRoot).
+    case rootChanged
+    /// The polling fallback is active; it cannot observe changes that
+    /// happened before its first snapshot.
+    case pollingGap
+}
+
+/// One unit of monitor output: either a batch of per-file events, or a
+/// signal that the consumer must run a full reconciliation scan.
+public enum FileSystemMonitorOutput: Sendable {
+    case events([FileSystemEvent])
+    case reconcileRequired(FileSystemReconcileReason)
 }
 
 public struct FileSystemEvent: Sendable {

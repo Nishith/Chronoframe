@@ -75,6 +75,8 @@ MEANINGFUL_BASENAMES=(
     BookmarkPathResolver
     FileIdentityHasher
     FileSystemMonitor
+    WatchedSourceFreshness
+    WatchedSourceCheckpointDatabase
     EngineDomainModels
     BundleValidator
     OrganizerDatabase

@@ -763,6 +763,176 @@ extension SwiftOrganizerEngineIntegrationTests {
             atPath: destinationURL.appendingPathComponent("audit_receipt_directory.corrupt").path
         ))
     }
+
+    // MARK: - Source/destination disjointness preflight
+
+    @MainActor
+    private func makeEngine() -> SwiftOrganizerEngine {
+        SwiftOrganizerEngine(
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+    }
+
+    private func assertOverlapRejected(
+        _ error: Error,
+        _ expected: SourceDestinationDisjointness.Conflict,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard case let OrganizerEngineError.sourceOverlapsDestination(conflict) = error else {
+            XCTFail("Expected sourceOverlapsDestination, got \(error)", file: file, line: line)
+            return
+        }
+        XCTAssertEqual(conflict, expected, file: file, line: line)
+    }
+
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testPreflightRejectsSourceInsideDestination() async throws {
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        let sourceURL = destinationURL.appendingPathComponent("incoming", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+
+        do {
+            _ = try await makeEngine().preflight(
+                RunConfiguration(mode: .preview, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+            )
+            XCTFail("Preflight must reject a source inside the destination")
+        } catch {
+            assertOverlapRejected(error, .sourceInsideDestination)
+        }
+    }
+
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testPreflightRejectsDestinationInsideSource() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("photos", isDirectory: true)
+        let destinationURL = sourceURL.appendingPathComponent("organized", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        do {
+            _ = try await makeEngine().preflight(
+                RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+            )
+            XCTFail("Preflight must reject a destination inside the source")
+        } catch {
+            assertOverlapRejected(error, .destinationInsideSource)
+        }
+    }
+
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testPreflightRejectsEqualSourceAndDestination() async throws {
+        let folderURL = temporaryDirectoryURL.appendingPathComponent("same", isDirectory: true)
+        try FileManager.default.createDirectory(at: folderURL, withIntermediateDirectories: true)
+
+        do {
+            _ = try await makeEngine().preflight(
+                RunConfiguration(mode: .preview, sourcePath: folderURL.path, destinationPath: folderURL.path)
+            )
+            XCTFail("Preflight must reject source == destination")
+        } catch {
+            assertOverlapRejected(error, .sourceInsideDestination)
+        }
+    }
+
+    /// The guard runs at every engine entry point, not only preflight —
+    /// a destination that changed after folder selection cannot slip an
+    /// overlapping pair into `start` or `resume` (TOCTOU).
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testStartAndResumeRejectOverlapEvenWhenPreflightWasSkipped() throws {
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        let sourceURL = destinationURL.appendingPathComponent("incoming", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+
+        let configuration = RunConfiguration(
+            mode: .transfer,
+            sourcePath: sourceURL.path,
+            destinationPath: destinationURL.path
+        )
+        let engine = makeEngine()
+
+        XCTAssertThrowsError(try engine.start(configuration)) { error in
+            assertOverlapRejected(error, .sourceInsideDestination)
+        }
+        XCTAssertThrowsError(try engine.resume(configuration)) { error in
+            assertOverlapRejected(error, .sourceInsideDestination)
+        }
+    }
+
+    /// A symlinked alias of the destination (or a folder inside it) used
+    /// as the source must be caught: containment resolves existing
+    /// symlinks before comparing.
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testPreflightRejectsSymlinkedSourceAliasIntoDestination() async throws {
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        let insideURL = destinationURL.appendingPathComponent("2024", isDirectory: true)
+        try FileManager.default.createDirectory(at: insideURL, withIntermediateDirectories: true)
+        let aliasURL = temporaryDirectoryURL.appendingPathComponent("alias-source")
+        try FileManager.default.createSymbolicLink(at: aliasURL, withDestinationURL: insideURL)
+
+        do {
+            _ = try await makeEngine().preflight(
+                RunConfiguration(mode: .preview, sourcePath: aliasURL.path, destinationPath: destinationURL.path)
+            )
+            XCTFail("Preflight must reject a symlinked source alias inside the destination")
+        } catch {
+            assertOverlapRejected(error, .sourceInsideDestination)
+        }
+    }
+
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testPreflightAcceptsDisjointSiblingFolders() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let preflight = try await makeEngine().preflight(
+            RunConfiguration(mode: .preview, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        XCTAssertEqual(preflight.resolvedSourcePath, sourceURL.path)
+        XCTAssertEqual(preflight.resolvedDestinationPath, destinationURL.path)
+    }
+
+    /// A sibling folder whose name shares a prefix with the destination
+    /// ("dest" vs "dest-archive") must NOT be treated as overlapping —
+    /// containment is path-component-based, not string-prefix-based.
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testPreflightAcceptsSharedNamePrefixSiblings() async throws {
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("dest-archive", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let preflight = try await makeEngine().preflight(
+            RunConfiguration(mode: .preview, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        XCTAssertEqual(preflight.resolvedSourcePath, sourceURL.path)
+    }
+
+    /// The user-facing copy for overlap rejections must be plain,
+    /// actionable, and reassure that nothing was changed.
+    @MainActor
+    func testOverlapErrorCopyIsPlainAndReassuring() {
+        let sourceInside = OrganizerEngineError.sourceOverlapsDestination(.sourceInsideDestination)
+        let destinationInside = OrganizerEngineError.sourceOverlapsDestination(.destinationInsideSource)
+
+        let sourceText = sourceInside.errorDescription ?? ""
+        let destinationText = destinationInside.errorDescription ?? ""
+
+        XCTAssertTrue(sourceText.contains("inside the destination folder"))
+        XCTAssertTrue(sourceText.contains("No files were changed."))
+        XCTAssertTrue(destinationText.contains("inside the source folder"))
+        XCTAssertTrue(destinationText.contains("No files were changed."))
+    }
 }
 
 private final class TestProfilesRepository: ProfilesRepositorying {

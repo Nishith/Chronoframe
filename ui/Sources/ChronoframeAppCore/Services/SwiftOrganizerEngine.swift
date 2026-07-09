@@ -382,6 +382,17 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             throw OrganizerEngineError.destinationMissing
         }
 
+        // Overlapping roots are rejected at every entry point (preflight,
+        // start, resume) rather than only at selection time, so a
+        // destination that changed between choosing folders and running
+        // cannot slip an overlapping pair through (TOCTOU).
+        if let conflict = SourceDestinationDisjointness.conflict(
+            sourcePath: resolvedConfiguration.sourcePath,
+            destinationPath: resolvedConfiguration.destinationPath
+        ) {
+            throw OrganizerEngineError.sourceOverlapsDestination(conflict)
+        }
+
         return resolvedConfiguration
     }
 

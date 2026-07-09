@@ -19,6 +19,11 @@ final class MockOrganizerEngine: OrganizerEngine {
     var resumeMode: StreamMode
     var startConfigurations: [RunConfiguration] = []
     var resumeConfigurations: [RunConfiguration] = []
+    /// Configurations as passed INTO preflight — unlike
+    /// `startConfigurations` (which reflect the canned preflight result),
+    /// these record exactly what the caller requested. Watched-import
+    /// tests assert against them.
+    var preflightConfigurations: [RunConfiguration] = []
     var cancelCallCount = 0
     var pendingContinuation: AsyncThrowingStream<RunEvent, Error>.Continuation?
 
@@ -33,7 +38,8 @@ final class MockOrganizerEngine: OrganizerEngine {
     }
 
     func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight {
-        try preflightResult.get()
+        preflightConfigurations.append(configuration)
+        return try preflightResult.get()
     }
 
     func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
@@ -196,6 +202,17 @@ final class MockFolderAccessService: FolderAccessServicing {
     func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess {
         scopedAccessRequests.append(bookmarks.map(\.key))
         return SecurityScopedFolderAccess()
+    }
+
+    /// Bookmark keys whose security scope should report as failed-to-start
+    /// from `verifiedScopedAccess`. Watched-source tests use this to
+    /// distinguish "volume absent" from "access lost".
+    var scopeStartFailures: Set<String> = []
+
+    func verifiedScopedAccess(for bookmarks: [FolderBookmark]) -> ScopedAccessOutcome {
+        scopedAccessRequests.append(bookmarks.map(\.key))
+        let startedKeys = Set(bookmarks.map(\.key)).subtracting(scopeStartFailures)
+        return ScopedAccessOutcome(access: SecurityScopedFolderAccess(), startedKeys: startedKeys)
     }
 
     nonisolated func validateFolder(_ url: URL, role: FolderRole) throws {

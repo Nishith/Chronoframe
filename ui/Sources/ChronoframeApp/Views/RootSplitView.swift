@@ -110,6 +110,12 @@ struct RootSplitView: View {
             UITestScenario.configureCurrentWindow(for: UITestScenario.current())
             #endif
         }
+        .task {
+            // Post-launch async hook: watched-source activation does
+            // filesystem work (bookmark resolution, catch-up scans) and
+            // must never run inside AppState.init.
+            await appState.startWatchingSources()
+        }
     }
 
     @ViewBuilder

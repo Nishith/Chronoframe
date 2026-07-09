@@ -22,10 +22,12 @@ final class AppState: ObservableObject {
     var previewReviewStore: PreviewReviewStore
     var libraryHealthStore: LibraryHealthStore
     var deduplicateSessionStore: DeduplicateSessionStore
+    var watchedSourcesStore: WatchedSourcesStore
 
     private let folderAccessService: any FolderAccessServicing
     private let finderService: any FinderServicing
     private let profilesRepository: any ProfilesRepositorying
+    private let watchedSourcesRepository: any WatchedSourcesRepositorying
     private let droppedItemStager: DroppedItemStager
     private let showSettingsWindowAction: @MainActor () -> Void
     private lazy var bookmarkPathResolver = BookmarkPathResolver(
@@ -62,8 +64,57 @@ final class AppState: ObservableObject {
         },
         makeSecurityScope: { [weak self] _ in
             self?.organizeSecurityScope()
+        },
+        makeWatchedImportSecurityScope: { [weak self] context in
+            self?.watchedImportSecurityScope(for: context)
+        },
+        reportTransientError: { [weak self] message in
+            self?.transientErrorMessage = message
         }
     )
+    private lazy var sourceWatchCoordinator = makeSourceWatchCoordinator()
+
+    /// Built in a factory method with the closures as separate local
+    /// bindings: Swift 6.0.3's SILGen crashes (signal 10) emitting a
+    /// lazy-var getter whose initializer is one giant call expression
+    /// with this many inline closures.
+    private func makeSourceWatchCoordinator() -> SourceWatchCoordinator {
+        let deduplicateDestinationPath: @MainActor () -> String = { [weak self] in
+            self?.deduplicateDestinationPath ?? ""
+        }
+        let activeDestinationBookmarkKeys: @MainActor () -> [String] = { [weak self] in
+            self?.activeDestinationBookmarkKeys() ?? []
+        }
+        let startImportPreview: @MainActor (WatchedImportContext) async -> Void = { [weak self] context in
+            guard let self else { return }
+            guard !self.deduplicateSessionStore.isWorking else {
+                self.transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+                return
+            }
+            self.previewReviewStore.reset()
+            await self.runCoordinator.startPreview(importContext: context)
+        }
+        let invalidateImportContext: @MainActor () -> Void = { [weak self] in
+            self?.runCoordinator.invalidateWatchedImportContext()
+        }
+        let reportTransientError: @MainActor (String) -> Void = { [weak self] message in
+            self?.transientErrorMessage = message
+        }
+
+        return SourceWatchCoordinator(
+            store: watchedSourcesStore,
+            preferencesStore: preferencesStore,
+            setupStore: setupStore,
+            runSessionStore: runSessionStore,
+            folderAccessService: folderAccessService,
+            repository: watchedSourcesRepository,
+            deduplicateDestinationPath: deduplicateDestinationPath,
+            activeDestinationBookmarkKeys: activeDestinationBookmarkKeys,
+            startImportPreview: startImportPreview,
+            invalidateImportContext: invalidateImportContext,
+            reportTransientError: reportTransientError
+        )
+    }
     private lazy var historyCoordinator = HistoryCoordinator(
         preferencesStore: preferencesStore,
         setupStore: setupStore,
@@ -128,9 +179,11 @@ final class AppState: ObservableObject {
         previewReviewStore: PreviewReviewStore? = nil,
         libraryHealthStore: LibraryHealthStore? = nil,
         deduplicateSessionStore: DeduplicateSessionStore? = nil,
+        watchedSourcesStore: WatchedSourcesStore? = nil,
         folderAccessService: any FolderAccessServicing,
         finderService: any FinderServicing,
         profilesRepository: any ProfilesRepositorying,
+        watchedSourcesRepository: (any WatchedSourcesRepositorying)? = nil,
         droppedItemStager: DroppedItemStager = DroppedItemStager(),
         performInitialBootstrap: Bool = true,
         restoreBookmarksDuringBootstrap: Bool = true,
@@ -150,9 +203,11 @@ final class AppState: ObservableObject {
         self.previewReviewStore = previewReviewStore ?? PreviewReviewStore()
         self.libraryHealthStore = libraryHealthStore ?? LibraryHealthStore()
         self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine())
+        self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.folderAccessService = folderAccessService
         self.finderService = finderService
         self.profilesRepository = profilesRepository
+        self.watchedSourcesRepository = watchedSourcesRepository ?? WatchedSourcesRepository()
         self.droppedItemStager = droppedItemStager
         self.showSettingsWindowAction = showSettingsWindowAction
         self.previewReviewStore.setDestinationScopeProvider { [weak self] destinationRoot in
@@ -194,7 +249,16 @@ final class AppState: ObservableObject {
     }
 
     var canStartRun: Bool {
-        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
+        hasActiveWatchedImport
+            || setupStore.usingProfile
+            || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
+    }
+
+    /// True while a watched-source Review & Import flow is in flight;
+    /// the toolbar Transfer button stays enabled from the import context
+    /// even when Setup paths are empty.
+    var hasActiveWatchedImport: Bool {
+        runCoordinator.activeWatchedImportContext != nil
     }
 
     /// Single navigation entry point. Setting both sidebar selection and the
@@ -212,14 +276,17 @@ final class AppState: ObservableObject {
     }
 
     func chooseSourceFolder() async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.chooseSourceFolder()
     }
 
     func selectSourceFolder(_ url: URL) async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.selectSourceFolder(url)
     }
 
     func selectDestinationFolder(_ url: URL) async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.selectDestinationFolder(url)
     }
 
@@ -228,18 +295,22 @@ final class AppState: ObservableObject {
     /// a symlink directory so the existing pipeline can walk them. Falls
     /// back to `transientErrorMessage` on failure.
     func applyDrop(urls: [URL]) async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.applyDrop(urls: urls)
     }
 
     func chooseDestinationFolder() async {
+        runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.chooseDestinationFolder()
     }
 
     func useProfile(named name: String) {
+        runCoordinator.invalidateWatchedImportContext()
         setupCoordinator.useProfile(named: name)
     }
 
     func clearSelectedProfile() {
+        runCoordinator.invalidateWatchedImportContext()
         setupCoordinator.clearSelectedProfile()
     }
 
@@ -585,6 +656,16 @@ final class AppState: ObservableObject {
         scopedAccess(forKeys: activeOrganizeBookmarkKeys())
     }
 
+    /// Scope for a watched-source import: the context's own source
+    /// bookmark plus the destination bookmarks it captured. Setup,
+    /// profile, and manual bookmarks are deliberately not consulted.
+    private func watchedImportSecurityScope(for context: WatchedImportContext) -> SecurityScopedFolderAccess? {
+        let destinationBookmarks = context.destinationBookmarkKeys.compactMap {
+            preferencesStore.bookmark(for: $0)
+        }
+        return folderAccessService.scopedAccess(for: [context.sourceBookmark] + destinationBookmarks)
+    }
+
     private func deduplicateSecurityScope(destination: String) -> SecurityScopedFolderAccess? {
         if hasDedicatedDeduplicateDestinationPath {
             return scopedAccess(forKeys: [Self.deduplicateDestinationBookmarkKey])
@@ -637,7 +718,56 @@ final class AppState: ObservableObject {
     /// Repopulates the Setup view with a previously-used source path and switches to it.
     /// Clears any active profile selection so the manual source path takes effect.
     func useHistoricalSource(_ record: TransferredSourceRecord) {
+        runCoordinator.invalidateWatchedImportContext()
         historyCoordinator.useHistoricalSource(record)
+    }
+
+    // MARK: - Watched sources
+
+    /// Starts watching registered source folders. Called from the app's
+    /// post-launch async hook — never from init, which must not do
+    /// filesystem work. UI-test scenarios seed the store directly and
+    /// must not have it replaced by the real (empty) registry.
+    func startWatchingSources() async {
+        guard ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_SCENARIO"] == nil else { return }
+        await sourceWatchCoordinator.start()
+    }
+
+    func stopWatchingSources() {
+        sourceWatchCoordinator.stop()
+    }
+
+    func addWatchedSourceFolder() async {
+        await sourceWatchCoordinator.addSourceFolder()
+    }
+
+    func addWatchedSource(url: URL) async {
+        await sourceWatchCoordinator.addSource(url: url)
+    }
+
+    func removeWatchedSource(id: UUID) {
+        sourceWatchCoordinator.removeSource(id: id)
+    }
+
+    func refreshWatchedSources() {
+        sourceWatchCoordinator.refreshAll()
+    }
+
+    func ignoreWatchedSourceCurrentItems(id: UUID) async {
+        await sourceWatchCoordinator.ignoreCurrentItems(id: id)
+    }
+
+    func repickWatchedSource(id: UUID) async {
+        await sourceWatchCoordinator.repickSource(id: id)
+    }
+
+    func reviewAndImportWatchedSource(id: UUID) async {
+        await sourceWatchCoordinator.reviewAndImport(id: id)
+    }
+
+    func revealWatchedSource(id: UUID) {
+        guard let state = watchedSourcesStore.state(for: id) else { return }
+        finderService.revealInFinder(state.source.path)
     }
 
     func revealTransferredSource(_ record: TransferredSourceRecord) {
@@ -687,6 +817,13 @@ final class MenuBarStatusManager: NSObject {
                 self?.updateStatusItem()
             }
             .store(in: &cancellables)
+
+        appState.watchedSourcesStore.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.updateStatusItem()
+            }
+            .store(in: &cancellables)
     }
 
     private func updateStatusItem() {
@@ -731,6 +868,17 @@ final class MenuBarStatusManager: NSObject {
             let item = NSMenuItem(title: "Chronoframe is Idle", action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
+
+            let pendingEstimate = appState.watchedSourcesStore.totalPendingEstimate
+            if pendingEstimate > 0 {
+                let pendingItem = NSMenuItem(
+                    title: "New items in watched folders: \(pendingEstimate)",
+                    action: nil,
+                    keyEquivalent: ""
+                )
+                pendingItem.isEnabled = false
+                menu.addItem(pendingItem)
+            }
         }
 
         menu.addItem(NSMenuItem.separator())

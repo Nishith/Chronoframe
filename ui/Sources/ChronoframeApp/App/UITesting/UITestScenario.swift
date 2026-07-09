@@ -6,6 +6,7 @@ enum UITestScenario: String, CaseIterable {
     case setupReady
     case runPreviewReview
     case healthDashboard
+    case watchedSources
     case historyPopulated
     case profilesPopulated
     case settingsSections
@@ -53,7 +54,7 @@ enum UITestScenario: String, CaseIterable {
         switch self {
         case .historyPopulated:
             return NSSize(width: 1360, height: 1200)
-        case .setupIncompleteRun, .setupReady, .runPreviewReview, .healthDashboard, .profilesPopulated:
+        case .setupIncompleteRun, .setupReady, .runPreviewReview, .healthDashboard, .watchedSources, .profilesPopulated:
             return NSSize(width: 1360, height: 920)
         case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
             return NSSize(width: 1360, height: 920)

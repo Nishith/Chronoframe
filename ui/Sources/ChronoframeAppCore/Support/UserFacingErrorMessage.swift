@@ -10,11 +10,14 @@ public enum UserFacingErrorContext: Sendable {
     case profiles
     case run
     case history
+    case watchedSources
 
     fileprivate var fallbackMessage: String {
         switch self {
         case .generic:
             return String(localized: "Chronoframe ran into a problem. Try again.", bundle: Bundle.module)
+        case .watchedSources:
+            return String(localized: "Chronoframe could not update your watched folders. Check that the folder is available, then try again. No photos were touched.", bundle: Bundle.module)
         case .setup:
             return String(localized: "Chronoframe could not update Setup. Choose the folder again, or check that the drive is connected.", bundle: Bundle.module)
         case .droppedItems:
@@ -187,6 +190,10 @@ public enum UserFacingErrorMessage {
         case let error as DestinationBusyError:
             return error.errorDescription
         case let error as ReceiptPreflightError:
+            return error.errorDescription
+        case let error as WatchedSourceRegistrationError:
+            return error.errorDescription
+        case let error as WatchedSourceDatabaseError:
             return error.errorDescription
         default:
             return nil

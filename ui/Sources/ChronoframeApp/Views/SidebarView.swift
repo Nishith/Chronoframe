@@ -9,8 +9,10 @@ struct SidebarView: View {
     @ObservedObject private var historyStore: HistoryStore
     @ObservedObject private var runSessionStore: RunSessionStore
     @ObservedObject private var deduplicateSessionStore: DeduplicateSessionStore
+    @ObservedObject private var watchedSourcesStore: WatchedSourcesStore
     @AppStorage("lastSeenHistoryCount") private var lastSeenHistoryCount: Int = 0
     @AppStorage("lastSeenDeduplicateAttentionToken") private var lastSeenDeduplicateAttentionToken: String = ""
+    @AppStorage("lastSeenWatchedSourcesToken") private var lastSeenWatchedSourcesToken: String = ""
 
     init(appState: AppState) {
         self.appState = appState
@@ -18,6 +20,7 @@ struct SidebarView: View {
         self._historyStore = ObservedObject(wrappedValue: appState.historyStore)
         self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
         self._deduplicateSessionStore = ObservedObject(wrappedValue: appState.deduplicateSessionStore)
+        self._watchedSourcesStore = ObservedObject(wrappedValue: appState.watchedSourcesStore)
     }
 
     var body: some View {
@@ -57,10 +60,16 @@ struct SidebarView: View {
             if appState.selection == .organize && sub == .history {
                 lastSeenHistoryCount = historyStore.entries.count
             }
+            if appState.selection == .organize && sub == .sources {
+                markCurrentWatchedSourcesSeen()
+            }
         }
         .onChange(of: appState.selection) { _, selection in
             if selection == .organize && appState.organizeSubSelection == .history {
                 lastSeenHistoryCount = historyStore.entries.count
+            }
+            if selection == .organize && appState.organizeSubSelection == .sources {
+                markCurrentWatchedSourcesSeen()
             }
             if selection == .deduplicate {
                 markCurrentDeduplicateStatusSeen()
@@ -179,6 +188,10 @@ struct SidebarView: View {
             return runSessionStore.status == .failed
                 || runSessionStore.status == .dryRunFinished
                 || historyStore.entries.count > lastSeenHistoryCount
+                || Self.shouldShowWatchedSourcesDot(
+                    token: watchedSourcesStore.attentionToken,
+                    lastSeenToken: lastSeenWatchedSourcesToken
+                )
                 || appState.canStartRun
         case .deduplicate:
             return Self.shouldShowDeduplicateStatusDot(
@@ -202,6 +215,12 @@ struct SidebarView: View {
             if historyStore.entries.count > lastSeenHistoryCount {
                 return DesignTokens.ColorSystem.statusActive
             }
+            if Self.shouldShowWatchedSourcesDot(
+                token: watchedSourcesStore.attentionToken,
+                lastSeenToken: lastSeenWatchedSourcesToken
+            ) {
+                return DesignTokens.ColorSystem.statusActive
+            }
             return DesignTokens.ColorSystem.statusSuccess
         case .deduplicate:
             switch deduplicateSessionStore.status {
@@ -223,6 +242,10 @@ struct SidebarView: View {
         if let token = Self.deduplicateAttentionToken(for: deduplicateSessionStore.status) {
             lastSeenDeduplicateAttentionToken = token
         }
+    }
+
+    private func markCurrentWatchedSourcesSeen() {
+        lastSeenWatchedSourcesToken = watchedSourcesStore.attentionToken
     }
 
     private func refreshDeduplicateAttentionMarker() {
@@ -300,6 +323,14 @@ private struct LibraryAtAGlanceFooter: View {
 }
 
 extension SidebarView {
+    /// Watched-sources attention: the token is a join of per-source
+    /// persisted change generations, so a count that returns to a
+    /// previously-seen value (1 → 0 → 1) still differs from the stored
+    /// last-seen token. An empty token means nothing is pending.
+    static func shouldShowWatchedSourcesDot(token: String, lastSeenToken: String) -> Bool {
+        !token.isEmpty && token != lastSeenToken
+    }
+
     static func shouldShowDeduplicateStatusDot(
         status: DeduplicateSessionStore.Status,
         lastSeenToken: String

@@ -235,6 +235,16 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
+    "value": "Transfer Receipt",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Transfer Receipt"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
     "value": ".organize_logs/receipt.json",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for .organize_logs/receipt.json"

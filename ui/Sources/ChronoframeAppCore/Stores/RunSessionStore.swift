@@ -8,6 +8,42 @@ import UserNotifications
 import AppKit
 #endif
 
+/// Typed, once-per-run completion notice. Consumers that react to
+/// finished runs (watched-source checkpoint advancement, import-context
+/// cleanup) key off this record instead of correlating `$summary` with
+/// the mutable `lastPreflight` — the record snapshots the run's identity
+/// and resolved paths atomically at the moment it ends.
+public struct RunCompletionRecord: Equatable, Sendable {
+    /// Unique per accepted run request in this session.
+    public let runToken: UUID
+    public let mode: RunMode?
+    public let status: RunStatus
+    /// The resolved configuration the engine actually ran (nil for
+    /// revert/reorganize flows, which have no RunConfiguration).
+    public let configuration: RunConfiguration?
+    public let resolvedSourcePath: String?
+    public let resolvedDestinationPath: String?
+    public let finishedAt: Date
+
+    public init(
+        runToken: UUID,
+        mode: RunMode?,
+        status: RunStatus,
+        configuration: RunConfiguration?,
+        resolvedSourcePath: String?,
+        resolvedDestinationPath: String?,
+        finishedAt: Date
+    ) {
+        self.runToken = runToken
+        self.mode = mode
+        self.status = status
+        self.configuration = configuration
+        self.resolvedSourcePath = resolvedSourcePath
+        self.resolvedDestinationPath = resolvedDestinationPath
+        self.finishedAt = finishedAt
+    }
+}
+
 @MainActor
 public final class RunSessionStore: ObservableObject {
     @Published public private(set) var status: RunStatus
@@ -27,6 +63,14 @@ public final class RunSessionStore: ObservableObject {
     /// the Now-Copying card. `nil` outside of the copy phase or when the
     /// engine has not yet reported a file (e.g. between phases).
     @Published public private(set) var currentFileURL: URL?
+    /// Published exactly once per run, when it reaches a terminal state
+    /// (complete, failed, or cancelled mid-run). See `RunCompletionRecord`.
+    @Published public private(set) var lastRunCompletion: RunCompletionRecord?
+
+    /// Identifies the current accepted run request; snapshotted into
+    /// `RunCompletionRecord.runToken` so consumers can match a completion
+    /// to the request they initiated.
+    public private(set) var currentRunToken = UUID()
 
     private let engine: any OrganizerEngine
     private let logStore: RunLogStore
@@ -398,6 +442,7 @@ public final class RunSessionStore: ObservableObject {
                 metrics: metrics,
                 artifacts: artifacts
             )
+            publishRunCompletion(status: .cancelled)
         }
         // Phase 1: a pending confirm-prompt was previously left in
         // place when the user cancelled from the Run workspace, so the
@@ -424,6 +469,7 @@ public final class RunSessionStore: ObservableObject {
         streamTask?.cancel()
         streamTask = nil
         currentRunEpoch &+= 1
+        currentRunToken = UUID()
         preparedRun?.lease.release()
         preparedRun = nil
         directOperationLease?.release()
@@ -719,8 +765,27 @@ public final class RunSessionStore: ObservableObject {
                 self.closeSecurityScope()
             }
             logStore.append("Finished: \(finalSummary.title)")
+            publishRunCompletion(status: finalSummary.status)
             postRunCompletionNotification(summary: finalSummary)
         }
+    }
+
+    /// Reading `lastPreflight` here is safe (unlike external consumers
+    /// correlating it with `$summary` over time): `consume` and
+    /// `handleFailure` are epoch-guarded, so the preflight on hand
+    /// belongs to exactly the run that is terminating.
+    private func publishRunCompletion(status: RunStatus) {
+        let destinationRoot = artifacts.destinationRoot
+        lastRunCompletion = RunCompletionRecord(
+            runToken: currentRunToken,
+            mode: currentMode,
+            status: status,
+            configuration: lastPreflight?.configuration,
+            resolvedSourcePath: lastPreflight?.resolvedSourcePath,
+            resolvedDestinationPath: lastPreflight?.resolvedDestinationPath
+                ?? (destinationRoot.isEmpty ? nil : destinationRoot),
+            finishedAt: Date()
+        )
     }
 
     // MARK: - Run completion notifications
@@ -843,6 +908,7 @@ public final class RunSessionStore: ObservableObject {
             artifacts: artifacts,
             failureMessage: message
         )
+        publishRunCompletion(status: .failed)
         preparedRun?.lease.release()
         preparedRun = nil
         directOperationLease?.release()
