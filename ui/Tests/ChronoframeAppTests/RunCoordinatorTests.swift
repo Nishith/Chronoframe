@@ -357,10 +357,10 @@ final class RunCoordinatorTests: XCTestCase {
         let harness = AppStateHarness()
         harness.setupStore.destinationPath = "/tmp/photos-dest"
         var cleaned: [UUID] = []
-        let coordinator = makePhotosCoordinator(harness: harness) { context in
+        let coordinator = makePhotosCoordinator(harness: harness, cleanupPhotosStaging: { context in
             cleaned.append(context.importID)
             try? FileManager.default.removeItem(at: context.stagingDirectoryURL)
-        }
+        })
         let context = try makePhotosContext(destinationPath: "/tmp/photos-dest")
 
         await coordinator.startPreview(photosImportContext: context)
@@ -435,10 +435,10 @@ final class RunCoordinatorTests: XCTestCase {
         harness.setupStore.sourcePath = "/tmp/source"
         harness.setupStore.destinationPath = "/tmp/destination"
         var cleaned: [UUID] = []
-        let coordinator = makePhotosCoordinator(harness: harness) {
+        let coordinator = makePhotosCoordinator(harness: harness, cleanupPhotosStaging: {
             cleaned.append($0.importID)
             try? FileManager.default.removeItem(at: $0.stagingDirectoryURL)
-        }
+        })
         let context = try makePhotosContext(destinationPath: "/tmp/destination")
 
         await coordinator.startPreview(photosImportContext: context)
@@ -458,10 +458,10 @@ final class RunCoordinatorTests: XCTestCase {
         harness.setupStore.destinationPath = "/tmp/photos-dest"
         harness.engine.startMode = .fails(TestError())
         var cleaned: [UUID] = []
-        let coordinator = makePhotosCoordinator(harness: harness) {
+        let coordinator = makePhotosCoordinator(harness: harness, cleanupPhotosStaging: {
             cleaned.append($0.importID)
             try? FileManager.default.removeItem(at: $0.stagingDirectoryURL)
-        }
+        })
         let context = try makePhotosContext(destinationPath: "/tmp/photos-dest")
 
         await coordinator.startPreview(photosImportContext: context)

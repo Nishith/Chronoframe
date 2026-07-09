@@ -114,6 +114,14 @@ public struct PhotosExportExecutor {
 
         for entry in plan.entries {
             try throwIfCancelled(isCancelled)
+
+            // Export all of an asset's resources as a unit. Files are buffered
+            // and only published once every resource succeeds, so a partial
+            // failure — a Live Photo whose still writes but whose paired movie
+            // fails — rolls back the asset's files instead of handing the
+            // transfer pipeline an incomplete pair.
+            var assetFiles: [PhotosExportedFile] = []
+            var writtenURLs: [URL] = []
             do {
                 let resources = try await exporter.originalResources(forAssetID: entry.assetID)
                 guard !resources.isEmpty else {
@@ -135,7 +143,8 @@ public struct PhotosExportExecutor {
                     )
                     let destination = stagingDirectory.appendingPathComponent(filename)
                     try await exporter.writeResource(resource, to: destination)
-                    exported.append(
+                    writtenURLs.append(destination)
+                    assetFiles.append(
                         PhotosExportedFile(
                             assetID: entry.assetID,
                             stagingStem: entry.stagingStem,
@@ -143,9 +152,14 @@ public struct PhotosExportExecutor {
                         )
                     )
                 }
+                exported.append(contentsOf: assetFiles)
             } catch is CancellationError {
+                rollBack(writtenURLs)
                 throw CancellationError()
             } catch {
+                // A resource failed mid-asset: roll back what was written so an
+                // incomplete unit never reaches the transfer pipeline.
+                rollBack(writtenURLs)
                 failures.append(
                     PhotosAssetExportFailure(
                         assetID: entry.assetID,
@@ -156,6 +170,14 @@ public struct PhotosExportExecutor {
         }
 
         return PhotosExportReceipt(exportedFiles: exported, failures: failures)
+    }
+
+    /// Removes a partially-exported asset's staged files so an incomplete unit
+    /// never reaches the transfer pipeline.
+    private func rollBack(_ urls: [URL]) {
+        for url in urls {
+            try? FileManager.default.removeItem(at: url)
+        }
     }
 
     private func throwIfCancelled(_ isCancelled: @Sendable () -> Bool) throws {

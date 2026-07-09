@@ -21,6 +21,9 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
     var resourcesByAsset: [String: [PhotosExportableResource]]
     var listFailures: Set<String> = []
     var writeFailures: Set<String> = []
+    /// Fail the write for any resource whose extension is in this set — lets a
+    /// test fail one half of a multi-resource asset (e.g. a Live Photo movie).
+    var writeFailureExtensions: Set<String> = []
 
     init(resourcesByAsset: [String: [PhotosExportableResource]]) {
         self.resourcesByAsset = resourcesByAsset
@@ -34,7 +37,9 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
 
     func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
         calls.append(Call(kind: .write, assetID: resource.assetID))
-        if writeFailures.contains(resource.assetID) { throw ExporterTestError.boom }
+        if writeFailures.contains(resource.assetID) || writeFailureExtensions.contains(resource.fileExtension) {
+            throw ExporterTestError.boom
+        }
         try Data("bytes:\(resource.fileExtension)".utf8).write(to: destinationURL)
     }
 }
@@ -122,6 +127,23 @@ final class PhotosExportExecutorTests: XCTestCase {
 
         XCTAssertEqual(receipt.failures.map(\.assetID), ["a"])
         XCTAssertTrue(receipt.isEmpty)
+    }
+
+    func testLivePhotoPartialWriteRollsBackWholeAsset() async throws {
+        // The still writes, the paired movie fails: the asset must be rolled
+        // back so the transfer pipeline never sees a half-exported Live Photo.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "live": [resource("live", index: 0, ext: "heic"), resource("live", index: 1, ext: "mov")],
+            "ok": [resource("ok", index: 0, ext: "jpg")],
+        ])
+        exporter.writeFailureExtensions = ["mov"]
+        let plan = PhotosExportPlan(entries: [entry("live", stem: "IMG_0001"), entry("ok", stem: "OK")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+
+        XCTAssertEqual(receipt.failures.map(\.assetID), ["live"], "The Live Photo is a failure")
+        XCTAssertEqual(receipt.exportedAssetIDs, ["ok"], "Only the complete asset is published")
+        XCTAssertEqual(try stagedNames(), ["OK.jpg"], "The already-written still is rolled back from staging")
     }
 
     func testNormalizesExtensionCaseAndLeadingDot() async throws {
