@@ -32,6 +32,8 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Nishith Nand. All rights reserved.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Chronoframe reads your Photos library only to import copies of the photos and videos you choose into your organized destination. It never changes, moves, or deletes anything in your Photos library.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSQuitAlwaysKeepsWindows</key>
