@@ -106,7 +106,10 @@ final class SourceWatchCoordinatorTests: XCTestCase {
             checkpoints[id] = nil
         }
 
+        var replacePathFailure: Error?
+
         func replaceSourcePath(id: UUID, newPath: String, clearCheckpoint: Bool) throws {
+            if let replacePathFailure { throw replacePathFailure }
             guard let index = sources.firstIndex(where: { $0.id == id }) else {
                 throw WatchedSourceDatabaseError.sourceNotFound(id)
             }
@@ -227,6 +230,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
             let source = WatchedSource(path: sourceURL.path, label: "watched-src")
 
             appHarness.setupStore.destinationPath = destinationPath
+            appHarness.preferencesStore.lastDeduplicateDestinationPath = dedupeDestinationPath
             if registerSource {
                 repository.sources = [source]
                 repository.checkpoints[source.id] = [:]
@@ -247,6 +251,32 @@ final class SourceWatchCoordinatorTests: XCTestCase {
             self.sourceURL = sourceURL
             self.source = source
 
+            // Closures as separate locals: Swift 6.0.3 SILGen crashes on
+            // one giant call expression with this many inline closures
+            // (same workaround as AppState.makeSourceWatchCoordinator).
+            let scheduler = WatchedScanScheduler(
+                configuration: .init(maxConcurrent: 1, debounce: 0, backoffSteps: []),
+                sleeper: { _ in }
+            )
+            let preferencesStore = appHarness.preferencesStore
+            let makeMonitor: @MainActor (String) -> any FileSystemMonitoring = { _ in monitor }
+            let runScan: @Sendable (URL, Date) throws -> WatchedScanResult = { url, now in
+                try scanScript.run(url: url, now: now)
+            }
+            let deduplicateDestinationPath: @MainActor () -> String = {
+                preferencesStore.lastDeduplicateDestinationPath
+            }
+            let activeDestinationBookmarkKeys: @MainActor () -> [String] = { ["manual.destination"] }
+            let startImportPreview: @MainActor (WatchedImportContext) async -> Void = { context in
+                contexts.contexts.append(context)
+            }
+            let invalidateImportContext: @MainActor () -> Void = {
+                contexts.invalidations += 1
+            }
+            let reportTransientError: @MainActor (String) -> Void = { message in
+                errors.messages.append(message)
+            }
+
             self.coordinator = SourceWatchCoordinator(
                 store: store,
                 preferencesStore: appHarness.preferencesStore,
@@ -254,23 +284,14 @@ final class SourceWatchCoordinatorTests: XCTestCase {
                 runSessionStore: appHarness.runSessionStore,
                 folderAccessService: appHarness.folderAccessService,
                 repository: repository,
-                scheduler: WatchedScanScheduler(
-                    configuration: .init(maxConcurrent: 1, debounce: 0, backoffSteps: []),
-                    sleeper: { _ in }
-                ),
-                makeMonitor: { _ in monitor },
-                runScan: { url, now in try scanScript.run(url: url, now: now) },
-                deduplicateDestinationPath: { dedupeDestinationPath },
-                activeDestinationBookmarkKeys: { ["manual.destination"] },
-                startImportPreview: { context in
-                    contexts.contexts.append(context)
-                },
-                invalidateImportContext: {
-                    contexts.invalidations += 1
-                },
-                reportTransientError: { message in
-                    errors.messages.append(message)
-                },
+                scheduler: scheduler,
+                makeMonitor: makeMonitor,
+                runScan: runScan,
+                deduplicateDestinationPath: deduplicateDestinationPath,
+                activeDestinationBookmarkKeys: activeDestinationBookmarkKeys,
+                startImportPreview: startImportPreview,
+                invalidateImportContext: invalidateImportContext,
+                reportTransientError: reportTransientError,
                 workspaceNotificationCenter: workspaceCenter
             )
         }
@@ -809,6 +830,107 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         XCTAssertTrue(regained)
         XCTAssertNotEqual(harness.store.attentionToken, firstToken,
                           "1 → 0 → 1 must produce NEW attention")
+        harness.coordinator.stop()
+    }
+
+    /// A quarantined (corrupt) store must not lose the user's watched
+    /// folders: registry rows are rebuilt from the surviving bookmarks,
+    /// and the orphan sweep must not delete them.
+    func testQuarantineRebuildsRegistryFromBookmarksInsteadOfSweepingThem() async {
+        let script = ScanScript(results: [completeScan([:])])
+        let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
+        // Simulate the post-quarantine state: bookmarks survive, the
+        // replacement database is empty.
+        harness.repository.didQuarantineCorruptStore = true
+        harness.repository.sources = []
+        harness.repository.checkpoints = [:]
+
+        await harness.coordinator.start()
+
+        let key = SourceWatchCoordinator.bookmarkKey(for: harness.source.id)
+        XCTAssertNotNil(harness.appHarness.preferencesStore.bookmark(for: key),
+                        "The surviving bookmark must not be swept as an orphan")
+        XCTAssertEqual(harness.repository.sources.map(\.id), [harness.source.id],
+                       "The registry row is rebuilt from the bookmark")
+        XCTAssertEqual(harness.store.states.map(\.id), [harness.source.id])
+        let watching = await waitForCondition {
+            harness.store.state(for: harness.source.id)?.availability == .available
+        }
+        XCTAssertTrue(watching, "The rebuilt source resumes watching")
+        harness.coordinator.stop()
+    }
+
+    /// A WatchRoot root-change whose path no longer exists is an eject
+    /// or delete — the source must go .unavailable (retryable), not stay
+    /// .available behind a "couldn't fully check" flag.
+    func testRootChangedWithMissingPathMarksUnavailable() async {
+        let script = ScanScript(results: [completeScan([:])])
+        let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
+
+        await harness.coordinator.start()
+        _ = await waitForCondition { harness.store.state(for: harness.source.id)?.pendingEstimate == 0 }
+
+        try? FileManager.default.removeItem(at: harness.sourceURL)
+        harness.monitor.send(.reconcileRequired(.rootChanged))
+
+        let offline = await waitForCondition {
+            harness.store.state(for: harness.source.id)?.availability == .unavailable
+        }
+        XCTAssertTrue(offline)
+        XCTAssertTrue(harness.monitor.stopped)
+        harness.coordinator.stop()
+    }
+
+    /// If the registry update fails during re-pick, the just-stored
+    /// bookmark must roll back so bookmark and registry never diverge.
+    func testRepickRollsBackBookmarkWhenRegistryUpdateFails() async {
+        struct DBError: Error {}
+        let script = ScanScript(results: [completeScan([:])])
+        let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
+
+        await harness.coordinator.start()
+        _ = await waitForCondition { harness.store.state(for: harness.source.id)?.availability == .available }
+
+        let newFolder = temporaryDirectoryURL.appendingPathComponent("repicked", isDirectory: true)
+        try? FileManager.default.createDirectory(at: newFolder, withIntermediateDirectories: true)
+        harness.appHarness.folderAccessService.nextChosenFolder = newFolder
+        harness.repository.replacePathFailure = DBError()
+
+        await harness.coordinator.repickSource(id: harness.source.id)
+
+        let key = SourceWatchCoordinator.bookmarkKey(for: harness.source.id)
+        XCTAssertEqual(
+            harness.appHarness.preferencesStore.bookmark(for: key)?.path,
+            harness.sourceURL.path,
+            "The old bookmark must be restored when the registry write fails"
+        )
+        XCTAssertEqual(harness.repository.sources.first?.path, harness.sourceURL.path)
+        XCTAssertEqual(harness.reportedErrors.messages.count, 1)
+        harness.coordinator.stop()
+    }
+
+    /// Choosing a dedicated Deduplicate folder that overlaps a watched
+    /// source must pause it, exactly like an Organize destination change.
+    func testDedupeDestinationChangeSuspendsConflictingSource() async {
+        let script = ScanScript(results: [completeScan([:])])
+        let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
+
+        await harness.coordinator.start()
+        _ = await waitForCondition { harness.store.state(for: harness.source.id)?.availability == .available }
+
+        harness.appHarness.preferencesStore.lastDeduplicateDestinationPath =
+            harness.sourceURL.appendingPathComponent("dedupe-workspace").path
+
+        let paused = await waitForCondition {
+            harness.store.state(for: harness.source.id)?.availability == .pausedConflict
+        }
+        XCTAssertTrue(paused)
+
+        harness.appHarness.preferencesStore.lastDeduplicateDestinationPath = ""
+        let restored = await waitForCondition {
+            harness.store.state(for: harness.source.id)?.availability == .available
+        }
+        XCTAssertTrue(restored)
         harness.coordinator.stop()
     }
 

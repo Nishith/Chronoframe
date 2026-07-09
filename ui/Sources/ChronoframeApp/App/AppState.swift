@@ -72,20 +72,20 @@ final class AppState: ObservableObject {
             self?.transientErrorMessage = message
         }
     )
-    private lazy var sourceWatchCoordinator = SourceWatchCoordinator(
-        store: watchedSourcesStore,
-        preferencesStore: preferencesStore,
-        setupStore: setupStore,
-        runSessionStore: runSessionStore,
-        folderAccessService: folderAccessService,
-        repository: watchedSourcesRepository,
-        deduplicateDestinationPath: { [weak self] in
+    private lazy var sourceWatchCoordinator = makeSourceWatchCoordinator()
+
+    /// Built in a factory method with the closures as separate local
+    /// bindings: Swift 6.0.3's SILGen crashes (signal 10) emitting a
+    /// lazy-var getter whose initializer is one giant call expression
+    /// with this many inline closures.
+    private func makeSourceWatchCoordinator() -> SourceWatchCoordinator {
+        let deduplicateDestinationPath: @MainActor () -> String = { [weak self] in
             self?.deduplicateDestinationPath ?? ""
-        },
-        activeDestinationBookmarkKeys: { [weak self] in
+        }
+        let activeDestinationBookmarkKeys: @MainActor () -> [String] = { [weak self] in
             self?.activeDestinationBookmarkKeys() ?? []
-        },
-        startImportPreview: { [weak self] context in
+        }
+        let startImportPreview: @MainActor (WatchedImportContext) async -> Void = { [weak self] context in
             guard let self else { return }
             guard !self.deduplicateSessionStore.isWorking else {
                 self.transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
@@ -93,14 +93,28 @@ final class AppState: ObservableObject {
             }
             self.previewReviewStore.reset()
             await self.runCoordinator.startPreview(importContext: context)
-        },
-        invalidateImportContext: { [weak self] in
+        }
+        let invalidateImportContext: @MainActor () -> Void = { [weak self] in
             self?.runCoordinator.invalidateWatchedImportContext()
-        },
-        reportTransientError: { [weak self] message in
+        }
+        let reportTransientError: @MainActor (String) -> Void = { [weak self] message in
             self?.transientErrorMessage = message
         }
-    )
+
+        return SourceWatchCoordinator(
+            store: watchedSourcesStore,
+            preferencesStore: preferencesStore,
+            setupStore: setupStore,
+            runSessionStore: runSessionStore,
+            folderAccessService: folderAccessService,
+            repository: watchedSourcesRepository,
+            deduplicateDestinationPath: deduplicateDestinationPath,
+            activeDestinationBookmarkKeys: activeDestinationBookmarkKeys,
+            startImportPreview: startImportPreview,
+            invalidateImportContext: invalidateImportContext,
+            reportTransientError: reportTransientError
+        )
+    }
     private lazy var historyCoordinator = HistoryCoordinator(
         preferencesStore: preferencesStore,
         setupStore: setupStore,

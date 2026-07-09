@@ -116,7 +116,7 @@ final class SourceWatchCoordinator {
         guard !started else { return }
         started = true
 
-        let sources: [WatchedSource]
+        var sources: [WatchedSource]
         do {
             sources = try repository.loadSources()
         } catch {
@@ -127,6 +127,11 @@ final class SourceWatchCoordinator {
             store.setStoreNotice(
                 "Chronoframe's watched-folders records were damaged and had to be rebuilt. Your folders are still watched, but each needs a fresh check — counts may take a moment to reappear. No photos were touched."
             )
+            // The replacement database starts empty, but the sandbox
+            // bookmarks survive — rebuild registry rows from them so a
+            // corrupt store cannot silently lose the user's watched
+            // folders (and so the sweep below has real IDs to keep).
+            sources = rebuildRegistryFromBookmarks(existing: sources)
         }
         store.load(sources)
         sweepOrphanedBookmarks(validIDs: Set(sources.map(\.id)))
@@ -155,6 +160,18 @@ final class SourceWatchCoordinator {
         // for sources that now overlap and resumes when the conflict
         // clears.
         setupStore.$destinationPath
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.revalidateConflicts()
+                }
+            }
+            .store(in: &cancellables)
+
+        // The conflict check also covers the dedicated Deduplicate
+        // folder; picking or clearing it must revalidate too.
+        preferencesStore.$lastDeduplicateDestinationPath
             .removeDuplicates()
             .dropFirst()
             .sink { [weak self] _ in
@@ -206,6 +223,35 @@ final class SourceWatchCoordinator {
             }
         }
         workspaceObservers = [mountObserver, unmountObserver]
+    }
+
+    /// Recreates registry rows for surviving `watched.` bookmarks after
+    /// a store quarantine. Checkpoints start empty, so everything in the
+    /// folder counts as pending — the conservative direction.
+    private func rebuildRegistryFromBookmarks(existing: [WatchedSource]) -> [WatchedSource] {
+        var sources = existing
+        var knownIDs = Set(existing.map(\.id))
+        for key in preferencesStore.bookmarkKeys(withPrefix: "watched.") {
+            let components = key.split(separator: ".")
+            guard components.count == 3,
+                  let id = UUID(uuidString: String(components[1])),
+                  !knownIDs.contains(id),
+                  let bookmark = preferencesStore.bookmark(for: key)
+            else { continue }
+            let source = WatchedSource(
+                id: id,
+                path: bookmark.path,
+                label: URL(fileURLWithPath: bookmark.path).lastPathComponent
+            )
+            do {
+                try repository.addSource(source, initialCheckpoint: [:])
+            } catch {
+                continue
+            }
+            sources.append(source)
+            knownIDs.insert(id)
+        }
+        return sources
     }
 
     /// Bookmarks under `watched.` whose source id is no longer in the
@@ -317,9 +363,18 @@ final class SourceWatchCoordinator {
 
     private func handleMonitorOutput(_ output: FileSystemMonitorOutput, sourceID id: UUID, rootPath: String) {
         switch output {
-        case .reconcileRequired:
-            // Dropped events, subtree coalescing, root changes, polling
-            // gaps: incremental state is untrustworthy. Full scan.
+        case .reconcileRequired(let reason):
+            // A root change whose path no longer exists is an eject or
+            // delete, not something a rescan can reconcile — treat it
+            // like the removal branch below.
+            if reason == .rootChanged, !FileManager.default.fileExists(atPath: rootPath) {
+                deactivate(sourceID: id, keepStoreEntry: true)
+                store.setAvailability(id: id, .unavailable)
+                return
+            }
+            // Dropped events, subtree coalescing, surviving root
+            // changes, polling gaps: incremental state is
+            // untrustworthy. Full scan.
             watchStates[id]?.scanGeneration &+= 1
             if let monitor = watchStates[id]?.monitor {
                 store.setDegradedWatch(id: id, monitor.isDegraded)
@@ -423,10 +478,16 @@ final class SourceWatchCoordinator {
 
         guard let currentState = watchStates[id], currentState.revision == revision else { return }
         guard let result else {
-            // The scan itself failed (tree unreadable / root vanished
-            // mid-walk). Never pretend to be caught up: keep the previous
-            // estimate and flag the check as incomplete.
-            store.markPartialScan(id: id)
+            // The scan itself failed. A vanished root is an eject or
+            // delete — retryable, not "partially checked". Anything else
+            // keeps the previous estimate and flags the incomplete check;
+            // never pretend to be caught up.
+            if !FileManager.default.fileExists(atPath: state.source.path) {
+                deactivate(sourceID: id, keepStoreEntry: true)
+                store.setAvailability(id: id, .unavailable)
+            } else {
+                store.markPartialScan(id: id)
+            }
             return
         }
 
@@ -659,10 +720,18 @@ final class SourceWatchCoordinator {
 
         let pathChanged = URL(fileURLWithPath: state.source.path).standardizedFileURL.path
             != url.standardizedFileURL.path
+        // Keep the old bookmark recoverable: if the registry update
+        // fails, restore it so bookmark and registry never diverge.
+        let previousBookmark = preferencesStore.bookmark(for: key)
         preferencesStore.storeBookmark(bookmark)
         do {
             try repository.replaceSourcePath(id: id, newPath: url.path, clearCheckpoint: pathChanged)
         } catch {
+            if let previousBookmark {
+                preferencesStore.storeBookmark(previousBookmark)
+            } else {
+                preferencesStore.removeBookmark(for: key)
+            }
             reportTransientError(UserFacingErrorMessage.message(for: error, context: .watchedSources))
             return
         }
