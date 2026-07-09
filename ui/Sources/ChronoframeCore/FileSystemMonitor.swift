@@ -163,6 +163,12 @@ public final class FileSystemMonitor: @unchecked Sendable {
     /// when `FSEventStreamCreate` returned nil so the caller can start
     /// the polling fallback in its place.
     private func setupFSEvents() -> Bool {
+        // Keep this @convention(c) closure minimal: extract plain
+        // Sendable values and hand off to an instance method. Swift
+        // 6.0.3's TransferNonSendable region analysis crashes (signal 6,
+        // Partition::merge abort) when richer logic lives inside the C
+        // callback, so classification and yielding happen in
+        // `handleCallbackBatch` instead.
         let callback: FSEventStreamCallback = { _, clientInfo, numEvents, eventPaths, eventFlags, _ in
             guard let clientInfo else { return }
             // `takeUnretainedValue` is safe: the retain callback below
@@ -174,23 +180,8 @@ public final class FileSystemMonitor: @unchecked Sendable {
                 return
             }
 
-            let flagsBuffer = UnsafeBufferPointer(start: eventFlags, count: numEvents)
-            let outputs = Self.outputs(
-                eventPaths: paths,
-                eventFlags: Array(flagsBuffer)
-            )
-
-            if !outputs.isEmpty {
-                // Snapshot the continuation under `stateLock` so we
-                // never race the assignment in `start()` or the nil-out
-                // in `stop()`. Yielding is done outside the lock — yield
-                // itself is documented thread-safe and we don't want to
-                // hold `stateLock` across a callback into consumer code.
-                let continuation = monitor.withState { monitor.continuation }
-                for output in outputs {
-                    continuation?.yield(output)
-                }
-            }
+            let flags = Array(UnsafeBufferPointer(start: eventFlags, count: numEvents))
+            monitor.handleCallbackBatch(eventPaths: paths, eventFlags: flags)
         }
 
         var context = FSEventStreamContext(
@@ -224,6 +215,22 @@ public final class FileSystemMonitor: @unchecked Sendable {
         FSEventStreamSetDispatchQueue(stream, self.queue)
         FSEventStreamStart(stream)
         return true
+    }
+
+    /// Classifies one FSEvents batch and yields the outputs. Called from
+    /// the C callback on the FSEvents dispatch queue.
+    private func handleCallbackBatch(eventPaths: [String], eventFlags: [UInt32]) {
+        let outputs = Self.outputs(eventPaths: eventPaths, eventFlags: eventFlags)
+        guard !outputs.isEmpty else { return }
+        // Snapshot the continuation under `stateLock` so we never race
+        // the assignment in `start()` or the nil-out in `stop()`.
+        // Yielding is done outside the lock — yield itself is documented
+        // thread-safe and we don't want to hold `stateLock` across a
+        // callback into consumer code.
+        let continuation = withState { self.continuation }
+        for output in outputs {
+            continuation?.yield(output)
+        }
     }
 
     /// Pure classification of one FSEvents callback batch into stream
