@@ -286,17 +286,9 @@ enum UITestAppStateFactory {
             PhotosAlbumSummary(id: "album-favorites", title: "Favorites", kind: .smartAlbum, approximateCount: 2),
         ]
         let base = Date(timeIntervalSince1970: 1_717_000_000)
-        let assets = (0..<6).map { index in
-            PhotosAssetSummary(
-                id: "sample-asset-\(index)",
-                mediaKind: index % 3 == 0 ? .video : .photo,
-                creationDate: base.addingTimeInterval(Double(index) * -3600),
-                pixelWidth: 4032,
-                pixelHeight: 3024,
-                originalFilename: "IMG_\(1000 + index).HEIC",
-                isFavorite: index == 1,
-                isCloudStoredOnly: index == 4
-            )
+        var assets: [PhotosAssetSummary] = []
+        for index in 0..<6 {
+            assets.append(samplePhotosAsset(index: index, base: base))
         }
         let store = PhotosImportStore(
             access: SamplePhotosLibraryAccess(),
@@ -308,6 +300,26 @@ enum UITestAppStateFactory {
         store.loadAlbumsIfAuthorized()
         store.toggleSelection("sample-asset-1")
         return store
+    }
+
+    // Built in a helper with explicitly-typed locals: a `.map` closure with an
+    // inline ternary, string interpolation, and Date arithmetic inside the
+    // `PhotosAssetSummary` initializer overwhelms the Swift type-checker.
+    private static func samplePhotosAsset(index: Int, base: Date) -> PhotosAssetSummary {
+        let kind: PhotosAssetSummary.MediaKind = index % 3 == 0 ? .video : .photo
+        let offset: Double = Double(index) * -3600.0
+        let created: Date = base.addingTimeInterval(offset)
+        let filename: String = "IMG_\(1000 + index).HEIC"
+        return PhotosAssetSummary(
+            id: "sample-asset-\(index)",
+            mediaKind: kind,
+            creationDate: created,
+            pixelWidth: 4032,
+            pixelHeight: 3024,
+            originalFilename: filename,
+            isFavorite: index == 1,
+            isCloudStoredOnly: index == 4
+        )
     }
 
     /// Seeded Sources tab: one folder with pending arrivals, one caught
