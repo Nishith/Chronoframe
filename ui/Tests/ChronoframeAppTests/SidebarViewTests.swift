@@ -58,4 +58,18 @@ final class SidebarViewTests: XCTestCase {
             currentToken: ""
         ), "completed")
     }
+
+    /// The watched-sources token is generation-based: repeated counts
+    /// with a bumped generation must re-alert, and an already-seen token
+    /// must not.
+    func testWatchedSourcesDotShowsOnlyForUnseenTokens() {
+        XCTAssertFalse(SidebarView.shouldShowWatchedSourcesDot(token: "", lastSeenToken: ""),
+                       "Nothing pending — nothing to point at")
+        XCTAssertFalse(SidebarView.shouldShowWatchedSourcesDot(token: "", lastSeenToken: "id:1"))
+
+        XCTAssertTrue(SidebarView.shouldShowWatchedSourcesDot(token: "id:1", lastSeenToken: ""))
+        XCTAssertFalse(SidebarView.shouldShowWatchedSourcesDot(token: "id:1", lastSeenToken: "id:1"))
+        XCTAssertTrue(SidebarView.shouldShowWatchedSourcesDot(token: "id:2", lastSeenToken: "id:1"),
+                      "A bumped generation is new attention even at the same count")
+    }
 }

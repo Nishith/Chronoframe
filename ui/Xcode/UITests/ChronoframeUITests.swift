@@ -8,6 +8,7 @@ final class ChronoframeUITests: XCTestCase {
         case setupReady
         case runPreviewReview
         case healthDashboard
+        case watchedSources
         case historyPopulated
         case profilesPopulated
         case settingsSections
@@ -874,6 +875,9 @@ final class ChronoframeUITests: XCTestCase {
         case .healthDashboard:
             return app.staticTexts["Library Health"].waitForExistence(timeout: 5)
                 && button(identifier: "refreshLibraryHealthButton", in: app).waitForExistence(timeout: 5)
+        case .watchedSources:
+            return app.staticTexts["Watched Folders"].waitForExistence(timeout: 5)
+                && button(identifier: "watchedSourcesAddButton", in: app).waitForExistence(timeout: 5)
         case .historyPopulated:
             return button(identifier: "useHistoricalSourceButton", in: app).waitForExistence(timeout: 5)
         case .profilesPopulated:
@@ -1346,6 +1350,8 @@ final class ChronoframeUITests: XCTestCase {
             return nil
         case .healthDashboard:
             return "Library Health"
+        case .watchedSources:
+            return "Watched Folders"
         case .historyPopulated:
             return nil
         case .profilesPopulated,
@@ -1368,6 +1374,8 @@ final class ChronoframeUITests: XCTestCase {
             return "organizeTab.run"
         case .healthDashboard:
             return "organizeTab.health"
+        case .watchedSources:
+            return "organizeTab.sources"
         case .historyPopulated:
             return "organizeTab.history"
         case .profilesPopulated,

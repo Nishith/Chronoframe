@@ -712,8 +712,10 @@ final class AppState: ObservableObject {
 
     /// Starts watching registered source folders. Called from the app's
     /// post-launch async hook — never from init, which must not do
-    /// filesystem work.
+    /// filesystem work. UI-test scenarios seed the store directly and
+    /// must not have it replaced by the real (empty) registry.
     func startWatchingSources() async {
+        guard ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_SCENARIO"] == nil else { return }
         await sourceWatchCoordinator.start()
     }
 
@@ -747,6 +749,11 @@ final class AppState: ObservableObject {
 
     func reviewAndImportWatchedSource(id: UUID) async {
         await sourceWatchCoordinator.reviewAndImport(id: id)
+    }
+
+    func revealWatchedSource(id: UUID) {
+        guard let state = watchedSourcesStore.state(for: id) else { return }
+        finderService.revealInFinder(state.source.path)
     }
 
     func revealTransferredSource(_ record: TransferredSourceRecord) {

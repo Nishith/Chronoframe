@@ -24,6 +24,7 @@ enum UITestAppStateFactory {
         let engine: MockOrganizerEngine
         let route: AppRoute
         var deduplicateSessionStore: DeduplicateSessionStore? = nil
+        var watchedSourcesStore: WatchedSourcesStore? = nil
 
         switch scenario {
         case .setupIncompleteRun:
@@ -51,6 +52,13 @@ enum UITestAppStateFactory {
             historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
             engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
             route = .organize(.health)
+
+        case .watchedSources:
+            setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
+            historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
+            engine = previewReviewEngine(sourcePath: "/Volumes/Card/April Session", destinationPath: setupStore.destinationPath)
+            watchedSourcesStore = sampleWatchedSourcesStore()
+            route = .organize(.sources)
 
         case .historyPopulated:
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
@@ -114,6 +122,7 @@ enum UITestAppStateFactory {
             historyStore: historyStore,
             runSessionStore: runSessionStore,
             deduplicateSessionStore: deduplicateSessionStore,
+            watchedSourcesStore: watchedSourcesStore,
             folderAccessService: folderAccessService,
             finderService: finderService,
             profilesRepository: repository,
@@ -257,6 +266,38 @@ enum UITestAppStateFactory {
                 destinationPath: "/Volumes/Archive/Studio"
             ),
         ]
+    }
+
+    /// Seeded Sources tab: one folder with pending arrivals, one caught
+    /// up, one offline — covers the row states the accessibility audit
+    /// should exercise.
+    private static func sampleWatchedSourcesStore() -> WatchedSourcesStore {
+        let store = WatchedSourcesStore()
+        let phoneSync = WatchedSource(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000101") ?? UUID(),
+            path: "/Users/scout/Pictures/Phone Sync",
+            label: "Phone Sync",
+            changeGeneration: 3
+        )
+        let downloads = WatchedSource(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000102") ?? UUID(),
+            path: "/Users/scout/Downloads",
+            label: "Downloads",
+            changeGeneration: 1
+        )
+        let sdCard = WatchedSource(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000103") ?? UUID(),
+            path: "/Volumes/EOS_CARD/DCIM",
+            label: "DCIM",
+            changeGeneration: 2
+        )
+        store.load([phoneSync, downloads, sdCard])
+        store.setAvailability(id: phoneSync.id, .available)
+        store.applyCompleteScan(id: phoneSync.id, pendingEstimate: 12, capturedAt: Date())
+        store.setAvailability(id: downloads.id, .available)
+        store.applyCompleteScan(id: downloads.id, pendingEstimate: 0, capturedAt: Date())
+        store.setAvailability(id: sdCard.id, .unavailable)
+        return store
     }
 
     private static func sampleDeduplicateClusters() -> [DuplicateCluster] {

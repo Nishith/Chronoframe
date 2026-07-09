@@ -189,8 +189,11 @@ public enum SidebarSection: String, CaseIterable, Identifiable, Hashable, Sendab
 }
 
 /// Sub-sections nested inside the Organize sidebar destination. The original
-/// Setup / Run / Run History flows live here.
+/// Setup / Run / Run History flows live here; Sources leads the strip
+/// because it is where new work arrives (incoming → configure → run →
+/// verify → history).
 public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Sendable, Codable {
+    case sources
     case setup
     case run
     case health
@@ -200,6 +203,8 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
 
     public var title: String {
         switch self {
+        case .sources:
+            return "Sources"
         case .setup:
             return "Setup"
         case .run:
@@ -213,6 +218,8 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
 
     public var subtitle: String {
         switch self {
+        case .sources:
+            return "Watched folders, new arrivals"
         case .setup:
             return "Source, destination, readiness"
         case .run:
@@ -226,6 +233,8 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
 
     public var systemImage: String {
         switch self {
+        case .sources:
+            return "tray.and.arrow.down"
         case .setup:
             return "slider.horizontal.3"
         case .run:

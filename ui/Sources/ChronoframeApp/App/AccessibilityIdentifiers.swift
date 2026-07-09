@@ -43,6 +43,13 @@ enum AccessibilityIdentifiers {
     static let refreshLibraryHealthButton = "refreshLibraryHealthButton"
     static let reorganizeDestinationButton = "reorganizeDestinationButton"
 
+    // MARK: - Watched Sources
+
+    static let watchedSourcesAddButton = "watchedSourcesAddButton"
+    static let watchedSourcesRefreshButton = "watchedSourcesRefreshButton"
+    static func watchedSourceRow(_ id: some CustomStringConvertible) -> String { "watchedSourceRow-\(id)" }
+    static func watchedSourceImportButton(_ id: some CustomStringConvertible) -> String { "watchedSourceImport-\(id)" }
+
     // MARK: - Deduplicate
 
     static let dedupeAcceptAllSuggestionsButton = "dedupeAcceptAllSuggestionsButton"

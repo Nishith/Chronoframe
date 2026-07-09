@@ -31,7 +31,9 @@ struct OrganizeContainerView: View {
                     systemImage: { $0.systemImage },
                     accessibilityIdentifier: { "organizeTab.\($0.rawValue)" }
                 )
-                .frame(width: 360)
+                // Intrinsic sizing instead of a fixed width so the strip
+                // adapts to five tabs, Dynamic Type, and localization.
+                .fixedSize(horizontal: true, vertical: false)
             }
             .padding(.horizontal, DesignTokens.Layout.contentPadding)
             .padding(.vertical, DesignTokens.Spacing.sm)
@@ -47,6 +49,8 @@ struct OrganizeContainerView: View {
     @ViewBuilder
     private var content: some View {
         switch appState.organizeSubSelection {
+        case .sources:
+            WatchedSourcesView(appState: appState)
         case .setup:
             SetupView(appState: appState)
         case .run:
