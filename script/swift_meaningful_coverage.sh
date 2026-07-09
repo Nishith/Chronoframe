@@ -79,6 +79,8 @@ MEANINGFUL_BASENAMES=(
     WatchedSourceCheckpointDatabase
     PhotosAuthorization
     PhotosCatalog
+    PhotosExportPlanner
+    PhotosExportExecutor
     EngineDomainModels
     BundleValidator
     OrganizerDatabase
