@@ -148,7 +148,10 @@ final class FileSystemMonitorTests: XCTestCase {
         try Data("12345".utf8).write(to: fileURL)
 
         let snapshot = FileSystemMonitor.pollingSnapshot(paths: [temporaryDirectory.path])
-        let stamp = try XCTUnwrap(snapshot[fileURL.path])
+        // Suffix lookup, matching the sibling snapshot test: enumerator
+        // keys resolve /var/folders to /private/var/folders on macOS, so
+        // a direct path-keyed lookup misses.
+        let stamp = try XCTUnwrap(snapshot.first { $0.key.hasSuffix("/stamped.jpg") }?.value)
         XCTAssertTrue(stamp.isFile)
         XCTAssertEqual(stamp.sizeBytes, 5)
         XCTAssertGreaterThan(stamp.modifiedAt, 0, "Modification stamp should be captured")
