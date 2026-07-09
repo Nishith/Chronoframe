@@ -5,9 +5,11 @@ import Foundation
 import XCTest
 @testable import ChronoframeApp
 
-@MainActor
 final class SourceWatchCoordinatorTests: XCTestCase {
-    private var temporaryDirectoryURL: URL!
+    // `nonisolated(unsafe)` per the RunSessionStoreTests precedent:
+    // XCTest runs setUp/tearDown and the @MainActor test bodies
+    // serially, so there is no concurrent access in practice.
+    private nonisolated(unsafe) var temporaryDirectoryURL: URL!
 
     override func setUp() async throws {
         try await super.setUp()
@@ -299,6 +301,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     // MARK: - Activation and catch-up
 
+    @MainActor
     func testStartActivatesSourceStartsMonitorBeforeCatchUpScan() async {
         let orderLog = LogBox()
         let script = ScanScript(results: [completeScan(["a.jpg": settledStamp()])], logBox: orderLog)
@@ -322,6 +325,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testStartWithoutBookmarkMarksAccessLost() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -339,6 +343,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
     /// Bookmark resolution failure with the path absent is an ejected
     /// volume, not lost access — the registry entry is kept and the
     /// state is retryable.
+    @MainActor
     func testUnresolvableBookmarkWithMissingPathIsUnavailableNotAccessLost() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -353,6 +358,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testUnresolvableBookmarkWithPresentPathIsAccessLost() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -365,6 +371,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testScopeStartFailureWithPresentPathIsAccessLost() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -377,6 +384,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testQuarantinedStoreSurfacesNotice() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -389,6 +397,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testOrphanedWatchedBookmarksAreSweptAtStart() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -413,6 +422,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     // MARK: - Events
 
+    @MainActor
     func testRootRemovalMarksUnavailableAndMountNotificationRecovers() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -438,6 +448,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testIncrementalFileEventUpdatesEstimateWithoutFullScan() async throws {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -468,6 +479,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testIrrelevantEventsDoNotTriggerWork() async throws {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -490,6 +502,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testDirectoryEventTriggersFullScan() async {
         let script = ScanScript(results: [
             completeScan([:]),
@@ -511,6 +524,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testReconcileSignalForcesFullScan() async {
         let script = ScanScript(results: [
             completeScan([:]),
@@ -532,6 +546,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     /// Partial scans never update counts or checkpoints: the previous
     /// complete estimate stays, and the state is flagged.
+    @MainActor
     func testPartialScanPreservesPreviousEstimate() async {
         let script = ScanScript(results: [
             completeScan(["a.jpg": settledStamp()]),
@@ -555,6 +570,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     /// Generation guard: a scan whose tree changed while it ran is
     /// discarded — an older scan can never overwrite a newer result.
+    @MainActor
     func testStaleScanResultIsDiscardedAndRescanWins() async {
         let script = ScanScript(results: [
             completeScan(["stale.jpg": settledStamp(1)]),
@@ -590,6 +606,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     // MARK: - Checkpoint advancement
 
+    @MainActor
     func testSuccessfulWatchedTransferAcknowledgesOnlyFrozenStampsSoMidRunArrivalsStayPending() async throws {
         // Second scripted result mirrors the live tree after the mid-run
         // arrival, so the post-merge reconciliation scan agrees with the
@@ -658,6 +675,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testFailedTransferAcknowledgesNothing() async {
         struct TestError: Error {}
         let script = ScanScript(results: [completeScan(["a.jpg": settledStamp(1)])])
@@ -692,6 +710,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     // MARK: - Conflicts
 
+    @MainActor
     func testDestinationChangeSuspendsConflictingSourceAndRestores() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -718,6 +737,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     // MARK: - User actions
 
+    @MainActor
     func testIgnoreCurrentItemsAcknowledgesLiveEntries() async {
         let script = ScanScript(results: [completeScan(["a.jpg": settledStamp(1), "b.jpg": settledStamp(2)])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -732,6 +752,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testReviewAndImportBuildsPinnedContext() async {
         let script = ScanScript(results: [completeScan(["a.jpg": settledStamp(1)])])
         let harness = Harness(
@@ -756,6 +777,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testReviewAndImportRequiresDestinationAndAvailability() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script, destinationPath: "")
@@ -775,6 +797,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    @MainActor
     func testAddSourceRejectsOverlapAndRollsBackBookmarkOnRepositoryFailure() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(
@@ -807,6 +830,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
     /// Re-alert semantics: a pending set that regains an entry after
     /// being acknowledged bumps the persisted generation, so the sidebar
     /// token differs even though the count (1) repeats.
+    @MainActor
     func testRegainedPendingItemBumpsGenerationForNewAttention() async {
         let script = ScanScript(results: [
             completeScan(["first.jpg": settledStamp(1)]),
@@ -836,6 +860,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
     /// A quarantined (corrupt) store must not lose the user's watched
     /// folders: registry rows are rebuilt from the surviving bookmarks,
     /// and the orphan sweep must not delete them.
+    @MainActor
     func testQuarantineRebuildsRegistryFromBookmarksInsteadOfSweepingThem() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -863,6 +888,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
     /// A WatchRoot root-change whose path no longer exists is an eject
     /// or delete — the source must go .unavailable (retryable), not stay
     /// .available behind a "couldn't fully check" flag.
+    @MainActor
     func testRootChangedWithMissingPathMarksUnavailable() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -883,6 +909,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     /// If the registry update fails during re-pick, the just-stored
     /// bookmark must roll back so bookmark and registry never diverge.
+    @MainActor
     func testRepickRollsBackBookmarkWhenRegistryUpdateFails() async {
         struct DBError: Error {}
         let script = ScanScript(results: [completeScan([:])])
@@ -911,6 +938,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
 
     /// Choosing a dedicated Deduplicate folder that overlaps a watched
     /// source must pause it, exactly like an Organize destination change.
+    @MainActor
     func testDedupeDestinationChangeSuspendsConflictingSource() async {
         let script = ScanScript(results: [completeScan([:])])
         let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script)
@@ -937,6 +965,7 @@ final class SourceWatchCoordinatorTests: XCTestCase {
     /// Locked behavior: the standing watch/catch-up cycle must never
     /// touch the destination — no cache database, no logs directory, no
     /// lock file, byte-identical listing.
+    @MainActor
     func testWatchCycleNeverTouchesDestination() async throws {
         let destination = temporaryDirectoryURL.appendingPathComponent("library", isDirectory: true)
         try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
