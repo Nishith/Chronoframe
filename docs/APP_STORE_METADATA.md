@@ -62,6 +62,11 @@ Editable after release without a review. Good place for launch or update notes.
 
 (94 characters. Apple counts spaces, so commas have no trailing space. Don't repeat the app name or subtitle words here — they're already indexed.)
 
+## What's New (release notes for version 1.3)
+
+> • Import from Apple Photos: browse your albums, pick photos and videos, and import copies straight into your organized library. Chronoframe only ever reads your Photos library — it never changes, moves, or deletes anything there. Live Photos keep their still and movie together, and iCloud-only originals are downloaded on demand.
+> • Every Photos import still goes through the same preview → confirm → verified-copy flow as the rest of Chronoframe, so you see exactly what will happen before anything is written.
+
 ## What's New (release notes for version 1.2)
 
 > • Photos with a timezone-tagged capture date near midnight now file under your local calendar day instead of UTC. If you organized a library before this update, re-run Organize or use Health → Reorganize to move any affected files into their corrected date folder.
@@ -79,7 +84,7 @@ Editable after release without a review. Good place for launch or update notes.
 
 ## App Review Notes
 
-> Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders the reviewer selects through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Before Trash, approved mutation units may be temporarily renamed within the same selected folder for content verification and crash recovery. The app runs entirely on-device, does not upload photos, and includes no analytics, telemetry, advertising, or crash-reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, interruption recovery, history, and revert. No sign-in or demo account is required.
+> Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders the reviewer selects through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. The optional Photos import reads the Apple Photos library only: it exports copies of selected originals with PHAssetResourceManager into the chosen destination and never calls any mutating PhotoKit API, so it cannot modify, move, favorite, or delete anything in the library (macOS has no read-only Photos permission level, so the app requests read/write access but never writes). Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Before Trash, approved mutation units may be temporarily renamed within the same selected folder for content verification and crash recovery. The app runs entirely on-device, does not upload photos, and includes no analytics, telemetry, advertising, or crash-reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, interruption recovery, history, and revert. No sign-in or demo account is required.
 
 ## App Privacy (questionnaire answers)
 

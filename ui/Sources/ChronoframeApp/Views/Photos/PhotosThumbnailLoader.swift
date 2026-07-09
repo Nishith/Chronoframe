@@ -123,8 +123,11 @@ struct PhotosAssetCell: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         .task(id: asset.id) {
-            image = loader.cachedImage(for: asset.id)
-                ?? (await loader.image(for: asset.id, size: size))
+            if let cached = loader.cachedImage(for: asset.id) {
+                image = cached
+            } else {
+                image = await loader.image(for: asset.id, size: size)
+            }
         }
     }
 

@@ -115,6 +115,14 @@ A: Yes. Chronoframe detects existing files and won't overwrite them. If a destin
 
 A: Yes, but **slowly**. Cloud drives aren't optimized for the file operations Chronoframe does. Use local or external drives for best performance.
 
+**Q: Can I import from my Apple Photos library?**
+
+A: Yes. Open the **Photos** tab, grant read access, pick photos and videos, and choose **Review & Import**. Chronoframe copies the originals into your organized library through the same preview → confirm → verified-copy flow as everything else. It only ever *reads* your Photos library — it never changes, moves, favorites, or deletes anything there. Live Photos keep their photo and movie together, and iCloud-only originals are downloaded on demand. Imports land in your active organize destination, so set that up first.
+
+**Q: Will importing from Photos change or remove anything in my Photos library?**
+
+A: No. The Photos import is strictly one-directional and read-only. Chronoframe never writes back to your Photos library — it only exports copies out of it.
+
 ---
 
 ## Common Issues
