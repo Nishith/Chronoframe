@@ -113,9 +113,9 @@ ui/Sources/
 
 ### Layer boundaries
 
-`ChronoframeCore` contains all the stateless domain algorithms: `MediaDiscovery`, `MediaDateResolver`, `DryRunPlanner`, `CopyPlanBuilder`, `TransferExecutor`, `RevertExecutor`, `ReorganizeExecutor`, `DeduplicateScanner`, `DeduplicationPlanner`, `DeduplicateExecutor`, `LibraryHealthScanner`. It has no AppKit dependency and is tested entirely with SwiftPM unit tests.
+`ChronoframeCore` contains all the stateless domain algorithms: `MediaDiscovery`, `MediaDateResolver`, `DryRunPlanner`, `CopyPlanBuilder`, `TransferExecutor`, `RevertExecutor`, `ReorganizeExecutor`, `DeduplicateScanner`, `DeduplicationPlanner`, `DeduplicateExecutor`, `LibraryHealthScanner`. Library Guardian's engine also lives here: `GuardianLibraryProbe` (I/O collector) → `GuardianIntegrityClassifier` (pure) → `GuardianManifestUpdater`, plus `GuardianMirrorPlanner`/`GuardianMirrorExecutor`, `GuardianRestorePlanner`/`GuardianRestoreExecutor`, the `GuardianManifestStore` (SQLite), and `GuardianMultiRootLock`. It has no AppKit dependency and is tested entirely with SwiftPM unit tests.
 
-`ChronoframeAppCore` wraps the core in `@MainActor` stores (`RunSessionStore`, `SetupStore`, `HistoryStore`, `PreviewReviewStore`, `DeduplicateSessionStore`, etc.) and defines the `OrganizerEngine` protocol. `SwiftOrganizerEngine` is the concrete implementation; `MockOrganizerEngine` (in `Tests/`) is the test double.
+`ChronoframeAppCore` wraps the core in `@MainActor` stores (`RunSessionStore`, `SetupStore`, `HistoryStore`, `PreviewReviewStore`, `DeduplicateSessionStore`, `GuardianStore`, etc.) and defines the `OrganizerEngine` protocol. `SwiftOrganizerEngine` is the concrete implementation; `MockOrganizerEngine` (in `Tests/`) is the test double. The `GuardianEngine` protocol (`SwiftGuardianEngine` concrete) follows the same pattern, with `GuardianBookmarkResolving`/`GuardianNotifying` seams the App target implements. Library Guardian ships behind the disabled `GuardianCapability.isEnabled` flag until its UI lands.
 
 `ChronoframeApp` contains the SwiftUI views. `AppState` is the root `@MainActor ObservableObject` that holds all stores and wires coordinator objects (`SetupCoordinator`, `RunCoordinator`, `HistoryCoordinator`) which encapsulate multi-step flows and navigate between views.
 
@@ -131,6 +131,8 @@ ui/Sources/
 | `.organize_logs/.chronoframe-operation.lock` | Cross-process destination mutation lock and diagnostics |
 | `.organize_logs/dry_run_report_*.csv` | Dry-run plan export |
 | `.organize_logs/preview_review_*.jsonl` | Review tab data |
+
+Library Guardian state lives **outside** the protected library, under Application Support keyed by library identity — `guardian/<libraryID>/manifest.db` (trusted-digest manifest), `guardian_mirror_receipt_*.json` / `guardian_restore_receipt_*.json` (+ journals), and `schedule.json` (next-run / last-attempted / last-succeeded). The mirror is a separate writable volume holding the bit-for-bit second copy. Restore is the only Guardian surface that writes the library; a scrub is read-only and a mirror pass writes only the mirror. See `docs/SAFETY_AND_RECOVERY.md` for the trust model and crash-recovery states.
 
 ## Critical notes
 

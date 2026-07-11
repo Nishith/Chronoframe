@@ -31,6 +31,9 @@ important library, especially before a large first run or filesystem migration.
 | Deduplicate | Approved destination files move to Trash | Immutable plan, expected content identity, pair-unit rules, quarantine and descriptor verification, durable journal, Trash only |
 | Reorganize | Existing destination files move to a new layout | Previewed move plan, content recheck, collision protection, pending receipt, per-item mutation state |
 | Revert | Files created or moved by a recorded run | Receipt scope, current-content verification, path containment, no overwrite |
+| Guardian scrub | Nothing (read-only integrity check) | No library lock, hashes against a trusted manifest kept outside the library, never advances trust automatically |
+| Guardian mirror | New/updated files on the mirror volume | Copies only from a currently-verified primary, verified copy + atomic no-overwrite rename, divergent mirror quarantined, deletions never propagated, library never written |
+| Guardian restore | A corrupt/missing library file is healed from the mirror | Mirror re-verified against the trusted digest at commit time, review-gated, same-directory quarantine before install, journaled crash recovery |
 
 ## One Destination-Changing Operation At A Time
 
@@ -72,6 +75,72 @@ Before Trash, Chronoframe:
 RAW+JPEG pairs, Live Photo pairs, and owned metadata sidecars are validated as a
 unit. If one member changes or a journal update fails, Chronoframe restores the
 unit where it safely can and stops before touching more files.
+
+## Library Guardian: Scrub, Mirror, Restore
+
+Library Guardian protects an already-organized library from silent bit rot. It
+is built on one load-bearing rule: Guardian never creates or advances trust
+automatically from an unexplained filesystem change, never replaces either copy
+unless the other copy verifies against an already-trusted identity, and never
+propagates a deletion without retaining a recoverable copy.
+
+**Where Guardian keeps its state.** The trusted-digest manifest, receipts,
+journals, and schedule live in Application Support, keyed by a stable library
+identity — never inside the protected library. This is what lets a scrub and a
+mirror-read treat the library's own bytes as strictly read-only.
+
+**Trust never advances on its own.** Each file's trust state moves only through
+explicit intent:
+
+- `unprotected` — first seen, no provenance. Corruption that predates Guardian
+  is never blessed as good.
+- `trusted` — reached only by explicit user acceptance or by matching a digest
+  Chronoframe itself wrote and verified in an organize/import transfer.
+- `changedPendingReview` — a trusted file whose bytes changed (whether or not
+  the modification time moved). A legitimate edit, metadata-changing bit rot, and
+  a malicious edit are indistinguishable without your intent or a second trusted
+  copy, so Guardian never silently re-baselines it. You decide: accept the new
+  bytes as trusted, or restore the good copy from the mirror.
+- `retired` — a deletion you explicitly acknowledged.
+
+A scrub re-hashes every file and reports `verified`, `corrupt` (bytes differ
+while size/mtime match — the classic silent rot), `modified`, `missing`, `new`,
+`dataless` (iCloud-evicted, skipped, not corrupt), or `unreadable`. A scan that
+couldn't fully read a subtree is conservative: it reports an incomplete check
+rather than false "missing" or "corrupt" results, and changes no trust.
+
+**The mirror is a real backup, so it never mirrors damage.** A mirror pass
+copies a file only when the primary currently verifies against its trusted
+digest; the primary is re-hashed immediately before the copy. Anything not
+currently verified is left alone and the existing mirror copy is preserved. A
+mirror copy that has diverged is moved into a mirror-side quarantine **before**
+its replacement is written, so a recoverable copy is never erased. Deletions are
+never propagated — a mirror file whose primary is now missing is retained until
+you acknowledge it. The library volume is only ever read.
+
+**Restore heals the library, and only from bytes it can prove are good.** A
+corrupt or missing primary is restore-eligible only if the mirror copy still
+hashes to the trusted digest; corrupt-on-both-sides is reported and never
+"restored" from bad bytes. Restore is the one Guardian surface that writes the
+library, so it is the most defensive:
+
+1. It opens the mirror without following symlinks and hashes the **same file
+   descriptor** it will copy from, so a symlink swap or content change between
+   planning and commit cannot slip through.
+2. It refuses a corrupt primary that changed again since planning, and refuses a
+   missing primary that has reappeared (it will not overwrite a file that came
+   back).
+3. It moves the corrupt original into a **same-directory quarantine before**
+   installing the replacement — never Trash-first, so rollback never depends on
+   Trash naming or volume availability.
+4. It installs via a verified copy and an atomic, no-overwrite rename.
+5. Every transition is journaled (`intent → original quarantined → replacement
+   installed → finalized`). If a restore is interrupted after the original is
+   quarantined but before the replacement is installed, recovery rolls the
+   original back into place, so the library is never left missing.
+
+Restore only ever touches the files you selected for review, and both the
+library and mirror are locked for the whole run.
 
 ## What Happens After An Interruption
 

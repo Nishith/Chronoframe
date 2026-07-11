@@ -45,6 +45,24 @@ public final class GuardianStore: ObservableObject {
         public let partialScan: Bool
         public let generatedAt: Date
 
+        public init(
+            verified: Int,
+            corrupt: Int,
+            modified: Int,
+            missing: Int,
+            newFiles: Int,
+            partialScan: Bool,
+            generatedAt: Date
+        ) {
+            self.verified = verified
+            self.corrupt = corrupt
+            self.modified = modified
+            self.missing = missing
+            self.newFiles = newFiles
+            self.partialScan = partialScan
+            self.generatedAt = generatedAt
+        }
+
         public var hasFindingsNeedingReview: Bool {
             corrupt > 0 || modified > 0 || missing > 0
         }
@@ -88,8 +106,21 @@ public final class GuardianStore: ObservableObject {
 
     // MARK: - Configuration
 
-    /// Point the store at a library. Loads its persisted schedule state.
+    /// Point the store at a library. Loads its persisted schedule state. When the
+    /// library actually changes, every piece of the previous library's review state
+    /// (report, summary, and — critically — any restore plan and selections) is
+    /// discarded, so a plan reviewed against one library can never be carried over
+    /// and applied to another.
     public func configure(libraryIdentity: GuardianLibraryIdentity, libraryURL: URL) {
+        if self.libraryIdentity != libraryIdentity {
+            report = nil
+            lastScanSummary = nil
+            restorePlan = nil
+            selectedTrustPaths = []
+            selectedRestorePaths = []
+            lastMirrorResult = nil
+            lastRestoreResult = nil
+        }
         self.libraryIdentity = libraryIdentity
         self.libraryURL = libraryURL
         self.scheduleState = schedulePersistence.load(for: libraryIdentity)
@@ -214,6 +245,13 @@ public final class GuardianStore: ObservableObject {
         }
     }
 
+    /// Drop the current restore plan and its selection — used when the plan is no
+    /// longer valid for the active library/mirror.
+    public func discardRestorePlan() {
+        restorePlan = nil
+        selectedRestorePaths = []
+    }
+
     public func toggleRestoreSelection(_ relativePath: String) {
         if selectedRestorePaths.contains(relativePath) {
             selectedRestorePaths.remove(relativePath)
@@ -248,6 +286,13 @@ public final class GuardianStore: ObservableObject {
         mirrorBookmark: FolderBookmark
     ) -> GuardianRestoreContext? {
         guard let restorePlan, !selectedRestorePaths.isEmpty else { return nil }
+        // Never apply a plan reviewed against one library/mirror to different roots.
+        // The plan records the roots it was built for; if they no longer match the
+        // roots we are about to act on, refuse rather than restore into the wrong
+        // library.
+        guard restorePlan.libraryRoot == libraryURL.path, restorePlan.mirrorRoot == mirrorURL.path else {
+            return nil
+        }
         return GuardianRestoreContext(
             libraryIdentity: libraryIdentity,
             libraryURL: libraryURL,

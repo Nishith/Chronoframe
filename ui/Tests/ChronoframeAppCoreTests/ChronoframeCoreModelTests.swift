@@ -20,6 +20,10 @@ final class ChronoframeCoreModelTests: XCTestCase {
         XCTAssertEqual(SidebarDestination.primaryNavigationCases, [.organize, .photos, .deduplicate])
         XCTAssertTrue(SidebarDestination.allCases.contains(.profiles))
         XCTAssertFalse(SidebarDestination.primaryNavigationCases.contains(.profiles))
+        // Library Guardian exists as a destination but stays out of the primary
+        // sidebar while its capability flag is off, so its whole workspace is dark.
+        XCTAssertTrue(SidebarDestination.allCases.contains(.guardian))
+        XCTAssertEqual(SidebarDestination.primaryNavigationCases.contains(.guardian), GuardianCapability.isEnabled)
 
         for phase in RunPhase.allCases {
             XCTAssertFalse(phase.title.isEmpty)

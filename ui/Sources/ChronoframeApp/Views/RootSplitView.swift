@@ -127,6 +127,8 @@ struct RootSplitView: View {
             PhotosImportView(appState: appState)
         case .deduplicate:
             DeduplicateView(appState: appState)
+        case .guardian:
+            GuardianView(appState: appState)
         case .profiles:
             ProfilesView(appState: appState)
         }
