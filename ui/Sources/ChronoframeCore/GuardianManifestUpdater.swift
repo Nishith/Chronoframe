@@ -33,15 +33,17 @@ public struct GuardianManifestUpdater: Sendable {
             case .new:
                 // Track newly observed files as unprotected — never trusted.
                 guard let observed = finding.observedIdentity else { continue }
+                let mtime: TimeInterval = finding.observedModificationTime ?? existing?.modificationTime ?? 0
+                let firstObserved: Date = existing?.firstObservedAt ?? now
                 upserts.append(
                     GuardianManifestEntry(
                         relativePath: finding.relativePath,
                         size: observed.size,
-                        modificationTime: finding.observedModificationTime ?? existing?.modificationTime ?? 0,
+                        modificationTime: mtime,
                         digest: observed.digest,
                         trustState: .unprotected,
                         provenance: nil,
-                        firstObservedAt: existing?.firstObservedAt ?? now,
+                        firstObservedAt: firstObserved,
                         lastVerifiedAt: existing?.lastVerifiedAt
                     )
                 )
@@ -79,25 +81,28 @@ public struct GuardianManifestUpdater: Sendable {
         now: Date = Date()
     ) -> [GuardianManifestEntry] {
         var upserts: [GuardianManifestEntry] = []
-        let findingsByPath = Dictionary(report.findings.map { ($0.relativePath, $0) }) { first, _ in first }
+        var findingsByPath: [String: GuardianIntegrityFinding] = [:]
+        for finding in report.findings where findingsByPath[finding.relativePath] == nil {
+            findingsByPath[finding.relativePath] = finding
+        }
 
         for path in relativePaths {
-            guard
-                let finding = findingsByPath[path],
-                let observed = finding.observedIdentity,
-                finding.status == .verified || finding.status == .corrupt
-                    || finding.status == .modified || finding.status == .new
-            else { continue }
+            guard let finding = findingsByPath[path], let observed = finding.observedIdentity else { continue }
+            let isAcceptable = finding.status == .verified || finding.status == .corrupt
+                || finding.status == .modified || finding.status == .new
+            guard isAcceptable else { continue }
             let existing = manifest[path]
+            let mtime: TimeInterval = finding.observedModificationTime ?? existing?.modificationTime ?? 0
+            let firstObserved: Date = existing?.firstObservedAt ?? now
             upserts.append(
                 GuardianManifestEntry(
                     relativePath: path,
                     size: observed.size,
-                    modificationTime: finding.observedModificationTime ?? existing?.modificationTime ?? 0,
+                    modificationTime: mtime,
                     digest: observed.digest,
                     trustState: .trusted,
                     provenance: .userAccepted,
-                    firstObservedAt: existing?.firstObservedAt ?? now,
+                    firstObservedAt: firstObserved,
                     lastVerifiedAt: now
                 )
             )
@@ -122,22 +127,22 @@ public struct GuardianManifestUpdater: Sendable {
                 let trustedIdentity = provenanceDigests[finding.relativePath],
                 observed == trustedIdentity
             else { continue }
+            let existing = manifest[finding.relativePath]
             // Do not re-stamp an already-trusted, still-matching entry.
-            if let existing = manifest[finding.relativePath],
-               existing.trustState == .trusted,
-               existing.digest == observed.digest {
+            if let existing, existing.trustState == .trusted, existing.digest == observed.digest {
                 continue
             }
-            let existing = manifest[finding.relativePath]
+            let mtime: TimeInterval = finding.observedModificationTime ?? existing?.modificationTime ?? 0
+            let firstObserved: Date = existing?.firstObservedAt ?? now
             upserts.append(
                 GuardianManifestEntry(
                     relativePath: finding.relativePath,
                     size: observed.size,
-                    modificationTime: finding.observedModificationTime ?? existing?.modificationTime ?? 0,
+                    modificationTime: mtime,
                     digest: observed.digest,
                     trustState: .trusted,
                     provenance: .verifiedTransfer,
-                    firstObservedAt: existing?.firstObservedAt ?? now,
+                    firstObservedAt: firstObserved,
                     lastVerifiedAt: now
                 )
             )
@@ -154,7 +159,10 @@ public struct GuardianManifestUpdater: Sendable {
         manifest: [String: GuardianManifestEntry]
     ) -> [GuardianManifestEntry] {
         var upserts: [GuardianManifestEntry] = []
-        let missing = Set(report.findings.filter { $0.status == .missing }.map { $0.relativePath })
+        var missing: Set<String> = []
+        for finding in report.findings where finding.status == .missing {
+            missing.insert(finding.relativePath)
+        }
 
         for path in relativePaths where missing.contains(path) {
             guard var entry = manifest[path] else { continue }

@@ -237,10 +237,14 @@ public final class GuardianManifestStore: @unchecked Sendable {
             else {
                 throw GuardianManifestStoreError.stepFailed("damaged manifest row")
             }
-            let provenance = Self.columnText(statement, 5).flatMap(GuardianTrustProvenance.init(rawValue:))
-            let lastVerified = sqlite3_column_type(statement, 7) == SQLITE_NULL
-                ? nil
-                : Date(timeIntervalSince1970: sqlite3_column_double(statement, 7))
+            let provenanceRaw: String? = Self.columnText(statement, 5)
+            let provenance: GuardianTrustProvenance? = provenanceRaw.flatMap(GuardianTrustProvenance.init(rawValue:))
+            let lastVerified: Date?
+            if sqlite3_column_type(statement, 7) == SQLITE_NULL {
+                lastVerified = nil
+            } else {
+                lastVerified = Date(timeIntervalSince1970: sqlite3_column_double(statement, 7))
+            }
             entries.append(
                 GuardianManifestEntry(
                     relativePath: path,

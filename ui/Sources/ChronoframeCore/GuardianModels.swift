@@ -220,12 +220,19 @@ public struct GuardianIntegrityReport: Equatable, Codable, Sendable {
     }
 
     public func count(of status: GuardianIntegrityStatus) -> Int {
-        findings.reduce(0) { $0 + ($1.status == status ? 1 : 0) }
+        var total = 0
+        for finding in findings where finding.status == status {
+            total += 1
+        }
+        return total
     }
 
     /// Corrupt (silent bit rot) is the highest-signal outcome.
     public var hasCorruption: Bool {
-        findings.contains { $0.status == .corrupt }
+        for finding in findings where finding.status == .corrupt {
+            return true
+        }
+        return false
     }
 }
 
@@ -242,13 +249,13 @@ public enum GuardianPathNormalization {
     /// inside `root`. Both are standardized before comparison so `.`/`..`/trailing
     /// slashes do not defeat the prefix check.
     public static func relativeKey(of fileURL: URL, underRoot root: URL) -> String? {
-        let rootComponents = root.standardizedFileURL.pathComponents
-        let fileComponents = fileURL.standardizedFileURL.pathComponents
+        let rootComponents: [String] = root.standardizedFileURL.pathComponents
+        let fileComponents: [String] = fileURL.standardizedFileURL.pathComponents
         guard fileComponents.count > rootComponents.count else { return nil }
-        guard Array(fileComponents.prefix(rootComponents.count)) == rootComponents else {
-            return nil
-        }
-        let relativeComponents = fileComponents.dropFirst(rootComponents.count)
-        return canonicalKey(relativeComponents.joined(separator: "/"))
+        let prefixComponents: [String] = Array(fileComponents.prefix(rootComponents.count))
+        guard prefixComponents == rootComponents else { return nil }
+        let relativeComponents: [String] = Array(fileComponents.dropFirst(rootComponents.count))
+        let joined: String = relativeComponents.joined(separator: "/")
+        return canonicalKey(joined)
     }
 }

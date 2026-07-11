@@ -107,10 +107,21 @@ public enum GuardianMultiRootLock {
         return GuardianMultiRootLease(leases: acquired)
     }
 
+    /// A root paired with its resolved canonical path. A named type (rather than a
+    /// tuple) keeps type inference cheap for the Release whole-module compile.
+    private struct KeyedRoot {
+        let root: GuardianLockRoot
+        let path: String
+    }
+
     /// Roots sorted by canonical absolute path, after rejecting any overlapping pair.
     /// Exposed for testing the ordering and overlap rules without touching the disk.
     public static func canonicallyOrdered(_ roots: [GuardianLockRoot]) throws -> [GuardianLockRoot] {
-        let keyed = roots.map { (root: $0, path: canonicalPath($0.url)) }
+        var keyed: [KeyedRoot] = []
+        keyed.reserveCapacity(roots.count)
+        for root in roots {
+            keyed.append(KeyedRoot(root: root, path: canonicalPath(root.url)))
+        }
         for i in keyed.indices {
             for j in keyed.indices where j > i {
                 if pathsOverlap(keyed[i].path, keyed[j].path) {
@@ -118,7 +129,13 @@ public enum GuardianMultiRootLock {
                 }
             }
         }
-        return keyed.sorted { $0.path < $1.path }.map { $0.root }
+        let sorted: [KeyedRoot] = keyed.sorted { $0.path < $1.path }
+        var ordered: [GuardianLockRoot] = []
+        ordered.reserveCapacity(sorted.count)
+        for item in sorted {
+            ordered.append(item.root)
+        }
+        return ordered
     }
 
     /// Resolve symlinks and standardize so equal/nested checks are reliable.

@@ -16,7 +16,10 @@ public struct GuardianMirrorPlanner: Sendable {
         libraryReport: GuardianIntegrityReport,
         mirrorObservations: [GuardianFileObservation]
     ) -> GuardianMirrorPlan {
-        let mirrorByPath = Dictionary(mirrorObservations.map { ($0.relativePath, $0) }) { first, _ in first }
+        var mirrorByPath: [String: GuardianFileObservation] = [:]
+        for observation in mirrorObservations where mirrorByPath[observation.relativePath] == nil {
+            mirrorByPath[observation.relativePath] = observation
+        }
 
         var copies: [GuardianMirrorCopy] = []
         var blocked: [GuardianMirrorBlock] = []
@@ -54,10 +57,11 @@ public struct GuardianMirrorPlanner: Sendable {
 
         // Deletion retention: any mirror file without a verified library counterpart
         // is kept. A backup that silently propagated deletions would not be a backup.
-        let retainedExtras = mirrorObservations
-            .map { $0.relativePath }
-            .filter { !coveredMirrorPaths.contains($0) }
-            .sorted()
+        var retainedExtras: [String] = []
+        for observation in mirrorObservations where !coveredMirrorPaths.contains(observation.relativePath) {
+            retainedExtras.append(observation.relativePath)
+        }
+        retainedExtras.sort()
 
         copies.sort { $0.relativePath < $1.relativePath }
         blocked.sort { $0.relativePath < $1.relativePath }
