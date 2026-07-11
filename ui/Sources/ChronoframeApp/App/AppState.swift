@@ -880,7 +880,21 @@ final class AppState: ObservableObject {
         scope?.close()
     }
 
+    /// True when `pathA` and `pathB` are the same folder or one contains the other,
+    /// after resolving symlinks. Guardian uses this to keep the mirror strictly
+    /// outside the library it protects.
+    private func guardianRootsOverlap(_ pathA: String, _ pathB: String) -> Bool {
+        guard !pathA.isEmpty, !pathB.isEmpty else { return false }
+        return GuardianMultiRootLock.pathsOverlap(
+            GuardianMultiRootLock.canonicalPath(URL(fileURLWithPath: pathA, isDirectory: true)),
+            GuardianMultiRootLock.canonicalPath(URL(fileURLWithPath: pathB, isDirectory: true))
+        )
+    }
+
     /// Choose the mirror volume folder and persist its bookmark under `guardian.mirror`.
+    /// The mirror must be a separate location — never inside the library (or the
+    /// library inside it), or a mirror pass would write copies into the protected
+    /// library and future scrubs would treat those backups as library media.
     func chooseGuardianMirrorFolder() async {
         guard let url = folderAccessService.chooseFolder(
             startingAt: guardianMirrorPath,
@@ -890,6 +904,15 @@ final class AppState: ObservableObject {
         }
         do {
             try folderAccessService.validateFolder(url, role: .destination)
+        } catch {
+            transientErrorMessage = UserFacingErrorMessage.message(for: error, context: .setup)
+            return
+        }
+        if guardianRootsOverlap(url.path, guardianLibraryPath) {
+            transientErrorMessage = "Choose a mirror folder outside your library. The mirror must be a separate location so it never writes into the library it protects."
+            return
+        }
+        do {
             let bookmark = try folderAccessService.makeBookmark(for: url, key: Self.guardianMirrorBookmarkKey)
             preferencesStore.storeBookmark(bookmark)
         } catch {
@@ -901,6 +924,12 @@ final class AppState: ObservableObject {
         let libraryPath = guardianLibraryPath
         let mirrorPath = guardianMirrorPath
         guard !libraryPath.isEmpty, !mirrorPath.isEmpty else { return }
+        // Guard against the library having changed to now contain (or sit inside)
+        // the previously-chosen mirror — mirroring would then write into the library.
+        if guardianRootsOverlap(mirrorPath, libraryPath) {
+            transientErrorMessage = "The mirror folder is inside your library. Choose a mirror outside the library before mirroring."
+            return
+        }
         let context = GuardianMirrorContext(
             libraryIdentity: guardianLibraryIdentity(for: libraryPath),
             libraryURL: URL(fileURLWithPath: libraryPath, isDirectory: true),
@@ -933,6 +962,17 @@ final class AppState: ObservableObject {
         let libraryPath = guardianLibraryPath
         let mirrorPath = guardianMirrorPath
         guard !libraryPath.isEmpty, !mirrorPath.isEmpty else { return }
+        // Refuse to run a plan that was reviewed against a different library/mirror
+        // (e.g. the Organize destination changed after the restore was reviewed).
+        // The store also enforces this when building the context; here we surface a
+        // clear message and drop the stale plan so the user re-reviews.
+        if let plan = guardianStore.restorePlan,
+           plan.libraryRoot != URL(fileURLWithPath: libraryPath, isDirectory: true).path
+            || plan.mirrorRoot != URL(fileURLWithPath: mirrorPath, isDirectory: true).path {
+            guardianStore.discardRestorePlan()
+            transientErrorMessage = "The library or mirror changed since this restore was reviewed. Review the restore again before running it."
+            return
+        }
         guard let context = guardianStore.makeRestoreContext(
             libraryIdentity: guardianLibraryIdentity(for: libraryPath),
             libraryURL: URL(fileURLWithPath: libraryPath, isDirectory: true),

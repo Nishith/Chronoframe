@@ -187,6 +187,61 @@ final class GuardianStoreTests: XCTestCase {
         XCTAssertEqual(engine.scanCount, 2, "a completed restore re-scans to confirm the heal")
     }
 
+    func testMakeRestoreContextRefusesWhenPlanRootsDifferFromTargetRoots() async {
+        let trusted = FileIdentity(size: 10, digest: "good")
+        let engine = MockGuardianEngine(scanReport: report([finding("a.jpg", .corrupt, expected: trusted, observed: FileIdentity(size: 10, digest: "rot"))]))
+        engine.restorePlan = GuardianRestorePlan(
+            libraryRoot: "/lib/A", mirrorRoot: "/mir/A",
+            restorable: [GuardianRestoreAction(relativePath: "a.jpg", trustedIdentity: trusted, reason: .primaryCorrupt, expectedCurrentPrimaryIdentity: FileIdentity(size: 10, digest: "rot"))],
+            blocked: []
+        )
+        let store = GuardianStore(engine: engine, schedulePersistence: InMemorySchedulePersistence())
+        store.configure(libraryIdentity: identity, libraryURL: libraryURL)
+        await store.scan()
+        await store.prepareRestore(libraryURL: URL(fileURLWithPath: "/lib/A"), mirrorURL: URL(fileURLWithPath: "/mir/A"))
+        XCTAssertNotNil(store.restorePlan)
+
+        let bookmark = FolderBookmark(key: "k", path: "/p", data: Data())
+        // Different library root than the plan was built for → refused.
+        let mismatched = store.makeRestoreContext(
+            libraryIdentity: identity,
+            libraryURL: URL(fileURLWithPath: "/lib/B"), libraryBookmark: bookmark,
+            mirrorURL: URL(fileURLWithPath: "/mir/A"), mirrorBookmark: bookmark
+        )
+        XCTAssertNil(mismatched, "a plan reviewed against /lib/A must never be applied to /lib/B")
+
+        // Same roots → allowed.
+        let matched = store.makeRestoreContext(
+            libraryIdentity: identity,
+            libraryURL: URL(fileURLWithPath: "/lib/A"), libraryBookmark: bookmark,
+            mirrorURL: URL(fileURLWithPath: "/mir/A"), mirrorBookmark: bookmark
+        )
+        XCTAssertNotNil(matched)
+    }
+
+    func testConfiguringADifferentLibraryClearsStaleReviewState() async {
+        let trusted = FileIdentity(size: 10, digest: "good")
+        let engine = MockGuardianEngine(scanReport: report([finding("a.jpg", .corrupt, expected: trusted, observed: FileIdentity(size: 10, digest: "rot"))]))
+        engine.restorePlan = GuardianRestorePlan(
+            libraryRoot: "/lib/A", mirrorRoot: "/mir/A",
+            restorable: [GuardianRestoreAction(relativePath: "a.jpg", trustedIdentity: trusted, reason: .primaryCorrupt, expectedCurrentPrimaryIdentity: FileIdentity(size: 10, digest: "rot"))],
+            blocked: []
+        )
+        let store = GuardianStore(engine: engine, schedulePersistence: InMemorySchedulePersistence())
+        store.configure(libraryIdentity: identity, libraryURL: libraryURL)
+        await store.scan()
+        await store.prepareRestore(libraryURL: URL(fileURLWithPath: "/lib/A"), mirrorURL: URL(fileURLWithPath: "/mir/A"))
+        XCTAssertNotNil(store.restorePlan)
+        XCTAssertNotNil(store.report)
+
+        // Pointing the store at a different library drops the previous library's
+        // plan and report so nothing stale can be acted on.
+        store.configure(libraryIdentity: GuardianLibraryIdentity(libraryUUID: "different"), libraryURL: URL(fileURLWithPath: "/lib/B"))
+        XCTAssertNil(store.restorePlan)
+        XCTAssertNil(store.report)
+        XCTAssertTrue(store.selectedRestorePaths.isEmpty)
+    }
+
     // MARK: - Scheduling (in-app + catch-up)
 
     @MainActor
