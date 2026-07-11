@@ -83,9 +83,30 @@ public enum DestinationOperationLock {
         operation: String
     ) throws -> DestinationOperationLease {
         let logsDirectory = destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
-        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
-        let lockURL = logsDirectory.appendingPathComponent(filename)
-        let descriptor = lockURL.path.withCString {
+        return try acquire(
+            lockFileURL: logsDirectory.appendingPathComponent(filename),
+            surface: surface,
+            operation: operation
+        )
+    }
+
+    /// Acquire the exclusive operation lock at an explicit lock-file location,
+    /// creating only the lock file's parent directory. Callers that must not write
+    /// into the protected root — Library Guardian's read-only scrub/mirror against a
+    /// library whose bytes stay untouched — point this at an Application Support path
+    /// keyed by the library's identity instead of `<root>/.organize_logs`. The
+    /// `destinationRoot`-based overload above preserves the historical in-root
+    /// location so organize/dedupe keep coordinating through the same file.
+    public static func acquire(
+        lockFileURL: URL,
+        surface: String,
+        operation: String
+    ) throws -> DestinationOperationLease {
+        try FileManager.default.createDirectory(
+            at: lockFileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let descriptor = lockFileURL.path.withCString {
             Darwin.open($0, O_RDWR | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR)
         }
         guard descriptor >= 0 else {

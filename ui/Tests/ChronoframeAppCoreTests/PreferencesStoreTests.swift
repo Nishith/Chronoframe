@@ -30,6 +30,42 @@ final class PreferencesStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testGuardianPreferenceDefaults() {
+        let store = PreferencesStore(defaults: defaults)
+        XCTAssertFalse(store.guardianAutoScrubEnabled)
+        XCTAssertFalse(store.guardianAutoMirrorEnabled)
+        XCTAssertTrue(store.guardianNotifyOnBitRot)
+        XCTAssertEqual(store.guardianScrubIntervalSeconds, PreferencesStore.defaultGuardianScrubIntervalSeconds)
+    }
+
+    @MainActor
+    func testGuardianScrubIntervalIsClampedToMinimum() {
+        let store = PreferencesStore(defaults: defaults)
+        store.guardianScrubIntervalSeconds = 5
+        XCTAssertEqual(store.guardianScrubIntervalSeconds, PreferencesStore.minimumGuardianScrubIntervalSeconds)
+
+        // A below-minimum stored value is clamped on reload too.
+        defaults.set(1, forKey: "guardianScrubIntervalSeconds")
+        let reloaded = PreferencesStore(defaults: defaults)
+        XCTAssertEqual(reloaded.guardianScrubIntervalSeconds, PreferencesStore.minimumGuardianScrubIntervalSeconds)
+    }
+
+    @MainActor
+    func testGuardianPreferencesPersistAcrossReinit() {
+        let store = PreferencesStore(defaults: defaults)
+        store.guardianAutoScrubEnabled = true
+        store.guardianAutoMirrorEnabled = true
+        store.guardianNotifyOnBitRot = false
+        store.guardianScrubIntervalSeconds = 86_400
+
+        let reloaded = PreferencesStore(defaults: defaults)
+        XCTAssertTrue(reloaded.guardianAutoScrubEnabled)
+        XCTAssertTrue(reloaded.guardianAutoMirrorEnabled)
+        XCTAssertFalse(reloaded.guardianNotifyOnBitRot)
+        XCTAssertEqual(reloaded.guardianScrubIntervalSeconds, 86_400)
+    }
+
+    @MainActor
     func testPersistsScalarPreferencesAcrossReinit() {
         let store = PreferencesStore(defaults: defaults)
         store.workerCount = 12

@@ -107,8 +107,16 @@ fi
 if ! "${XCODEBUILD_ARGS[@]}" archive >"$LOG_PATH" 2>&1; then
   echo "error: xcodebuild failed while archiving ${APP_NAME}." >&2
   echo "log: ${LOG_PATH}" >&2
-  echo "---- last 80 xcodebuild log lines ----" >&2
-  tail -n 80 "$LOG_PATH" >&2 || true
+  # Surface the actual compiler diagnostics. xcodebuild interleaves thousands of
+  # "SwiftCompile ..." progress lines, so a plain tail almost always shows only
+  # trailing progress spam and hides the real `error:`/type-check failure. Grep
+  # the full log for genuine diagnostics first, then fall back to a larger tail.
+  echo "---- compiler diagnostics (grepped) ----" >&2
+  grep -nE '(: error:|^error:|warning:|unable to type-check|too complex to|reasonable time|LLVM ERROR|Segmentation fault|note: while|fatal error:)' "$LOG_PATH" \
+    | grep -vE 'index-unit-output-path|-output-file-map' \
+    | tail -n 150 >&2 || true
+  echo "---- last 150 xcodebuild log lines ----" >&2
+  tail -n 150 "$LOG_PATH" >&2 || true
   exit 1
 fi
 

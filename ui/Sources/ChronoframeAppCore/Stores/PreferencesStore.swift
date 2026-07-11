@@ -137,6 +137,41 @@ public final class PreferencesStore: ObservableObject {
         }
     }
 
+    // MARK: - Library Guardian (in-app + catch-up scheduling)
+
+    /// When on, Chronoframe runs a read-only integrity scrub on the configured
+    /// cadence while the app is open, catching up one missed run on launch/wake.
+    @Published public var guardianAutoScrubEnabled: Bool {
+        didSet { persist(guardianAutoScrubEnabled, key: "guardianAutoScrubEnabled") }
+    }
+
+    /// The scrub cadence, in seconds. Clamped to a sane minimum so a
+    /// misconfiguration can't spin the scrubber. Default: weekly.
+    @Published public var guardianScrubIntervalSeconds: Int {
+        didSet {
+            let clamped = max(Self.minimumGuardianScrubIntervalSeconds, guardianScrubIntervalSeconds)
+            if clamped != guardianScrubIntervalSeconds {
+                guardianScrubIntervalSeconds = clamped
+                return
+            }
+            persist(guardianScrubIntervalSeconds, key: "guardianScrubIntervalSeconds")
+        }
+    }
+
+    /// When on, a clean, complete scrub is followed by a verified mirror pass (only
+    /// when the mirror volume is online). A corrupt or partial scrub is skipped.
+    @Published public var guardianAutoMirrorEnabled: Bool {
+        didSet { persist(guardianAutoMirrorEnabled, key: "guardianAutoMirrorEnabled") }
+    }
+
+    /// When on, a scrub that finds corruption posts a user notification.
+    @Published public var guardianNotifyOnBitRot: Bool {
+        didSet { persist(guardianNotifyOnBitRot, key: "guardianNotifyOnBitRot") }
+    }
+
+    public static let minimumGuardianScrubIntervalSeconds = 3_600
+    public static let defaultGuardianScrubIntervalSeconds = 604_800
+
     public init(defaults: UserDefaults = .standard) {
         // Run any pending key migrations *before* the @Published properties
         // read their stored values, so the store always sees the current
@@ -166,6 +201,12 @@ public final class PreferencesStore: ObservableObject {
         self.dedupePerceptualVideoMatchingEnabled = defaults.object(forKey: "dedupePerceptualVideoMatchingEnabled") as? Bool ?? false
         self.dedupeAllowHardDelete = false
         defaults.set(false, forKey: "dedupeAllowHardDelete")
+        self.guardianAutoScrubEnabled = defaults.object(forKey: "guardianAutoScrubEnabled") as? Bool ?? false
+        let storedInterval = defaults.object(forKey: "guardianScrubIntervalSeconds") as? Int
+            ?? Self.defaultGuardianScrubIntervalSeconds
+        self.guardianScrubIntervalSeconds = max(Self.minimumGuardianScrubIntervalSeconds, storedInterval)
+        self.guardianAutoMirrorEnabled = defaults.object(forKey: "guardianAutoMirrorEnabled") as? Bool ?? false
+        self.guardianNotifyOnBitRot = defaults.object(forKey: "guardianNotifyOnBitRot") as? Bool ?? true
     }
 
     public func makeDeduplicateConfiguration(destinationPath: String) -> DeduplicateConfiguration {
