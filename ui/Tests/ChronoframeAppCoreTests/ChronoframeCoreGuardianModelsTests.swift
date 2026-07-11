@@ -54,14 +54,15 @@ final class ChronoframeCoreGuardianModelsTests: XCTestCase {
     // MARK: - Path normalization
 
     func testCanonicalKeyNormalizesToNFC() {
-        // "é" as base "e" + combining acute (NFD) must fold to the composed form.
+        // "é" as base "e" + combining acute (NFD) vs. the precomposed form (NFC).
         let decomposed = "cafe\u{0301}/photo.jpg"
         let composed = "caf\u{00E9}/photo.jpg"
-        XCTAssertNotEqual(decomposed, composed) // distinct code-unit sequences
-        XCTAssertEqual(
-            GuardianPathNormalization.canonicalKey(decomposed),
-            GuardianPathNormalization.canonicalKey(composed)
-        )
+        // Swift's String equality already folds canonical equivalence, so compare
+        // the raw scalar sequences to prove the two inputs are encoded differently.
+        XCTAssertNotEqual(Array(decomposed.unicodeScalars), Array(composed.unicodeScalars))
+        // canonicalKey must fold the NFD input to the same scalars as the NFC form.
+        let key = GuardianPathNormalization.canonicalKey(decomposed)
+        XCTAssertEqual(Array(key.unicodeScalars), Array(composed.unicodeScalars))
     }
 
     func testRelativeKeyDerivesPathUnderRoot() {
