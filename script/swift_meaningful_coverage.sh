@@ -90,6 +90,11 @@ MEANINGFUL_BASENAMES=(
     DestinationOperationLock
     LivePhotoMetadataLoader
     MutationRecoveryCoordinator
+    GuardianModels
+    GuardianIntegrityClassifier
+    GuardianMirrorPlanner
+    GuardianRestorePlanner
+    GuardianScheduler
 )
 
 missing_basenames=()
