@@ -45,6 +45,24 @@ public final class GuardianStore: ObservableObject {
         public let partialScan: Bool
         public let generatedAt: Date
 
+        public init(
+            verified: Int,
+            corrupt: Int,
+            modified: Int,
+            missing: Int,
+            newFiles: Int,
+            partialScan: Bool,
+            generatedAt: Date
+        ) {
+            self.verified = verified
+            self.corrupt = corrupt
+            self.modified = modified
+            self.missing = missing
+            self.newFiles = newFiles
+            self.partialScan = partialScan
+            self.generatedAt = generatedAt
+        }
+
         public var hasFindingsNeedingReview: Bool {
             corrupt > 0 || modified > 0 || missing > 0
         }

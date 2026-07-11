@@ -8,6 +8,7 @@ import Foundation
 @MainActor
 final class AppState: ObservableObject {
     private static let deduplicateDestinationBookmarkKey = "deduplicate.destination"
+    private static let guardianMirrorBookmarkKey = "guardian.mirror"
 
     @Published var selection: SidebarDestination
     @Published var organizeSubSelection: OrganizeSubSection
@@ -24,6 +25,7 @@ final class AppState: ObservableObject {
     var deduplicateSessionStore: DeduplicateSessionStore
     var watchedSourcesStore: WatchedSourcesStore
     var photosImportStore: PhotosImportStore
+    let guardianStore: GuardianStore
 
     private let folderAccessService: any FolderAccessServicing
     private let finderService: any FinderServicing
@@ -213,6 +215,7 @@ final class AppState: ObservableObject {
         self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine())
         self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.photosImportStore = photosImportStore ?? AppState.makePhotosImportStore()
+        self.guardianStore = GuardianStore(engine: SwiftGuardianEngine(), notifier: GuardianUserNotifier())
         self.folderAccessService = folderAccessService
         self.finderService = finderService
         self.profilesRepository = profilesRepository
@@ -390,6 +393,8 @@ final class AppState: ObservableObject {
             runCoordinator.cancelRun()
         case .deduplicate:
             deduplicateSessionStore.cancel()
+        case .guardian:
+            guardianStore.cancelScan()
         case .profiles:
             runCoordinator.cancelRun()
         }
@@ -808,6 +813,140 @@ final class AppState: ObservableObject {
     func revealWatchedSource(id: UUID) {
         guard let state = watchedSourcesStore.state(for: id) else { return }
         finderService.revealInFinder(state.source.path)
+    }
+
+    // MARK: - Library Guardian
+
+    /// The library Guardian protects — the active Organize destination (or the most
+    /// recent history root). Guardian only ever works on an already-organized
+    /// library, so it reuses the destination rather than introducing a new picker.
+    var guardianLibraryPath: String {
+        if !setupStore.destinationPath.isEmpty {
+            return setupStore.destinationPath
+        }
+        return historyStore.destinationRoot
+    }
+
+    /// The configured mirror volume path, or empty when none is set.
+    var guardianMirrorPath: String {
+        preferencesStore.bookmark(for: Self.guardianMirrorBookmarkKey)?.path ?? ""
+    }
+
+    /// Resolve a stable Guardian library identity for `path`: a persisted UUID keyed
+    /// by the path, plus the volume UUID when the filesystem exposes one. The UUID
+    /// keys all of Guardian's Application Support state, so it must stay stable
+    /// across launches for the same library.
+    private func guardianLibraryIdentity(for path: String) -> GuardianLibraryIdentity {
+        let defaultsKey = "guardian.libraryUUID." + path
+        let uuid: String
+        if let existing = UserDefaults.standard.string(forKey: defaultsKey) {
+            uuid = existing
+        } else {
+            uuid = UUID().uuidString
+            UserDefaults.standard.set(uuid, forKey: defaultsKey)
+        }
+        let volumeID = (try? URL(fileURLWithPath: path).resourceValues(forKeys: [.volumeUUIDStringKey]))?.volumeUUIDString
+        return GuardianLibraryIdentity(libraryUUID: uuid, volumeIdentifier: volumeID)
+    }
+
+    private func guardianBookmark(forKey key: String, path: String) -> FolderBookmark {
+        // The current engine works from the pinned URLs; the bookmark is carried for
+        // the pin-at-action-time contract. Use the stored bookmark when present,
+        // otherwise a path-only placeholder so the context is still well-formed.
+        preferencesStore.bookmark(for: key) ?? FolderBookmark(key: key, path: path, data: Data())
+    }
+
+    /// Configure the store for the current library and run a read-only scan. The
+    /// destination scope is held for the whole scan so the probe can read the library.
+    func scanGuardianLibrary() async {
+        let path = guardianLibraryPath
+        guard !path.isEmpty else { return }
+        let identity = guardianLibraryIdentity(for: path)
+        guardianStore.configure(libraryIdentity: identity, libraryURL: URL(fileURLWithPath: path, isDirectory: true))
+        let scope = destinationSecurityScope(destinationRoot: path)
+        await guardianStore.scan()
+        scope?.close()
+    }
+
+    func acceptGuardianTrust() async {
+        let scope = destinationSecurityScope(destinationRoot: guardianLibraryPath)
+        await guardianStore.acceptSelectedTrust()
+        scope?.close()
+    }
+
+    func acknowledgeGuardianDeletions() async {
+        let scope = destinationSecurityScope(destinationRoot: guardianLibraryPath)
+        await guardianStore.acknowledgeSelectedDeletions()
+        scope?.close()
+    }
+
+    /// Choose the mirror volume folder and persist its bookmark under `guardian.mirror`.
+    func chooseGuardianMirrorFolder() async {
+        guard let url = folderAccessService.chooseFolder(
+            startingAt: guardianMirrorPath,
+            prompt: "Choose Mirror Folder"
+        ) else {
+            return
+        }
+        do {
+            try folderAccessService.validateFolder(url, role: .destination)
+            let bookmark = try folderAccessService.makeBookmark(for: url, key: Self.guardianMirrorBookmarkKey)
+            preferencesStore.storeBookmark(bookmark)
+        } catch {
+            transientErrorMessage = UserFacingErrorMessage.message(for: error, context: .setup)
+        }
+    }
+
+    func runGuardianMirror() async {
+        let libraryPath = guardianLibraryPath
+        let mirrorPath = guardianMirrorPath
+        guard !libraryPath.isEmpty, !mirrorPath.isEmpty else { return }
+        let context = GuardianMirrorContext(
+            libraryIdentity: guardianLibraryIdentity(for: libraryPath),
+            libraryURL: URL(fileURLWithPath: libraryPath, isDirectory: true),
+            libraryBookmark: guardianBookmark(forKey: activeDestinationBookmarkKeys().first ?? "guardian.library", path: libraryPath),
+            mirrorURL: URL(fileURLWithPath: mirrorPath, isDirectory: true),
+            mirrorBookmark: guardianBookmark(forKey: Self.guardianMirrorBookmarkKey, path: mirrorPath)
+        )
+        let libraryScope = destinationSecurityScope(destinationRoot: libraryPath)
+        let mirrorScope = scopedAccess(forKeys: [Self.guardianMirrorBookmarkKey])
+        await guardianStore.runMirror(context: context)
+        mirrorScope?.close()
+        libraryScope?.close()
+    }
+
+    func prepareGuardianRestore() async {
+        let libraryPath = guardianLibraryPath
+        let mirrorPath = guardianMirrorPath
+        guard !libraryPath.isEmpty, !mirrorPath.isEmpty else { return }
+        let libraryScope = destinationSecurityScope(destinationRoot: libraryPath)
+        let mirrorScope = scopedAccess(forKeys: [Self.guardianMirrorBookmarkKey])
+        await guardianStore.prepareRestore(
+            libraryURL: URL(fileURLWithPath: libraryPath, isDirectory: true),
+            mirrorURL: URL(fileURLWithPath: mirrorPath, isDirectory: true)
+        )
+        mirrorScope?.close()
+        libraryScope?.close()
+    }
+
+    func runGuardianRestore() async {
+        let libraryPath = guardianLibraryPath
+        let mirrorPath = guardianMirrorPath
+        guard !libraryPath.isEmpty, !mirrorPath.isEmpty else { return }
+        guard let context = guardianStore.makeRestoreContext(
+            libraryIdentity: guardianLibraryIdentity(for: libraryPath),
+            libraryURL: URL(fileURLWithPath: libraryPath, isDirectory: true),
+            libraryBookmark: guardianBookmark(forKey: activeDestinationBookmarkKeys().first ?? "guardian.library", path: libraryPath),
+            mirrorURL: URL(fileURLWithPath: mirrorPath, isDirectory: true),
+            mirrorBookmark: guardianBookmark(forKey: Self.guardianMirrorBookmarkKey, path: mirrorPath)
+        ) else {
+            return
+        }
+        let libraryScope = destinationSecurityScope(destinationRoot: libraryPath)
+        let mirrorScope = scopedAccess(forKeys: [Self.guardianMirrorBookmarkKey])
+        await guardianStore.runRestore(context: context)
+        mirrorScope?.close()
+        libraryScope?.close()
     }
 
     // MARK: - Apple Photos import

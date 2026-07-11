@@ -171,6 +171,8 @@ struct SidebarView: View {
                 return DesignTokens.ColorSystem.accentAction
             }
             return DesignTokens.ColorSystem.inkSecondary
+        case .guardian:
+            return DesignTokens.ColorSystem.inkSecondary
         case .profiles:
             return DesignTokens.ColorSystem.inkSecondary
         }
@@ -181,6 +183,7 @@ struct SidebarView: View {
         case .organize: return runSessionStore.isRunning
         case .photos: return false
         case .deduplicate: return deduplicateSessionStore.isWorking
+        case .guardian: return false
         case .profiles: return false
         }
     }
@@ -203,6 +206,8 @@ struct SidebarView: View {
                 status: deduplicateSessionStore.status,
                 lastSeenToken: lastSeenDeduplicateAttentionToken
             )
+        case .guardian:
+            return false
         case .profiles:
             return setupStore.usingProfile
         }
@@ -240,6 +245,8 @@ struct SidebarView: View {
             default:
                 return DesignTokens.ColorSystem.inkSecondary
             }
+        case .guardian:
+            return DesignTokens.ColorSystem.inkSecondary
         case .profiles:
             return DesignTokens.ColorSystem.accentWaypoint
         }

@@ -118,9 +118,19 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
     case organize
     case photos
     case deduplicate
+    case guardian
     case profiles
 
-    public static let primaryNavigationCases: [SidebarDestination] = [.organize, .photos, .deduplicate]
+    /// The destinations shown in the primary sidebar, in order. Library Guardian
+    /// is appended only when its capability flag is enabled, so it stays hidden
+    /// (and its whole workspace merges dark) until every phase lands.
+    public static var primaryNavigationCases: [SidebarDestination] {
+        var cases: [SidebarDestination] = [.organize, .photos, .deduplicate]
+        if GuardianCapability.isEnabled {
+            cases.append(.guardian)
+        }
+        return cases
+    }
 
     public var id: String { rawValue }
 
@@ -132,6 +142,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
             return "Photos"
         case .deduplicate:
             return "Deduplicate"
+        case .guardian:
+            return "Guardian"
         case .profiles:
             return "Profiles"
         }
@@ -145,6 +157,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
             return "Import from your Photos library"
         case .deduplicate:
             return "Find and remove duplicate photos"
+        case .guardian:
+            return "Detect bit rot, mirror, and restore"
         case .profiles:
             return "Reusable saved setups"
         }
@@ -158,6 +172,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
             return "photo.on.rectangle.angled"
         case .deduplicate:
             return "rectangle.on.rectangle.angled"
+        case .guardian:
+            return "checkmark.shield"
         case .profiles:
             return "person.crop.rectangle.stack"
         }
@@ -168,7 +184,7 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
     /// becoming a flat list.
     public var section: SidebarSection {
         switch self {
-        case .organize, .photos, .deduplicate:
+        case .organize, .photos, .deduplicate, .guardian:
             return .library
         case .profiles:
             return .preferences
@@ -261,6 +277,7 @@ public enum AppRoute: Hashable, Sendable {
     case organize(OrganizeSubSection)
     case photos
     case deduplicate
+    case guardian
     case profiles
 
     public var sidebar: SidebarDestination {
@@ -268,6 +285,7 @@ public enum AppRoute: Hashable, Sendable {
         case .organize: return .organize
         case .photos: return .photos
         case .deduplicate: return .deduplicate
+        case .guardian: return .guardian
         case .profiles: return .profiles
         }
     }

@@ -20,6 +20,8 @@ final class ModelAndServiceTests: XCTestCase {
         XCTAssertEqual(SidebarDestination.primaryNavigationCases, [.organize, .photos, .deduplicate])
         XCTAssertTrue(SidebarDestination.allCases.contains(.profiles))
         XCTAssertFalse(SidebarDestination.primaryNavigationCases.contains(.profiles))
+        XCTAssertTrue(SidebarDestination.allCases.contains(.guardian))
+        XCTAssertEqual(SidebarDestination.primaryNavigationCases.contains(.guardian), GuardianCapability.isEnabled)
 
         for phase in RunPhase.allCases {
             XCTAssertFalse(phase.title.isEmpty)
