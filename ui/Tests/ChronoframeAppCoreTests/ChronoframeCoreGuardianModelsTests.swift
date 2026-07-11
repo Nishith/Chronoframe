@@ -99,8 +99,8 @@ final class ChronoframeCoreGuardianModelsTests: XCTestCase {
     // MARK: - Multi-root lock ordering & overlap
 
     func testCanonicalOrderingIsDeterministicRegardlessOfInputOrder() throws {
-        let a = GuardianLockRoot(url: URL(fileURLWithPath: "/Volumes/Alpha"), surface: "app", operation: "mirror")
-        let b = GuardianLockRoot(url: URL(fileURLWithPath: "/Volumes/Beta"), surface: "app", operation: "mirror")
+        let a = GuardianLockRoot.inRoot(URL(fileURLWithPath: "/Volumes/Alpha"), surface: "app", operation: "mirror")
+        let b = GuardianLockRoot.inRoot(URL(fileURLWithPath: "/Volumes/Beta"), surface: "app", operation: "mirror")
         let forward = try GuardianMultiRootLock.canonicallyOrdered([a, b]).map { $0.url.path }
         let reverse = try GuardianMultiRootLock.canonicallyOrdered([b, a]).map { $0.url.path }
         XCTAssertEqual(forward, reverse)
@@ -108,8 +108,8 @@ final class ChronoframeCoreGuardianModelsTests: XCTestCase {
     }
 
     func testOverlappingRootsAreRejected() {
-        let parent = GuardianLockRoot(url: URL(fileURLWithPath: "/Volumes/Alpha/Library"), surface: "app", operation: "restore")
-        let child = GuardianLockRoot(url: URL(fileURLWithPath: "/Volumes/Alpha/Library/Mirror"), surface: "app", operation: "restore")
+        let parent = GuardianLockRoot.inRoot(URL(fileURLWithPath: "/Volumes/Alpha/Library"), surface: "app", operation: "restore")
+        let child = GuardianLockRoot.inRoot(URL(fileURLWithPath: "/Volumes/Alpha/Library/Mirror"), surface: "app", operation: "restore")
         XCTAssertThrowsError(try GuardianMultiRootLock.canonicallyOrdered([parent, child])) { error in
             guard case GuardianMultiRootLockError.overlappingRoots = error else {
                 return XCTFail("expected overlappingRoots, got \(error)")
@@ -130,8 +130,8 @@ final class ChronoframeCoreGuardianModelsTests: XCTestCase {
         try FileManager.default.createDirectory(at: mirrorURL, withIntermediateDirectories: true)
 
         let lease = try GuardianMultiRootLock.acquire([
-            GuardianLockRoot(url: libraryURL, surface: "app", operation: "restore"),
-            GuardianLockRoot(url: mirrorURL, surface: "app", operation: "restore"),
+            GuardianLockRoot.inRoot(libraryURL, surface: "app", operation: "restore"),
+            GuardianLockRoot.inRoot(mirrorURL, surface: "app", operation: "restore"),
         ])
         // A second acquisition of either root must fail while the lease is held.
         XCTAssertThrowsError(
@@ -141,6 +141,29 @@ final class ChronoframeCoreGuardianModelsTests: XCTestCase {
         // After release the root is free again.
         let reacquired = try DestinationOperationLock.acquire(destinationRoot: libraryURL, surface: "app", operation: "restore")
         reacquired.release()
+    }
+
+    func testLockFileCanLiveOutsideAReadOnlyRoot() throws {
+        // A read-only library must not be written to just to take a lease: the lock
+        // file lives in a separate coordination directory, and no .organize_logs
+        // appears under the library root.
+        let libraryURL = temporaryDirectoryURL.appendingPathComponent("ro-library", isDirectory: true)
+        let coordinationDir = temporaryDirectoryURL.appendingPathComponent("appsupport-guardian", isDirectory: true)
+        try FileManager.default.createDirectory(at: libraryURL, withIntermediateDirectories: true)
+
+        let lockFileURL = coordinationDir.appendingPathComponent("library-uuid.lock")
+        let lease = try GuardianMultiRootLock.acquire([
+            GuardianLockRoot(url: libraryURL, lockFileURL: lockFileURL, surface: "app", operation: "scrub"),
+        ])
+        defer { lease.release() }
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: lockFileURL.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: libraryURL.appendingPathComponent(".organize_logs").path
+            ),
+            "acquiring a Guardian lease must not create .organize_logs in a read-only library"
+        )
     }
 
     func testMultiRootLockReleasesAllWhenOneRootIsBusy() throws {
@@ -155,8 +178,8 @@ final class ChronoframeCoreGuardianModelsTests: XCTestCase {
 
         XCTAssertThrowsError(
             try GuardianMultiRootLock.acquire([
-                GuardianLockRoot(url: libraryURL, surface: "app", operation: "restore"),
-                GuardianLockRoot(url: mirrorURL, surface: "app", operation: "restore"),
+                GuardianLockRoot.inRoot(libraryURL, surface: "app", operation: "restore"),
+                GuardianLockRoot.inRoot(mirrorURL, surface: "app", operation: "restore"),
             ])
         )
         // The library lease must have been released on the partial failure, so it is

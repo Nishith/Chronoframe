@@ -177,19 +177,24 @@ public struct GuardianIntegrityFinding: Equatable, Codable, Sendable {
     public var expectedIdentity: FileIdentity?
     /// Identity observed on disk this scan (nil for missing/dataless/unreadable).
     public var observedIdentity: FileIdentity?
+    /// Modification time observed on disk this scan (nil when not hashed). Carried so
+    /// the manifest updater can persist a new/unprotected entry without re-reading disk.
+    public var observedModificationTime: TimeInterval?
 
     public init(
         relativePath: String,
         status: GuardianIntegrityStatus,
         trustState: GuardianTrustState,
         expectedIdentity: FileIdentity? = nil,
-        observedIdentity: FileIdentity? = nil
+        observedIdentity: FileIdentity? = nil,
+        observedModificationTime: TimeInterval? = nil
     ) {
         self.relativePath = relativePath
         self.status = status
         self.trustState = trustState
         self.expectedIdentity = expectedIdentity
         self.observedIdentity = observedIdentity
+        self.observedModificationTime = observedModificationTime
     }
 }
 

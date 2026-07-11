@@ -18,16 +18,36 @@ import Foundation
 // across multiple hosts on a network volume. It only guarantees mutual exclusion on
 // a single machine.
 
-/// One root to lock, with the diagnostics written into its lock file.
+/// One root to lock. `url` is the protected root (used only for deadlock-safe
+/// ordering and overlap rejection); `lockFileURL` is where the physical lock file
+/// is actually created. Keeping these separate is what lets Guardian lock a
+/// read-only library **without** writing into it — the lock file lives in
+/// Application Support, not under the library root.
 public struct GuardianLockRoot: Sendable, Equatable {
     public var url: URL
+    public var lockFileURL: URL
     public var surface: String
     public var operation: String
 
-    public init(url: URL, surface: String, operation: String) {
+    /// Lock `url` using an explicit lock-file location. Use this for a read-only
+    /// library, pointing `lockFileURL` at an Application Support path keyed by the
+    /// library identity so acquiring the lease never mutates the library.
+    public init(url: URL, lockFileURL: URL, surface: String, operation: String) {
         self.url = url
+        self.lockFileURL = lockFileURL
         self.surface = surface
         self.operation = operation
+    }
+
+    /// Convenience for a **writable** root whose lock should coordinate with
+    /// organize/dedupe: the lock lives at `<url>/.organize_logs/<lockName>` inside
+    /// the root itself (the historical `DestinationOperationLock` location). Never
+    /// use this for a read-only library root — it would write into the library.
+    public static func inRoot(_ url: URL, surface: String, operation: String) -> GuardianLockRoot {
+        let lockFileURL = url
+            .appendingPathComponent(".organize_logs", isDirectory: true)
+            .appendingPathComponent(DestinationOperationLock.filename)
+        return GuardianLockRoot(url: url, lockFileURL: lockFileURL, surface: surface, operation: operation)
     }
 }
 
@@ -72,7 +92,7 @@ public enum GuardianMultiRootLock {
         do {
             for root in ordered {
                 let lease = try DestinationOperationLock.acquire(
-                    destinationRoot: root.url,
+                    lockFileURL: root.lockFileURL,
                     surface: root.surface,
                     operation: root.operation
                 )
