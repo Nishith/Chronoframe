@@ -115,7 +115,7 @@ public struct GuardianLibraryProbe: Sendable {
             )
         }
 
-        if MediaDiscovery.isICloudDatalessProvider(url) {
+        if Self.isICloudDataless(url) {
             return probed(digest: nil, outcome: .dataless)
         }
 
@@ -136,5 +136,17 @@ public struct GuardianLibraryProbe: Sendable {
         }
 
         return probed(digest: identity.digest, outcome: .hashed)
+    }
+
+    /// Production iCloud-dataless check (an evicted ubiquitous item has no local
+    /// bytes to hash). Mirrors the non-DEBUG path in `MediaDiscovery`; we read the
+    /// resource value directly rather than through that type's `#if DEBUG`-only
+    /// test provider, which does not exist in Release builds.
+    private static func isICloudDataless(_ url: URL) -> Bool {
+        guard
+            let values = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
+            let status = values.ubiquitousItemDownloadingStatus
+        else { return false }
+        return status == .notDownloaded
     }
 }
