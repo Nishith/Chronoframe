@@ -91,6 +91,7 @@ MEANINGFUL_BASENAMES=(
     LivePhotoMetadataLoader
     MutationRecoveryCoordinator
     GuardianModels
+    GuardianManifestUpdater
     GuardianIntegrityClassifier
     GuardianMirrorPlanner
     GuardianRestorePlanner
