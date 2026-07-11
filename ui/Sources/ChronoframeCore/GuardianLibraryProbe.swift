@@ -46,6 +46,13 @@ public struct GuardianLibraryProbe: Sendable {
         self.hasher = hasher
     }
 
+    /// A probed file plus the inode used to de-duplicate hard links. `inode` is nil
+    /// when the file could not be stat'd.
+    private struct Probed {
+        var observation: GuardianFileObservation
+        var inode: UInt64?
+    }
+
     public func probe(
         libraryRoot: URL,
         isCancelled: @Sendable () -> Bool = { false }
@@ -63,59 +70,60 @@ public struct GuardianLibraryProbe: Sendable {
             guard let key = GuardianPathNormalization.relativeKey(of: url, underRoot: libraryRoot) else {
                 return
             }
-            if let observation = observe(url: url, relativeKey: key, seenInodes: &seenInodes) {
-                observations.append(observation)
+            let probed = observe(url: url, relativeKey: key)
+            // De-duplicate hard links here (mutating the captured set directly rather
+            // than passing it as inout into a helper) so the set is never handed
+            // across the closure boundary as inout.
+            if let inode = probed.inode {
+                if seenInodes.contains(inode) { return }
+                seenInodes.insert(inode)
             }
+            observations.append(probed.observation)
         }
 
         return Result(observations: observations, partialScan: partial.isSet)
     }
 
-    private func observe(
-        url: URL,
-        relativeKey: String,
-        seenInodes: inout Set<UInt64>
-    ) -> GuardianFileObservation? {
+    private func observe(url: URL, relativeKey: String) -> Probed {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path) else {
-            return GuardianFileObservation(
-                relativePath: relativeKey,
-                size: 0,
-                modificationTime: 0,
-                digest: nil,
-                outcome: .unreadable
+            return Probed(
+                observation: GuardianFileObservation(
+                    relativePath: relativeKey,
+                    size: 0,
+                    modificationTime: 0,
+                    digest: nil,
+                    outcome: .unreadable
+                ),
+                inode: nil
             )
         }
 
-        // De-duplicate hard links: a second name for the same inode is skipped.
-        if let inode = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value {
-            if seenInodes.contains(inode) { return nil }
-            seenInodes.insert(inode)
-        }
-
+        let inode = (attributes[.systemFileNumber] as? NSNumber)?.uint64Value
         let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
         let mtime = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
 
-        if MediaDiscovery.isICloudDatalessProvider(url) {
-            return GuardianFileObservation(
-                relativePath: relativeKey,
-                size: size,
-                modificationTime: mtime,
-                digest: nil,
-                outcome: .dataless
+        func probed(digest: String?, outcome: GuardianProbeOutcome) -> Probed {
+            Probed(
+                observation: GuardianFileObservation(
+                    relativePath: relativeKey,
+                    size: size,
+                    modificationTime: mtime,
+                    digest: digest,
+                    outcome: outcome
+                ),
+                inode: inode
             )
+        }
+
+        if MediaDiscovery.isICloudDatalessProvider(url) {
+            return probed(digest: nil, outcome: .dataless)
         }
 
         let identity: FileIdentity
         do {
             identity = try hasher.hashIdentity(at: url, knownSize: size)
         } catch {
-            return GuardianFileObservation(
-                relativePath: relativeKey,
-                size: size,
-                modificationTime: mtime,
-                digest: nil,
-                outcome: .unreadable
-            )
+            return probed(digest: nil, outcome: .unreadable)
         }
 
         // If size or mtime changed while we were hashing, the reading is untrustworthy.
@@ -123,22 +131,10 @@ public struct GuardianLibraryProbe: Sendable {
             let sizeAfter = (after[.size] as? NSNumber)?.int64Value ?? size
             let mtimeAfter = (after[.modificationDate] as? Date)?.timeIntervalSince1970 ?? mtime
             if sizeAfter != size || abs(mtimeAfter - mtime) >= GuardianIntegrityClassifier.modificationTimeTolerance {
-                return GuardianFileObservation(
-                    relativePath: relativeKey,
-                    size: size,
-                    modificationTime: mtime,
-                    digest: nil,
-                    outcome: .changedDuringScan
-                )
+                return probed(digest: nil, outcome: .changedDuringScan)
             }
         }
 
-        return GuardianFileObservation(
-            relativePath: relativeKey,
-            size: size,
-            modificationTime: mtime,
-            digest: identity.digest,
-            outcome: .hashed
-        )
+        return probed(digest: identity.digest, outcome: .hashed)
     }
 }
