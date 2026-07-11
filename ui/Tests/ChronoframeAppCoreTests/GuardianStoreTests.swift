@@ -187,6 +187,7 @@ final class GuardianStoreTests: XCTestCase {
         XCTAssertEqual(engine.scanCount, 2, "a completed restore re-scans to confirm the heal")
     }
 
+    @MainActor
     func testMakeRestoreContextRefusesWhenPlanRootsDifferFromTargetRoots() async {
         let trusted = FileIdentity(size: 10, digest: "good")
         let engine = MockGuardianEngine(scanReport: report([finding("a.jpg", .corrupt, expected: trusted, observed: FileIdentity(size: 10, digest: "rot"))]))
@@ -219,6 +220,7 @@ final class GuardianStoreTests: XCTestCase {
         XCTAssertNotNil(matched)
     }
 
+    @MainActor
     func testConfiguringADifferentLibraryClearsStaleReviewState() async {
         let trusted = FileIdentity(size: 10, digest: "good")
         let engine = MockGuardianEngine(scanReport: report([finding("a.jpg", .corrupt, expected: trusted, observed: FileIdentity(size: 10, digest: "rot"))]))
