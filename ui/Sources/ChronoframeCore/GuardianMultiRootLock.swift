@@ -2,9 +2,12 @@ import Foundation
 
 // MARK: - Canonical multi-root destination lock (Phase 0)
 //
-// Guardian's mirror and restore surfaces touch two roots (the library and the
-// mirror). Acquiring two exclusive `DestinationOperationLock`s without a global
-// ordering can deadlock two competing operations, so this helper:
+// Guardian's verified **restore** is the only surface that mutates two roots in one
+// operation, so it is the only caller of this helper: it writes the library
+// (same-directory quarantine + atomic install) and locks the mirror so the verified
+// copy source can't change mid-restore. Acquiring two exclusive
+// `DestinationOperationLock`s without a global ordering can deadlock two competing
+// operations, so this helper:
 //
 //   * rejects overlapping roots (equal, or either nested inside the other, after
 //     symlink resolution) — those can never be locked as two independent roots;
@@ -13,6 +16,17 @@ import Foundation
 //     absolute mount path), so two operations always grab shared roots in the same
 //     order and cannot deadlock;
 //   * acquires all-or-nothing: any failure releases every lease already taken.
+//
+// Read-only Guardian surfaces never lock the library through this helper: a scrub
+// takes no library lock (it only reads, coordinating via Application Support), and a
+// mirror pass locks only the writable mirror while reading the library. The library
+// is locked here solely by restore, which is already writing it — and its in-root
+// `.organize_logs` lease is exactly what makes restore mutually exclusive with a
+// concurrent organize/dedupe/reorganize on the same folder (all of which lock that
+// same path). Any future read-only multi-root need must pass an explicit
+// `lockFileURL` via `GuardianLockRoot.init(url:lockFileURL:…)`, pointing outside the
+// protected root — the `inRoot` convenience is reserved for a root the operation
+// actually mutates.
 //
 // Note: like `DestinationOperationLock`, this relies on `flock`, which is unreliable
 // across multiple hosts on a network volume. It only guarantees mutual exclusion on

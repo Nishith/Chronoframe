@@ -127,6 +127,12 @@ public struct GuardianRestoreExecutor: Sendable {
         isCancelled: @Sendable () -> Bool = { false },
         afterState: (GuardianRestoreState, String) throws -> Void = { _, _ in }
     ) throws -> GuardianRestoreExecutionResult {
+        // Restore is the one Guardian surface that writes the library, so an in-root
+        // `.organize_logs` lock on the library is honest — and it is what makes a
+        // restore mutually exclusive with a concurrent organize/dedupe/reorganize on
+        // the same folder, which all lock that same path. The mirror is a writable
+        // volume, so its in-root lock is likewise correct. (Read-only surfaces —
+        // scrub, mirror-read — never lock the library; see GuardianMultiRootLock.)
         let lease = try GuardianMultiRootLock.acquire([
             GuardianLockRoot.inRoot(libraryRoot, surface: "app", operation: "guardian-restore"),
             GuardianLockRoot.inRoot(mirrorRoot, surface: "app", operation: "guardian-restore"),
