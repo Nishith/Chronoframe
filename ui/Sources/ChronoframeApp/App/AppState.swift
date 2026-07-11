@@ -23,6 +23,7 @@ final class AppState: ObservableObject {
     var libraryHealthStore: LibraryHealthStore
     var deduplicateSessionStore: DeduplicateSessionStore
     var watchedSourcesStore: WatchedSourcesStore
+    var photosImportStore: PhotosImportStore
 
     private let folderAccessService: any FolderAccessServicing
     private let finderService: any FinderServicing
@@ -67,6 +68,12 @@ final class AppState: ObservableObject {
         },
         makeWatchedImportSecurityScope: { [weak self] context in
             self?.watchedImportSecurityScope(for: context)
+        },
+        makePhotosImportSecurityScope: { [weak self] context in
+            self?.photosImportSecurityScope(for: context)
+        },
+        cleanupPhotosStaging: { [weak self] context in
+            self?.photosImportStore.cleanupStaging(for: context)
         },
         reportTransientError: { [weak self] message in
             self?.transientErrorMessage = message
@@ -180,6 +187,7 @@ final class AppState: ObservableObject {
         libraryHealthStore: LibraryHealthStore? = nil,
         deduplicateSessionStore: DeduplicateSessionStore? = nil,
         watchedSourcesStore: WatchedSourcesStore? = nil,
+        photosImportStore: PhotosImportStore? = nil,
         folderAccessService: any FolderAccessServicing,
         finderService: any FinderServicing,
         profilesRepository: any ProfilesRepositorying,
@@ -204,6 +212,7 @@ final class AppState: ObservableObject {
         self.libraryHealthStore = libraryHealthStore ?? LibraryHealthStore()
         self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine())
         self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
+        self.photosImportStore = photosImportStore ?? AppState.makePhotosImportStore()
         self.folderAccessService = folderAccessService
         self.finderService = finderService
         self.profilesRepository = profilesRepository
@@ -250,6 +259,7 @@ final class AppState: ObservableObject {
 
     var canStartRun: Bool {
         hasActiveWatchedImport
+            || hasActivePhotosImport
             || setupStore.usingProfile
             || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
     }
@@ -259,6 +269,12 @@ final class AppState: ObservableObject {
     /// even when Setup paths are empty.
     var hasActiveWatchedImport: Bool {
         runCoordinator.activeWatchedImportContext != nil
+    }
+
+    /// True while an Apple Photos Review & Import flow is in flight; keeps the
+    /// Transfer button enabled from the pinned context even with empty Setup.
+    var hasActivePhotosImport: Bool {
+        runCoordinator.activePhotosImportContext != nil
     }
 
     /// Single navigation entry point. Setting both sidebar selection and the
@@ -369,6 +385,8 @@ final class AppState: ObservableObject {
     func cancelRun() {
         switch selection {
         case .organize:
+            runCoordinator.cancelRun()
+        case .photos:
             runCoordinator.cancelRun()
         case .deduplicate:
             deduplicateSessionStore.cancel()
@@ -666,6 +684,28 @@ final class AppState: ObservableObject {
         return folderAccessService.scopedAccess(for: [context.sourceBookmark] + destinationBookmarks)
     }
 
+    /// Scope for a Photos import: only the captured destination bookmarks. The
+    /// staging source lives in the app's own container, so it needs no
+    /// security-scoped bookmark.
+    private func photosImportSecurityScope(for context: PhotosImportContext) -> SecurityScopedFolderAccess? {
+        let destinationBookmarks = context.destinationBookmarkKeys.compactMap {
+            preferencesStore.bookmark(for: $0)
+        }
+        guard !destinationBookmarks.isEmpty else { return nil }
+        return folderAccessService.scopedAccess(for: destinationBookmarks)
+    }
+
+    private static func makePhotosImportStore() -> PhotosImportStore {
+        let staging = RuntimePaths.applicationSupportDirectory()
+            .appendingPathComponent("photos_import_staging", isDirectory: true)
+        return PhotosImportStore(
+            access: PhotosLibraryAccessService(),
+            catalog: PhotosCatalogService(),
+            exporter: PhotosResourceExportService(),
+            stagingParentURL: staging
+        )
+    }
+
     private func deduplicateSecurityScope(destination: String) -> SecurityScopedFolderAccess? {
         if hasDedicatedDeduplicateDestinationPath {
             return scopedAccess(forKeys: [Self.deduplicateDestinationBookmarkKey])
@@ -768,6 +808,42 @@ final class AppState: ObservableObject {
     func revealWatchedSource(id: UUID) {
         guard let state = watchedSourcesStore.state(for: id) else { return }
         finderService.revealInFinder(state.source.path)
+    }
+
+    // MARK: - Apple Photos import
+
+    /// Loads the Photos catalog when the workspace appears, if access is
+    /// already granted. Prompting is an explicit user action (`requestPhotosAccess`).
+    func preparePhotosWorkspace() {
+        photosImportStore.refreshAuthorization()
+    }
+
+    func requestPhotosAccess() async {
+        await photosImportStore.requestAccess()
+    }
+
+    /// Exports the current Photos selection into staging and hands off to the
+    /// normal preview → consent → verified-transfer flow, pinning the
+    /// destination active at click time. The Photos library is only read.
+    func reviewAndImportSelectedPhotos() async {
+        guard !runSessionStore.isRunning else { return }
+        guard !deduplicateSessionStore.isWorking else {
+            transientErrorMessage = "Finish the duplicate cleanup before importing from Photos."
+            return
+        }
+        let destinationPath = setupStore.destinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let capture = PhotosImportStore.DestinationCapture(
+            path: destinationPath,
+            bookmarkKeys: activeDestinationBookmarkKeys()
+        )
+        guard let context = await photosImportStore.prepareImport(destination: capture) else {
+            if let message = photosImportStore.statusMessage {
+                transientErrorMessage = message
+            }
+            return
+        }
+        previewReviewStore.reset()
+        await runCoordinator.startPreview(photosImportContext: context)
     }
 
     func revealTransferredSource(_ record: TransferredSourceRecord) {

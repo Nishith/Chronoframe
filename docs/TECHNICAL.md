@@ -195,6 +195,16 @@ The scan summary carries an immutable `DeduplicateScanSnapshot`. `DeduplicationP
 
 Commit preflights the receipt directory, writes a pending receipt and recovery journal, then handles RAW+JPEG, Live Photo, and sidecar ownership with Keep-wins semantics. Each mutation unit is renamed to a unique same-directory quarantine path, opened with `O_NOFOLLOW`, content-verified through the descriptor, and only then moved to Trash. Unit failures roll back together where the filesystem evidence permits.
 
+## Apple Photos Import
+
+The **Photos** sidebar destination imports copies of photos and videos out of the Apple Photos library into the active organize destination. It is read-only, one-directional, and review-gated.
+
+Chronoframe never mutates the Photos library. Authorization, album/asset enumeration, and export all go through read-only PhotoKit APIs; the export seam has no mutating method, and `script/check_photos_import_readonly.sh` fails CI if a mutating PhotoKit symbol (`performChanges`, any change request) appears in a file that imports Photos (safety invariant #22).
+
+Import runs in two stages. First, the selected assets' **original** (unedited) resources are exported with `PHAssetResourceManager` into a per-import staging directory under Application Support (`photos_import_staging/<uuid>/`); a Live Photo's still and paired movie share a basename, and export is transactional per asset (a partial write is rolled back so an incomplete pair never reaches the pipeline). Second, that staging directory is fed to the normal verified-transfer pipeline as the run source, so preview, consent, verification, receipts, and interruption recovery are identical to any other organize run. The destination is captured when the user clicks Import and revalidated before the transfer; a change cancels rather than retargets. Staging is deleted on completion, failure, or cancellation.
+
+iCloud-only originals are downloaded on demand during export. `.limited` authorization is honored — the browser imports whatever subset the user has granted.
+
 ## Date Resolution
 
 The native app records both the date and how confident Chronoframe is about it.

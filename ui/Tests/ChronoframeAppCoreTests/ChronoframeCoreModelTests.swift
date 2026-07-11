@@ -17,7 +17,7 @@ final class ChronoframeCoreModelTests: XCTestCase {
 
     func testSidebarAndHistoryMetadataRemainStable() {
         XCTAssertEqual(Profile(name: "travel", sourcePath: "/src", destinationPath: "/dst").id, "travel")
-        XCTAssertEqual(SidebarDestination.primaryNavigationCases, [.organize, .deduplicate])
+        XCTAssertEqual(SidebarDestination.primaryNavigationCases, [.organize, .photos, .deduplicate])
         XCTAssertTrue(SidebarDestination.allCases.contains(.profiles))
         XCTAssertFalse(SidebarDestination.primaryNavigationCases.contains(.profiles))
 

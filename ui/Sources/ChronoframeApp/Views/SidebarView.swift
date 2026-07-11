@@ -164,6 +164,8 @@ struct SidebarView: View {
                 return DesignTokens.ColorSystem.statusSuccess
             }
             return DesignTokens.ColorSystem.inkSecondary
+        case .photos:
+            return DesignTokens.ColorSystem.inkSecondary
         case .deduplicate:
             if deduplicateSessionStore.isWorking {
                 return DesignTokens.ColorSystem.accentAction
@@ -177,6 +179,7 @@ struct SidebarView: View {
     private func showsProgress(for destination: SidebarDestination) -> Bool {
         switch destination {
         case .organize: return runSessionStore.isRunning
+        case .photos: return false
         case .deduplicate: return deduplicateSessionStore.isWorking
         case .profiles: return false
         }
@@ -193,6 +196,8 @@ struct SidebarView: View {
                     lastSeenToken: lastSeenWatchedSourcesToken
                 )
                 || appState.canStartRun
+        case .photos:
+            return false
         case .deduplicate:
             return Self.shouldShowDeduplicateStatusDot(
                 status: deduplicateSessionStore.status,
@@ -205,6 +210,8 @@ struct SidebarView: View {
 
     private func statusDotTint(for destination: SidebarDestination) -> SwiftUI.Color {
         switch destination {
+        case .photos:
+            return DesignTokens.ColorSystem.inkSecondary
         case .organize:
             if runSessionStore.status == .failed {
                 return DesignTokens.ColorSystem.statusDanger

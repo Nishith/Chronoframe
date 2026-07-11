@@ -50,6 +50,14 @@ enum AccessibilityIdentifiers {
     static func watchedSourceRow(_ id: some CustomStringConvertible) -> String { "watchedSourceRow-\(id)" }
     static func watchedSourceImportButton(_ id: some CustomStringConvertible) -> String { "watchedSourceImport-\(id)" }
 
+    // MARK: - Photos Import
+
+    static let photosRequestAccessButton = "photosRequestAccessButton"
+    static let photosOpenSettingsButton = "photosOpenSettingsButton"
+    static let photosImportButton = "photosImportButton"
+    static let photosAlbumPicker = "photosAlbumPicker"
+    static func photosAssetCell(_ id: some CustomStringConvertible) -> String { "photosAssetCell-\(id)" }
+
     // MARK: - Deduplicate
 
     static let dedupeAcceptAllSuggestionsButton = "dedupeAcceptAllSuggestionsButton"

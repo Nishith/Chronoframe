@@ -17,7 +17,7 @@ final class ModelAndServiceTests: XCTestCase {
     }
 
     func testPhaseAndSidebarMetadataAreNonEmpty() {
-        XCTAssertEqual(SidebarDestination.primaryNavigationCases, [.organize, .deduplicate])
+        XCTAssertEqual(SidebarDestination.primaryNavigationCases, [.organize, .photos, .deduplicate])
         XCTAssertTrue(SidebarDestination.allCases.contains(.profiles))
         XCTAssertFalse(SidebarDestination.primaryNavigationCases.contains(.profiles))
 
