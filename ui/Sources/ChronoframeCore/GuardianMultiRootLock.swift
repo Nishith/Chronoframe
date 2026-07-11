@@ -1,0 +1,119 @@
+import Foundation
+
+// MARK: - Canonical multi-root destination lock (Phase 0)
+//
+// Guardian's mirror and restore surfaces touch two roots (the library and the
+// mirror). Acquiring two exclusive `DestinationOperationLock`s without a global
+// ordering can deadlock two competing operations, so this helper:
+//
+//   * rejects overlapping roots (equal, or either nested inside the other, after
+//     symlink resolution) — those can never be locked as two independent roots;
+//   * orders acquisition by canonical absolute path, which is a total, deterministic
+//     order shared across processes (the volume identity is already encoded in the
+//     absolute mount path), so two operations always grab shared roots in the same
+//     order and cannot deadlock;
+//   * acquires all-or-nothing: any failure releases every lease already taken.
+//
+// Note: like `DestinationOperationLock`, this relies on `flock`, which is unreliable
+// across multiple hosts on a network volume. It only guarantees mutual exclusion on
+// a single machine.
+
+/// One root to lock, with the diagnostics written into its lock file.
+public struct GuardianLockRoot: Sendable, Equatable {
+    public var url: URL
+    public var surface: String
+    public var operation: String
+
+    public init(url: URL, surface: String, operation: String) {
+        self.url = url
+        self.surface = surface
+        self.operation = operation
+    }
+}
+
+public enum GuardianMultiRootLockError: Error, Equatable {
+    /// Two requested roots resolve to overlapping locations and cannot be locked
+    /// independently.
+    case overlappingRoots(String, String)
+}
+
+/// Holds every lease acquired for a multi-root operation. Releasing frees them all;
+/// release is idempotent and also runs on deinit.
+public final class GuardianMultiRootLease: @unchecked Sendable {
+    private let stateLock = NSLock()
+    private var leases: [DestinationOperationLease]
+
+    fileprivate init(leases: [DestinationOperationLease]) {
+        self.leases = leases
+    }
+
+    public func release() {
+        stateLock.lock()
+        let toRelease = leases
+        leases = []
+        stateLock.unlock()
+        // Release in reverse acquisition order for symmetry.
+        for lease in toRelease.reversed() {
+            lease.release()
+        }
+    }
+
+    deinit { release() }
+}
+
+public enum GuardianMultiRootLock {
+    /// Acquire an exclusive lease on every root, in a canonical order, atomically.
+    /// Throws `GuardianMultiRootLockError.overlappingRoots` if two roots overlap, or
+    /// the underlying `DestinationBusyError`/POSIX error if a root is already locked.
+    public static func acquire(_ roots: [GuardianLockRoot]) throws -> GuardianMultiRootLease {
+        let ordered = try canonicallyOrdered(roots)
+
+        var acquired: [DestinationOperationLease] = []
+        do {
+            for root in ordered {
+                let lease = try DestinationOperationLock.acquire(
+                    destinationRoot: root.url,
+                    surface: root.surface,
+                    operation: root.operation
+                )
+                acquired.append(lease)
+            }
+        } catch {
+            for lease in acquired.reversed() {
+                lease.release()
+            }
+            throw error
+        }
+        return GuardianMultiRootLease(leases: acquired)
+    }
+
+    /// Roots sorted by canonical absolute path, after rejecting any overlapping pair.
+    /// Exposed for testing the ordering and overlap rules without touching the disk.
+    public static func canonicallyOrdered(_ roots: [GuardianLockRoot]) throws -> [GuardianLockRoot] {
+        let keyed = roots.map { (root: $0, path: canonicalPath($0.url)) }
+        for i in keyed.indices {
+            for j in keyed.indices where j > i {
+                if pathsOverlap(keyed[i].path, keyed[j].path) {
+                    throw GuardianMultiRootLockError.overlappingRoots(keyed[i].path, keyed[j].path)
+                }
+            }
+        }
+        return keyed.sorted { $0.path < $1.path }.map { $0.root }
+    }
+
+    /// Resolve symlinks and standardize so equal/nested checks are reliable.
+    public static func canonicalPath(_ url: URL) -> String {
+        url.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
+    /// Two roots overlap when they are equal or one contains the other, compared by
+    /// path components so `/a/b` does not spuriously match `/a/bc`.
+    public static func pathsOverlap(_ lhs: String, _ rhs: String) -> Bool {
+        if lhs == rhs { return true }
+        let a = URL(fileURLWithPath: lhs).pathComponents
+        let b = URL(fileURLWithPath: rhs).pathComponents
+        let shorter = a.count <= b.count ? a : b
+        let longer = a.count <= b.count ? b : a
+        return Array(longer.prefix(shorter.count)) == shorter
+    }
+}
