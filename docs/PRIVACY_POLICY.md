@@ -12,7 +12,7 @@ Chronoframe does not include telemetry, analytics, advertising SDKs, tracking SD
 
 ## Photo And Video Files
 
-Chronoframe works with folders you choose through the macOS folder picker and, if you grant read access, with photos and videos you select from your Apple Photos library. Files are processed on-device and stay on your Mac.
+Chronoframe works with folders you choose through the macOS folder picker and, if you authorize Photos access, with photos and videos you select from your Apple Photos library. Because macOS has no read-only Photos permission, Chronoframe requests read/write authorization, but it only reads and exports your originals and never adds to, modifies, or deletes anything in your Photos library. Files are processed on-device and stay on your Mac.
 
 Chronoframe may read file contents, file names, paths, metadata, hashes, timestamps, and image features to provide its organize, preview, deduplicate, history, and revert features. This information is not sent off-device by Chronoframe.
 
