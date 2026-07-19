@@ -53,7 +53,7 @@
           <p>Chronoframe does not include telemetry, analytics, advertising SDKs, tracking SDKs, or third-party crash reporting services.</p>
 
           <h2>Photo and video files</h2>
-          <p>Chronoframe works only with folders you choose through the macOS folder picker. Files remain on your Mac and are processed on-device.</p>
+          <p>Chronoframe works with folders you choose through the macOS folder picker and, if you grant read access, with photos and videos you select from your Apple Photos library. Files are processed on-device and stay on your Mac.</p>
           <p>Chronoframe may read file contents, file names, paths, metadata, hashes, timestamps, and image or video features to provide its organize, preview, deduplicate, health, history, reorganize, and revert features. This information is not sent off-device by Chronoframe.</p>
 
           <h2>Local storage</h2>
@@ -67,7 +67,8 @@
           <p>These files support previews, interruption recovery, history, revert, and faster future scans. They stay in the destination folder you selected and are never uploaded.</p>
 
           <h2>Network use</h2>
-          <p>Chronoframe does not use the network for photo processing, analytics, advertising, or tracking.</p>
+          <p>Chronoframe does not use the network for analytics, advertising, or tracking, and it never uploads your library.</p>
+          <p>There is one exception, for importing from Apple Photos: if you import photos or videos whose originals are stored only in iCloud, macOS downloads those originals through Apple's PhotoKit over your network connection so Chronoframe can copy them. This transfer happens between your Mac and your own iCloud account through the system, and Chronoframe does not send your media anywhere else.</p>
 
           <h2>Deletion behavior</h2>
           <p>Chronoframe does not permanently delete duplicates. Deduplicate may temporarily rename approved files to a hidden same-folder quarantine path so it can verify and recover the mutation as a unit, then moves the verified files to the macOS Trash. Recovery metadata and filesystem bookmarks remain on-device.</p>
