@@ -3,142 +3,174 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Support · Chronoframe</title>
-  <meta name="description" content="Chronoframe support: getting started, frequently asked questions, troubleshooting, and how to contact us." />
+  <title>Support — Chronoframe</title>
+  <meta name="description" content="Chronoframe support: getting started with Organize and Deduplicate, frequently asked questions, troubleshooting, and how to contact us." />
+  <meta name="theme-color" content="#161618" />
+  <link rel="canonical" href="https://chronoframe.app/support.html" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20260523-f" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260523-f" />
-  <link rel="stylesheet" href="styles.css?v=20260618" />
+  <link rel="stylesheet" href="styles.css?v=20260719" />
 </head>
 <body>
-  <nav class="nav">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-nav">
     <div class="container">
-      <a class="brand" href="index.html"><img class="brand-icon" src="apple-touch-icon.png?v=20260523-f" alt="" /> Chronoframe</a>
-      <div class="nav-links">
-        <a href="index.html#features">Features</a>
-        <a href="index.html#deduplicate">Deduplicate</a>
-        <a href="index.html#safety">Safety</a>
-        <a href="support.html">Support</a>
+      <a class="brand" href="index.html"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="safety.html">Safety</a>
         <a href="privacy.html">Privacy</a>
-      </div>
+        <a href="faq.html">FAQ</a>
+      </nav>
     </div>
-  </nav>
+  </header>
 
-  <main class="doc">
-    <div class="container">
-      <a class="back" href="index.html">&larr; Back to Chronoframe</a>
-      <h1>Support</h1>
-      <p class="updated">Getting started, common questions, and how to reach us.</p>
+  <main id="main">
+    <section class="page-head">
+      <div class="container">
+        <a class="back" href="index.html">&larr; Back to Chronoframe</a>
+        <p class="eyebrow">Support</p>
+        <h1>Getting started &amp; troubleshooting</h1>
+        <p>Set-up steps for Organize and Deduplicate, common questions, and how to reach us.</p>
+      </div>
+    </section>
 
-      <h2>Getting started</h2>
-      <h3>Organize photos</h3>
-      <ul>
-        <li>Open <strong>Organize &rarr; Setup</strong> and choose the folder with your unsorted photos and videos.</li>
-        <li>Choose a separate destination folder. Chronoframe uses a <code>YYYY/MM/DD</code> layout by default; change it in <strong>Settings &rarr; Layout</strong>.</li>
-        <li>Click <strong>Preview Plan</strong>, review anything that needs attention (such as unknown dates) on the <strong>Run</strong> tab, then click <strong>Start Transfer</strong>.</li>
-        <li>Your source folder is never changed. Review the run under <strong>History</strong>, and use <strong>Revert</strong> if needed.</li>
-      </ul>
-      <h3>Deduplicate photos and videos</h3>
-      <ul>
-        <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or reuse a recent one.</li>
-        <li>Pick a <strong>Detection</strong> preset (Strict, Balanced, or Loose), click <strong>Start Scan</strong>, review each group, and choose what to keep.</li>
-        <li>Exact videos are always matched by content. Enable <strong>Find visually similar videos</strong> in <strong>Settings &rarr; Deduplicate</strong> to review transcodes and re-exports; those groups are never auto-accepted.</li>
-        <li>Click <strong>Move to Trash</strong> only after the plan looks right. Selected duplicates move to the macOS Trash.</li>
-      </ul>
+    <section>
+      <div class="container">
+        <article class="prose">
+          <h2>Getting started</h2>
+          <h3>Organize photos</h3>
+          <ul>
+            <li>Open <strong>Organize &rarr; Setup</strong> and choose the folder with your unsorted photos and videos.</li>
+            <li>Choose a separate destination folder. Chronoframe uses a <code>YYYY/MM/DD</code> layout by default; change it in <strong>Settings &rarr; Layout</strong>.</li>
+            <li>Click <strong>Preview Plan</strong>, review anything that needs attention (such as unknown dates) on the <strong>Run</strong> tab, then click <strong>Start Transfer</strong>.</li>
+            <li>Your source folder is never changed. Review the run under <strong>History</strong>, and use <strong>Revert</strong> if needed.</li>
+          </ul>
+          <h3>Deduplicate photos and videos</h3>
+          <ul>
+            <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or reuse a recent one.</li>
+            <li>Pick a <strong>Detection</strong> preset (Strict, Balanced, or Loose), click <strong>Start Scan</strong>, review each group, and choose what to keep.</li>
+            <li>Exact videos are always matched by content. Enable <strong>Find visually similar videos</strong> in <strong>Settings &rarr; Deduplicate</strong> to review transcodes and re-exports; those groups are never auto-accepted.</li>
+            <li>Click <strong>Move to Trash</strong> only after the plan looks right. Selected duplicates move to the macOS Trash.</li>
+          </ul>
 
-      <h2>Frequently asked questions</h2>
+          <h2>Frequently asked questions</h2>
 
-      <div class="qa">
-        <p class="q">Will Chronoframe delete or modify my original photos?</p>
-        <p class="a">No. Chronoframe only reads your source folder. Your originals are never moved, modified, or deleted. You control when, and whether, to delete the source folder yourself.</p>
-      </div>
-      <div class="qa">
-        <p class="q">What can I undo?</p>
-        <p class="a">Open <strong>Organize &rarr; History</strong> to undo supported transfers, dedupe commits, and reorganize runs. Chronoframe acts only when each file still matches its receipt, so it won't touch files that already existed or were changed afterward.</p>
-      </div>
-      <div class="qa">
-        <p class="q">What happens after an interrupted run?</p>
-        <p class="a">Reopen Chronoframe with the destination drive connected. It reconciles durable copy, Trash, and move evidence before new work starts. History shows <strong>Interrupted &middot; Needs Drive</strong>, <strong>Trash Location Unverified</strong>, or <strong>Manual Recovery Needed</strong> when it cannot safely finish without more evidence.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Why is another Chronoframe operation using my destination?</p>
-        <p class="a">The app, command-line tool, and system actions share one destination lock. Wait for the active run to finish, then try again. This prevents two valid plans from changing the same library at once. This lock only reliably works on one Mac — if your destination is on a network drive, Chronoframe shows a one-time warning that two Macs writing to it at once isn't supported.</p>
-      </div>
-      <div class="qa">
-        <p class="q">What are the system requirements?</p>
-        <p class="a">macOS 14.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p>
-      </div>
-      <div class="qa">
-        <p class="q">How does Chronoframe figure out photo dates?</p>
-        <p class="a">It checks photo metadata (EXIF capture time) first, then filename date patterns, then file creation and modification dates, and always defers to any date you set yourself in Review. Photos with an unknown date go to an <code>Unknown_Date</code> folder unless you provide one.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Why did a photo taken near midnight land in a different date folder than I expected?</p>
-        <p class="a">When a photo's EXIF metadata includes a timezone offset, Chronoframe files it by the photographer's local calendar day at capture time, not the UTC day. Photos without an offset-tagged timestamp keep using the source's own day boundary. This only affects which date folder a file lands in — sorting and duplicate detection still use the exact capture instant.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>
-        <p class="a">Exact-duplicate detection compares file content, not filenames, so two photo or video files match only when their bytes are identical. Files saved with different compression, metadata, or formats won't be exact matches. Use similar-photo review, the optional visual-video setting, and the <strong>Detection</strong> preset (Strict, Balanced, or Loose) to surface more candidates.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Does Deduplicate find similar videos?</p>
-        <p class="a">Yes. Exact video copies are always detected by content. To review transcodes and re-exports that look alike, enable <strong>Find visually similar videos</strong> in <strong>Settings → Deduplicate</strong> and use Balanced or Similar Shots. Visual video matches are never accepted automatically.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Does Deduplicate permanently delete files?</p>
-        <p class="a">No. Deduplicate moves only the files you approve to the macOS Trash. It does not hard delete files, and low-confidence groups stay review-only until you choose what to remove.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Does Chronoframe work with cloud drives like iCloud or OneDrive?</p>
-        <p class="a">Yes, but more slowly. Cloud drives aren't optimized for the file operations Chronoframe performs. Make sure originals are downloaded locally, and use local or external drives for the best performance.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Where does Chronoframe store its data?</p>
-        <p class="a">Inside your destination folder, in <code>.organize_cache.db</code>, <code>.organize_logs/</code>, and <code>.organize_log.txt</code>. Keep them while a run is active or interrupted: they can contain resume, recovery, History, and Revert evidence. Completed-run caches can be rebuilt if you intentionally remove them later.</p>
-      </div>
-      <div class="qa">
-        <p class="q">How do I uninstall Chronoframe?</p>
-        <p class="a">Quit the app, then move <strong>Chronoframe</strong> from your Applications folder to the Trash. Chronoframe doesn't install anything system-wide.</p>
-      </div>
+          <div class="qa">
+            <p class="q">Will Chronoframe delete or modify my original photos?</p>
+            <p class="a">No. Chronoframe only reads your source folder. Your originals are never moved, modified, or deleted. You control when, and whether, to delete the source folder yourself.</p>
+          </div>
+          <div class="qa">
+            <p class="q">What can I undo?</p>
+            <p class="a">Open <strong>Organize &rarr; History</strong> to undo supported transfers, dedupe commits, and reorganize runs. Chronoframe acts only when each file still matches its receipt, so it won't touch files that already existed or were changed afterward.</p>
+          </div>
+          <div class="qa">
+            <p class="q">What happens after an interrupted run?</p>
+            <p class="a">Reopen Chronoframe with the destination drive connected. It reconciles durable copy, Trash, and move evidence before new work starts. History shows <strong>Interrupted &middot; Needs Drive</strong>, <strong>Trash Location Unverified</strong>, or <strong>Manual Recovery Needed</strong> when it cannot safely finish without more evidence.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Why is another Chronoframe operation using my destination?</p>
+            <p class="a">The app, command-line tool, and system actions share one destination lock. Wait for the active run to finish, then try again. This prevents two valid plans from changing the same library at once. The lock is reliable on a single Mac &mdash; if your destination is on a network drive, Chronoframe warns that two Macs writing at once isn't supported.</p>
+          </div>
+          <div class="qa">
+            <p class="q">What are the system requirements?</p>
+            <p class="a">macOS 14.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p>
+          </div>
+          <div class="qa">
+            <p class="q">How does Chronoframe figure out photo dates?</p>
+            <p class="a">It checks photo metadata (EXIF capture time) first, then filename date patterns, then file creation and modification dates, and always defers to any date you set yourself in Review. Photos with an unknown date go to an <code>Unknown_Date</code> folder unless you provide one.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Why did a photo taken near midnight land in a different date folder than I expected?</p>
+            <p class="a">When a photo's EXIF metadata includes a timezone offset, Chronoframe files it by the photographer's local calendar day at capture time, not the UTC day. Photos without an offset-tagged timestamp keep using the source's own day boundary. This only affects which date folder a file lands in &mdash; sorting and duplicate detection still use the exact capture instant.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>
+            <p class="a">Exact-duplicate detection compares file content, not filenames, so two files match only when their bytes are identical. Files saved with different compression, metadata, or formats won't be exact matches. Use similar-photo review, the optional visual-video setting, and the <strong>Detection</strong> preset (Strict, Balanced, or Loose) to surface more candidates.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Does Deduplicate permanently delete files?</p>
+            <p class="a">No. Deduplicate moves only the files you approve to the macOS Trash. It does not hard delete files, and low-confidence groups stay review-only until you choose what to remove.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Does Chronoframe work with cloud drives like iCloud or OneDrive?</p>
+            <p class="a">Yes, but more slowly. Cloud drives aren't optimized for the file operations Chronoframe performs. Make sure originals are downloaded locally, and use local or external drives for the best performance.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Where does Chronoframe store its data?</p>
+            <p class="a">Inside your destination folder, in <code>.organize_cache.db</code>, <code>.organize_logs/</code>, and <code>.organize_log.txt</code>. Keep them while a run is active or interrupted: they can contain resume, recovery, History, and Revert evidence. Completed-run caches can be rebuilt if you intentionally remove them later.</p>
+          </div>
+          <div class="qa">
+            <p class="q">How do I uninstall Chronoframe?</p>
+            <p class="a">Quit the app, then move <strong>Chronoframe</strong> from your Applications folder to the Trash. Chronoframe doesn't install anything system-wide.</p>
+          </div>
 
-      <h2>Troubleshooting</h2>
+          <h2>Troubleshooting</h2>
 
-      <div class="qa">
-        <p class="q">The first scan or preview is taking a long time.</p>
-        <p class="a">Large libraries (50,000+ files) can take several minutes on the first run because Chronoframe reads metadata, computes content hashes, and resolves dates. Subsequent runs are faster thanks to the on-disk cache.</p>
-      </div>
-      <div class="qa">
-        <p class="q">A transfer stopped partway through.</p>
-        <p class="a">Check that you have write access and enough free space on the destination, and that no other app is locking the files. Reconnect the destination drive, reopen Chronoframe, and check History before retrying. Chronoframe reconciles recorded copies and resumes pending work; your originals are untouched.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Chronoframe is asking for permission to access a folder.</p>
-        <p class="a">macOS requires apps to ask before reading folders outside your home directory, including external drives. Choose <strong>Allow</strong> and select the folder in the picker.</p>
-      </div>
-      <div class="qa">
-        <p class="q">My external drive isn't showing up in the picker.</p>
-        <p class="a">Make sure the drive is mounted in Finder (try unplugging and reconnecting it). If it's encrypted, unlock it first.</p>
-      </div>
-      <div class="qa">
-        <p class="q">The Move to Trash button in Deduplicate is grayed out.</p>
-        <p class="a">It activates once you've marked at least one file for removal. Select a group and choose what to keep and what to remove, or use <strong>Auto-Accept Safe</strong> to clear the obvious exact copies.</p>
-      </div>
-      <div class="qa">
-        <p class="q">Deduplicate says a planned file changed.</p>
-        <p class="a">Chronoframe rechecks every planned mutation by content before Trash. Close any editor or sync process changing the folder, start a new scan, and review the updated group. A changed file, pair, or sidecar is preserved instead of being deleted from a stale plan.</p>
-      </div>
+          <div class="qa">
+            <p class="q">The first scan or preview is taking a long time.</p>
+            <p class="a">Large libraries (50,000+ files) can take several minutes on the first run because Chronoframe reads metadata, computes content hashes, and resolves dates. Subsequent runs are faster thanks to the on-disk cache.</p>
+          </div>
+          <div class="qa">
+            <p class="q">A transfer stopped partway through.</p>
+            <p class="a">Check that you have write access and enough free space on the destination, and that no other app is locking the files. Reconnect the destination drive, reopen Chronoframe, and check History before retrying. Chronoframe reconciles recorded copies and resumes pending work; your originals are untouched.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Chronoframe is asking for permission to access a folder.</p>
+            <p class="a">macOS requires apps to ask before reading folders outside your home directory, including external drives. Choose <strong>Allow</strong> and select the folder in the picker.</p>
+          </div>
+          <div class="qa">
+            <p class="q">My external drive isn't showing up in the picker.</p>
+            <p class="a">Make sure the drive is mounted in Finder (try unplugging and reconnecting it). If it's encrypted, unlock it first.</p>
+          </div>
+          <div class="qa">
+            <p class="q">The Move to Trash button in Deduplicate is grayed out.</p>
+            <p class="a">It activates once you've marked at least one file for removal. Select a group and choose what to keep and what to remove, or use <strong>Auto-Accept Safe</strong> to clear the obvious exact copies.</p>
+          </div>
+          <div class="qa">
+            <p class="q">Deduplicate says a planned file changed.</p>
+            <p class="a">Chronoframe rechecks every planned mutation by content before Trash. Close any editor or sync process changing the folder, start a new scan, and review the updated group. A changed file, pair, or sidecar is preserved instead of being deleted from a stale plan.</p>
+          </div>
 
-      <h2>Contact us</h2>
-      <p>Still stuck, or have a question that isn't covered here? Email <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>. When reporting a problem, it helps to include your macOS version and Mac model, what you were doing, and any error message you saw.</p>
-    </div>
+          <p style="margin-top:24px;">More detail lives in the project's <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/QUICK_START.md">Quick Start</a>, <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/FAQ.md">FAQ</a>, and <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a> docs.</p>
+
+          <h2>Contact us</h2>
+          <p>Still stuck, or have a question that isn't covered here? Email <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>. When reporting a problem, it helps to include your macOS version and Mac model, what you were doing, and any error message you saw.</p>
+        </article>
+      </div>
+    </section>
   </main>
 
-  <footer class="footer">
+  <footer class="site-footer">
     <div class="container">
-      <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
-      <div class="footer-links">
-        <a href="privacy.html">Privacy Policy</a>
-        <a href="support.html">Support</a>
-        <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>
+      <div class="footer-top">
+        <div class="footer-cta">
+          <h2>Get Chronoframe</h2>
+          <p>Organize and deduplicate your photo library on macOS, safely. One-time purchase.</p>
+          <a class="appstore-badge" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+            <span class="badge-text"><span class="badge-small">Download on the</span><span class="badge-large">Mac App Store</span></span>
+          </a>
+        </div>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="features.html">Features</a>
+          <a href="support.html">Support</a>
+          <a href="safety.html">Safety</a>
+          <a href="mailto:support@chronoframe.app">Contact</a>
+          <a href="faq.html">FAQ</a>
+        </nav>
+      </div>
+      <div class="footer-bottom">
+        <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
+        <div class="footer-links">
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="support.html">Support</a>
+          <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>
+        </div>
       </div>
     </div>
   </footer>
