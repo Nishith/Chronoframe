@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAQ — Common questions about Chronoframe</title>
+  <meta name="description" content="Answers to the questions people ask before trusting an app with a lifetime of photos: originals, undo, interruptions, duplicates, cost, and privacy. Links to Quick Start, FAQ, and Troubleshooting docs." />
+  <meta name="theme-color" content="#161618" />
+  <link rel="canonical" href="https://chronoframe.app/faq.html" />
+  <meta property="og:title" content="FAQ — Common questions about Chronoframe" />
+  <meta property="og:description" content="Originals, undo, interruptions, duplicates, cost, and privacy — answered plainly." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://chronoframe.app/faq.html" />
+  <meta property="og:image" content="https://chronoframe.app/og-card.jpg?v=20260525" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20260523-f" />
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260523-f" />
+  <link rel="stylesheet" href="styles.css?v=20260719" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-nav">
+    <div class="container">
+      <a class="brand" href="index.html"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="index.html">Home</a>
+        <a href="features.html">Features</a>
+        <a href="safety.html">Safety</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="faq.html" aria-current="page">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="page-head">
+      <div class="container">
+        <p class="eyebrow">FAQ</p>
+        <h1>The questions people ask first</h1>
+        <p>If you're trusting an app with a lifetime of photos, you deserve straight answers.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="faq">
+          <details open>
+            <summary>Will Chronoframe change or delete my original photos?</summary>
+            <div class="answer"><p>No. Chronoframe only reads your source folder. Your originals are never moved, renamed, edited, or deleted. You decide if and when to clean up the source yourself.</p></div>
+          </details>
+          <details>
+            <summary>Does it work with my Apple Photos library?</summary>
+            <div class="answer"><p>Yes. Open the <strong>Photos</strong> tab, grant read access, pick the photos and videos you want, and choose <strong>Review &amp; Import</strong>. Chronoframe copies the originals into your organized library through the same preview &rarr; confirm &rarr; verified-copy flow as everything else, and only ever <em>reads</em> your Photos library &mdash; it never changes, moves, favorites, or deletes anything there. Live Photos keep their photo and movie together, and iCloud-only originals are downloaded on demand. You can also point Chronoframe at loose files in folders or on drives.</p></div>
+          </details>
+          <details>
+            <summary>Can I undo a run?</summary>
+            <div class="answer"><p>Yes. History can undo supported transfers, dedupe commits, and reorganize runs. Revert acts only when files still match the receipt, so it won't touch anything you added or changed afterward.</p></div>
+          </details>
+          <details>
+            <summary>What happens if a transfer is interrupted?</summary>
+            <div class="answer"><p>Each file is written safely to a temporary spot and only then put into place. Chronoframe records mutation state and reconciles interrupted work when you reopen it with the destination drive connected. History shows when a drive or manual action is still needed; your originals stay untouched.</p></div>
+          </details>
+          <details>
+            <summary>Does Deduplicate work with videos?</summary>
+            <div class="answer"><p>Yes. Chronoframe finds byte-identical video copies by content. An off-by-default setting can also surface transcodes and re-exports that look alike; visual video matches always require your review.</p></div>
+          </details>
+          <details>
+            <summary>Does Deduplicate permanently delete files?</summary>
+            <div class="answer"><p>No. Chronoframe moves only the files you approve to the macOS Trash. You review each duplicate group before committing, and hard delete is not part of the app.</p></div>
+          </details>
+          <details>
+            <summary>How does Chronoframe figure out photo dates?</summary>
+            <div class="answer"><p>It checks photo metadata (EXIF capture time) first, then filename date patterns, then file creation and modification dates, and always defers to any date you set yourself in Review. Photos with an unknown date go to an <code>Unknown_Date</code> folder unless you provide one.</p></div>
+          </details>
+          <details>
+            <summary>Do my photos ever leave my Mac?</summary>
+            <div class="answer"><p>Never. Everything runs on-device. There's no account, no uploads, no analytics, and no tracking of any kind. See the <a href="privacy.html">privacy policy</a> for details.</p></div>
+          </details>
+          <details>
+            <summary>Does it work with iCloud or OneDrive folders?</summary>
+            <div class="answer"><p>Yes, but more slowly. Cloud drives aren't optimized for the file operations Chronoframe performs. Make sure originals are downloaded locally, and prefer local or external drives for the best performance.</p></div>
+          </details>
+          <details>
+            <summary>What are the system requirements?</summary>
+            <div class="answer"><p>macOS 14.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p></div>
+          </details>
+          <details>
+            <summary>What does Chronoframe cost?</summary>
+            <div class="answer"><p>A single one-time purchase on the Mac App Store. No subscription, ever, and no account required.</p></div>
+          </details>
+        </div>
+
+        <div class="section-head" style="margin-top:56px;">
+          <h2>Longer-form docs</h2>
+          <p>For step-by-step guides and deeper troubleshooting, see the project documentation.</p>
+        </div>
+        <div class="grid grid-3">
+          <article class="card">
+            <div class="icon" aria-hidden="true">&#128640;</div>
+            <h3>Quick Start</h3>
+            <p>Get your first library organized in about five minutes.</p>
+            <p><a href="https://github.com/Nishith/Chronoframe/blob/main/docs/QUICK_START.md">Read Quick Start &rarr;</a></p>
+          </article>
+          <article class="card">
+            <div class="icon" aria-hidden="true">&#10067;</div>
+            <h3>Full FAQ</h3>
+            <p>The complete, detailed FAQ covering edge cases and behavior.</p>
+            <p><a href="https://github.com/Nishith/Chronoframe/blob/main/docs/FAQ.md">Read the FAQ &rarr;</a></p>
+          </article>
+          <article class="card">
+            <div class="icon" aria-hidden="true">&#128295;</div>
+            <h3>Troubleshooting</h3>
+            <p>Fixes for permissions, drives, stalled scans, and more.</p>
+            <p><a href="https://github.com/Nishith/Chronoframe/blob/main/docs/TROUBLESHOOTING.md">Read Troubleshooting &rarr;</a></p>
+          </article>
+        </div>
+        <p class="center mt-lg">Still stuck? Visit <a href="support.html">Support</a> or email <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>.</p>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="container">
+        <h2>Ready when you are.</h2>
+        <p>Start with a preview on one folder. It changes nothing and answers most questions faster than reading can.</p>
+        <div class="cta-row">
+          <a class="appstore-badge" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+            <span class="badge-text"><span class="badge-small">Download on the</span><span class="badge-large">Mac App Store</span></span>
+          </a>
+          <a class="btn btn-secondary" href="features.html">See how it works</a>
+        </div>
+        <p class="price-note">One-time purchase, no subscription, ever.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-cta">
+          <h2>Get Chronoframe</h2>
+          <p>Organize and deduplicate your photo library on macOS, safely. One-time purchase.</p>
+          <a class="appstore-badge" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+            <span class="badge-text"><span class="badge-small">Download on the</span><span class="badge-large">Mac App Store</span></span>
+          </a>
+        </div>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="features.html">Features</a>
+          <a href="support.html">Support</a>
+          <a href="safety.html">Safety</a>
+          <a href="mailto:support@chronoframe.app">Contact</a>
+          <a href="faq.html">FAQ</a>
+        </nav>
+      </div>
+      <div class="footer-bottom">
+        <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
+        <div class="footer-links">
+          <a href="privacy.html">Privacy Policy</a>
+          <a href="support.html">Support</a>
+          <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
