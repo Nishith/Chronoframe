@@ -269,6 +269,10 @@ figure.shot figcaption strong { color: var(--ink-primary); display: block; margi
 .steps li .num::before { content: counter(step); }
 .steps strong { color: var(--ink-primary); }
 
+/* ---- Maker note --------------------------------------------------------- */
+.maker-note { max-width: 720px; margin: 0 auto; }
+.maker-note .sig { color: var(--ink-primary); font-weight: 600; }
+
 /* ---- Requirement pills -------------------------------------------------- */
 .pills { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
 .pill { background: var(--panel); border: 1px solid var(--hairline); border-radius: 999px; padding: 8px 18px; font-size: 14px; color: var(--ink-secondary); }
