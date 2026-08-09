@@ -65,39 +65,88 @@ if [[ -z "$phase_id" ]]; then
     exit 2
 fi
 
-# 2. Read that phase's file list.
-phase_entries="$(
+# 2. Read that phase's build-file IDs.
+build_file_ids="$(
     awk -v phase="$phase_id" '
         $0 ~ "^[[:space:]]*" phase " \\/\\* Sources \\*\\/ = \\{$" { in_phase = 1 }
         in_phase && /files = \(/ { in_files = 1; next }
         in_phase && in_files && /^[[:space:]]*\);$/ { exit }
-        in_phase && in_files { print }
+        in_phase && in_files { print $1 }
     ' "$PROJECT_FILE"
 )"
 
-# 3. Every .swift on disk must appear in that list.
+# 3. Resolve each build file to the path of the file reference it points at.
+#
+#    Deliberately NOT the `/* Name */` display comment: that is cosmetic, it
+#    holds only a basename, and two files in different subdirectories share it.
+#    Matching on the comment would let `Nested/Foo.swift` satisfy itself against
+#    a registered root `Foo.swift` and report a clean pass for a file that is
+#    never compiled — precisely the failure this guard exists to prevent.
+#
+#    Paths are relative to the group (`sourceTree = "<group>"` under the
+#    `UITests` group), which makes them relative to $UITEST_DIR.
+registered_paths=()
+unresolved=()
+while IFS= read -r build_id; do
+    [[ -z "$build_id" ]] && continue
+
+    build_line="$(grep -E "^[[:space:]]*${build_id} .*isa = PBXBuildFile" "$PROJECT_FILE" || true)"
+    ref_id="$(sed -nE 's/.*fileRef = ([A-Za-z0-9]+).*/\1/p' <<<"$build_line")"
+    if [[ -z "$ref_id" ]]; then
+        unresolved+=("$build_id (no fileRef)")
+        continue
+    fi
+
+    ref_line="$(grep -E "^[[:space:]]*${ref_id} .*isa = PBXFileReference" "$PROJECT_FILE" || true)"
+    ref_path="$(sed -nE 's/.*[[:space:];]path = "?([^";]*)"?;.*/\1/p' <<<"$ref_line")"
+    if [[ -z "$ref_path" ]]; then
+        unresolved+=("$build_id -> $ref_id (no path)")
+        continue
+    fi
+
+    registered_paths+=("$ref_path")
+done <<<"$build_file_ids"
+
+path_is_registered() {
+    local needle="$1" candidate
+    for candidate in ${registered_paths+"${registered_paths[@]}"}; do
+        [[ "$candidate" == "$needle" ]] && return 0
+    done
+    return 1
+}
+
+# 4. Every .swift on disk must be one of those paths.
 missing=()
 while IFS= read -r file; do
-    basename="$(basename "$file")"
-    if ! grep -qF "/* $basename in Sources */" <<<"$phase_entries"; then
+    relative="${file#"$UITEST_DIR/"}"
+    if ! path_is_registered "$relative"; then
         missing+=("$file")
     fi
 done < <(find "$UITEST_DIR" -name '*.swift' -type f | sort)
 
-# 4. And every entry in that list must still exist on disk, so a deleted file
+# 5. And every registered path must still exist on disk, so a deleted file
 #    leaves a loud dangling reference rather than a confusing build error.
 dangling=()
-while IFS= read -r entry; do
-    [[ -z "$entry" ]] && continue
-    if [[ "$entry" =~ /\*\ ([^*]+\.swift)\ in\ Sources\ \*/ ]]; then
-        referenced="${BASH_REMATCH[1]}"
-        if [[ ! -f "$UITEST_DIR/$referenced" ]]; then
-            dangling+=("$referenced")
-        fi
+for referenced in ${registered_paths+"${registered_paths[@]}"}; do
+    if [[ ! -f "$UITEST_DIR/$referenced" ]]; then
+        dangling+=("$referenced")
     fi
-done <<<"$phase_entries"
+done
 
 status=0
+
+# A build file we cannot resolve would otherwise be silently dropped from the
+# registered set, which turns into a false "missing" report or, worse, a false
+# pass. Fail loudly instead so the script gets fixed rather than trusted.
+if [[ ${#unresolved[@]} -gt 0 ]]; then
+    echo "✗ Could not resolve $TARGET_NAME build file(s) to a file reference path:" >&2
+    for entry in "${unresolved[@]}"; do
+        echo "      $entry" >&2
+    done
+    echo >&2
+    echo "  The project layout changed; update $(basename "$0") to match." >&2
+    exit 2
+fi
 
 if [[ ${#missing[@]} -gt 0 ]]; then
     echo "✗ UI-test file(s) on disk but not compiled by the $TARGET_NAME target:" >&2
