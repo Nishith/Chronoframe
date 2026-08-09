@@ -29,9 +29,13 @@ public struct AppTransactionInfo: Equatable, Sendable, Codable {
     /// boundary misclassifies customers in both rollout windows.
     public let originalAppVersion: String
 
-    /// Apple's stable per-account identifier for this app transaction, used to
-    /// key the trial ledger so switching Apple Accounts cannot reuse another
-    /// account's spent allowance. Only available on macOS 15.4+, hence optional.
+    /// Apple's stable per-account identifier for this app transaction.
+    ///
+    /// Optional because `AppTransaction.appTransactionID` only exists in the
+    /// macOS 15.4 SDK and later, and CI currently builds against an older one.
+    /// `if #available` cannot bridge that: the symbol has to exist at compile
+    /// time. `LiveAppTransactionClient` therefore supplies `nil` today — see
+    /// `ledgerAccountKey` for what the ledger uses in the meantime.
     public let appTransactionID: String?
 
     /// Set when the app-level transaction has been revoked.
@@ -52,6 +56,21 @@ public struct AppTransactionInfo: Equatable, Sendable, Codable {
         self.originalAppVersion = originalAppVersion
         self.appTransactionID = appTransactionID
         self.revocationDate = revocationDate
+    }
+
+    /// Stable key for the trial ledger, scoping the allowance per Apple Account
+    /// so a second person on the same Mac gets their own allowance instead of
+    /// inheriting a spent one.
+    ///
+    /// Prefers Apple's `appTransactionID`. Until that SDK is available it falls
+    /// back to the original purchase instant, which is also account-scoped and
+    /// Apple-signed — two accounts acquire the app at different moments, and the
+    /// value survives reinstalls. Collisions are possible in principle but need
+    /// two accounts to have acquired the app in the same second on one Mac,
+    /// which costs at most one shared trial allowance.
+    public var ledgerAccountKey: String {
+        if let appTransactionID, !appTransactionID.isEmpty { return appTransactionID }
+        return "purchased-at-\(Int(originalPurchaseDate.timeIntervalSince1970))"
     }
 }
 

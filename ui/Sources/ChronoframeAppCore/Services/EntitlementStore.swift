@@ -44,6 +44,15 @@ public final class EntitlementStore: ObservableObject {
 
     private var updatesTask: Task<Void, Never>?
 
+    /// Guards against a stale refresh landing last.
+    ///
+    /// `refresh()` suspends across the StoreKit calls, and two can be in flight
+    /// at once — `purchase()` refreshes while the update observer independently
+    /// refreshes for the same transaction. Without this, an older invocation can
+    /// resume after a newer one and overwrite a just-unlocked or just-revoked
+    /// state with its stale snapshot. Same epoch pattern as `RunSessionStore`.
+    private var refreshGeneration: UInt64 = 0
+
     private static let cachedGrantKey = "entitlement.cachedLegacyGrant"
 
     public init(
@@ -70,6 +79,9 @@ public final class EntitlementStore: ObservableObject {
     /// changes only and never the initial state, so an app that only observes
     /// updates shows a paywall to every paying customer on every cold start.
     public func refresh() async {
+        refreshGeneration &+= 1
+        let generation = refreshGeneration
+
         // Bind to locals first. Both are Sendable existentials, so lifting them
         // out of `self` keeps the concurrent child tasks from having to reach
         // back into MainActor-isolated storage.
@@ -81,6 +93,12 @@ public final class EntitlementStore: ObservableObject {
 
         let owned = await ownedTask
         let appTransaction = await appTransactionTask
+
+        // A newer refresh started and already settled while we were suspended.
+        // Its answer is fresher than ours; discard this one entirely, including
+        // the cache write below.
+        guard generation == refreshGeneration else { return }
+
         let now = clock()
 
         state = EntitlementResolver.resolve(
@@ -93,7 +111,7 @@ public final class EntitlementStore: ObservableObject {
         )
 
         if case .success(let info) = appTransaction {
-            ledgerAccountKey = info.appTransactionID
+            ledgerAccountKey = info.ledgerAccountKey
             // Only a *verified* app transaction may write or clear the cache.
             // An unavailable lookup must leave an existing grant alone, which
             // is the whole point of keeping it.
@@ -133,10 +151,19 @@ public final class EntitlementStore: ObservableObject {
         case .userCancelled:
             break
         case .unverified:
-            statusMessage = "The App Store couldn't confirm that purchase. "
-                + "Nothing was charged. Try again, or use Restore Purchases if you've bought it before."
-        case .failed(let message):
-            statusMessage = message
+            // The App Store completed this purchase; only local verification
+            // failed. Saying "nothing was charged" would be false, and would
+            // push someone toward paying a second time.
+            statusMessage = "Chronoframe couldn't verify that purchase on this Mac. "
+                + "Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock."
+        case .productUnavailable:
+            statusMessage = "Chronoframe couldn't load the unlock from the App Store. "
+                + "Check your connection and try again."
+        case .failed:
+            // The diagnostic stays out of the UI by design; raw StoreKit and
+            // NSError wording is never shown to the user.
+            statusMessage = "That purchase couldn't be completed. "
+                + "Check your connection and try again, or use Restore Purchases if you've already bought the unlock."
         }
     }
 
@@ -156,12 +183,23 @@ public final class EntitlementStore: ObservableObject {
         }
         await refresh()
 
-        if !state.isUnlocked {
+        switch state {
+        case .locked:
             // Said plainly: restore only recovers an existing purchase. It is
             // not a repair path for someone who has never bought the unlock,
             // and implying otherwise sends people round in circles.
             statusMessage = "No previous purchase was found for this Apple Account. "
                 + "If you bought Chronoframe with a different account, sign in with that one."
+        case .verificationUnavailable:
+            // Emphatically not the same as "you never paid". Diagnosing a
+            // missing account to someone who did pay is the worse error.
+            statusMessage = "Chronoframe couldn't reach the App Store to check your purchase. "
+                + "Your access is unchanged — try again once you're back online."
+        case .unverified:
+            statusMessage = "The App Store's response couldn't be verified on this Mac. "
+                + "Try again, and contact support if it keeps happening."
+        case .unlocked, .loading:
+            break
         }
     }
 

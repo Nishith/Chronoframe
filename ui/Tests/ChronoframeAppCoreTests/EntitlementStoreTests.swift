@@ -20,11 +20,21 @@ private final class FakeStoreKitClient: StoreKitClient, @unchecked Sendable {
 
     private var updatesContinuation: AsyncStream<Void>.Continuation?
 
+    /// Runs while `ownedProducts()` is suspended, after it has captured its
+    /// result. Lets a test interleave a second refresh inside the first one.
+    var whileOwnedProductsSuspended: (() async -> Void)?
+
     func product(for productID: String) async -> StoreProductInfo? { productResult }
 
     func ownedProducts() async -> Result<[OwnedProduct], EntitlementLookupFailure> {
         ownedCallCount += 1
-        return ownedResult
+        // Capture before suspending, so this call returns the value that was
+        // current when it started — which is what makes it the stale one.
+        let captured = ownedResult
+        if let hook = whileOwnedProductsSuspended {
+            await hook()
+        }
+        return captured
     }
 
     func purchase(productID: String) async -> PurchaseOutcome {
@@ -251,8 +261,11 @@ final class EntitlementStoreTests: XCTestCase {
         XCTAssertEqual(store.state, .locked)
     }
 
+    /// `.unverified` comes from a purchase the App Store *completed*; only local
+    /// verification failed. Claiming no charge was taken would be false, and
+    /// would nudge someone into paying twice.
     @MainActor
-    func testUnverifiedPurchaseReassuresThatNothingWasCharged() async {
+    func testUnverifiedPurchaseNeverClaimsNothingWasCharged() async {
         let storeKit = FakeStoreKitClient()
         storeKit.purchaseResult = .unverified
         let appTransaction = FakeAppTransactionClient()
@@ -263,13 +276,17 @@ final class EntitlementStoreTests: XCTestCase {
         await store.purchase()
 
         XCTAssertEqual(store.state, .locked)
-        XCTAssertEqual(store.statusMessage?.contains("Nothing was charged"), true)
+        let message = try? XCTUnwrap(store.statusMessage)
+        XCTAssertEqual(message?.lowercased().contains("charged"), false)
+        XCTAssertEqual(message?.contains("Restore Purchases"), true)
+        XCTAssertEqual(message?.contains("Don't buy again"), true)
     }
 
+    /// Raw StoreKit/NSError wording must never reach the UI.
     @MainActor
-    func testFailedPurchaseSurfacesItsMessage() async {
+    func testFailedPurchaseHidesTheTechnicalDiagnostic() async {
         let storeKit = FakeStoreKitClient()
-        storeKit.purchaseResult = .failed(message: "The unlock could not be loaded from the App Store.")
+        storeKit.purchaseResult = .failed(diagnostic: "SKErrorDomain Code=2 \"Cannot connect to iTunes Store\"")
         let appTransaction = FakeAppTransactionClient()
         appTransaction.result = .success(newInfo())
         let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
@@ -277,7 +294,23 @@ final class EntitlementStoreTests: XCTestCase {
 
         await store.purchase()
 
-        XCTAssertEqual(store.statusMessage, "The unlock could not be loaded from the App Store.")
+        let message = try? XCTUnwrap(store.statusMessage)
+        XCTAssertEqual(message?.contains("SKErrorDomain"), false)
+        XCTAssertEqual(message?.contains("couldn't be completed"), true)
+    }
+
+    @MainActor
+    func testProductUnavailablePurchaseExplainsItself() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.purchaseResult = .productUnavailable
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+        await store.refresh()
+
+        await store.purchase()
+
+        XCTAssertEqual(store.statusMessage?.contains("couldn't load the unlock"), true)
     }
 
     // MARK: Restore
@@ -323,6 +356,89 @@ final class EntitlementStoreTests: XCTestCase {
 
         XCTAssertEqual(store.state, .locked)
         XCTAssertEqual(store.statusMessage?.contains("No previous purchase was found"), true)
+    }
+
+    /// A transient lookup failure is not evidence the customer never paid, so
+    /// restore must not hand them a false account diagnosis.
+    @MainActor
+    func testRestoreWithUnavailableVerificationDoesNotClaimNoPurchase() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.ownedResult = .failure(.unavailable)
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .failure(.unavailable)
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        await store.restore()
+
+        XCTAssertEqual(store.state, .verificationUnavailable)
+        let message = try? XCTUnwrap(store.statusMessage)
+        XCTAssertEqual(message?.contains("No previous purchase"), false)
+        XCTAssertEqual(message?.contains("couldn't reach the App Store"), true)
+    }
+
+    @MainActor
+    func testRestoreWithUnverifiedResponseDoesNotClaimNoPurchase() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.ownedResult = .failure(.unverified)
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .failure(.unverified)
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        await store.restore()
+
+        XCTAssertEqual(store.state, .unverified)
+        XCTAssertEqual(store.statusMessage?.contains("No previous purchase"), false)
+    }
+
+    // MARK: Concurrency
+
+    /// Two refreshes overlap routinely — `purchase()` refreshes while the update
+    /// observer refreshes for the same transaction. The older one must not
+    /// resume last and clobber the newer answer.
+    @MainActor
+    func testStaleRefreshDoesNotOverwriteNewerResult() async {
+        let storeKit = FakeStoreKitClient()
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        storeKit.ownedResult = .success([])
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        let purchaseDate = now
+        storeKit.whileOwnedProductsSuspended = { [weak store, weak storeKit] in
+            guard let store, let storeKit else { return }
+            // Only interleave once, or this recurses forever.
+            storeKit.whileOwnedProductsSuspended = nil
+            storeKit.ownedResult = .success(
+                [OwnedProduct(productID: ChronoframeUnlock.productID, purchaseDate: purchaseDate)]
+            )
+            await store.refresh()
+        }
+
+        // The outer refresh captured the locked snapshot, then suspended while a
+        // newer refresh resolved to unlocked. The newer answer must survive.
+        await store.refresh()
+
+        XCTAssertEqual(store.state, .unlocked(reason: .inAppPurchase))
+    }
+
+    /// The ledger key stays account-scoped even without `appTransactionID`,
+    /// which the current build SDK does not expose.
+    @MainActor
+    func testLedgerKeyFallsBackToPurchaseInstant() async {
+        let storeKit = FakeStoreKitClient()
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(
+            AppTransactionInfo(
+                originalPurchaseDate: cutover.addingTimeInterval(-5000),
+                originalAppVersion: "1.2",
+                appTransactionID: nil
+            )
+        )
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        await store.refresh()
+
+        XCTAssertEqual(store.ledgerAccountKey, "purchased-at-\(Int(cutover.addingTimeInterval(-5000).timeIntervalSince1970))")
     }
 
     // MARK: Product metadata

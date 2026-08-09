@@ -20,15 +20,28 @@ import StoreKit
 // thin as possible: map Apple's types to the plain value types in
 // `ChronoframeCore/Entitlement.swift`, and hold no policy of their own.
 
+/// The result of an attempted purchase.
+///
+/// Deliberately carries no user-facing copy: the client reports *what happened*
+/// and `EntitlementStore` decides what to say. Passing `localizedDescription`
+/// through to the UI would surface raw StoreKit/NSError wording, which the
+/// project's error-copy rules forbid.
 public enum PurchaseOutcome: Equatable, Sendable {
     /// Verified and finished.
     case purchased
     /// Ask-to-buy or SCA. Entitlement may arrive later via `transactionUpdates`.
     case pending
     case userCancelled
-    /// A signature did not verify. Never treat as a purchase.
+    /// The App Store completed a purchase but its signature did not verify.
+    ///
+    /// This is NOT proof that no payment was taken — the transaction succeeded
+    /// remotely and only local verification failed. Copy for this case must
+    /// never claim the customer was not charged.
     case unverified
-    case failed(message: String)
+    /// The product could not be loaded, so no purchase was attempted.
+    case productUnavailable
+    /// `purchase()` threw. `diagnostic` is for logs, never for the UI.
+    case failed(diagnostic: String)
 }
 
 public protocol StoreKitClient: Sendable {
@@ -113,7 +126,7 @@ public struct LiveStoreKitClient: StoreKitClient {
 
     public func purchase(productID: String) async -> PurchaseOutcome {
         guard let product = try? await Product.products(for: [productID]).first else {
-            return .failed(message: "The unlock could not be loaded from the App Store.")
+            return .productUnavailable
         }
         do {
             switch try await product.purchase() {
@@ -132,10 +145,10 @@ public struct LiveStoreKitClient: StoreKitClient {
             case .userCancelled:
                 return .userCancelled
             @unknown default:
-                return .failed(message: "The App Store returned an unexpected response.")
+                return .failed(diagnostic: "Unrecognized Product.PurchaseResult case.")
             }
         } catch {
-            return .failed(message: error.localizedDescription)
+            return .failed(diagnostic: String(describing: error))
         }
     }
 
@@ -146,7 +159,15 @@ public struct LiveStoreKitClient: StoreKitClient {
     public func transactionUpdates() -> AsyncStream<Void> {
         AsyncStream { continuation in
             let task = Task {
-                for await _ in Transaction.updates {
+                for await result in Transaction.updates {
+                    // Transactions arriving here — an approved ask-to-buy, a
+                    // purchase made on another device — must be finished too,
+                    // or the App Store redelivers them on every launch forever.
+                    if case .verified(let transaction) = result {
+                        await transaction.finish()
+                    }
+                    // Yield even for unverified updates: something changed, and
+                    // re-reading entitlements is how we find out what.
                     continuation.yield(())
                 }
                 continuation.finish()
@@ -164,15 +185,17 @@ public struct LiveAppTransactionClient: AppTransactionClient {
         do {
             switch try await AppTransaction.shared {
             case .verified(let appTransaction):
-                var transactionID: String?
-                if #available(macOS 15.4, *) {
-                    transactionID = appTransaction.appTransactionID
-                }
                 return .success(
                     AppTransactionInfo(
                         originalPurchaseDate: appTransaction.originalPurchaseDate,
                         originalAppVersion: appTransaction.originalAppVersion,
-                        appTransactionID: transactionID,
+                        // `AppTransaction.appTransactionID` only exists in the
+                        // macOS 15.4 SDK and later, and CI builds against an
+                        // older one. `if #available` cannot bridge that — the
+                        // symbol must exist at compile time. Until the toolchain
+                        // moves, `AppTransactionInfo.ledgerAccountKey` derives an
+                        // account-scoped key from `originalPurchaseDate` instead.
+                        appTransactionID: nil,
                         // See AppTransactionInfo.revocationDate: not wired
                         // pending confirmation of the API surface.
                         revocationDate: nil

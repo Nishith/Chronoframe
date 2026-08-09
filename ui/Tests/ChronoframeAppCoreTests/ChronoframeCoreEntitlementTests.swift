@@ -225,6 +225,34 @@ final class ChronoframeCoreEntitlementTests: XCTestCase {
         XCTAssertFalse(EntitlementState.locked.isResolving)
     }
 
+    // MARK: Ledger key
+
+    func testLedgerKeyPrefersAppleAppTransactionID() {
+        XCTAssertEqual(appTransaction(purchasedAt: -1, id: "app-txn-9").ledgerAccountKey, "app-txn-9")
+    }
+
+    /// The current build SDK has no `appTransactionID`, so the key falls back to
+    /// the Apple-signed purchase instant — still account-scoped, so a second
+    /// person on the same Mac does not inherit a spent allowance.
+    func testLedgerKeyFallsBackToPurchaseInstant() {
+        let info = appTransaction(purchasedAt: -5000, id: nil)
+        let expected = Int(cutover.addingTimeInterval(-5000).timeIntervalSince1970)
+        XCTAssertEqual(info.ledgerAccountKey, "purchased-at-\(expected)")
+    }
+
+    func testLedgerKeyTreatsEmptyTransactionIDAsMissing() {
+        let info = appTransaction(purchasedAt: -5000, id: "")
+        XCTAssertTrue(info.ledgerAccountKey.hasPrefix("purchased-at-"))
+    }
+
+    /// Two accounts that acquired the app at different moments must not share
+    /// a ledger key.
+    func testLedgerKeysDifferAcrossAccounts() {
+        let first = appTransaction(purchasedAt: -5000, id: nil)
+        let second = appTransaction(purchasedAt: -4000, id: nil)
+        XCTAssertNotEqual(first.ledgerAccountKey, second.ledgerAccountKey)
+    }
+
     func testCachedGrantRoundTripsThroughCoding() throws {
         let grant = CachedLegacyGrant(originalPurchaseDate: cutover, appTransactionID: "abc", recordedAt: now)
         let data = try JSONEncoder().encode(grant)
