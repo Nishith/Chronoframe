@@ -70,6 +70,12 @@ public final class EntitlementStore: ObservableObject {
     /// changes only and never the initial state, so an app that only observes
     /// updates shows a paywall to every paying customer on every cold start.
     public func refresh() async {
+        // Bind to locals first. Both are Sendable existentials, so lifting them
+        // out of `self` keeps the concurrent child tasks from having to reach
+        // back into MainActor-isolated storage.
+        let storeKit = self.storeKit
+        let appTransactionClient = self.appTransactionClient
+
         async let ownedTask = storeKit.ownedProducts()
         async let appTransactionTask = appTransactionClient.appTransaction()
 

@@ -87,7 +87,7 @@ public struct StoreProductInfo: Equatable, Sendable {
 /// Why a lookup failed. The distinction matters: `unavailable` is transient and
 /// must not lock a paying customer out, whereas `unverified` means a signature
 /// did not check out and must never be treated as proof of purchase.
-public enum EntitlementLookupFailure: Equatable, Sendable {
+public enum EntitlementLookupFailure: Error, Equatable, Sendable {
     /// Network down, no App Store account, StoreKit unreachable.
     case unavailable
     /// A signature failed verification. Untrustworthy input.
