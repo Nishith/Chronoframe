@@ -310,9 +310,11 @@ xcodebuild \
   build
 ```
 
-The Xcode project is used by CodeQL and app builds. It is `objectVersion = 70` and uses a `PBXFileSystemSynchronizedRootGroup` for each of `ChronoframeApp`, `ChronoframeAppCore`, and `ChronoframeCore`, so Swift files added under `ui/Sources/` are compiled without editing `project.pbxproj`. `ui/Package.swift` uses no explicit `sources:` lists, so SwiftPM auto-discovers them too.
+The Xcode project is used by CodeQL and app builds. It is `objectVersion = 70` and uses a `PBXFileSystemSynchronizedRootGroup` for each of `ChronoframeApp`, `ChronoframeAppCore`, and `ChronoframeCore`, so Swift files added under `ui/Sources/` are compiled without editing `project.pbxproj`. `ui/Package.swift` uses no explicit `sources:` lists, so SwiftPM auto-discovers those sources and the four `ui/Tests/…` test targets too.
 
-The exception is the Xcode test targets: `ChronoframeAppTests` and `ChronoframeUITests` still reference each file individually, so a new test file there must be added to `project.pbxproj` or it will never run.
+The one exception is `ui/Xcode/UITests/`. It is not a SwiftPM target, so `swift test` never sees it, and Xcode compiles only what `project.pbxproj` references — an unregistered UI-test file is silently never built or run while every CI lane still passes. Register it by hand and confirm it ran.
+
+(`ui/Tests/ChronoframeAppTests/` files are also listed individually in `project.pbxproj`, but that is vestigial: the shared scheme's only `TestableReference` is `ChronoframeUITests.xctest`, so CI's Xcode lane never runs `ChronoframeAppTests` — SwiftPM does.)
 
 ### App Bundle
 

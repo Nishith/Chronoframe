@@ -140,12 +140,16 @@ Library Guardian state lives **outside** the protected library, under Applicatio
 
 | What you're adding | What to edit |
 |---|---|
-| A Swift file under `ui/Sources/ChronoframeApp/`, `ChronoframeAppCore/`, or `ChronoframeCore/` | **Nothing.** No target in `ui/Package.swift` uses an explicit `sources:` list, so SwiftPM auto-discovers; and `ui/Chronoframe.xcodeproj` is `objectVersion = 70` with a `PBXFileSystemSynchronizedRootGroup` for each of those three roots, so Xcode picks the file up from disk. |
-| A Swift file under `ui/Tests/ChronoframeAppTests/` or `ui/Tests/ChronoframeUITests/` | **`ui/Chronoframe.xcodeproj/project.pbxproj`.** These Xcode test targets still reference each file individually (`PBXFileReference` + `PBXSourcesBuildPhase`), so a new test file is silently not run until it is added. |
+| A Swift file under `ui/Sources/` (any target) | **Nothing.** No target in `ui/Package.swift` uses an explicit `sources:` list, so SwiftPM auto-discovers; and `ui/Chronoframe.xcodeproj` is `objectVersion = 70` with a `PBXFileSystemSynchronizedRootGroup` for `ChronoframeApp`, `ChronoframeAppCore`, and `ChronoframeCore`, so Xcode picks the file up from disk. |
+| A Swift test file under `ui/Tests/…` | **Nothing.** All four are SwiftPM test targets declared with a `path:` and no `sources:` list, so `swift test` discovers them. |
+| A Swift file under **`ui/Xcode/UITests/`** | **`ui/Chronoframe.xcodeproj/project.pbxproj`** — and **no CI lane will tell you if you forget.** See below. |
 | A new SwiftPM target, or changed target settings (dependencies, resources, linker flags) | **`ui/Package.swift`.** |
-| A Swift file in any other target (`ChronoframeCLIKit`, `ChronoframePackaging`, the tools) | **Nothing.** These are SwiftPM-only and are not part of the Xcode project. |
 
-Do not hand-edit `project.pbxproj` to add app or library sources — the synchronized groups already cover them, and inventing UUIDs risks corrupting the project. The CI Xcode build is what proves membership either way.
+**The UI-test gap is the one real trap.** `ui/Xcode/UITests/` is not a SwiftPM target, so `swift test` never sees it, and Xcode compiles only what `project.pbxproj` references. A new UI-test file that is not registered is silently never built or run, and **every CI lane still passes**. Register it deliberately, and confirm it actually ran.
+
+`ui/Tests/ChronoframeAppTests/` files are also individually referenced in `project.pbxproj`, but that is vestigial: the shared scheme's only `TestableReference` is `ChronoframeUITests.xctest`, so CI's Xcode lane does not run that target at all — SwiftPM does. Adding a new file there to the project is optional and changes nothing in CI.
+
+Do not hand-edit `project.pbxproj` to add app or library sources — the synchronized groups already cover them, and inventing UUIDs risks corrupting the project.
 
 **Safety invariants.** Before weakening any invariant (source read-only, no overwrites, Trash-only delete, receipt-before-mutation, revert hash-checks), confirm it's an explicit product change. Add `// AGENTS-INVARIANT: N` to at least one test covering the invariant and re-run `script/check_agents_invariants_have_tests.sh`.
 
