@@ -310,7 +310,9 @@ xcodebuild \
   build
 ```
 
-The Xcode project is used by CodeQL and app builds. If you add a Swift source file that must compile in the app, keep `ui/Chronoframe.xcodeproj/project.pbxproj` in sync with SwiftPM.
+The Xcode project is used by CodeQL and app builds. It is `objectVersion = 70` and uses a `PBXFileSystemSynchronizedRootGroup` for each of `ChronoframeApp`, `ChronoframeAppCore`, and `ChronoframeCore`, so Swift files added under `ui/Sources/` are compiled without editing `project.pbxproj`. `ui/Package.swift` uses no explicit `sources:` lists, so SwiftPM auto-discovers them too.
+
+The exception is the Xcode test targets: `ChronoframeAppTests` and `ChronoframeUITests` still reference each file individually, so a new test file there must be added to `project.pbxproj` or it will never run.
 
 ### App Bundle
 

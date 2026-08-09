@@ -136,7 +136,16 @@ Library Guardian state lives **outside** the protected library, under Applicatio
 
 ## Critical notes
 
-**SwiftPM ↔ Xcode project sync.** When adding a Swift source file that must compile in the app, add it to both `ui/Package.swift` and `ui/Chronoframe.xcodeproj/project.pbxproj`. CodeQL builds the Xcode project, not the Swift package, so a file missing from the Xcode project will cause CodeQL to fail silently.
+**SwiftPM ↔ Xcode project sync.** Both sides discover most files automatically now, so adding a source file usually needs no project edits at all:
+
+| What you're adding | What to edit |
+|---|---|
+| A Swift file under `ui/Sources/ChronoframeApp/`, `ChronoframeAppCore/`, or `ChronoframeCore/` | **Nothing.** No target in `ui/Package.swift` uses an explicit `sources:` list, so SwiftPM auto-discovers; and `ui/Chronoframe.xcodeproj` is `objectVersion = 70` with a `PBXFileSystemSynchronizedRootGroup` for each of those three roots, so Xcode picks the file up from disk. |
+| A Swift file under `ui/Tests/ChronoframeAppTests/` or `ui/Tests/ChronoframeUITests/` | **`ui/Chronoframe.xcodeproj/project.pbxproj`.** These Xcode test targets still reference each file individually (`PBXFileReference` + `PBXSourcesBuildPhase`), so a new test file is silently not run until it is added. |
+| A new SwiftPM target, or changed target settings (dependencies, resources, linker flags) | **`ui/Package.swift`.** |
+| A Swift file in any other target (`ChronoframeCLIKit`, `ChronoframePackaging`, the tools) | **Nothing.** These are SwiftPM-only and are not part of the Xcode project. |
+
+Do not hand-edit `project.pbxproj` to add app or library sources — the synchronized groups already cover them, and inventing UUIDs risks corrupting the project. The CI Xcode build is what proves membership either way.
 
 **Safety invariants.** Before weakening any invariant (source read-only, no overwrites, Trash-only delete, receipt-before-mutation, revert hash-checks), confirm it's an explicit product change. Add `// AGENTS-INVARIANT: N` to at least one test covering the invariant and re-run `script/check_agents_invariants_have_tests.sh`.
 
