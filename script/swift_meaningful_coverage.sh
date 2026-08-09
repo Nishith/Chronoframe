@@ -90,6 +90,7 @@ MEANINGFUL_BASENAMES=(
     DestinationOperationLock
     LivePhotoMetadataLoader
     MutationRecoveryCoordinator
+    Entitlement
 )
 
 missing_basenames=()
