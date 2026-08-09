@@ -74,11 +74,18 @@ public protocol AppTransactionClient: Sendable {
 
 #if canImport(StoreKit)
 
-/// ⚠️ UNCOMPILED. Written on Linux with no Swift toolchain and no StoreKit SDK,
-/// so the exact API surface below is unverified. Build this on a Mac before
-/// trusting it; expect signature-level fixes. The logic it feeds — everything
-/// in `ChronoframeCore/Entitlement.swift` — is pure and fully covered by tests
-/// that do not depend on any of these calls being right.
+/// The live StoreKit adapter.
+///
+/// Compiles and links, but **no unit test exercises anything in this type** —
+/// `Transaction.currentEntitlements`, `Product.purchase()`, and `AppStore.sync()`
+/// need a StoreKit configuration file and an Xcode host, and the states that
+/// matter most (refund, Family Sharing revocation, failed verification, offline)
+/// are impractical to reproduce on demand even then. Behaviour here is only
+/// established by the sandbox and TestFlight matrices.
+///
+/// So keep it dumb: map Apple's types to the value types in
+/// `ChronoframeCore/Entitlement.swift` and put no policy here. Every decision
+/// belongs in the resolver, which is pure and covered by the coverage gate.
 public struct LiveStoreKitClient: StoreKitClient {
     public init() {}
 
@@ -177,7 +184,8 @@ public struct LiveStoreKitClient: StoreKitClient {
     }
 }
 
-/// ⚠️ UNCOMPILED — see `LiveStoreKitClient`.
+/// The live app-transaction adapter. Untested for the same reasons as
+/// `LiveStoreKitClient` — see the note there.
 public struct LiveAppTransactionClient: AppTransactionClient {
     public init() {}
 
