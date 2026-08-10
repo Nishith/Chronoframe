@@ -506,7 +506,7 @@ final class TrialLedgerDatabaseTests: XCTestCase {
         let url = ledgerURL("corrupt.db")
         try Data("this is not a SQLite database, it is a text file".utf8).write(to: url)
 
-        let outcome = TrialLedgerOpener.open(url: url, caps: caps)
+        let outcome = TrialLedgerOpener.open(url: url, caps: caps, witness: NullTrialUsageWitness())
 
         guard case let .unreadable(ledger, error) = outcome else {
             return XCTFail("A corrupt ledger must not open as ready")
@@ -539,13 +539,12 @@ final class TrialLedgerDatabaseTests: XCTestCase {
     }
 
     func testOpeningAHealthyLedgerReportsReady() throws {
-        let outcome = TrialLedgerOpener.open(url: ledgerURL(), caps: caps)
+        let outcome = TrialLedgerOpener.open(url: ledgerURL(), caps: caps, witness: NullTrialUsageWitness())
         guard case let .ready(ledger) = outcome else {
             return XCTFail("A fresh ledger must open as ready")
         }
         XCTAssertNil(outcome.failure)
         XCTAssertEqual(try ledger.balance(accountKey: account).remaining(for: .organize), 10)
-        (ledger as? TrialLedgerDatabase)?.close()
     }
 
     // MARK: - In-memory double

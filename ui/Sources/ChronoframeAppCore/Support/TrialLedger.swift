@@ -171,13 +171,19 @@ public enum TrialLedgerOpenOutcome: Sendable {
 public enum TrialLedgerOpener {
     /// Open the ledger at `url`, falling back to a fail-closed stand-in when it
     /// cannot be opened.
+    ///
+    /// The result is wrapped in a `WitnessedTrialLedger` so that deleting
+    /// `ledger.db` — or the whole Application Support folder — does not hand
+    /// back a fresh allowance. See `TrialUsageWitness` for what that does and,
+    /// just as importantly, what it does not do.
     public static func open(
         url: URL,
-        caps: TrialAllowanceCaps = .standard
+        caps: TrialAllowanceCaps = .standard,
+        witness: any TrialUsageWitness = KeychainTrialUsageWitness()
     ) -> TrialLedgerOpenOutcome {
         do {
             let database = try TrialLedgerDatabase(url: url, caps: caps)
-            return .ready(database)
+            return .ready(WitnessedTrialLedger(base: database, witness: witness))
         } catch let error as TrialLedgerError {
             return .unreadable(UnreadableTrialLedger(caps: caps), error)
         } catch {
