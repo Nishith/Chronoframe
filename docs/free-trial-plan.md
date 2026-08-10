@@ -42,7 +42,7 @@ Not open for reinterpretation during implementation. Raise a question rather tha
 | Price | $14.99 at launch; raise to $19.99 once conversion and reviews accumulate |
 | Family Sharing | ON — irreversible, so it is set at product creation |
 | Quota scope | per Apple Account, per Mac — `AppTransactionInfo.ledgerAccountKey` |
-| Revert refunds allowance | yes, idempotently by receipt run ID |
+| Revert refunds allowance | yes — per restored item, so partial and repeated reverts are exact |
 | Revert gating | never, all three receipt kinds |
 | Reorganize | requires unlock (a gate, not a reservation) |
 | Developer ID build | internal/testing only, explicitly unrestricted |
@@ -90,9 +90,23 @@ Replace *check → mutate → record* with **reserve → mutate → finalize →
 **A crash leaves the reservation fully charged until recovery proves how many mutations actually
 occurred.** This matches the fail-closed posture everywhere else in the codebase.
 
-**The reservation key already exists.** `CopyJobs.run_id` is populated at insert by
-`OrganizerDatabase.enqueueQueuedJobs`; the dedupe and reorganize receipts carry `runID`. No new
-operation-ID plumbing is needed. The one gap is `RevertReceipt` (T3).
+**There is no usable reservation key today — it has to be plumbed (T3).** The schema looks
+ready and is not:
+
+- `CopyJobs.run_id` exists and `enqueueQueuedJobs` binds it, but `enqueuePlannedTransfers`
+  constructs `QueuedCopyJob` without a `runID`, and that parameter defaults to `nil`. Every row
+  enqueued by a transfer therefore has a **null** `run_id`.
+- `TransferExecutor` mints its own UUID for the execution context, and the streaming receipt writer
+  mints a **second, different** one.
+- `DeduplicateExecutor.commit` mints its receipt `runID` internally, **after** the point where a
+  reservation must already exist.
+
+So a reservation taken at the gate could not be matched to the crash-recovery rows or to the
+receipt, and both reconciliation (T5) and refunds (T12) would silently fail. One ID must be minted
+at the reservation point and threaded down through enqueueing, both executors, and both receipt
+writers.
+
+`RevertReceipt` additionally carries no run ID at all (T4).
 
 **Scope boundary: build the ledger, gate nothing.** Ship dark, as step 2 did.
 
@@ -177,13 +191,22 @@ CREATE TABLE IF NOT EXISTS Reservations (
 CREATE INDEX IF NOT EXISTS idx_reservations_state ON Reservations(state);
 CREATE INDEX IF NOT EXISTS idx_reservations_account ON Reservations(account_key);
 
-CREATE TABLE IF NOT EXISTS Refunds (
-    receipt_run_id  TEXT PRIMARY KEY,
+-- Item-level, NOT one row per receipt. Reverts are routinely partial: the
+-- invariant "revert deletes only destination files whose current hash still
+-- matches the receipt" means a changed or unavailable file is preserved and
+-- skipped. A per-receipt row with INSERT OR IGNORE would freeze the first
+-- partial refund forever, so a later revert that restores the remaining items
+-- would be silently dropped. Recording each restored item makes repeat and
+-- partial reverts exact and still idempotent.
+CREATE TABLE IF NOT EXISTS RefundedItems (
+    receipt_run_id  TEXT NOT NULL,
+    item_path       TEXT NOT NULL,
     account_key     TEXT NOT NULL,
     meter           TEXT NOT NULL,
-    refunded_count  INTEGER NOT NULL,
-    created_at      TEXT NOT NULL
+    created_at      TEXT NOT NULL,
+    PRIMARY KEY (receipt_run_id, item_path)
 );
+CREATE INDEX IF NOT EXISTS idx_refunded_account ON RefundedItems(account_key, meter);
 ```
 
 **The usage query is where fail-closed comes from. Do not "simplify" it:**
@@ -192,7 +215,7 @@ CREATE TABLE IF NOT EXISTS Refunds (
 SELECT COALESCE(SUM(COALESCE(finalized_count, reserved_count)), 0)
 FROM Reservations WHERE account_key = ? AND meter = ? AND state IN ('open','finalized');
 
-SELECT COALESCE(SUM(refunded_count), 0) FROM Refunds WHERE account_key = ? AND meter = ?;
+SELECT COUNT(*) FROM RefundedItems WHERE account_key = ? AND meter = ?;
 ```
 
 `usage = charged − refunded`. An **open** reservation counts at its **full reserved amount**, so a
@@ -225,8 +248,14 @@ public protocol TrialLedger: Sendable {
     /// anything. Never call this on an ambiguous outcome.
     func release(runID: UUID) throws
 
-    /// Idempotent by receiptRunID via INSERT OR IGNORE.
-    func refund(receiptRunID: UUID, accountKey: String, meter: TrialMeter, count: Int) throws
+    /// Records the items a revert actually restored or removed. Idempotent per
+    /// (receiptRunID, itemPath) via INSERT OR IGNORE, so a partial revert followed
+    /// later by a fuller one refunds exactly the newly restored items — and
+    /// re-running the same revert refunds nothing extra.
+    ///
+    /// Takes paths, not a count, on purpose: a count cannot distinguish "two more
+    /// items restored" from "the same two items reported twice".
+    func refund(receiptRunID: UUID, accountKey: String, meter: TrialMeter, itemPaths: [String]) throws
 
     func openReservations() throws -> [OpenReservation]
 }
@@ -247,10 +276,33 @@ Restore Purchases does not repair this for someone who never bought.
 double-charge**; finalize on a released or already-finalized row is a no-op; re-reserving an
 existing runID does not stack; a refusal writes nothing (assert row count unchanged); concurrent
 organize and dedupe reservations; two reservations on one meter cannot jointly exceed the cap;
-refund idempotent by receipt run ID; refund of an unknown receipt is a no-op; corrupt ledger
-reports zero remaining; `openReservations()` returns only open rows.
+**a partial refund followed by a fuller one refunds only the newly restored items**; re-running an
+identical refund adds nothing; refund for an unknown receipt is harmless; corrupt ledger reports
+zero remaining; `openReservations()` returns only open rows.
 
-## T3 — `RevertReceipt` schema version 3 · Safety-critical
+## T3 — Plumb one reservation run ID · Safety-critical
+
+**Prerequisite for T5, T8, T9 and T12.** Without it, a reservation cannot be matched to the rows
+or receipts that prove what happened, and reconciliation and refunds fail silently.
+
+Mint the ID **at the reservation point** and thread it downward. Nothing below the gate may mint
+its own.
+
+| Site | Change |
+|---|---|
+| `OrganizerDatabase.enqueuePlannedTransfers` | Take a `runID: UUID` and set it on every `QueuedCopyJob`. It currently omits the argument, and `QueuedCopyJob.runID` defaults to `nil`, so today every enqueued row has a null `run_id`. |
+| `TransferExecutor` execution context | Accept an injected run ID instead of minting one. |
+| Streaming audit receipt writer | Use the same injected ID rather than minting a second one. |
+| `DeduplicateExecutor.commit` | Accept an injected run ID instead of minting the receipt `runID` internally, which currently happens after the reservation point. |
+
+**Acceptance:** for a completed organize run, the ledger's `run_id`, every `CopyJobs.run_id` for
+that run, and the audit receipt's run ID are the **same value**. Same for a dedupe commit and its
+receipt. Add a test asserting that equality directly — it is the property everything downstream
+depends on.
+
+Keep the diffs surgical; these are audited executor paths.
+
+## T4 — `RevertReceipt` schema version 3 · Safety-critical
 
 **File:** `ui/Sources/ChronoframeCore/RevertExecutor.swift`
 
@@ -268,14 +320,23 @@ v2 receipt unchanged; a v3 receipt missing `run_id` decodes with a nil run ID.
 
 Keep the diff minimal. This file's revert hash-check behaviour must not shift.
 
-## T4 — Reconciler · Careful review
+## T5 — Reconciler · Careful review
 
 **File:** `ui/Sources/ChronoframeAppCore/Support/TrialLedgerReconciler.swift` (new)
 
 `MutationRecoveryCoordinator` (Core) stays ignorant of the ledger. Run the reconciler **after**
-`MutationRecoveryCoordinator.recover(destinationRoot:)`, at the same call sites — the
-`OrganizerEngine.prepare` default implementation, and the manual `DestinationOperationLock.acquire`
-sites in `RunSessionStore`.
+`MutationRecoveryCoordinator.recover(destinationRoot:)`.
+
+**Centralize rather than enumerate.** There are eight `MutationRecoveryCoordinator()` call sites
+today — `OrganizerEngine.prepare`, three in `RunSessionStore`, `AppState`'s post-bootstrap launch
+recovery, `DeduplicateEngine`, `HistoryStore`, and `CLI.swift`. Wiring the reconciler into a
+hand-picked subset guarantees drift, and a missed site means filesystem recovery completes at
+launch while the reservation stays fully charged — so the balance UI, or the next dedupe attempt,
+refuses work the customer is entitled to.
+
+Introduce a single "recover and reconcile" entry point and route **every** call site through it.
+Add a test (or a small guard script) asserting no direct `MutationRecoveryCoordinator().recover`
+call survives outside that helper.
 
 For each open reservation:
 
@@ -295,7 +356,7 @@ All three rules are load-bearing:
 destination stays open and fully charged; crash after mutation before finalize reconciles to the
 correct count; reconciling twice is idempotent; dedupe reconciliation from receipt plus spool.
 
-## T5 — Compose entitlement and ledger · Routine
+## T6 — Compose entitlement and ledger · Routine
 
 **File:** `ui/Sources/ChronoframeAppCore/Services/TrialStatusStore.swift` (new)
 
@@ -319,7 +380,7 @@ A `@MainActor` type reading `EntitlementStore.ledgerAccountKey` and `TrialLedger
 Do not start until step 3 is merged. Gating against an unmerged ledger produces untestable
 half-states.
 
-## T6 — Require an explicit authorizer everywhere · Safety-critical
+## T7 — Require an explicit authorizer everywhere · Safety-critical
 
 Remove any default argument for the authorizer on production engine initializers. A default makes
 every forgotten or future constructor a silent licensing bypass. Let the compiler enumerate the
@@ -334,7 +395,7 @@ composition roots:
 
 **Acceptance:** no default argument exists; removing an argument at a call site fails to compile.
 
-## T7 — Gate organize · Safety-critical
+## T8 — Gate organize · Safety-critical
 
 `ui/Sources/ChronoframeAppCore/Services/SwiftOrganizerEngine.swift`
 
@@ -354,7 +415,7 @@ a typed authorization outcome that the store converts into an unlock prompt.
 no media changes**. Do not assert whole-destination byte-identity — planning legitimately writes
 `.organize_cache.db` and logs.
 
-## T8 — Gate dedupe · Safety-critical
+## T9 — Gate dedupe · Safety-critical
 
 `NativeDeduplicateEngine.commit` — the **engine**, not `DeduplicateSessionStore`, which is a UI
 gate that callers can route around. Reserve `plan.count` against `.dedupe` before
@@ -362,22 +423,49 @@ gate that callers can route around. Reserve `plan.count` against `.dedupe` befor
 
 **Required test:** a refused commit moves nothing to Trash and writes no receipt or spool journal.
 
-## T9 — Gate reorganize · Routine, after T6–T8
+## T10 — Gate reorganize · Routine, after T6–T8
 
 `SwiftOrganizerEngine.reorganize` requires an unlock. Metered at zero — a gate, not a reservation.
 
-## T10 — App Intent and CLI · Careful review
+## T11 — App Intent and CLI · Careful review
 
 `ui/Sources/ChronoframeApp/AppIntents/OrganizeFolderIntent.swift` builds its own engine and
 auto-confirms every non-blocking prompt. Add an explicit purchase branch that throws an intent
 error telling the user to open Chronoframe. **Background intents must never attempt interactive
 in-app purchase.** Wire the CLI's unrestricted authorizer explicitly and document why.
 
+## T12 — Refund allowance on revert · Careful review
+
+Defining `TrialLedger.refund` is not enough — something has to call it. Without this task the
+settled "revert refunds allowance" policy is unimplemented and customers stay charged for work
+they undid, which is the opposite of the reason revert is ungated in the first place.
+
+Consume each revert result and record **only the mutations actually undone**:
+
+| Path | Consume | Meter |
+|---|---|---|
+| Organize revert | `RevertExecutionResult` — the destination files actually removed | `.organize` |
+| Dedupe revert | the Trash items actually restored | `.dedupe` |
+| Reorganize revert | nothing — reorganize is gated, not metered | — |
+
+Pass the **paths** that were undone, not a count. Reverts are routinely partial: a destination file
+whose hash no longer matches the receipt is preserved and skipped by design, so a user can revert,
+fix the conflict, and revert again. Item-level records make the second pass refund exactly the
+newly restored items.
+
+**Do not add an authorizer to any revert path.** This task reads revert *outcomes*; it must not
+gate revert or change its behaviour in any way.
+
+**Tests:** a full revert refunds every item; a partial revert refunds only the restored subset; a
+second revert restoring the remainder refunds only the new items; re-running an identical revert
+refunds nothing further; a revert of a legacy receipt with no run ID refunds nothing and does not
+throw.
+
 ---
 
 # Step 5 — Unlock UI
 
-## T11 — Unlock sheet · Routine
+## T13 — Unlock sheet · Routine
 
 `ui/Sources/ChronoframeApp/Views/Purchase/UnlockSheet.swift` (new). It must:
 
@@ -392,12 +480,12 @@ in-app purchase.** Wire the CLI's unrestricted authorizer explicitly and documen
 Follow the Meridian language: native controls, no decorative gradients, no instructional text
 describing obvious mechanics.
 
-## T12 — Settings License tab · Routine
+## T14 — Settings License tab · Routine
 
 Add `case license` to `SettingsTab`. Shows entitlement state, remaining allowance, and Restore
 Purchases.
 
-## T13 — Free test batch · Careful review
+## T15 — Free test batch · Careful review
 
 Blocking a large library's first transfer and telling the user to build a smaller folder in Finder
 is a bad trial. When a plan exceeds the remaining allowance, offer **"Run a free test batch"**:
@@ -409,31 +497,31 @@ is a bad trial. When a plan exceeds the remaining allowance, offer **"Run a free
 **Never silently truncate.** The preview/execution agreement holds only because the reduced plan is
 itself previewed and confirmed.
 
-## T14 — Trial indicators · Routine
+## T16 — Trial indicators · Routine
 
 Remaining-allowance display in the Run and Deduplicate workspaces. Absent when unlocked.
 
-Tasks T11–T14 touch `ChronoframeApp/**`, so `script/check_app_layer_changes_have_tests.sh`
+Tasks T13–T16 touch `ChronoframeApp/**`, so `script/check_app_layer_changes_have_tests.sh`
 requires a test with each change.
 
 ---
 
 # Step 6 — Test matrices
 
-## T15 — Mac App Store build lane · Routine
+## T17 — Mac App Store build lane · Routine
 
 `MAS_BUILD` is defined only in `ui/archive-mas.sh`. Neither `swift test` nor the CodeQL
 `xcodebuild` sets it, so any `#if MAS_BUILD` code is compiled by **zero** lanes. Add a CI job
 building with `SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD`.
 
-## T16 — StoreKit configuration file · Routine
+## T18 — StoreKit configuration file · Routine
 
 Add an Xcode StoreKit configuration file for the unlock so `Transaction` and `AppTransaction` can
 be driven locally. **The sandbox always reports `originalAppVersion` as `1.0`**, so a naive
 fresh-install sandbox test looks grandfathered — use the injected `AppTransactionClient` or a debug
 launch override, and keep the Xcode-StoreKit, sandbox, and TestFlight matrices separate.
 
-## T17 — Manual matrix · Routine
+## T19 — Manual matrix · Routine
 
 Extend the TestFlight matrix in `docs/APP_STORE_RELEASE.md`: offline legacy access; product-load
 failure; pending purchase; user cancellation; unverified transaction; refund; Family Sharing
@@ -444,13 +532,13 @@ refused run leaves originals untouched.
 
 # Steps 7–9 — Release
 
-## T18 — Create the in-app purchase · Manual
+## T20 — Create the in-app purchase · Manual
 
 App Store Connect: non-consumable `com.nishith.chronoframe.unlock` at $14.99, **Family Sharing ON
 (irreversible)**. Apple requires the first non-consumable to be submitted **with** a new app
 version.
 
-## T19 — Set the cutover · Safety-critical
+## T21 — Set the cutover · Safety-critical
 
 `ChronoframeUnlock.grandfatherCutover` in `ui/Sources/ChronoframeCore/Entitlement.swift` is
 far-future today, which is **correct while the app is still paid** — every customer is a paying
@@ -462,13 +550,13 @@ twice. Also bump `MARKETING_VERSION` to `2.0`.
 
 **Leaving it unedited after the price drops makes the app permanently free for everyone.**
 
-## T20 — Marketing and metadata copy · Routine
+## T22 — Marketing and metadata copy · Routine
 
 `site/index.html`, `site/faq.html`, `README.md`, `docs/APP_STORE_RELEASE.md`,
 `docs/APP_STORE_METADATA.md`. "Free to try · $14.99 to unlock". **"No subscription, ever" stays
 true** and is worth keeping prominent. Review notes must disclose the trial limits explicitly.
 
-## T21 — Execute the release · Manual
+## T23 — Execute the release · Manual
 
 1. Submit the in-app purchase **with** version 2.
 2. Release v2 **while still paid**. Hold **7 days**: confirm storefront propagation and verify
@@ -489,7 +577,7 @@ The price drop is the **only irreversible step** — anyone who downloads the ap
   the symbol must exist at compile time.
 - Step 2 implements `EntitlementState.locked` rather than the originally planned
   `.trial(allowance)`. The allowance belongs to the ledger, and wiring it into `EntitlementStore`
-  would blur the two responsibilities. The UI composes them in T5 and step 5.
+  would blur the two responsibilities. The UI composes them in T6 and step 5.
 
 # Verification
 
