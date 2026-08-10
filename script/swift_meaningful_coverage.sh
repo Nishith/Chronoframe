@@ -97,6 +97,7 @@ MEANINGFUL_BASENAMES=(
     GuardianRestorePlanner
     GuardianScheduler
     Entitlement
+    TrialAllowance
 )
 
 missing_basenames=()
