@@ -1469,7 +1469,8 @@ final class DeduplicateTests: XCTestCase {
         let stream = executor.commit(
             plan: plan,
             destinationRoot: temporaryDirectory.path,
-            hardDelete: false
+            hardDelete: false,
+            runID: UUID()
         )
 
         var sawError = false
@@ -1539,7 +1540,8 @@ final class DeduplicateTests: XCTestCase {
         let commitStream = executor.commit(
             plan: plan,
             destinationRoot: temporaryDirectory.path,
-            hardDelete: false
+            hardDelete: false,
+            runID: UUID()
         )
         for try await event in commitStream {
             switch event {
@@ -1614,7 +1616,7 @@ final class DeduplicateTests: XCTestCase {
         let fakeTrashRoot = temporaryDirectory.appendingPathComponent("FakeTrash", isDirectory: true)
         let executor = DeduplicateExecutor(fileOperations: MockDeduplicateFileOperations(trashRoot: fakeTrashRoot))
         var commitSummary: DeduplicateCommitSummary?
-        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectory.path, hardDelete: true) {
+        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectory.path, hardDelete: true, runID: UUID()) {
             if case let .complete(summary) = event {
                 commitSummary = summary
             }
@@ -1683,7 +1685,7 @@ final class DeduplicateTests: XCTestCase {
         ])
 
         var summary: DeduplicateCommitSummary?
-        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectory.path, hardDelete: false) {
+        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectory.path, hardDelete: false, runID: UUID()) {
             if case let .complete(commitSummary) = event {
                 summary = commitSummary
             }
@@ -1750,7 +1752,8 @@ final class DeduplicateTests: XCTestCase {
         for try await event in executor.commit(
             plan: plan,
             destinationRoot: temporaryDirectory.path,
-            hardDelete: false
+            hardDelete: false,
+            runID: UUID()
         ) {
             if case let .complete(commitSummary) = event {
                 summary = commitSummary
@@ -1799,7 +1802,7 @@ final class DeduplicateTests: XCTestCase {
 
         var failedMessages: [String] = []
         var summary: DeduplicateCommitSummary?
-        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectory.path, hardDelete: true) {
+        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectory.path, hardDelete: true, runID: UUID()) {
             switch event {
             case let .itemFailed(path, message):
                 failedMessages.append("\(URL(fileURLWithPath: path).lastPathComponent): \(message)")

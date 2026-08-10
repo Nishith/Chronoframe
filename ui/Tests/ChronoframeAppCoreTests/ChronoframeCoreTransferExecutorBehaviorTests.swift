@@ -39,7 +39,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         for job in env.jobs {
@@ -76,7 +77,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: database,
             destinationRoot: destinationRoot,
             verifyCopies: false,
-            runLogger: logger
+            runLogger: logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 0)
@@ -98,7 +100,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
             runLogger: env.logger,
-            observer: TransferExecutionObserver(onIssue: { issues.append($0) })
+            observer: TransferExecutionObserver(onIssue: { issues.append($0) }),
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 0)
@@ -131,7 +134,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 1)
@@ -346,7 +350,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: database,
             destinationRoot: destinationRoot,
             verifyCopies: false,
-            runLogger: logger
+            runLogger: logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 0)
@@ -401,7 +406,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 3)
@@ -433,7 +439,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             observer: TransferExecutionObserver(onPhaseProgress: { completed, total, _, _, _ in
                 progress.append((completed, total))
             }),
-            isCancelled: { true }
+            isCancelled: { true },
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 0)
@@ -461,7 +468,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         let expectedTotalBytes = env.jobs.reduce(into: Int64(0)) { running, job in
@@ -489,7 +497,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
                 onPhaseProgress: { completed, total, _, _, _ in
                     progress.append((completed, total))
                 }
-            )
+            ),
+            runID: UUID()
         )
 
         XCTAssertEqual(progress.values.map { $0.completed }, [1, 2, 3, 4])
@@ -526,7 +535,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
             runLogger: env.logger,
-            maxConcurrentCopies: 3
+            maxConcurrentCopies: 3,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 3)
@@ -598,7 +608,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             destinationRoot: destinationRoot,
             verifyCopies: false,
             runLogger: logger,
-            maxConcurrentCopies: 4
+            maxConcurrentCopies: 4,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 2)
@@ -625,7 +636,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             maxConcurrentCopies: 2,
             observer: TransferExecutionObserver(onPhaseProgress: { completed, _, _, _, _ in
                 progress.append(completed)
-            })
+            }),
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 3)
@@ -654,7 +666,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, jobCount)
@@ -743,7 +756,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: true,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 0)
@@ -789,7 +803,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 1)
@@ -835,7 +850,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 1)
@@ -880,7 +896,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 1)
@@ -900,7 +917,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         let logsDirectory = env.destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
@@ -987,7 +1005,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             status: .pending,
             maxConcurrentCopies: 2,
             observer: observer,
-            isCancelled: { cancelFlag.isCancelled }
+            isCancelled: { cancelFlag.isCancelled },
+            runID: UUID()
         )
 
         XCTAssertEqual(result.copiedCount, 0, "No job should copy while the disk stays full")
@@ -1087,7 +1106,8 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             database: env.database,
             destinationRoot: env.destinationRoot,
             verifyCopies: true,
-            runLogger: env.logger
+            runLogger: env.logger,
+            runID: UUID()
         )
 
         for job in env.jobs {

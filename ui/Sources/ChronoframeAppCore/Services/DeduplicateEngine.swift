@@ -97,11 +97,17 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
             activeLeaseDestination = standardizedDestination
             _ = recoveryCoordinator.recover(destinationRoot: destinationURL)
         }
+        // Minted here, before the executor starts, because step 4 takes the
+        // trial reservation at this same point. The receipt used to mint its own
+        // ID inside the commit stream, which is after the reservation would
+        // already have to exist.
+        let runID = UUID()
         let stream = executor.commit(
             plan: plan,
             destinationRoot: configuration.destinationPath,
             additionalSourceRoots: configuration.additionalSources.map(\.path),
-            hardDelete: false
+            hardDelete: false,
+            runID: runID
         )
         return releasingStream(stream)
     }
