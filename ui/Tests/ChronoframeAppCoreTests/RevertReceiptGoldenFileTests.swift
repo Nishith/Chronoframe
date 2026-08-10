@@ -7,15 +7,21 @@ import XCTest
 /// has emitted (or could plausibly emit).
 ///
 /// Existing roundtrip tests encode-then-decode through a single shape; they
-/// cannot surface the gap where a future writer emits `schemaVersion: 3` and
-/// the v2 reader silently treats it as a v2 receipt. These tests load
+/// cannot surface the gap where a writer emits a newer `schemaVersion` and an
+/// older reader silently treats it as the version it knows. These tests load
 /// hand-crafted JSON fixtures so each schema variant is exercised explicitly.
 ///
-/// **These tests document, not enforce, the current schemaVersion gap**: a
-/// v99 receipt is decoded as a v2 receipt today (Finding #6 in
-/// prodsec/Chronoframe/TOP_IMPROVEMENTS.md). When the reader is upgraded to
-/// reject unknown forward versions, the `testCurrentDecoderSilentlyAccepts*`
-/// case will need to flip to assert the expected `unsupportedSchema` error.
+/// The writer emits **v3** today. The version is not cosmetic: it is what tells
+/// a refund whether the receipt's `runID` is the run's reservation ID (v3) or
+/// the private UUID the receipt writer used to mint for itself (v1/v2). See the
+/// "Pre-v3 run IDs" cases below — that distinction is the whole reason the
+/// version was bumped, and getting it wrong credits allowance against runs that
+/// never existed.
+///
+/// Forward-version rejection lives at the executor level, not in the decoder:
+/// `RevertExecutor.loadReceipt` throws `unsupportedSchema`, while the raw
+/// decoder stays forward-compatible so migration and telemetry tooling can
+/// still inspect a receipt it does not fully understand.
 final class RevertReceiptGoldenFileTests: XCTestCase {
 
     // MARK: V2 — current writer shape
@@ -158,6 +164,119 @@ final class RevertReceiptGoldenFileTests: XCTestCase {
         let receipt = try JSONDecoder().decode(RevertReceipt.self, from: data)
         XCTAssertEqual(receipt.schemaVersion, 99)
         XCTAssertEqual(receipt.transfers.count, 1)
+    }
+
+    // MARK: V3 — run ID usable as a refund key
+
+    private static let v3Receipt = #"""
+    {
+      "schemaVersion": 3,
+      "runID": "6B29FC40-CA47-1067-B31D-00DD010662DA",
+      "operation": "organize",
+      "timestamp": "2026-08-10T12:00:00Z",
+      "status": "COMPLETED",
+      "total_jobs": 1,
+      "transfers": [
+        {
+          "source": "/Volumes/Source/IMG_0003.jpg",
+          "dest": "/Volumes/Destination/2024/06/15/2024-06-15_003.jpg",
+          "hash": "4096_00112233"
+        }
+      ]
+    }
+    """#
+
+    func testV3ReceiptExposesItsRunIDAsARefundKey() throws {
+        let receipt = try JSONDecoder().decode(RevertReceipt.self, from: Data(Self.v3Receipt.utf8))
+        let expected = UUID(uuidString: "6B29FC40-CA47-1067-B31D-00DD010662DA")
+        XCTAssertEqual(receipt.schemaVersion, 3)
+        XCTAssertEqual(receipt.runID, expected)
+        XCTAssertEqual(receipt.reservationRunID, expected)
+        XCTAssertEqual(receipt.transfers.count, 1)
+    }
+
+    func testV3RoundTripsThroughEncodeAndDecode() throws {
+        let original = RevertReceipt(
+            schemaVersion: 3,
+            timestamp: "2026-08-10T12:00:00Z",
+            status: "COMPLETED",
+            totalJobs: 1,
+            transfers: [RevertReceiptTransfer(source: "/s", dest: "/d", hash: "1_h")],
+            runID: UUID()
+        )
+        let decoded = try JSONDecoder().decode(
+            RevertReceipt.self,
+            from: try JSONEncoder().encode(original)
+        )
+        XCTAssertEqual(decoded, original)
+        XCTAssertEqual(decoded.reservationRunID, original.runID)
+    }
+
+    /// A v3 receipt that somehow lacks a run ID is simply not refundable. It
+    /// must still load and still revert.
+    func testV3ReceiptWithoutARunIDDecodesWithNilRunID() throws {
+        let json = #"""
+        {
+          "schemaVersion": 3,
+          "status": "COMPLETED",
+          "transfers": [{ "source": "/s", "dest": "/d", "hash": "1_h" }]
+        }
+        """#
+        let receipt = try JSONDecoder().decode(RevertReceipt.self, from: Data(json.utf8))
+        XCTAssertNil(receipt.runID)
+        XCTAssertNil(receipt.reservationRunID)
+        XCTAssertEqual(receipt.transfers.count, 1)
+    }
+
+    // MARK: Pre-v3 run IDs must never be used as refund keys
+
+    /// The important one. Receipts written before run IDs were threaded DO
+    /// carry a `runID` — but it was a UUID private to the receipt writer,
+    /// matching no reservation and no `CopyJobs` row. It is well-formed, so
+    /// nothing would fail loudly if a refund keyed off it; the allowance would
+    /// just be credited against a run that never existed.
+    func testV2ReceiptRunIDIsDecodedButRefusedAsARefundKey() throws {
+        let json = #"""
+        {
+          "schemaVersion": 2,
+          "runID": "11111111-2222-3333-4444-555555555555",
+          "status": "COMPLETED",
+          "transfers": [{ "source": "/s", "dest": "/d", "hash": "1_h" }]
+        }
+        """#
+        let receipt = try JSONDecoder().decode(RevertReceipt.self, from: Data(json.utf8))
+        XCTAssertEqual(receipt.runID, UUID(uuidString: "11111111-2222-3333-4444-555555555555"))
+        XCTAssertNil(receipt.reservationRunID, "A pre-v3 run ID is not a reservation key")
+    }
+
+    /// v1 has no `schemaVersion` at all, so it can never clear the v3 bar.
+    func testV1ReceiptIsNeverRefundable() throws {
+        let receipt = try JSONDecoder().decode(RevertReceipt.self, from: Data(Self.v1Receipt.utf8))
+        XCTAssertNil(receipt.schemaVersion)
+        XCTAssertNil(receipt.reservationRunID)
+    }
+
+    func testV2ReceiptWithoutARunIDIsNeverRefundable() throws {
+        let receipt = try JSONDecoder().decode(RevertReceipt.self, from: Data(Self.v2Receipt.utf8))
+        XCTAssertNil(receipt.runID)
+        XCTAssertNil(receipt.reservationRunID)
+    }
+
+    /// A malformed run ID must not block a revert. Revert never consults the
+    /// field, and refusing to load the receipt over it would strand files.
+    func testMalformedRunIDDoesNotPreventDecoding() throws {
+        let json = #"""
+        {
+          "schemaVersion": 3,
+          "runID": "not-a-uuid",
+          "status": "COMPLETED",
+          "transfers": [{ "source": "/s", "dest": "/d", "hash": "1_h" }]
+        }
+        """#
+        let receipt = try JSONDecoder().decode(RevertReceipt.self, from: Data(json.utf8))
+        XCTAssertNil(receipt.runID)
+        XCTAssertNil(receipt.reservationRunID)
+        XCTAssertEqual(receipt.transfers.count, 1, "The revert itself must be unaffected")
     }
 
     // MARK: Malformed shapes the decoder must reject

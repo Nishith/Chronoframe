@@ -197,6 +197,66 @@ final class TrialRunIdentityTests: XCTestCase {
         XCTAssertEqual(try database.queuedRunID(), runID)
     }
 
+    /// A queue holding one legacy untagged row and one tagged row has exactly
+    /// one distinct non-null run ID, so ignoring nulls would report agreement.
+    /// Adopting that ID would run both jobs under it, stamp the legacy row with
+    /// it, and emit a receipt claiming both belong to a reservation that only
+    /// ever covered one — misattributing the charge and later the refund.
+    func testQueuedRunIDIsNilWhenSomeRowsAreTaggedAndOthersAreNot() throws {
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dst-mixed", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        let database = try OrganizerDatabase(url: destinationRoot.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+
+        let runID = UUID()
+        try database.enqueueQueuedJobs([
+            // A pending job left over from before run IDs were threaded.
+            QueuedCopyJob(sourcePath: "/legacy.jpg", destinationPath: "/d/legacy.jpg", hash: "h0", status: .pending),
+            QueuedCopyJob(
+                sourcePath: "/tagged.jpg", destinationPath: "/d/tagged.jpg", hash: "h1",
+                status: .pending, runID: runID
+            ),
+        ])
+
+        XCTAssertNil(
+            try database.queuedRunID(),
+            "One untagged row means the queue does not agree on a run, even though only one ID is present"
+        )
+
+        // Once every row carries the same ID, it is a genuine resume again.
+        try database.enqueueQueuedJobs([
+            QueuedCopyJob(
+                sourcePath: "/legacy.jpg", destinationPath: "/d/legacy.jpg", hash: "h0",
+                status: .pending, runID: runID
+            ),
+        ])
+        XCTAssertEqual(try database.queuedRunID(), runID)
+    }
+
+    /// Rows in a non-matching status must not affect the answer.
+    func testQueuedRunIDIgnoresJobsInOtherStatuses() throws {
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dst-status", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        let database = try OrganizerDatabase(url: destinationRoot.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+
+        let runID = UUID()
+        try database.enqueueQueuedJobs([
+            QueuedCopyJob(
+                sourcePath: "/a.jpg", destinationPath: "/d/a.jpg", hash: "h1",
+                status: .pending, runID: runID
+            ),
+            // A completed job from an unrelated earlier run, still in the table.
+            QueuedCopyJob(
+                sourcePath: "/b.jpg", destinationPath: "/d/b.jpg", hash: "h2",
+                status: .copied, runID: UUID()
+            ),
+            QueuedCopyJob(sourcePath: "/c.jpg", destinationPath: "/d/c.jpg", hash: "h3", status: .copied),
+        ])
+
+        XCTAssertEqual(try database.queuedRunID(status: .pending), runID)
+    }
+
     /// Legacy rows carry no run ID, and a queue that mixes two runs cannot be
     /// attributed to either. Both must read as "no run to resume" so the caller
     /// falls back to a fresh ID rather than adopting an arbitrary one.
@@ -298,6 +358,59 @@ final class TrialRunIdentityTests: XCTestCase {
 
         try ledger.finalize(runID: runID, actualCount: 1)
         XCTAssertEqual(try ledger.balance(accountKey: "app-txn-1").usage.dedupeUsed, 1)
+    }
+
+    /// End to end, the property T12's refunds rest on: a real organize run's
+    /// receipt loads through `RevertExecutor` and hands back the *same* run ID
+    /// the reservation was taken under, as a usable refund key.
+    ///
+    /// This is what ties T3 (one run ID) to T4 (the receipt exposes it). Either
+    /// half alone looks fine and refunds silently never fire.
+    func testARealRunsReceiptYieldsTheReservationRunIDAsARefundKey() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("src5", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dst5", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        let database = try OrganizerDatabase(url: destinationRoot.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+        let sourceURL = sourceRoot.appendingPathComponent("shot.jpg")
+        try Data("shot".utf8).write(to: sourceURL)
+
+        let runID = UUID()
+        try database.enqueuePlannedTransfers(
+            [
+                PlannedTransfer(
+                    sourcePath: sourceURL.path,
+                    destinationPath: destinationRoot.appendingPathComponent("2024/01/01/shot.jpg").path,
+                    identity: testFileIdentity(at: sourceURL),
+                    dateBucket: "2024/01/01",
+                    isDuplicate: false
+                )
+            ],
+            runID: runID
+        )
+        let logger = PersistentRunLogger(logURL: destinationRoot.appendingPathComponent(".organize_log.txt"))
+        try logger.open()
+        _ = try TransferExecutor().executeQueuedJobs(
+            database: database,
+            destinationRoot: destinationRoot,
+            verifyCopies: false,
+            runLogger: logger,
+            runID: runID
+        )
+
+        let logsDirectory = destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
+        let receiptURL = try XCTUnwrap(
+            try FileManager.default
+                .contentsOfDirectory(at: logsDirectory, includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix("audit_receipt_") && $0.pathExtension == "json" }
+        )
+
+        let receipt = try RevertExecutor().loadReceipt(at: receiptURL)
+        XCTAssertEqual(receipt.schemaVersion, 3, "The writer must stamp the version that marks the run ID trustworthy")
+        XCTAssertEqual(receipt.reservationRunID, runID)
+        XCTAssertFalse(receipt.transfers.isEmpty)
     }
 
     // MARK: - Receipt filename collision
