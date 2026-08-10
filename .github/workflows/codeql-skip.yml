@@ -1,0 +1,46 @@
+name: CodeQL (skipped)
+
+# `Analyze (Swift)` in codeql.yml is a REQUIRED status check, and it only runs
+# for PRs that touch analyzed Swift code. GitHub does not treat a required check
+# whose workflow was filtered out as satisfied — it reports "Expected — waiting
+# for status to be reported" and the PR blocks permanently. A docs-only or
+# script-only PR therefore can never merge without an admin override.
+#
+# This workflow reports the same check name for the complementary path set, so
+# exactly one of the two always runs and always reports.
+#
+# KEEP `paths-ignore` BELOW BYTE-IDENTICAL TO codeql.yml's `paths`.
+# They must be exact complements:
+#   - a path in neither list  -> the PR blocks forever
+#   - a path in both lists    -> this job can green a PR that needed analysis
+# The second failure mode is the dangerous one: it reports "Analyze (Swift)"
+# success for code CodeQL never looked at. Any change to one list is a change
+# to both.
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths-ignore:
+      - "ui/Sources/**"
+      - "ui/Tests/**"
+      - "ui/Xcode/**"
+      - "ui/Package.swift"
+      - "ui/Chronoframe.xcodeproj/**"
+      - ".github/workflows/codeql.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-swift:
+    # This name MUST match the job name in codeql.yml exactly. Branch
+    # protection matches required checks by name, so a rename here silently
+    # reintroduces the permanent block.
+    name: Analyze (Swift)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report no Swift changes to analyze
+        run: |
+          echo "No analyzed Swift paths changed in this pull request."
+          echo "CodeQL's Swift build was not run, and nothing in this diff requires it."
+          echo "See .github/workflows/codeql.yml for the path list that triggers real analysis."

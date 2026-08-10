@@ -9,9 +9,21 @@ on:
     # filter limits cost to PRs that actually touch analyzed code —
     # docs-only PRs, workflow tweaks, and shell-script changes don't
     # trigger the (slow) Swift CodeQL build.
+    #
+    # `Analyze (Swift)` is a REQUIRED status check, and GitHub leaves a
+    # required check that never runs stuck on "Expected — waiting for status
+    # to be reported" forever. `codeql-skip.yml` reports the same check name
+    # for the complementary path set so filtered-out PRs are not blocked.
+    #
+    # KEEP THIS LIST AND `codeql-skip.yml`'s `paths-ignore` BYTE-IDENTICAL.
+    # They must be exact complements: if a path appears in neither, the PR
+    # blocks forever; if it appears in both, the skip job can report success
+    # for a PR that genuinely needed analysis.
     branches: ["main"]
     paths:
       - "ui/Sources/**"
+      - "ui/Tests/**"
+      - "ui/Xcode/**"
       - "ui/Package.swift"
       - "ui/Chronoframe.xcodeproj/**"
       - ".github/workflows/codeql.yml"
