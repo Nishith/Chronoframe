@@ -237,10 +237,25 @@ times out, prefer optimizing the full app SwiftPM CodeQL build path before
 considering narrower build scope or restoring the slower traced Xcode build on
 push.
 
-Important CI trap: SwiftPM tests and CodeQL are not enough to prove Xcode
-project membership. If you add a Swift source file that must compile in the app,
-make sure it is also included in `ui/Chronoframe.xcodeproj/project.pbxproj`.
-The separate CI Xcode build catches project membership regressions.
+Xcode project membership is mostly automatic. `ui/Chronoframe.xcodeproj` is
+`objectVersion = 70` and declares a `PBXFileSystemSynchronizedRootGroup` for
+`ChronoframeApp`, `ChronoframeAppCore`, and `ChronoframeCore`, so a new Swift
+file under any of those three source roots is compiled without any project edit.
+`ui/Package.swift` likewise uses no explicit `sources:` lists, so SwiftPM
+auto-discovers both sources and the four `ui/Tests/…` test targets. Do not
+hand-edit `project.pbxproj` for app, library, or SwiftPM test sources.
+
+Important CI trap, and it is narrower and sharper than it looks:
+`ui/Xcode/UITests/` is the one place that still needs manual registration in
+`project.pbxproj`. It is not a SwiftPM target, so `swift test` never sees it,
+and Xcode compiles only what the project references — so an unregistered UI-test
+file is silently never built or run **and every CI lane still passes**. There is
+currently no guard for this; register the file deliberately and confirm it ran.
+
+Note that `ui/Tests/ChronoframeAppTests/` files are also individually listed in
+`project.pbxproj`, but that is vestigial. The shared scheme's only
+`TestableReference` is `ChronoframeUITests.xctest`, so CI's Xcode lane never runs
+`ChronoframeAppTests`; SwiftPM does. Registering new files there changes nothing.
 
 Past Swift CodeQL failures included Swift 6 sendability issues, especially around `NSImage?` crossing async boundaries. Be careful with non-Sendable AppKit types in async groups and actor/nonisolated contexts.
 
@@ -301,6 +316,6 @@ Chronoframe targets the Apple "sets the standard" bar. Treat these as expectatio
 - Use `apply_patch` for manual file edits.
 - Preserve user changes in the worktree; do not reset or checkout files unless explicitly asked.
 - When debugging CI, inspect the GitHub logs with `gh` if auth is available, then reproduce locally with the closest matching command.
-- When adding Swift code, keep SwiftPM and Xcode project membership in sync.
+- When adding Swift code, files under `ui/Sources/` and `ui/Tests/` need no project edits (SwiftPM and Xcode both auto-discover); only `ui/Xcode/UITests/` files must be added to `ui/Chronoframe.xcodeproj/project.pbxproj` by hand, and no CI lane catches it if you forget.
 - When changing user-visible failure behavior, add tests that assert the wording a nontechnical user will see.
 - App-layer fixes (views, view-models, coordinators, stores) need a regression test, not just a code change. The `app-layer-test-check` guard enforces this on PRs. If a value is correct but renders stale, suspect observation wiring (a view reading a computed property that crosses into an `ObservableObject` it does not observe) — see `ChronoframeApp/Views/Deduplicate/DeduplicateView.swift`.
