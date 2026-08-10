@@ -35,10 +35,16 @@ jobs:
 
           required_files=(
             "site/index.html"
+            "site/features.html"
+            "site/safety.html"
+            "site/faq.html"
             "site/support.html"
             "site/privacy.html"
             "site/support/index.html"
             "site/privacy/index.html"
+            "site/404.html"
+            "site/robots.txt"
+            "site/sitemap.xml"
             "site/styles.css"
             "site/CNAME"
           )
@@ -48,6 +54,12 @@ jobs:
           done
 
           grep -Fxq "chronoframe.app" site/CNAME
+          grep -Fq "https://chronoframe.app/sitemap.xml" site/robots.txt
+
+          # Every page linked from the primary nav must be listed in the sitemap.
+          for page in "/" "/features.html" "/safety.html" "/privacy.html" "/faq.html" "/support.html"; do
+            grep -Fq "<loc>https://chronoframe.app${page}</loc>" site/sitemap.xml
+          done
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
