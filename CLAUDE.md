@@ -142,10 +142,10 @@ Library Guardian state lives **outside** the protected library, under Applicatio
 |---|---|
 | A Swift file under `ui/Sources/` (any target) | **Nothing.** No target in `ui/Package.swift` uses an explicit `sources:` list, so SwiftPM auto-discovers; and `ui/Chronoframe.xcodeproj` is `objectVersion = 70` with a `PBXFileSystemSynchronizedRootGroup` for `ChronoframeApp`, `ChronoframeAppCore`, and `ChronoframeCore`, so Xcode picks the file up from disk. |
 | A Swift test file under `ui/Tests/…` | **Nothing.** All four are SwiftPM test targets declared with a `path:` and no `sources:` list, so `swift test` discovers them. |
-| A Swift file under **`ui/Xcode/UITests/`** | **`ui/Chronoframe.xcodeproj/project.pbxproj`** — and **no CI lane will tell you if you forget.** See below. |
+| A Swift file under **`ui/Xcode/UITests/`** | **`ui/Chronoframe.xcodeproj/project.pbxproj`.** `script/check_uitest_membership.sh` fails CI if you forget. See below. |
 | A new SwiftPM target, or changed target settings (dependencies, resources, linker flags) | **`ui/Package.swift`.** |
 
-**The UI-test gap is the one real trap.** `ui/Xcode/UITests/` is not a SwiftPM target, so `swift test` never sees it, and Xcode compiles only what `project.pbxproj` references. A new UI-test file that is not registered is silently never built or run, and **every CI lane still passes**. Register it deliberately, and confirm it actually ran.
+**The UI-test gap is the one real trap.** `ui/Xcode/UITests/` is not a SwiftPM target, so `swift test` never sees it, and Xcode compiles only what `project.pbxproj` references — an unregistered UI-test file would be silently never built or run while every other CI lane passed. `script/check_uitest_membership.sh` closes that: it resolves the `ChronoframeUITests` target's own Sources build phase, follows each build file through its `fileRef` to a path, and fails if a file on disk is not compiled by that target (or if the target references a file that no longer exists).
 
 `ui/Tests/ChronoframeAppTests/` files are also individually referenced in `project.pbxproj`, but that is vestigial: the shared scheme's only `TestableReference` is `ChronoframeUITests.xctest`, so CI's Xcode lane does not run that target at all — SwiftPM does. Adding a new file there to the project is optional and changes nothing in CI.
 

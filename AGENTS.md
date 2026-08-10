@@ -245,12 +245,15 @@ file under any of those three source roots is compiled without any project edit.
 auto-discovers both sources and the four `ui/Tests/…` test targets. Do not
 hand-edit `project.pbxproj` for app, library, or SwiftPM test sources.
 
-Important CI trap, and it is narrower and sharper than it looks:
 `ui/Xcode/UITests/` is the one place that still needs manual registration in
 `project.pbxproj`. It is not a SwiftPM target, so `swift test` never sees it,
 and Xcode compiles only what the project references — so an unregistered UI-test
-file is silently never built or run **and every CI lane still passes**. There is
-currently no guard for this; register the file deliberately and confirm it ran.
+file would be silently never built or run while every other lane passed.
+`script/check_uitest_membership.sh` guards it: it resolves the
+`ChronoframeUITests` target's own Sources build phase and follows each build
+file through its `fileRef` to a path, so neither a wrong-target registration nor
+a same-basename file in a subdirectory can produce a false pass. It also flags
+references to files that no longer exist.
 
 Note that `ui/Tests/ChronoframeAppTests/` files are also individually listed in
 `project.pbxproj`, but that is vestigial. The shared scheme's only
@@ -316,6 +319,6 @@ Chronoframe targets the Apple "sets the standard" bar. Treat these as expectatio
 - Use `apply_patch` for manual file edits.
 - Preserve user changes in the worktree; do not reset or checkout files unless explicitly asked.
 - When debugging CI, inspect the GitHub logs with `gh` if auth is available, then reproduce locally with the closest matching command.
-- When adding Swift code, files under `ui/Sources/` and `ui/Tests/` need no project edits (SwiftPM and Xcode both auto-discover); only `ui/Xcode/UITests/` files must be added to `ui/Chronoframe.xcodeproj/project.pbxproj` by hand, and no CI lane catches it if you forget.
+- When adding Swift code, files under `ui/Sources/` and `ui/Tests/` need no project edits (SwiftPM and Xcode both auto-discover); only `ui/Xcode/UITests/` files must be added to `ui/Chronoframe.xcodeproj/project.pbxproj` by hand, and `script/check_uitest_membership.sh` fails CI if you forget.
 - When changing user-visible failure behavior, add tests that assert the wording a nontechnical user will see.
 - App-layer fixes (views, view-models, coordinators, stores) need a regression test, not just a code change. The `app-layer-test-check` guard enforces this on PRs. If a value is correct but renders stale, suspect observation wiring (a view reading a computed property that crosses into an `ObservableObject` it does not observe) — see `ChronoframeApp/Views/Deduplicate/DeduplicateView.swift`.
