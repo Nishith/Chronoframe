@@ -4,29 +4,24 @@ on:
   push:
     branches: ["main"]
   pull_request:
-    # Phase 1 finding (P1): restore CodeQL analysis on PRs so the gate
-    # catches new sinks before merge instead of post-merge. The path
-    # filter limits cost to PRs that actually touch analyzed code —
-    # docs-only PRs, workflow tweaks, and shell-script changes don't
-    # trigger the (slow) Swift CodeQL build.
+    # Deliberately NO `paths:` filter here.
     #
-    # `Analyze (Swift)` is a REQUIRED status check, and GitHub leaves a
-    # required check that never runs stuck on "Expected — waiting for status
-    # to be reported" forever. `codeql-skip.yml` reports the same check name
-    # for the complementary path set so filtered-out PRs are not blocked.
+    # `Analyze (Swift)` is a REQUIRED status check. A required check whose
+    # workflow is filtered out never reports, and GitHub parks the pull
+    # request on "Expected — waiting for status to be reported" forever, so a
+    # docs-only change can only merge via an admin override.
     #
-    # KEEP THIS LIST AND `codeql-skip.yml`'s `paths-ignore` BYTE-IDENTICAL.
-    # They must be exact complements: if a path appears in neither, the PR
-    # blocks forever; if it appears in both, the skip job can report success
-    # for a PR that genuinely needed analysis.
+    # Filtering by trigger also cannot be made safe with a companion "skip"
+    # workflow reporting the same check name: `paths-ignore` suppresses a
+    # workflow only when EVERY changed file matches, so a pull request
+    # touching both Swift and a doc fires both workflows. The cheap one would
+    # report `Analyze (Swift)` green in seconds while the real analysis was
+    # still running — a green check asserting CodeQL saw code it had not.
+    #
+    # So the job always runs and always reports, and only the expensive steps
+    # are conditional. The path list lives in exactly one place: the
+    # ANALYZED_PATHS regex in the "Detect analyzed changes" step below.
     branches: ["main"]
-    paths:
-      - "ui/Sources/**"
-      - "ui/Tests/**"
-      - "ui/Xcode/**"
-      - "ui/Package.swift"
-      - "ui/Chronoframe.xcodeproj/**"
-      - ".github/workflows/codeql.yml"
   schedule:
     - cron: "0 0 * * 1"
 
@@ -47,7 +42,47 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # full history so the version stamp's commit count is monotonic
+
+      # Single source of truth for what counts as analyzed code. Everything
+      # below is gated on this, so the check always reports while the slow
+      # macOS Swift build only runs when it can find something to analyze.
+      #
+      # ui/Tests/** and ui/Xcode/** are included on purpose: together they
+      # hold ~130 Swift files. Excluding them would mean shipping a green
+      # `Analyze (Swift)` for Swift that CodeQL never looked at.
+      - name: Detect analyzed changes
+        id: detect
+        run: |
+          set -euo pipefail
+          ANALYZED_PATHS='^(ui/Sources/|ui/Tests/|ui/Xcode/|ui/Chronoframe\.xcodeproj/|ui/Package\.swift$|\.github/workflows/codeql\.yml$)'
+
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "Event is ${{ github.event_name }}; analyzing unconditionally."
+            echo "analyze=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # On pull_request, checkout gives us the merge commit: parent 1 is
+          # the base tip, parent 2 is the PR head, so this is the PR's net diff.
+          if ! changed="$(git diff --name-only HEAD^1 HEAD 2>/dev/null)"; then
+            echo "::warning title=CodeQL::Could not compute the changed-file list; analyzing to fail safe."
+            echo "analyze=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          printf '%s\n' "$changed" | sed 's/^/    /'
+
+          if printf '%s\n' "$changed" | grep -qE "$ANALYZED_PATHS"; then
+            echo "Analyzed paths changed; running the Swift CodeQL build."
+            echo "analyze=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No analyzed paths changed; reporting success without building."
+            echo "analyze=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Select Swift 6 toolchain
+        if: steps.detect.outputs.analyze == 'true'
         run: |
           swift6_developer_dir=""
           for xcode in /Applications/Xcode*.app; do
@@ -64,10 +99,12 @@ jobs:
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - uses: github/codeql-action/init@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4
+        if: steps.detect.outputs.analyze == 'true'
         with:
           languages: swift
           build-mode: manual
       - name: Build Chronoframe app with SwiftPM
+        if: steps.detect.outputs.analyze == 'true'
         run: |
           mkdir -p "$RUNNER_TEMP/swiftpm-home" "$RUNNER_TEMP/swiftpm-cache" "$RUNNER_TEMP/modulecache"
           HOME="$RUNNER_TEMP/swiftpm-home" \
@@ -76,5 +113,13 @@ jobs:
           SWIFTPM_MODULECACHE_OVERRIDE="$RUNNER_TEMP/modulecache" \
             swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store
       - uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4
+        if: steps.detect.outputs.analyze == 'true'
         with:
           category: "/language:swift"
+
+      - name: Report that no analyzed code changed
+        if: steps.detect.outputs.analyze != 'true'
+        run: |
+          echo "No analyzed Swift paths changed in this pull request."
+          echo "The CodeQL build was skipped; nothing in this diff requires it."
+          echo "See the ANALYZED_PATHS regex in the 'Detect analyzed changes' step."

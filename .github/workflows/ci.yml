@@ -29,13 +29,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: script/check_agents_invariants_have_tests.sh
 
-  codeql-path-filter-check:
-    name: CodeQL path filter guard
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: script/check_codeql_path_filters.sh
-
   reduce-motion-check:
     name: Reduce Motion guard
     runs-on: ubuntu-latest
