@@ -194,7 +194,7 @@ public final class RunSessionStore: ObservableObject {
                 surface: "app",
                 operation: "revert"
             )
-            _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+            _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
         } catch {
             handleFailure(error: error)
             return
@@ -248,7 +248,7 @@ public final class RunSessionStore: ObservableObject {
                 surface: "app",
                 operation: "reorganize"
             )
-            _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+            _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
         } catch {
             handleFailure(error: error)
             return
@@ -294,7 +294,7 @@ public final class RunSessionStore: ObservableObject {
                 surface: "app",
                 operation: "reorganize revert"
             )
-            _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+            _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
         } catch {
             handleFailure(error: error)
             return

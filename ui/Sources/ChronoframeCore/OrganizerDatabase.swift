@@ -803,6 +803,31 @@ public final class OrganizerDatabase: @unchecked Sendable {
         }
     }
 
+    /// How many jobs for `runID` reached a state that proves the copy landed.
+    ///
+    /// Used by trial reconciliation to finalize a reservation left open by a
+    /// crash, so the definition is deliberately strict: `COPIED` *and* a
+    /// `FINALIZED` mutation state. A row that is merely `INTENDED` or
+    /// `TEMP_WRITTEN` records that a copy was attempted, not that it completed,
+    /// and counting it would charge a customer for a file that never arrived.
+    public func completedJobCount(runID: UUID) throws -> Int {
+        let statement = try prepare(
+            """
+            SELECT COUNT(*) FROM CopyJobs
+            WHERE run_id = ? AND status = ? AND mutation_state = ?
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, runID.uuidString, -1, Self.sqliteTransient)
+        sqlite3_bind_text(statement, 2, CopyJobStatus.copied.rawValue, -1, Self.sqliteTransient)
+        sqlite3_bind_text(statement, 3, CopyMutationState.finalized.rawValue, -1, Self.sqliteTransient)
+
+        guard sqlite3_step(statement) == SQLITE_ROW else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+        return Int(sqlite3_column_int64(statement, 0))
+    }
+
     public func queuedJobCount(status: CopyJobStatus? = nil) throws -> Int {
         if let status {
             let statement = try prepare("SELECT COUNT(*) FROM CopyJobs WHERE status = ?")
