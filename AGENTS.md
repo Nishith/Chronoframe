@@ -138,6 +138,7 @@ Release packaging defaults to Developer ID signed, hardened-runtime, notarized, 
 - `docs/TECHNICAL.md` is the current developer architecture and artifact reference.
 - `docs/production-readiness-certification.md` is the release-gate evidence ledger.
 - `docs/remaining-work-plan.md` lists only unfinished certification and product-decision work.
+- `docs/free-trial-plan.md` is the plan for the paid-to-free migration: settled policy, the remaining tasks with risk markers, and the reasoning behind the choices that are easy to get wrong later. Read it before touching entitlement, trial-allowance, or App Store pricing work.
 - `prodsec/Chronoframe/` contains historical review artifacts. Keep their findings for audit traceability, but do not treat old proposed implementations as current architecture.
 
 ## User-Facing Error Handling
