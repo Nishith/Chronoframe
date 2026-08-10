@@ -1166,6 +1166,57 @@ public struct TransferExecutor: Sendable {
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         return formatter
     }()
+
+    /// A receipt stem that no existing receipt or spool already occupies.
+    ///
+    /// One run can legitimately write more than one receipt: a resumed transfer
+    /// reuses the run ID of the run it resumes, on purpose, so the reservation
+    /// and the queued rows stay attributable to a single run. The filename
+    /// timestamp only has one-second precision, so a resume starting in the same
+    /// second as the run it resumes would pick the identical
+    /// `<timestamp>_<runID>` stem — and `createFile` truncates. The earlier
+    /// receipt is frequently the PENDING/ABORTED record of files already copied,
+    /// so overwriting it would strand those files: absent from Run History and
+    /// no longer revertable.
+    ///
+    /// The base stem is kept whenever it is free, so the filename format is
+    /// unchanged in every ordinary case; a suffix appears only on a real
+    /// collision. Consumers are unaffected — `RunHistoryIndexer` reads only the
+    /// leading `yyyyMMdd_HHmmss`, and crash recovery derives the spool path from
+    /// whatever stem the receipt actually has.
+    ///
+    /// This probes and then the caller creates, so it is not atomic against a
+    /// concurrent writer. Every destination-mutating surface holds
+    /// `DestinationOperationLock`, so concurrent writers in one destination are
+    /// not expected; this exists for the sequential resume case.
+    static func uniqueReceiptStem(
+        in logsDirectoryURL: URL,
+        createdAt: Date,
+        runID: UUID,
+        fileManager: FileManager
+    ) -> String {
+        let baseStem = "\(EngineArtifactLayout.chronoframeDefault.auditReceiptPrefix)"
+            + "\(receiptTimestampFormatter.string(from: createdAt))_\(runID.uuidString)"
+
+        func isFree(_ stem: String) -> Bool {
+            !fileManager.fileExists(atPath: logsDirectoryURL.appendingPathComponent("\(stem).json").path)
+                && !fileManager.fileExists(
+                    atPath: logsDirectoryURL.appendingPathComponent("\(stem).transfers.tmp").path
+                )
+        }
+
+        if isFree(baseStem) { return baseStem }
+
+        for attempt in 2...99 {
+            let candidate = "\(baseStem)_\(attempt)"
+            if isFree(candidate) { return candidate }
+        }
+
+        // Bounded so this can never spin. A nonce is a worse filename than a
+        // counter but is still a correct one, and reaching here at all would
+        // mean 99 receipts already share a run ID and a second.
+        return "\(baseStem)_\(UUID().uuidString)"
+    }
 }
 
 private enum TransferExecutionStopSignal: Error {
@@ -1246,7 +1297,14 @@ private final class StreamingAuditReceiptWriter {
         )
         try fileManager.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
 
-        let stem = "\(EngineArtifactLayout.chronoframeDefault.auditReceiptPrefix)\(TransferExecutor.receiptTimestampFormatter.string(from: createdAt))_\(runID.uuidString)"
+        // A resumed run deliberately shares its run ID with the run it resumes,
+        // so the stem must be checked for collision rather than assumed unique.
+        let stem = TransferExecutor.uniqueReceiptStem(
+            in: logsDirectoryURL,
+            createdAt: createdAt,
+            runID: runID,
+            fileManager: fileManager
+        )
         self.finalReceiptURL = logsDirectoryURL.appendingPathComponent("\(stem).json")
         self.transferSpoolURL = logsDirectoryURL.appendingPathComponent("\(stem).transfers.tmp")
 

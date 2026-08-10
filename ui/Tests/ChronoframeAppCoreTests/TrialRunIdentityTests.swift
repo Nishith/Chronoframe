@@ -286,7 +286,11 @@ final class TrialRunIdentityTests: XCTestCase {
         let receiptURL = try XCTUnwrap(receipts.first)
         XCTAssertTrue(receiptURL.lastPathComponent.contains(runID.uuidString))
 
-        let receipt = try JSONDecoder().decode(
+        // The receipt writes dates as ISO8601 strings, so the decoder needs the
+        // matching strategy — the same one `RunHistoryIndexer` uses.
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let receipt = try decoder.decode(
             DeduplicateAuditReceipt.self,
             from: Data(contentsOf: receiptURL)
         )
@@ -294,6 +298,92 @@ final class TrialRunIdentityTests: XCTestCase {
 
         try ledger.finalize(runID: runID, actualCount: 1)
         XCTAssertEqual(try ledger.balance(accountKey: "app-txn-1").usage.dedupeUsed, 1)
+    }
+
+    // MARK: - Receipt filename collision
+
+    /// Sharing a run ID must not let one receipt overwrite another.
+    ///
+    /// A resumed run reuses the run ID of the run it resumes, on purpose, and
+    /// the receipt filename's timestamp only has one-second precision. Without
+    /// collision resolution a resume starting in the same second would pick the
+    /// identical stem, and `createFile` truncates — destroying the earlier
+    /// PENDING/ABORTED receipt covering files already copied, which would leave
+    /// them absent from Run History and no longer revertable.
+    func testReceiptStemIsUniqueWhenARunIDAndSecondAreShared() throws {
+        let logsDirectory = temporaryDirectoryURL.appendingPathComponent(".organize_logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+        let runID = UUID()
+        let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let first = TransferExecutor.uniqueReceiptStem(
+            in: logsDirectory,
+            createdAt: createdAt,
+            runID: runID,
+            fileManager: .default
+        )
+        // Nothing exists yet, so the ordinary format is preserved exactly.
+        XCTAssertTrue(first.hasPrefix("audit_receipt_"))
+        XCTAssertTrue(first.hasSuffix(runID.uuidString))
+
+        // The first run's receipt now exists, as it would after an abort.
+        let firstReceipt = logsDirectory.appendingPathComponent("\(first).json")
+        try Data(#"{"status":"ABORTED"}"#.utf8).write(to: firstReceipt)
+
+        // Same run ID, same wall-clock second: the resume must not reuse it.
+        let second = TransferExecutor.uniqueReceiptStem(
+            in: logsDirectory,
+            createdAt: createdAt,
+            runID: runID,
+            fileManager: .default
+        )
+        XCTAssertNotEqual(second, first)
+        XCTAssertTrue(second.contains(runID.uuidString), "The run ID must still identify the run")
+        XCTAssertEqual(
+            try String(contentsOf: firstReceipt, encoding: .utf8),
+            #"{"status":"ABORTED"}"#,
+            "The earlier receipt must survive untouched"
+        )
+
+        // A spool alone also blocks the stem — the pair has to move together.
+        let thirdBlocker = logsDirectory.appendingPathComponent("\(second).transfers.tmp")
+        try Data().write(to: thirdBlocker)
+        let third = TransferExecutor.uniqueReceiptStem(
+            in: logsDirectory,
+            createdAt: createdAt,
+            runID: runID,
+            fileManager: .default
+        )
+        XCTAssertNotEqual(third, first)
+        XCTAssertNotEqual(third, second)
+    }
+
+    /// The collision suffix must not break the two things that read these names:
+    /// Run History parses the leading `yyyyMMdd_HHmmss`, and crash recovery
+    /// derives the spool path from whatever stem the receipt has.
+    func testCollisionSuffixKeepsTheParsableTimestampPrefix() throws {
+        let logsDirectory = temporaryDirectoryURL.appendingPathComponent("logs2", isDirectory: true)
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+        let runID = UUID()
+        let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
+
+        let base = TransferExecutor.uniqueReceiptStem(
+            in: logsDirectory, createdAt: createdAt, runID: runID, fileManager: .default
+        )
+        try Data("{}".utf8).write(to: logsDirectory.appendingPathComponent("\(base).json"))
+        let suffixed = TransferExecutor.uniqueReceiptStem(
+            in: logsDirectory, createdAt: createdAt, runID: runID, fileManager: .default
+        )
+
+        for stem in [base, suffixed] {
+            let remainder = stem.dropFirst("audit_receipt_".count)
+            let timestamp = String(remainder.prefix(15))
+            XCTAssertNotNil(
+                timestamp.range(of: #"^\d{8}_\d{6}$"#, options: .regularExpression),
+                "Run History reads the first 15 characters after the prefix: \(stem)"
+            )
+        }
     }
 
     // MARK: - Helpers
