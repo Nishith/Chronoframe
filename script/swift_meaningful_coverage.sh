@@ -90,6 +90,12 @@ MEANINGFUL_BASENAMES=(
     DestinationOperationLock
     LivePhotoMetadataLoader
     MutationRecoveryCoordinator
+    GuardianModels
+    GuardianManifestUpdater
+    GuardianIntegrityClassifier
+    GuardianMirrorPlanner
+    GuardianRestorePlanner
+    GuardianScheduler
     Entitlement
 )
 
