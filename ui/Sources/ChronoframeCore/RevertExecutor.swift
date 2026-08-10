@@ -40,10 +40,21 @@ public struct RevertReceiptTransfer: Equatable, Codable, Sendable {
 
 public struct RevertReceipt: Equatable, Codable, Sendable {
     /// Highest schemaVersion this reader understands. The writer emits
-    /// `"schemaVersion": 2` today. Receipts that omit the field
+    /// `"schemaVersion": 3` today. Receipts that omit the field
     /// (legacy v1 shape, no `status`) are accepted because every field
     /// the reader cares about is optional or unchanged.
-    public static let maxSupportedSchemaVersion: Int = 2
+    public static let maxSupportedSchemaVersion: Int = 3
+
+    /// The first schema version whose `runID` is the run's *reservation* ID.
+    ///
+    /// The field itself is older than that. Before run IDs were threaded, the
+    /// audit receipt writer minted a private UUID of its own for the filename
+    /// and stamped it here, matching nothing else — not the `CopyJobs` rows, not
+    /// any reservation. Reading such a value as a refund key would be worse than
+    /// reading nothing: it is well-formed, so it would silently key refunds to a
+    /// run that never existed. Version 3 is the marker that the value means what
+    /// a refund needs it to mean.
+    public static let firstSchemaVersionWithReservationRunID: Int = 3
 
     public let schemaVersion: Int?
     public let timestamp: String?
@@ -51,18 +62,50 @@ public struct RevertReceipt: Equatable, Codable, Sendable {
     public let totalJobs: Int?
     public let transfers: [RevertReceiptTransfer]
 
+    /// The run's identifier as recorded in the receipt, whatever it means.
+    ///
+    /// Prefer `reservationRunID` for anything that spends or refunds allowance.
+    public let runID: UUID?
+
     public init(
         schemaVersion: Int? = nil,
         timestamp: String? = nil,
         status: String? = nil,
         totalJobs: Int? = nil,
-        transfers: [RevertReceiptTransfer]
+        transfers: [RevertReceiptTransfer],
+        runID: UUID? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.timestamp = timestamp
         self.status = status
         self.totalJobs = totalJobs
         self.transfers = transfers
+        self.runID = runID
+    }
+
+    /// The idempotency key a refund may use, or nil when this receipt cannot
+    /// safely be refunded.
+    ///
+    /// Refunds are keyed by run ID, so a wrong key double-refunds or refunds the
+    /// wrong run. Two receipts must therefore be treated as non-refundable, and
+    /// this property is the single place that decides it:
+    ///
+    /// - A receipt with no `runID` at all (v1, v2).
+    /// - A receipt older than v3, whose `runID` is the writer's private UUID
+    ///   rather than a reservation ID.
+    ///
+    /// There is deliberately **no fallback heuristic** — not on timestamp, not
+    /// on file path. Guessing an idempotency key is how double-refunds happen,
+    /// and a customer who is not refunded is merely charged what they already
+    /// agreed to, whereas one who is refunded twice gets allowance they never
+    /// paid for.
+    public var reservationRunID: UUID? {
+        guard let schemaVersion,
+              schemaVersion >= Self.firstSchemaVersionWithReservationRunID
+        else {
+            return nil
+        }
+        return runID
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -71,6 +114,9 @@ public struct RevertReceipt: Equatable, Codable, Sendable {
         case status
         case totalJobs = "total_jobs"
         case transfers
+        // Matches the key the audit receipt writer has always emitted. A new
+        // `run_id` spelling would decode as nil against every real receipt.
+        case runID
     }
 
     public init(from decoder: Decoder) throws {
@@ -80,6 +126,12 @@ public struct RevertReceipt: Equatable, Codable, Sendable {
         self.status = try container.decodeIfPresent(String.self, forKey: .status)
         self.totalJobs = try container.decodeIfPresent(Int.self, forKey: .totalJobs)
         self.transfers = try container.decodeIfPresent([RevertReceiptTransfer].self, forKey: .transfers) ?? []
+        // `decodeIfPresent` on a malformed UUID string still throws, which would
+        // block a revert over a field revert does not use. Decode defensively:
+        // an unreadable run ID means "not refundable", never "not revertable".
+        self.runID = (try? container.decodeIfPresent(String.self, forKey: .runID))
+            .flatMap { $0 }
+            .flatMap(UUID.init(uuidString:))
     }
 }
 

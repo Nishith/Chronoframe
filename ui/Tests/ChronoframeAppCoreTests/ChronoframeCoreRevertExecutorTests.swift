@@ -775,9 +775,10 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
 
     func testLoadReceiptThrowsForUnsupportedSchemaVersion() throws {
         let receiptURL = temporaryDirectoryURL.appendingPathComponent("audit_receipt_unsupported.json")
+        // v3 is the current writer shape, so the first unsupported version is 4.
         let json = """
         {
-            "schemaVersion": 3,
+            "schemaVersion": 4,
             "transfers": []
         }
         """
@@ -788,14 +789,14 @@ final class ChronoframeCoreRevertExecutorTests: XCTestCase {
                 XCTFail("Expected unsupportedSchema, got \(error)")
                 return
             }
-            XCTAssertEqual(version, 3)
+            XCTAssertEqual(version, 4)
         }
     }
 
     func testErrorDescriptionsCoverUnsupportedSchema() {
-        let err = RevertExecutorError.unsupportedSchema(version: 3)
+        let err = RevertExecutorError.unsupportedSchema(version: 4)
         XCTAssertNotNil(err.errorDescription)
-        XCTAssertTrue(err.errorDescription?.contains("schema v3") == true)
+        XCTAssertTrue(err.errorDescription?.contains("schema v4") == true)
     }
 
     func testQuarantineCorruptReceiptHandlesMoveFailure() throws {

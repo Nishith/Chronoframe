@@ -341,7 +341,14 @@ public struct TransferExecutor: Sendable {
         // interrupted; here is what completed before". Status is
         // ABORTED rather than COMPLETED so callers can distinguish.
         var out = "{\n"
-        out += "  \"schemaVersion\" : 2,\n"
+        // Carry the PENDING header's own version forward rather than stamping
+        // today's. This receipt is a rewrite of a header some earlier build may
+        // have written, and its `runID` is whatever that build put there. A
+        // pre-v3 header carries the writer's private UUID, not a reservation ID
+        // — restamping it as v3 would tell a refund the value is a key it can
+        // trust. Absent means the legacy v1/v2 shape.
+        let headerSchemaVersion = (header["schemaVersion"] as? Int) ?? 2
+        out += "  \"schemaVersion\" : \(headerSchemaVersion),\n"
         if let runID = header["runID"] as? String {
             out += "  \"runID\" : \(jsonStringEscape(runID)),\n"
         }
@@ -1323,7 +1330,10 @@ private final class StreamingAuditReceiptWriter {
 
     private func writePendingHeader(in logsDirectoryURL: URL) throws {
         let pendingJSON: [String: Any] = [
-            "schemaVersion": 2,
+            // v3: `runID` below is the run's reservation ID, not a UUID private
+            // to this writer. `RevertReceipt.reservationRunID` keys refunds off
+            // exactly that distinction.
+            "schemaVersion": 3,
             "runID": runID.uuidString,
             "operation": "organize",
             "status": "PENDING",
@@ -1380,7 +1390,7 @@ private final class StreamingAuditReceiptWriter {
 
         do {
             try receiptHandle.write(contentsOf: Data("{\n".utf8))
-            try receiptHandle.write(contentsOf: Data("  \"schemaVersion\" : 2,\n".utf8))
+            try receiptHandle.write(contentsOf: Data("  \"schemaVersion\" : 3,\n".utf8))
             try receiptHandle.write(contentsOf: Data("  \"runID\" : \(try Self.jsonString(runID.uuidString)),\n".utf8))
             try receiptHandle.write(contentsOf: Data("  \"operation\" : \"organize\",\n".utf8))
             try receiptHandle.write(contentsOf: Data("  \"status\" : \(try Self.jsonString(status)),\n".utf8))

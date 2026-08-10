@@ -300,6 +300,59 @@ final class TrialRunIdentityTests: XCTestCase {
         XCTAssertEqual(try ledger.balance(accountKey: "app-txn-1").usage.dedupeUsed, 1)
     }
 
+    /// End to end, the property T12's refunds rest on: a real organize run's
+    /// receipt loads through `RevertExecutor` and hands back the *same* run ID
+    /// the reservation was taken under, as a usable refund key.
+    ///
+    /// This is what ties T3 (one run ID) to T4 (the receipt exposes it). Either
+    /// half alone looks fine and refunds silently never fire.
+    func testARealRunsReceiptYieldsTheReservationRunIDAsARefundKey() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("src5", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("dst5", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+
+        let database = try OrganizerDatabase(url: destinationRoot.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+        let sourceURL = sourceRoot.appendingPathComponent("shot.jpg")
+        try Data("shot".utf8).write(to: sourceURL)
+
+        let runID = UUID()
+        try database.enqueuePlannedTransfers(
+            [
+                PlannedTransfer(
+                    sourcePath: sourceURL.path,
+                    destinationPath: destinationRoot.appendingPathComponent("2024/01/01/shot.jpg").path,
+                    identity: testFileIdentity(at: sourceURL),
+                    dateBucket: "2024/01/01",
+                    isDuplicate: false
+                )
+            ],
+            runID: runID
+        )
+        let logger = PersistentRunLogger(logURL: destinationRoot.appendingPathComponent(".organize_log.txt"))
+        try logger.open()
+        _ = try TransferExecutor().executeQueuedJobs(
+            database: database,
+            destinationRoot: destinationRoot,
+            verifyCopies: false,
+            runLogger: logger,
+            runID: runID
+        )
+
+        let logsDirectory = destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
+        let receiptURL = try XCTUnwrap(
+            try FileManager.default
+                .contentsOfDirectory(at: logsDirectory, includingPropertiesForKeys: nil)
+                .first { $0.lastPathComponent.hasPrefix("audit_receipt_") && $0.pathExtension == "json" }
+        )
+
+        let receipt = try RevertExecutor().loadReceipt(at: receiptURL)
+        XCTAssertEqual(receipt.schemaVersion, 3, "The writer must stamp the version that marks the run ID trustworthy")
+        XCTAssertEqual(receipt.reservationRunID, runID)
+        XCTAssertFalse(receipt.transfers.isEmpty)
+    }
+
     // MARK: - Receipt filename collision
 
     /// Sharing a run ID must not let one receipt overwrite another.
