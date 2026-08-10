@@ -101,16 +101,20 @@ public struct TrialLedgerReconciler: TrialLedgerReconciling {
 
 /// Reads what actually happened from the destination's own durable artifacts.
 public struct FileSystemTrialReconciliationEvidence: TrialReconciliationEvidence {
-    private let fileManager: FileManager
     private let presenceChecker: any FilesystemPresenceChecking
 
     public init(
-        fileManager: FileManager = .default,
         presenceChecker: any FilesystemPresenceChecking = POSIXFilesystemPresenceChecker()
     ) {
-        self.fileManager = fileManager
         self.presenceChecker = presenceChecker
     }
+
+    /// `FileManager` is not `Sendable`, so it is used directly rather than
+    /// stored — this type has to cross into whatever context recovery runs on.
+    /// Nothing here mutates the filesystem, and the injectable seam that
+    /// actually matters is `presenceChecker`, which decides reachability and so
+    /// decides whether a reservation stays charged.
+    private var fileManager: FileManager { .default }
 
     public func outcome(
         for reservation: OpenReservation,
