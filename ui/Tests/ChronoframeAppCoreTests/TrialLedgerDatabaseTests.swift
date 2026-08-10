@@ -385,7 +385,7 @@ final class TrialLedgerDatabaseTests: XCTestCase {
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 0)
     }
 
-    func testRefundForAnUnknownReceiptIsHarmlessAndCannotCreateBonusAllowance() throws {
+    func testRefundForAnUnknownReceiptIsHarmless() throws {
         let ledger = try makeLedger()
         defer { ledger.close() }
 
@@ -399,6 +399,81 @@ final class TrialLedgerDatabaseTests: XCTestCase {
         let balance = try ledger.balance(accountKey: account)
         XCTAssertEqual(balance.usage.organizeUsed, 0)
         XCTAssertEqual(balance.remaining(for: .organize), 10)
+    }
+
+    /// Reverting work that was never charged must not bank a credit.
+    ///
+    /// The scenario is real rather than hypothetical: run IDs ship before
+    /// enforcement does, so a receipt can exist with no reservation behind it.
+    /// If refunds were summed across the account and subtracted at the end,
+    /// reverting that run would quietly enlarge the next real run's allowance.
+    func testRefundForAnUnchargedReceiptCannotCreditALaterReservation() throws {
+        let ledger = try makeLedger()
+        defer { ledger.close() }
+
+        // A revert of a run that predates enforcement: a receipt, no reservation.
+        try ledger.refund(
+            receiptRunID: UUID(),
+            accountKey: account,
+            meter: .organize,
+            itemPaths: ["/dest/old1.jpg", "/dest/old2.jpg", "/dest/old3.jpg"]
+        )
+
+        // A later, properly reserved run must be charged in full.
+        let runID = UUID()
+        _ = try ledger.reserve(runID: runID, accountKey: account, meter: .organize, count: 6, destinationRoot: nil)
+        try ledger.finalize(runID: runID, actualCount: 6)
+
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 6)
+        XCTAssertEqual(try ledger.balance(accountKey: account).remaining(for: .organize), 4)
+    }
+
+    /// A refund is capped by the charge on its own reservation, so an
+    /// over-reported revert cannot borrow headroom from a sibling run.
+    func testRefundCannotExceedTheChargeOnItsOwnReservation() throws {
+        let ledger = try makeLedger()
+        defer { ledger.close() }
+
+        let small = UUID()
+        _ = try ledger.reserve(runID: small, accountKey: account, meter: .organize, count: 2, destinationRoot: nil)
+        try ledger.finalize(runID: small, actualCount: 2)
+        let other = UUID()
+        _ = try ledger.reserve(runID: other, accountKey: account, meter: .organize, count: 5, destinationRoot: nil)
+        try ledger.finalize(runID: other, actualCount: 5)
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 7)
+
+        // Six items reported against a run that was only charged two.
+        try ledger.refund(
+            receiptRunID: small,
+            accountKey: account,
+            meter: .organize,
+            itemPaths: (0..<6).map { "/dest/\($0).jpg" }
+        )
+
+        // Its own two come back; the other reservation's five are untouched.
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 5)
+    }
+
+    /// A released reservation was never charged, so its refunds credit nothing.
+    func testRefundAgainstAReleasedReservationCreditsNothing() throws {
+        let ledger = try makeLedger()
+        defer { ledger.close() }
+
+        let released = UUID()
+        _ = try ledger.reserve(runID: released, accountKey: account, meter: .organize, count: 4, destinationRoot: nil)
+        try ledger.release(runID: released)
+        try ledger.refund(
+            receiptRunID: released,
+            accountKey: account,
+            meter: .organize,
+            itemPaths: ["/dest/a.jpg", "/dest/b.jpg"]
+        )
+
+        let charged = UUID()
+        _ = try ledger.reserve(runID: charged, accountKey: account, meter: .organize, count: 3, destinationRoot: nil)
+        try ledger.finalize(runID: charged, actualCount: 3)
+
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 3)
     }
 
     func testRefundWithNoPathsWritesNothing() throws {
@@ -505,10 +580,17 @@ final class TrialLedgerDatabaseTests: XCTestCase {
         try ledger.finalize(runID: runID, actualCount: 6)
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 2)
         XCTAssertEqual(try ledger.openReservations(), [])
-        // Item-level refunds are idempotent.
+        // Item-level refunds are idempotent, and capped by their own charge.
         try ledger.refund(receiptRunID: runID, accountKey: account, meter: .organize, itemPaths: ["/a"])
         try ledger.refund(receiptRunID: runID, accountKey: account, meter: .organize, itemPaths: ["/a", "/b"])
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 0)
+        try ledger.refund(receiptRunID: runID, accountKey: account, meter: .organize, itemPaths: ["/c", "/d"])
+        // An uncharged refund credits nothing, now or against a later run.
+        try ledger.refund(receiptRunID: UUID(), accountKey: account, meter: .organize, itemPaths: ["/ghost"])
+        let laterRun = UUID()
+        _ = try ledger.reserve(runID: laterRun, accountKey: account, meter: .organize, count: 3, destinationRoot: nil)
+        try ledger.finalize(runID: laterRun, actualCount: 3)
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 3)
         // Release frees the whole reservation.
         let released = UUID()
         _ = try ledger.reserve(runID: released, accountKey: account, meter: .dedupe, count: 4, destinationRoot: nil)

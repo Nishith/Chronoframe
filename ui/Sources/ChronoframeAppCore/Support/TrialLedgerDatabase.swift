@@ -132,33 +132,48 @@ public final class TrialLedgerDatabase: TrialLedger, @unchecked Sendable {
         )
     }
 
-    /// `usage = charged − refunded`.
+    /// Usage for one account and meter: each reservation's charge, less the
+    /// items that reservation's own revert gave back, summed.
     ///
-    /// The `COALESCE(finalized_count, reserved_count)` and the
-    /// `state IN ('open','finalized')` filter are the whole fail-closed
-    /// mechanism, and they are why there is no crash-handling branch anywhere in
-    /// this file: an OPEN reservation — which is what a crash leaves behind —
-    /// counts at its FULL reserved amount until reconciliation finalizes it with
-    /// the count that actually happened. Do not "simplify" either clause.
+    /// Two clauses carry the whole design and neither may be "simplified":
+    ///
+    /// `COALESCE(finalized_count, reserved_count)` over
+    /// `state IN ('open','finalized')` is the fail-closed mechanism, and the
+    /// reason there is no crash-handling branch anywhere in this file: an OPEN
+    /// reservation — which is what a crash leaves behind — counts at its FULL
+    /// reserved amount until reconciliation finalizes it with the count that
+    /// actually happened.
+    ///
+    /// Refunds are netted PER RESERVATION and floored at zero, rather than
+    /// summed across the account and subtracted at the end. That difference is
+    /// load-bearing in two directions:
+    ///
+    ///   - A refund for a receipt with no charged reservation contributes
+    ///     nothing. An account-wide subtraction would let a revert of unmetered
+    ///     work — a run from before enforcement shipped, or a receipt whose
+    ///     reservation was released — bank a credit that silently enlarged the
+    ///     next real run's allowance.
+    ///   - A reservation can never be refunded past what it was charged, so the
+    ///     floor here is a proof rather than a defensive clamp: every term is
+    ///     `MAX(0, charge − refunds)`, so the sum cannot go negative and cannot
+    ///     borrow headroom from a sibling reservation.
     private func usedLocked(accountKey: String, meter: TrialMeter) throws -> Int {
-        let charged = try scalar(
+        try scalar(
             """
-            SELECT COALESCE(SUM(COALESCE(finalized_count, reserved_count)), 0)
+            SELECT COALESCE(SUM(MAX(0,
+                COALESCE(finalized_count, reserved_count) - (
+                    SELECT COUNT(*) FROM RefundedItems ri
+                    WHERE ri.receipt_run_id = Reservations.run_id
+                      AND ri.account_key = Reservations.account_key
+                      AND ri.meter = Reservations.meter
+                )
+            )), 0)
             FROM Reservations
             WHERE account_key = ? AND meter = ? AND state IN ('open','finalized');
             """,
             accountKey,
             meter.rawValue
         )
-        let refunded = try scalar(
-            "SELECT COUNT(*) FROM RefundedItems WHERE account_key = ? AND meter = ?;",
-            accountKey,
-            meter.rawValue
-        )
-        // Refunds can in principle exceed charges — a legacy receipt reverted
-        // after a reservation row was released, say. Clamp rather than let a
-        // negative usage read as bonus allowance.
-        return max(0, charged - refunded)
     }
 
     public func openReservations() throws -> [OpenReservation] {

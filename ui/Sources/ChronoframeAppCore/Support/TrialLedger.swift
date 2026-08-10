@@ -123,6 +123,13 @@ public protocol TrialLedger: Sendable {
     /// items restored" from "the same two items reported twice". Reverts are
     /// routinely partial, because a destination file whose hash no longer matches
     /// the receipt is preserved and skipped by design.
+    ///
+    /// A refund only ever gives back what its OWN reservation was charged.
+    /// Refunding a receipt with no charged reservation — a run from before
+    /// enforcement shipped, a released reservation, a receipt from another
+    /// machine — is recorded but credits nothing, and refunding more items than
+    /// a reservation was charged for stops at that charge. Neither can enlarge a
+    /// later run's allowance.
     func refund(
         receiptRunID: UUID,
         accountKey: String,
@@ -252,12 +259,18 @@ public final class InMemoryTrialLedger: TrialLedger, @unchecked Sendable {
     private var rows: [UUID: Row] = [:]
     /// Insertion order, so `openReservations()` is deterministic.
     private var order: [UUID] = []
-    private var refunded: Set<RefundKey> = []
-    private var refundKeysByMeter: [String: Int] = [:]
+    /// Mirrors `RefundedItems`, whose primary key is `(receipt_run_id, item_path)`
+    /// — the account and meter ride along as recorded, not as part of identity.
+    private var refunded: [RefundKey: RefundOrigin] = [:]
 
     private struct RefundKey: Hashable {
         let receiptRunID: UUID
         let itemPath: String
+    }
+
+    private struct RefundOrigin {
+        let accountKey: String
+        let meter: TrialMeter
     }
 
     public init(caps: TrialAllowanceCaps = .standard) {
@@ -339,9 +352,9 @@ public final class InMemoryTrialLedger: TrialLedger, @unchecked Sendable {
         defer { lock.unlock() }
         for path in itemPaths {
             let key = RefundKey(receiptRunID: receiptRunID, itemPath: path)
-            guard !refunded.contains(key) else { continue }
-            refunded.insert(key)
-            refundKeysByMeter[Self.meterKey(accountKey: accountKey, meter: meter), default: 0] += 1
+            // INSERT OR IGNORE: the first record of an item wins.
+            guard refunded[key] == nil else { continue }
+            refunded[key] = RefundOrigin(accountKey: accountKey, meter: meter)
         }
     }
 
@@ -361,15 +374,25 @@ public final class InMemoryTrialLedger: TrialLedger, @unchecked Sendable {
         }
     }
 
+    /// Mirrors `TrialLedgerDatabase.usedLocked`, including the part that matters
+    /// most: refunds net against their OWN reservation and are floored there, so
+    /// a refund with no charged reservation behind it can never become a credit
+    /// against a later run.
     private func usedLocked(accountKey: String, meter: TrialMeter) -> Int {
-        let charged = rows.values
-            .filter { $0.accountKey == accountKey && $0.meter == meter && $0.state != .released }
-            .reduce(0) { $0 + ($1.finalizedCount ?? $1.reservedCount) }
-        let refunds = refundKeysByMeter[Self.meterKey(accountKey: accountKey, meter: meter)] ?? 0
-        return max(0, charged - refunds)
-    }
-
-    private static func meterKey(accountKey: String, meter: TrialMeter) -> String {
-        "\(accountKey)\u{1F}\(meter.rawValue)"
+        rows.reduce(0) { total, entry in
+            let (runID, row) = entry
+            guard row.accountKey == accountKey, row.meter == meter, row.state != .released else {
+                return total
+            }
+            let charged = row.finalizedCount ?? row.reservedCount
+            let refunds = refunded.reduce(0) { count, refund in
+                guard refund.key.receiptRunID == runID,
+                      refund.value.accountKey == row.accountKey,
+                      refund.value.meter == row.meter
+                else { return count }
+                return count + 1
+            }
+            return total + max(0, charged - refunds)
+        }
     }
 }
