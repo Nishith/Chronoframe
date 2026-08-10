@@ -160,10 +160,10 @@ final class TrialLedgerReconcilerTests: XCTestCase {
                 sourcePath: "/b.jpg", destinationPath: "/d/b.jpg", hash: "h2",
                 status: .copied, runID: runID, mutationState: .finalized
             ),
-            // Attempted but not proven complete: must not be charged.
+            // Attempted and terminally failed: not resumable, and not charged.
             QueuedCopyJob(
                 sourcePath: "/c.jpg", destinationPath: "/d/c.jpg", hash: "h3",
-                status: .pending, runID: runID, mutationState: .intended
+                status: .failed, runID: runID, mutationState: .intended
             ),
             // A different run entirely.
             QueuedCopyJob(
@@ -185,8 +185,8 @@ final class TrialLedgerReconcilerTests: XCTestCase {
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 2)
     }
 
-    /// Crash after some copies landed but before finalize: the reservation must
-    /// settle at what actually happened, not at what was reserved.
+    /// Crash after some copies landed, with the rest terminally failed: nothing
+    /// more can happen under this reservation, so it settles at the true count.
     func testCrashAfterMutationBeforeFinalizeReconcilesToTheTrueCount() throws {
         let root = try destination("crash")
         let database = try OrganizerDatabase(url: root.appendingPathComponent(".organize_cache.db"))
@@ -194,7 +194,7 @@ final class TrialLedgerReconcilerTests: XCTestCase {
         try database.enqueueQueuedJobs((0..<5).map { index in
             QueuedCopyJob(
                 sourcePath: "/s\(index).jpg", destinationPath: "/d/s\(index).jpg", hash: "h\(index)",
-                status: index < 3 ? .copied : .pending,
+                status: index < 3 ? .copied : .failed,
                 runID: runID,
                 mutationState: index < 3 ? .finalized : .intended
             )
@@ -211,6 +211,55 @@ final class TrialLedgerReconcilerTests: XCTestCase {
 
         TrialLedgerReconciler(ledger: ledger).reconcile(destinationRoot: root)
 
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 3)
+    }
+
+    /// A crash that leaves jobs PENDING leaves a resumable run, and a resumable
+    /// run is not over.
+    ///
+    /// Settling here would charge the partial count and then let the resumed
+    /// files copy for free, because `finalize` only ever acts on an open
+    /// reservation — a second finalize after the resume is a no-op.
+    func testCrashLeavingResumableJobsKeepsTheReservationOpen() throws {
+        let root = try destination("resumable")
+        let databaseURL = root.appendingPathComponent(".organize_cache.db")
+        let database = try OrganizerDatabase(url: databaseURL)
+        let runID = UUID()
+        try database.enqueueQueuedJobs((0..<5).map { index in
+            QueuedCopyJob(
+                sourcePath: "/s\(index).jpg", destinationPath: "/d/s\(index).jpg", hash: "h\(index)",
+                status: index < 3 ? .copied : .pending,
+                runID: runID,
+                mutationState: index < 3 ? .finalized : .intended
+            )
+        })
+        XCTAssertEqual(try database.resumableJobCount(runID: runID), 2)
+        database.close()
+
+        let ledger = InMemoryTrialLedger(caps: caps)
+        _ = try ledger.reserve(
+            runID: runID, accountKey: account, meter: .organize,
+            count: 5, destinationRoot: root.path
+        )
+
+        TrialLedgerReconciler(ledger: ledger).reconcile(destinationRoot: root)
+
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 5)
+        XCTAssertEqual(try ledger.openReservations().map(\.runID), [runID])
+
+        // "Start Fresh" clears the queue, so the charge is not stranded forever:
+        // once nothing is resumable the run settles at what actually landed.
+        let reopened = try OrganizerDatabase(url: databaseURL)
+        try reopened.clearAllJobs()
+        try reopened.enqueueQueuedJobs((0..<3).map { index in
+            QueuedCopyJob(
+                sourcePath: "/s\(index).jpg", destinationPath: "/d/s\(index).jpg", hash: "h\(index)",
+                status: .copied, runID: runID, mutationState: .finalized
+            )
+        })
+        reopened.close()
+
+        TrialLedgerReconciler(ledger: ledger).reconcile(destinationRoot: root)
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 3)
     }
 
@@ -308,6 +357,54 @@ final class TrialLedgerReconcilerTests: XCTestCase {
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.dedupeUsed, 4)
     }
 
+    /// Recovery leaves a receipt PENDING when it could not settle the journal.
+    /// The visible count is provisional, so settling now would lock in a charge
+    /// a later pass could never correct.
+    func testDedupePendingReceiptKeepsTheReservationOpen() throws {
+        let root = try destination("dedupe-pending")
+        let runID = UUID()
+        try writeDedupeReceipt(
+            in: root,
+            runID: runID,
+            status: "PENDING",
+            items: [("/dest/a.jpg", "file:///Trash/a.jpg"), ("/dest/b.jpg", nil)]
+        )
+
+        let ledger = InMemoryTrialLedger(caps: caps)
+        _ = try ledger.reserve(
+            runID: runID, accountKey: account, meter: .dedupe,
+            count: 2, destinationRoot: root.path
+        )
+
+        TrialLedgerReconciler(ledger: ledger).reconcile(destinationRoot: root)
+
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.dedupeUsed, 2)
+        XCTAssertEqual(try ledger.openReservations().map(\.runID), [runID])
+    }
+
+    /// A receipt that exists but cannot be decoded proves nothing. Counting the
+    /// zero items we managed to read would settle the reservation on the
+    /// strength of evidence we failed to read.
+    func testDedupeUndecodableReceiptKeepsTheReservationOpen() throws {
+        let root = try destination("dedupe-corrupt")
+        let runID = UUID()
+        let logs = root.appendingPathComponent(".organize_logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        try Data("this is not a receipt".utf8).write(
+            to: logs.appendingPathComponent("dedupe_audit_receipt_20260810_120000_\(runID.uuidString).json")
+        )
+
+        let ledger = InMemoryTrialLedger(caps: caps)
+        _ = try ledger.reserve(
+            runID: runID, accountKey: account, meter: .dedupe,
+            count: 6, destinationRoot: root.path
+        )
+
+        TrialLedgerReconciler(ledger: ledger).reconcile(destinationRoot: root)
+
+        XCTAssertEqual(try ledger.balance(accountKey: account).usage.dedupeUsed, 6)
+    }
+
     // MARK: - Entry point
 
     func testRecoverAndReconcileRunsRecoveryEvenWithNoReconcilerWired() throws {
@@ -354,6 +451,7 @@ final class TrialLedgerReconcilerTests: XCTestCase {
     private func writeDedupeReceipt(
         in destinationRoot: URL,
         runID: UUID,
+        status: String = "COMPLETED",
         items: [(path: String, trashURL: String?)]
     ) throws -> URL {
         let logs = destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
@@ -364,7 +462,7 @@ final class TrialLedgerReconcilerTests: XCTestCase {
 
         let receipt = DeduplicateAuditReceipt(
             runID: runID,
-            status: "COMPLETED",
+            status: status,
             createdAt: Date(timeIntervalSince1970: 1_800_000_000),
             destinationRoot: destinationRoot.path,
             items: items.map { item in
@@ -395,7 +493,11 @@ final class TrialLedgerReconcilerTests: XCTestCase {
                 originalPath: entry.path,
                 actualTrashURL: entry.trashURL
             )
-            let data = try JSONEncoder.dedupe.encode(record)
+            // `JSONEncoder.dedupe` is prettyPrinted; the journal is one JSON
+            // object PER LINE and `loadSpoolRecords` decodes line by line, so a
+            // pretty-printed record decodes as nothing at all. The executor
+            // appends with `dedupeSpool` for exactly this reason.
+            let data = try JSONEncoder.dedupeSpool.encode(record)
             return String(data: data, encoding: .utf8) ?? ""
         }
         try Data(lines.joined(separator: "\n").utf8).write(to: spoolURL)

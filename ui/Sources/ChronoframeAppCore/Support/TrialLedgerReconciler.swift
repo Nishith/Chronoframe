@@ -28,12 +28,22 @@ import Foundation
 //      reader.
 
 /// What the evidence on disk proves about one open reservation.
+///
+/// Only `.completed` settles a reservation, and it means something stricter
+/// than "here is a count": it means the evidence is FINAL and no later pass
+/// could legitimately arrive at a different number. Everything else leaves the
+/// reservation open and fully charged, because `finalize` is one-way — once a
+/// reservation is settled, a later, truer count can never correct it.
 public enum TrialReconciliationOutcome: Sendable, Equatable {
-    /// The evidence is complete: exactly this many mutations landed.
+    /// The evidence is final: exactly this many mutations landed, and no more
+    /// can land under this reservation.
     case completed(count: Int)
-    /// The destination could not be read, or its evidence is not yet settled.
-    /// The reservation stays open and fully charged, and a later pass retries.
+    /// The destination could not be read, or its evidence could not be decoded.
+    /// Never confuse this with an empty run.
     case unreachable
+    /// The evidence is readable but not final — the run can still make progress,
+    /// so a count taken now would be premature. A later pass retries.
+    case unsettled
     /// No evidence belonging to this reservation lives at this destination.
     case notApplicable
 }
@@ -85,7 +95,7 @@ public struct TrialLedgerReconciler: TrialLedgerReconciling {
             }
 
             switch evidence.outcome(for: reservation, destinationRoot: destinationRoot) {
-            case .unreachable, .notApplicable:
+            case .unreachable, .unsettled, .notApplicable:
                 continue
             case let .completed(count):
                 // `finalize` clamps into `0...reserved_count` and only acts on
@@ -153,6 +163,14 @@ public struct FileSystemTrialReconciliationEvidence: TrialReconciliationEvidence
 
         guard let database = try? OrganizerDatabase(url: databaseURL) else { return .unreachable }
         defer { database.close() }
+
+        // A crashed run keeps its unfinished jobs PENDING so the user can resume
+        // and finish them. While any remain, this run is not over: settling now
+        // would charge the partial count, and the resumed files would then copy
+        // for free, because `finalize` only ever acts on an open reservation.
+        guard let resumable = try? database.resumableJobCount(runID: runID) else { return .unreachable }
+        guard resumable == 0 else { return .unsettled }
+
         guard let count = try? database.completedJobCount(runID: runID) else { return .unreachable }
         return .completed(count: count)
     }
@@ -192,16 +210,35 @@ public struct FileSystemTrialReconciliationEvidence: TrialReconciliationEvidence
         var trashedPaths: Set<String> = []
         let decoder = Self.makeDecoder()
         for receiptURL in receiptURLs {
-            if let data = try? Data(contentsOf: receiptURL),
-               let receipt = try? decoder.decode(DeduplicateAuditReceipt.self, from: data) {
-                for item in receipt.items where item.trashURL != nil {
-                    trashedPaths.insert(item.originalPath)
-                }
+            // An artifact that exists but cannot be read or decoded proves
+            // nothing. Swallowing the error and returning the count so far —
+            // possibly zero — would settle the reservation on the strength of
+            // evidence we failed to read.
+            guard let data = try? Data(contentsOf: receiptURL),
+                  let receipt = try? decoder.decode(DeduplicateAuditReceipt.self, from: data)
+            else {
+                return .unreachable
             }
 
+            // Recovery leaves a receipt PENDING when it could not settle the
+            // journal — an unreachable volume, or a Trash location it could not
+            // confirm. The visible count is provisional, and a later pass can
+            // prove more moves, so settling now would lock in a charge that can
+            // never be corrected.
+            guard receipt.status != "PENDING" else { return .unsettled }
+
+            for item in receipt.items where item.trashURL != nil {
+                trashedPaths.insert(item.originalPath)
+            }
+
+            // `loadSpoolRecords` returns empty for an absent journal and skips
+            // only a torn final line, so a throw here means the file exists and
+            // could not be read.
             let spoolURL = receiptURL.appendingPathExtension("spool")
-            if let records = try? DeduplicateExecutor.loadSpoolRecords(from: spoolURL) {
-                trashedPaths.formUnion(records.keys)
+            do {
+                trashedPaths.formUnion(try DeduplicateExecutor.loadSpoolRecords(from: spoolURL).keys)
+            } catch {
+                return .unreachable
             }
         }
 

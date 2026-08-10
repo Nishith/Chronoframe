@@ -828,6 +828,30 @@ public final class OrganizerDatabase: @unchecked Sendable {
         return Int(sqlite3_column_int64(statement, 0))
     }
 
+    /// How many of `runID`'s jobs are still pending, and so could still copy.
+    ///
+    /// A crashed run leaves its unfinished jobs `PENDING` on purpose, so the
+    /// user can resume and finish them. Until that queue is empty the run is not
+    /// over, and its trial reservation must stay open: finalizing early would
+    /// settle the charge at the partial count, and the resumed files would then
+    /// copy for free because `finalize` only ever acts on an open reservation.
+    ///
+    /// "Start Fresh" clears the queue, so an abandoned run does eventually
+    /// become settleable rather than staying charged forever.
+    public func resumableJobCount(runID: UUID) throws -> Int {
+        let statement = try prepare(
+            "SELECT COUNT(*) FROM CopyJobs WHERE run_id = ? AND status = ?"
+        )
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, runID.uuidString, -1, Self.sqliteTransient)
+        sqlite3_bind_text(statement, 2, CopyJobStatus.pending.rawValue, -1, Self.sqliteTransient)
+
+        guard sqlite3_step(statement) == SQLITE_ROW else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+        }
+        return Int(sqlite3_column_int64(statement, 0))
+    }
+
     public func queuedJobCount(status: CopyJobStatus? = nil) throws -> Int {
         if let status {
             let statement = try prepare("SELECT COUNT(*) FROM CopyJobs WHERE status = ?")
