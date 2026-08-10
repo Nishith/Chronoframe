@@ -312,7 +312,7 @@ xcodebuild \
 
 The Xcode project is used by CodeQL and app builds. It is `objectVersion = 70` and uses a `PBXFileSystemSynchronizedRootGroup` for each of `ChronoframeApp`, `ChronoframeAppCore`, and `ChronoframeCore`, so Swift files added under `ui/Sources/` are compiled without editing `project.pbxproj`. `ui/Package.swift` uses no explicit `sources:` lists, so SwiftPM auto-discovers those sources and the four `ui/Tests/…` test targets too.
 
-The one exception is `ui/Xcode/UITests/`. It is not a SwiftPM target, so `swift test` never sees it, and Xcode compiles only what `project.pbxproj` references — an unregistered UI-test file is silently never built or run while every CI lane still passes. Register it by hand and confirm it ran.
+The one exception is `ui/Xcode/UITests/`. It is not a SwiftPM target, so `swift test` never sees it, and Xcode compiles only what `project.pbxproj` references — an unregistered UI-test file would be silently never built or run while every other CI lane passed. `script/check_uitest_membership.sh` guards this, resolving the `ChronoframeUITests` target's own Sources build phase and following each build file through its `fileRef` to a path, so a wrong-target registration or a same-basename file in a subdirectory cannot produce a false pass.
 
 (`ui/Tests/ChronoframeAppTests/` files are also listed individually in `project.pbxproj`, but that is vestigial: the shared scheme's only `TestableReference` is `ChronoframeUITests.xctest`, so CI's Xcode lane never runs `ChronoframeAppTests` — SwiftPM does.)
 

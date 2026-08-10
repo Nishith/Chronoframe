@@ -36,7 +36,7 @@ Pull requests should:
 - Preserve destination serialization and recovery: hold the cross-process lease through prompts and finalization, never equate inaccessible paths with missing ones, and keep receipt/journal changes backward-tolerant.
 - Treat RAW+JPEG, Live Photo, and shared-sidecar Keep-wins behavior as a filesystem safety boundary, not just a UI preference.
 - Add or update tests for behavior changes.
-- Adding a Swift file under `ui/Sources/` or `ui/Tests/` needs no project edits — SwiftPM and the Xcode project both discover it automatically. Only `ui/Xcode/UITests/` files must be added to `ui/Chronoframe.xcodeproj/project.pbxproj` by hand, and nothing in CI catches the omission: an unregistered UI test is silently never run while every lane stays green.
+- Adding a Swift file under `ui/Sources/` or `ui/Tests/` needs no project edits — SwiftPM and the Xcode project both discover it automatically. Only `ui/Xcode/UITests/` files must be added to `ui/Chronoframe.xcodeproj/project.pbxproj` by hand; `script/check_uitest_membership.sh` fails CI if you forget, because an unregistered UI test would otherwise be silently never run while every other lane stayed green.
 - Keep user-facing errors plain, specific, reassuring, and free of raw tracebacks.
 - Avoid unrelated refactors.
 
