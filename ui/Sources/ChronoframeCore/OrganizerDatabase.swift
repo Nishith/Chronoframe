@@ -967,39 +967,52 @@ public final class OrganizerDatabase: @unchecked Sendable {
         try execute("DELETE FROM CopyJobs")
     }
 
-    /// The run ID already stamped on the queued jobs with `status`, if they
-    /// agree on one.
+    /// The run ID already stamped on the queued jobs with `status`, but only
+    /// when EVERY one of them carries it and they all agree.
     ///
     /// A resumed transfer must continue the run it is resuming rather than mint
     /// a new identity: the reservation, the receipt, and the recovery rows are
-    /// all keyed by that ID. Returns nil when the rows carry no run ID — jobs
-    /// enqueued before run IDs were threaded — or when they disagree, so the
-    /// caller can fall back to a fresh ID rather than adopt an arbitrary one.
+    /// all keyed by that ID.
+    ///
+    /// Three queues must read as "no run to resume", and the caller then falls
+    /// back to a fresh ID:
+    ///
+    ///   - Empty.
+    ///   - Every row untagged — jobs enqueued before run IDs were threaded.
+    ///   - **Mixed**: rows disagreeing, *or* some rows tagged and others not.
+    ///
+    /// That last case is why this counts untagged rows instead of filtering them
+    /// out. A queue holding one legacy `NULL` row and one tagged row has exactly
+    /// one distinct non-null ID, so ignoring nulls would report agreement. The
+    /// resume would then run both jobs under that ID, `updateJobMutation` would
+    /// stamp the legacy row with it, and the receipt would claim both jobs
+    /// belong to a reservation that only ever covered one — misattributing the
+    /// charge, and later the refund.
     public func queuedRunID(status: CopyJobStatus = .pending) throws -> UUID? {
         let statement = try prepare(
-            "SELECT DISTINCT run_id FROM CopyJobs WHERE status = ? AND run_id IS NOT NULL LIMIT 2"
+            """
+            SELECT COUNT(*), COUNT(run_id), COUNT(DISTINCT run_id), MIN(run_id)
+            FROM CopyJobs WHERE status = ?
+            """
         )
         defer { sqlite3_finalize(statement) }
         sqlite3_bind_text(statement, 1, status.rawValue, -1, Self.sqliteTransient)
 
-        var found: UUID?
-        while true {
-            let step = sqlite3_step(statement)
-            if step == SQLITE_DONE { break }
-            guard step == SQLITE_ROW else {
-                throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
-            }
-            guard let text = Self.sqliteString(statement, column: 0),
-                  let parsed = UUID(uuidString: text)
-            else {
-                continue
-            }
-            // A second distinct ID means the queue mixes runs; adopting either
-            // would attribute one run's work to the other.
-            if found != nil { return nil }
-            found = parsed
+        guard sqlite3_step(statement) == SQLITE_ROW else {
+            throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
         }
-        return found
+
+        let total = sqlite3_column_int64(statement, 0)
+        let tagged = sqlite3_column_int64(statement, 1)
+        let distinctIDs = sqlite3_column_int64(statement, 2)
+
+        // `COUNT(run_id)` counts only non-null values, so `tagged == total`
+        // is the untagged-row check.
+        guard total > 0, tagged == total, distinctIDs == 1 else { return nil }
+
+        // A single distinct value means MIN is that value. An unparseable one
+        // is treated as no run to resume rather than adopted.
+        return Self.sqliteString(statement, column: 3).flatMap(UUID.init(uuidString:))
     }
 
     public func updateJobStatus(sourcePath: String, status: CopyJobStatus) throws {
