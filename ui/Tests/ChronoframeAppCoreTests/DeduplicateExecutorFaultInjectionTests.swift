@@ -62,7 +62,7 @@ final class DeduplicateExecutorFaultInjectionTests: XCTestCase {
                 expectedIdentity: testFileIdentity(at: target)
             )
         ])
-        let stream = executor.commit(plan: plan, destinationRoot: dst.path, hardDelete: false)
+        let stream = executor.commit(plan: plan, destinationRoot: dst.path, hardDelete: false, runID: UUID())
 
         var trashedSuccessPaths: [(path: String, trashURL: URL?)] = []
         var trashedStalePaths: [(path: String, message: String)] = []

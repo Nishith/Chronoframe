@@ -59,7 +59,7 @@ final class DeduplicateExecutorStaleIdentityTests: XCTestCase {
             fileOperations: MovingTrashFileOps(trashRoot: trashRoot)
         )
         var outcome = CommitOutcome()
-        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectoryURL.path, hardDelete: false) {
+        for try await event in executor.commit(plan: plan, destinationRoot: temporaryDirectoryURL.path, hardDelete: false, runID: UUID()) {
             switch event {
             case let .itemTrashed(path, _, _):
                 outcome.trashed.append(path)

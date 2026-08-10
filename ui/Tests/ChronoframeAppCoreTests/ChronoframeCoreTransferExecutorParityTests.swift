@@ -85,7 +85,8 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
             database: database,
             destinationRoot: destinationRoot,
             verifyCopies: manifest.verify,
-            runLogger: logger
+            runLogger: logger,
+            runID: UUID()
         )
 
         XCTAssertEqual(
@@ -311,7 +312,8 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
             runLogger: logger,
             status: .pending,
             orderByInsertion: true,
-            isCancelled: { cancelAfterFirst.shouldCancel() }
+            isCancelled: { cancelAfterFirst.shouldCancel() },
+            runID: UUID()
         )
 
         // At least 1 job should be COPIED and at least 1 should still be PENDING.
@@ -328,7 +330,8 @@ final class ChronoframeCoreTransferExecutorParityTests: XCTestCase {
             verifyCopies: false,
             runLogger: logger,
             status: .pending,
-            orderByInsertion: true
+            orderByInsertion: true,
+            runID: UUID()
         )
 
         // All 3 jobs should now be COPIED and 0 PENDING.

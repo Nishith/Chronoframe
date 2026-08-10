@@ -94,7 +94,8 @@ final class DeduplicateExecutorQuarantineTests: XCTestCase {
         for try await event in DeduplicateExecutor(fileOperations: operations).commit(
             plan: plan,
             destinationRoot: root.path,
-            hardDelete: false
+            hardDelete: false,
+            runID: UUID()
         ) { events.append(event) }
         return events
     }

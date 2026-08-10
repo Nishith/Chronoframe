@@ -36,11 +36,17 @@ public final class DeduplicateExecutor: @unchecked Sendable {
     /// `additionalSourceRoots` records any cross-folder scan roots so
     /// revert can accept items whose `originalPath` lives outside
     /// `destinationRoot` (Phase 1 finding #8).
+    ///
+    /// `runID` is injected rather than minted here. The receipt's run ID used to
+    /// be created inside this stream, which is after the point where a trial
+    /// reservation must already exist — so the reservation could not be matched
+    /// to the receipt that proves what the commit did.
     public func commit(
         plan: DeduplicationPlan,
         destinationRoot: String,
         additionalSourceRoots: [String] = [],
-        hardDelete: Bool
+        hardDelete: Bool,
+        runID: UUID
     ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         cancelFlag.set(false)
         let cancelFlag = self.cancelFlag
@@ -66,7 +72,6 @@ public final class DeduplicateExecutor: @unchecked Sendable {
 
                 continuation.yield(.started(totalToDelete: plan.items.count))
 
-                let runID = UUID()
                 let startedAt = Date()
                 let receiptURL: URL
                 let spoolURL: URL

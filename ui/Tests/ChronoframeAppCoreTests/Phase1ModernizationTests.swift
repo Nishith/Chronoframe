@@ -105,7 +105,8 @@ final class Phase1ModernizationTests: XCTestCase {
             runLogger: logger,
             status: .pending,
             maxConcurrentCopies: 3, // parallel execution
-            observer: observer
+            observer: observer,
+            runID: UUID()
         )
 
         // Verify that it throttled to single concurrency and logged the appropriate warning
@@ -148,7 +149,8 @@ final class Phase1ModernizationTests: XCTestCase {
             runLogger: logger,
             status: .pending,
             maxConcurrentCopies: 2, // parallel execution
-            observer: observer
+            observer: observer,
+            runID: UUID()
         )
 
         XCTAssertTrue(collector.issues.contains { $0.severity == .warning && $0.message.contains("Device thermal state is elevated") })
@@ -243,7 +245,8 @@ final class Phase1ModernizationTests: XCTestCase {
             runLogger: logger,
             status: .pending,
             maxConcurrentCopies: 1,
-            observer: observer
+            observer: observer,
+            runID: UUID()
         )
 
         // Verify that it paused (emitted Insufficient disk space issue)

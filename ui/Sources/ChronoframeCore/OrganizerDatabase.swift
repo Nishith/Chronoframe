@@ -687,14 +687,26 @@ public final class OrganizerDatabase: @unchecked Sendable {
         }
     }
 
-    public func enqueuePlannedTransfers<S: Sequence>(_ transfers: S) throws where S.Element == PlannedTransfer {
+    /// Enqueue planned transfers, stamping every row with `runID`.
+    ///
+    /// `runID` is required rather than defaulted. `QueuedCopyJob.runID` is
+    /// optional and used to default to nil here, so every row enqueued by a
+    /// transfer carried a NULL `run_id` — which meant crash recovery could not
+    /// tell which run a queued job belonged to, and a trial reservation taken at
+    /// the gate could not be matched to the rows that prove what the run
+    /// actually did.
+    public func enqueuePlannedTransfers<S: Sequence>(
+        _ transfers: S,
+        runID: UUID
+    ) throws where S.Element == PlannedTransfer {
         try enqueueQueuedJobs(
             transfers.lazy.map { transfer in
                 QueuedCopyJob(
                     sourcePath: transfer.sourcePath,
                     destinationPath: transfer.destinationPath,
                     hash: transfer.identity.rawValue,
-                    status: .pending
+                    status: .pending,
+                    runID: runID
                 )
             }
         )
@@ -953,6 +965,41 @@ public final class OrganizerDatabase: @unchecked Sendable {
     /// block `enqueuePlannedTransfers`'s `INSERT OR IGNORE` logic.
     public func clearAllJobs() throws {
         try execute("DELETE FROM CopyJobs")
+    }
+
+    /// The run ID already stamped on the queued jobs with `status`, if they
+    /// agree on one.
+    ///
+    /// A resumed transfer must continue the run it is resuming rather than mint
+    /// a new identity: the reservation, the receipt, and the recovery rows are
+    /// all keyed by that ID. Returns nil when the rows carry no run ID — jobs
+    /// enqueued before run IDs were threaded — or when they disagree, so the
+    /// caller can fall back to a fresh ID rather than adopt an arbitrary one.
+    public func queuedRunID(status: CopyJobStatus = .pending) throws -> UUID? {
+        let statement = try prepare(
+            "SELECT DISTINCT run_id FROM CopyJobs WHERE status = ? AND run_id IS NOT NULL LIMIT 2"
+        )
+        defer { sqlite3_finalize(statement) }
+        sqlite3_bind_text(statement, 1, status.rawValue, -1, Self.sqliteTransient)
+
+        var found: UUID?
+        while true {
+            let step = sqlite3_step(statement)
+            if step == SQLITE_DONE { break }
+            guard step == SQLITE_ROW else {
+                throw OrganizerDatabaseError.stepFailed(lastErrorMessage())
+            }
+            guard let text = Self.sqliteString(statement, column: 0),
+                  let parsed = UUID(uuidString: text)
+            else {
+                continue
+            }
+            // A second distinct ID means the queue mixes runs; adopting either
+            // would attribute one run's work to the other.
+            if found != nil { return nil }
+            found = parsed
+        }
+        return found
     }
 
     public func updateJobStatus(sourcePath: String, status: CopyJobStatus) throws {

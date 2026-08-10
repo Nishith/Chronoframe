@@ -419,7 +419,8 @@ public struct TransferExecutor: Sendable {
         runLogger: PersistentRunLogger,
         maxConcurrentCopies: Int = 1,
         observer: TransferExecutionObserver = TransferExecutionObserver(),
-        isCancelled: @escaping @Sendable () -> Bool = { false }
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        runID: UUID
     ) throws -> TransferExecutionResult {
         let activity = ProcessInfo.processInfo.beginActivity(
             options: [.idleSystemSleepDisabled, .userInitiated],
@@ -442,7 +443,8 @@ public struct TransferExecutor: Sendable {
             observer: observer,
             isCancelled: isCancelled,
             totalJobs: totalJobs,
-            bytesTotal: bytesTotal
+            bytesTotal: bytesTotal,
+            runID: runID
         )
         context.start()
 
@@ -481,7 +483,8 @@ public struct TransferExecutor: Sendable {
         batchSize: Int = 512,
         maxConcurrentCopies: Int = 1,
         observer: TransferExecutionObserver = TransferExecutionObserver(),
-        isCancelled: @escaping @Sendable () -> Bool = { false }
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        runID: UUID
     ) throws -> TransferExecutionResult {
         let activity = ProcessInfo.processInfo.beginActivity(
             options: [.idleSystemSleepDisabled, .userInitiated],
@@ -508,7 +511,8 @@ public struct TransferExecutor: Sendable {
                 observer: observer,
                 isCancelled: isCancelled,
                 totalJobs: totalJobs,
-                bytesTotal: bytesTotal
+                bytesTotal: bytesTotal,
+                runID: runID
             )
             context.start()
 
@@ -595,7 +599,8 @@ public struct TransferExecutor: Sendable {
             observer: observer,
             isCancelled: isCancelled,
             totalJobs: totalJobs,
-            bytesTotal: bytesTotal
+            bytesTotal: bytesTotal,
+            runID: runID
         )
         context.start()
 
@@ -1161,6 +1166,57 @@ public struct TransferExecutor: Sendable {
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         return formatter
     }()
+
+    /// A receipt stem that no existing receipt or spool already occupies.
+    ///
+    /// One run can legitimately write more than one receipt: a resumed transfer
+    /// reuses the run ID of the run it resumes, on purpose, so the reservation
+    /// and the queued rows stay attributable to a single run. The filename
+    /// timestamp only has one-second precision, so a resume starting in the same
+    /// second as the run it resumes would pick the identical
+    /// `<timestamp>_<runID>` stem — and `createFile` truncates. The earlier
+    /// receipt is frequently the PENDING/ABORTED record of files already copied,
+    /// so overwriting it would strand those files: absent from Run History and
+    /// no longer revertable.
+    ///
+    /// The base stem is kept whenever it is free, so the filename format is
+    /// unchanged in every ordinary case; a suffix appears only on a real
+    /// collision. Consumers are unaffected — `RunHistoryIndexer` reads only the
+    /// leading `yyyyMMdd_HHmmss`, and crash recovery derives the spool path from
+    /// whatever stem the receipt actually has.
+    ///
+    /// This probes and then the caller creates, so it is not atomic against a
+    /// concurrent writer. Every destination-mutating surface holds
+    /// `DestinationOperationLock`, so concurrent writers in one destination are
+    /// not expected; this exists for the sequential resume case.
+    static func uniqueReceiptStem(
+        in logsDirectoryURL: URL,
+        createdAt: Date,
+        runID: UUID,
+        fileManager: FileManager
+    ) -> String {
+        let baseStem = "\(EngineArtifactLayout.chronoframeDefault.auditReceiptPrefix)"
+            + "\(receiptTimestampFormatter.string(from: createdAt))_\(runID.uuidString)"
+
+        func isFree(_ stem: String) -> Bool {
+            !fileManager.fileExists(atPath: logsDirectoryURL.appendingPathComponent("\(stem).json").path)
+                && !fileManager.fileExists(
+                    atPath: logsDirectoryURL.appendingPathComponent("\(stem).transfers.tmp").path
+                )
+        }
+
+        if isFree(baseStem) { return baseStem }
+
+        for attempt in 2...99 {
+            let candidate = "\(baseStem)_\(attempt)"
+            if isFree(candidate) { return candidate }
+        }
+
+        // Bounded so this can never spin. A nonce is a worse filename than a
+        // counter but is still a correct one, and reaching here at all would
+        // mean 99 receipts already share a run ID and a second.
+        return "\(baseStem)_\(UUID().uuidString)"
+    }
 }
 
 private enum TransferExecutionStopSignal: Error {
@@ -1223,13 +1279,17 @@ private final class StreamingAuditReceiptWriter {
 
     init(
         destinationRoot: URL,
+        runID: UUID,
         fileManager: FileManager = .default,
         createdAt: Date = Date()
     ) throws {
         self.fileManager = fileManager
         self.createdAt = createdAt
         self.timestampString = ISO8601DateFormatter().string(from: createdAt)
-        self.runID = UUID()
+        // Injected so the receipt's run ID is the same value as the execution
+        // context's and the `CopyJobs` rows'. This writer used to mint a second,
+        // different UUID, which left the receipt unmatchable to the run.
+        self.runID = runID
 
         let logsDirectoryURL = destinationRoot.appendingPathComponent(
             EngineArtifactLayout.chronoframeDefault.logsDirectoryName,
@@ -1237,7 +1297,14 @@ private final class StreamingAuditReceiptWriter {
         )
         try fileManager.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
 
-        let stem = "\(EngineArtifactLayout.chronoframeDefault.auditReceiptPrefix)\(TransferExecutor.receiptTimestampFormatter.string(from: createdAt))_\(runID.uuidString)"
+        // A resumed run deliberately shares its run ID with the run it resumes,
+        // so the stem must be checked for collision rather than assumed unique.
+        let stem = TransferExecutor.uniqueReceiptStem(
+            in: logsDirectoryURL,
+            createdAt: createdAt,
+            runID: runID,
+            fileManager: fileManager
+        )
         self.finalReceiptURL = logsDirectoryURL.appendingPathComponent("\(stem).json")
         self.transferSpoolURL = logsDirectoryURL.appendingPathComponent("\(stem).transfers.tmp")
 
@@ -1412,7 +1479,11 @@ private final class TransferExecutionContext {
     private let bytesTotal: Int64
     private let artifacts: RunArtifactPaths
     private let receiptWriter: StreamingAuditReceiptWriter
-    private let runID = UUID()
+    /// Injected, never minted here. The same value identifies this run in the
+    /// `CopyJobs` rows, in the audit receipt, and in the trial reservation the
+    /// gate takes before any of this starts — which is what lets crash recovery
+    /// and refunds match a reservation to the work that actually happened.
+    private let runID: UUID
 
     private var copiedCount = 0
     private var failedCount = 0
@@ -1432,7 +1503,8 @@ private final class TransferExecutionContext {
         observer: TransferExecutionObserver,
         isCancelled: @escaping @Sendable () -> Bool,
         totalJobs: Int,
-        bytesTotal: Int64
+        bytesTotal: Int64,
+        runID: UUID
     ) throws {
         self.executor = executor
         self.database = database
@@ -1442,8 +1514,9 @@ private final class TransferExecutionContext {
         self.isCancelled = isCancelled
         self.totalJobs = totalJobs
         self.bytesTotal = bytesTotal
+        self.runID = runID
         self.artifacts = executor.artifactPaths(destinationRoot: destinationRoot)
-        self.receiptWriter = try StreamingAuditReceiptWriter(destinationRoot: destinationRoot)
+        self.receiptWriter = try StreamingAuditReceiptWriter(destinationRoot: destinationRoot, runID: runID)
         self.destinationUpdates = []
         self.destinationUpdates.reserveCapacity(min(TransferExecutor.destinationCacheBatchSize, totalJobs))
     }

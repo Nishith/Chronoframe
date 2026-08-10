@@ -66,7 +66,7 @@ final class DeduplicateExecutorRealFileManagerTests: XCTestCase {
                 expectedIdentity: testFileIdentity(at: targetB)
             )
         ])
-        let stream = executor.commit(plan: plan, destinationRoot: dst.path, hardDelete: false)
+        let stream = executor.commit(plan: plan, destinationRoot: dst.path, hardDelete: false, runID: UUID())
 
         var trashedEvents: [(originalPath: String, trashURL: URL?)] = []
         var completed: DeduplicateCommitSummary?

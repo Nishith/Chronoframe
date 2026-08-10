@@ -693,7 +693,14 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             return
         }
 
-        try database.enqueuePlannedTransfers(result.transfers)
+        // One ID for the whole run, minted here and threaded down through the
+        // queued rows, the executor, and the audit receipt. Step 4 takes the
+        // trial reservation at this same point, so the reservation, every
+        // `CopyJobs.run_id` for the run, and the receipt all carry the same
+        // value — which is what lets crash recovery and refunds match a
+        // reservation to the work that actually happened.
+        let runID = UUID()
+        try database.enqueuePlannedTransfers(result.transfers, runID: runID)
         let errorCounter = IssueCounter()
         let executionResult = try transferExecutor.executeQueuedJobs(
             database: database,
@@ -726,7 +733,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     continuation.yield(.issue(issue))
                 }
             ),
-            isCancelled: isCancelled
+            isCancelled: isCancelled,
+            runID: runID
         )
 
         if isCancelled() {
@@ -829,6 +837,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             continuation.yield(.dateHistogram(buckets: resumedHistogram))
         }
 
+        // Continue the run being resumed rather than minting a new identity: the
+        // queued rows, the receipt, and (from step 4) the trial reservation are
+        // all keyed by this ID, and a resume must not look like a second run.
+        // Jobs enqueued before run IDs were threaded carry none, so fall back to
+        // a fresh ID rather than leaving the rows unattributable.
+        let resumeRunID = try database.queuedRunID(status: .pending) ?? UUID()
+
         let errorCounter = IssueCounter()
         let executionResult = try transferExecutor.executeQueuedJobs(
             database: database,
@@ -861,7 +876,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     continuation.yield(.issue(issue))
                 }
             ),
-            isCancelled: isCancelled
+            isCancelled: isCancelled,
+            runID: resumeRunID
         )
 
         if isCancelled() {
