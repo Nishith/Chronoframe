@@ -96,6 +96,7 @@ MEANINGFUL_BASENAMES=(
     GuardianMirrorPlanner
     GuardianRestorePlanner
     GuardianScheduler
+    Entitlement
 )
 
 missing_basenames=()
