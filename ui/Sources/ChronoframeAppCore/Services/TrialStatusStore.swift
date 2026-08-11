@@ -18,29 +18,47 @@ import Foundation
 // SCOPE: reading only. Nothing here reserves, finalizes, or refunds — step 4
 // owns enforcement. Wiring this in changes no behaviour.
 
+/// What is known about the free allowance.
+///
+/// An enum rather than an optional `TrialBalance`, because "unlimited",
+/// "not resolved yet" and "the records could not be read" are three different
+/// answers that must not collapse into one. They did collapse once: the
+/// fail-closed stand-in for an unreadable ledger reports zero remaining — which
+/// is right for a GATE, and disastrous as a DESCRIPTION, because it made a
+/// corrupt ledger indistinguishable from a genuinely spent trial.
+public enum TrialAllowance: Sendable, Equatable {
+    /// Unlocked. There is no limit and the ledger is never consulted.
+    case unlimited
+    /// Entitlement has not settled yet. Nothing is known.
+    case unknown
+    /// The ledger could not be read. Gates still refuse — the stand-in reports
+    /// zero remaining — but the UI must say Chronoframe cannot confirm the
+    /// allowance and that purchasing removes the limit, NOT that the trial is
+    /// used up.
+    case unavailable
+    /// A real, readable balance.
+    case remaining(TrialBalance)
+}
+
 /// Entitlement and remaining allowance, resolved together.
 public struct TrialStatus: Sendable, Equatable {
     public let entitlement: EntitlementState
+    public let allowance: TrialAllowance
 
-    /// The remaining free allowance, or nil when the question does not apply.
-    ///
-    /// Nil in exactly two situations, which callers must not conflate:
-    ///
-    ///   - **Unlocked.** There is no limit, so there is no balance to show. An
-    ///     unlocked customer never causes a ledger read at all.
-    ///   - **Unresolved.** Entitlement is still `.loading`, or the ledger could
-    ///     not be read. Nothing is known yet, and a UI must not fill the gap
-    ///     with a guess in either direction.
-    public let balance: TrialBalance?
-
-    public init(entitlement: EntitlementState, balance: TrialBalance?) {
+    public init(entitlement: EntitlementState, allowance: TrialAllowance) {
         self.entitlement = entitlement
-        self.balance = balance
+        self.allowance = allowance
     }
 
-    public static let loading = TrialStatus(entitlement: .loading, balance: nil)
+    public static let loading = TrialStatus(entitlement: .loading, allowance: .unknown)
 
     public var isUnlocked: Bool { entitlement.isUnlocked }
+
+    /// The readable balance, or nil for every answer that is not one.
+    public var balance: TrialBalance? {
+        if case let .remaining(balance) = allowance { return balance }
+        return nil
+    }
 
     /// Remaining units on a meter, or nil when unlimited or unknown.
     ///
@@ -51,15 +69,24 @@ public struct TrialStatus: Sendable, Equatable {
         balance?.remaining(for: meter)
     }
 
+    /// The ledger could not be read, so the UI owes the customer the distinct
+    /// corrupt-records explanation rather than a number.
+    public var bookkeepingUnavailable: Bool { allowance == .unavailable }
+
     /// Whether the UI may describe this as a trial that has been used up.
     ///
-    /// `verificationUnavailable` and `unverified` are metered like the trial —
-    /// see `EntitlementState` — but must never be *reported* as a spent trial.
-    /// A customer who paid and opened their laptop on a plane has not run out
-    /// of anything, and telling them they have is the worst thing this feature
-    /// could do to them.
+    /// Three things must all hold, and each has bitten this feature:
+    ///
+    ///   - The entitlement is `.locked`. `verificationUnavailable` and
+    ///     `unverified` are metered like the trial but must never be reported
+    ///     as a spent one — a customer who paid and opened their laptop on a
+    ///     plane has not run out of anything.
+    ///   - The allowance is a REAL balance. An unreadable ledger reports zero
+    ///     remaining so that gates fail closed; saying "spent" on the strength
+    ///     of that would be a lie about the customer's own usage.
+    ///   - Every meter is actually at zero.
     public var describesASpentTrial: Bool {
-        guard entitlement == .locked, let balance else { return false }
+        guard entitlement == .locked, case let .remaining(balance) = allowance else { return false }
         return TrialMeter.allCases.allSatisfy { balance.remaining(for: $0) == 0 }
     }
 }
@@ -70,9 +97,15 @@ public final class TrialStatusStore: ObservableObject {
     @Published public private(set) var status: TrialStatus = .loading
 
     private let ledger: any TrialLedger
+    private let bookkeepingAvailable: Bool
 
-    public init(ledger: any TrialLedger) {
+    /// - Parameter bookkeepingAvailable: false when the ledger failed to open.
+    ///   The caller has to say so, because the fail-closed stand-in deliberately
+    ///   answers "zero remaining" rather than throwing, and that answer is
+    ///   indistinguishable from a spent trial once it reaches this layer.
+    public init(ledger: any TrialLedger, bookkeepingAvailable: Bool = true) {
         self.ledger = ledger
+        self.bookkeepingAvailable = bookkeepingAvailable
     }
 
     /// Recompute from the entitlement state and account key an
@@ -84,31 +117,37 @@ public final class TrialStatusStore: ObservableObject {
     public func refresh(entitlement: EntitlementState, accountKey: String?) {
         status = TrialStatus(
             entitlement: entitlement,
-            balance: resolveBalance(entitlement: entitlement, accountKey: accountKey)
+            allowance: resolveAllowance(entitlement: entitlement, accountKey: accountKey)
         )
     }
 
-    private func resolveBalance(
+    private func resolveAllowance(
         entitlement: EntitlementState,
         accountKey: String?
-    ) -> TrialBalance? {
+    ) -> TrialAllowance {
         // An unlocked customer never consults the ledger. This is a
         // correctness rule, not an optimization: a paid customer's experience
         // must not depend on trial bookkeeping being readable at all.
-        guard !entitlement.isUnlocked else { return nil }
+        guard !entitlement.isUnlocked else { return .unlimited }
 
         // Still settling. Reporting a balance now would flash a trial state at
         // a paying customer during launch.
-        guard !entitlement.isResolving else { return nil }
+        guard !entitlement.isResolving else { return .unknown }
+
+        // The ledger failed to open. Gates still refuse, because the stand-in
+        // answers zero remaining — but this layer must not call that a spent
+        // trial.
+        guard bookkeepingAvailable else { return .unavailable }
 
         // Without an account key there is no per-account row to read. Report
-        // nothing rather than another account's balance.
+        // unknown rather than another account's balance.
         //
         // NOTE for step 4: this must never be read as "no limit". A gate needs
         // its own key and must refuse to proceed without one, rather than
-        // inheriting this nil.
-        guard let accountKey else { return nil }
+        // inheriting this.
+        guard let accountKey else { return .unknown }
 
-        return try? ledger.balance(accountKey: accountKey)
+        guard let balance = try? ledger.balance(accountKey: accountKey) else { return .unavailable }
+        return .remaining(balance)
     }
 }

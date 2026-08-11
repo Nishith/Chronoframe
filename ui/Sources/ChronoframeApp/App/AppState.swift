@@ -17,7 +17,14 @@ private enum TrialComposition {
     /// A corrupt or unopenable ledger degrades to a fail-closed stand-in
     /// reporting zero remaining, never a fresh allowance — see
     /// `TrialLedgerOpener`.
-    static let ledger: any TrialLedger = TrialLedgerOpener.openDefault().ledger
+    /// Kept as the whole outcome, not just `.ledger`. The fail-closed stand-in
+    /// for an unreadable ledger answers "zero remaining" rather than throwing —
+    /// correct for a gate, and indistinguishable from a spent trial by the time
+    /// it reaches the UI. `TrialStatus` needs to be told which one it is.
+    static let openOutcome: TrialLedgerOpenOutcome = TrialLedgerOpener.openDefault()
+
+    static var ledger: any TrialLedger { openOutcome.ledger }
+    static var isReadable: Bool { openOutcome.failure == nil }
 
     /// Pair ledger reconciliation with destination recovery.
     ///
@@ -56,7 +63,10 @@ final class AppState: ObservableObject {
     /// StoreKit, and step 3 ships dark. The unlock UI (step 5) drives the first
     /// refresh, so today this holds `.loading` and changes nothing a user can
     /// observe.
-    private(set) lazy var trialStatusStore = TrialStatusStore(ledger: TrialComposition.ledger)
+    private(set) lazy var trialStatusStore = TrialStatusStore(
+        ledger: TrialComposition.ledger,
+        bookkeepingAvailable: TrialComposition.isReadable
+    )
 
     private let folderAccessService: any FolderAccessServicing
     private let finderService: any FinderServicing

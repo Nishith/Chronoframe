@@ -117,7 +117,7 @@ final class TrialStatusStoreTests: XCTestCase {
 
         store.refresh(entitlement: .loading, accountKey: account)
 
-        XCTAssertNil(store.status.balance)
+        XCTAssertEqual(store.status.allowance, .unknown)
         XCTAssertFalse(store.status.describesASpentTrial)
     }
 
@@ -169,15 +169,52 @@ final class TrialStatusStoreTests: XCTestCase {
         XCTAssertNil(store.status.balance)
     }
 
-    /// An unreadable ledger reports nothing rather than a fresh allowance.
-    func testUnreadableLedgerReportsNoBalanceRatherThanAFullOne() {
-        let store = TrialStatusStore(ledger: UnreadableTrialLedger(caps: caps))
+    /// A ledger that failed to open is NOT a spent trial.
+    ///
+    /// The fail-closed stand-in answers zero remaining so that gates refuse,
+    /// which is right — but saying "your trial is used up" on the strength of
+    /// records we could not read is a lie about the customer's own usage, and
+    /// it sends them to the wrong remedy.
+    func testUnreadableLedgerIsReportedAsUnavailableNotAsASpentTrial() {
+        let store = TrialStatusStore(
+            ledger: UnreadableTrialLedger(caps: caps),
+            bookkeepingAvailable: false
+        )
 
         store.refresh(entitlement: .locked, accountKey: account)
 
-        // The fail-closed stand-in answers zero remaining, which is the safe
-        // reading — never the full allowance.
-        XCTAssertEqual(store.status.remaining(for: .organize), 0)
-        XCTAssertEqual(store.status.remaining(for: .dedupe), 0)
+        XCTAssertEqual(store.status.allowance, .unavailable)
+        XCTAssertTrue(store.status.bookkeepingUnavailable)
+        XCTAssertFalse(
+            store.status.describesASpentTrial,
+            "A corrupt ledger must never be described as a consumed trial"
+        )
+        XCTAssertNil(store.status.remaining(for: .organize))
+        XCTAssertNil(store.status.balance)
+    }
+
+    /// Even with the outcome reported as readable, a ledger that throws on read
+    /// resolves to `.unavailable` rather than to a balance.
+    func testALedgerThatThrowsOnReadResolvesToUnavailable() {
+        let store = TrialStatusStore(ledger: ExplodingLedger())
+
+        store.refresh(entitlement: .locked, accountKey: account)
+
+        XCTAssertEqual(store.status.allowance, .unavailable)
+        XCTAssertFalse(store.status.describesASpentTrial)
+    }
+
+    /// Unlocked still short-circuits ahead of the unreadable check, so a broken
+    /// ledger cannot degrade a paid customer's status.
+    func testUnlockedIsUnlimitedEvenWhenBookkeepingIsUnavailable() {
+        let store = TrialStatusStore(
+            ledger: UnreadableTrialLedger(caps: caps),
+            bookkeepingAvailable: false
+        )
+
+        store.refresh(entitlement: .unlocked(reason: .inAppPurchase), accountKey: account)
+
+        XCTAssertEqual(store.status.allowance, .unlimited)
+        XCTAssertFalse(store.status.bookkeepingUnavailable)
     }
 }
