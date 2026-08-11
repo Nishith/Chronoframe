@@ -42,7 +42,8 @@ final class TrialAuthorizerTests: XCTestCase {
         )
 
         XCTAssertEqual(decision, .permitted)
-        XCTAssertEqual(await authorizer.authorizeUnlockOnlyWork(), .permitted)
+        let unlockOnly = await authorizer.authorizeUnlockOnlyWork()
+        XCTAssertEqual(unlockOnly, .permitted)
         // Finalize and release are no-ops rather than failures.
         await authorizer.finalizeMeteredWork(runID: UUID(), actualCount: 5)
         await authorizer.releaseMeteredWork(runID: UUID())
@@ -60,7 +61,8 @@ final class TrialAuthorizerTests: XCTestCase {
 
         XCTAssertEqual(decision, .permitted)
         XCTAssertFalse(ledger.wasTouched, "A paid customer must not cause a reservation")
-        XCTAssertEqual(await authorizer.authorizeUnlockOnlyWork(), .permitted)
+        let unlockOnly = await authorizer.authorizeUnlockOnlyWork()
+        XCTAssertEqual(unlockOnly, .permitted)
     }
 
     // MARK: - Metered
@@ -101,12 +103,10 @@ final class TrialAuthorizerTests: XCTestCase {
     func testEmptyRunIsPermittedEvenWhenExhausted() async throws {
         let authorizer = authorizer(ledger: try spentLedger(organize: 10), state: .locked)
 
-        XCTAssertEqual(
-            await authorizer.authorizeMeteredWork(
-                runID: UUID(), meter: .organize, count: 0, destinationRoot: nil
-            ),
-            .permitted
+        let decision = await authorizer.authorizeMeteredWork(
+            runID: UUID(), meter: .organize, count: 0, destinationRoot: nil
         )
+        XCTAssertEqual(decision, .permitted)
     }
 
     func testReleaseGivesTheReservationBack() async throws {
@@ -153,12 +153,10 @@ final class TrialAuthorizerTests: XCTestCase {
             state: .verificationUnavailable
         )
 
-        XCTAssertEqual(
-            await authorizer.authorizeMeteredWork(
-                runID: UUID(), meter: .organize, count: 3, destinationRoot: nil
-            ),
-            .permitted
+        let decision = await authorizer.authorizeMeteredWork(
+            runID: UUID(), meter: .organize, count: 3, destinationRoot: nil
         )
+        XCTAssertEqual(decision, .permitted)
     }
 
     /// `.loading` reaching the authorizer means resolution genuinely failed —
@@ -208,18 +206,16 @@ final class TrialAuthorizerTests: XCTestCase {
     func testUnlockOnlyWorkRequiresTheUnlock() async throws {
         for state in [EntitlementState.locked, .verificationUnavailable, .unverified, .loading] {
             let authorizer = authorizer(ledger: InMemoryTrialLedger(caps: caps), state: state)
-            XCTAssertEqual(
-                await authorizer.authorizeUnlockOnlyWork(),
-                .refused(.requiresUnlock),
-                "\(state) is not an unlock"
-            )
+            let decision = await authorizer.authorizeUnlockOnlyWork()
+            XCTAssertEqual(decision, .refused(.requiresUnlock), "\(state) is not an unlock")
         }
 
         let unlocked = authorizer(
             ledger: InMemoryTrialLedger(caps: caps),
             state: .unlocked(reason: .legacyPurchase)
         )
-        XCTAssertEqual(await unlocked.authorizeUnlockOnlyWork(), .permitted)
+        let unlockedDecision = await unlocked.authorizeUnlockOnlyWork()
+        XCTAssertEqual(unlockedDecision, .permitted)
     }
 }
 
