@@ -975,7 +975,13 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         try handle.synchronize()
     }
 
-    static func loadSpoolRecords(from spoolURL: URL) throws -> [String: String] {
+    /// Paths this run's journal records as actually moved to the Trash,
+    /// keyed by original path.
+    ///
+    /// Public so trial reconciliation can read a crashed commit's journal
+    /// without duplicating the parser. Strictly read-only: the journal is
+    /// recovery evidence and is never deleted by a reader.
+    public static func loadSpoolRecords(from spoolURL: URL) throws -> [String: String] {
         guard FileManager.default.fileExists(atPath: spoolURL.path) else { return [:] }
         let data = try Data(contentsOf: spoolURL)
         guard let raw = String(data: data, encoding: .utf8) else { return [:] }

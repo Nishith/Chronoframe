@@ -465,7 +465,7 @@ public struct ChronoframeCLI {
             surface: "CLI",
             operation: "revert"
         )
-        _ = MutationRecoveryCoordinator().recover(destinationRoot: rootURL)
+        _ = DestinationRecovery.recoverAndReconcile(destinationRoot: rootURL)
         let engine = SwiftOrganizerEngine()
         let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
         return try await withTaskCancellationHandler {

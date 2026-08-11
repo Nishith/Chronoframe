@@ -63,7 +63,10 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
             surface: "app",
             operation: "deduplicate scan"
         )
-        _ = recoveryCoordinator.recover(destinationRoot: destinationURL)
+        _ = DestinationRecovery.recoverAndReconcile(
+            destinationRoot: destinationURL,
+            coordinator: recoveryCoordinator
+        )
         activeLease = lease
         activeLeaseDestination = destinationURL.standardizedFileURL.path
         let networkWarning = networkAdvisory.warningIfNeeded(for: destinationURL)
@@ -95,7 +98,10 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
                 operation: "deduplicate commit"
             )
             activeLeaseDestination = standardizedDestination
-            _ = recoveryCoordinator.recover(destinationRoot: destinationURL)
+            _ = DestinationRecovery.recoverAndReconcile(
+                destinationRoot: destinationURL,
+                coordinator: recoveryCoordinator
+            )
         }
         // Minted here, before the executor starts, because step 4 takes the
         // trial reservation at this same point. The receipt used to mint its own
@@ -121,7 +127,10 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
             operation: "deduplicate revert"
         )
         activeLeaseDestination = destinationURL.standardizedFileURL.path
-        _ = recoveryCoordinator.recover(destinationRoot: destinationURL)
+        _ = DestinationRecovery.recoverAndReconcile(
+            destinationRoot: destinationURL,
+            coordinator: recoveryCoordinator
+        )
         let stream = executor.revert(
             receiptURL: receiptURL,
             destinationBoundary: destinationURL

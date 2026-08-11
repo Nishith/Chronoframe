@@ -248,7 +248,7 @@ final class AppState: ObservableObject {
                     surface: "app launch",
                     operation: "recovery"
                 )
-                _ = MutationRecoveryCoordinator().recover(destinationRoot: root)
+                _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
                 lease.release()
             } catch is DestinationBusyError {
                 // A live process owns the destination. Its journal remains

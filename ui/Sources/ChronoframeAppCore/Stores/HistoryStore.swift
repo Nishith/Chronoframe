@@ -76,7 +76,7 @@ public final class HistoryStore: ObservableObject {
                     operation: "recovery"
                 )
                 defer { lease.release() }
-                _ = MutationRecoveryCoordinator().recover(destinationRoot: rootURL)
+                _ = DestinationRecovery.recoverAndReconcile(destinationRoot: rootURL)
                 entries = try indexer.index(destinationRoot: trimmed)
             } catch {
                 errorMessage = UserFacingErrorMessage.message(for: error, context: .history)

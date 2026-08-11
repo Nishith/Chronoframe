@@ -84,7 +84,7 @@ extension OrganizerEngine {
             surface: "app",
             operation: configuration.mode.rawValue
         )
-        _ = MutationRecoveryCoordinator().recover(
+        _ = DestinationRecovery.recoverAndReconcile(
             destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true)
         )
         return PreparedRun(preflight: preflight, lease: lease)
