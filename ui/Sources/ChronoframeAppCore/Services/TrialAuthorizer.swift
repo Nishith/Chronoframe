@@ -131,7 +131,10 @@ public struct EntitlementTrialAuthorizer: TrialAuthorizing {
     /// - Parameter snapshot: resolves the current entitlement. It is
     ///   responsible for AWAITING resolution — a `.loading` state arriving here
     ///   means resolution genuinely failed, not that it is still in flight, and
-    ///   is treated as unconfirmed rather than as permission.
+    ///   is metered exactly like the other unconfirmable states: permitted while
+    ///   allowance remains, refused as `purchaseUnconfirmed` once it does not.
+    ///   Bounded rather than blocking, so a transient failure neither hands out
+    ///   unlimited work nor locks out someone with allowance left.
     public init(
         ledger: any TrialLedger,
         snapshot: @escaping @Sendable () async -> TrialEntitlementSnapshot

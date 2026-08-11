@@ -160,16 +160,27 @@ final class TrialAuthorizerTests: XCTestCase {
     }
 
     /// `.loading` reaching the authorizer means resolution genuinely failed —
-    /// the composition root is responsible for awaiting it — so it fails closed
-    /// rather than being treated as permission.
-    func testLoadingFailsClosedRatherThanPermitting() async throws {
-        let authorizer = authorizer(ledger: InMemoryTrialLedger(caps: caps), state: .loading)
-
-        let decision = await authorizer.authorizeMeteredWork(
+    /// the composition root is responsible for awaiting it — so it is metered
+    /// exactly like the other unconfirmable states.
+    ///
+    /// That means permitted while allowance remains, and refused as
+    /// `purchaseUnconfirmed` once it does not. It is bounded rather than
+    /// blocking: a transient resolution failure cannot hand out unlimited work,
+    /// and it also cannot lock out someone who has allowance left.
+    func testLoadingIsMeteredLikeAnyUnconfirmedState() async throws {
+        let withRoom = authorizer(ledger: InMemoryTrialLedger(caps: caps), state: .loading)
+        let permitted = await withRoom.authorizeMeteredWork(
             runID: UUID(), meter: .organize, count: 3, destinationRoot: nil
         )
+        XCTAssertEqual(permitted, .permitted, "Allowance remains, so work is not blocked")
 
-        XCTAssertFalse(decision.isPermitted)
+        let exhausted = authorizer(ledger: try spentLedger(organize: 10), state: .loading)
+        let refused = await exhausted.authorizeMeteredWork(
+            runID: UUID(), meter: .organize, count: 1, destinationRoot: nil
+        )
+        guard case .refused(.purchaseUnconfirmed) = refused else {
+            return XCTFail("Exhausted and unconfirmed must refuse without claiming a spent trial, got \(refused)")
+        }
     }
 
     func testMissingAccountKeyRefusesAsUnconfirmed() async throws {
