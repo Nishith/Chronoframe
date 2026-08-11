@@ -5,6 +5,29 @@ import ChronoframeAppCore
 #endif
 import Foundation
 
+/// Process-wide trial composition.
+///
+/// Deliberately outside `AppState`: the reconciler provider is a `@Sendable`,
+/// non-isolated closure, and it must be able to reach the ledger without
+/// hopping to the main actor. A `static let` of a `Sendable` type here is
+/// reachable from both.
+private enum TrialComposition {
+    /// One ledger per process, opened on first use.
+    ///
+    /// A corrupt or unopenable ledger degrades to a fail-closed stand-in
+    /// reporting zero remaining, never a fresh allowance — see
+    /// `TrialLedgerOpener`.
+    static let ledger: any TrialLedger = TrialLedgerOpener.openDefault().ledger
+
+    /// Pair ledger reconciliation with destination recovery.
+    ///
+    /// Idempotent: `AppState` is built once in the app but repeatedly in tests,
+    /// and re-assigning the provider is harmless.
+    static func installReconciler() {
+        DestinationRecovery.reconcilerProvider = { TrialLedgerReconciler(ledger: ledger) }
+    }
+}
+
 @MainActor
 final class AppState: ObservableObject {
     private static let deduplicateDestinationBookmarkKey = "deduplicate.destination"
@@ -26,6 +49,14 @@ final class AppState: ObservableObject {
     var watchedSourcesStore: WatchedSourcesStore
     var photosImportStore: PhotosImportStore
     let guardianStore: GuardianStore
+
+    /// Entitlement composed with the trial ledger.
+    ///
+    /// Created lazily and deliberately NOT refreshed at launch: refreshing calls
+    /// StoreKit, and step 3 ships dark. The unlock UI (step 5) drives the first
+    /// refresh, so today this holds `.loading` and changes nothing a user can
+    /// observe.
+    private(set) lazy var trialStatusStore = TrialStatusStore(ledger: TrialComposition.ledger)
 
     private let folderAccessService: any FolderAccessServicing
     private let finderService: any FinderServicing
@@ -225,6 +256,16 @@ final class AppState: ObservableObject {
         self.previewReviewStore.setDestinationScopeProvider { [weak self] destinationRoot in
             self?.destinationSecurityScope(destinationRoot: destinationRoot)
         }
+
+        // Supply the reconciler T5 left unwired. `DestinationRecovery` pairs
+        // filesystem recovery with settling any trial reservation the recovered
+        // run left open; without a provider that second half is skipped.
+        //
+        // A no-op today, because nothing reserves until step 4 — an empty ledger
+        // has no open reservations to settle. Wiring it here rather than leaving
+        // it for step 4 keeps enforcement a pure gating change, and keeps this
+        // decision at the composition root where it belongs.
+        TrialComposition.installReconciler()
 
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
