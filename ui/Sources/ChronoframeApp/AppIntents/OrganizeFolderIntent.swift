@@ -60,7 +60,7 @@ public struct OrganizeFolderIntent: AppIntent {
             if destStart { destinationFolder.stopAccessingSecurityScopedResource() }
         }
         
-        let engine = SwiftOrganizerEngine()
+        let engine = SwiftOrganizerEngine(authorizer: TrialComposition.authorizer)
         let runLogStore = RunLogStore(capacity: 100)
         let historyStore = HistoryStore()
         let session = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)

@@ -374,7 +374,10 @@ public struct ChronoframeCLI {
             }
         }
 
-        let engine = SwiftOrganizerEngine(profilesRepository: profilesRepository)
+        let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
+            profilesRepository: profilesRepository
+        )
         let configuration = options.runConfiguration()
         let preparedRun = try await engine.prepare(configuration)
         let preflight = preparedRun.preflight
@@ -466,7 +469,7 @@ public struct ChronoframeCLI {
             operation: "revert"
         )
         _ = DestinationRecovery.recoverAndReconcile(destinationRoot: rootURL)
-        let engine = SwiftOrganizerEngine()
+        let engine = SwiftOrganizerEngine(authorizer: UnrestrictedTrialAuthorizer())
         let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
         return try await withTaskCancellationHandler {
             defer { lease.release() }

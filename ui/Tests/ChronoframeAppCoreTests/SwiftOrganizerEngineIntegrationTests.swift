@@ -44,7 +44,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
             ],
             profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
         )
-        let engine = SwiftOrganizerEngine(profilesRepository: repository)
+        let engine = SwiftOrganizerEngine(authorizer: UnrestrictedTrialAuthorizer(), profilesRepository: repository)
 
         let preflight = try await engine.preflight(
             RunConfiguration(
@@ -73,6 +73,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         try Data("alpha".utf8).write(to: fileURL)
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
@@ -154,6 +155,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         }
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
@@ -209,6 +211,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         try Data("alpha".utf8).write(to: fileURL)
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
@@ -300,6 +303,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         defer { try? FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o644)], ofItemAtPath: fileURL.path) }
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
@@ -338,6 +342,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         defer { try? FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o644)], ofItemAtPath: badURL.path) }
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
@@ -391,6 +396,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         executor.thermalStateProvider = { .nominal }
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
@@ -456,6 +462,7 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         database.close()
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
@@ -609,6 +616,7 @@ extension SwiftOrganizerEngineIntegrationTests {
         try Data(receiptJSON.utf8).write(to: receiptURL)
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml"))
         )
 
@@ -651,6 +659,7 @@ extension SwiftOrganizerEngineIntegrationTests {
         }
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml"))
         )
 
@@ -688,6 +697,7 @@ extension SwiftOrganizerEngineIntegrationTests {
         try Data("x".utf8).write(to: nestedDir.appendingPathComponent("2024-04-08_001.HEIC"))
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml"))
         )
 
@@ -712,6 +722,7 @@ extension SwiftOrganizerEngineIntegrationTests {
         let missingReceipt = destinationURL.appendingPathComponent("does-not-exist.json")
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml"))
         )
 
@@ -726,6 +737,7 @@ extension SwiftOrganizerEngineIntegrationTests {
         try Data("{not valid json".utf8).write(to: receiptURL)
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml"))
         )
 
@@ -749,6 +761,7 @@ extension SwiftOrganizerEngineIntegrationTests {
         try FileManager.default.createDirectory(at: receiptURL, withIntermediateDirectories: true)
 
         let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml"))
         )
 
@@ -769,6 +782,7 @@ extension SwiftOrganizerEngineIntegrationTests {
     @MainActor
     private func makeEngine() -> SwiftOrganizerEngine {
         SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
             profilesRepository: TestProfilesRepository(
                 profiles: [],
                 profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")

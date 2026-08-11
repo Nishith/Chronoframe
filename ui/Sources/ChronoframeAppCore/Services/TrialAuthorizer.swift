@@ -1,0 +1,214 @@
+#if canImport(ChronoframeCore)
+import ChronoframeCore
+#endif
+import Foundation
+
+// MARK: - Trial authorization (free-trial step 4, T7)
+//
+// The seam every metered surface asks before it mutates anything, and the one
+// place entitlement and allowance turn into a yes or a no.
+//
+// It is introduced ahead of the gates that use it (T8–T11) so that adding those
+// gates is a pure behavioural change rather than behaviour plus plumbing, and so
+// the compiler — not a reviewer's memory — enumerates the composition roots.
+//
+// NO DEFAULT ARGUMENT. `SwiftOrganizerEngine` and `NativeDeduplicateEngine`
+// require an authorizer. A default would make every forgotten or future
+// constructor a silent licensing bypass, and "silent" is the operative word: a
+// missing gate does not crash, log, or fail a test. It just quietly gives the
+// product away. Requiring the argument turns that into a compile error.
+
+/// Why metered work was refused.
+///
+/// The distinction is not cosmetic — it decides what the customer is told, and
+/// telling them the wrong one is a lie about their own account.
+public enum TrialAuthorizationRefusal: Sendable, Equatable {
+    /// The free allowance really is spent. Safe to say so.
+    case allowanceSpent(TrialRefusal)
+
+    /// Metered like the trial, but the purchase could not be confirmed —
+    /// StoreKit unreachable, a signature that did not verify, or no account key.
+    ///
+    /// Settled policy is to meter these states, so this refuses. The copy must
+    /// say Chronoframe could not confirm the purchase, and must NEVER say the
+    /// trial is spent: this customer may well have paid.
+    case purchaseUnconfirmed(TrialRefusal)
+
+    /// The surface requires the unlock outright and is not metered at all —
+    /// reorganize.
+    case requiresUnlock
+}
+
+public enum TrialAuthorization: Sendable, Equatable {
+    case permitted
+    case refused(TrialAuthorizationRefusal)
+
+    public var isPermitted: Bool {
+        if case .permitted = self { return true }
+        return false
+    }
+
+    public var refusal: TrialAuthorizationRefusal? {
+        if case let .refused(refusal) = self { return refusal }
+        return nil
+    }
+}
+
+/// A snapshot of what the entitlement layer currently knows.
+public struct TrialEntitlementSnapshot: Sendable, Equatable {
+    public let state: EntitlementState
+    public let accountKey: String?
+
+    public init(state: EntitlementState, accountKey: String?) {
+        self.state = state
+        self.accountKey = accountKey
+    }
+
+    public static let unresolved = TrialEntitlementSnapshot(state: .loading, accountKey: nil)
+}
+
+/// Asked before any metered mutation, and told afterwards what actually
+/// happened.
+///
+/// Async on purpose. `EntitlementState.loading` must make a gate WAIT rather
+/// than refuse — a slow App Store response should never look like a paywall —
+/// and that waiting belongs to whoever supplies the snapshot.
+public protocol TrialAuthorizing: Sendable {
+    /// Reserve `count` units of `meter` before anything is enqueued, written, or
+    /// moved. `runID` is the reservation key threaded through the run.
+    func authorizeMeteredWork(
+        runID: UUID,
+        meter: TrialMeter,
+        count: Int,
+        destinationRoot: String?
+    ) async -> TrialAuthorization
+
+    /// Settle the reservation with the count that actually landed.
+    func finalizeMeteredWork(runID: UUID, actualCount: Int) async
+
+    /// Give a reservation back. ONLY when nothing was mutated; an ambiguous
+    /// outcome stays open and charged until reconciliation resolves it.
+    func releaseMeteredWork(runID: UUID) async
+
+    /// For surfaces that require the unlock and are not metered — reorganize.
+    func authorizeUnlockOnlyWork() async -> TrialAuthorization
+}
+
+// MARK: - Unrestricted
+
+/// Permits everything and records nothing.
+///
+/// For the CLI and Developer ID builds, which are internal and testing tools
+/// that never ship to a paying customer — the CLI is not embedded in the app
+/// bundle or the Mac App Store archive. Also the honest choice for tests that
+/// are not exercising gating.
+///
+/// Named for what it does. A composition root choosing this is making a visible
+/// decision, which is the entire point of removing the default argument.
+public struct UnrestrictedTrialAuthorizer: TrialAuthorizing {
+    public init() {}
+
+    public func authorizeMeteredWork(
+        runID: UUID,
+        meter: TrialMeter,
+        count: Int,
+        destinationRoot: String?
+    ) async -> TrialAuthorization { .permitted }
+
+    public func finalizeMeteredWork(runID: UUID, actualCount: Int) async {}
+    public func releaseMeteredWork(runID: UUID) async {}
+    public func authorizeUnlockOnlyWork() async -> TrialAuthorization { .permitted }
+}
+
+// MARK: - Entitlement-backed
+
+/// The Mac App Store policy: unlocked customers pass, everyone else is metered
+/// against the ledger.
+public struct EntitlementTrialAuthorizer: TrialAuthorizing {
+    private let ledger: any TrialLedger
+    private let snapshot: @Sendable () async -> TrialEntitlementSnapshot
+
+    /// - Parameter snapshot: resolves the current entitlement. It is
+    ///   responsible for AWAITING resolution — a `.loading` state arriving here
+    ///   means resolution genuinely failed, not that it is still in flight, and
+    ///   is treated as unconfirmed rather than as permission.
+    public init(
+        ledger: any TrialLedger,
+        snapshot: @escaping @Sendable () async -> TrialEntitlementSnapshot
+    ) {
+        self.ledger = ledger
+        self.snapshot = snapshot
+    }
+
+    public func authorizeMeteredWork(
+        runID: UUID,
+        meter: TrialMeter,
+        count: Int,
+        destinationRoot: String?
+    ) async -> TrialAuthorization {
+        let entitlement = await snapshot()
+
+        // A paid customer is never metered and never causes a ledger read.
+        if entitlement.state.isUnlocked { return .permitted }
+
+        // A run with nothing to do is never refused, whatever the balance or
+        // the entitlement. Refusing an empty run would be an insult with no
+        // revenue attached.
+        guard count > 0 else { return .permitted }
+
+        // Settled policy: `verificationUnavailable` and `unverified` are
+        // metered like the trial. Without an account key there is no row to
+        // meter against, so this fails closed — but as "could not confirm",
+        // never as "spent".
+        guard let accountKey = entitlement.accountKey else {
+            return .refused(
+                .purchaseUnconfirmed(TrialRefusal(meter: meter, requested: count, remaining: 0))
+            )
+        }
+
+        let decision: ReservationDecision
+        do {
+            decision = try ledger.reserve(
+                runID: runID,
+                accountKey: accountKey,
+                meter: meter,
+                count: count,
+                destinationRoot: destinationRoot
+            )
+        } catch {
+            // The ledger could not be written. Fail closed: proceeding would
+            // mutate media with no record that the allowance was consumed.
+            return .refused(
+                .purchaseUnconfirmed(TrialRefusal(meter: meter, requested: count, remaining: 0))
+            )
+        }
+
+        switch decision {
+        case .permitted:
+            return .permitted
+        case let .refused(refusal):
+            return .refused(Self.refusal(refusal, for: entitlement.state))
+        }
+    }
+
+    public func finalizeMeteredWork(runID: UUID, actualCount: Int) async {
+        try? ledger.finalize(runID: runID, actualCount: actualCount)
+    }
+
+    public func releaseMeteredWork(runID: UUID) async {
+        try? ledger.release(runID: runID)
+    }
+
+    public func authorizeUnlockOnlyWork() async -> TrialAuthorization {
+        let entitlement = await snapshot()
+        return entitlement.state.isUnlocked ? .permitted : .refused(.requiresUnlock)
+    }
+
+    /// Only a resolved `.locked` customer may be told their trial is spent.
+    private static func refusal(
+        _ refusal: TrialRefusal,
+        for state: EntitlementState
+    ) -> TrialAuthorizationRefusal {
+        state == .locked ? .allowanceSpent(refusal) : .purchaseUnconfirmed(refusal)
+    }
+}

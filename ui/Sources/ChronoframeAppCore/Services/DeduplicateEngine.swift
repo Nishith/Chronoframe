@@ -33,6 +33,9 @@ public protocol DeduplicateEngine: AnyObject {
 
 @MainActor
 public final class NativeDeduplicateEngine: DeduplicateEngine {
+    /// Consulted by the gate in T9. Stored here in T7 so that adding that gate
+    /// is a pure behavioural change.
+    private let authorizer: any TrialAuthorizing
     private let scanner: DeduplicateScanner
     private let executor: DeduplicateExecutor
     private let recoveryCoordinator: MutationRecoveryCoordinator
@@ -42,11 +45,16 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     /// volume. Internal so tests can inject a stub advisory + scratch defaults.
     var networkAdvisory = NetworkDestinationAdvisory()
 
+    /// - Parameter authorizer: who may do metered work. Required, never
+    ///   defaulted — see `SwiftOrganizerEngine.init` for why a default here
+    ///   would be a silent licensing bypass rather than a convenience.
     public init(
+        authorizer: any TrialAuthorizing,
         scanner: DeduplicateScanner = DeduplicateScanner(),
         executor: DeduplicateExecutor = DeduplicateExecutor(),
         recoveryCoordinator: MutationRecoveryCoordinator = MutationRecoveryCoordinator()
     ) {
+        self.authorizer = authorizer
         self.scanner = scanner
         self.executor = executor
         self.recoveryCoordinator = recoveryCoordinator

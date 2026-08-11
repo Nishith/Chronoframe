@@ -5,6 +5,9 @@ import Foundation
 
 @MainActor
 public final class SwiftOrganizerEngine: OrganizerEngine {
+    /// Consulted by the gates in T8 and T10. Stored here in T7 so that adding
+    /// those gates is a pure behavioural change.
+    private let authorizer: any TrialAuthorizing
     private let profilesRepository: any ProfilesRepositorying
     private let planner: DryRunPlanner
     private let transferExecutor: TransferExecutor
@@ -17,13 +20,24 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     /// alongside `activeTask.cancel()`.
     private var activeCancellationRef: TaskCancellationCheck?
 
+    /// - Parameter authorizer: who may do metered work. **Required on purpose.**
+    ///   A default would make every forgotten or future constructor a silent
+    ///   licensing bypass — and silent is the operative word, because a missing
+    ///   gate does not crash, log, or fail a test. It just gives the product
+    ///   away. Requiring it turns that into a compile error and forces each
+    ///   composition root to state its policy out loud.
+    ///
+    ///   Revert deliberately takes no authorizer anywhere: a paywall must never
+    ///   be able to strand a library mid-migration.
     public init(
+        authorizer: any TrialAuthorizing,
         profilesRepository: any ProfilesRepositorying = ProfilesRepository(),
         planner: DryRunPlanner = DryRunPlanner(),
         transferExecutor: TransferExecutor = TransferExecutor(),
         revertExecutor: RevertExecutor = RevertExecutor(),
         reorganizeExecutor: ReorganizeExecutor = ReorganizeExecutor()
     ) {
+        self.authorizer = authorizer
         self.profilesRepository = profilesRepository
         self.planner = planner
         self.transferExecutor = transferExecutor
