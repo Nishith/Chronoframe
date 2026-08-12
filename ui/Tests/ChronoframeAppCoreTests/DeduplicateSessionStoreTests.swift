@@ -4,6 +4,109 @@ import XCTest
 @testable import ChronoframeCore
 
 final class DeduplicateSessionStoreTests: XCTestCase {
+    // MARK: - Trial refusals (free-trial step 5, T13)
+
+    /// A refused cleanup must reach the unlock sheet, not read as a failure.
+    ///
+    /// The dedupe workspace has its own store, so a refusal here has to be
+    /// surfaced here — and the reviewed clusters must survive, so unlocking
+    /// and pressing Clean Up again re-commits the plan the customer already
+    /// approved instead of making them scan and review from scratch.
+    @MainActor
+    func testRefusedCommitPausesTheReviewAndOffersTheUnlock() async throws {
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/keep.jpg", size: 20, modificationTime: 0),
+                PhotoCandidate(path: "/dest/delete.jpg", size: 10, modificationTime: 0),
+            ],
+            suggestedKeeperIDs: ["/dest/keep.jpg"],
+            bytesIfPruned: 10
+        )
+        let refusal = TrialRefusal(meter: .dedupe, requested: 1, remaining: 0)
+        let engine = MockDeduplicateEngine(clusters: [cluster])
+        engine.commitError = TrialAuthorizationError(refusal: .allowanceSpent(refusal))
+
+        let store = DeduplicateSessionStore(engine: engine)
+        let configuration = DeduplicateConfiguration(destinationPath: "/dest")
+        store.startScan(configuration: configuration)
+        let reviewed = await waitForCondition { store.status == .readyToReview }
+        XCTAssertTrue(reviewed)
+        store.acceptSuggestionsForCluster(cluster)
+        store.commitReviewed(configuration: configuration)
+
+        let refused = await waitForCondition { store.lastRefusal != nil }
+        XCTAssertTrue(refused)
+
+        XCTAssertEqual(store.lastRefusal, .allowanceSpent(refusal))
+        XCTAssertEqual(store.status, .idle, "A refused commit did not fail; it did not happen")
+        XCTAssertFalse(
+            store.clusters.isEmpty,
+            "The review must survive so the customer does not have to scan again after unlocking"
+        )
+        XCTAssertTrue(store.hasPausedReview, "The workspace is back in a paused review")
+    }
+
+    /// An ordinary commit failure still reads as a failure, so the unlock sheet
+    /// cannot swallow a real problem.
+    @MainActor
+    func testOrdinaryCommitFailureIsStillAFailure() async throws {
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/keep.jpg", size: 20, modificationTime: 0),
+                PhotoCandidate(path: "/dest/delete.jpg", size: 10, modificationTime: 0),
+            ],
+            suggestedKeeperIDs: ["/dest/keep.jpg"],
+            bytesIfPruned: 10
+        )
+        let engine = MockDeduplicateEngine(clusters: [cluster])
+        engine.commitError = TestFailure.expectedFailure("trash unavailable")
+
+        let store = DeduplicateSessionStore(engine: engine)
+        let configuration = DeduplicateConfiguration(destinationPath: "/dest")
+        store.startScan(configuration: configuration)
+        _ = await waitForCondition { store.status == .readyToReview }
+        store.acceptSuggestionsForCluster(cluster)
+        store.commitReviewed(configuration: configuration)
+
+        let failed = await waitForCondition {
+            if case .failed = store.status { return true }
+            return false
+        }
+        XCTAssertTrue(failed)
+        XCTAssertNil(store.lastRefusal)
+    }
+
+    /// Dismissing clears the refusal and commits nothing.
+    @MainActor
+    func testDismissingTheDedupeRefusalCommitsNothing() async throws {
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/keep.jpg", size: 20, modificationTime: 0),
+                PhotoCandidate(path: "/dest/delete.jpg", size: 10, modificationTime: 0),
+            ],
+            suggestedKeeperIDs: ["/dest/keep.jpg"],
+            bytesIfPruned: 10
+        )
+        let engine = MockDeduplicateEngine(clusters: [cluster])
+        engine.commitError = TrialAuthorizationError(refusal: .requiresUnlock)
+
+        let store = DeduplicateSessionStore(engine: engine)
+        let configuration = DeduplicateConfiguration(destinationPath: "/dest")
+        store.startScan(configuration: configuration)
+        _ = await waitForCondition { store.status == .readyToReview }
+        store.acceptSuggestionsForCluster(cluster)
+        store.commitReviewed(configuration: configuration)
+        _ = await waitForCondition { store.lastRefusal != nil }
+
+        store.dismissRefusal()
+
+        XCTAssertNil(store.lastRefusal)
+        XCTAssertNil(store.commitSummary, "Dismissing must not commit anything")
+    }
+
     @MainActor
     // AGENTS-INVARIANT: 17
     func testPreparedDialogPlanIsExactEngineCommitPlan() async throws {

@@ -168,6 +168,9 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     var commitEvents: [DeduplicateCommitEvent] = []
     var revertEvents: [DeduplicateCommitEvent] = []
     var scanError: Error?
+    /// Thrown into the commit stream after `commitEvents`, so a test can
+    /// exercise a commit that fails or is refused partway.
+    var commitError: Error?
     var lastScanConfiguration: DeduplicateConfiguration?
     var lastCommitPlan: DeduplicationPlan?
     var lastCommitConfiguration: DeduplicateConfiguration?
@@ -216,10 +219,15 @@ final class MockDeduplicateEngine: DeduplicateEngine {
         lastCommitPlan = plan
         lastCommitConfiguration = configuration
         let events = commitEvents
+        let error = commitError
         return AsyncThrowingStream { continuation in
             Task { @MainActor in
                 for event in events { continuation.yield(event) }
-                continuation.finish()
+                if let error {
+                    continuation.finish(throwing: error)
+                } else {
+                    continuation.finish()
+                }
             }
         }
     }

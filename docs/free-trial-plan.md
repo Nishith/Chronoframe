@@ -12,9 +12,9 @@ Grounded against the tree as of the "Free trial step 2" merge.
 |---|---|---|
 | 1 | Settle policy | Done — see [Settled policy](#settled-policy) |
 | 2 | StoreKit seams + entitlement state machine | **Merged.** Ships dark; nothing reads it |
-| 3 | Durable reservation ledger | Not started |
-| 4 | Enforcement at the mutation surfaces | Not started |
-| 5 | Unlock UI + free test batch | Not started |
+| 3 | Durable reservation ledger | **Merged.** T1–T6 |
+| 4 | Enforcement at the mutation surfaces | **Merged.** T7–T12 |
+| 5 | Unlock UI + free test batch | In progress — T13 open; T14–T16 not started |
 | 6 | Test matrices | Not started |
 | 7–9 | Product creation, release, monitoring | Not started |
 

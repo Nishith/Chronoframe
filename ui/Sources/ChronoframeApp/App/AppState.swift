@@ -416,6 +416,62 @@ final class AppState: ObservableObject {
         runCoordinator.dismissRunPrompt()
     }
 
+    // MARK: - Unlock (free-trial step 5, T13)
+
+    /// Non-nil while a refused operation is waiting on an unlock decision.
+    ///
+    /// Reads both stores. Organize/reorganize refusals land in
+    /// `RunSessionStore`; a refused duplicate cleanup lands in
+    /// `DeduplicateSessionStore`, which is a separate store with its own
+    /// status. Checking only the first would leave a customer who exhausted
+    /// the dedupe allowance looking at an error with no way to unlock.
+    var unlockRefusal: TrialAuthorizationRefusal? {
+        runSessionStore.lastRefusal ?? deduplicateSessionStore.lastRefusal
+    }
+
+    /// The customer closed the sheet without unlocking. Nothing to clean up:
+    /// both stores released everything they held when they refused, because
+    /// neither operation started.
+    func dismissUnlockSheet() {
+        runSessionStore.dismissRefusal()
+        deduplicateSessionStore.dismissRefusal()
+    }
+
+    /// Start over after an unlock, from preflight.
+    ///
+    /// The prepared run and its plan are deliberately NOT reused. They were
+    /// built before the purchase and the source folder may have changed since;
+    /// confirming a stale plan would copy something the customer never saw.
+    /// `startTransfer`/`startPreview` rebuild the configuration from Setup and
+    /// re-run preflight and planning from scratch.
+    ///
+    /// Reorganize is not retried automatically: rebuilding its request needs a
+    /// target structure that lives in the view that started it, and inventing
+    /// one would be a guess. That sheet just closes and the customer re-invokes
+    /// the action, which is one click and cannot be wrong.
+    func retryAfterUnlock() async {
+        // A dedupe refusal leaves its reviewed clusters paused and intact, so
+        // there is nothing to rebuild and nothing safe to auto-run: committing
+        // on the customer's behalf the moment a purchase completes would remove
+        // files without them asking twice. Closing the sheet returns them to
+        // their paused review, one click from Clean Up.
+        if deduplicateSessionStore.lastRefusal != nil {
+            deduplicateSessionStore.dismissRefusal()
+            return
+        }
+
+        let refusedMode = runSessionStore.currentMode
+        runSessionStore.dismissRefusal()
+        switch refusedMode {
+        case .transfer:
+            await startTransfer()
+        case .preview:
+            await startPreview()
+        default:
+            break
+        }
+    }
+
     func cancelRun() {
         switch selection {
         case .organize:

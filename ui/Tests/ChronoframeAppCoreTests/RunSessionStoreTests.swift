@@ -380,8 +380,8 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(prompted)
         store.confirmPrompt()
 
-        let failed = await waitForCondition { store.status == .failed }
-        XCTAssertTrue(failed)
+        let refused = await waitForCondition { store.lastRefusal != nil }
+        XCTAssertTrue(refused)
 
         XCTAssertEqual(store.lastRefusal, .allowanceSpent(refusal))
         // The formatted copy still reaches the Run workspace.
@@ -389,6 +389,67 @@ final class RunSessionStoreTests: XCTestCase {
             store.lastErrorMessage,
             TrialAuthorizationError(refusal: .allowanceSpent(refusal)).errorDescription
         )
+    }
+
+    /// A refused run did not run, so it must not be recorded as one that
+    /// failed. There is no receipt, so nothing appears in Run History; a
+    /// `.failed` completion record would additionally tell watched-source
+    /// bookkeeping a run finished when none did.
+    @MainActor
+    func testRefusedRunIsNotRecordedAsAFailedRun() async {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .fails(TrialAuthorizationError(refusal: .requiresUnlock))
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let refused = await waitForCondition { store.lastRefusal != nil }
+        XCTAssertTrue(refused)
+
+        XCTAssertEqual(store.status, .idle, "Nothing ran, so the session is idle rather than failed")
+        XCTAssertNil(store.summary, "A refusal produces no run summary")
+        XCTAssertNil(
+            store.lastRunCompletion,
+            "No run completed, so nothing may be published as a completion"
+        )
+        XCTAssertFalse(
+            store.logLines.contains { $0.hasPrefix("ERROR:") },
+            "A refusal is not an error: \(store.logLines)"
+        )
+    }
+
+    /// The customer closes the unlock sheet. Nothing to unwind — the refusal
+    /// released everything when it happened — so this only clears the flag.
+    @MainActor
+    func testDismissingTheRefusalClearsItWithoutStartingAnything() async {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .fails(TrialAuthorizationError(refusal: .requiresUnlock))
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let refused = await waitForCondition { store.lastRefusal != nil }
+        XCTAssertTrue(refused)
+
+        store.dismissRefusal()
+
+        XCTAssertNil(store.lastRefusal)
+        XCTAssertEqual(store.status, .idle)
+        XCTAssertEqual(engine.startConfigurations.count, 1, "Dismissing must not start a run")
     }
 
     /// An ordinary failure leaves `lastRefusal` nil, so the App Intent's
@@ -431,8 +492,8 @@ final class RunSessionStoreTests: XCTestCase {
         let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
 
         await store.requestRun(mode: .preview, configuration: configuration)
-        let failed = await waitForCondition { store.status == .failed }
-        XCTAssertTrue(failed)
+        let refused = await waitForCondition { store.lastRefusal != nil }
+        XCTAssertTrue(refused)
         XCTAssertEqual(store.lastRefusal, .requiresUnlock)
 
         engine.startMode = .events([])
