@@ -106,6 +106,23 @@ enum TrialComposition {
         inFlightResolution = nil
     }
 
+    /// Told what a revert undid, so the allowance comes back.
+    ///
+    /// Channel-selected the same way `authorizer` is, and for the mirror-image
+    /// reason: the Developer ID and CLI builds never charged anything, so
+    /// refunding there would credit work that was free.
+    ///
+    /// Note this is NOT the authorizer. `TrialRefunding` has no way to refuse
+    /// anything, which is what lets it be handed to a revert path without
+    /// giving anyone something to gate with.
+    static let refunder: any TrialRefunding =
+        isMacAppStoreBuild ? ledgerBackedRefunder : NoOpTrialRefunder()
+
+    /// No entitlement closure: the refund is attributed to the account the
+    /// ledger recorded the charge under, which is the only account that can
+    /// receive it. See `EntitlementTrialRefunder`.
+    static let ledgerBackedRefunder: any TrialRefunding = EntitlementTrialRefunder(ledger: ledger)
+
     /// Pair ledger reconciliation with destination recovery.
     ///
     /// Idempotent: `AppState` is built once in the app but repeatedly in tests,

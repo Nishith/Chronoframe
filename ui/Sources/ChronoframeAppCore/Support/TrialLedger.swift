@@ -137,6 +137,18 @@ public protocol TrialLedger: Sendable {
         itemPaths: [String]
     ) throws
 
+    /// The account a reservation was charged to, or nil when no such
+    /// reservation exists.
+    ///
+    /// A refund MUST be attributed to the account that was charged, not to
+    /// whoever is signed in when the revert happens. `RefundedItems` is
+    /// `INSERT OR IGNORE` on `(receipt_run_id, item_path)` and usage only nets
+    /// refunds whose account matches the reservation — so a refund recorded
+    /// under the wrong account credits nothing AND permanently blocks the
+    /// correct record for that item. Asking the ledger who was charged is the
+    /// only way to get it right offline, or after an Apple Account switch.
+    func accountKey(forRunID runID: UUID) throws -> String?
+
     /// Every reservation still in the `open` state, for reconciliation.
     func openReservations() throws -> [OpenReservation]
 }
@@ -235,6 +247,10 @@ public struct UnreadableTrialLedger: TrialLedger {
         meter: TrialMeter,
         itemPaths: [String]
     ) throws {}
+
+    /// Unknown, not "nobody". An unreadable ledger cannot say who was charged,
+    /// and the refunder records nothing rather than guessing.
+    public func accountKey(forRunID runID: UUID) throws -> String? { nil }
     public func openReservations() throws -> [OpenReservation] { [] }
 }
 
@@ -362,6 +378,12 @@ public final class InMemoryTrialLedger: TrialLedger, @unchecked Sendable {
             guard refunded[key] == nil else { continue }
             refunded[key] = RefundOrigin(accountKey: accountKey, meter: meter)
         }
+    }
+
+    public func accountKey(forRunID runID: UUID) throws -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return rows[runID]?.accountKey
     }
 
     public func openReservations() throws -> [OpenReservation] {

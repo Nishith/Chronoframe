@@ -8,6 +8,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     /// Asked before any transfer enqueues, copies, or writes anything.
     /// Reorganize's gate is T10.
     private let authorizer: any TrialAuthorizing
+    /// Told what a revert undid, so the allowance comes back.
+    ///
+    /// Deliberately a different type from `authorizer`: `TrialRefunding` has no
+    /// way to refuse anything, so having it in scope on the revert path cannot
+    /// turn into a gate there.
+    private let refunder: any TrialRefunding
     private let profilesRepository: any ProfilesRepositorying
     private let planner: DryRunPlanner
     private let transferExecutor: TransferExecutor
@@ -29,8 +35,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     ///
     ///   Revert deliberately takes no authorizer anywhere: a paywall must never
     ///   be able to strand a library mid-migration.
+    /// - Parameter refunder: told what a revert undid. Defaulted, unlike
+    ///   `authorizer`: forgetting it leaves a customer over-charged, which is
+    ///   visible in their balance and correctable, whereas forgetting the
+    ///   authorizer gives the product away silently and permanently.
     public init(
         authorizer: any TrialAuthorizing,
+        refunder: any TrialRefunding = NoOpTrialRefunder(),
         profilesRepository: any ProfilesRepositorying = ProfilesRepository(),
         planner: DryRunPlanner = DryRunPlanner(),
         transferExecutor: TransferExecutor = TransferExecutor(),
@@ -38,6 +49,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         reorganizeExecutor: ReorganizeExecutor = ReorganizeExecutor()
     ) {
         self.authorizer = authorizer
+        self.refunder = refunder
         self.profilesRepository = profilesRepository
         self.planner = planner
         self.transferExecutor = transferExecutor
@@ -155,6 +167,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     ) -> AsyncThrowingStream<RunEvent, Error> {
         AsyncThrowingStream { continuation in
             let revertExecutor = self.revertExecutor
+            let refunder = self.refunder
             let isCancelledRef = TaskCancellationCheck()
             let runID = UUID()
 
@@ -190,6 +203,20 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     observer: observer,
                     destinationBoundary: URL(fileURLWithPath: destinationRoot, isDirectory: true),
                     isCancelled: { isCancelledRef.isCancelled }
+                )
+
+                // Give back the allowance for what this pass actually removed,
+                // before the cancellation check: a cancel does not un-remove the
+                // files already deleted, and leaving them charged would bill the
+                // customer for work that is undone on disk.
+                //
+                // `reservationRunID` is nil for a receipt that cannot supply a
+                // trustworthy key, and the refunder does nothing with nil rather
+                // than guessing one.
+                await refunder.refundUndoneWork(
+                    receiptRunID: receipt.reservationRunID,
+                    meter: .organize,
+                    itemPaths: result.revertedPaths
                 )
 
                 if isCancelledRef.isCancelled {

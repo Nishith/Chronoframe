@@ -377,6 +377,26 @@ public final class TrialLedgerDatabase: TrialLedger, @unchecked Sendable {
         }
     }
 
+    public func accountKey(forRunID runID: UUID) throws -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let statement = try prepare(
+            "SELECT account_key FROM Reservations WHERE run_id = ? LIMIT 1;"
+        )
+        defer { sqlite3_finalize(statement) }
+        bindText(statement, 1, runID.uuidString)
+
+        let step = sqlite3_step(statement)
+        if step == SQLITE_ROW {
+            return Self.columnText(statement, 0)
+        }
+        guard step == SQLITE_DONE else {
+            throw TrialLedgerError.unreadable(lastErrorMessage())
+        }
+        return nil
+    }
+
     // MARK: - Low-level SQLite
 
     private func rowExistsLocked(runID: UUID) throws -> Bool {

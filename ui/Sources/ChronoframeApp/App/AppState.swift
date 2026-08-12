@@ -169,11 +169,15 @@ final class AppState: ObservableObject {
         let historyStore = HistoryStore()
         let engine: any OrganizerEngine = SwiftOrganizerEngine(
             authorizer: TrialComposition.authorizer,
+            refunder: TrialComposition.refunder,
             profilesRepository: profilesRepository
         )
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
         let libraryHealthStore = LibraryHealthStore()
-        let deduplicateEngine = NativeDeduplicateEngine(authorizer: TrialComposition.authorizer)
+        let deduplicateEngine = NativeDeduplicateEngine(
+            authorizer: TrialComposition.authorizer,
+            refunder: TrialComposition.refunder
+        )
         let deduplicateSessionStore = DeduplicateSessionStore(engine: deduplicateEngine)
 
         self.init(
@@ -226,7 +230,10 @@ final class AppState: ObservableObject {
         self.runSessionStore = runSessionStore
         self.previewReviewStore = previewReviewStore ?? PreviewReviewStore()
         self.libraryHealthStore = libraryHealthStore ?? LibraryHealthStore()
-        self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine(authorizer: TrialComposition.authorizer))
+        self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine(
+            authorizer: TrialComposition.authorizer,
+            refunder: TrialComposition.refunder
+        ))
         self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.photosImportStore = photosImportStore ?? AppState.makePhotosImportStore()
         self.guardianStore = GuardianStore(engine: SwiftGuardianEngine(), notifier: GuardianUserNotifier())

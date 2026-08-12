@@ -30,6 +30,7 @@ private final class ExplodingLedger: TrialLedger, @unchecked Sendable {
         receiptRunID: UUID, accountKey: String,
         meter: TrialMeter, itemPaths: [String]
     ) throws {}
+    func accountKey(forRunID runID: UUID) throws -> String? { "app-txn-1" }
     func openReservations() throws -> [OpenReservation] { [] }
 }
 

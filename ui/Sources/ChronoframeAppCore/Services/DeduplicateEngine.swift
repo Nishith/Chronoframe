@@ -35,6 +35,12 @@ public protocol DeduplicateEngine: AnyObject {
 public final class NativeDeduplicateEngine: DeduplicateEngine {
     /// Asked before a commit trashes anything. Scanning and review are free.
     private let authorizer: any TrialAuthorizing
+    /// Told what a revert restored, so the allowance comes back.
+    ///
+    /// A different type from `authorizer` on purpose: `TrialRefunding` cannot
+    /// refuse anything, so having it in scope on the revert path cannot become
+    /// a gate there.
+    private let refunder: any TrialRefunding
     private let scanner: DeduplicateScanner
     private let executor: DeduplicateExecutor
     private let recoveryCoordinator: MutationRecoveryCoordinator
@@ -55,14 +61,20 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     /// - Parameter authorizer: who may do metered work. Required, never
     ///   defaulted — see `SwiftOrganizerEngine.init` for why a default here
     ///   would be a silent licensing bypass rather than a convenience.
+    /// - Parameter refunder: told what a revert restored. Defaulted, unlike
+    ///   `authorizer`: forgetting it leaves a customer over-charged, which
+    ///   shows in their balance and can be corrected, whereas forgetting the
+    ///   authorizer gives the product away silently.
     public init(
         authorizer: any TrialAuthorizing,
+        refunder: any TrialRefunding = NoOpTrialRefunder(),
         scanner: DeduplicateScanner = DeduplicateScanner(),
         executor: DeduplicateExecutor = DeduplicateExecutor(),
         recoveryCoordinator: MutationRecoveryCoordinator = MutationRecoveryCoordinator(),
         reconciliationEvidence: any TrialReconciliationEvidence = FileSystemTrialReconciliationEvidence()
     ) {
         self.authorizer = authorizer
+        self.refunder = refunder
         self.scanner = scanner
         self.executor = executor
         self.recoveryCoordinator = recoveryCoordinator
@@ -304,28 +316,73 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
             receiptURL: receiptURL,
             destinationBoundary: destinationURL
         )
-        return releasingStream(stream)
+        return refundingRevertStream(stream)
     }
 
-    private func releasingStream(
+    // MARK: - Refunding a revert (free-trial step 4, T12)
+
+    /// Forwards a revert's events, holds the destination lease for its
+    /// duration, and gives back the allowance for what it actually restored.
+    ///
+    /// Revert's behaviour is untouched. This observes the stream; it cannot
+    /// refuse, retry, or reorder anything, and a missing run ID or a ledger
+    /// failure changes nothing about what the revert does.
+    private func refundingRevertStream(
         _ stream: AsyncThrowingStream<DeduplicateCommitEvent, Error>
     ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         AsyncThrowingStream { continuation in
+            // Captured strongly so an engine that goes away mid-revert still
+            // credits back files that are already out of the Trash.
+            let refunder = self.refunder
             Task { @MainActor [weak self] in
                 defer {
                     self?.activeLease?.release()
                     self?.activeLease = nil
                     self?.activeLeaseDestination = nil
                 }
+                // Only the items this pass actually moved back. A Trash item
+                // whose bytes no longer match the receipt is left in place by
+                // design and reported as `itemFailed`, so a later pass can
+                // restore it and refund it then.
+                var restoredPaths: [String] = []
+                // Reported by the pass that did the restoring, so the refund is
+                // keyed to the receipt those items actually came from. Reading
+                // the receipt again here would be a second, independent read:
+                // anything that replaced the file in between — a sync client,
+                // the user — would have this credit one run for another run's
+                // items.
+                var receiptRunID: UUID?
                 do {
-                    for try await event in stream { continuation.yield(event) }
+                    for try await event in stream {
+                        switch event {
+                        // The restore path reuses the forward path's event
+                        // type: `itemTrashed` here means the file came back
+                        // OUT of the Trash.
+                        case let .itemTrashed(originalPath, _, _):
+                            restoredPaths.append(originalPath)
+                        case let .complete(summary):
+                            receiptRunID = summary.runID
+                        default:
+                            break
+                        }
+                        continuation.yield(event)
+                    }
+                    await refunder.refundUndoneWork(
+                        receiptRunID: receiptRunID, meter: .dedupe, itemPaths: restoredPaths
+                    )
                     continuation.finish()
                 } catch {
+                    // No refund here, and none is owed: every `throw` on the
+                    // revert path happens while validating the receipt, before
+                    // a single item is restored. Per-item trouble after that is
+                    // reported as `itemFailed`, not thrown — so a throw means
+                    // `restoredPaths` is empty and there is nothing to credit.
                     continuation.finish(throwing: error)
                 }
             }
         }
     }
+
 
     private func scanHoldingStream(
         _ stream: AsyncThrowingStream<DeduplicateEvent, Error>,
