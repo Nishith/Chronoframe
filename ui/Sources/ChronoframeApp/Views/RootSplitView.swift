@@ -105,6 +105,25 @@ struct RootSplitView: View {
         } message: {
             Text(appState.transientErrorMessage ?? "")
         }
+        .sheet(
+            isPresented: Binding(
+                get: { appState.unlockRefusal != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        appState.dismissUnlockSheet()
+                    }
+                }
+            )
+        ) {
+            if let refusal = appState.unlockRefusal {
+                UnlockSheet(
+                    refusal: refusal,
+                    entitlementStore: TrialComposition.entitlementStore,
+                    onUnlocked: { Task { await appState.retryAfterUnlock() } },
+                    onDismiss: { appState.dismissUnlockSheet() }
+                )
+            }
+        }
         .onAppear {
             #if DEBUG
             UITestScenario.configureCurrentWindow(for: UITestScenario.current())

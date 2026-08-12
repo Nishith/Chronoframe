@@ -416,6 +416,45 @@ final class AppState: ObservableObject {
         runCoordinator.dismissRunPrompt()
     }
 
+    // MARK: - Unlock (free-trial step 5, T13)
+
+    /// Non-nil while a refused run is waiting on an unlock decision.
+    var unlockRefusal: TrialAuthorizationRefusal? {
+        runSessionStore.lastRefusal
+    }
+
+    /// The customer closed the sheet without unlocking. Nothing to clean up —
+    /// `RunSessionStore.handleRefusal` already released the destination lease
+    /// and the security scope, because the run never started.
+    func dismissUnlockSheet() {
+        runSessionStore.dismissRefusal()
+    }
+
+    /// Start over after an unlock, from preflight.
+    ///
+    /// The prepared run and its plan are deliberately NOT reused. They were
+    /// built before the purchase and the source folder may have changed since;
+    /// confirming a stale plan would copy something the customer never saw.
+    /// `startTransfer`/`startPreview` rebuild the configuration from Setup and
+    /// re-run preflight and planning from scratch.
+    ///
+    /// Reorganize is not retried automatically: rebuilding its request needs a
+    /// target structure that lives in the view that started it, and inventing
+    /// one would be a guess. That sheet just closes and the customer re-invokes
+    /// the action, which is one click and cannot be wrong.
+    func retryAfterUnlock() async {
+        let refusedMode = runSessionStore.currentMode
+        runSessionStore.dismissRefusal()
+        switch refusedMode {
+        case .transfer:
+            await startTransfer()
+        case .preview:
+            await startPreview()
+        default:
+            break
+        }
+    }
+
     func cancelRun() {
         switch selection {
         case .organize:

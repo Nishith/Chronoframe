@@ -903,13 +903,53 @@ public final class RunSessionStore: ObservableObject {
     }
 
     private func handleFailure(error: Error) {
-        // Captured before the error is flattened into a message. Set ahead of
-        // `handleFailure(message:)` so anything observing `status` already sees
-        // the refusal by the time the run reads as failed.
+        let message = UserFacingErrorMessage.message(for: error, context: .run)
         if let refusal = (error as? TrialAuthorizationError)?.refusal {
-            lastRefusal = refusal
+            handleRefusal(refusal, message: message)
+            return
         }
-        handleFailure(message: UserFacingErrorMessage.message(for: error, context: .run))
+        handleFailure(message: message)
+    }
+
+    /// A refused run did not run, and must not be recorded as one that failed.
+    ///
+    /// Nothing broke and nothing was written: T8–T10 guarantee a refusal
+    /// enqueues nothing, writes no receipt, and moves no file. So there is no
+    /// Run History entry to make — that list is built from receipts on disk —
+    /// and nothing to notify about. Publishing a `.failed` completion would
+    /// additionally tell watched-source bookkeeping that a run finished when
+    /// none did.
+    ///
+    /// Status returns to `.idle` rather than gaining a `RunStatus` case.
+    /// `RunStatus` is `String, Codable` and is persisted into receipts and
+    /// history; a refusal is not a run outcome and must not become one.
+    /// `lastRefusal` is what the UI branches on.
+    private func handleRefusal(_ refusal: TrialAuthorizationRefusal, message: String) {
+        status = .idle
+        currentTaskTitle = "Idle"
+        metrics.speedMBps = 0
+        metrics.etaSeconds = nil
+        lastRefusal = refusal
+        lastErrorMessage = message
+        logStore.append(message)
+        // Released here, before the unlock sheet is presented. An App Store
+        // sheet can sit open indefinitely, and holding the destination lock for
+        // that whole time would block every other Chronoframe operation on that
+        // folder — including the retry this sheet exists to enable.
+        preparedRun?.lease.release()
+        preparedRun = nil
+        directOperationLease?.release()
+        directOperationLease = nil
+        closeSecurityScope()
+    }
+
+    /// Clear the refusal without starting anything.
+    ///
+    /// For a customer who closes the unlock sheet. The run stays un-run; there
+    /// is nothing to clean up because `handleRefusal` already released
+    /// everything it held.
+    public func dismissRefusal() {
+        lastRefusal = nil
     }
 
     private func handleFailure(message: String) {

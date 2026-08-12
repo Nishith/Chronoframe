@@ -98,6 +98,7 @@ MEANINGFUL_BASENAMES=(
     GuardianScheduler
     Entitlement
     TrialAllowance
+    UnlockPresentation
 )
 
 missing_basenames=()
