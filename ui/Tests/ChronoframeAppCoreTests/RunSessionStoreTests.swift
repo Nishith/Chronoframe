@@ -431,7 +431,8 @@ final class RunSessionStoreTests: XCTestCase {
         let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
 
         await store.requestRun(mode: .preview, configuration: configuration)
-        XCTAssertTrue(await waitForCondition { store.status == .failed })
+        let failed = await waitForCondition { store.status == .failed }
+        XCTAssertTrue(failed)
         XCTAssertEqual(store.lastRefusal, .requiresUnlock)
 
         engine.startMode = .events([])
