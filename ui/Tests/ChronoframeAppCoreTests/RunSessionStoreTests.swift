@@ -442,7 +442,8 @@ final class RunSessionStoreTests: XCTestCase {
         let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
 
         await store.requestRun(mode: .preview, configuration: configuration)
-        XCTAssertTrue(await waitForCondition { store.lastRefusal != nil })
+        let refused = await waitForCondition { store.lastRefusal != nil }
+        XCTAssertTrue(refused)
 
         store.dismissRefusal()
 

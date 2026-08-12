@@ -57,6 +57,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: script/check_authorizer_has_no_default.sh
 
+  xctassert-await-check:
+    name: XCTAssert await guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: script/check_no_await_in_xctassert.sh
+
   app-intents-purchase-check:
     name: App Intent purchase guard
     runs-on: ubuntu-latest
