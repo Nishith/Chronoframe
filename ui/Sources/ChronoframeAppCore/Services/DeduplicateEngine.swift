@@ -33,14 +33,21 @@ public protocol DeduplicateEngine: AnyObject {
 
 @MainActor
 public final class NativeDeduplicateEngine: DeduplicateEngine {
-    /// Consulted by the gate in T9. Stored here in T7 so that adding that gate
-    /// is a pure behavioural change.
+    /// Asked before a commit trashes anything. Scanning and review are free.
     private let authorizer: any TrialAuthorizing
     private let scanner: DeduplicateScanner
     private let executor: DeduplicateExecutor
     private let recoveryCoordinator: MutationRecoveryCoordinator
-    private var activeLease: DestinationOperationLease?
-    private var activeLeaseDestination: String?
+    /// Reads what a finished commit actually moved to the Trash, so the
+    /// reservation settles at that count. Injectable so tests can pin the
+    /// outcome without staging Trash state.
+    private let reconciliationEvidence: any TrialReconciliationEvidence
+    /// Internal rather than private so a test can install a competing
+    /// operation's lease deterministically, the way `networkAdvisory` below is
+    /// internal for its stub. Nothing outside this type writes them in
+    /// production.
+    var activeLease: DestinationOperationLease?
+    var activeLeaseDestination: String?
     /// Surfaces a one-time warning when the dedupe destination is on a network
     /// volume. Internal so tests can inject a stub advisory + scratch defaults.
     var networkAdvisory = NetworkDestinationAdvisory()
@@ -52,12 +59,14 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
         authorizer: any TrialAuthorizing,
         scanner: DeduplicateScanner = DeduplicateScanner(),
         executor: DeduplicateExecutor = DeduplicateExecutor(),
-        recoveryCoordinator: MutationRecoveryCoordinator = MutationRecoveryCoordinator()
+        recoveryCoordinator: MutationRecoveryCoordinator = MutationRecoveryCoordinator(),
+        reconciliationEvidence: any TrialReconciliationEvidence = FileSystemTrialReconciliationEvidence()
     ) {
         self.authorizer = authorizer
         self.scanner = scanner
         self.executor = executor
         self.recoveryCoordinator = recoveryCoordinator
+        self.reconciliationEvidence = reconciliationEvidence
     }
 
     public func scan(_ configuration: DeduplicateConfiguration) throws -> AsyncThrowingStream<DeduplicateEvent, Error> {
@@ -111,19 +120,171 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
                 coordinator: recoveryCoordinator
             )
         }
-        // Minted here, before the executor starts, because step 4 takes the
-        // trial reservation at this same point. The receipt used to mint its own
-        // ID inside the commit stream, which is after the reservation would
+        // Minted here, before the executor starts, because the trial
+        // reservation is taken at this same point. The receipt used to mint its
+        // own ID inside the commit stream, which is after the reservation would
         // already have to exist.
         let runID = UUID()
-        let stream = executor.commit(
+        guard let lease = activeLease else {
+            throw DeduplicateEngineError.commitFailed(
+                "Chronoframe could not reserve exclusive access to the destination folder. Try the cleanup again."
+            )
+        }
+        return gatedCommitStream(
             plan: plan,
-            destinationRoot: configuration.destinationPath,
-            additionalSourceRoots: configuration.additionalSources.map(\.path),
-            hardDelete: false,
-            runID: runID
+            configuration: configuration,
+            runID: runID,
+            destinationURL: destinationURL,
+            lease: lease
         )
-        return releasingStream(stream)
+    }
+
+    // MARK: - Trial gate (free-trial step 4, T9)
+
+    /// Reserve dedupe allowance, then run the commit and settle at the number
+    /// of duplicates that actually reached the Trash.
+    ///
+    /// The gate runs here rather than in `DeduplicateSessionStore` because the
+    /// store is a UI path that a caller can route around; this is the only door
+    /// to `DeduplicateExecutor.commit`.
+    ///
+    /// It also runs before `executor.commit` is *called*, not merely before its
+    /// stream is consumed. That method starts a `Task.detached` the moment it is
+    /// invoked, so it writes the PENDING receipt and creates the spool journal
+    /// whether or not anyone iterates the result — gating after the call would
+    /// be gating after the first write.
+    private func gatedCommitStream(
+        plan: DeduplicationPlan,
+        configuration: DeduplicateConfiguration,
+        runID: UUID,
+        destinationURL: URL,
+        lease: DestinationOperationLease
+    ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
+        AsyncThrowingStream { continuation in
+            Task { @MainActor [weak self] in
+                defer {
+                    // Release OUR lease, and clear the engine's slot only if it
+                    // still holds ours. While the gate was suspended another
+                    // operation may have replaced it; clearing the slot then
+                    // would strip the lock bookkeeping from an operation that is
+                    // still running. `release()` is idempotent, so releasing a
+                    // lease `cancelCurrentScan()` already released is a no-op.
+                    if self?.activeLease === lease {
+                        self?.activeLease = nil
+                        self?.activeLeaseDestination = nil
+                    }
+                    lease.release()
+                }
+                guard let self else {
+                    continuation.finish()
+                    return
+                }
+
+                let authorization = await self.authorizer.authorizeMeteredWork(
+                    runID: runID,
+                    meter: .dedupe,
+                    count: plan.items.count,
+                    // Standardized because reconciliation matches an open
+                    // reservation to a destination by path.
+                    destinationRoot: destinationURL.standardizedFileURL.path
+                )
+                if let refusal = authorization.refusal {
+                    continuation.finish(throwing: TrialAuthorizationError(refusal: refusal))
+                    return
+                }
+
+                // The gate is the only suspension point before the first write,
+                // and a cancel or a competing operation can land inside it.
+                //
+                // Compared by IDENTITY, not by destination path. A cancel
+                // followed by a new scan or revert on the same folder installs a
+                // different lease for the same path, so a path check would let
+                // this now-stale plan mutate files under an operation that
+                // believes it holds the lock. Nothing has been written yet, so
+                // the reservation goes back.
+                guard self.activeLease === lease else {
+                    await self.authorizer.releaseMeteredWork(runID: runID)
+                    continuation.finish()
+                    return
+                }
+
+                do {
+                    let stream = self.executor.commit(
+                        plan: plan,
+                        destinationRoot: configuration.destinationPath,
+                        additionalSourceRoots: configuration.additionalSources.map(\.path),
+                        hardDelete: false,
+                        runID: runID
+                    )
+                    for try await event in stream {
+                        continuation.yield(event)
+                    }
+                    await self.settleReservation(
+                        runID: runID,
+                        reservedCount: plan.items.count,
+                        destinationURL: destinationURL
+                    )
+                    continuation.finish()
+                } catch let error as ReceiptPreflightError {
+                    // The one failure where zero files were touched.
+                    // AGENTS.md invariant 13 preflights the receipt directory
+                    // before any deletion, and every `ReceiptPreflightError`
+                    // site in the executor sits ahead of the first Trash move.
+                    //
+                    // This has to release rather than stay charged. No receipt
+                    // is written, so there is nothing for reconciliation to
+                    // read: it reports `unreachable` and leaves the reservation
+                    // open forever. Staying charged would permanently cost the
+                    // customer the whole plan's worth of allowance for a
+                    // cleanup that never moved a single file.
+                    await self.authorizer.releaseMeteredWork(runID: runID)
+                    continuation.finish(throwing: error)
+                } catch {
+                    // Any other failure is ambiguous from out here — the
+                    // executor reports mid-run trouble as events, not throws,
+                    // so a throw that is not a preflight failure is a shape we
+                    // do not have a rule for. The reservation stays open and
+                    // fully charged, and reconciliation settles it from the
+                    // receipt and journal once they are readable.
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    /// Settle the commit's reservation at the number of duplicates that
+    /// actually reached the Trash.
+    ///
+    /// Uses the reconciler's own dedupe evidence rather than the summary's
+    /// `deletedCount`, so an in-process settle and a later reconciliation pass
+    /// can never disagree — and disagreeing is unfixable, because `finalize` is
+    /// one-way and whichever ran first would win. The evidence also declines to
+    /// settle a commit whose receipt is still `PENDING`, where a later pass can
+    /// still prove more moves from the journal.
+    ///
+    /// The probe is a question, not a ledger row, and is never stored. Today's
+    /// dedupe evidence reads only `runID` and `meter`; every other field is
+    /// filled with the run's real value except `accountKey`, which the engine
+    /// genuinely does not know — it lives inside the authorizer, and the
+    /// evidence has no use for it.
+    private func settleReservation(
+        runID: UUID,
+        reservedCount: Int,
+        destinationURL: URL
+    ) async {
+        let outcome = reconciliationEvidence.outcome(
+            for: OpenReservation(
+                runID: runID,
+                accountKey: "",
+                meter: .dedupe,
+                reservedCount: reservedCount,
+                destinationRoot: destinationURL.standardizedFileURL.path,
+                createdAt: Date()
+            ),
+            destinationRoot: destinationURL
+        )
+        guard case let .completed(count) = outcome else { return }
+        await authorizer.finalizeMeteredWork(runID: runID, actualCount: count)
     }
 
     public func revert(receiptURL: URL, destinationRoot: String) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
