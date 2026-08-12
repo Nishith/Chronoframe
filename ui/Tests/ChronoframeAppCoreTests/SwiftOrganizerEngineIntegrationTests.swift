@@ -528,6 +528,334 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         XCTAssertTrue(logContents.contains("Resumed session complete"))
     }
 
+    // MARK: - Trial gate (free-trial step 4, T8)
+
+    /// An engine for a resolved, locked customer, metered against `ledger`.
+    ///
+    /// The production authorizer rather than a stub, so these tests exercise the
+    /// actual policy — including which refusal a locked customer gets — instead
+    /// of a hand-written approximation of it.
+    @MainActor
+    private func meteredEngine(ledger: any TrialLedger) -> SwiftOrganizerEngine {
+        SwiftOrganizerEngine(
+            authorizer: EntitlementTrialAuthorizer(ledger: ledger) {
+                TrialEntitlementSnapshot(state: .locked, accountKey: Self.testAccountKey)
+            },
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+    }
+
+    private static let testAccountKey = "app-txn-1"
+
+    /// The T8 acceptance criterion: a refused transfer leaves no queued rows, no
+    /// receipt, no spool journal, and no media.
+    ///
+    /// Deliberately NOT a whole-destination byte-identity assertion — planning
+    /// legitimately writes `.organize_cache.db` and the run log before the gate
+    /// is reached, and asserting otherwise would make the test a lie about what
+    /// "nothing happened" means here.
+    @MainActor
+    func testRefusedTransferEnqueuesNothingWritesNoReceiptAndCopiesNothing() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        // Two distinct files on distinct days, so the plan is two transfers and
+        // neither is an internal duplicate of the other.
+        for day in ["02", "03"] {
+            let fileURL = sourceURL.appendingPathComponent("camera/IMG_202401\(day)_101010.jpg")
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try Data("payload-\(day)".utf8).write(to: fileURL)
+        }
+        let sourceDigests = try Self.mediaDigests(under: sourceURL)
+
+        // One file of allowance against a two-file plan.
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 1, dedupeFiles: 1))
+        let engine = meteredEngine(ledger: ledger)
+
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+
+        do {
+            _ = try await Self.collect(stream)
+            XCTFail("A refused transfer must not run to completion")
+        } catch let error as TrialAuthorizationError {
+            guard case let .allowanceSpent(refusal) = error.refusal else {
+                return XCTFail("A resolved locked customer is told the allowance is spent, got \(error.refusal)")
+            }
+            XCTAssertEqual(refusal.meter, .organize)
+            XCTAssertEqual(refusal.requested, 2)
+            XCTAssertEqual(refusal.remaining, 1)
+        }
+
+        let queuedJobs = try Self.withDatabaseWhenReady(
+            at: destinationURL.appendingPathComponent(".organize_cache.db")
+        ) { try $0.loadQueuedJobs() }
+        XCTAssertTrue(queuedJobs.isEmpty, "A refused transfer must enqueue nothing, got \(queuedJobs)")
+
+        let logsContents = (try? FileManager.default.contentsOfDirectory(
+            at: destinationURL.appendingPathComponent(".organize_logs", isDirectory: true),
+            includingPropertiesForKeys: nil
+        )) ?? []
+        XCTAssertTrue(
+            logsContents.filter { $0.lastPathComponent.hasPrefix("audit_receipt_") }.isEmpty,
+            "A refused transfer must write no receipt, got \(logsContents)"
+        )
+        XCTAssertTrue(
+            logsContents.filter { $0.pathExtension == "spool" }.isEmpty,
+            "A refused transfer must write no spool journal, got \(logsContents)"
+        )
+
+        XCTAssertTrue(
+            Self.mediaURLs(under: destinationURL).isEmpty,
+            "A refused transfer must copy no media"
+        )
+        XCTAssertEqual(
+            try Self.mediaDigests(under: sourceURL),
+            sourceDigests,
+            "A refused transfer must leave every source file exactly as it found it"
+        )
+
+        // A refusal writes nothing to the ledger either, so retrying after an
+        // unlock starts from the same balance.
+        XCTAssertEqual(try ledger.balance(accountKey: Self.testAccountKey).usage.organizeUsed, 0)
+        XCTAssertTrue(try ledger.openReservations().isEmpty)
+    }
+
+    /// A run that is permitted charges the files that actually landed, and
+    /// leaves no reservation open behind it.
+    @MainActor
+    func testCompletedTransferSettlesItsReservation() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let fileURL = sourceURL.appendingPathComponent("camera/IMG_20240102_101010.jpg")
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("alpha".utf8).write(to: fileURL)
+
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 10, dedupeFiles: 10))
+        let engine = meteredEngine(ledger: ledger)
+
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .finished)
+        XCTAssertEqual(summary.metrics.copiedCount, 1)
+
+        XCTAssertEqual(try ledger.balance(accountKey: Self.testAccountKey).usage.organizeUsed, 1)
+        XCTAssertTrue(
+            try ledger.openReservations().isEmpty,
+            "A finished run must not leave its reservation open — an open reservation stays charged in full"
+        )
+    }
+
+    /// Resuming an interrupted run must not charge for it twice, and must settle
+    /// at the number of files that ended up in the destination — not at the
+    /// larger number the original run reserved, and not at the size of the
+    /// resumed batch alone.
+    @MainActor
+    func testResumeSettlesTheOriginalReservationWithoutChargingAgain() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let fileURL = sourceURL.appendingPathComponent("incoming/photo.jpg")
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("resume-data".utf8).write(to: fileURL)
+        let identity = try FileIdentityHasher().hashIdentity(at: fileURL)
+
+        // The queue an interrupted run left behind: one file it already copied,
+        // and one it never got to — both under the run's own ID.
+        let interruptedRunID = UUID()
+        let database = try OrganizerDatabase(url: destinationURL.appendingPathComponent(".organize_cache.db"))
+        try database.enqueueQueuedJobs([
+            QueuedCopyJob(
+                sourcePath: "/already/copied.jpg",
+                destinationPath: destinationURL.appendingPathComponent("2023/06/14/2023-06-14_001.jpg").path,
+                hash: FileIdentity(size: 4, digest: "already-copied").rawValue,
+                status: .copied,
+                runID: interruptedRunID,
+                mutationState: .finalized
+            ),
+            QueuedCopyJob(
+                sourcePath: fileURL.path,
+                destinationPath: destinationURL.appendingPathComponent("2023/06/15/2023-06-15_001.jpg").path,
+                hash: identity.rawValue,
+                status: .pending,
+                runID: interruptedRunID
+            ),
+        ])
+        database.close()
+
+        // The reservation the interrupted run took up front, for the whole plan.
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 10, dedupeFiles: 10))
+        _ = try ledger.reserve(
+            runID: interruptedRunID,
+            accountKey: Self.testAccountKey,
+            meter: .organize,
+            count: 5,
+            destinationRoot: destinationURL.path
+        )
+        XCTAssertEqual(
+            try ledger.balance(accountKey: Self.testAccountKey).usage.organizeUsed, 5,
+            "An open reservation is charged in full until it is settled"
+        )
+
+        let stream = try meteredEngine(ledger: ledger).resume(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .finished)
+        XCTAssertEqual(summary.metrics.copiedCount, 1)
+
+        // 2 — the file the interrupted run copied plus the one this pass copied.
+        // Not 5 (the reservation, which the resume must settle rather than
+        // leave standing), not 6 (a second reservation stacked on top of it),
+        // and not 1 (the resumed batch alone, which would let the work the first
+        // pass did go uncharged).
+        XCTAssertEqual(
+            try ledger.balance(accountKey: Self.testAccountKey).usage.organizeUsed, 2,
+            "A resume settles the reservation it inherited, at the count the whole run landed"
+        )
+        XCTAssertTrue(try ledger.openReservations().isEmpty)
+    }
+
+    /// A queue that cannot be attributed to a reservation is metered, not waved
+    /// through. Rows enqueued before run IDs existed carry none, so resuming
+    /// them must not become a way to copy for free.
+    @MainActor
+    func testResumeOfAnUnattributableQueueIsRefusedWhenTheAllowanceIsSpent() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let fileURL = sourceURL.appendingPathComponent("incoming/photo.jpg")
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("legacy-data".utf8).write(to: fileURL)
+        let identity = try FileIdentityHasher().hashIdentity(at: fileURL)
+        let resumedDestination = destinationURL.appendingPathComponent("2023/06/15/2023-06-15_001.jpg")
+
+        let database = try OrganizerDatabase(url: destinationURL.appendingPathComponent(".organize_cache.db"))
+        try database.enqueueQueuedJobs([
+            // No run ID — the pre-T3 shape.
+            QueuedCopyJob(
+                sourcePath: fileURL.path,
+                destinationPath: resumedDestination.path,
+                hash: identity.rawValue,
+                status: .pending
+            ),
+        ])
+        database.close()
+
+        // The whole allowance is already spent by an unrelated, settled run.
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 1, dedupeFiles: 1))
+        let spentRunID = UUID()
+        _ = try ledger.reserve(
+            runID: spentRunID, accountKey: Self.testAccountKey,
+            meter: .organize, count: 1, destinationRoot: nil
+        )
+        try ledger.finalize(runID: spentRunID, actualCount: 1)
+
+        let stream = try meteredEngine(ledger: ledger).resume(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+
+        do {
+            _ = try await Self.collect(stream)
+            XCTFail("A resume with no covering reservation must be metered like any other transfer")
+        } catch let error as TrialAuthorizationError {
+            guard case .allowanceSpent = error.refusal else {
+                return XCTFail("Expected allowanceSpent, got \(error.refusal)")
+            }
+        }
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: resumedDestination.path),
+            "A refused resume must copy nothing"
+        )
+        let statuses = try Self.withDatabaseWhenReady(
+            at: destinationURL.appendingPathComponent(".organize_cache.db")
+        ) { try $0.loadQueuedJobs().map(\.status) }
+        XCTAssertEqual(statuses, [.pending], "The queue is left exactly as it was, so an unlock can resume it")
+    }
+
+    /// An unrestricted authorizer is the CLI and Developer ID channel, and must
+    /// behave exactly as it did before the gate existed.
+    @MainActor
+    func testUnrestrictedAuthorizerTransfersWithoutMetering() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        for day in ["02", "03", "04"] {
+            let fileURL = sourceURL.appendingPathComponent("camera/IMG_202401\(day)_101010.jpg")
+            try FileManager.default.createDirectory(
+                at: fileURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try Data("payload-\(day)".utf8).write(to: fileURL)
+        }
+
+        let stream = try makeEngine().start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .finished)
+        XCTAssertEqual(summary.metrics.copiedCount, 3)
+    }
+
+    private static func mediaURLs(under root: URL) -> [URL] {
+        FileManager.default
+            .enumerator(at: root, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }
+            .filter { $0.pathExtension.lowercased() == "jpg" } ?? []
+    }
+
+    /// Path → content digest, so "unchanged" means the bytes, not just the name.
+    private static func mediaDigests(under root: URL) throws -> [String: String] {
+        let hasher = FileIdentityHasher()
+        var digests: [String: String] = [:]
+        for url in mediaURLs(under: root) {
+            digests[url.path] = try hasher.hashIdentity(at: url).rawValue
+        }
+        return digests
+    }
+
     private static func collect(_ stream: AsyncThrowingStream<RunEvent, Error>) async throws -> [RunEvent] {
         var events: [RunEvent] = []
         for try await event in stream {

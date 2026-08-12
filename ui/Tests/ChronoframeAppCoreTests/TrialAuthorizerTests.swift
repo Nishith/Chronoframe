@@ -212,6 +212,72 @@ final class TrialAuthorizerTests: XCTestCase {
         XCTAssertFalse(decision.isPermitted)
     }
 
+    // MARK: - Refusal copy
+
+    /// The refusal a customer reads must say the allowance is short, offer the
+    /// unlock, and reassure them nothing was changed on the way to the message.
+    func testAllowanceSpentCopyOffersTheUnlockAndSaysNothingWasCopied() throws {
+        let error = TrialAuthorizationError(
+            refusal: .allowanceSpent(TrialRefusal(meter: .organize, requested: 40, remaining: 12))
+        )
+        let message = try XCTUnwrap(error.errorDescription)
+
+        XCTAssertTrue(message.contains("12"), message)
+        XCTAssertTrue(message.contains("40"), message)
+        XCTAssertTrue(message.contains("Unlock Chronoframe"), message)
+        XCTAssertTrue(message.contains("originals were left untouched"), message)
+    }
+
+    /// The distinction that matters most in this file. A customer whose purchase
+    /// could not be confirmed may well have paid, so the copy must not tell them
+    /// their trial is spent or push them at the unlock.
+    func testPurchaseUnconfirmedCopyNeverClaimsTheTrialIsSpent() throws {
+        let error = TrialAuthorizationError(
+            refusal: .purchaseUnconfirmed(TrialRefusal(meter: .organize, requested: 40, remaining: 0))
+        )
+        let message = try XCTUnwrap(error.errorDescription)
+
+        XCTAssertTrue(message.contains("could not confirm your purchase"), message)
+        XCTAssertTrue(message.contains("Restore Purchases"), message)
+        XCTAssertTrue(message.contains("originals were left untouched"), message)
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("allowance"), message)
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("free"), message)
+    }
+
+    /// A dedupe refusal must not promise that originals were left untouched —
+    /// that surface trashes duplicates, it does not copy anything.
+    func testDedupeRefusalCopyDescribesTheTrashNotCopies() throws {
+        let error = TrialAuthorizationError(
+            refusal: .allowanceSpent(TrialRefusal(meter: .dedupe, requested: 9, remaining: 0))
+        )
+        let message = try XCTUnwrap(error.errorDescription)
+
+        XCTAssertTrue(message.contains("Nothing was moved to the Trash."), message)
+        XCTAssertFalse(message.localizedCaseInsensitiveContains("copied"), message)
+    }
+
+    /// Routed through `UserFacingErrorMessage`, so the Run workspace shows this
+    /// copy rather than the generic "could not finish this run" fallback with a
+    /// raw error appended.
+    func testRefusalIsFormattedByUserFacingErrorMessageRatherThanFallingBack() {
+        let error = TrialAuthorizationError(
+            refusal: .allowanceSpent(TrialRefusal(meter: .organize, requested: 40, remaining: 12))
+        )
+
+        XCTAssertEqual(
+            UserFacingErrorMessage.message(for: error, context: .run),
+            error.errorDescription
+        )
+    }
+
+    func testRequiresUnlockCopyIsPlainAndReassuring() throws {
+        let error = TrialAuthorizationError(refusal: .requiresUnlock)
+        let message = try XCTUnwrap(error.errorDescription)
+
+        XCTAssertTrue(message.contains("once Chronoframe is unlocked"), message)
+        XCTAssertTrue(message.contains("Nothing was changed."), message)
+    }
+
     // MARK: - Unlock-only (reorganize)
 
     func testUnlockOnlyWorkRequiresTheUnlock() async throws {

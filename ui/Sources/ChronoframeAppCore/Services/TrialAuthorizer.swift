@@ -39,6 +39,64 @@ public enum TrialAuthorizationRefusal: Sendable, Equatable {
     case requiresUnlock
 }
 
+/// A refusal in a form that travels through the engines' event streams.
+///
+/// Thrown rather than reported as a run status, because a refused run is not a
+/// run outcome. `RunStatus` is `String, Codable` and is persisted into audit
+/// receipts and Run History, so a new case there would let a refusal masquerade
+/// as a completed run inside files that already exist on customers' disks — and
+/// every one of the nine switch sites over it would have to guess what a
+/// refusal means.
+///
+/// Carrying `refusal` rather than a formatted string is what lets the UI branch:
+/// `allowanceSpent` is the one that may offer the unlock, and
+/// `purchaseUnconfirmed` must not, because that customer may already have paid.
+public struct TrialAuthorizationError: LocalizedError, Sendable, Equatable {
+    public let refusal: TrialAuthorizationRefusal
+
+    public init(refusal: TrialAuthorizationRefusal) {
+        self.refusal = refusal
+    }
+
+    public var errorDescription: String? {
+        switch refusal {
+        case let .allowanceSpent(details):
+            return Self.allowanceSpentMessage(details)
+        case let .purchaseUnconfirmed(details):
+            return "Chronoframe could not confirm your purchase, so this run was not started. "
+                + "Check your internet connection and try again, or use Restore Purchases in Settings. "
+                + Self.nothingHappened(details.meter)
+        case .requiresUnlock:
+            return "This action is available once Chronoframe is unlocked. Nothing was changed."
+        }
+    }
+
+    private static func allowanceSpentMessage(_ refusal: TrialRefusal) -> String {
+        let noun = refusal.meter == .organize ? "file" : "duplicate"
+        let action = refusal.meter == .organize
+            ? "this run would copy \(refusal.requested)"
+            : "this cleanup would remove \(refusal.requested)"
+        let left = refusal.remaining == 0
+            ? "no \(noun)s left"
+            : "\(refusal.remaining) \(noun)\(refusal.remaining == 1 ? "" : "s") left"
+
+        return "Your free allowance has \(left), and \(action). "
+            + "Unlock Chronoframe to finish the job. \(nothingHappened(refusal.meter))"
+    }
+
+    /// Every refusal ends by saying nothing happened. A customer who is being
+    /// told they cannot proceed needs to know their library was not left
+    /// half-changed on the way to the message.
+    private static func nothingHappened(_ meter: TrialMeter) -> String {
+        switch meter {
+        case .organize:
+            return "Nothing was copied and your originals were left untouched."
+        case .dedupe:
+            return "Nothing was moved to the Trash."
+        }
+    }
+}
+
 public enum TrialAuthorization: Sendable, Equatable {
     case permitted
     case refused(TrialAuthorizationRefusal)

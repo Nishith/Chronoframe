@@ -177,6 +177,8 @@ public enum UserFacingErrorMessage {
         switch error {
         case let error as OrganizerEngineError:
             return error.errorDescription
+        case let error as TrialAuthorizationError:
+            return error.errorDescription
         case let error as FolderValidationError:
             return error.errorDescription
         case let error as DroppedItemStagerError:

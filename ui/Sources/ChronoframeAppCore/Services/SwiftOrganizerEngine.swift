@@ -5,8 +5,8 @@ import Foundation
 
 @MainActor
 public final class SwiftOrganizerEngine: OrganizerEngine {
-    /// Consulted by the gates in T8 and T10. Stored here in T7 so that adding
-    /// those gates is a pure behavioural change.
+    /// Asked before any transfer enqueues, copies, or writes anything.
+    /// Reorganize's gate is T10.
     private let authorizer: any TrialAuthorizing
     private let profilesRepository: any ProfilesRepositorying
     private let planner: DryRunPlanner
@@ -488,6 +488,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         AsyncThrowingStream { continuation in
             let planner = self.planner
             let transferExecutor = self.transferExecutor
+            let authorizer = self.authorizer
             let runID = UUID()
             // Finding #3: the transfer's parallel copy/hash work runs on GCD
             // queues where `Task.isCancelled` is always false (there is no
@@ -567,11 +568,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     continuation.yield(.startup)
 
                     if resumePendingJobs {
-                        try Self.resumeTransfer(
+                        try await Self.resumeTransfer(
                             configuration: configuration,
                             database: database,
                             destinationURL: destinationURL,
                             transferExecutor: transferExecutor,
+                            authorizer: authorizer,
                             runLogger: runLogger,
                             isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                             continuation: continuation
@@ -583,6 +585,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             database: database,
                             destinationURL: destinationURL,
                             transferExecutor: transferExecutor,
+                            authorizer: authorizer,
                             runLogger: runLogger,
                             isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                             continuation: continuation
@@ -626,6 +629,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         database: OrganizerDatabase,
         destinationURL: URL,
         transferExecutor: TransferExecutor,
+        authorizer: any TrialAuthorizing,
         runLogger: PersistentRunLogger,
         isCancelled: @escaping @Sendable () -> Bool,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
@@ -708,12 +712,23 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         }
 
         // One ID for the whole run, minted here and threaded down through the
-        // queued rows, the executor, and the audit receipt. Step 4 takes the
-        // trial reservation at this same point, so the reservation, every
-        // `CopyJobs.run_id` for the run, and the receipt all carry the same
-        // value — which is what lets crash recovery and refunds match a
+        // trial reservation, the queued rows, the executor, and the audit
+        // receipt — which is what lets crash recovery and refunds match a
         // reservation to the work that actually happened.
         let runID = UUID()
+
+        // The gate. It sits after planning and after the zero-transfer branches
+        // — planning and preview are free and must stay free — and before the
+        // first thing that persists an intention to mutate. A refusal therefore
+        // leaves no queued rows, no receipt, and no copied file.
+        try await authorizeTransfer(
+            runID: runID,
+            fileCount: result.transferCount,
+            destinationURL: destinationURL,
+            authorizer: authorizer,
+            runLogger: runLogger
+        )
+
         try database.enqueuePlannedTransfers(result.transfers, runID: runID)
         let errorCounter = IssueCounter()
         let executionResult = try transferExecutor.executeQueuedJobs(
@@ -750,6 +765,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             isCancelled: isCancelled,
             runID: runID
         )
+
+        // Before the cancellation check, not after: a cancel that arrives once
+        // the last job has already landed leaves a settleable run, and skipping
+        // the settle would keep it charged at the full reserved amount until a
+        // later recovery pass happened to visit this destination.
+        await settleReservation(runID: runID, database: database, authorizer: authorizer)
 
         if isCancelled() {
             continuation.finish()
@@ -820,10 +841,11 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         database: OrganizerDatabase,
         destinationURL: URL,
         transferExecutor: TransferExecutor,
+        authorizer: any TrialAuthorizing,
         runLogger: PersistentRunLogger,
         isCancelled: @escaping @Sendable () -> Bool,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
-    ) throws {
+    ) async throws {
         let pendingJobCount = try database.pendingJobCount()
         runLogger.log("Found \(pendingJobCount) pending jobs from interrupted session")
 
@@ -852,11 +874,28 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         }
 
         // Continue the run being resumed rather than minting a new identity: the
-        // queued rows, the receipt, and (from step 4) the trial reservation are
-        // all keyed by this ID, and a resume must not look like a second run.
-        // Jobs enqueued before run IDs were threaded carry none, so fall back to
-        // a fresh ID rather than leaving the rows unattributable.
+        // queued rows, the receipt, and the trial reservation are all keyed by
+        // this ID, and a resume must not look like a second run. Jobs enqueued
+        // before run IDs were threaded carry none, so fall back to a fresh ID
+        // rather than leaving the rows unattributable.
         let resumeRunID = try database.queuedRunID(status: .pending) ?? UUID()
+
+        // Resuming does not double-charge, and does not need a special case to
+        // avoid doing so: re-reserving a run ID that already has a reservation
+        // row returns the stored decision and writes nothing (`TrialLedger`).
+        //
+        // The gate is still asked, because the fallback ID above is minted
+        // exactly when the queue cannot be attributed to one run — legacy rows
+        // predating run IDs, or a queue holding more than one run's leftovers.
+        // No reservation covers that work, so it is metered here rather than
+        // becoming a way to copy for free by resuming instead of starting.
+        try await authorizeTransfer(
+            runID: resumeRunID,
+            fileCount: pendingJobCount,
+            destinationURL: destinationURL,
+            authorizer: authorizer,
+            runLogger: runLogger
+        )
 
         let errorCounter = IssueCounter()
         let executionResult = try transferExecutor.executeQueuedJobs(
@@ -893,6 +932,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             isCancelled: isCancelled,
             runID: resumeRunID
         )
+
+        await settleReservation(runID: resumeRunID, database: database, authorizer: authorizer)
 
         if isCancelled() {
             continuation.finish()
@@ -947,6 +988,69 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             )
         )
         continuation.finish()
+    }
+
+    // MARK: - Trial gate (free-trial step 4, T8)
+
+    /// Reserve trial allowance for `fileCount` files, or refuse the run.
+    ///
+    /// Throws rather than returning, so a caller cannot forget to check: every
+    /// path that reaches a mutation has to have gone through a `try`.
+    private nonisolated static func authorizeTransfer(
+        runID: UUID,
+        fileCount: Int,
+        destinationURL: URL,
+        authorizer: any TrialAuthorizing,
+        runLogger: PersistentRunLogger
+    ) async throws {
+        let authorization = await authorizer.authorizeMeteredWork(
+            runID: runID,
+            meter: .organize,
+            count: fileCount,
+            // Standardized because reconciliation matches an open reservation
+            // to a destination by path. It resolves symlinks on both sides, so
+            // this only has to avoid gratuitous `.`/`..` differences.
+            destinationRoot: destinationURL.standardizedFileURL.path
+        )
+        guard let refusal = authorization.refusal else { return }
+
+        // Deliberately says nothing about why. The log lives inside the
+        // destination the customer can hand to anyone; the reason belongs in
+        // the message they see, not in a file on disk.
+        runLogger.warn(
+            "Transfer not started: \(fileCount) file(s) were not authorized. Nothing was enqueued or copied."
+        )
+        throw TrialAuthorizationError(refusal: refusal)
+    }
+
+    /// Settle the run's reservation with the number of files that actually
+    /// landed.
+    ///
+    /// This is `FileSystemTrialReconciliationEvidence`'s rule for organize,
+    /// applied in-process while the database is already open, and it is
+    /// deliberately the same rule rather than a shortcut:
+    ///
+    /// - **Jobs still pending means the run is not over.** A crashed or aborted
+    ///   run keeps its unfinished jobs `PENDING` so the user can resume. Settling
+    ///   now would charge the partial count, and because `finalize` only ever
+    ///   acts on an open reservation, everything the resume then copies would be
+    ///   free.
+    /// - **A count that cannot be read settles nothing.** `finalize` is one-way,
+    ///   so a wrong number can never be corrected; an open reservation stays
+    ///   charged in full and is retried by reconciliation, which is the
+    ///   recoverable direction to be wrong in.
+    ///
+    /// Nothing here releases. A run whose outcome is ambiguous stays charged
+    /// until evidence — not an assumption — says otherwise.
+    private nonisolated static func settleReservation(
+        runID: UUID,
+        database: OrganizerDatabase,
+        authorizer: any TrialAuthorizing
+    ) async {
+        guard let resumable = try? database.resumableJobCount(runID: runID), resumable == 0,
+              let landed = try? database.completedJobCount(runID: runID)
+        else { return }
+        await authorizer.finalizeMeteredWork(runID: runID, actualCount: landed)
     }
 
     private nonisolated static func resumeDateHistogram(
