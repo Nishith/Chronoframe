@@ -54,4 +54,43 @@ public enum DestinationRecovery {
         reconcilerProvider?()?.reconcile(destinationRoot: destinationRoot)
         return report
     }
+
+    /// Settle the trial reservations a destination's copy queue can still
+    /// prove, then discard the queue. Used by "Start Fresh".
+    ///
+    /// `CopyJobs` is the ONLY durable evidence of how many files a metered run
+    /// copied. Truncating it and reconciling afterwards reads zero completed
+    /// jobs for the interrupted run and settles its reservation at zero — so
+    /// every file that run copied before it was interrupted becomes free, and
+    /// unlike an over-charge that is not a mistake reconciliation can later
+    /// correct: `finalize` is one-way.
+    ///
+    /// Deleting the PENDING rows FIRST is what makes settling correct here
+    /// rather than premature. Reconciliation refuses to settle a run with
+    /// resumable jobs precisely because those jobs could still land; once they
+    /// are gone they cannot, the completed count is final, and the ordinary
+    /// reconciliation rule applies unchanged. That is why this adds no new
+    /// settlement semantics — it only puts the queue into a state the existing
+    /// rule reads correctly.
+    ///
+    /// The connection is closed between the two steps so the reconciler opens
+    /// the database on its own rather than racing this one for it.
+    public static func settleAndDiscardQueue(destinationRoot: URL) throws {
+        let databaseURL = destinationRoot.appendingPathComponent(
+            EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename
+        )
+        guard FileManager.default.fileExists(atPath: databaseURL.path) else { return }
+
+        do {
+            let database = try OrganizerDatabase(url: databaseURL)
+            defer { database.close() }
+            try database.clearPendingJobs()
+        }
+
+        reconcilerProvider?()?.reconcile(destinationRoot: destinationRoot)
+
+        let database = try OrganizerDatabase(url: databaseURL)
+        defer { database.close() }
+        try database.clearAllJobs()
+    }
 }

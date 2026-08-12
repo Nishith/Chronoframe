@@ -528,13 +528,13 @@ public struct ChronoframeCLI {
         try database.clearCache()
     }
 
+    /// Routed through the shared helper so the app and the CLI cannot drift on
+    /// what "Start Fresh" does to a metered run's evidence. The CLI installs no
+    /// reconciler, so for it this is exactly the truncation it always was.
     private static func clearCopyJobs(destinationRoot: String) throws {
-        let databaseURL = URL(fileURLWithPath: destinationRoot, isDirectory: true)
-            .appendingPathComponent(EngineArtifactLayout.chronoframeDefault.queueDatabaseFilename)
-        guard FileManager.default.fileExists(atPath: databaseURL.path) else { return }
-        let database = try OrganizerDatabase(url: databaseURL)
-        defer { database.close() }
-        try database.clearAllJobs()
+        try DestinationRecovery.settleAndDiscardQueue(
+            destinationRoot: URL(fileURLWithPath: destinationRoot, isDirectory: true)
+        )
     }
 
     private static func destinationBoundary(for receiptURL: URL) -> String {
