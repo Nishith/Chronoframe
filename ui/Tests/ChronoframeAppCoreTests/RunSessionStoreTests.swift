@@ -351,6 +351,95 @@ final class RunSessionStoreTests: XCTestCase {
         )
     }
 
+    // MARK: - Trial refusals (free-trial step 4, T11)
+
+    /// A refused run must be distinguishable from a broken one, as a value
+    /// rather than by reading the English in `lastErrorMessage`.
+    ///
+    /// The App Intent branches on it to send an unattended automation to the
+    /// app instead of failing it as a transfer problem, and the unlock sheet
+    /// (T13) branches on WHICH refusal — `allowanceSpent` may offer the
+    /// purchase, `purchaseUnconfirmed` must not.
+    @MainActor
+    func testRefusedRunSurfacesTheTypedRefusalAlongsideTheMessage() async {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let refusal = TrialRefusal(meter: .organize, requested: 40, remaining: 12)
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .fails(TrialAuthorizationError(refusal: .allowanceSpent(refusal)))
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .transfer, configuration: configuration)
+        let prompted = await waitForCondition { store.prompt != nil }
+        XCTAssertTrue(prompted)
+        store.confirmPrompt()
+
+        let failed = await waitForCondition { store.status == .failed }
+        XCTAssertTrue(failed)
+
+        XCTAssertEqual(store.lastRefusal, .allowanceSpent(refusal))
+        // The formatted copy still reaches the Run workspace.
+        XCTAssertEqual(
+            store.lastErrorMessage,
+            TrialAuthorizationError(refusal: .allowanceSpent(refusal)).errorDescription
+        )
+    }
+
+    /// An ordinary failure leaves `lastRefusal` nil, so the App Intent's
+    /// purchase branch cannot swallow a real transfer problem.
+    @MainActor
+    func testOrdinaryFailureLeavesNoRefusal() async {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .fails(TestFailure.expectedFailure("backend launch failed"))
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let failed = await waitForCondition { store.status == .failed }
+        XCTAssertTrue(failed)
+
+        XCTAssertNil(store.lastRefusal)
+    }
+
+    /// A refusal must not outlive its run: starting another one clears it, or
+    /// the next failure would be misreported as a paywall.
+    @MainActor
+    func testStartingAnotherRunClearsTheRefusal() async {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .fails(TrialAuthorizationError(refusal: .requiresUnlock))
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .preview, configuration: configuration)
+        XCTAssertTrue(await waitForCondition { store.status == .failed })
+        XCTAssertEqual(store.lastRefusal, .requiresUnlock)
+
+        engine.startMode = .events([])
+        await store.requestRun(mode: .preview, configuration: configuration)
+
+        XCTAssertNil(store.lastRefusal, "A stale refusal would make the next failure look like a paywall")
+    }
+
     // MARK: - Cancellation timing variants
 
     @MainActor

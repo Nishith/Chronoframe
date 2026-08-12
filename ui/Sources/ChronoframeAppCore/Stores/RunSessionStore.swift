@@ -57,6 +57,15 @@ public final class RunSessionStore: ObservableObject {
     @Published public private(set) var prompt: RunPrompt?
     @Published public private(set) var lastPreflight: RunPreflight?
     @Published public private(set) var lastErrorMessage: String?
+    /// Set instead of left to `lastErrorMessage` alone when a run was refused
+    /// rather than broken.
+    ///
+    /// A refusal is not a failure, and the difference decides what the customer
+    /// is offered: `allowanceSpent` may lead to the unlock, `purchaseUnconfirmed`
+    /// must not, and the App Intent has to turn either into "open Chronoframe"
+    /// rather than attempting a purchase in the background. Recovering that from
+    /// the formatted message string would mean parsing English.
+    @Published public private(set) var lastRefusal: TrialAuthorizationRefusal?
     @Published public private(set) var latestPreviewReviewPath: String?
     /// Source URL of the file currently being copied, surfaced by the
     /// transfer phase. UI uses it to render a live QuickLook thumbnail in
@@ -110,6 +119,7 @@ public final class RunSessionStore: ObservableObject {
         self.prompt = nil
         self.lastPreflight = nil
         self.lastErrorMessage = nil
+        self.lastRefusal = nil
         self.latestPreviewReviewPath = nil
     }
 
@@ -485,6 +495,7 @@ public final class RunSessionStore: ObservableObject {
         prompt = nil
         lastPreflight = nil
         lastErrorMessage = nil
+        lastRefusal = nil
         latestPreviewReviewPath = nil
         currentFileURL = nil
         logStore.clear()
@@ -892,6 +903,12 @@ public final class RunSessionStore: ObservableObject {
     }
 
     private func handleFailure(error: Error) {
+        // Captured before the error is flattened into a message. Set ahead of
+        // `handleFailure(message:)` so anything observing `status` already sees
+        // the refusal by the time the run reads as failed.
+        if let refusal = (error as? TrialAuthorizationError)?.refusal {
+            lastRefusal = refusal
+        }
         handleFailure(message: UserFacingErrorMessage.message(for: error, context: .run))
     }
 

@@ -294,6 +294,20 @@ public struct ChronoframeCLI {
     public typealias Output = @Sendable (String) -> Void
     public typealias Input = () -> String?
 
+    /// The CLI is unmetered, deliberately and permanently.
+    ///
+    /// It is not shipped to customers: `ChronoframeCLI` is not embedded in the
+    /// app bundle and not included in the Mac App Store archive, so it is an
+    /// internal and testing tool. It also has no way to be metered honestly —
+    /// there is no App Store transaction in this process, so there is no
+    /// account key, and `EntitlementTrialAuthorizer` would refuse every
+    /// non-empty run as `purchaseUnconfirmed` rather than charging anyone.
+    ///
+    /// Named and declared once rather than constructed at each call site, so
+    /// this decision is stated in one place instead of being re-made by
+    /// whoever adds the next command.
+    private static let authorizer: any TrialAuthorizing = UnrestrictedTrialAuthorizer()
+
     @MainActor
     public static func run(
         arguments: [String],
@@ -375,7 +389,7 @@ public struct ChronoframeCLI {
         }
 
         let engine = SwiftOrganizerEngine(
-            authorizer: UnrestrictedTrialAuthorizer(),
+            authorizer: authorizer,
             profilesRepository: profilesRepository
         )
         let configuration = options.runConfiguration()
@@ -469,7 +483,7 @@ public struct ChronoframeCLI {
             operation: "revert"
         )
         _ = DestinationRecovery.recoverAndReconcile(destinationRoot: rootURL)
-        let engine = SwiftOrganizerEngine(authorizer: UnrestrictedTrialAuthorizer())
+        let engine = SwiftOrganizerEngine(authorizer: authorizer)
         let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
         return try await withTaskCancellationHandler {
             defer { lease.release() }
