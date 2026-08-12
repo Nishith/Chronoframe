@@ -89,12 +89,12 @@ public struct EntitlementTrialRefunder: TrialRefunding {
         // agreed to; refunding wrongly hands out allowance nobody paid for.
         guard let receiptRunID else { return }
 
-        // The account that was charged, not whoever is signed in now. A nil
-        // here means no such reservation exists — a receipt from a run this
-        // ledger never charged — so there is nothing to credit.
-        guard let accountKey = try? ledger.accountKey(forRunID: receiptRunID),
-              let accountKey
-        else { return }
+        // The account that was charged, not whoever is signed in now.
+        //
+        // `try?` collapses "the ledger could not be read" and "no such
+        // reservation" into the same nil. Neither can be attributed to an
+        // account, so one guard covers both.
+        guard let accountKey = try? ledger.accountKey(forRunID: receiptRunID) else { return }
 
         // Swallowed on purpose. The revert has already happened — the files are
         // back — and failing the stream now would tell the customer their revert
