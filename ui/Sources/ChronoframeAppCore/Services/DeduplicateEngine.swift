@@ -42,8 +42,12 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     /// reservation settles at that count. Injectable so tests can pin the
     /// outcome without staging Trash state.
     private let reconciliationEvidence: any TrialReconciliationEvidence
-    private var activeLease: DestinationOperationLease?
-    private var activeLeaseDestination: String?
+    /// Internal rather than private so a test can install a competing
+    /// operation's lease deterministically, the way `networkAdvisory` below is
+    /// internal for its stub. Nothing outside this type writes them in
+    /// production.
+    var activeLease: DestinationOperationLease?
+    var activeLeaseDestination: String?
     /// Surfaces a one-time warning when the dedupe destination is on a network
     /// volume. Internal so tests can inject a stub advisory + scratch defaults.
     var networkAdvisory = NetworkDestinationAdvisory()
@@ -121,12 +125,17 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
         // own ID inside the commit stream, which is after the reservation would
         // already have to exist.
         let runID = UUID()
+        guard let lease = activeLease else {
+            throw DeduplicateEngineError.commitFailed(
+                "Chronoframe could not reserve exclusive access to the destination folder. Try the cleanup again."
+            )
+        }
         return gatedCommitStream(
             plan: plan,
             configuration: configuration,
             runID: runID,
             destinationURL: destinationURL,
-            standardizedDestination: standardizedDestination
+            lease: lease
         )
     }
 
@@ -149,14 +158,22 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
         configuration: DeduplicateConfiguration,
         runID: UUID,
         destinationURL: URL,
-        standardizedDestination: String
+        lease: DestinationOperationLease
     ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         AsyncThrowingStream { continuation in
             Task { @MainActor [weak self] in
                 defer {
-                    self?.activeLease?.release()
-                    self?.activeLease = nil
-                    self?.activeLeaseDestination = nil
+                    // Release OUR lease, and clear the engine's slot only if it
+                    // still holds ours. While the gate was suspended another
+                    // operation may have replaced it; clearing the slot then
+                    // would strip the lock bookkeeping from an operation that is
+                    // still running. `release()` is idempotent, so releasing a
+                    // lease `cancelCurrentScan()` already released is a no-op.
+                    if self?.activeLease === lease {
+                        self?.activeLease = nil
+                        self?.activeLeaseDestination = nil
+                    }
+                    lease.release()
                 }
                 guard let self else {
                     continuation.finish()
@@ -169,7 +186,7 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
                     count: plan.items.count,
                     // Standardized because reconciliation matches an open
                     // reservation to a destination by path.
-                    destinationRoot: standardizedDestination
+                    destinationRoot: destinationURL.standardizedFileURL.path
                 )
                 if let refusal = authorization.refusal {
                     continuation.finish(throwing: TrialAuthorizationError(refusal: refusal))
@@ -177,12 +194,15 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
                 }
 
                 // The gate is the only suspension point before the first write,
-                // and `cancelCurrentScan()` releases the destination lease from
-                // inside it. No lease means we may not mutate — and nothing has
-                // been written yet, so the reservation goes back.
-                guard self.activeLease != nil,
-                      self.activeLeaseDestination == standardizedDestination
-                else {
+                // and a cancel or a competing operation can land inside it.
+                //
+                // Compared by IDENTITY, not by destination path. A cancel
+                // followed by a new scan or revert on the same folder installs a
+                // different lease for the same path, so a path check would let
+                // this now-stale plan mutate files under an operation that
+                // believes it holds the lock. Nothing has been written yet, so
+                // the reservation goes back.
+                guard self.activeLease === lease else {
                     await self.authorizer.releaseMeteredWork(runID: runID)
                     continuation.finish()
                     return
@@ -205,24 +225,27 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
                         destinationURL: destinationURL
                     )
                     continuation.finish()
-                } catch {
-                    // Every executor failure is treated the same: the
-                    // reservation stays open and fully charged, and
-                    // reconciliation settles it from the receipt and journal
-                    // once they are readable.
+                } catch let error as ReceiptPreflightError {
+                    // The one failure where zero files were touched.
+                    // AGENTS.md invariant 13 preflights the receipt directory
+                    // before any deletion, and every `ReceiptPreflightError`
+                    // site in the executor sits ahead of the first Trash move.
                     //
-                    // No error is special-cased into a release. The tempting
-                    // one is `ReceiptPreflightError` — invariant 13 guarantees
-                    // zero files touched — but it is nearly unreachable from
-                    // here: the destination lock lives in the same
-                    // `.organize_logs` directory the receipt preflight writes
-                    // to, and it is acquired in `commit` BEFORE this gate. An
-                    // unwritable destination therefore throws out of `commit`
-                    // synchronously and never takes a reservation at all. What
-                    // remains is a lease taken during the scan and a directory
-                    // that became unwritable before the commit; that leaves the
-                    // reservation charged until reconciliation, which is the
-                    // fail-closed direction and not worth an untested branch.
+                    // This has to release rather than stay charged. No receipt
+                    // is written, so there is nothing for reconciliation to
+                    // read: it reports `unreachable` and leaves the reservation
+                    // open forever. Staying charged would permanently cost the
+                    // customer the whole plan's worth of allowance for a
+                    // cleanup that never moved a single file.
+                    await self.authorizer.releaseMeteredWork(runID: runID)
+                    continuation.finish(throwing: error)
+                } catch {
+                    // Any other failure is ambiguous from out here — the
+                    // executor reports mid-run trouble as events, not throws,
+                    // so a throw that is not a preflight failure is a shape we
+                    // do not have a rule for. The reservation stays open and
+                    // fully charged, and reconciliation settles it from the
+                    // receipt and journal once they are readable.
                     continuation.finish(throwing: error)
                 }
             }

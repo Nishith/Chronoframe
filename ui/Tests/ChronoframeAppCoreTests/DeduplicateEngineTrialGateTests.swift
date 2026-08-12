@@ -252,6 +252,144 @@ final class DeduplicateEngineTrialGateTests: XCTestCase {
         XCTAssertTrue(try ledger.openReservations().isEmpty)
     }
 
+    // MARK: - The gate's suspension window
+
+    /// A cancel plus a new operation on the SAME folder installs a different
+    /// lease for the same path. The stale commit must not run under it.
+    ///
+    /// This is why the post-gate check compares lease IDENTITY rather than the
+    /// destination path: a path check passes here, and the stale plan would
+    /// mutate files while the revert that now holds the lock believes it has
+    /// exclusive access.
+    @MainActor
+    func testCommitAbandonedWhenAnotherOperationTakesOverTheDestination() async throws {
+        let fixture = try destinationWithPlan(fileCount: 2)
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 10, dedupeFiles: 10))
+
+        let hooked = HookedAuthorizer(
+            wrapping: EntitlementTrialAuthorizer(ledger: ledger) { [account] in
+                TrialEntitlementSnapshot(state: .locked, accountKey: account)
+            }
+        )
+        let engine = NativeDeduplicateEngine(
+            authorizer: hooked,
+            executor: DeduplicateExecutor(
+                fileOperations: StubTrashOperations(
+                    trashRoot: temporaryDirectoryURL.appendingPathComponent("trash", isDirectory: true)
+                )
+            )
+        )
+
+        // Cancel, then install a DIFFERENT lease for the SAME folder — exactly
+        // the state a cancel followed by a new scan or revert leaves behind.
+        // Done directly rather than by driving a real second operation so the
+        // swap is deterministic instead of racing the gate.
+        let root = fixture.root
+        hooked.whileAuthorizing = { [weak engine] in
+            await MainActor.run {
+                guard let engine else { return }
+                engine.cancelCurrentScan()
+                engine.activeLease = try? DestinationOperationLock.acquire(
+                    destinationRoot: root,
+                    surface: "test",
+                    operation: "competing operation"
+                )
+                engine.activeLeaseDestination = root.standardizedFileURL.path
+                XCTAssertNotNil(engine.activeLease, "The competing operation must actually hold the lock")
+            }
+        }
+
+        let stream = try engine.commit(
+            plan: fixture.plan,
+            configuration: DeduplicateConfiguration(destinationPath: fixture.root.path)
+        )
+        let events = try await Self.drain(stream)
+
+        XCTAssertTrue(events.isEmpty, "A commit that lost its lease must not run, got \(events)")
+        for fileURL in fixture.files {
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: fileURL.path),
+                "A commit that lost its lease must trash nothing"
+            )
+        }
+        XCTAssertEqual(
+            try ledger.balance(accountKey: account).usage.dedupeUsed, 0,
+            "Nothing was written, so the reservation goes back"
+        )
+        XCTAssertTrue(try ledger.openReservations().isEmpty)
+
+        // The competing operation keeps its lock: the abandoned commit must not
+        // release a lease it no longer owns.
+        XCTAssertNotNil(
+            engine.activeLease,
+            "Cleaning up an abandoned commit must not strip the lock from the operation that took over"
+        )
+        engine.cancelCurrentScan()
+    }
+
+    /// A destination that becomes unwritable while the gate is suspended aborts
+    /// with `ReceiptPreflightError` and zero files touched (invariant 13), so
+    /// the reservation must be given back.
+    ///
+    /// It cannot be left open: no receipt is written, so reconciliation finds
+    /// nothing to read, reports `unreachable`, and the charge would stand
+    /// forever for a cleanup that never moved a file.
+    @MainActor
+    func testReceiptPreflightFailureGivesTheReservationBack() async throws {
+        let fixture = try destinationWithPlan(fileCount: 2)
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 10, dedupeFiles: 10))
+        let logsDirectory = fixture.root.appendingPathComponent(".organize_logs", isDirectory: true)
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o755)], ofItemAtPath: logsDirectory.path
+            )
+        }
+
+        let hooked = HookedAuthorizer(
+            wrapping: EntitlementTrialAuthorizer(ledger: ledger) { [account] in
+                TrialEntitlementSnapshot(state: .locked, accountKey: account)
+            }
+        )
+        let engine = NativeDeduplicateEngine(
+            authorizer: hooked,
+            executor: DeduplicateExecutor(
+                fileOperations: StubTrashOperations(
+                    trashRoot: temporaryDirectoryURL.appendingPathComponent("trash", isDirectory: true)
+                )
+            )
+        )
+
+        // The lock has already created `.organize_logs` by the time the gate
+        // runs, so making it read-only here fails the receipt preflight without
+        // having failed the lock — the window a scan-then-commit really opens.
+        hooked.whileAuthorizing = {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o500)], ofItemAtPath: logsDirectory.path
+            )
+        }
+
+        let stream = try engine.commit(
+            plan: fixture.plan,
+            configuration: DeduplicateConfiguration(destinationPath: fixture.root.path)
+        )
+
+        do {
+            _ = try await Self.drain(stream)
+            XCTFail("An unwritable receipt directory must abort the commit")
+        } catch is ReceiptPreflightError {
+            // Expected.
+        }
+
+        for fileURL in fixture.files {
+            XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path), "Zero files touched")
+        }
+        XCTAssertEqual(
+            try ledger.balance(accountKey: account).usage.dedupeUsed, 0,
+            "Nothing was trashed and no receipt exists for reconciliation to read, so the charge is returned"
+        )
+        XCTAssertTrue(try ledger.openReservations().isEmpty)
+    }
+
     /// An unrestricted authorizer is the CLI and Developer ID channel, and must
     /// commit exactly as it did before the gate existed.
     @MainActor
@@ -293,6 +431,44 @@ private struct StubEvidence: TrialReconciliationEvidence {
         destinationRoot: URL
     ) -> TrialReconciliationOutcome {
         result
+    }
+}
+
+/// Forwards to a real authorizer, but runs `whileAuthorizing` inside the gate's
+/// suspension first — standing in for a StoreKit round-trip slow enough for the
+/// world to change underneath the commit.
+private final class HookedAuthorizer: TrialAuthorizing, @unchecked Sendable {
+    private let wrapped: any TrialAuthorizing
+
+    /// Set before the commit starts and not mutated afterwards.
+    var whileAuthorizing: (@Sendable () async -> Void)?
+
+    init(wrapping wrapped: any TrialAuthorizing) {
+        self.wrapped = wrapped
+    }
+
+    func authorizeMeteredWork(
+        runID: UUID,
+        meter: TrialMeter,
+        count: Int,
+        destinationRoot: String?
+    ) async -> TrialAuthorization {
+        await whileAuthorizing?()
+        return await wrapped.authorizeMeteredWork(
+            runID: runID, meter: meter, count: count, destinationRoot: destinationRoot
+        )
+    }
+
+    func finalizeMeteredWork(runID: UUID, actualCount: Int) async {
+        await wrapped.finalizeMeteredWork(runID: runID, actualCount: actualCount)
+    }
+
+    func releaseMeteredWork(runID: UUID) async {
+        await wrapped.releaseMeteredWork(runID: runID)
+    }
+
+    func authorizeUnlockOnlyWork() async -> TrialAuthorization {
+        await wrapped.authorizeUnlockOnlyWork()
     }
 }
 
