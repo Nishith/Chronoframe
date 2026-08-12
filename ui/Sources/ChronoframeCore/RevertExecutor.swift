@@ -138,8 +138,18 @@ public struct RevertReceipt: Equatable, Codable, Sendable {
 // MARK: - Result + observer
 
 public struct RevertExecutionResult: Equatable, Sendable {
-    /// Files whose destination still hashed to the receipt value and were removed.
-    public var revertedCount: Int
+    /// Destination paths whose hash still matched the receipt and which THIS
+    /// pass removed.
+    ///
+    /// Paths rather than a tally because refunding trial allowance has to be
+    /// item-level. Partial reverts are routine — a destination file the user
+    /// has edited is preserved by design — so a later pass must refund exactly
+    /// the files it newly removed and nothing else. A count cannot express
+    /// "these three, not those two".
+    ///
+    /// Excludes files that were already missing: `missingCount` covers those,
+    /// and this pass did not undo them.
+    public var revertedPaths: [String]
     /// Files preserved due to hash mismatch (user-modified) or OS error during remove.
     public var skippedCount: Int
     /// Files already missing from disk are treated as "trivially reverted"
@@ -148,13 +158,17 @@ public struct RevertExecutionResult: Equatable, Sendable {
     /// Total receipt entries considered.
     public var totalTransfers: Int
 
+    /// Derived, so the number the UI reports and the paths the refund credits
+    /// can never disagree.
+    public var revertedCount: Int { revertedPaths.count }
+
     public init(
-        revertedCount: Int,
+        revertedPaths: [String],
         skippedCount: Int,
         missingCount: Int,
         totalTransfers: Int
     ) {
-        self.revertedCount = revertedCount
+        self.revertedPaths = revertedPaths
         self.skippedCount = skippedCount
         self.missingCount = missingCount
         self.totalTransfers = totalTransfers
@@ -325,7 +339,7 @@ public struct RevertExecutor: Sendable {
         let transfers = receipt.transfers
         observer.onTaskStart(transfers.count)
 
-        var revertedCount = 0
+        var revertedPaths: [String] = []
         var skippedCount = 0
         var missingCount = 0
 
@@ -353,7 +367,7 @@ public struct RevertExecutor: Sendable {
                             message: "Refusing to revert path outside destination: \(destinationPath)"
                         )
                     )
-                    observer.onTaskProgress(revertedCount + skippedCount, transfers.count)
+                    observer.onTaskProgress(revertedPaths.count + skippedCount, transfers.count)
                     continue
                 }
             }
@@ -378,17 +392,17 @@ public struct RevertExecutor: Sendable {
                 destinationURL: destinationURL
             ) {
             case .reverted:
-                revertedCount += 1
+                revertedPaths.append(destinationPath)
             case let .skipped(issue):
                 skippedCount += 1
                 observer.onIssue(issue)
             }
 
-            observer.onTaskProgress(revertedCount + skippedCount, transfers.count)
+            observer.onTaskProgress(revertedPaths.count + skippedCount, transfers.count)
         }
 
         return RevertExecutionResult(
-            revertedCount: revertedCount,
+            revertedPaths: revertedPaths,
             skippedCount: skippedCount,
             missingCount: missingCount,
             totalTransfers: transfers.count
