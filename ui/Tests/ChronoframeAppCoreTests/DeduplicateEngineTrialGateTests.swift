@@ -232,7 +232,11 @@ final class DeduplicateEngineTrialGateTests: XCTestCase {
         let fixture = try destinationWithPlan(fileCount: 2)
         let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 10, dedupeFiles: 10))
 
-        let stream = try meteredEngine(ledger: ledger).commit(
+        // Bound to a local on purpose: the commit stream holds the engine
+        // weakly, so a temporary engine is deallocated before the stream runs
+        // and the commit finishes silently without doing anything.
+        let engine = meteredEngine(ledger: ledger)
+        let stream = try engine.commit(
             plan: fixture.plan,
             configuration: DeduplicateConfiguration(destinationPath: fixture.root.path)
         )
