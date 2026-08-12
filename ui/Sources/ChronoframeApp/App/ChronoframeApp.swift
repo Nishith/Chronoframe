@@ -24,6 +24,13 @@ struct ChronoframeApp: App {
         self._appState = StateObject(wrappedValue: AppState())
         #endif
         RunSessionStore.requestNotificationPermission()
+        // Refunds, Family Sharing revocations, and — the case the unlock sheet
+        // depends on — an Ask to Buy approval that lands after `purchase()`
+        // has already returned `.pending`. Without this observer the sheet's
+        // promise that Chronoframe "will unlock automatically once it's
+        // approved" is simply false: nothing would change `state`, so nothing
+        // would dismiss the sheet until a relaunch or a manual Restore.
+        TrialComposition.entitlementStore.startObservingUpdates()
         TipConfiguration.configureIfNeeded(isUITest: uiTestScenario != nil)
     }
 

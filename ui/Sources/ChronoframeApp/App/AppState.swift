@@ -418,16 +418,23 @@ final class AppState: ObservableObject {
 
     // MARK: - Unlock (free-trial step 5, T13)
 
-    /// Non-nil while a refused run is waiting on an unlock decision.
+    /// Non-nil while a refused operation is waiting on an unlock decision.
+    ///
+    /// Reads both stores. Organize/reorganize refusals land in
+    /// `RunSessionStore`; a refused duplicate cleanup lands in
+    /// `DeduplicateSessionStore`, which is a separate store with its own
+    /// status. Checking only the first would leave a customer who exhausted
+    /// the dedupe allowance looking at an error with no way to unlock.
     var unlockRefusal: TrialAuthorizationRefusal? {
-        runSessionStore.lastRefusal
+        runSessionStore.lastRefusal ?? deduplicateSessionStore.lastRefusal
     }
 
-    /// The customer closed the sheet without unlocking. Nothing to clean up —
-    /// `RunSessionStore.handleRefusal` already released the destination lease
-    /// and the security scope, because the run never started.
+    /// The customer closed the sheet without unlocking. Nothing to clean up:
+    /// both stores released everything they held when they refused, because
+    /// neither operation started.
     func dismissUnlockSheet() {
         runSessionStore.dismissRefusal()
+        deduplicateSessionStore.dismissRefusal()
     }
 
     /// Start over after an unlock, from preflight.
@@ -443,6 +450,16 @@ final class AppState: ObservableObject {
     /// one would be a guess. That sheet just closes and the customer re-invokes
     /// the action, which is one click and cannot be wrong.
     func retryAfterUnlock() async {
+        // A dedupe refusal leaves its reviewed clusters paused and intact, so
+        // there is nothing to rebuild and nothing safe to auto-run: committing
+        // on the customer's behalf the moment a purchase completes would remove
+        // files without them asking twice. Closing the sheet returns them to
+        // their paused review, one click from Clean Up.
+        if deduplicateSessionStore.lastRefusal != nil {
+            deduplicateSessionStore.dismissRefusal()
+            return
+        }
+
         let refusedMode = runSessionStore.currentMode
         runSessionStore.dismissRefusal()
         switch refusedMode {

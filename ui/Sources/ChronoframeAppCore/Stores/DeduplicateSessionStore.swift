@@ -24,6 +24,13 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     @Published public private(set) var status: Status = .idle
+    /// Set when a commit was refused rather than broken (free-trial step 5).
+    ///
+    /// The dedupe workspace has its own store, so a refusal here has to be
+    /// surfaced here — `AppState` reads both this and `RunSessionStore`'s to
+    /// decide whether to present the unlock sheet. Without it a refused
+    /// cleanup reads as "Deduplicate failed" and offers no way to unlock.
+    @Published public private(set) var lastRefusal: TrialAuthorizationRefusal?
     @Published public private(set) var currentPhase: DeduplicatePhase?
     @Published public private(set) var phaseCompleted: Int = 0
     @Published public private(set) var phaseTotal: Int = 0
@@ -164,6 +171,7 @@ public final class DeduplicateSessionStore: ObservableObject {
         cancelStream()
         self.securityScope = securityScope
         commitSummary = nil
+        lastRefusal = nil
         isHandlingRevert = false
         // Reset progress counters so the committing status view starts at a
         // clean zero rather than briefly showing leftover scan-phase totals
@@ -214,9 +222,36 @@ public final class DeduplicateSessionStore: ObservableObject {
             closeSecurityScope()
             return
         }
+        if let refusal = (error as? TrialAuthorizationError)?.refusal {
+            applyRefusal(refusal, message: error.localizedDescription)
+            return
+        }
         status = .failed(error.localizedDescription)
         lastErrorMessage = error.localizedDescription
         closeSecurityScope()
+    }
+
+    /// A refused commit did not commit.
+    ///
+    /// T9 guarantees nothing reached the Trash and no receipt or spool was
+    /// written, so this is not a failure and must not read as one.
+    ///
+    /// Status returns to `.idle` with the reviewed clusters left in place,
+    /// which is exactly what `hasPausedReview` recognises as a paused review.
+    /// So after unlocking, the customer presses Clean Up again and re-commits
+    /// the plan they already approved — their review is not thrown away, and
+    /// nothing is committed on their behalf.
+    private func applyRefusal(_ refusal: TrialAuthorizationRefusal, message: String) {
+        status = .idle
+        lastRefusal = refusal
+        lastErrorMessage = message
+        closeSecurityScope()
+    }
+
+    /// Clear the refusal without committing anything. The reviewed plan stays
+    /// paused and intact.
+    public func dismissRefusal() {
+        lastRefusal = nil
     }
 
     public var hasPausedReview: Bool {
