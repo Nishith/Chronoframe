@@ -58,7 +58,7 @@ final class NetworkDestinationAdvisoryTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        let engine = NativeDeduplicateEngine()
+        let engine = NativeDeduplicateEngine(authorizer: UnrestrictedTrialAuthorizer())
         engine.networkAdvisory = NetworkDestinationAdvisory(defaults: scratchDefaults(), isRemote: { _ in true })
         defer { engine.cancelCurrentScan() }
 

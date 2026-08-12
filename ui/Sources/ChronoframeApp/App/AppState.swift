@@ -5,36 +5,6 @@ import ChronoframeAppCore
 #endif
 import Foundation
 
-/// Process-wide trial composition.
-///
-/// Deliberately outside `AppState`: the reconciler provider is a `@Sendable`,
-/// non-isolated closure, and it must be able to reach the ledger without
-/// hopping to the main actor. A `static let` of a `Sendable` type here is
-/// reachable from both.
-private enum TrialComposition {
-    /// One ledger per process, opened on first use.
-    ///
-    /// A corrupt or unopenable ledger degrades to a fail-closed stand-in
-    /// reporting zero remaining, never a fresh allowance — see
-    /// `TrialLedgerOpener`.
-    /// Kept as the whole outcome, not just `.ledger`. The fail-closed stand-in
-    /// for an unreadable ledger answers "zero remaining" rather than throwing —
-    /// correct for a gate, and indistinguishable from a spent trial by the time
-    /// it reaches the UI. `TrialStatus` needs to be told which one it is.
-    static let openOutcome: TrialLedgerOpenOutcome = TrialLedgerOpener.openDefault()
-
-    static var ledger: any TrialLedger { openOutcome.ledger }
-    static var isReadable: Bool { openOutcome.failure == nil }
-
-    /// Pair ledger reconciliation with destination recovery.
-    ///
-    /// Idempotent: `AppState` is built once in the app but repeatedly in tests,
-    /// and re-assigning the provider is harmless.
-    static func installReconciler() {
-        DestinationRecovery.reconcilerProvider = { TrialLedgerReconciler(ledger: ledger) }
-    }
-}
-
 @MainActor
 final class AppState: ObservableObject {
     private static let deduplicateDestinationBookmarkKey = "deduplicate.destination"
@@ -197,10 +167,13 @@ final class AppState: ObservableObject {
         )
         let runLogStore = RunLogStore(capacity: preferencesStore.logBufferCapacity)
         let historyStore = HistoryStore()
-        let engine: any OrganizerEngine = SwiftOrganizerEngine(profilesRepository: profilesRepository)
+        let engine: any OrganizerEngine = SwiftOrganizerEngine(
+            authorizer: TrialComposition.authorizer,
+            profilesRepository: profilesRepository
+        )
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
         let libraryHealthStore = LibraryHealthStore()
-        let deduplicateEngine = NativeDeduplicateEngine()
+        let deduplicateEngine = NativeDeduplicateEngine(authorizer: TrialComposition.authorizer)
         let deduplicateSessionStore = DeduplicateSessionStore(engine: deduplicateEngine)
 
         self.init(
@@ -253,7 +226,7 @@ final class AppState: ObservableObject {
         self.runSessionStore = runSessionStore
         self.previewReviewStore = previewReviewStore ?? PreviewReviewStore()
         self.libraryHealthStore = libraryHealthStore ?? LibraryHealthStore()
-        self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine())
+        self.deduplicateSessionStore = deduplicateSessionStore ?? DeduplicateSessionStore(engine: NativeDeduplicateEngine(authorizer: TrialComposition.authorizer))
         self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.photosImportStore = photosImportStore ?? AppState.makePhotosImportStore()
         self.guardianStore = GuardianStore(engine: SwiftGuardianEngine(), notifier: GuardianUserNotifier())
