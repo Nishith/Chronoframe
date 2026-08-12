@@ -118,10 +118,10 @@ enum TrialComposition {
     static let refunder: any TrialRefunding =
         isMacAppStoreBuild ? ledgerBackedRefunder : NoOpTrialRefunder()
 
-    static let ledgerBackedRefunder: any TrialRefunding = EntitlementTrialRefunder(
-        ledger: ledger,
-        accountKey: { await currentEntitlement().accountKey }
-    )
+    /// No entitlement closure: the refund is attributed to the account the
+    /// ledger recorded the charge under, which is the only account that can
+    /// receive it. See `EntitlementTrialRefunder`.
+    static let ledgerBackedRefunder: any TrialRefunding = EntitlementTrialRefunder(ledger: ledger)
 
     /// Pair ledger reconciliation with destination recovery.
     ///

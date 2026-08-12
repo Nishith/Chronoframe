@@ -251,6 +251,10 @@ public struct WitnessedTrialLedger: TrialLedger {
         recordCurrentUsage(accountKey: accountKey)
     }
 
+    public func accountKey(forRunID runID: UUID) throws -> String? {
+        try base.accountKey(forRunID: runID)
+    }
+
     public func openReservations() throws -> [OpenReservation] {
         try base.openReservations()
     }

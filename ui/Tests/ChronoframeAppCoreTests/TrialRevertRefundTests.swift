@@ -29,7 +29,7 @@ final class TrialRevertRefundTests: XCTestCase {
     }
 
     private func refunder(_ ledger: any TrialLedger) -> EntitlementTrialRefunder {
-        EntitlementTrialRefunder(ledger: ledger) { [account] in account }
+        EntitlementTrialRefunder(ledger: ledger)
     }
 
     private func organizeUsed(_ ledger: InMemoryTrialLedger) throws -> Int {
@@ -147,21 +147,65 @@ final class TrialRevertRefundTests: XCTestCase {
     func testRevertThatUndidNothingNeverTouchesTheLedger() async throws {
         let ledger = ExplodingRefundLedger()
 
-        await EntitlementTrialRefunder(ledger: ledger) { "app-txn-1" }
+        await EntitlementTrialRefunder(ledger: ledger)
             .refundUndoneWork(receiptRunID: UUID(), meter: .organize, itemPaths: [])
 
         XCTAssertFalse(ledger.wasTouched, "An empty revert must not cost a ledger write")
     }
 
-    /// Without an account key there is nothing to attribute the credit to, so
-    /// it records nothing rather than guessing.
-    func testMissingAccountKeyRefundsNothing() async throws {
-        let (ledger, runID) = try chargedLedger(organizeCharged: 3)
+    /// A run ID this ledger never charged has no account to attribute a credit
+    /// to, so it records nothing rather than guessing.
+    func testUnknownRunIDRefundsNothing() async throws {
+        let (ledger, _) = try chargedLedger(organizeCharged: 3)
 
-        await EntitlementTrialRefunder(ledger: ledger) { nil }
-            .refundUndoneWork(receiptRunID: runID, meter: .organize, itemPaths: ["/dest/a.jpg"])
+        await refunder(ledger).refundUndoneWork(
+            receiptRunID: UUID(), meter: .organize, itemPaths: ["/dest/a.jpg"]
+        )
 
         XCTAssertEqual(try organizeUsed(ledger), 3)
+    }
+
+    /// The credit follows the reservation, not whoever is signed in now.
+    ///
+    /// Reading the account from the current entitlement instead would be wrong
+    /// twice over and unrepairable both times: offline it resolves to nothing
+    /// and the refund is skipped for good (the revert already removed the
+    /// files, so a later pass has nothing new to report), and after an Apple
+    /// Account switch it records the item under the wrong account — which
+    /// credits nothing, and permanently blocks the correct record because
+    /// `RefundedItems` ignores a second row for the same item.
+    func testRefundIsAttributedToTheAccountThatWasCharged() async throws {
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 500, dedupeFiles: 100))
+        let payingAccount = "app-txn-original"
+        let otherAccount = "app-txn-someone-else"
+
+        let runID = UUID()
+        _ = try ledger.reserve(
+            runID: runID, accountKey: payingAccount, meter: .organize,
+            count: 3, destinationRoot: nil
+        )
+        try ledger.finalize(runID: runID, actualCount: 3)
+        // A second account with its own charge, to prove the credit does not
+        // wander.
+        let otherRun = UUID()
+        _ = try ledger.reserve(
+            runID: otherRun, accountKey: otherAccount, meter: .organize,
+            count: 2, destinationRoot: nil
+        )
+        try ledger.finalize(runID: otherRun, actualCount: 2)
+
+        await refunder(ledger).refundUndoneWork(
+            receiptRunID: runID, meter: .organize, itemPaths: ["/dest/a.jpg", "/dest/b.jpg", "/dest/c.jpg"]
+        )
+
+        XCTAssertEqual(
+            try ledger.balance(accountKey: payingAccount).usage.organizeUsed, 0,
+            "The account that paid gets its allowance back"
+        )
+        XCTAssertEqual(
+            try ledger.balance(accountKey: otherAccount).usage.organizeUsed, 2,
+            "No other account is credited"
+        )
     }
 
     /// A ledger that cannot record the refund must not fail the revert. The
@@ -236,6 +280,7 @@ private final class ExplodingRefundLedger: TrialLedger, @unchecked Sendable {
         receiptRunID: UUID, accountKey: String,
         meter: TrialMeter, itemPaths: [String]
     ) throws { markTouched() }
+    func accountKey(forRunID runID: UUID) throws -> String? { "app-txn-1" }
     func openReservations() throws -> [OpenReservation] { [] }
 }
 
@@ -254,5 +299,6 @@ private struct ThrowingRefundLedger: TrialLedger {
     ) throws {
         throw TrialLedgerError.writeFailed("disk unavailable")
     }
+    func accountKey(forRunID runID: UUID) throws -> String? { "app-txn-1" }
     func openReservations() throws -> [OpenReservation] { [] }
 }

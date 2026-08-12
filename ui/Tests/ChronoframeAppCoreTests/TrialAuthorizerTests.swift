@@ -328,6 +328,7 @@ private final class ExplodingAuthorizerLedger: TrialLedger, @unchecked Sendable 
         receiptRunID: UUID, accountKey: String,
         meter: TrialMeter, itemPaths: [String]
     ) throws { markTouched() }
+    func accountKey(forRunID runID: UUID) throws -> String? { "app-txn-1" }
     func openReservations() throws -> [OpenReservation] { [] }
 }
 
@@ -346,5 +347,6 @@ private struct ThrowingReserveLedger: TrialLedger {
         receiptRunID: UUID, accountKey: String,
         meter: TrialMeter, itemPaths: [String]
     ) throws {}
+    func accountKey(forRunID runID: UUID) throws -> String? { "app-txn-1" }
     func openReservations() throws -> [OpenReservation] { [] }
 }

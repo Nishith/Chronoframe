@@ -57,20 +57,25 @@ public struct NoOpTrialRefunder: TrialRefunding {
 // MARK: - Ledger-backed
 
 /// Records the undone items against the ledger.
+///
+/// Deliberately has no entitlement dependency. The account a refund belongs to
+/// is the account that was CHARGED, which the ledger already knows — reading it
+/// from the current entitlement instead would be wrong in two ways that cannot
+/// be repaired afterwards:
+///
+/// - **Offline.** An unresolved account key would skip the refund, and the
+///   revert has already removed the files, so a later pass reports them as
+///   missing rather than newly reverted and there is nothing left to refund.
+/// - **After an Apple Account switch.** The item would be recorded under the
+///   wrong account. Usage only nets refunds whose account matches the
+///   reservation, so it credits nothing — and because `RefundedItems` ignores a
+///   second record for the same `(receipt_run_id, item_path)`, the correct
+///   record can never be written.
 public struct EntitlementTrialRefunder: TrialRefunding {
     private let ledger: any TrialLedger
-    private let accountKey: @Sendable () async -> String?
 
-    /// - Parameter accountKey: resolves the App Store account the original run
-    ///   was charged under. A refund has to be attributed to the same account
-    ///   that was charged, so an unresolvable one records nothing rather than
-    ///   guessing.
-    public init(
-        ledger: any TrialLedger,
-        accountKey: @escaping @Sendable () async -> String?
-    ) {
+    public init(ledger: any TrialLedger) {
         self.ledger = ledger
-        self.accountKey = accountKey
     }
 
     public func refundUndoneWork(receiptRunID: UUID?, meter: TrialMeter, itemPaths: [String]) async {
@@ -84,7 +89,12 @@ public struct EntitlementTrialRefunder: TrialRefunding {
         // agreed to; refunding wrongly hands out allowance nobody paid for.
         guard let receiptRunID else { return }
 
-        guard let accountKey = await accountKey() else { return }
+        // The account that was charged, not whoever is signed in now. A nil
+        // here means no such reservation exists — a receipt from a run this
+        // ledger never charged — so there is nothing to credit.
+        guard let accountKey = try? ledger.accountKey(forRunID: receiptRunID),
+              let accountKey
+        else { return }
 
         // Swallowed on purpose. The revert has already happened — the files are
         // back — and failing the stream now would tell the customer their revert

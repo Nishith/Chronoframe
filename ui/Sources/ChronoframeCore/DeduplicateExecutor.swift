@@ -286,7 +286,8 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         failedCount: failedCount + (receiptError == nil ? 0 : 1),
                         bytesReclaimed: bytesReclaimed,
                         receiptPath: receiptURL.path,
-                        hardDelete: false
+                        hardDelete: false,
+                        runID: runID
                     )
                 ))
                 continuation.finish()
@@ -439,7 +440,11 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                             failedCount: failedCount,
                             bytesReclaimed: bytesReclaimed,
                             receiptPath: receiptURL.path,
-                            hardDelete: false
+                            hardDelete: false,
+                            // The receipt THIS pass decoded and restored from,
+                            // so a refund cannot be attributed to a different
+                            // file that replaced it in the meantime.
+                            runID: receipt.runID
                         )
                     ))
                     continuation.finish()

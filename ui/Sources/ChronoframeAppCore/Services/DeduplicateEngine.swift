@@ -316,7 +316,7 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
             receiptURL: receiptURL,
             destinationBoundary: destinationURL
         )
-        return refundingRevertStream(stream, receiptRunID: Self.receiptRunID(at: receiptURL))
+        return refundingRevertStream(stream)
     }
 
     // MARK: - Refunding a revert (free-trial step 4, T12)
@@ -328,8 +328,7 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     /// refuse, retry, or reorder anything, and a missing run ID or a ledger
     /// failure changes nothing about what the revert does.
     private func refundingRevertStream(
-        _ stream: AsyncThrowingStream<DeduplicateCommitEvent, Error>,
-        receiptRunID: UUID?
+        _ stream: AsyncThrowingStream<DeduplicateCommitEvent, Error>
     ) -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         AsyncThrowingStream { continuation in
             // Captured strongly so an engine that goes away mid-revert still
@@ -346,13 +345,25 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
                 // design and reported as `itemFailed`, so a later pass can
                 // restore it and refund it then.
                 var restoredPaths: [String] = []
+                // Reported by the pass that did the restoring, so the refund is
+                // keyed to the receipt those items actually came from. Reading
+                // the receipt again here would be a second, independent read:
+                // anything that replaced the file in between — a sync client,
+                // the user — would have this credit one run for another run's
+                // items.
+                var receiptRunID: UUID?
                 do {
                     for try await event in stream {
+                        switch event {
                         // The restore path reuses the forward path's event
                         // type: `itemTrashed` here means the file came back
                         // OUT of the Trash.
-                        if case let .itemTrashed(originalPath, _, _) = event {
+                        case let .itemTrashed(originalPath, _, _):
                             restoredPaths.append(originalPath)
+                        case let .complete(summary):
+                            receiptRunID = summary.runID
+                        default:
+                            break
                         }
                         continuation.yield(event)
                     }
@@ -361,32 +372,17 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
                     )
                     continuation.finish()
                 } catch {
-                    // Refunded on the failure path too. Whatever was restored
-                    // before the error is still restored, and the customer
-                    // should not stay charged for files sitting back in their
-                    // library.
-                    await refunder.refundUndoneWork(
-                        receiptRunID: receiptRunID, meter: .dedupe, itemPaths: restoredPaths
-                    )
+                    // No refund here, and none is owed: every `throw` on the
+                    // revert path happens while validating the receipt, before
+                    // a single item is restored. Per-item trouble after that is
+                    // reported as `itemFailed`, not thrown — so a throw means
+                    // `restoredPaths` is empty and there is nothing to credit.
                     continuation.finish(throwing: error)
                 }
             }
         }
     }
 
-    /// The reservation the commit was charged under, read from its receipt.
-    ///
-    /// Unlike the organize receipt, this one has always carried a `runID`, and
-    /// before run IDs were threaded it was a value the executor minted for
-    /// itself that matched no reservation. Using it anyway is harmless: the
-    /// ledger nets a refund against its OWN reservation row, so a key with no
-    /// such row credits nothing rather than crediting the wrong run.
-    private static func receiptRunID(at receiptURL: URL) -> UUID? {
-        guard let data = try? Data(contentsOf: receiptURL) else { return nil }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return (try? decoder.decode(DeduplicateAuditReceipt.self, from: data))?.runID
-    }
 
     private func scanHoldingStream(
         _ stream: AsyncThrowingStream<DeduplicateEvent, Error>,

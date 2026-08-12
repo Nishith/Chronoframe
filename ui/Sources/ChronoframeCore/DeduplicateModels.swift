@@ -616,19 +616,30 @@ public struct DeduplicateCommitSummary: Sendable, Equatable {
     public var bytesReclaimed: Int64
     public var receiptPath: String?
     public var hardDelete: Bool
+    /// The run the receipt belongs to, as read by the pass that produced these
+    /// events.
+    ///
+    /// Reported rather than left for the caller to read back off disk, so trial
+    /// refunds are attributed to the same receipt the restore actually worked
+    /// from. Two independent reads of `receiptPath` could see two different
+    /// files if anything replaced it in between — a sync client, or the user —
+    /// and the refund would then credit one run for another run's items.
+    public var runID: UUID?
 
     public init(
         deletedCount: Int,
         failedCount: Int,
         bytesReclaimed: Int64,
         receiptPath: String?,
-        hardDelete: Bool
+        hardDelete: Bool,
+        runID: UUID? = nil
     ) {
         self.deletedCount = deletedCount
         self.failedCount = failedCount
         self.bytesReclaimed = bytesReclaimed
         self.receiptPath = receiptPath
         self.hardDelete = hardDelete
+        self.runID = runID
     }
 }
 
