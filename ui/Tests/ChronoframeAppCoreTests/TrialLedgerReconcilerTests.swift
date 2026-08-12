@@ -247,20 +247,113 @@ final class TrialLedgerReconcilerTests: XCTestCase {
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 5)
         XCTAssertEqual(try ledger.openReservations().map(\.runID), [runID])
 
-        // "Start Fresh" clears the queue, so the charge is not stranded forever:
-        // once nothing is resumable the run settles at what actually landed.
+        // Abandoning the unfinished jobs is what makes the run settleable: once
+        // nothing is resumable it settles at what actually landed. This is the
+        // state `DestinationRecovery.settleAndDiscardQueue` puts the queue into
+        // before it truncates — see `testStartFreshChargesTheInterruptedRunFor…`
+        // for why the truncation cannot come first.
         let reopened = try OrganizerDatabase(url: databaseURL)
-        try reopened.clearAllJobs()
-        try reopened.enqueueQueuedJobs((0..<3).map { index in
-            QueuedCopyJob(
-                sourcePath: "/s\(index).jpg", destinationPath: "/d/s\(index).jpg", hash: "h\(index)",
-                status: .copied, runID: runID, mutationState: .finalized
-            )
-        })
+        try reopened.clearPendingJobs()
         reopened.close()
 
         TrialLedgerReconciler(ledger: ledger).reconcile(destinationRoot: root)
         XCTAssertEqual(try ledger.balance(accountKey: account).usage.organizeUsed, 3)
+    }
+
+    // MARK: - Start Fresh
+
+    /// "Start Fresh" truncates `CopyJobs`, which is the only durable evidence
+    /// of how many files a metered run copied.
+    ///
+    /// Truncating first and reconciling later reads zero completed jobs and
+    /// settles the interrupted run's reservation at ZERO, so everything it
+    /// copied becomes free — and `finalize` is one-way, so no later pass can
+    /// correct it.
+    func testStartFreshChargesTheInterruptedRunForWhatItActuallyCopied() throws {
+        let root = try destination("start-fresh")
+        let databaseURL = root.appendingPathComponent(".organize_cache.db")
+        let database = try OrganizerDatabase(url: databaseURL)
+        let runID = UUID()
+        try database.enqueueQueuedJobs((0..<5).map { index in
+            QueuedCopyJob(
+                sourcePath: "/s\(index).jpg", destinationPath: "/d/s\(index).jpg", hash: "h\(index)",
+                status: index < 2 ? .copied : .pending,
+                runID: runID,
+                mutationState: index < 2 ? .finalized : .intended
+            )
+        })
+        database.close()
+
+        let ledger = InMemoryTrialLedger(caps: caps)
+        _ = try ledger.reserve(
+            runID: runID, accountKey: account, meter: .organize,
+            count: 5, destinationRoot: root.path
+        )
+
+        try Self.withReconciler(TrialLedgerReconciler(ledger: ledger)) {
+            try DestinationRecovery.settleAndDiscardQueue(destinationRoot: root)
+        }
+
+        XCTAssertEqual(
+            try ledger.balance(accountKey: account).usage.organizeUsed, 2,
+            "Two files landed before the interruption, so two are charged — not zero, and not the reserved five"
+        )
+        XCTAssertTrue(try ledger.openReservations().isEmpty)
+
+        let remaining = try OrganizerDatabase(url: databaseURL, readOnly: true)
+        defer { remaining.close() }
+        XCTAssertEqual(
+            try remaining.queuedJobCount(), 0,
+            "The queue is still discarded — settling does not keep stale rows around"
+        )
+    }
+
+    /// The CLI installs no reconciler. Discarding must still work there, and
+    /// must not depend on a ledger being present.
+    func testStartFreshWithoutAReconcilerStillDiscardsTheQueue() throws {
+        let root = try destination("start-fresh-no-ledger")
+        let databaseURL = root.appendingPathComponent(".organize_cache.db")
+        let database = try OrganizerDatabase(url: databaseURL)
+        try database.enqueueQueuedJobs([
+            QueuedCopyJob(sourcePath: "/a.jpg", destinationPath: "/d/a.jpg", hash: "h", status: .pending),
+        ])
+        database.close()
+
+        try Self.withReconciler(nil) {
+            try DestinationRecovery.settleAndDiscardQueue(destinationRoot: root)
+        }
+
+        let remaining = try OrganizerDatabase(url: databaseURL, readOnly: true)
+        defer { remaining.close() }
+        XCTAssertEqual(try remaining.queuedJobCount(), 0)
+    }
+
+    /// A destination that never ran anything has no queue database, and must
+    /// not be treated as an error.
+    func testStartFreshOnADestinationWithNoQueueDatabaseDoesNothing() throws {
+        let root = try destination("start-fresh-empty")
+        try Self.withReconciler(nil) {
+            try DestinationRecovery.settleAndDiscardQueue(destinationRoot: root)
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: root.appendingPathComponent(".organize_cache.db").path)
+        )
+    }
+
+    /// Installs `reconciler` for the duration of `body` and always restores the
+    /// previous provider — the seam is process-global.
+    private static func withReconciler(
+        _ reconciler: (any TrialLedgerReconciling)?,
+        _ body: () throws -> Void
+    ) rethrows {
+        let previous = DestinationRecovery.reconcilerProvider
+        defer { DestinationRecovery.reconcilerProvider = previous }
+        if let reconciler {
+            DestinationRecovery.reconcilerProvider = { reconciler }
+        } else {
+            DestinationRecovery.reconcilerProvider = nil
+        }
+        try body()
     }
 
     /// No queue database means no evidence either way, so the reservation must

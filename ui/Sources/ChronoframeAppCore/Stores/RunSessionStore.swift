@@ -493,14 +493,15 @@ public final class RunSessionStore: ObservableObject {
         currentPhaseStartDate = nil
     }
 
+    /// Discards the interrupted run's queue, settling its trial reservation
+    /// from that queue's own evidence first — see
+    /// `DestinationRecovery.settleAndDiscardQueue`, which is where the ordering
+    /// that makes the charge honest lives.
     private func clearAllJobs(at destinationPath: String) {
-        let dbURL = URL(fileURLWithPath: destinationPath)
-            .appendingPathComponent(".organize_cache.db")
-        guard FileManager.default.fileExists(atPath: dbURL.path) else { return }
         do {
-            let database = try OrganizerDatabase(url: dbURL)
-            defer { database.close() }
-            try database.clearAllJobs()
+            try DestinationRecovery.settleAndDiscardQueue(
+                destinationRoot: URL(fileURLWithPath: destinationPath, isDirectory: true)
+            )
         } catch {
             // Non-fatal: if we can't clear the old queue the fresh plan will
             // still run; some jobs may be skipped by INSERT OR IGNORE but the

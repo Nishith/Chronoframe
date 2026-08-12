@@ -809,6 +809,74 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         XCTAssertEqual(statuses, [.pending], "The queue is left exactly as it was, so an unlock can resume it")
     }
 
+    /// The gate is the only suspension point between the last cancellation
+    /// check and the first mutation, and resolving entitlement can wait on the
+    /// App Store — so a cancel can land inside it.
+    ///
+    /// By then `RunSessionStore.cancelCurrentRun()` has already released the
+    /// destination lease, so enqueuing or copying past this point would mutate
+    /// the destination with no lock held. The reservation is given back because
+    /// this is the one moment where nothing can have been mutated under it.
+    @MainActor
+    func testCancellingDuringAuthorizationEnqueuesNothingAndReleasesTheReservation() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        let fileURL = sourceURL.appendingPathComponent("camera/IMG_20240102_101010.jpg")
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("alpha".utf8).write(to: fileURL)
+
+        let authorizer = SlowAuthorizer()
+        let engine = SwiftOrganizerEngine(
+            authorizer: authorizer,
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+        // The cancel happens while the gate is suspended, which is exactly the
+        // window a real StoreKit round-trip opens.
+        authorizer.whileAuthorizing = { [weak engine] in
+            await MainActor.run {
+                guard let engine else { return }
+                engine.cancelCurrentRun()
+            }
+        }
+
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+        let events = try await Self.collect(stream)
+
+        XCTAssertNil(
+            events.last.flatMap { event -> RunSummary? in
+                if case let .complete(summary) = event { return summary }
+                return nil
+            },
+            "A run cancelled inside the gate finishes without a completion summary"
+        )
+        XCTAssertTrue(
+            Self.mediaURLs(under: destinationURL).isEmpty,
+            "Nothing may be copied after the lease was released"
+        )
+
+        let queuedJobs = try Self.withDatabaseWhenReady(
+            at: destinationURL.appendingPathComponent(".organize_cache.db")
+        ) { try $0.loadQueuedJobs() }
+        XCTAssertTrue(queuedJobs.isEmpty, "Nothing may be enqueued after the lease was released, got \(queuedJobs)")
+
+        XCTAssertEqual(
+            authorizer.releasedRunIDs.count, 1,
+            "The reservation is given back: nothing was enqueued, copied, or written under it"
+        )
+        XCTAssertEqual(authorizer.finalizedRunIDs, [], "Nothing landed, so nothing is settled")
+    }
+
     /// An unrestricted authorizer is the CLI and Developer ID channel, and must
     /// behave exactly as it did before the gate existed.
     @MainActor
@@ -1275,6 +1343,41 @@ extension SwiftOrganizerEngineIntegrationTests {
         XCTAssertTrue(destinationText.contains("inside the source folder"))
         XCTAssertTrue(destinationText.contains("No files were changed."))
     }
+}
+
+/// Permits everything, but runs `whileAuthorizing` inside the gate's suspension
+/// — standing in for a StoreKit round-trip slow enough for the user to cancel
+/// during it — and records what was settled or given back.
+private final class SlowAuthorizer: TrialAuthorizing, @unchecked Sendable {
+    private let lock = NSLock()
+    private var released: [UUID] = []
+    private var finalized: [UUID] = []
+
+    /// Set before the run starts and not mutated afterwards.
+    var whileAuthorizing: (@Sendable () async -> Void)?
+
+    var releasedRunIDs: [UUID] { lock.withLock { released } }
+    var finalizedRunIDs: [UUID] { lock.withLock { finalized } }
+
+    func authorizeMeteredWork(
+        runID: UUID,
+        meter: TrialMeter,
+        count: Int,
+        destinationRoot: String?
+    ) async -> TrialAuthorization {
+        await whileAuthorizing?()
+        return .permitted
+    }
+
+    func finalizeMeteredWork(runID: UUID, actualCount: Int) async {
+        lock.withLock { finalized.append(runID) }
+    }
+
+    func releaseMeteredWork(runID: UUID) async {
+        lock.withLock { released.append(runID) }
+    }
+
+    func authorizeUnlockOnlyWork() async -> TrialAuthorization { .permitted }
 }
 
 private final class TestProfilesRepository: ProfilesRepositorying {

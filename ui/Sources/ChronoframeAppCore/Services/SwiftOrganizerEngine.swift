@@ -729,6 +729,23 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             runLogger: runLogger
         )
 
+        // The gate is the only suspension point between the last cancellation
+        // check and the first mutation, and it can be a slow one — resolving
+        // entitlement may wait on the App Store. A cancel landing inside it has
+        // already made `RunSessionStore` release the destination lease, so
+        // enqueuing and copying past this point would mutate the destination
+        // with no lock held.
+        //
+        // Releasing is safe here, and only here: the reservation was taken
+        // moments ago and provably nothing has been enqueued, copied, or
+        // written under it. That is the one condition `releaseMeteredWork`
+        // allows; an ambiguous outcome anywhere later stays charged.
+        if isCancelled() {
+            await authorizer.releaseMeteredWork(runID: runID)
+            continuation.finish()
+            return
+        }
+
         try database.enqueuePlannedTransfers(result.transfers, runID: runID)
         let errorCounter = IssueCounter()
         let executionResult = try transferExecutor.executeQueuedJobs(
@@ -878,7 +895,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         // this ID, and a resume must not look like a second run. Jobs enqueued
         // before run IDs were threaded carry none, so fall back to a fresh ID
         // rather than leaving the rows unattributable.
-        let resumeRunID = try database.queuedRunID(status: .pending) ?? UUID()
+        let inheritedRunID = try database.queuedRunID(status: .pending)
+        let resumeRunID = inheritedRunID ?? UUID()
 
         // Resuming does not double-charge, and does not need a special case to
         // avoid doing so: re-reserving a run ID that already has a reservation
@@ -896,6 +914,21 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             authorizer: authorizer,
             runLogger: runLogger
         )
+
+        // Same window as the fresh path: the gate can suspend, and a cancel
+        // inside it has already released the destination lease.
+        //
+        // Only a run ID minted moments ago is released. An INHERITED
+        // reservation may already cover files the interrupted run copied, and
+        // `release` zeroes a reservation outright — giving that charge back
+        // would make work that is sitting in the destination free.
+        if isCancelled() {
+            if inheritedRunID == nil {
+                await authorizer.releaseMeteredWork(runID: resumeRunID)
+            }
+            continuation.finish()
+            return
+        }
 
         let errorCounter = IssueCounter()
         let executionResult = try transferExecutor.executeQueuedJobs(
