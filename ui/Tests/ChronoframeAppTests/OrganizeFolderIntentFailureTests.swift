@@ -45,7 +45,7 @@ final class OrganizeFolderIntentFailureTests: XCTestCase {
         XCTAssertFalse(message.localizedCaseInsensitiveContains("free"), message)
     }
 
-    /// Only the spent-allowance case says the allowance is spent.
+    /// Only a genuinely empty balance says the allowance is used up.
     func testSpentAllowanceSaysSoAndPointsAtTheUnlock() {
         let message = OrganizeIntentPurchaseMessage.message(
             for: .allowanceSpent(TrialRefusal(meter: .organize, requested: 40, remaining: 0))
@@ -53,6 +53,33 @@ final class OrganizeFolderIntentFailureTests: XCTestCase {
 
         XCTAssertTrue(message.contains("free allowance is used up"), message)
         XCTAssertTrue(message.contains("unlock"), message)
+    }
+
+    /// A refusal does not mean the balance is zero. The policy refuses whenever
+    /// the run is bigger than what remains, so a shortcut asking for 40 with 12
+    /// left is refused with 12 still available — and saying "used up" there
+    /// would be false, and would hide that a smaller batch still runs.
+    func testPartialAllowanceReportsWhatIsActuallyLeft() {
+        let message = OrganizeIntentPurchaseMessage.message(
+            for: .allowanceSpent(TrialRefusal(meter: .organize, requested: 40, remaining: 12))
+        )
+
+        XCTAssertTrue(message.contains("12 files left"), message)
+        XCTAssertTrue(message.contains("needed 40"), message)
+        XCTAssertFalse(
+            message.contains("used up"),
+            "12 files remain, so the allowance is not used up: \(message)"
+        )
+    }
+
+    /// One remaining file is "1 file", not "1 files".
+    func testSingleRemainingFileIsNotPluralized() {
+        let message = OrganizeIntentPurchaseMessage.message(
+            for: .allowanceSpent(TrialRefusal(meter: .organize, requested: 5, remaining: 1))
+        )
+
+        XCTAssertTrue(message.contains("1 file left"), message)
+        XCTAssertFalse(message.contains("1 files"), message)
     }
 
     func testIncompleteRunUsesActionableEngineFailureMessage() {

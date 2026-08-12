@@ -37,9 +37,8 @@ enum OrganizeIntentPurchaseMessage {
     /// well have paid of having spent a trial.
     static func message(for refusal: TrialAuthorizationRefusal) -> String {
         switch refusal {
-        case .allowanceSpent:
-            return "Chronoframe's free allowance is used up, so this shortcut did not copy anything. "
-                + "Open Chronoframe to unlock it, then run this shortcut again."
+        case let .allowanceSpent(details):
+            return allowanceSpentMessage(details)
         case .purchaseUnconfirmed:
             return "Chronoframe could not confirm your purchase, so this shortcut did not copy anything. "
                 + "Open Chronoframe to check your purchase, then run this shortcut again."
@@ -47,6 +46,30 @@ enum OrganizeIntentPurchaseMessage {
             return "This action needs Chronoframe unlocked. "
                 + "Open Chronoframe to unlock it, then run this shortcut again."
         }
+    }
+
+    /// Says how much allowance is actually left.
+    ///
+    /// A refusal does NOT mean the balance is zero: the policy refuses whenever
+    /// the run is bigger than what remains, so a shortcut asking for 40 files
+    /// with 12 left is refused with 12 still available. Telling that customer
+    /// their allowance is "used up" is simply false, and it hides the fact that
+    /// a smaller batch would still run.
+    ///
+    /// Deliberately not shared with `TrialAuthorizationError`'s copy, which says
+    /// the same arithmetic differently: that one is read inside the app, where
+    /// "Open Chronoframe" would be nonsense.
+    private static func allowanceSpentMessage(_ refusal: TrialRefusal) -> String {
+        let noun = refusal.meter == .organize ? "file" : "duplicate"
+        let opening: String
+        if refusal.remaining == 0 {
+            opening = "Chronoframe's free allowance is used up, so this shortcut did not copy anything."
+        } else {
+            let plural = refusal.remaining == 1 ? "" : "s"
+            opening = "Chronoframe's free allowance has \(refusal.remaining) \(noun)\(plural) left "
+                + "and this shortcut needed \(refusal.requested), so it did not copy anything."
+        }
+        return opening + " Open Chronoframe to unlock it, then run this shortcut again."
     }
 }
 
