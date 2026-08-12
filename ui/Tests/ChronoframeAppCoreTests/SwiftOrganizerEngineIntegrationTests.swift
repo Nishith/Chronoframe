@@ -877,6 +877,131 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         XCTAssertEqual(authorizer.finalizedRunIDs, [], "Nothing landed, so nothing is settled")
     }
 
+    // MARK: - Reorganize (free-trial step 4, T10)
+
+    /// Reorganize requires the unlock outright. It is not metered — no
+    /// reservation is taken, so there is nothing to settle and nothing to
+    /// refund — and a locked customer is told they need the unlock rather than
+    /// that their allowance is spent.
+    @MainActor
+    func testReorganizeRequiresTheUnlock() async throws {
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        for name in ["2024-04-08_001.HEIC", "2024-04-08_002.HEIC", "2024-04-09_001.HEIC"] {
+            try Data("x".utf8).write(to: destinationURL.appendingPathComponent(name))
+        }
+
+        // A full allowance, to prove reorganize is gated on the unlock rather
+        // than on the meter.
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 500, dedupeFiles: 100))
+        let engine = meteredEngine(ledger: ledger)
+        let stream = try engine.reorganize(
+            destinationRoot: destinationURL.path,
+            targetStructure: .yyyyMMDD
+        )
+
+        do {
+            _ = try await Self.collect(stream)
+            XCTFail("A locked customer must not be able to reorganize")
+        } catch let error as TrialAuthorizationError {
+            XCTAssertEqual(
+                error.refusal, .requiresUnlock,
+                "Reorganize is unlock-only, so the refusal must never claim the allowance is spent"
+            )
+        }
+
+        // Nothing moved: the flat files are still flat.
+        for name in ["2024-04-08_001.HEIC", "2024-04-08_002.HEIC", "2024-04-09_001.HEIC"] {
+            XCTAssertTrue(
+                FileManager.default.fileExists(atPath: destinationURL.appendingPathComponent(name).path),
+                "A refused reorganize must move nothing: \(name) was moved"
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.appendingPathComponent("2024/04/08/2024-04-08_001.HEIC").path
+        ))
+
+        let logs = (try? FileManager.default.contentsOfDirectory(
+            at: destinationURL.appendingPathComponent(".organize_logs", isDirectory: true),
+            includingPropertiesForKeys: nil
+        )) ?? []
+        XCTAssertTrue(
+            logs.filter { $0.lastPathComponent.hasPrefix("reorganize_audit_receipt_") }.isEmpty,
+            "A refused reorganize must write no receipt, got \(logs)"
+        )
+
+        // Unlock-only means unmetered: no reservation was taken either way.
+        XCTAssertEqual(try ledger.balance(accountKey: Self.testAccountKey).usage.organizeUsed, 0)
+        XCTAssertTrue(try ledger.openReservations().isEmpty)
+    }
+
+    /// An unlocked customer reorganizes normally, and still without a
+    /// reservation — the unlock is the whole check.
+    @MainActor
+    func testReorganizeProceedsWhenUnlocked() async throws {
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        for name in ["2024-04-08_001.HEIC", "2024-04-09_001.HEIC"] {
+            try Data("x".utf8).write(to: destinationURL.appendingPathComponent(name))
+        }
+
+        let ledger = InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 500, dedupeFiles: 100))
+        let engine = SwiftOrganizerEngine(
+            authorizer: EntitlementTrialAuthorizer(ledger: ledger) {
+                TrialEntitlementSnapshot(
+                    state: .unlocked(reason: .inAppPurchase),
+                    accountKey: Self.testAccountKey
+                )
+            },
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+
+        let stream = try engine.reorganize(
+            destinationRoot: destinationURL.path,
+            targetStructure: .yyyyMMDD
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .reorganized)
+        XCTAssertEqual(summary.metrics.movedCount, 2)
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.appendingPathComponent("2024/04/08/2024-04-08_001.HEIC").path
+        ))
+        XCTAssertEqual(try ledger.balance(accountKey: Self.testAccountKey).usage.organizeUsed, 0)
+    }
+
+    /// A layout that is already correct is reported as such for free. Refusing
+    /// there would put a paywall in front of the word "no" — the same reason an
+    /// empty organize run is permitted whatever the balance.
+    @MainActor
+    func testAlreadyCorrectLayoutIsReportedWithoutRequiringTheUnlock() async throws {
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        let nestedURL = destinationURL.appendingPathComponent("2024/04/08", isDirectory: true)
+        try FileManager.default.createDirectory(at: nestedURL, withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: nestedURL.appendingPathComponent("2024-04-08_001.HEIC"))
+
+        let engine = meteredEngine(
+            ledger: InMemoryTrialLedger(caps: TrialAllowanceCaps(organizeFiles: 500, dedupeFiles: 100))
+        )
+        let stream = try engine.reorganize(
+            destinationRoot: destinationURL.path,
+            targetStructure: .yyyyMMDD
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .nothingToReorganize)
+        XCTAssertEqual(summary.metrics.movedCount, 0)
+    }
+
     /// An unrestricted authorizer is the CLI and Developer ID channel, and must
     /// behave exactly as it did before the gate existed.
     @MainActor

@@ -265,6 +265,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     private func makeReorganizeStream(plan: ReorganizePlan) -> AsyncThrowingStream<RunEvent, Error> {
         AsyncThrowingStream { continuation in
             let reorganizeExecutor = self.reorganizeExecutor
+            let authorizer = self.authorizer
             let isCancelledRef = TaskCancellationCheck()
             let runID = UUID()
 
@@ -289,6 +290,31 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             )
                         )
                     )
+                    continuation.finish()
+                    return
+                }
+
+                // The gate. Reorganize is unlock-only, not metered: it takes no
+                // reservation and consumes no allowance, so there is nothing to
+                // settle afterwards and nothing to give back on failure.
+                //
+                // It sits after the empty-plan branch on purpose. A library
+                // whose layout is already correct is told so for free —
+                // refusing there would be a paywall in front of the word "no",
+                // which is the same reason an empty organize run is permitted.
+                //
+                // Planning stays free too: it only reads, and the plan is
+                // already built by the time this stream starts.
+                let authorization = await authorizer.authorizeUnlockOnlyWork()
+                if let refusal = authorization.refusal {
+                    continuation.finish(throwing: TrialAuthorizationError(refusal: refusal))
+                    return
+                }
+
+                // A cancel can land inside that await, and reorganize MOVES
+                // files in place rather than copying them, so starting after a
+                // cancel is the worst of the three surfaces to get wrong.
+                if isCancelledRef.isCancelled || Task.isCancelled {
                     continuation.finish()
                     return
                 }
