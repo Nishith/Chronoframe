@@ -22,6 +22,10 @@ public enum UnlockSheetAction: Equatable, Sendable {
     /// Restore Purchases. App Review requires this wherever a purchase is
     /// offered, and it is the primary action for someone who has already paid.
     case restore
+    /// Run only what the remaining allowance covers, instead of unlocking
+    /// (free-trial step 5, T15). Carries the counts so the button can name
+    /// them; the sheet also shows the exact files before this runs anything.
+    case runFreeTestBatch(fileCount: Int, deferredCount: Int)
     case dismiss
 }
 
@@ -32,12 +36,25 @@ public struct UnlockSheetModel: Equatable, Sendable {
     /// True while StoreKit is working, so the view can disable its buttons
     /// without inventing its own notion of "busy".
     public let isBusy: Bool
+    /// One line describing the smaller run on offer, when there is one (T15).
+    ///
+    /// The sheet lists the files themselves alongside this. Naming the span
+    /// matters because a count alone does not tell someone *which* of their
+    /// photos a test batch would copy.
+    public let batchDetail: String?
 
-    public init(title: String, message: String, actions: [UnlockSheetAction], isBusy: Bool) {
+    public init(
+        title: String,
+        message: String,
+        actions: [UnlockSheetAction],
+        isBusy: Bool,
+        batchDetail: String? = nil
+    ) {
         self.title = title
         self.message = message
         self.actions = actions
         self.isBusy = isBusy
+        self.batchDetail = batchDetail
     }
 
     /// Build the sheet's contents.
@@ -50,16 +67,24 @@ public struct UnlockSheetModel: Equatable, Sendable {
     ///   - product: nil means the product has not loaded, or could not be.
     ///   - isLoadingProduct: distinguishes "still loading" from "load failed",
     ///     which is the difference between a spinner and a Retry button.
+    ///   - offeredBatch: a smaller run the remaining allowance covers, when the
+    ///     engine could honestly propose one.
     public static func make(
         refusal: TrialAuthorizationRefusal,
         product: StoreProductInfo?,
         isLoadingProduct: Bool,
         isPurchasing: Bool,
-        isRestoring: Bool
+        isRestoring: Bool,
+        offeredBatch: FreeTestBatch? = nil
     ) -> UnlockSheetModel {
         let busy = isPurchasing || isRestoring
         let title = Self.title(for: refusal)
         let message = Self.message(for: refusal)
+        let batch = Self.offerableBatch(offeredBatch, refusal: refusal)
+        let batchAction: [UnlockSheetAction] = batch.map {
+            [.runFreeTestBatch(fileCount: $0.includedCount, deferredCount: $0.deferredCount)]
+        } ?? []
+        let batchDetail = batch.flatMap(Self.batchDetail)
 
         // Never offer a purchase this customer may not need. `purchaseUnconfirmed`
         // means Chronoframe could not verify an entitlement that may well exist,
@@ -80,20 +105,24 @@ public struct UnlockSheetModel: Equatable, Sendable {
                 actions: [
                     .buy(displayName: product.displayName, displayPrice: product.displayPrice),
                     .restore,
-                    .dismiss,
-                ],
-                isBusy: busy
+                ] + batchAction + [.dismiss],
+                isBusy: busy,
+                batchDetail: batchDetail
             )
         }
 
         if isLoadingProduct {
             // No Buy button yet — there is no price to put on it, and a button
             // labelled with a guess is exactly what must never ship.
+            //
+            // The batch still stands: it costs nothing, needs no price, and is
+            // the one thing a customer can do while the store is still loading.
             return UnlockSheetModel(
                 title: title,
                 message: message,
-                actions: [.dismiss],
-                isBusy: true
+                actions: batchAction + [.dismiss],
+                isBusy: true,
+                batchDetail: batchDetail
             )
         }
 
@@ -103,9 +132,39 @@ public struct UnlockSheetModel: Equatable, Sendable {
             title: title,
             message: "Chronoframe could not reach the App Store to check the price. "
                 + "Check your internet connection and try again.",
-            actions: [.retryProductLoad, .restore, .dismiss],
-            isBusy: busy
+            actions: [.retryProductLoad, .restore] + batchAction + [.dismiss],
+            isBusy: busy,
+            batchDetail: batchDetail
         )
+    }
+
+    /// A batch is only offerable against a genuinely spent allowance.
+    ///
+    /// The engine already withholds one from `purchaseUnconfirmed`, but this
+    /// sheet must not be the only thing standing between that customer and an
+    /// offer of a free sample of what they may already have bought. Two
+    /// independent checks, because one of them is a UI detail and the other is
+    /// a policy.
+    private static func offerableBatch(
+        _ batch: FreeTestBatch?,
+        refusal: TrialAuthorizationRefusal
+    ) -> FreeTestBatch? {
+        guard case .allowanceSpent = refusal,
+              let batch,
+              !batch.included.isEmpty,
+              !batch.coversWholePlan else { return nil }
+        return batch
+    }
+
+    private static func batchDetail(_ batch: FreeTestBatch) -> String {
+        let files = "\(batch.includedCount) file\(batch.includedCount == 1 ? "" : "s")"
+        guard let range = batch.dateBucketRange else {
+            return "Copies \(files) now and leaves \(batch.deferredCount) for later."
+        }
+        let span = range.earliest == range.latest
+            ? range.earliest
+            : "\(range.earliest) to \(range.latest)"
+        return "Copies the earliest \(files), \(span), and leaves \(batch.deferredCount) for later."
     }
 
     private static func title(for refusal: TrialAuthorizationRefusal) -> String {

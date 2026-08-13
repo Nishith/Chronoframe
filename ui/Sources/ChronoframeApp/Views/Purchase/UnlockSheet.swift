@@ -19,9 +19,14 @@ import ChronoframeCore
 struct UnlockSheet: View {
     let refusal: TrialAuthorizationRefusal
     @ObservedObject var entitlementStore: EntitlementStore
+    /// A smaller run the remaining allowance covers, when one was offered (T15).
+    var offeredBatch: FreeTestBatch?
     /// Called once the entitlement actually resolves to unlocked. The caller
     /// re-runs preflight and planning from scratch — see `AppState`.
     let onUnlocked: () -> Void
+    /// Run the batch shown above the buttons. The caller re-runs preflight and
+    /// planning, then copies only the files this sheet listed.
+    var onRunFreeTestBatch: () -> Void = {}
     let onDismiss: () -> Void
 
     /// Local, because `loadProduct()` publishes only its result. "Still
@@ -35,8 +40,19 @@ struct UnlockSheet: View {
             product: entitlementStore.product,
             isLoadingProduct: isLoadingProduct,
             isPurchasing: entitlementStore.isPurchasing,
-            isRestoring: entitlementStore.isRestoring
+            isRestoring: entitlementStore.isRestoring,
+            offeredBatch: offeredBatch
         )
+    }
+
+    /// Rendered above the buttons rather than beside them, because it comes
+    /// with the file list it is promising.
+    private var batchAction: UnlockSheetAction? {
+        model.actions.first { if case .runFreeTestBatch = $0 { return true } else { return false } }
+    }
+
+    private var buttonRowActions: [UnlockSheetAction] {
+        model.actions.filter { if case .runFreeTestBatch = $0 { return false } else { return true } }
     }
 
     var body: some View {
@@ -60,11 +76,16 @@ struct UnlockSheet: View {
                     .controlSize(.small)
             }
 
+            if let batchAction, let detail = model.batchDetail, let batch = offeredBatch {
+                Divider()
+                freeTestBatchOffer(action: batchAction, detail: detail, batch: batch)
+            }
+
             Divider()
 
             HStack(spacing: 10) {
                 Spacer()
-                ForEach(Array(model.actions.enumerated()), id: \.offset) { _, action in
+                ForEach(Array(buttonRowActions.enumerated()), id: \.offset) { _, action in
                     button(for: action)
                 }
             }
@@ -110,12 +131,61 @@ struct UnlockSheet: View {
             .disabled(model.isBusy)
             .accessibilityIdentifier("unlockSheet.restore")
 
+        case .runFreeTestBatch:
+            // Rendered by `freeTestBatchOffer`, which shows the files first.
+            EmptyView()
+
         case .dismiss:
             Button("Not Now", role: .cancel) {
                 onDismiss()
             }
             .disabled(model.isBusy)
             .accessibilityIdentifier("unlockSheet.dismiss")
+        }
+    }
+
+    /// The offer, and the exact plan it would run.
+    ///
+    /// The list is the point: settled policy is that a reduced plan is shown in
+    /// full and confirmed before anything is copied, never silently truncated.
+    /// Pressing the button below is that confirmation, so the files it covers
+    /// have to be visible from here.
+    @ViewBuilder
+    private func freeTestBatchOffer(
+        action: UnlockSheetAction,
+        detail: String,
+        batch: FreeTestBatch
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(detail)
+                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            DisclosureGroup("Show these \(batch.includedCount) files") {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(batch.included, id: \.sourcePath) { transfer in
+                            Text(transfer.sourcePath)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+                .frame(maxHeight: 160)
+            }
+            .accessibilityIdentifier("unlockSheet.batchFiles")
+
+            if case let .runFreeTestBatch(fileCount, _) = action {
+                Button("Copy These \(fileCount) Files") {
+                    onRunFreeTestBatch()
+                }
+                .disabled(model.isBusy)
+                .accessibilityIdentifier("unlockSheet.runBatch")
+            }
         }
     }
 
