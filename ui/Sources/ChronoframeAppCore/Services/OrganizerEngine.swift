@@ -58,6 +58,16 @@ public protocol OrganizerEngine: AnyObject {
     func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight
     func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error>
+
+    /// Start a transfer limited to a confirmed free test batch (T15).
+    ///
+    /// Separate from `start(_:)` rather than an optional parameter on it so
+    /// that an engine which does not implement this cannot silently run the
+    /// whole plan instead — see the fail-closed default below.
+    func start(
+        _ configuration: RunConfiguration,
+        batch: FreeTestBatchSelection
+    ) throws -> AsyncThrowingStream<RunEvent, Error>
     func resume(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error>
     func cancelCurrentRun()
 
@@ -77,6 +87,22 @@ public protocol OrganizerEngine: AnyObject {
 }
 
 extension OrganizerEngine {
+    /// Refuses rather than falling back to `start(_:)`.
+    ///
+    /// The fallback would be a licensing hole with a friendly face: the caller
+    /// asked for a run limited to what the free allowance covers, and running
+    /// the full plan instead would either be refused at the gate anyway or,
+    /// worse, copy far more than the customer confirmed. An engine that means
+    /// to support batches implements this.
+    public func start(
+        _ configuration: RunConfiguration,
+        batch: FreeTestBatchSelection
+    ) throws -> AsyncThrowingStream<RunEvent, Error> {
+        throw OrganizerEngineError.failedToLaunch(
+            "This engine cannot run a free test batch."
+        )
+    }
+
     public func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
         let preflight = try await preflight(configuration)
         let lease = try DestinationOperationLock.acquire(

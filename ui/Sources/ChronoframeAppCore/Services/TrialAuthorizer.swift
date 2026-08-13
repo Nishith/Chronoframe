@@ -54,8 +54,45 @@ public enum TrialAuthorizationRefusal: Sendable, Equatable {
 public struct TrialAuthorizationError: LocalizedError, Sendable, Equatable {
     public let refusal: TrialAuthorizationRefusal
 
-    public init(refusal: TrialAuthorizationRefusal) {
+    /// A smaller run the remaining allowance does cover, when one can honestly
+    /// be offered (free-trial step 5, T15).
+    ///
+    /// Nil is the norm: a refusal offers nothing unless the allowance has room
+    /// left and this run is the kind that can be split.
+    public let offeredBatch: FreeTestBatch?
+
+    public init(refusal: TrialAuthorizationRefusal, offeredBatch: FreeTestBatch? = nil) {
         self.refusal = refusal
+        self.offeredBatch = offeredBatch
+    }
+
+    /// Attach a free test batch to a refusal, when the refusal is one that may
+    /// honestly carry an offer.
+    ///
+    /// Pure, so the rules below are testable without a StoreKit round-trip.
+    /// Three conditions, each of which would be a real mistake to drop:
+    ///
+    ///   - **Only `allowanceSpent`.** `purchaseUnconfirmed` is metered, so it
+    ///     refuses the same way — but that customer may already have paid, and
+    ///     offering them a *free sample of what they bought* would be insulting
+    ///     as well as wrong. `requiresUnlock` is not metered at all.
+    ///   - **Only with allowance left.** At zero remaining the batch is empty,
+    ///     and an offer to copy nothing is worse than no offer.
+    ///   - **Only when it is genuinely smaller.** A batch covering the whole
+    ///     plan means the refusal came from somewhere other than size, and
+    ///     re-offering the same run would loop.
+    public static func offeringFreeTestBatch(
+        _ error: TrialAuthorizationError,
+        plannedTransfers: [PlannedTransfer]
+    ) -> TrialAuthorizationError {
+        guard case let .allowanceSpent(details) = error.refusal,
+              details.meter == .organize,
+              details.remaining > 0 else { return error }
+
+        let batch = FreeTestBatchPlanner.batch(from: plannedTransfers, limit: details.remaining)
+        guard !batch.included.isEmpty, !batch.coversWholePlan else { return error }
+
+        return TrialAuthorizationError(refusal: error.refusal, offeredBatch: batch)
     }
 
     public var errorDescription: String? {

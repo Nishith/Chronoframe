@@ -66,6 +66,13 @@ public final class RunSessionStore: ObservableObject {
     /// rather than attempting a purchase in the background. Recovering that from
     /// the formatted message string would mean parsing English.
     @Published public private(set) var lastRefusal: TrialAuthorizationRefusal?
+
+    /// A smaller run the remaining allowance covers, offered alongside the
+    /// refusal (free-trial step 5, T15).
+    ///
+    /// Set only when the engine could honestly propose one. Nil means the only
+    /// way forward is the unlock.
+    @Published public private(set) var lastOfferedBatch: FreeTestBatch?
     @Published public private(set) var latestPreviewReviewPath: String?
     /// Source URL of the file currently being copied, surfaced by the
     /// transfer phase. UI uses it to render a live QuickLook thumbnail in
@@ -139,10 +146,16 @@ public final class RunSessionStore: ObservableObject {
         max(metrics.errorCount, metrics.hashErrorCount + metrics.failedCount)
     }
 
+    /// - Parameter batch: a confirmed free test batch (T15). When present the
+    ///   run copies only those files, and the generic "Start Transfer?" prompt
+    ///   is skipped — the batch sheet the customer just confirmed showed them
+    ///   the exact reduced plan, and asking again would be asking twice about
+    ///   the same run.
     public func requestRun(
         mode: RunMode,
         configuration: RunConfiguration,
-        securityScope: SecurityScopedFolderAccess? = nil
+        securityScope: SecurityScopedFolderAccess? = nil,
+        batch: FreeTestBatchSelection? = nil
     ) async {
         resetSessionState(mode: mode)
         // Finding #7: capture the epoch AFTER resetSessionState bumps it. If a
@@ -163,7 +176,7 @@ public final class RunSessionStore: ObservableObject {
             let preflight = preparedRun.preflight
             lastPreflight = preflight
 
-            if mode == .transfer {
+            if mode == .transfer, batch == nil {
                 let promptKind: RunPromptKind = preflight.pendingJobCount > 0 ? .resumePendingJobs : .confirmTransfer
                 let message: String
                 if preflight.pendingJobCount > 0 {
@@ -181,7 +194,7 @@ public final class RunSessionStore: ObservableObject {
                 return
             }
 
-            beginStream(using: preflight, resumePendingJobs: false)
+            beginStream(using: preflight, resumePendingJobs: false, batch: batch)
         } catch {
             guard currentRunEpoch == epoch else { return }
             handleFailure(error: error)
@@ -520,7 +533,11 @@ public final class RunSessionStore: ObservableObject {
         }
     }
 
-    private func beginStream(using preflight: RunPreflight, resumePendingJobs: Bool) {
+    private func beginStream(
+        using preflight: RunPreflight,
+        resumePendingJobs: Bool,
+        batch: FreeTestBatchSelection? = nil
+    ) {
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
@@ -539,9 +556,14 @@ public final class RunSessionStore: ObservableObject {
             guard let self else { return }
 
             do {
-                let stream = try resumePendingJobs
-                    ? engine.resume(preflight.configuration)
-                    : engine.start(preflight.configuration)
+                let stream: AsyncThrowingStream<RunEvent, Error>
+                if let batch {
+                    stream = try engine.start(preflight.configuration, batch: batch)
+                } else if resumePendingJobs {
+                    stream = try engine.resume(preflight.configuration)
+                } else {
+                    stream = try engine.start(preflight.configuration)
+                }
 
                 for try await event in stream {
                     guard self.currentRunEpoch == epoch else { return }
@@ -904,8 +926,12 @@ public final class RunSessionStore: ObservableObject {
 
     private func handleFailure(error: Error) {
         let message = UserFacingErrorMessage.message(for: error, context: .run)
-        if let refusal = (error as? TrialAuthorizationError)?.refusal {
-            handleRefusal(refusal, message: message)
+        if let trialError = error as? TrialAuthorizationError {
+            handleRefusal(
+                trialError.refusal,
+                offeredBatch: trialError.offeredBatch,
+                message: message
+            )
             return
         }
         handleFailure(message: message)
@@ -924,12 +950,17 @@ public final class RunSessionStore: ObservableObject {
     /// `RunStatus` is `String, Codable` and is persisted into receipts and
     /// history; a refusal is not a run outcome and must not become one.
     /// `lastRefusal` is what the UI branches on.
-    private func handleRefusal(_ refusal: TrialAuthorizationRefusal, message: String) {
+    private func handleRefusal(
+        _ refusal: TrialAuthorizationRefusal,
+        offeredBatch: FreeTestBatch? = nil,
+        message: String
+    ) {
         status = .idle
         currentTaskTitle = "Idle"
         metrics.speedMBps = 0
         metrics.etaSeconds = nil
         lastRefusal = refusal
+        lastOfferedBatch = offeredBatch
         lastErrorMessage = message
         logStore.append(message)
         // Released here, before the unlock sheet is presented. An App Store
@@ -950,6 +981,7 @@ public final class RunSessionStore: ObservableObject {
     /// everything it held.
     public func dismissRefusal() {
         lastRefusal = nil
+        lastOfferedBatch = nil
     }
 
     private func handleFailure(message: String) {
