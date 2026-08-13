@@ -43,7 +43,29 @@ public struct LicenseStatusModel: Equatable, Sendable {
         self.showsRestore = showsRestore
     }
 
-    public static func make(status: TrialStatus) -> LicenseStatusModel {
+    /// - Parameter isAppStoreChannel: false for the Developer ID build, which
+    ///   is unrestricted by settled policy and has no App Store licence to
+    ///   describe. Passed as a value rather than read from `#if MAS_BUILD`
+    ///   here, so both branches stay compiled in every lane — the same reason
+    ///   `TrialComposition.isMacAppStoreBuild` is a boolean.
+    public static func make(
+        status: TrialStatus,
+        isAppStoreChannel: Bool = true
+    ) -> LicenseStatusModel {
+        // Nothing to license, so nothing to sell, restore, or meter. Saying
+        // "Checking your purchase…" in a channel that cannot have one — and
+        // offering Restore Purchases beside it — would be inviting the customer
+        // to fix a problem that does not exist.
+        guard isAppStoreChannel else {
+            return LicenseStatusModel(
+                headline: "Unlocked",
+                detail: "This build is not distributed through the App Store, so it has no purchase to check. "
+                    + "Every feature is available, with no limits.",
+                allowanceRows: [],
+                showsRestore: false
+            )
+        }
+
         if status.isUnlocked {
             return LicenseStatusModel(
                 headline: "Unlocked",

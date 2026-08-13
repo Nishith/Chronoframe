@@ -133,6 +133,35 @@ final class LicenseStatusPresentationTests: XCTestCase {
         XCTAssertTrue(model.showsRestore)
     }
 
+    // MARK: - Unrestricted channel
+
+    /// The Developer ID build has no App Store licence to describe. Showing
+    /// "Checking your purchase…" and a Restore button there would invite the
+    /// customer to fix a problem that cannot exist in that channel.
+    func testUnrestrictedChannelDescribesItselfAndOffersNoRestore() {
+        let model = LicenseStatusModel.make(status: .loading, isAppStoreChannel: false)
+
+        XCTAssertEqual(model.headline, "Unlocked")
+        XCTAssertTrue(model.detail.contains("not distributed through the App Store"), model.detail)
+        XCTAssertFalse(model.showsRestore, "There is nothing to restore in this channel")
+        XCTAssertTrue(model.allowanceRows.isEmpty)
+    }
+
+    /// It says the same thing whatever the ledger happens to hold, because the
+    /// ledger is not what governs that channel.
+    func testUnrestrictedChannelIgnoresTheLedgerEntirely() {
+        let spent = TrialStatus(
+            entitlement: .locked,
+            allowance: .remaining(balance(organizeUsed: 500, dedupeUsed: 100))
+        )
+
+        let model = LicenseStatusModel.make(status: spent, isAppStoreChannel: false)
+
+        XCTAssertEqual(model.headline, "Unlocked")
+        XCTAssertFalse(model.detail.localizedCaseInsensitiveContains("used up"), model.detail)
+        XCTAssertTrue(model.allowanceRows.isEmpty)
+    }
+
     // MARK: - Still resolving
 
     func testLoadingShowsNoNumbersAndClaimsNothing() {

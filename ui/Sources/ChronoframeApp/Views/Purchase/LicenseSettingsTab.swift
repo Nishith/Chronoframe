@@ -25,7 +25,10 @@ struct LicenseSettingsTab: View {
     }
 
     private var model: LicenseStatusModel {
-        LicenseStatusModel.make(status: trialStatusStore.status)
+        LicenseStatusModel.make(
+            status: trialStatusStore.status,
+            isAppStoreChannel: TrialComposition.isMacAppStoreBuild
+        )
     }
 
     var body: some View {
@@ -83,12 +86,29 @@ struct LicenseSettingsTab: View {
         .formStyle(.grouped)
         .accessibilityIdentifier("settings.license")
         .task {
+            // Nothing to resolve off the App Store in an unrestricted channel,
+            // and asking would be a StoreKit round-trip for an answer that
+            // cannot change what this pane says.
+            guard TrialComposition.isMacAppStoreBuild else { return }
             await appState.refreshTrialStatus()
         }
         .onChange(of: entitlementStore.state) { _, _ in
             // A refund or Family Sharing revocation arriving through the
             // transaction observer changes what this pane should say, and the
             // allowance has to be re-read to say it.
+            Task { await appState.refreshTrialStatus() }
+        }
+        .onChange(of: appState.runSessionStore.lastRunCompletion) { _, _ in
+            // Settings can stay open while a run finishes in the main window.
+            // That changes the LEDGER, not the entitlement, so the entitlement
+            // observer above never fires and the remaining counts would sit
+            // stale until this view was recreated. Covers organize, reorganize
+            // and revert, which all publish a completion record.
+            Task { await appState.refreshTrialStatus() }
+        }
+        .onChange(of: appState.deduplicateSessionStore.commitSummary) { _, _ in
+            // The same, for a duplicate cleanup — it has its own store and
+            // publishes no run completion.
             Task { await appState.refreshTrialStatus() }
         }
     }
