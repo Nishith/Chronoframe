@@ -746,6 +746,22 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             runLogger.warn(warning)
         }
 
+        // A batch that came back smaller than the customer confirmed. The
+        // selection guarantees this is a subset of what the sheet listed, so
+        // nothing unseen is copied — but saying nothing about the difference
+        // would be a quiet truncation of a plan they explicitly agreed to.
+        if let batch,
+           let shortfall = FreeTestBatchPlanner.shortfallMessage(
+               confirmed: batch.count,
+               copying: result.transferCount
+           ) {
+            runLogger.warn(shortfall)
+            for path in batch.missingSourcePaths(after: result.transfers) {
+                runLogger.log("Not copied, no longer available: \(path)")
+            }
+            continuation.yield(.issue(RunIssue(severity: .warning, message: shortfall)))
+        }
+
         // A batch that reduced to nothing is not an up-to-date library: every
         // file the customer confirmed has since been moved, deleted, or edited.
         // Falling through to the branch below would tell them their photos are

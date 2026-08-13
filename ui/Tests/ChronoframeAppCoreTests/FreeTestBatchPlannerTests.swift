@@ -331,3 +331,79 @@ final class FreeTestBatchPlanReductionTests: XCTestCase {
         XCTAssertEqual(result.reduced(to: batch.selection).previewReviewItems.count, 0)
     }
 }
+
+/// Saying so when the rebuilt batch is smaller than the confirmed one (T15).
+///
+/// The selection guarantees a subset, so nothing unseen is ever copied. But a
+/// subset can be smaller, and shrinking without a word is the silent
+/// truncation this feature exists to avoid.
+final class FreeTestBatchShortfallTests: XCTestCase {
+    private func transfer(_ name: String) -> PlannedTransfer {
+        PlannedTransfer(
+            sourcePath: "/Volumes/Card/\(name)",
+            destinationPath: "/Volumes/Archive/2026-01-11/\(name)",
+            identity: FileIdentity(size: Int64(name.count), digest: "digest-\(name)"),
+            dateBucket: "2026-01-11",
+            isDuplicate: false
+        )
+    }
+
+    func testAShortfallSaysHowManyAndWhy() {
+        let message = FreeTestBatchPlanner.shortfallMessage(confirmed: 380, copying: 377) ?? ""
+
+        XCTAssertTrue(message.contains("3 files"), message)
+        XCTAssertTrue(message.contains("380"), message)
+        XCTAssertTrue(message.contains("377"), message)
+        XCTAssertTrue(message.contains("originals untouched"), message)
+    }
+
+    func testOneMissingFileIsSingular() {
+        let message = FreeTestBatchPlanner.shortfallMessage(confirmed: 2, copying: 1) ?? ""
+
+        XCTAssertTrue(message.contains("1 file of the 2"), message)
+    }
+
+    /// Nothing to report when everything confirmed is still there.
+    func testNoShortfallWhenTheWholeBatchSurvived() {
+        XCTAssertNil(FreeTestBatchPlanner.shortfallMessage(confirmed: 380, copying: 380))
+    }
+
+    /// A batch that matched nothing has its own outcome and its own message, so
+    /// this must not add a second one on top.
+    func testAnEmptyRunIsLeftToTheZeroBatchBranch() {
+        XCTAssertNil(FreeTestBatchPlanner.shortfallMessage(confirmed: 380, copying: 0))
+    }
+
+    /// Defensive: `apply` cannot grow a selection, so this should be
+    /// unreachable — but reporting a negative shortfall would be worse than
+    /// reporting nothing.
+    func testMoreCopiedThanConfirmedReportsNothing() {
+        XCTAssertNil(FreeTestBatchPlanner.shortfallMessage(confirmed: 2, copying: 3))
+    }
+
+    // MARK: - Which files went missing
+
+    func testMissingPathsNameBothTheVanishedAndTheChanged() {
+        let confirmed = [transfer("a.raf"), transfer("b.raf"), transfer("c.raf")]
+        let selection = FreeTestBatch(included: confirmed, deferredCount: 0).selection
+
+        var changed = transfer("b.raf")
+        changed.identity = FileIdentity(size: 999, digest: "different")
+        let rebuilt = [transfer("a.raf"), changed]
+
+        let applied = selection.apply(to: rebuilt)
+        XCTAssertEqual(applied.map(\.sourcePath), ["/Volumes/Card/a.raf"])
+        XCTAssertEqual(
+            selection.missingSourcePaths(after: applied),
+            ["/Volumes/Card/b.raf", "/Volumes/Card/c.raf"],
+            "b changed and c vanished; both are missing from the run"
+        )
+    }
+
+    func testNothingIsMissingWhenTheBatchSurvivedIntact() {
+        let confirmed = [transfer("a.raf"), transfer("b.raf")]
+        let selection = FreeTestBatch(included: confirmed, deferredCount: 0).selection
+
+        XCTAssertTrue(selection.missingSourcePaths(after: confirmed).isEmpty)
+    }
+}
