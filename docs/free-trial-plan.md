@@ -14,7 +14,7 @@ Grounded against the tree as of the "Free trial step 2" merge.
 | 2 | StoreKit seams + entitlement state machine | **Merged.** Ships dark; nothing reads it |
 | 3 | Durable reservation ledger | **Merged.** T1–T6 |
 | 4 | Enforcement at the mutation surfaces | **Merged.** T7–T12 |
-| 5 | Unlock UI + free test batch | In progress — T13 open; T14–T16 not started |
+| 5 | Unlock UI + free test batch | In progress — T13 merged, T14 open; T15–T16 not started |
 | 6 | Test matrices | Not started |
 | 7–9 | Product creation, release, monitoring | Not started |
 
@@ -513,6 +513,11 @@ requires a test with each change.
 `MAS_BUILD` is defined only in `ui/archive-mas.sh`. Neither `swift test` nor the CodeQL
 `xcodebuild` sets it, so any `#if MAS_BUILD` code is compiled by **zero** lanes. Add a CI job
 building with `SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD`.
+
+Carried over from T14: because no lane sets `MAS_BUILD`, the `settingsLicense` accessibility-audit
+scenario renders the **unrestricted-channel** variant of the License pane — a status line and no
+allowance rows or Restore button. The metered variant (allowance rows, Restore) is unaudited until
+this lane exists. Run the audit under the MAS condition here so both variants are covered.
 
 ## T18 — StoreKit configuration file · Routine
 

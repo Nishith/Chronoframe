@@ -15,13 +15,14 @@ final class ChronoframeUITests: XCTestCase {
         case settingsLayout
         case settingsPerformance
         case settingsDeduplicate
+        case settingsLicense
         case settingsDiagnostics
         case deduplicateReviewWide
         case deduplicateReviewCompact
 
         var opensSettingsOnLaunch: Bool {
             switch self {
-            case .profilesPopulated, .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
+            case .profilesPopulated, .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsLicense, .settingsDiagnostics:
                 return true
             default:
                 return false
@@ -883,7 +884,7 @@ final class ChronoframeUITests: XCTestCase {
         case .profilesPopulated:
             return app.windows[settingsWindowIdentifier].waitForExistence(timeout: 5)
                 && element(identifier: "profileName-Meridian Travel", in: app).waitForExistence(timeout: 5)
-        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
+        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsLicense, .settingsDiagnostics:
             return app.windows[settingsWindowIdentifier].waitForExistence(timeout: 5)
         case .deduplicateReviewWide, .deduplicateReviewCompact:
             return element(identifier: "dedupeReviewClusterList", in: app).waitForExistence(timeout: 5)
@@ -1359,6 +1360,7 @@ final class ChronoframeUITests: XCTestCase {
              .settingsLayout,
              .settingsPerformance,
              .settingsDeduplicate,
+             .settingsLicense,
              .settingsDiagnostics,
              .deduplicateReviewWide,
              .deduplicateReviewCompact:
@@ -1383,6 +1385,7 @@ final class ChronoframeUITests: XCTestCase {
              .settingsLayout,
              .settingsPerformance,
              .settingsDeduplicate,
+             .settingsLicense,
              .settingsDiagnostics,
              .deduplicateReviewWide,
              .deduplicateReviewCompact:

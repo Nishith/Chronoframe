@@ -416,6 +416,17 @@ final class AppState: ObservableObject {
         runCoordinator.dismissRunPrompt()
     }
 
+    /// Recompute the trial status shown in Settings (free-trial step 5, T14).
+    ///
+    /// `TrialStatusStore` shipped dark in T6 with nothing calling `refresh`, so
+    /// it held `.loading` forever. The License tab is its first reader, which
+    /// makes wiring this its job — without it the tab would show "Checking your
+    /// purchase…" permanently.
+    func refreshTrialStatus() async {
+        let snapshot = await TrialComposition.resolvedEntitlement()
+        trialStatusStore.refresh(entitlement: snapshot.state, accountKey: snapshot.accountKey)
+    }
+
     // MARK: - Unlock (free-trial step 5, T13)
 
     /// Non-nil while a refused operation is waiting on an unlock decision.

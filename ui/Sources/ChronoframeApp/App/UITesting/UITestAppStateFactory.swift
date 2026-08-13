@@ -87,7 +87,7 @@ enum UITestAppStateFactory {
             engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
             route = .organize(.setup)
 
-        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
+        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsLicense, .settingsDiagnostics:
             setupStore.sourcePath = "/Volumes/Card/April Session"
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
             historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
@@ -151,6 +151,8 @@ enum UITestAppStateFactory {
             appState.settingsSelection = .performance
         case .settingsDeduplicate:
             appState.settingsSelection = .deduplicate
+        case .settingsLicense:
+            appState.settingsSelection = .license
         case .settingsDiagnostics:
             appState.settingsSelection = .diagnostics
         default:

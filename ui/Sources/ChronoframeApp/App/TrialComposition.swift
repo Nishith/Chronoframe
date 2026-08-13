@@ -81,6 +81,18 @@ enum TrialComposition {
     /// decision, and means a `.loading` state reaching it signals a genuine
     /// resolution failure rather than a race — at which point it is metered like
     /// any other unconfirmable state rather than blocked outright.
+    /// Resolve entitlement for a surface that is asking on the customer's
+    /// behalf rather than gating on it — the Settings License tab.
+    ///
+    /// Exposed instead of leaving the gates as the only callers because
+    /// resolution is still deliberately lazy: nothing happens at launch, and
+    /// opening Settings is an explicit action, so a StoreKit round-trip there
+    /// is expected rather than a surprise.
+    @MainActor
+    static func resolvedEntitlement() async -> TrialEntitlementSnapshot {
+        await currentEntitlement()
+    }
+
     @MainActor
     private static func currentEntitlement() async -> TrialEntitlementSnapshot {
         if entitlementStore.state.isResolving {

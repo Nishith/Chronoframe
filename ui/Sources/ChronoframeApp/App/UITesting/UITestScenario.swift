@@ -14,6 +14,7 @@ enum UITestScenario: String, CaseIterable {
     case settingsLayout
     case settingsPerformance
     case settingsDeduplicate
+    case settingsLicense
     case settingsDiagnostics
     case deduplicateReviewWide
     case deduplicateReviewCompact
@@ -44,7 +45,7 @@ enum UITestScenario: String, CaseIterable {
 
     var opensSettingsOnLaunch: Bool {
         switch self {
-        case .profilesPopulated, .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
+        case .profilesPopulated, .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsLicense, .settingsDiagnostics:
             return true
         default:
             return false
@@ -57,7 +58,7 @@ enum UITestScenario: String, CaseIterable {
             return NSSize(width: 1360, height: 1200)
         case .setupIncompleteRun, .setupReady, .runPreviewReview, .healthDashboard, .watchedSources, .photosImport, .profilesPopulated:
             return NSSize(width: 1360, height: 920)
-        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsDiagnostics:
+        case .settingsSections, .settingsLayout, .settingsPerformance, .settingsDeduplicate, .settingsLicense, .settingsDiagnostics:
             return NSSize(width: 1360, height: 920)
         case .deduplicateReviewWide:
             return NSSize(width: 1180, height: 820)
