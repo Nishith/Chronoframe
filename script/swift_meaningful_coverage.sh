@@ -100,6 +100,7 @@ MEANINGFUL_BASENAMES=(
     TrialAllowance
     UnlockPresentation
     LicenseStatusPresentation
+    FreeTestBatchPlanner
 )
 
 missing_basenames=()
