@@ -111,6 +111,18 @@ final class FreeTestBatchPlannerTests: XCTestCase {
         let applied = batch.selection.apply(to: plan())
 
         XCTAssertEqual(applied, batch.included)
+        XCTAssertEqual(batch.selection.count, 2)
+        XCTAssertFalse(batch.selection.isEmpty)
+    }
+
+    /// An empty batch selects nothing, so a caller that reached for it anyway
+    /// would copy nothing rather than everything.
+    func testSelectionFromAnEmptyBatchSelectsNothing() {
+        let selection = FreeTestBatchPlanner.batch(from: plan(), limit: 0).selection
+
+        XCTAssertTrue(selection.isEmpty)
+        XCTAssertEqual(selection.count, 0)
+        XCTAssertTrue(selection.apply(to: plan()).isEmpty)
     }
 
     /// The reason a batch carries paths and not a count. A transfer re-plans,
