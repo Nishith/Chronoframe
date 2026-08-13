@@ -73,6 +73,9 @@ public final class RunSessionStore: ObservableObject {
     /// Set only when the engine could honestly propose one. Nil means the only
     /// way forward is the unlock.
     @Published public private(set) var lastOfferedBatch: FreeTestBatch?
+
+    /// Whether the run currently streaming is limited to a confirmed batch.
+    private var currentRunUsedFreeTestBatch = false
     @Published public private(set) var latestPreviewReviewPath: String?
     /// Source URL of the file currently being copied, surfaced by the
     /// transfer phase. UI uses it to render a live QuickLook thumbnail in
@@ -175,6 +178,25 @@ public final class RunSessionStore: ObservableObject {
             self.preparedRun = preparedRun
             let preflight = preparedRun.preflight
             lastPreflight = preflight
+
+            // A batch must never start on top of a queue somebody else left
+            // behind. `TransferExecutor.executeQueuedJobs` selects pending rows
+            // by status alone — there is no run_id filter — so a batch run
+            // would copy the stale jobs too: without confirmation, and past the
+            // count that was just authorized. The resume/start-fresh prompt is
+            // the existing decision for that queue, and it has to happen first.
+            if batch != nil, preflight.pendingJobCount > 0 {
+                prompt = RunPrompt(
+                    kind: .blockingError,
+                    title: "Finish the interrupted transfer first",
+                    message: "Chronoframe found \(preflight.pendingJobCount) copy job"
+                        + "\(preflight.pendingJobCount == 1 ? "" : "s") still queued from a transfer that "
+                        + "was interrupted. Start a transfer to resume or discard them, then run the free "
+                        + "test batch. Nothing was copied and your originals were left untouched.",
+                    preflight: preflight
+                )
+                return
+            }
 
             if mode == .transfer, batch == nil {
                 let promptKind: RunPromptKind = preflight.pendingJobCount > 0 ? .resumePendingJobs : .confirmTransfer
@@ -538,6 +560,10 @@ public final class RunSessionStore: ObservableObject {
         resumePendingJobs: Bool,
         batch: FreeTestBatchSelection? = nil
     ) {
+        // Read back when the run completes: a zero-copy outcome means something
+        // different for a batch than for a full transfer, and the completion
+        // notification has to say which.
+        currentRunUsedFreeTestBatch = batch != nil
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
@@ -841,27 +867,57 @@ public final class RunSessionStore: ObservableObject {
         ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS"] == "1"
     }
 
-    private func postRunCompletionNotification(summary: RunSummary) {
-        guard Self.isRunningInAppBundle, !Self.notificationsDisabledForUITest else { return }
-        let content = UNMutableNotificationContent()
+    /// What the completion notification says, or nil when a run warrants none.
+    ///
+    /// Pure and separated from posting so the wording is unit-tested. It has to
+    /// be: a notification is often the only part of a finished run anyone
+    /// reads, so a sentence that contradicts the in-app result is worse than no
+    /// notification at all.
+    static func completionNotificationText(
+        summary: RunSummary,
+        usedFreeTestBatch: Bool
+    ) -> (title: String, body: String)? {
         switch summary.status {
         case .finished:
-            content.title = "Transfer complete"
-            content.body = "\(summary.metrics.copiedCount) file\(summary.metrics.copiedCount == 1 ? "" : "s") copied"
+            return (
+                "Transfer complete",
+                "\(summary.metrics.copiedCount) file\(summary.metrics.copiedCount == 1 ? "" : "s") copied"
+            )
         case .dryRunFinished:
-            content.title = "Preview complete"
-            content.body = "\(summary.metrics.plannedCount) file\(summary.metrics.plannedCount == 1 ? "" : "s") planned"
+            return (
+                "Preview complete",
+                "\(summary.metrics.plannedCount) file\(summary.metrics.plannedCount == 1 ? "" : "s") planned"
+            )
         case .nothingToCopy:
-            content.title = "Already up to date"
-            content.body = "All source files are already in the destination."
+            // Not "already up to date" when a batch matched nothing: every file
+            // the customer confirmed has since moved or changed, and telling
+            // them their photos are safely in the destination would be a false
+            // assurance — the same one the in-app branch exists to avoid.
+            guard !usedFreeTestBatch else {
+                return (
+                    "Nothing left to copy",
+                    "The files in that batch have moved or changed, so nothing was copied."
+                )
+            }
+            return ("Already up to date", "All source files are already in the destination.")
         case .failed:
-            content.title = "Transfer failed"
-            content.body = summary.failureMessage ?? summary.title
+            return ("Transfer failed", summary.failureMessage ?? summary.title)
         case .cancelled:
-            return  // user-initiated, no notification needed
+            return nil  // user-initiated, no notification needed
         default:
-            return
+            return nil
         }
+    }
+
+    private func postRunCompletionNotification(summary: RunSummary) {
+        guard Self.isRunningInAppBundle, !Self.notificationsDisabledForUITest else { return }
+        guard let text = Self.completionNotificationText(
+            summary: summary,
+            usedFreeTestBatch: currentRunUsedFreeTestBatch
+        ) else { return }
+        let content = UNMutableNotificationContent()
+        content.title = text.title
+        content.body = text.body
 
         // Attach the app icon as the notification's hero image so it visibly
         // matches what the user sees in the Dock and the in-app brand mark.
