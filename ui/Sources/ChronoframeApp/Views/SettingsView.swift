@@ -9,6 +9,7 @@ enum SettingsTab: String, Hashable {
     case layout
     case performance
     case deduplicate
+    case license
     case diagnostics
 }
 
@@ -52,6 +53,15 @@ struct SettingsView: View {
                     Label("Deduplicate", systemImage: "rectangle.on.rectangle.angled")
                 }
                 .tag(SettingsTab.deduplicate)
+
+            LicenseSettingsTab(
+                appState: appState,
+                entitlementStore: TrialComposition.entitlementStore
+            )
+                .tabItem {
+                    Label("License", systemImage: "key")
+                }
+                .tag(SettingsTab.license)
 
             DiagnosticsSettingsTab(appState: appState, preferencesStore: preferencesStore)
                 .tabItem {

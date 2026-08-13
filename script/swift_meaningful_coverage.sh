@@ -99,6 +99,7 @@ MEANINGFUL_BASENAMES=(
     Entitlement
     TrialAllowance
     UnlockPresentation
+    LicenseStatusPresentation
 )
 
 missing_basenames=()
