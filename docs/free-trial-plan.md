@@ -514,6 +514,11 @@ requires a test with each change.
 `xcodebuild` sets it, so any `#if MAS_BUILD` code is compiled by **zero** lanes. Add a CI job
 building with `SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD`.
 
+Carried over from T14: because no lane sets `MAS_BUILD`, the `settingsLicense` accessibility-audit
+scenario renders the **unrestricted-channel** variant of the License pane — a status line and no
+allowance rows or Restore button. The metered variant (allowance rows, Restore) is unaudited until
+this lane exists. Run the audit under the MAS condition here so both variants are covered.
+
 ## T18 — StoreKit configuration file · Routine
 
 Add an Xcode StoreKit configuration file for the unlock so `Transaction` and `AppTransaction` can

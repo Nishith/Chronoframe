@@ -36,22 +36,31 @@ struct LicenseSettingsTab: View {
             Section {
                 LabeledContent("Status") {
                     Text(model.headline)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
+            } footer: {
+                // Every Text in Settings is explicitly inked: the accessibility
+                // audit hard-fails the system's secondary foreground on this
+                // background, and a footer is where the other panes put their
+                // explanatory copy.
                 if !model.detail.isEmpty {
                     Text(model.detail)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
             if !model.allowanceRows.isEmpty {
-                Section("Free allowance") {
+                Section {
                     ForEach(model.allowanceRows, id: \.label) { row in
                         LabeledContent(row.label) {
                             Text(row.value)
+                                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         }
                     }
+                } header: {
+                    Text("Free allowance")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
             }
 
@@ -75,8 +84,7 @@ struct LicenseSettingsTab: View {
 
                     if let statusMessage = entitlementStore.statusMessage {
                         Text(statusMessage)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("license.status")
                     }
