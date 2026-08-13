@@ -873,7 +873,10 @@ public final class RunSessionStore: ObservableObject {
     /// be: a notification is often the only part of a finished run anyone
     /// reads, so a sentence that contradicts the in-app result is worse than no
     /// notification at all.
-    static func completionNotificationText(
+    ///
+    /// `nonisolated` because it touches nothing but its arguments. The store is
+    /// `@MainActor`, which its statics inherit, and this one has no reason to.
+    nonisolated static func completionNotificationText(
         summary: RunSummary,
         usedFreeTestBatch: Bool
     ) -> (title: String, body: String)? {
