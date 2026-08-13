@@ -102,6 +102,17 @@ public struct FreeTestBatchSelection: Equatable, Sendable {
             transfers.filter { confirmedIdentities[$0.sourcePath] == $0.identity }
         )
     }
+
+    /// Confirmed files that `transfers` does not cover, sorted for a stable log.
+    ///
+    /// Catches both a file that vanished and one whose content changed: the
+    /// changed one fails the identity check, so its path is absent from the
+    /// applied result either way.
+    public func missingSourcePaths(after transfers: [PlannedTransfer]) -> [String] {
+        Set(confirmedIdentities.keys)
+            .subtracting(transfers.map(\.sourcePath))
+            .sorted()
+    }
 }
 
 public enum FreeTestBatchPlanner {
@@ -176,5 +187,28 @@ extension DryRunPlanningResult {
         // the batch would hide true information about real files rather than
         // clarify what the run does.
         return reduced
+    }
+}
+
+// MARK: - When the rebuilt batch is smaller than the confirmed one
+
+extension FreeTestBatchPlanner {
+    /// What to tell someone when the re-plan could not find everything they
+    /// confirmed, or nil when it found all of it.
+    ///
+    /// The batch is confirmed against the plan as it stood when the run was
+    /// refused, and the transfer re-plans against the disk before copying. The
+    /// selection guarantees the result is a subset — nothing unseen is ever
+    /// copied — but a subset can be *smaller*, and shrinking without saying so
+    /// is the silent truncation this feature exists to avoid. Small enough to
+    /// go unnoticed is exactly why it has to be said out loud.
+    public static func shortfallMessage(confirmed: Int, copying: Int) -> String? {
+        let missing = confirmed - copying
+        guard missing > 0, copying > 0 else { return nil }
+
+        let files = missing == 1 ? "1 file" : "\(missing) files"
+        return "\(files) of the \(confirmed) you confirmed can no longer be copied — "
+            + "they have moved, changed, or are already in your library. "
+            + "Chronoframe is copying the remaining \(copying) and leaving your originals untouched."
     }
 }

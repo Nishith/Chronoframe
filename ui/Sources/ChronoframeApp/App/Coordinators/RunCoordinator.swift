@@ -131,13 +131,17 @@ final class RunCoordinator {
         )
     }
 
-    func startTransfer() async {
+    /// - Parameter batch: when present, copy only these confirmed files (T15).
+    ///   Everything else about the run is identical, including which import
+    ///   context it belongs to — a batch offered during a watched-source or
+    ///   Photos import has to run against that same source, not the Setup one.
+    func startTransfer(batch: FreeTestBatchSelection? = nil) async {
         if let context = activeWatchedImportContext {
-            await startWatchedTransfer(context: context)
+            await startWatchedTransfer(context: context, batch: batch)
             return
         }
         if let context = activePhotosImportContext {
-            await startPhotosTransfer(context: context)
+            await startPhotosTransfer(context: context, batch: batch)
             return
         }
         guard canStartRun() else { return }
@@ -146,11 +150,12 @@ final class RunCoordinator {
         await runSessionStore.requestRun(
             mode: .transfer,
             configuration: configuration,
-            securityScope: makeSecurityScope(configuration)
+            securityScope: makeSecurityScope(configuration),
+            batch: batch
         )
     }
 
-    private func startWatchedTransfer(context: WatchedImportContext) async {
+    private func startWatchedTransfer(context: WatchedImportContext, batch: FreeTestBatchSelection? = nil) async {
         // Revalidate before mutation: the destination the user is looking
         // at must still be the one the preview targeted. A change cancels
         // with a clear message — it never silently retargets in either
@@ -168,14 +173,15 @@ final class RunCoordinator {
         await runSessionStore.requestRun(
             mode: .transfer,
             configuration: configuration,
-            securityScope: makeWatchedImportSecurityScope(context)
+            securityScope: makeWatchedImportSecurityScope(context),
+            batch: batch
         )
     }
 
     /// Apple Photos transfer. Revalidates the pinned destination before
     /// mutation exactly like the watched path; a change cancels with a clear
     /// message rather than retargeting. The staging source is app-owned.
-    private func startPhotosTransfer(context: PhotosImportContext) async {
+    private func startPhotosTransfer(context: PhotosImportContext, batch: FreeTestBatchSelection? = nil) async {
         let activeDestination = setupStore.destinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard Self.pathsMatch(activeDestination, context.destinationPath) else {
             discardPhotosImportContext()
@@ -189,7 +195,8 @@ final class RunCoordinator {
         await runSessionStore.requestRun(
             mode: .transfer,
             configuration: configuration,
-            securityScope: makePhotosImportSecurityScope(context)
+            securityScope: makePhotosImportSecurityScope(context),
+            batch: batch
         )
     }
 

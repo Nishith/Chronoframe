@@ -440,6 +440,29 @@ final class AppState: ObservableObject {
         runSessionStore.lastRefusal ?? deduplicateSessionStore.lastRefusal
     }
 
+    /// A smaller run the remaining allowance covers, when one was offered
+    /// alongside the refusal (free-trial step 5, T15).
+    ///
+    /// Only organize refuses with a plan in hand, so only `RunSessionStore`
+    /// ever has one.
+    var offeredFreeTestBatch: FreeTestBatch? {
+        runSessionStore.lastOfferedBatch
+    }
+
+    /// Run the batch the sheet just displayed.
+    ///
+    /// Like `retryAfterUnlock`, this restarts from preflight rather than
+    /// reusing the refused run's plan. What pins the outcome to what the
+    /// customer saw is the selection, not the plan: it names each file and the
+    /// content it had when the sheet listed it, so the re-plan can only ever
+    /// copy a subset of that list.
+    func runOfferedFreeTestBatch() async {
+        guard let batch = runSessionStore.lastOfferedBatch, !batch.included.isEmpty else { return }
+        let selection = batch.selection
+        runSessionStore.dismissRefusal()
+        await runCoordinator.startTransfer(batch: selection)
+    }
+
     /// The customer closed the sheet without unlocking. Nothing to clean up:
     /// both stores released everything they held when they refused, because
     /// neither operation started.

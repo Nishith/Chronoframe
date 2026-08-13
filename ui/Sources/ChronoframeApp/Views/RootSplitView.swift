@@ -119,7 +119,9 @@ struct RootSplitView: View {
                 UnlockSheet(
                     refusal: refusal,
                     entitlementStore: TrialComposition.entitlementStore,
+                    offeredBatch: appState.offeredFreeTestBatch,
                     onUnlocked: { Task { await appState.retryAfterUnlock() } },
+                    onRunFreeTestBatch: { Task { await appState.runOfferedFreeTestBatch() } },
                     onDismiss: { appState.dismissUnlockSheet() }
                 )
             }
