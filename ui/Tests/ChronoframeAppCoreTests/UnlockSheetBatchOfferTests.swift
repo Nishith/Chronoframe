@@ -32,20 +32,30 @@ final class UnlockSheetBatchOfferTests: XCTestCase {
         .allowanceSpent(TrialRefusal(meter: .organize, requested: 900, remaining: 3))
     }
 
+    /// `hasProduct` rather than an optional `product` parameter: defaulting an
+    /// optional and then coalescing it makes "no product" unexpressible, so a
+    /// test asking for the loading branch silently got the loaded one instead.
     private func model(
         refusal: TrialAuthorizationRefusal? = nil,
         offeredBatch: FreeTestBatch?,
-        product: StoreProductInfo? = nil,
+        hasProduct: Bool = true,
         isLoadingProduct: Bool = false
     ) -> UnlockSheetModel {
         UnlockSheetModel.make(
             refusal: refusal ?? spent,
-            product: product ?? self.product,
+            product: hasProduct ? product : nil,
             isLoadingProduct: isLoadingProduct,
             isPurchasing: false,
             isRestoring: false,
             offeredBatch: offeredBatch
         )
+    }
+
+    private func buyAction(_ model: UnlockSheetModel) -> UnlockSheetAction? {
+        model.actions.first {
+            if case .buy = $0 { return true }
+            return false
+        }
     }
 
     private func batchAction(_ model: UnlockSheetModel) -> UnlockSheetAction? {
@@ -99,8 +109,9 @@ final class UnlockSheetBatchOfferTests: XCTestCase {
     /// and offering a button that cannot be pressed is not offering it. A
     /// stalled price lookup would otherwise block the batch indefinitely.
     func testTheBatchIsStillUsableWhileTheProductIsLoading() {
-        let model = model(offeredBatch: batch(included: 3, deferred: 897), product: nil, isLoadingProduct: true)
+        let model = model(offeredBatch: batch(included: 3, deferred: 897), hasProduct: false, isLoadingProduct: true)
 
+        XCTAssertNil(buyAction(model), "No price yet, so no Buy button — this is the loading branch")
         XCTAssertEqual(batchAction(model), .runFreeTestBatch(fileCount: 3, deferredCount: 897))
         XCTAssertTrue(model.isBusy, "The price lookup still shows a spinner")
         XCTAssertTrue(model.isBatchEnabled, "…but the batch does not wait on a price")
@@ -131,9 +142,14 @@ final class UnlockSheetBatchOfferTests: XCTestCase {
     }
 
     func testTheBatchIsStillOfferedWhenTheProductFailedToLoad() {
-        let model = model(offeredBatch: batch(included: 3, deferred: 897), product: nil)
+        let model = model(offeredBatch: batch(included: 3, deferred: 897), hasProduct: false)
 
+        XCTAssertTrue(
+            model.actions.contains(.retryProductLoad),
+            "This is the failed-load branch, not the loaded one"
+        )
         XCTAssertNotNil(batchAction(model))
+        XCTAssertTrue(model.isBatchEnabled)
     }
 
     // MARK: - Withheld
