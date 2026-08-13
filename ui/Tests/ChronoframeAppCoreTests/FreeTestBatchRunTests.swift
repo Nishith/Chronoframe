@@ -60,8 +60,12 @@ final class FreeTestBatchRunTests: XCTestCase {
 
         await store.requestRun(mode: .transfer, configuration: configuration, batch: selection)
 
+        // The stream starts in a task, so the engine has not necessarily been
+        // called by the time `requestRun` returns.
+        let started = await waitForCondition { engine.startBatches.count == 1 }
+        XCTAssertTrue(started)
+
         XCTAssertNil(store.prompt, "The batch sheet was the confirmation; asking again is asking twice")
-        XCTAssertEqual(engine.startBatches.count, 1)
         XCTAssertEqual(engine.startBatches.first, selection)
     }
 
