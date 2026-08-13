@@ -143,6 +143,27 @@ final class FreeTestBatchPlannerTests: XCTestCase {
         )
     }
 
+    /// A file replaced in place keeps its path, so a path-only selection would
+    /// have copied the new bytes — to a different date folder, if the new
+    /// file's date differs. The executor does not catch this: it compares the
+    /// source against the hash recorded when the job was planned, and a re-plan
+    /// records the new hash, so those agree.
+    func testFilesReplacedAfterConfirmationAreDropped() {
+        let batch = FreeTestBatchPlanner.batch(from: plan(), limit: 2)
+        let laterPlan = plan().map { transfer -> PlannedTransfer in
+            guard transfer.sourcePath.hasSuffix("january.raf") else { return transfer }
+            var replaced = transfer
+            replaced.identity = FileIdentity(size: 9_001, digest: "different-content")
+            replaced.dateBucket = "2026-07-30"
+            replaced.destinationPath = "/Volumes/Archive/2026-07-30/january.raf"
+            return replaced
+        }
+
+        let applied = batch.selection.apply(to: laterPlan)
+
+        XCTAssertEqual(applied.map(\.sourcePath), ["/Volumes/Card/february.raf"])
+    }
+
     /// The other direction: a file that disappeared is simply not copied. The
     /// run shrinks, which is the safe way for it to be wrong.
     func testFilesThatVanishedAfterConfirmationAreDropped() {

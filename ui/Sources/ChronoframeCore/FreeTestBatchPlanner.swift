@@ -50,33 +50,56 @@ public struct FreeTestBatch: Equatable, Sendable {
 
     /// The batch as a selection that can be handed back to a later run.
     public var selection: FreeTestBatchSelection {
-        FreeTestBatchSelection(sourcePaths: Set(included.map(\.sourcePath)))
+        FreeTestBatchSelection(
+            confirmedIdentities: Dictionary(
+                included.map { ($0.sourcePath, $0.identity) },
+                // A plan cannot contain one source path twice, so this only
+                // fires if that ever stops being true. Keeping the first entry
+                // matches batch order and keeps `apply` deterministic.
+                uniquingKeysWith: { first, _ in first }
+            )
+        )
     }
 }
 
 /// Exactly which files a confirmed batch may copy.
 ///
-/// Held by source path rather than by index or count, so that applying it to a
-/// freshly planned set is subtractive: the result is always a subset of what
-/// was confirmed.
+/// Keyed by source path **and** the content identity confirmed at that path, so
+/// applying it to a freshly planned set is subtractive: the result is always a
+/// subset of what was confirmed.
+///
+/// Path alone is not enough. A file replaced in place between confirmation and
+/// the execution re-plan keeps its path, so a path-only filter would copy the
+/// new bytes — which may resolve to a different date and therefore a different
+/// destination folder than the one displayed. `TransferExecutor.prepareCopy`
+/// does not catch it either: that check compares the source against the hash
+/// recorded when the job was planned, and a re-plan records the *new* hash, so
+/// the two agree. Identity has to be pinned here, at confirmation time.
+///
+/// Content identity is the right granularity, not the whole planned transfer. A
+/// destination path can legitimately differ between plans — the sequence
+/// counter assigns suffixes based on what else is in the folder — and dropping
+/// a file over that would refuse work the customer confirmed for no benefit.
 public struct FreeTestBatchSelection: Equatable, Sendable {
-    public let sourcePaths: Set<String>
+    /// Source path to the identity that path had when the batch was confirmed.
+    public let confirmedIdentities: [String: FileIdentity]
 
-    public init(sourcePaths: Set<String>) {
-        self.sourcePaths = sourcePaths
+    public init(confirmedIdentities: [String: FileIdentity]) {
+        self.confirmedIdentities = confirmedIdentities
     }
 
-    public var count: Int { sourcePaths.count }
+    public var count: Int { confirmedIdentities.count }
 
-    public var isEmpty: Bool { sourcePaths.isEmpty }
+    public var isEmpty: Bool { confirmedIdentities.isEmpty }
 
-    /// Keep only the planned transfers this selection names.
+    /// Keep only the planned transfers this selection confirmed, still holding
+    /// the same content.
     ///
     /// Ordered the same way `FreeTestBatchPlanner` orders a batch, so the run
     /// copies files in the order they were shown.
     public func apply(to transfers: [PlannedTransfer]) -> [PlannedTransfer] {
         FreeTestBatchPlanner.inBatchOrder(
-            transfers.filter { sourcePaths.contains($0.sourcePath) }
+            transfers.filter { confirmedIdentities[$0.sourcePath] == $0.identity }
         )
     }
 }
