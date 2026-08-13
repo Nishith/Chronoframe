@@ -95,11 +95,39 @@ final class UnlockSheetBatchOfferTests: XCTestCase {
         XCTAssertFalse(detail.contains("2026-01-11 to 2026-01-11"), detail)
     }
 
-    /// A price that has not loaded is no reason to withhold something free.
-    func testTheBatchIsStillOfferedWhileTheProductIsLoading() {
+    /// A price that has not loaded is no reason to withhold something free —
+    /// and offering a button that cannot be pressed is not offering it. A
+    /// stalled price lookup would otherwise block the batch indefinitely.
+    func testTheBatchIsStillUsableWhileTheProductIsLoading() {
         let model = model(offeredBatch: batch(included: 3, deferred: 897), product: nil, isLoadingProduct: true)
 
         XCTAssertEqual(batchAction(model), .runFreeTestBatch(fileCount: 3, deferredCount: 897))
+        XCTAssertTrue(model.isBusy, "The price lookup still shows a spinner")
+        XCTAssertTrue(model.isBatchEnabled, "…but the batch does not wait on a price")
+    }
+
+    /// An in-flight purchase or restore does block it: starting a run
+    /// underneath either is a race.
+    func testAPurchaseInFlightBlocksTheBatch() {
+        let purchasing = UnlockSheetModel.make(
+            refusal: spent,
+            product: product,
+            isLoadingProduct: false,
+            isPurchasing: true,
+            isRestoring: false,
+            offeredBatch: batch(included: 3, deferred: 897)
+        )
+        let restoring = UnlockSheetModel.make(
+            refusal: spent,
+            product: product,
+            isLoadingProduct: false,
+            isPurchasing: false,
+            isRestoring: true,
+            offeredBatch: batch(included: 3, deferred: 897)
+        )
+
+        XCTAssertFalse(purchasing.isBatchEnabled)
+        XCTAssertFalse(restoring.isBatchEnabled)
     }
 
     func testTheBatchIsStillOfferedWhenTheProductFailedToLoad() {

@@ -183,7 +183,7 @@ struct UnlockSheet: View {
                 Button("Copy These \(fileCount) Files") {
                     onRunFreeTestBatch()
                 }
-                .disabled(model.isBusy)
+                .disabled(!model.isBatchEnabled)
                 .accessibilityIdentifier("unlockSheet.runBatch")
             }
         }

@@ -42,19 +42,29 @@ public struct UnlockSheetModel: Equatable, Sendable {
     /// matters because a count alone does not tell someone *which* of their
     /// photos a test batch would copy.
     public let batchDetail: String?
+    /// Whether the batch action can be pressed.
+    ///
+    /// Separate from `isBusy` on purpose. `isBusy` is also true while the price
+    /// is loading, and gating the batch on that would disable the one free
+    /// action for as long as a price lookup takes — indefinitely, if it stalls.
+    /// Only an in-flight purchase or restore blocks it, because starting a run
+    /// underneath either of those is a race.
+    public let isBatchEnabled: Bool
 
     public init(
         title: String,
         message: String,
         actions: [UnlockSheetAction],
         isBusy: Bool,
-        batchDetail: String? = nil
+        batchDetail: String? = nil,
+        isBatchEnabled: Bool = true
     ) {
         self.title = title
         self.message = message
         self.actions = actions
         self.isBusy = isBusy
         self.batchDetail = batchDetail
+        self.isBatchEnabled = isBatchEnabled
     }
 
     /// Build the sheet's contents.
@@ -107,7 +117,8 @@ public struct UnlockSheetModel: Equatable, Sendable {
                     .restore,
                 ] + batchAction + [.dismiss],
                 isBusy: busy,
-                batchDetail: batchDetail
+                batchDetail: batchDetail,
+                isBatchEnabled: !busy
             )
         }
 
@@ -122,7 +133,10 @@ public struct UnlockSheetModel: Equatable, Sendable {
                 message: message,
                 actions: batchAction + [.dismiss],
                 isBusy: true,
-                batchDetail: batchDetail
+                batchDetail: batchDetail,
+                // Not `!isBusy`: the spinner is for the price lookup, and the
+                // batch does not need a price.
+                isBatchEnabled: !busy
             )
         }
 
@@ -134,7 +148,8 @@ public struct UnlockSheetModel: Equatable, Sendable {
                 + "Check your internet connection and try again.",
             actions: [.retryProductLoad, .restore] + batchAction + [.dismiss],
             isBusy: busy,
-            batchDetail: batchDetail
+            batchDetail: batchDetail,
+            isBatchEnabled: !busy
         )
     }
 
