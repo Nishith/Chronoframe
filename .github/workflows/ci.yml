@@ -85,6 +85,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: script/check_uitest_membership.sh
 
+  test-dir-target-check:
+    name: Test directory target guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: script/check_test_dirs_are_targets.sh
+
   app-layer-test-check:
     name: App-layer test guard
     runs-on: ubuntu-latest
