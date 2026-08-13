@@ -123,7 +123,7 @@ public enum FreeTestBatchPlanner {
         )
     }
 
-    /// Oldest date folder first, then by source path.
+    /// Oldest date folder first, then by source path (see `inBatchOrder`).
     ///
     /// Deterministic and independent of how the source folder happened to be
     /// walked, which is what lets the same plan produce the same batch twice —
@@ -134,5 +134,47 @@ public enum FreeTestBatchPlanner {
             if lhs.dateBucket != rhs.dateBucket { return lhs.dateBucket < rhs.dateBucket }
             return lhs.sourcePath < rhs.sourcePath
         }
+    }
+}
+
+// MARK: - Reducing a plan to a confirmed batch
+
+extension DryRunPlanningResult {
+    /// The same planning result with only the confirmed batch left in its copy
+    /// plan.
+    ///
+    /// Filtering `transfers` alone is not enough: the counts and the date
+    /// histogram are derived from the plan, and leaving them describing the
+    /// full plan would have the run report more work than it is going to do.
+    ///
+    /// - Parameter namingRules: must match what planning used, because the
+    ///   histogram keys are parsed back out of destination filenames. Defaults
+    ///   the same way `DryRunPlanner.planAsync` does.
+    public func reduced(
+        to selection: FreeTestBatchSelection,
+        namingRules: PlannerNamingRules = .chronoframeDefault
+    ) -> DryRunPlanningResult {
+        let kept = selection.apply(to: copyPlan.transfers)
+
+        var reduced = self
+        reduced.copyPlan.transfers = kept
+        // Both kinds of file end up as planned transfers, so both counts move.
+        reduced.copyPlan.counts.newCount = kept.filter { !$0.isDuplicate }.count
+        reduced.copyPlan.counts.duplicateCount = kept.filter(\.isDuplicate).count
+        reduced.copyPlan.dateHistogram = CopyPlanBuilder.dateHistogram(
+            fromDestinationPaths: kept.map(\.destinationPath),
+            namingRules: namingRules
+        )
+
+        // `alreadyInDestinationCount` and `hashErrorCount` are deliberately
+        // untouched. They describe what discovery found, not what this run will
+        // copy, and a file that was already in the destination stays already in
+        // the destination whether or not the batch includes anything.
+        //
+        // `previewReviewItems` is untouched for the same reason: it is the
+        // record of what was discovered and reviewed. Dropping the rows outside
+        // the batch would hide true information about real files rather than
+        // clarify what the run does.
+        return reduced
     }
 }

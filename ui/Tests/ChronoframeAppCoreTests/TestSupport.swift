@@ -68,6 +68,8 @@ final class MockOrganizerEngine: OrganizerEngine {
     var revertMode: StreamMode
     var reorganizeMode: StreamMode
     var startConfigurations: [RunConfiguration] = []
+    /// Batches passed to `start(_:batch:)`, in order (T15).
+    var startBatches: [FreeTestBatchSelection] = []
     var resumeConfigurations: [RunConfiguration] = []
     var revertRequests: [(receiptURL: URL, destinationRoot: String)] = []
     var reorganizeRequests: [(destinationRoot: String, targetStructure: FolderStructure)] = []
@@ -113,6 +115,15 @@ final class MockOrganizerEngine: OrganizerEngine {
 
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
         startConfigurations.append(configuration)
+        return try makeStream(for: startMode)
+    }
+
+    func start(
+        _ configuration: RunConfiguration,
+        batch: FreeTestBatchSelection
+    ) throws -> AsyncThrowingStream<RunEvent, Error> {
+        startConfigurations.append(configuration)
+        startBatches.append(batch)
         return try makeStream(for: startMode)
     }
 

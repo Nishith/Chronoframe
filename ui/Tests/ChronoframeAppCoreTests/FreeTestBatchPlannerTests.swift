@@ -193,3 +193,141 @@ final class FreeTestBatchPlannerTests: XCTestCase {
         XCTAssertEqual(applied.map(\.sourcePath), batch.included.map(\.sourcePath))
     }
 }
+
+/// Covers reducing a whole planning result to a confirmed batch (T15).
+///
+/// Filtering `transfers` and stopping there would leave the run reporting more
+/// work than it does, so the counts and histogram are the point here.
+final class FreeTestBatchPlanReductionTests: XCTestCase {
+    private func transfer(
+        _ name: String,
+        bucket: String,
+        isDuplicate: Bool = false
+    ) -> PlannedTransfer {
+        PlannedTransfer(
+            sourcePath: "/Volumes/Card/\(name)",
+            destinationPath: "/Volumes/Archive/\(bucket)/\(bucket)_001.raf",
+            identity: FileIdentity(size: Int64(name.count), digest: "digest-\(name)"),
+            dateBucket: bucket,
+            isDuplicate: isDuplicate
+        )
+    }
+
+    private func planningResult(_ transfers: [PlannedTransfer]) -> DryRunPlanningResult {
+        DryRunPlanningResult(
+            discoveredSourceCount: 40,
+            destinationIndexedCount: 5,
+            sourceHashedCount: 40,
+            copyPlan: CopyPlanResult(
+                transfers: transfers,
+                counts: CopyPlanCounts(
+                    alreadyInDestinationCount: 7,
+                    newCount: transfers.filter { !$0.isDuplicate }.count,
+                    duplicateCount: transfers.filter(\.isDuplicate).count,
+                    hashErrorCount: 3
+                ),
+                warningMessages: [],
+                sequenceState: SequenceCounterState()
+            )
+        )
+    }
+
+    private var fullPlan: [PlannedTransfer] {
+        [
+            transfer("a.raf", bucket: "2026-01-11"),
+            transfer("b.raf", bucket: "2026-02-04"),
+            transfer("c.raf", bucket: "2026-03-02", isDuplicate: true),
+            transfer("d.raf", bucket: "2026-04-09"),
+        ]
+    }
+
+    func testReducingKeepsOnlyTheConfirmedTransfers() {
+        let result = planningResult(fullPlan)
+        let batch = FreeTestBatchPlanner.batch(from: fullPlan, limit: 2)
+
+        let reduced = result.reduced(to: batch.selection)
+
+        XCTAssertEqual(reduced.transferCount, 2)
+        XCTAssertEqual(
+            reduced.transfers.map(\.sourcePath),
+            ["/Volumes/Card/a.raf", "/Volumes/Card/b.raf"]
+        )
+    }
+
+    /// The counts have to follow the plan, or the run reports more work than it
+    /// does. Both kinds of planned file move, because both are copied.
+    func testReducingRewritesTheCopyCounts() {
+        let result = planningResult(fullPlan)
+        let batch = FreeTestBatchPlanner.batch(from: fullPlan, limit: 3)
+
+        let reduced = result.reduced(to: batch.selection)
+
+        XCTAssertEqual(reduced.counts.newCount, 2, "a and b are new; c is the duplicate")
+        XCTAssertEqual(reduced.counts.duplicateCount, 1)
+    }
+
+    /// Discovery facts are not batch facts. A file already in the destination
+    /// stays already in the destination however small the batch is.
+    func testReducingLeavesDiscoveryCountsAlone() {
+        let result = planningResult(fullPlan)
+        let batch = FreeTestBatchPlanner.batch(from: fullPlan, limit: 1)
+
+        let reduced = result.reduced(to: batch.selection)
+
+        XCTAssertEqual(reduced.counts.alreadyInDestinationCount, 7)
+        XCTAssertEqual(reduced.counts.hashErrorCount, 3)
+        XCTAssertEqual(reduced.discoveredSourceCount, 40)
+    }
+
+    /// The histogram is what the Run workspace draws. Left alone it would show
+    /// bars for dates the batch is not going to touch.
+    func testReducingRebuildsTheDateHistogram() {
+        let result = planningResult(fullPlan)
+        let batch = FreeTestBatchPlanner.batch(from: fullPlan, limit: 2)
+
+        let reduced = result.reduced(to: batch.selection)
+
+        XCTAssertEqual(
+            reduced.dateHistogram.map(\.plannedCount).reduce(0, +),
+            2,
+            "The histogram must total the reduced plan, not the full one"
+        )
+        XCTAssertFalse(
+            reduced.dateHistogram.contains { $0.key.hasPrefix("2026-04") },
+            "A date outside the batch must not appear: \(reduced.dateHistogram)"
+        )
+    }
+
+    func testReducingToAnEmptySelectionPlansNothing() {
+        let result = planningResult(fullPlan)
+
+        let reduced = result.reduced(to: FreeTestBatchSelection(confirmedIdentities: [:]))
+
+        XCTAssertEqual(reduced.transferCount, 0)
+        XCTAssertEqual(reduced.counts.newCount, 0)
+        XCTAssertEqual(reduced.counts.duplicateCount, 0)
+        XCTAssertTrue(reduced.dateHistogram.isEmpty)
+    }
+
+    /// A batch covering the whole plan changes the counts to the same numbers,
+    /// so a confirmed full batch is not quietly different from no batch at all.
+    func testReducingToTheWholePlanPreservesItsCounts() {
+        let result = planningResult(fullPlan)
+        let batch = FreeTestBatchPlanner.batch(from: fullPlan, limit: 99)
+
+        let reduced = result.reduced(to: batch.selection)
+
+        XCTAssertEqual(reduced.transferCount, result.transferCount)
+        XCTAssertEqual(reduced.counts.newCount, result.counts.newCount)
+        XCTAssertEqual(reduced.counts.duplicateCount, result.counts.duplicateCount)
+    }
+
+    /// Review rows describe what was discovered, not what this run copies.
+    func testReducingLeavesReviewItemsAlone() {
+        var result = planningResult(fullPlan)
+        result.previewReviewItems = []
+        let batch = FreeTestBatchPlanner.batch(from: fullPlan, limit: 1)
+
+        XCTAssertEqual(result.reduced(to: batch.selection).previewReviewItems.count, 0)
+    }
+}

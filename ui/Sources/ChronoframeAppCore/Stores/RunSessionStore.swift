@@ -66,6 +66,16 @@ public final class RunSessionStore: ObservableObject {
     /// rather than attempting a purchase in the background. Recovering that from
     /// the formatted message string would mean parsing English.
     @Published public private(set) var lastRefusal: TrialAuthorizationRefusal?
+
+    /// A smaller run the remaining allowance covers, offered alongside the
+    /// refusal (free-trial step 5, T15).
+    ///
+    /// Set only when the engine could honestly propose one. Nil means the only
+    /// way forward is the unlock.
+    @Published public private(set) var lastOfferedBatch: FreeTestBatch?
+
+    /// Whether the run currently streaming is limited to a confirmed batch.
+    private var currentRunUsedFreeTestBatch = false
     @Published public private(set) var latestPreviewReviewPath: String?
     /// Source URL of the file currently being copied, surfaced by the
     /// transfer phase. UI uses it to render a live QuickLook thumbnail in
@@ -139,10 +149,16 @@ public final class RunSessionStore: ObservableObject {
         max(metrics.errorCount, metrics.hashErrorCount + metrics.failedCount)
     }
 
+    /// - Parameter batch: a confirmed free test batch (T15). When present the
+    ///   run copies only those files, and the generic "Start Transfer?" prompt
+    ///   is skipped — the batch sheet the customer just confirmed showed them
+    ///   the exact reduced plan, and asking again would be asking twice about
+    ///   the same run.
     public func requestRun(
         mode: RunMode,
         configuration: RunConfiguration,
-        securityScope: SecurityScopedFolderAccess? = nil
+        securityScope: SecurityScopedFolderAccess? = nil,
+        batch: FreeTestBatchSelection? = nil
     ) async {
         resetSessionState(mode: mode)
         // Finding #7: capture the epoch AFTER resetSessionState bumps it. If a
@@ -163,7 +179,26 @@ public final class RunSessionStore: ObservableObject {
             let preflight = preparedRun.preflight
             lastPreflight = preflight
 
-            if mode == .transfer {
+            // A batch must never start on top of a queue somebody else left
+            // behind. `TransferExecutor.executeQueuedJobs` selects pending rows
+            // by status alone — there is no run_id filter — so a batch run
+            // would copy the stale jobs too: without confirmation, and past the
+            // count that was just authorized. The resume/start-fresh prompt is
+            // the existing decision for that queue, and it has to happen first.
+            if batch != nil, preflight.pendingJobCount > 0 {
+                prompt = RunPrompt(
+                    kind: .blockingError,
+                    title: "Finish the interrupted transfer first",
+                    message: "Chronoframe found \(preflight.pendingJobCount) copy job"
+                        + "\(preflight.pendingJobCount == 1 ? "" : "s") still queued from a transfer that "
+                        + "was interrupted. Start a transfer to resume or discard them, then run the free "
+                        + "test batch. Nothing was copied and your originals were left untouched.",
+                    preflight: preflight
+                )
+                return
+            }
+
+            if mode == .transfer, batch == nil {
                 let promptKind: RunPromptKind = preflight.pendingJobCount > 0 ? .resumePendingJobs : .confirmTransfer
                 let message: String
                 if preflight.pendingJobCount > 0 {
@@ -181,7 +216,7 @@ public final class RunSessionStore: ObservableObject {
                 return
             }
 
-            beginStream(using: preflight, resumePendingJobs: false)
+            beginStream(using: preflight, resumePendingJobs: false, batch: batch)
         } catch {
             guard currentRunEpoch == epoch else { return }
             handleFailure(error: error)
@@ -520,7 +555,15 @@ public final class RunSessionStore: ObservableObject {
         }
     }
 
-    private func beginStream(using preflight: RunPreflight, resumePendingJobs: Bool) {
+    private func beginStream(
+        using preflight: RunPreflight,
+        resumePendingJobs: Bool,
+        batch: FreeTestBatchSelection? = nil
+    ) {
+        // Read back when the run completes: a zero-copy outcome means something
+        // different for a batch than for a full transfer, and the completion
+        // notification has to say which.
+        currentRunUsedFreeTestBatch = batch != nil
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
@@ -539,9 +582,14 @@ public final class RunSessionStore: ObservableObject {
             guard let self else { return }
 
             do {
-                let stream = try resumePendingJobs
-                    ? engine.resume(preflight.configuration)
-                    : engine.start(preflight.configuration)
+                let stream: AsyncThrowingStream<RunEvent, Error>
+                if let batch {
+                    stream = try engine.start(preflight.configuration, batch: batch)
+                } else if resumePendingJobs {
+                    stream = try engine.resume(preflight.configuration)
+                } else {
+                    stream = try engine.start(preflight.configuration)
+                }
 
                 for try await event in stream {
                     guard self.currentRunEpoch == epoch else { return }
@@ -819,27 +867,60 @@ public final class RunSessionStore: ObservableObject {
         ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS"] == "1"
     }
 
-    private func postRunCompletionNotification(summary: RunSummary) {
-        guard Self.isRunningInAppBundle, !Self.notificationsDisabledForUITest else { return }
-        let content = UNMutableNotificationContent()
+    /// What the completion notification says, or nil when a run warrants none.
+    ///
+    /// Pure and separated from posting so the wording is unit-tested. It has to
+    /// be: a notification is often the only part of a finished run anyone
+    /// reads, so a sentence that contradicts the in-app result is worse than no
+    /// notification at all.
+    ///
+    /// `nonisolated` because it touches nothing but its arguments. The store is
+    /// `@MainActor`, which its statics inherit, and this one has no reason to.
+    nonisolated static func completionNotificationText(
+        summary: RunSummary,
+        usedFreeTestBatch: Bool
+    ) -> (title: String, body: String)? {
         switch summary.status {
         case .finished:
-            content.title = "Transfer complete"
-            content.body = "\(summary.metrics.copiedCount) file\(summary.metrics.copiedCount == 1 ? "" : "s") copied"
+            return (
+                "Transfer complete",
+                "\(summary.metrics.copiedCount) file\(summary.metrics.copiedCount == 1 ? "" : "s") copied"
+            )
         case .dryRunFinished:
-            content.title = "Preview complete"
-            content.body = "\(summary.metrics.plannedCount) file\(summary.metrics.plannedCount == 1 ? "" : "s") planned"
+            return (
+                "Preview complete",
+                "\(summary.metrics.plannedCount) file\(summary.metrics.plannedCount == 1 ? "" : "s") planned"
+            )
         case .nothingToCopy:
-            content.title = "Already up to date"
-            content.body = "All source files are already in the destination."
+            // Not "already up to date" when a batch matched nothing: every file
+            // the customer confirmed has since moved or changed, and telling
+            // them their photos are safely in the destination would be a false
+            // assurance — the same one the in-app branch exists to avoid.
+            guard !usedFreeTestBatch else {
+                return (
+                    "Nothing left to copy",
+                    "The files in that batch have moved or changed, so nothing was copied."
+                )
+            }
+            return ("Already up to date", "All source files are already in the destination.")
         case .failed:
-            content.title = "Transfer failed"
-            content.body = summary.failureMessage ?? summary.title
+            return ("Transfer failed", summary.failureMessage ?? summary.title)
         case .cancelled:
-            return  // user-initiated, no notification needed
+            return nil  // user-initiated, no notification needed
         default:
-            return
+            return nil
         }
+    }
+
+    private func postRunCompletionNotification(summary: RunSummary) {
+        guard Self.isRunningInAppBundle, !Self.notificationsDisabledForUITest else { return }
+        guard let text = Self.completionNotificationText(
+            summary: summary,
+            usedFreeTestBatch: currentRunUsedFreeTestBatch
+        ) else { return }
+        let content = UNMutableNotificationContent()
+        content.title = text.title
+        content.body = text.body
 
         // Attach the app icon as the notification's hero image so it visibly
         // matches what the user sees in the Dock and the in-app brand mark.
@@ -904,8 +985,12 @@ public final class RunSessionStore: ObservableObject {
 
     private func handleFailure(error: Error) {
         let message = UserFacingErrorMessage.message(for: error, context: .run)
-        if let refusal = (error as? TrialAuthorizationError)?.refusal {
-            handleRefusal(refusal, message: message)
+        if let trialError = error as? TrialAuthorizationError {
+            handleRefusal(
+                trialError.refusal,
+                offeredBatch: trialError.offeredBatch,
+                message: message
+            )
             return
         }
         handleFailure(message: message)
@@ -924,12 +1009,17 @@ public final class RunSessionStore: ObservableObject {
     /// `RunStatus` is `String, Codable` and is persisted into receipts and
     /// history; a refusal is not a run outcome and must not become one.
     /// `lastRefusal` is what the UI branches on.
-    private func handleRefusal(_ refusal: TrialAuthorizationRefusal, message: String) {
+    private func handleRefusal(
+        _ refusal: TrialAuthorizationRefusal,
+        offeredBatch: FreeTestBatch? = nil,
+        message: String
+    ) {
         status = .idle
         currentTaskTitle = "Idle"
         metrics.speedMBps = 0
         metrics.etaSeconds = nil
         lastRefusal = refusal
+        lastOfferedBatch = offeredBatch
         lastErrorMessage = message
         logStore.append(message)
         // Released here, before the unlock sheet is presented. An App Store
@@ -950,6 +1040,7 @@ public final class RunSessionStore: ObservableObject {
     /// everything it held.
     public func dismissRefusal() {
         lastRefusal = nil
+        lastOfferedBatch = nil
     }
 
     private func handleFailure(message: String) {

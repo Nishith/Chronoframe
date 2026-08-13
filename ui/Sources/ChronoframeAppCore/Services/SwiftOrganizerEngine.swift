@@ -89,6 +89,25 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         }
     }
 
+    public func start(
+        _ configuration: RunConfiguration,
+        batch: FreeTestBatchSelection
+    ) throws -> AsyncThrowingStream<RunEvent, Error> {
+        let resolvedConfiguration = try resolvedConfiguration(for: configuration)
+
+        guard resolvedConfiguration.mode == .transfer else {
+            throw OrganizerEngineError.failedToLaunch(
+                "Only a transfer can run as a free test batch."
+            )
+        }
+
+        return makeTransferStream(
+            configuration: resolvedConfiguration,
+            resumePendingJobs: false,
+            batch: batch
+        )
+    }
+
     public func resume(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
         let resolvedConfiguration = try resolvedConfiguration(for: configuration)
 
@@ -536,7 +555,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
 
     private func makeTransferStream(
         configuration: RunConfiguration,
-        resumePendingJobs: Bool
+        resumePendingJobs: Bool,
+        batch: FreeTestBatchSelection? = nil
     ) -> AsyncThrowingStream<RunEvent, Error> {
         AsyncThrowingStream { continuation in
             let planner = self.planner
@@ -639,6 +659,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             destinationURL: destinationURL,
                             transferExecutor: transferExecutor,
                             authorizer: authorizer,
+                            batch: batch,
                             runLogger: runLogger,
                             isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                             continuation: continuation
@@ -683,11 +704,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         destinationURL: URL,
         transferExecutor: TransferExecutor,
         authorizer: any TrialAuthorizing,
+        batch: FreeTestBatchSelection?,
         runLogger: PersistentRunLogger,
         isCancelled: @escaping @Sendable () -> Bool,
         continuation: AsyncThrowingStream<RunEvent, Error>.Continuation
     ) async throws {
-        let result = try await planner.planAsync(
+        let plan = try await planner.planAsync(
             sourceRoot: URL(fileURLWithPath: configuration.sourcePath, isDirectory: true),
             destinationRoot: destinationURL,
             workerCount: max(1, configuration.workerCount),
@@ -702,6 +724,16 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             return
         }
 
+        // A confirmed free test batch narrows the plan before anything else
+        // sees it (T15), so the events, the log line, the gate, and the queue
+        // all describe the run that is actually about to happen. Reducing after
+        // any of those would report work this run is not going to do.
+        //
+        // Subtractive by construction: the selection names source paths and the
+        // identity each had when it was confirmed, so a re-plan that turned up
+        // new or altered files cannot smuggle them in here.
+        let result = batch.map { plan.reduced(to: $0) } ?? plan
+
         emitPostPlanningEvents(for: result, into: continuation)
         runLogger.log(
             "Classification: \(result.counts.alreadyInDestinationCount) already in dest, \(result.counts.newCount) new, \(result.counts.duplicateCount) internal dups, \(result.counts.hashErrorCount) hash errors"
@@ -712,6 +744,38 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         }
         for warning in result.warningMessages {
             runLogger.warn(warning)
+        }
+
+        // A batch that reduced to nothing is not an up-to-date library: every
+        // file the customer confirmed has since been moved, deleted, or edited.
+        // Falling through to the branch below would tell them their photos are
+        // already safely copied, which is the opposite of what happened. No new
+        // `RunStatus` for it — `.nothingToCopy` is accurate, and the warning
+        // says why.
+        if batch != nil, result.transferCount == 0 {
+            let message = "None of the files in that batch are still where they were when you confirmed it, "
+                + "so nothing was copied. Your originals were left untouched. Run a preview to see what is there now."
+            runLogger.warn("Free test batch matched no planned transfers; nothing was enqueued or copied.")
+            continuation.yield(.issue(RunIssue(severity: .warning, message: message)))
+            continuation.yield(
+                .complete(
+                    RunSummary(
+                        status: .nothingToCopy,
+                        title: "Nothing left to copy",
+                        metrics: RunMetrics(
+                            discoveredCount: result.discoveredSourceCount,
+                            plannedCount: 0,
+                            alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
+                            duplicateCount: result.counts.duplicateCount,
+                            hashErrorCount: result.counts.hashErrorCount,
+                            dateHistogram: result.dateHistogram
+                        ),
+                        artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
+                    )
+                )
+            )
+            continuation.finish()
+            return
         }
 
         if result.transferCount == 0 {
@@ -774,13 +838,24 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         // — planning and preview are free and must stay free — and before the
         // first thing that persists an intention to mutate. A refusal therefore
         // leaves no queued rows, no receipt, and no copied file.
-        try await authorizeTransfer(
-            runID: runID,
-            fileCount: result.transferCount,
-            destinationURL: destinationURL,
-            authorizer: authorizer,
-            runLogger: runLogger
-        )
+        do {
+            try await authorizeTransfer(
+                runID: runID,
+                fileCount: result.transferCount,
+                destinationURL: destinationURL,
+                authorizer: authorizer,
+                runLogger: runLogger
+            )
+        } catch let error as TrialAuthorizationError {
+            // The plan is still in hand here, and this is the only place it is.
+            // A refusal that leaves allowance on the table carries the smaller
+            // run that would fit, so the UI can offer it instead of sending
+            // someone to Finder to build a smaller folder by hand (T15).
+            throw TrialAuthorizationError.offeringFreeTestBatch(
+                error,
+                plannedTransfers: result.transfers
+            )
+        }
 
         // The gate is the only suspension point between the last cancellation
         // check and the first mutation, and it can be a slow one — resolving
