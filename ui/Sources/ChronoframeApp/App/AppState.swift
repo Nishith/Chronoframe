@@ -759,6 +759,16 @@ final class AppState: ObservableObject {
         openSettingsWindow()
     }
 
+    /// Re-read the allowance for a metered channel only (T16).
+    ///
+    /// The workspaces call this rather than the indicator itself: the indicator
+    /// renders nothing until the status resolves, so it has no view to hang a
+    /// `.task` on at the one moment the refresh is needed.
+    func refreshTrialStatusIfMetered() async {
+        guard TrialComposition.isMacAppStoreBuild else { return }
+        await refreshTrialStatus()
+    }
+
     /// Open Settings on the License tab (free-trial step 5, T16).
     ///
     /// Where the workspace indicator sends someone whose allowance is spent.

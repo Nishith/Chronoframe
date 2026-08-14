@@ -19,11 +19,15 @@ struct TrialIndicatorLabel: View {
     @ObservedObject var appState: AppState
     @ObservedObject private var trialStatusStore: TrialStatusStore
     let meter: TrialMeter
+    /// Applied only when something renders, so an absent indicator leaves no
+    /// padding behind. Callers inside an already-padded container pass none.
+    let insets: EdgeInsets
 
-    init(appState: AppState, meter: TrialMeter) {
+    init(appState: AppState, meter: TrialMeter, insets: EdgeInsets = EdgeInsets()) {
         self._appState = ObservedObject(wrappedValue: appState)
         self._trialStatusStore = ObservedObject(wrappedValue: appState.trialStatusStore)
         self.meter = meter
+        self.insets = insets
     }
 
     private var model: TrialIndicatorModel? {
@@ -35,46 +39,29 @@ struct TrialIndicatorLabel: View {
     }
 
     var body: some View {
-        // The Group renders nothing when there is no model, but still carries
-        // the `.task`. That matters: the first status is `.loading`, which
-        // produces no model, so a refresh attached to the visible branch alone
-        // would never run and the indicator would never appear.
-        Group {
-            if let model {
-                HStack(spacing: 6) {
-                    Text(model.text)
-                        .font(.callout)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+        // No Group, and no modifiers on an empty branch: when there is nothing
+        // to say this must contribute *nothing* to layout, including a parent
+        // stack's spacing. That is why the status refresh lives on the
+        // workspace views rather than here — a `.task` would need a real view
+        // to hang on, and the first status is always `.loading`, which renders
+        // nothing.
+        if let model {
+            HStack(spacing: 6) {
+                Text(model.text)
+                    .font(.callout)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
-                    if model.isSpent {
-                        Button("Unlock") {
-                            appState.openLicenseSettings()
-                        }
-                        .buttonStyle(.link)
-                        .accessibilityIdentifier("trialIndicator.unlock")
+                if model.isSpent {
+                    Button("Unlock") {
+                        appState.openLicenseSettings()
                     }
+                    .buttonStyle(.link)
+                    .accessibilityIdentifier("trialIndicator.unlock")
                 }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier(identifier)
             }
-        }
-        .task {
-            // An unrestricted build has no purchase to resolve and shows no
-            // allowance, so asking StoreKit would be a round-trip for an answer
-            // that cannot change anything on screen.
-            guard TrialComposition.isMacAppStoreBuild else { return }
-            await appState.refreshTrialStatus()
-        }
-        .onChange(of: appState.runSessionStore.lastRunCompletion) { _, _ in
-            // The ledger moves when work finishes, and the entitlement does
-            // not, so nothing else would prompt a re-read. Covers organize,
-            // reorganize and revert.
-            guard TrialComposition.isMacAppStoreBuild else { return }
-            Task { await appState.refreshTrialStatus() }
-        }
-        .onChange(of: appState.deduplicateSessionStore.commitSummary) { _, _ in
-            guard TrialComposition.isMacAppStoreBuild else { return }
-            Task { await appState.refreshTrialStatus() }
+            .padding(insets)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(identifier)
         }
     }
 
