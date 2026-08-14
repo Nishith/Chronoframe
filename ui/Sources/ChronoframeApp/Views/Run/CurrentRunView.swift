@@ -36,6 +36,10 @@ struct CurrentRunView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                 RunHeroSection(model: model, workspaceTab: $workspaceTab, appState: appState)
 
+                // How much of the free allowance is left (T16). Renders nothing
+                // for an unlocked customer.
+                TrialIndicatorLabel(appState: appState, meter: .organize)
+
                 if model.showsOutcomeSummary {
                     RunOutcomeSummaryCard(model: model, appState: appState)
                 }
@@ -80,6 +84,18 @@ struct CurrentRunView: View {
             if newValue == .finished {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
             }
+        }
+        .task {
+            // Drives the allowance indicator above (T16). It lives here rather
+            // than in the indicator because the indicator renders nothing until
+            // the status resolves, so it has no view to attach a task to at the
+            // moment the first read is needed.
+            await appState.refreshTrialStatusIfMetered()
+        }
+        .onChange(of: runSessionStore.lastRunCompletion) { _, _ in
+            // A finished run moves the ledger, not the entitlement, so nothing
+            // else would prompt a re-read. Covers organize, reorganize, revert.
+            Task { await appState.refreshTrialStatusIfMetered() }
         }
         .task(id: runSessionStore.summary?.artifacts.previewReviewPath) {
             await previewReviewStore.load(

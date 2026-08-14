@@ -57,7 +57,33 @@ struct DeduplicateView: View {
                 failureView(message: message)
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            // How much of the duplicate allowance is left (T16). The padding is
+            // inside the conditional so an unlocked customer gets no inset at
+            // all rather than an empty band of it.
+            TrialIndicatorLabel(
+                appState: appState,
+                meter: .dedupe,
+                insets: EdgeInsets(
+                    top: 0,
+                    leading: DesignTokens.Layout.sectionSpacing,
+                    bottom: 8,
+                    trailing: DesignTokens.Layout.sectionSpacing
+                )
+            )
+        }
         .modifier(DeduplicateNavigationTitle(title: navigationTitle))
+        .task {
+            // Lives here rather than in the indicator: the indicator renders
+            // nothing until the status resolves, so it has no view to attach a
+            // task to at the moment the first read is needed.
+            await appState.refreshTrialStatusIfMetered()
+        }
+        .onChange(of: sessionStore.commitSummary) { _, _ in
+            // A commit moves the ledger, not the entitlement, so nothing else
+            // would prompt a re-read.
+            Task { await appState.refreshTrialStatusIfMetered() }
+        }
         .onDisappear { thumbnailLoader.purgeCache() }
         .onChange(of: sessionStore.status) { _, newValue in
             if newValue == .completed || newValue == .reverted {

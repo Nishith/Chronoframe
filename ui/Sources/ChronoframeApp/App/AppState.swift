@@ -44,6 +44,9 @@ final class AppState: ObservableObject {
     private let watchedSourcesRepository: any WatchedSourcesRepositorying
     private let droppedItemStager: DroppedItemStager
     private let showSettingsWindowAction: @MainActor () -> Void
+    /// Keeps the trial status in step with the entitlement (T16).
+    private var trialStatusObservation: AnyCancellable?
+    private var lastObservedEntitlement: EntitlementState?
     private lazy var bookmarkPathResolver = BookmarkPathResolver(
         preferencesStore: preferencesStore,
         folderAccessService: folderAccessService
@@ -256,6 +259,8 @@ final class AppState: ObservableObject {
         // it for step 4 keeps enforcement a pure gating change, and keeps this
         // decision at the composition root where it belongs.
         TrialComposition.installReconciler()
+
+        observeEntitlementForTrialStatus()
 
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
@@ -756,6 +761,62 @@ final class AppState: ObservableObject {
 
     func openProfilesSettings() {
         settingsSelection = .profiles
+        openSettingsWindow()
+    }
+
+    /// Keep the composed trial status following the entitlement (T16).
+    ///
+    /// Every surface that shows an allowance — the workspace indicators and the
+    /// License tab — reads `TrialStatusStore`, and entitlement changes arrive
+    /// from outside all of them: a purchase or restore from the unlock sheet, a
+    /// refund, a Family Sharing revocation through the transaction observer.
+    /// Left to the views, each would have to notice separately, and a hidden
+    /// one cannot notice at all: an indicator showing "0 of 100 duplicates left"
+    /// renders nothing once the customer pays, so it would never see the change
+    /// that should remove it. `retryAfterUnlock` does not help either — the
+    /// dedupe path deliberately just dismisses and returns, so no run completes
+    /// and no ledger moves.
+    ///
+    /// Observing `objectWillChange` rather than `$state` keeps this off the
+    /// store's `private(set)` projection, and the equality check keeps a
+    /// purchase's several intermediate publishes from each costing a StoreKit
+    /// round-trip.
+    private func observeEntitlementForTrialStatus() {
+        lastObservedEntitlement = TrialComposition.entitlementStore.state
+        // The store is read inside the hop rather than captured: it is
+        // `@MainActor`, and holding it in an escaping closure would drag a
+        // non-Sendable value across isolation.
+        trialStatusObservation = TrialComposition.entitlementStore.objectWillChange
+            .sink { [weak self] _ in
+                // Hop first: `objectWillChange` fires before the value lands.
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let current = TrialComposition.entitlementStore.state
+                    guard current != self.lastObservedEntitlement else { return }
+                    self.lastObservedEntitlement = current
+                    await self.refreshTrialStatusIfMetered()
+                }
+            }
+    }
+
+    /// Re-read the allowance for a metered channel only (T16).
+    ///
+    /// The workspaces call this rather than the indicator itself: the indicator
+    /// renders nothing until the status resolves, so it has no view to hang a
+    /// `.task` on at the one moment the refresh is needed.
+    func refreshTrialStatusIfMetered() async {
+        guard TrialComposition.isMacAppStoreBuild else { return }
+        await refreshTrialStatus()
+    }
+
+    /// Open Settings on the License tab (free-trial step 5, T16).
+    ///
+    /// Where the workspace indicator sends someone whose allowance is spent.
+    /// Deliberately not a purchase: the unlock belongs behind an explicit
+    /// action on a pane that can also explain and restore, not behind a link in
+    /// a status line.
+    func openLicenseSettings() {
+        settingsSelection = .license
         openSettingsWindow()
     }
 
