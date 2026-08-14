@@ -759,6 +759,17 @@ final class AppState: ObservableObject {
         openSettingsWindow()
     }
 
+    /// Open Settings on the License tab (free-trial step 5, T16).
+    ///
+    /// Where the workspace indicator sends someone whose allowance is spent.
+    /// Deliberately not a purchase: the unlock belongs behind an explicit
+    /// action on a pane that can also explain and restore, not behind a link in
+    /// a status line.
+    func openLicenseSettings() {
+        settingsSelection = .license
+        openSettingsWindow()
+    }
+
     func revealHistoryEntry(_ entry: RunHistoryEntry) {
         historyCoordinator.revealHistoryEntry(entry)
     }

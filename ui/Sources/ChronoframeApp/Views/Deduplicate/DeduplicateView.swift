@@ -57,6 +57,13 @@ struct DeduplicateView: View {
                 failureView(message: message)
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            // How much of the duplicate allowance is left (T16). Renders
+            // nothing for an unlocked customer, so the inset collapses.
+            TrialIndicatorLabel(appState: appState, meter: .dedupe)
+                .padding(.horizontal, DesignTokens.Layout.sectionSpacing)
+                .padding(.bottom, 8)
+        }
         .modifier(DeduplicateNavigationTitle(title: navigationTitle))
         .onDisappear { thumbnailLoader.purgeCache() }
         .onChange(of: sessionStore.status) { _, newValue in

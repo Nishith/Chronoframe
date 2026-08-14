@@ -36,6 +36,10 @@ struct CurrentRunView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                 RunHeroSection(model: model, workspaceTab: $workspaceTab, appState: appState)
 
+                // How much of the free allowance is left (T16). Renders nothing
+                // for an unlocked customer.
+                TrialIndicatorLabel(appState: appState, meter: .organize)
+
                 if model.showsOutcomeSummary {
                     RunOutcomeSummaryCard(model: model, appState: appState)
                 }
