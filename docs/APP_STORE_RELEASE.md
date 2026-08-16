@@ -61,8 +61,13 @@ Avoid screenshots with personal photos, real names, real file paths, pricing cla
 
 `ui/Chronoframe.storekit` models the one non-consumable unlock, and the shared
 Chronoframe scheme references it, so a debug run from Xcode has a working store
-without an App Store Connect round-trip. Verify it is active under
-**Product → Scheme → Edit Scheme → Run → Options → StoreKit Configuration**;
+without an App Store Connect round-trip. **Before trusting any local purchase result, verify the configuration is
+actually loaded:** Product → Scheme → Edit Scheme → Run → Options →
+StoreKit Configuration should name `Chronoframe.storekit`. If it is empty,
+purchases fail as unavailable and every local result below is meaningless.
+This check belongs here and nowhere else — a signed TestFlight or App Store
+build takes its products from App Store Connect and ignores this file
+completely.
 `script/check_storekit_config_matches_policy.sh` keeps the file and that
 reference honest in CI, but only Xcode can confirm it is actually loaded.
 
@@ -122,15 +127,22 @@ bugs when they are working correctly. Run them against a **Mac App Store**
 build: the Developer ID build is unrestricted by settled policy and meters
 nothing, so it can only ever pass these vacuously.
 
-- **The StoreKit configuration is actually loaded.** Product → Scheme → Edit
-  Scheme → Run → Options names `Chronoframe.storekit`. CI checks the file and
-  the scheme reference, but only Xcode can confirm the reference resolves the
-  way Xcode resolves it. If the field is empty, purchases fail as unavailable
-  and every scenario below is meaningless.
-- **Offline legacy access.** A grandfathered customer launches with the network
-  off. Access is unchanged and nothing describes them as a trial user; the
-  entitlement resolves to `verificationUnavailable`, which is metered but must
-  never lock out someone who paid.
+- **The unlock is purchasable at all.** Before anything else, open the unlock
+  sheet and confirm the product appears with a price from App Store Connect. A
+  signed build ignores the local StoreKit configuration entirely, so a missing
+  product here means an App Store Connect problem — not a scheme problem.
+- **Offline legacy access, warm cache.** A grandfathered customer runs once
+  online, then launches with the network off. They stay **unlocked** —
+  `EntitlementResolver` falls back to the cached legacy grant and returns
+  `.unlocked(reason: .legacyPurchase)`. No allowance indicator, no metering,
+  nothing describing them as a trial user.
+- **Offline legacy access, cold or stale cache.** The same customer on a Mac
+  that has never resolved online, or with a cached grant older than 90 days
+  (`GrandfatherPolicy.defaultMaximumCacheAge`). There is no cache to lean on, so
+  the entitlement resolves to `verificationUnavailable`: metered, and a large
+  run **is** refused. Verify the refusal says the purchase could not be
+  confirmed and offers Restore — it must never say the free trial is used up,
+  because this customer paid.
 - **Product-load failure.** Refuse a run with the store unreachable. The sheet
   offers Try Again and Restore, shows **no price at all** rather than a guess,
   and the free test batch stays *pressable* — it needs no price, so a stalled
