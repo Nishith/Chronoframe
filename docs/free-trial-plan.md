@@ -14,8 +14,8 @@ Grounded against the tree as of the "Free trial step 2" merge.
 | 2 | StoreKit seams + entitlement state machine | **Merged.** Ships dark; nothing reads it |
 | 3 | Durable reservation ledger | **Merged.** T1–T6 |
 | 4 | Enforcement at the mutation surfaces | **Merged.** T7–T12 |
-| 5 | Unlock UI + free test batch | In progress — T13 merged, T14 open; T15–T16 not started |
-| 6 | Test matrices | Not started |
+| 5 | Unlock UI + free test batch | **Merged.** T13–T16 |
+| 6 | Test matrices | In progress — T17 open; T18–T19 not started |
 | 7–9 | Product creation, release, monitoring | Not started |
 
 Nothing is user-visible yet. The app is still paid-up-front.
@@ -514,10 +514,26 @@ requires a test with each change.
 `xcodebuild` sets it, so any `#if MAS_BUILD` code is compiled by **zero** lanes. Add a CI job
 building with `SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD`.
 
-Carried over from T14: because no lane sets `MAS_BUILD`, the `settingsLicense` accessibility-audit
-scenario renders the **unrestricted-channel** variant of the License pane — a status line and no
-allowance rows or Restore button. The metered variant (allowance rows, Restore) is unaudited until
-this lane exists. Run the audit under the MAS condition here so both variants are covered.
+### The metered variants are still unaudited
+
+Carried over from T14, and **not** solved by this lane. Because no lane set `MAS_BUILD`, the
+accessibility audit only ever renders the **unrestricted-channel** variants: the License pane shows
+a status line with no allowance rows or Restore button, and the T16 workspace indicators render
+nothing at all. The metered variants are unaudited.
+
+T14 proposed running the audit itself under `MAS_BUILD`. On implementing T17 that looks wrong:
+`isMacAppStoreBuild` being true makes the app resolve entitlement through StoreKit, and CI runners
+have no App Store account, so a blocking accessibility gate would start depending on how StoreKit
+fails in a sandbox. That trades an audit gap for a flaky gate.
+
+The better route is to make the metered variants reachable **without** `MAS_BUILD`: let a UI-test
+scenario inject a resolved `TrialStatus` with a partial balance, so the audit sees the allowance
+rows, the Restore button, and both indicators deterministically and with no StoreKit involved. That
+needs a test seam on `TrialStatusStore`, whose `status` is `public private(set)` — a small change,
+but a new one rather than part of this lane.
+
+Left open deliberately rather than folded in here. This lane's job is type-checking the shipping
+configuration, and it does that.
 
 ## T18 — StoreKit configuration file · Routine
 

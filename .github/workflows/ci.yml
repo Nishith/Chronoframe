@@ -85,6 +85,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: script/check_uitest_membership.sh
 
+  mas-lane-check:
+    name: MAS build lane guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: script/check_mas_build_lane_exists.sh
+
   test-dir-target-check:
     name: Test directory target guard
     runs-on: ubuntu-latest
@@ -211,6 +218,54 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/ChronoframeDerivedData" \
             -destination "generic/platform=macOS" \
               CODE_SIGNING_ALLOWED=NO \
+              build
+
+  mas-build:
+    name: Mac App Store build
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history so the version stamp's commit count is monotonic
+      - name: Select Swift 6 toolchain
+        run: |
+          swift6_developer_dir=""
+          for xcode in /Applications/Xcode*.app; do
+            swift_binary="$xcode/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
+            if [ -x "$swift_binary" ] && "$swift_binary" -version | grep -Eq 'Swift version 6\.'; then
+              swift6_developer_dir="$xcode/Contents/Developer"
+            fi
+          done
+          if [ -z "$swift6_developer_dir" ]; then
+            echo "::error title=Swift 6 toolchain not found::No installed Xcode app provides Swift 6."
+            ls -1 /Applications/Xcode*.app || true
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
+      # Compiles the branches only the Mac App Store binary ever takes.
+      # `MAS_BUILD` is otherwise defined solely by ui/archive-mas.sh, so before
+      # this lane existed those branches were type-checked by nothing: an edit
+      # could break the shipping build and every check would still be green.
+      #
+      # `RuntimePaths` is the concrete hazard — `repositoryRootURL()` is
+      # compiled only in the `#else`, so a reference to it from shared code
+      # builds everywhere except the store binary.
+      #
+      # Same flag ui/archive-mas.sh passes. Debug and unsigned, matching the
+      # Xcode build lane: this exists to type-check a configuration, not to
+      # produce an artifact.
+      - name: Build Chronoframe app with MAS_BUILD
+        run: |
+          xcodebuild \
+            -project ui/Chronoframe.xcodeproj \
+            -scheme Chronoframe \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/ChronoframeMASDerivedData" \
+            -destination "generic/platform=macOS" \
+              CODE_SIGNING_ALLOWED=NO \
+              "SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD" \
               build
 
   xcode-ui-tests:
