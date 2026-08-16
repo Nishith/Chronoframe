@@ -92,6 +92,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: script/check_mas_build_lane_exists.sh
 
+  storekit-config-check:
+    name: StoreKit config guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: script/check_storekit_config_matches_policy.sh
+
   test-dir-target-check:
     name: Test directory target guard
     runs-on: ubuntu-latest

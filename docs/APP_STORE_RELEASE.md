@@ -57,6 +57,44 @@ Create 6-8 Mac App Store screenshots from a clean, realistic sample library:
 
 Avoid screenshots with personal photos, real names, real file paths, pricing claims, or unsupported promises.
 
+## Local StoreKit Testing
+
+`ui/Chronoframe.storekit` models the one non-consumable unlock, and the shared
+Chronoframe scheme references it, so a debug run from Xcode has a working store
+without an App Store Connect round-trip. Verify it is active under
+**Product → Scheme → Edit Scheme → Run → Options → StoreKit Configuration**;
+`script/check_storekit_config_matches_policy.sh` keeps the file and that
+reference honest in CI, but only Xcode can confirm it is actually loaded.
+
+**Three environments, three different truths. Do not merge their results.**
+
+| Environment | What it is good for | What it lies about |
+|---|---|---|
+| Xcode StoreKit configuration | Purchase, restore, refund, revocation, Ask to Buy — all on demand | `AppTransaction` is synthesized, so grandfathering is whatever the local config says |
+| Sandbox (App Store Connect tester) | Real Apple accounts, real receipt signing | **`originalAppVersion` is always `1.0`** |
+| TestFlight | Closest to production | Slow to iterate; refunds and revocations are not on demand |
+
+### The sandbox grandfathering trap
+
+**The sandbox always reports `originalAppVersion` as `1.0`.** A fresh install by
+a brand-new sandbox tester therefore looks like an ancient purchase. Anything
+keyed to that field reads "bought long ago", and a naive test concludes
+grandfathering works when it has proved nothing.
+
+Chronoframe does not key on that field — grandfathering is anchored to the
+signed `originalPurchaseDate` against `ChronoframeUnlock.grandfatherCutover`, precisely
+because a version boundary misclassifies customers in both rollout windows. But
+the trap still catches the *test*: a sandbox account's `originalPurchaseDate` is
+the date that account first downloaded the app, which is today, so a sandbox
+tester is correctly **not** grandfathered and it is easy to misread that as a
+bug.
+
+To exercise both sides deliberately, inject `AppTransactionClient` rather than
+trusting the environment. It exists for this: supply an `AppTransactionInfo`
+with an `originalPurchaseDate` either side of the cutover and assert the
+resolver's answer. That is a unit test, it runs in CI, and it does not depend on
+which store environment happens to be attached.
+
 ## TestFlight Matrix
 
 Run these against the signed App Store build:

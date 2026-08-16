@@ -1,0 +1,38 @@
+{
+  "identifier" : "B7F2C1A4-6E3D-4B58-9C21-0A5E8D3F7B92",
+  "nonRenewingSubscriptions" : [
+  ],
+  "products" : [
+    {
+      "displayPrice" : "14.99",
+      "familyShareable" : true,
+      "internalID" : "3D9A0C57-24B6-4E81-A0F3-6C1B5E7D482A",
+      "localizations" : [
+        {
+          "description" : "Removes the free allowance. Organize and de-duplicate as much as you like, forever, on every Mac signed in to your Apple Account.",
+          "displayName" : "Chronoframe Unlock",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.nishith.chronoframe.unlock",
+      "referenceName" : "Chronoframe Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 0,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+    ]
+  },
+  "subscriptionGroups" : [
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}
