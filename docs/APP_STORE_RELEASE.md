@@ -115,6 +115,61 @@ Run these against the signed App Store build:
 - Scan a large library of at least 25,000 files.
 - Verify no network connections are required for organize, dedupe, history, help, or settings.
 
+### Free trial and unlock
+
+Each line names the behaviour being checked, because several of these look like
+bugs when they are working correctly. Run them against a **Mac App Store**
+build: the Developer ID build is unrestricted by settled policy and meters
+nothing, so it can only ever pass these vacuously.
+
+- **The StoreKit configuration is actually loaded.** Product → Scheme → Edit
+  Scheme → Run → Options names `Chronoframe.storekit`. CI checks the file and
+  the scheme reference, but only Xcode can confirm the reference resolves the
+  way Xcode resolves it. If the field is empty, purchases fail as unavailable
+  and every scenario below is meaningless.
+- **Offline legacy access.** A grandfathered customer launches with the network
+  off. Access is unchanged and nothing describes them as a trial user; the
+  entitlement resolves to `verificationUnavailable`, which is metered but must
+  never lock out someone who paid.
+- **Product-load failure.** Refuse a run with the store unreachable. The sheet
+  offers Try Again and Restore, shows **no price at all** rather than a guess,
+  and the free test batch stays *pressable* — it needs no price, so a stalled
+  lookup must not disable it.
+- **Pending purchase (Ask to Buy).** Buy on a managed account and leave the
+  request pending. Nothing unlocks, and nothing claims the purchase failed.
+  Approve from the organizer's device: the app unlocks without a relaunch.
+- **User cancellation.** Cancel the payment sheet. No charge, and no copy
+  saying a charge was taken. The refused run is still un-run — it does not
+  start on the way back.
+- **Unverified transaction.** A transaction that fails signature verification
+  leaves the customer locked, but the sheet leads with **Restore, never Buy**,
+  and nothing anywhere calls it a spent trial. They may already own it.
+- **Refund.** Have a purchase refunded through App Store Connect. The
+  entitlement reverts, the allowance indicators reappear in the Run and
+  Deduplicate workspaces, and Settings → License updates **without a
+  relaunch** — the transaction observer drives it.
+- **Family Sharing revocation.** The organizer removes sharing. Same
+  expectation as a refund, arriving by a different route.
+- **Apple Account change.** Sign out, sign in as a different account, and check
+  the remaining allowance. Quota is per Apple Account per Mac, so the new
+  account starts fresh and cannot inherit the previous one's spend.
+- **Restore authentication failure.** Start Restore Purchases and cancel the
+  authentication prompt. It reports plainly that the restore did not complete —
+  it must **not** conclude the purchase does not exist.
+- **Allowance survives reinstall.** Spend part of the allowance, delete the
+  app, reinstall, and check the remaining count. The ledger lives at
+  `~/Library/Application Support/Chronoframe/trial/ledger.db`, outside the app
+  bundle, so deleting the app must not reset the meter.
+- **A refused run leaves originals untouched.** Exceed the remaining allowance
+  on a real card. Nothing is copied, no receipt is written, Run History gains
+  no entry, and every source file is byte-identical afterwards. Confirm the
+  message says the originals were untouched, and that it is true.
+- **The free test batch copies exactly what it showed.** Refuse a large run,
+  open the batch offer, note the file list, and run it. Only those files land.
+  Then repeat, moving or editing one of the listed files between confirming and
+  running: it is skipped, and the run says how many it could not copy rather
+  than quietly copying fewer.
+
 ## Launch Tasks
 
 - Publish privacy policy, support, FAQ, and troubleshooting pages. (Done: privacy and support pages live at https://chronoframe.app/privacy.html and https://chronoframe.app/support.html, verified 2026-05-23.)
