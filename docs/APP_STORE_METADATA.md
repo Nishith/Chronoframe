@@ -27,20 +27,33 @@ Subtitle alternative (28 char): `Safe photo & video organizer`
 
 ## Promotional Text (170 char max)
 
-Editable after release without a review. Good place for launch or update notes.
+Editable at any time without a review, which is what makes it the right place to stage the pricing message.
 
-> Free to try: organize 500 files and clear 100 duplicates before you decide. One $14.99 unlock, no subscription, ever. On-device, originals untouched, nothing uploaded.
+### Version 2.0 — the one to publish
 
-(167 characters.) This text becomes accurate only when the price drops to free. Until then keep the paid-era version below, which is still true of a $14.99 up-front app:
+Unchanged, and true of a $14.99 up-front app.
 
 > Organize years of scattered photos into a clean date-based library without changing your originals — then remove duplicates safely to the Trash. On-device. No uploads.
 
+(167 characters.)
+
+### At the price cutover
+
+Publish only once the App Store price is actually free.
+
+> Free to try: organize 500 files and clear 100 duplicates before you decide. One $14.99 unlock, no subscription, ever. On-device, originals untouched, nothing uploaded.
+
+(167 characters.)
+
 ## Description (4000 char max)
 
+Two variants, because version 2.0 ships while the app is still USD 14.99 — see [Pricing](#pricing). **Submit the first one.** The free-tier variant describes a free download and is false for as long as checkout charges for the app.
+
+### Version 2.0 — the one to submit
+
+Unchanged from version 1.x. It makes no pricing claim, so it stays true on both sides of the cutover. During the paid window the free tier is dormant anyway: everyone who acquires the app before `grandfatherCutover` is grandfathered, so no paying customer ever meets an allowance, and copy explaining one would only confuse them.
+
 > Chronoframe is a safe photo and video organizer for people with years of media spread across phones, camera cards, old laptops, external drives, and backup folders. It builds a cleaner library in two practical ways — and it always shows you a plan before it changes anything.
->
-> FREE TO TRY
-> Use Chronoframe on your own library before paying anything. Previewing, planning, dry-run CSV export, duplicate scanning and review, Library Health, and Run History are free and unlimited — you can see everything Chronoframe would do without buying. The free allowance covers organizing 500 files and moving 100 duplicates to the Trash. One purchase of $14.99 removes the allowance for good, on every Mac signed in to your Apple Account, and it is shared with your family. There is no subscription and no account.
 >
 > ORGANIZE
 > Point Chronoframe at a messy folder and a destination, pick a date-based layout, and preview the plan. Chronoframe resolves each file's date from photo metadata, filename patterns, and the filesystem, and lets you review or correct uncertain dates before a single file is copied. Your source folder is read-only — nothing is moved, renamed, edited, or deleted.
@@ -63,6 +76,18 @@ Editable after release without a review. Good place for launch or update notes.
 > REQUIREMENTS
 > macOS 14.0 or later. Apple Silicon and Intel. Works fully offline.
 
+### At the price cutover
+
+Publish only once the App Store price is actually free. It is the variant above with one block inserted after the opening paragraph:
+
+> FREE TO TRY
+> Use Chronoframe on your own library before paying anything. Previewing, planning, dry-run CSV export, duplicate scanning and review, Library Health, and Run History are free and unlimited — you can see everything Chronoframe would do without buying. The free allowance covers organizing 500 files and moving 100 duplicates to the Trash, and it is yours per Apple Account on each Mac. One purchase of $14.99 removes the allowance for good, on every Mac signed in to your Apple Account, and it is shared with your family. There is no subscription and no account.
+
+**This swap probably needs an app version, and that changes the cutover plan.** Promotional text is editable at any time, which is why the free-to-try message is staged there. The description, keywords, and screenshots are attached to a version in App Store Connect and, as far as we know, cannot be changed without submitting one. Confirm that in App Store Connect before scheduling the cutover; do not take this paragraph's word for it. If it holds, pick one deliberately:
+
+- Submit a **2.0.1** whose only purpose is the copy swap, timed with the price transition. The description is the listing's main sales surface, and leaving it silent about a free trial wastes the change.
+- Or leave the description pricing-free permanently and let promotional text carry the free-to-try message. No extra submission, weaker listing.
+
 ## Keywords (100 char max, comma-separated, no spaces after commas)
 
 > `duplicate,dedupe,photos,organizer,EXIF,cleanup,media,folder,backup,video,sort,library,metadata`
@@ -71,12 +96,13 @@ Editable after release without a review. Good place for launch or update notes.
 
 ## What's New (release notes for version 2.0)
 
-Version 2.0 ships **while the app is still $14.99 up front** — see [Pricing](#pricing). Word the notes for what a customer can observe on day one, which is the in-app purchase, not a free download.
+Version 2.0 ships **while the app is still $14.99 up front** — see [Pricing](#pricing). Everyone who buys it in that window is grandfathered, so for every customer who can read these notes on day one, the free tier is dormant and the in-app purchase is something they never need. Describe what is true for *them*: nothing changes, and their purchase is safe when the price drops.
 
-> • Chronoframe now has a free tier. Preview, planning, dry-run CSV export, duplicate scanning and review, Library Health, and Run History are unlimited at no cost, and a free allowance covers organizing 500 files and moving 100 duplicates to the Trash.
-> • A single in-app purchase of $14.99 removes the allowance for good, on every Mac signed in to your Apple Account, shared with your family. No subscription, ever.
-> • If a run would go past your remaining allowance, Chronoframe stops before copying anything, tells you your originals were not touched, and offers a smaller batch that fits so you can still see real results.
-> • Already bought Chronoframe? Your purchase carries over automatically and the allowance does not apply to you. On a Mac that has been offline a long time, Restore Purchases re-confirms it.
+> • Chronoframe is moving to a free download with a single one-time unlock. Your purchase already covers it. You keep unrestricted use, you will never be asked to buy the unlock, and there is nothing to do.
+> • Settings → License shows your status at any time. On a Mac that has been offline for a long stretch, Restore Purchases re-confirms it.
+> • No subscription, ever. That is not changing.
+
+Do **not** describe the allowance here. A customer who just paid $14.99 has no allowance, and telling them about a free tier they cannot use — or a $14.99 unlock on top of the $14.99 they already paid — reads as a bait-and-switch. The free-tier notes belong to whatever version ships at or after the cutover.
 
 ## What's New (release notes for version 1.3)
 
@@ -102,7 +128,7 @@ Version 2.0 ships **while the app is still $14.99 up front** — see [Pricing](#
 
 > Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders the reviewer selects through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. The optional Photos import reads the Apple Photos library only: it exports copies of selected originals with PHAssetResourceManager into the chosen destination and never calls any mutating PhotoKit API, so it cannot modify, move, favorite, or delete anything in the library (macOS has no read-only Photos permission level, so the app requests read/write access but never writes). Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Before Trash, approved mutation units may be temporarily renamed within the same selected folder for content verification and crash recovery. The app runs entirely on-device, does not upload photos, and includes no analytics, telemetry, advertising, or crash-reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, interruption recovery, history, and revert. No sign-in or demo account is required.
 >
-> FREE ALLOWANCE AND IN-APP PURCHASE. Chronoframe includes one non-consumable in-app purchase, "Chronoframe Unlock" (com.nishith.chronoframe.unlock): a one-time purchase, no subscription, with Family Sharing enabled. Without it, the app allows organizing 500 files and moving 100 duplicates to the Trash. Those counts are cumulative for the lifetime of the install — not per session, per day, or per folder — and they are stored outside the app bundle, so reinstalling does not reset them. Previewing, planning, dry-run CSV export, duplicate scanning and review, Library Health, and Run History are free and unlimited, so the entire workflow can be exercised without purchasing anything. When a run would exceed the remaining allowance, the app refuses it before copying or trashing anything, states that the originals were left untouched, and offers either the purchase or a smaller batch that fits within what remains. Reverting a completed run is never restricted by purchase state, and a revert returns the allowance that run consumed. Customers who bought Chronoframe while it was a paid app keep unrestricted access without paying again; that is determined from the signed original purchase date in the app's own App Store receipt, not from any server we operate.
+> FREE ALLOWANCE AND IN-APP PURCHASE. Chronoframe includes one non-consumable in-app purchase, "Chronoframe Unlock" (com.nishith.chronoframe.unlock): a one-time purchase, no subscription, with Family Sharing enabled. Without it, the app allows organizing 500 files and moving 100 duplicates to the Trash. Those counts are cumulative and permanent — not per session, per day, or per folder — and they are scoped to each Apple Account on each Mac: signing in as a different Apple Account gives that account its own allowance rather than an already-spent one, and signing back in returns to the original count. The counts are stored outside the app bundle, so deleting and reinstalling the app does not reset them. Previewing, planning, dry-run CSV export, duplicate scanning and review, Library Health, and Run History are free and unlimited, so the entire workflow can be exercised without purchasing anything. When a run would exceed the remaining allowance, the app refuses it before copying or trashing anything, states that the originals were left untouched, and offers either the purchase or a smaller batch that fits within what remains. Reverting a completed run is never restricted by purchase state, and a revert returns the allowance that run consumed. Customers who bought Chronoframe while it was a paid app keep unrestricted access without paying again; that is determined from the signed original purchase date in the app's own App Store receipt, not from any server we operate.
 
 ## App Privacy (questionnaire answers)
 
