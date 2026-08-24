@@ -15,7 +15,7 @@ Grounded against the tree as of the "Free trial step 2" merge.
 | 3 | Durable reservation ledger | **Merged.** T1–T6 |
 | 4 | Enforcement at the mutation surfaces | **Merged.** T7–T12 |
 | 5 | Unlock UI + free test batch | **Merged.** T13–T16 |
-| 6 | Test matrices | In progress — T17 merged; T18–T19 not started |
+| 6 | Test matrices | In progress — T17–T18 merged; T19 not started |
 | 7–9 | Product creation, release, monitoring | Not started |
 
 Nothing is user-visible yet. The app is still paid-up-front.
