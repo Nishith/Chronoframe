@@ -14,8 +14,10 @@ Chronoframe is ready to submit only when all items below are complete:
 - `./ui/archive-mas.sh --local` passes bundle structure validation.
 - A signed non-local `./ui/archive-mas.sh` archive exports successfully with Apple Distribution or 3rd Party Mac Developer Application signing.
 - The exported build uploads to App Store Connect and processes successfully.
-- Internal TestFlight passes the manual matrix below.
+- Internal TestFlight passes the manual matrix below, including the free trial and unlock rows.
 - App Store metadata, screenshots, privacy policy URL, support URL, and pricing are complete in App Store Connect.
+- The in-app purchase exists in App Store Connect with Family Sharing ON, and is attached to this version for submission.
+- `ChronoframeUnlock.grandfatherCutover` is set to the scheduled price-change moment, biased a few hours late, and `MARKETING_VERSION` is `2.0`. Shipping the far-future default after the price drops makes the app permanently free for everyone.
 
 ## App Store Connect Metadata
 
@@ -24,7 +26,8 @@ Recommended initial listing:
 - Name: Chronoframe
 - Subtitle: Safe photo organizer
 - Category: Photo & Video
-- Price: USD 14.99 introductory; move to USD 19.99 after launch reviews accumulate.
+- Price at submission: USD 14.99, unchanged. The drop to free is a later, scheduled step — see [Pricing Cutover](#pricing-cutover).
+- In-app purchase: `com.nishith.chronoframe.unlock`, non-consumable, USD 14.99, **Family Sharing ON (irreversible)**. Submitted with version 2.0.
 - Copyright: 2026 Nishith Nand
 - Privacy policy URL: https://chronoframe.app/privacy.html (live, verified 2026-05-23).
 - Support URL: https://chronoframe.app/support.html (live, verified 2026-05-23).
@@ -38,9 +41,11 @@ Keywords:
 
 > photo organizer, duplicate photos, dedupe, media organizer, EXIF, photo cleanup, Mac photos, folder organizer, backup cleanup
 
-Review notes:
+Review notes — the full text lives in `docs/APP_STORE_METADATA.md` and is the version to paste; this is the summary:
 
 > Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders selected by the reviewer through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Approved mutation units may be temporarily renamed inside the selected folder for content verification and interruption recovery. The app runs on-device, does not upload photos, and does not include analytics, telemetry, advertising, or crash reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, recovery, history, and revert.
+
+**The notes must state the allowance in numbers.** Version 2.0 is the first submission with an in-app purchase, and "limited free tier" is the kind of vagueness that gets a build rejected for undisclosed limits. Say 500 files organized and 100 duplicates trashed, say they are cumulative and permanent, say they are scoped per Apple Account per Mac, and say which surfaces stay free and unlimited so a reviewer knows they can exercise the whole app without buying. The account scope matters to a reviewer specifically: the matrix has them switch Apple Accounts and see a fresh allowance, which contradicts the notes unless the notes said so.
 
 ## Screenshot Set
 
@@ -187,6 +192,20 @@ nothing, so it can only ever pass these vacuously.
   Then repeat, moving or editing one of the listed files between confirming and
   running: it is skipped, and the run says how many it could not copy rather
   than quietly copying fewer.
+
+## Pricing Cutover
+
+Version 2.0 introduces the free tier in the binary. It does **not** make the app free. Those are two separate releases with a deliberate gap between them, and the order is the whole point: the price drop is the only step that cannot be undone, because anyone who downloads the app while it is free keeps it.
+
+1. **Submit the in-app purchase with version 2.0.** Apple requires a new app version to accompany a first non-consumable; the product cannot be approved on its own.
+2. **Release version 2.0 while the app is still USD 14.99.** Everyone who buys it in this window is a paying customer, and `grandfatherCutover` is set past this window, so all of them are grandfathered.
+3. **Hold at least 7 days.** Confirm storefront propagation, and verify grandfathering against **real** `AppTransaction` data from people who actually bought version 2.0 — not sandbox accounts, whose `originalPurchaseDate` is always the day the tester downloaded the app.
+4. **Execute the scheduled price transition to free.** Irreversible.
+5. **Publish the site and README copy at the same time**, by merging the change that switches `site/index.html`, `site/faq.html`, and `README.md` from "$14.99 introductory price" to free-to-try.
+
+Step 5 is a real step, not bookkeeping. `.github/workflows/pages.yml` deploys to chronoframe.app on **any** push to `main` touching `site/**`, so that copy goes live the moment it merges — there is no staging environment to hold it in. Merging it before step 4 advertises a free download while the App Store is still charging up front; merging it long after leaves the site quoting a price the store no longer has. Prepare the change ahead of time and merge it in the same sitting as the price transition.
+
+The same asymmetry governs `grandfatherCutover`: bias it a few hours **late**. Erring late grandfathers a handful of free downloaders, which costs a little revenue. Erring early asks customers who just paid to pay a second time.
 
 ## Launch Tasks
 
