@@ -38,6 +38,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		65DA9500303BE1BA00A4107D /* Chronoframe.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Chronoframe.storekit; sourceTree = "<group>"; };
 		AA0000000000000000000121 /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
 		AA0000000000000000000122 /* TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestSupport.swift; sourceTree = "<group>"; };
 		AA0000000000000000000123 /* ChronoframeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChronoframeUITests.swift; sourceTree = "<group>"; };
@@ -105,6 +106,7 @@
 				AA000000000000000000001E /* Packaging */,
 				AA0000000000000000000003 /* Products */,
 				65AB3FE42FBD7990008264F7 /* Recovered References */,
+				65DA9500303BE1BA00A4107D /* Chronoframe.storekit */,
 			);
 			sourceTree = "<group>";
 		};
