@@ -66,6 +66,12 @@ without an App Store Connect round-trip. Verify it is active under
 `script/check_storekit_config_matches_policy.sh` keeps the file and that
 reference honest in CI, but only Xcode can confirm it is actually loaded.
 
+The file is a member of `Chronoframe.xcodeproj` with **no target membership** —
+it is data, not a compiled source. Membership is not optional bookkeeping: the
+StoreKit Configuration picker lists project members, so a `.storekit` that is
+only named in the scheme cannot be selected there at all. If you ever re-add it,
+use **File → Add Files to "Chronoframe"** and leave every target unchecked.
+
 **Three environments, three different truths. Do not merge their results.**
 
 | Environment | What it is good for | What it lies about |

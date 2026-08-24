@@ -102,23 +102,74 @@ if product.get("displayPrice") != "14.99":
 print(f"check_storekit_config_matches_policy: OK ({expected_product_id})")
 PY
 
-# The config only reaches a debug run through the scheme. A reference pointing
-# at a path that no longer exists disables local StoreKit testing silently:
-# Xcode simply runs without a configuration, purchases fail as unavailable, and
-# nothing says why.
+# The config only reaches a debug run through two independent hookups, and
+# neither one implies the other:
+#
+#   1. the file is a member of the Xcode project, so it exists in the navigator;
+#   2. the scheme's LaunchAction points at it.
+#
+# Checking only (2) is what this guard did first, and it was not enough. A
+# scheme identifier can resolve to a real file on disk while Xcode still cannot
+# offer that file in Edit Scheme > Run > Options > StoreKit Configuration,
+# because that picker lists project members, not paths. The result is a
+# reference Xcode rewrites or drops the next time the scheme is edited, and a
+# debug run with no StoreKit configuration at all: purchases fail as
+# unavailable and nothing says why.
 scheme="${CHRONOFRAME_SCHEME:-$repo_root/ui/Chronoframe.xcodeproj/xcshareddata/xcschemes/Chronoframe.xcscheme}"
+pbxproj="${CHRONOFRAME_PBXPROJ:-$repo_root/ui/Chronoframe.xcodeproj/project.pbxproj}"
 
-if [[ ! -f "$scheme" ]]; then
-    echo "check_storekit_config_matches_policy: missing $scheme" >&2
-    exit 1
-fi
+for path in "$scheme" "$pbxproj"; do
+    if [[ ! -f "$path" ]]; then
+        echo "check_storekit_config_matches_policy: missing $path" >&2
+        exit 1
+    fi
+done
 
-python3 - "$scheme" <<'SCHEME_CHECK'
+python3 - "$scheme" "$pbxproj" "$config" <<'SCHEME_CHECK'
 import os
+import re
 import sys
 import xml.etree.ElementTree as ElementTree
 
-scheme_path = sys.argv[1]
+scheme_path, pbxproj_path, config_path = sys.argv[1], sys.argv[2], sys.argv[3]
+config_name = os.path.basename(config_path)
+
+# --- 1. project membership -------------------------------------------------
+#
+# The synchronized root groups in this project cover ChronoframeApp,
+# ChronoframeAppCore and ChronoframeCore only, so a file next to them is NOT
+# auto-discovered: it needs a real PBXFileReference. Nothing else in CI reads
+# this file, so its absence from the project is invisible until someone opens
+# Xcode and finds the StoreKit picker empty.
+with open(pbxproj_path) as handle:
+    pbxproj = handle.read()
+
+reference = re.search(
+    r"([0-9A-F]{24})\s*/\* %s \*/\s*=\s*\{isa = PBXFileReference;[^}]*\}"
+    % re.escape(config_name),
+    pbxproj,
+)
+
+if reference is None:
+    sys.exit(
+        f"{config_name} is not a member of {pbxproj_path}.\n"
+        "Xcode's StoreKit Configuration picker lists project members, so a file\n"
+        "that is only named in the scheme cannot be selected there and the\n"
+        "reference does not survive the next scheme edit. Add the file to the\n"
+        "project in Xcode (File > Add Files to \"Chronoframe\"), with no target\n"
+        "membership — it is data, not a compiled source."
+    )
+
+# A dangling file reference is no better than a missing one: Xcode shows the
+# file in red and the picker still cannot use it.
+identifier = reference.group(1)
+if not re.search(r"%s\s*/\* %s \*/," % (identifier, re.escape(config_name)), pbxproj):
+    sys.exit(
+        f"{config_name} has a PBXFileReference in {pbxproj_path} but is not a\n"
+        "child of any group, so it does not appear in the Xcode navigator."
+    )
+
+# --- 2. scheme reference ---------------------------------------------------
 tree = ElementTree.parse(scheme_path)
 references = tree.getroot().findall(".//StoreKitConfigurationFileReference")
 
@@ -129,16 +180,33 @@ if not references:
         "fail as unavailable and the unlock cannot be tested locally at all."
     )
 
-scheme_dir = os.path.dirname(scheme_path)
-for reference in references:
-    identifier = reference.get("identifier") or ""
-    resolved = os.path.normpath(os.path.join(scheme_dir, identifier))
+# The identifier is relative to the *xcshareddata* directory, not to the
+# directory holding the .xcscheme. That is not documented anywhere we could
+# find; it is what Xcode itself wrote when the configuration was selected in
+# Edit Scheme, from
+#   ui/Chronoframe.xcodeproj/xcshareddata/xcschemes/Chronoframe.xcscheme
+# it emitted "../../Chronoframe.storekit", which lands on ui/Chronoframe.storekit
+# only under this base. Do not "correct" it to the .xcscheme directory: an
+# earlier revision of this guard assumed that base, and Xcode disagreed.
+xcshareddata_dir = os.path.dirname(os.path.dirname(scheme_path))
+for reference_element in references:
+    identifier = reference_element.get("identifier") or ""
+    resolved = os.path.normpath(os.path.join(xcshareddata_dir, identifier))
     if not os.path.isfile(resolved):
         sys.exit(
             f"{scheme_path} references a StoreKit configuration that does not exist:\n"
             f"  identifier:  {identifier}\n"
-            f"  resolves to: {resolved}"
+            f"  resolves to: {resolved}\n"
+            "Identifiers here resolve against the xcshareddata directory."
+        )
+    if os.path.realpath(resolved) != os.path.realpath(config_path):
+        sys.exit(
+            f"{scheme_path} points at a different StoreKit configuration than the\n"
+            "one this guard checks against policy:\n"
+            f"  scheme uses: {resolved}\n"
+            f"  checked:     {config_path}\n"
+            "The product facts above were verified on a file the app does not load."
         )
 
-print("check_storekit_config_matches_policy: scheme reference OK")
+print("check_storekit_config_matches_policy: project membership and scheme reference OK")
 SCHEME_CHECK
