@@ -27,7 +27,7 @@ struct LicenseSettingsTab: View {
     private var model: LicenseStatusModel {
         LicenseStatusModel.make(
             status: trialStatusStore.status,
-            isAppStoreChannel: TrialComposition.isMacAppStoreBuild
+            isAppStoreChannel: appState.isAppStoreChannel
         )
     }
 
@@ -97,7 +97,7 @@ struct LicenseSettingsTab: View {
             // Nothing to resolve off the App Store in an unrestricted channel,
             // and asking would be a StoreKit round-trip for an answer that
             // cannot change what this pane says.
-            guard TrialComposition.isMacAppStoreBuild else { return }
+            guard appState.isAppStoreChannel else { return }
             await appState.refreshTrialStatus()
         }
         .onChange(of: entitlementStore.state) { _, _ in

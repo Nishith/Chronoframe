@@ -27,8 +27,8 @@ import Foundation
 // `TrialLedgerDatabase`. It is the same fail-closed posture as the rest of the
 // codebase: never infer that an unfinished operation did nothing.
 //
-// SCOPE: step 3 builds the ledger and gates nothing. Nothing calls `reserve`
-// yet; enforcement is step 4.
+// Enforcement reserves through `TrialAuthorizing`; recovery and revert settle
+// the same rows through the reconciliation and refund collaborators.
 
 /// An open (not yet finalized or released) reservation.
 public struct OpenReservation: Sendable, Equatable {

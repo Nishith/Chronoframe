@@ -25,7 +25,7 @@ public enum DestinationRecovery {
     /// reconciliation entirely.
     ///
     /// Deliberately nil by default, and deliberately not a silent convenience:
-    /// step 3 ships dark, so nothing has a ledger to hand over yet, and the
+    /// callers without a ledger have nothing to hand over, and the
     /// surfaces that never meter — the CLI, and any unrestricted build — should
     /// keep returning nil forever rather than pretend to reconcile.
     ///

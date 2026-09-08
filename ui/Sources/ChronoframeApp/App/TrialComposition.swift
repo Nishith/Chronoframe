@@ -49,10 +49,9 @@ enum TrialComposition {
     /// refuse every non-empty organize and dedupe once the gates land.
     ///
     /// The CHOICE is conditional; the code is not. Both authorizers are built
-    /// unconditionally and only a boolean is `#if`-ed, because `MAS_BUILD` is
-    /// currently compiled by zero CI lanes (T17 adds one). Putting the
-    /// production gating path inside `#if MAS_BUILD` would mean shipping a
-    /// paywall that nothing had ever type-checked.
+    /// unconditionally and only a boolean is `#if`-ed. The dedicated MAS CI
+    /// lane type-checks the shipping choice, while ordinary builds continue to
+    /// compile both implementations.
     static let authorizer: any TrialAuthorizing =
         isMacAppStoreBuild ? entitlementBackedAuthorizer : UnrestrictedTrialAuthorizer()
 

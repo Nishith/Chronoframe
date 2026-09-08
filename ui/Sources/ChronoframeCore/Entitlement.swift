@@ -31,19 +31,18 @@ public struct AppTransactionInfo: Equatable, Sendable, Codable {
 
     /// Apple's stable per-account identifier for this app transaction.
     ///
-    /// Optional because `AppTransaction.appTransactionID` only exists in the
-    /// macOS 15.4 SDK and later, and CI currently builds against an older one.
-    /// `if #available` cannot bridge that: the symbol has to exist at compile
-    /// time. `LiveAppTransactionClient` therefore supplies `nil` today — see
-    /// `ledgerAccountKey` for what the ledger uses in the meantime.
+    /// Optional because older build SDKs do not expose
+    /// `AppTransaction.appTransactionID`. `LiveAppTransactionClient` supplies
+    /// it when compiled with the newer StoreKit surface and preserves the
+    /// original-purchase-date fallback for older CI toolchains.
     public let appTransactionID: String?
 
     /// Set when the app-level transaction has been revoked.
     ///
-    /// NOTE: not yet wired. `LiveAppTransactionClient` currently supplies `nil`
-    /// pending confirmation that StoreKit exposes this on `AppTransaction`
-    /// (it is definitely present on `Transaction`). The resolver already honours
-    /// it, so wiring it later is a one-line adapter change with no policy churn.
+    /// StoreKit's `AppTransaction` API does not expose a revocation date (the
+    /// similarly named property belongs to product `Transaction`). The live
+    /// adapter therefore supplies `nil`; the resolver retains this input for
+    /// test or future signed evidence that can provide it.
     public let revocationDate: Date?
 
     public init(
