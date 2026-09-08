@@ -60,6 +60,10 @@ struct TrialIndicatorLabel: View {
                 }
             }
             .padding(insets)
+            // The dedupe footer can sit over split-view material in compact
+            // layouts. Give the text a deterministic opaque surface so its
+            // contrast does not depend on whatever content is underneath.
+            .background(DesignTokens.ColorSystem.canvas)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier(identifier)
         }
