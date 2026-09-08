@@ -245,6 +245,56 @@ final class EntitlementStoreTests: XCTestCase {
         XCTAssertNotNil(store.statusMessage)
     }
 
+    /// A message must describe the attempt in front of the customer, not an
+    /// earlier one. The unlock sheet renders `statusMessage` unconditionally,
+    /// so a message that outlived its attempt greets the next sheet with a
+    /// failure the customer has not had yet.
+    @MainActor
+    func testPurchaseClearsAStaleMessageFromAnEarlierAttempt() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.purchaseResult = .productUnavailable
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+        await store.refresh()
+
+        await store.purchase()
+        XCTAssertNotNil(store.statusMessage, "The failing attempt should say so")
+
+        // A later attempt the customer cancels says nothing of its own, so the
+        // earlier failure must not still be on screen.
+        storeKit.purchaseResult = .userCancelled
+        await store.purchase()
+
+        XCTAssertNil(store.statusMessage)
+    }
+
+    /// The same for restore, whose success path also sets no message.
+    @MainActor
+    func testRestoreClearsAStaleMessageFromAnEarlierAttempt() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.purchaseResult = .productUnavailable
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+        await store.refresh()
+
+        await store.purchase()
+        XCTAssertNotNil(store.statusMessage)
+
+        // Now the unlock is owned and restore succeeds outright.
+        storeKit.ownedResult = .success([
+            OwnedProduct(productID: ChronoframeUnlock.productID, purchaseDate: Date())
+        ])
+        await store.restore()
+
+        XCTAssertTrue(store.state.isUnlocked)
+        XCTAssertNil(
+            store.statusMessage,
+            "An unlocked customer must not be left reading a purchase failure"
+        )
+    }
+
     /// Cancelling is a normal choice, not an error. It must stay silent.
     @MainActor
     func testCancelledPurchaseSaysNothing() async {

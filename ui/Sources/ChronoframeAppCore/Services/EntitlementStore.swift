@@ -27,7 +27,13 @@ public final class EntitlementStore: ObservableObject {
     @Published public private(set) var isRestoring = false
 
     /// Set when a purchase or restore needs to say something to the user.
-    /// Cleared by the UI once shown.
+    ///
+    /// Cleared at the start of every purchase and restore, so a message always
+    /// describes the attempt in front of the customer. Without that it outlives
+    /// its attempt: the unlock sheet renders it unconditionally, so a customer
+    /// who hit one transient failure would reopen the sheet later and be shown
+    /// a stale "that purchase couldn't be completed" before touching anything.
+    /// Same lifecycle as `GuardianStore` and `PhotosImportStore`.
     @Published public var statusMessage: String?
 
     /// Stable key for the trial ledger, so switching Apple Accounts cannot
@@ -141,6 +147,9 @@ public final class EntitlementStore: ObservableObject {
         guard !isPurchasing else { return }
         isPurchasing = true
         defer { isPurchasing = false }
+        // Cleared after the re-entrancy guard, not before: a concurrent call
+        // must not wipe the message the in-flight attempt is about to set.
+        statusMessage = nil
 
         switch await storeKit.purchase(productID: unlockProductID) {
         case .purchased:
@@ -173,6 +182,7 @@ public final class EntitlementStore: ObservableObject {
         guard !isRestoring else { return }
         isRestoring = true
         defer { isRestoring = false }
+        statusMessage = nil
 
         do {
             try await storeKit.sync()
