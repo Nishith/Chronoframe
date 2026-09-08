@@ -162,6 +162,68 @@ public enum EntitlementState: Equatable, Sendable {
     /// True while the answer is still settling. Gates should wait rather than
     /// refuse, so a slow App Store response never looks like a paywall.
     public var isResolving: Bool { self == .loading }
+
+    /// True when resolution finished without establishing whether this customer
+    /// paid, and a later attempt could still settle it.
+    ///
+    /// `locked` and `unlocked` are settled answers and never retried. These two
+    /// are not answers about the customer at all — they are answers about the
+    /// App Store's reachability at one instant — so treating them as final for
+    /// the process lifetime strands a paying customer who happened to launch
+    /// offline.
+    public var isUnconfirmed: Bool {
+        switch self {
+        case .verificationUnavailable, .unverified:
+            return true
+        case .loading, .locked, .unlocked:
+            return false
+        }
+    }
+}
+
+// MARK: Retry
+
+/// When an unsettled entitlement is worth asking the App Store about again.
+///
+/// `EntitlementStore` resolves lazily and keeps its answer for the process
+/// lifetime, which is right for a settled answer and wrong for an unsettled
+/// one. A customer who launches in a tunnel resolves to
+/// `verificationUnavailable`, is metered from then on, and — before this — got
+/// no second attempt however long the app stayed open or how soon the network
+/// came back. A desktop app runs for days; that is not an acceptable ceiling on
+/// "check again".
+///
+/// Pure and injectable so the throttle is unit-tested rather than observed in a
+/// running app against a real network.
+public enum EntitlementRetryPolicy {
+    /// Minimum spacing between re-resolution attempts while unconfirmed.
+    ///
+    /// Gates are user-initiated and infrequent, but the License pane and the
+    /// trial indicators also ask, and several of those fire from `onChange`.
+    /// A floor keeps a genuinely offline Mac from making a StoreKit call per
+    /// redraw without making a recovered network wait meaningfully longer.
+    public static let unconfirmedRetryInterval: TimeInterval = 60
+
+    /// Whether a caller asking now should trigger a fresh resolution.
+    public static func shouldResolve(
+        state: EntitlementState,
+        lastAttempt: Date?,
+        now: Date,
+        retryInterval: TimeInterval = unconfirmedRetryInterval
+    ) -> Bool {
+        // Never resolved. Always resolve, whatever the clock says.
+        if state.isResolving { return true }
+        // A settled answer is not re-asked; revocation arrives through
+        // `Transaction.updates` instead.
+        guard state.isUnconfirmed else { return false }
+        guard let lastAttempt else { return true }
+
+        let elapsed = now.timeIntervalSince(lastAttempt)
+        // A clock corrected backwards yields a negative interval. Retry rather
+        // than stranding someone until the clock catches up — the same posture
+        // `GrandfatherPolicy.acceptsCachedGrant` takes.
+        return elapsed < 0 || elapsed >= retryInterval
+    }
 }
 
 // MARK: Policy

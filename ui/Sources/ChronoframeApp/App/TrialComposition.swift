@@ -72,6 +72,10 @@ enum TrialComposition {
     @MainActor
     private static var inFlightResolution: Task<Void, Never>?
 
+    /// When resolution was last attempted, for the unconfirmed-retry throttle.
+    @MainActor
+    private static var lastResolutionAttempt: Date?
+
     /// Resolve entitlement, waiting if it has not settled.
     ///
     /// `EntitlementState.loading` must make a gate WAIT rather than refuse — a
@@ -94,7 +98,17 @@ enum TrialComposition {
 
     @MainActor
     private static func currentEntitlement() async -> TrialEntitlementSnapshot {
-        if entitlementStore.state.isResolving {
+        // Resolving when unresolved is the obvious half. The other half is that
+        // `verificationUnavailable` and `unverified` must not be permanent: the
+        // store is a `static let`, so without a retry the first failed
+        // resolution meters the customer for the rest of the process lifetime,
+        // and reconnecting the network does nothing. `Transaction.updates` only
+        // fires on an actual transaction change, so it is not that safety net.
+        if EntitlementRetryPolicy.shouldResolve(
+            state: entitlementStore.state,
+            lastAttempt: lastResolutionAttempt,
+            now: Date()
+        ) {
             await resolveOnce()
         }
         return TrialEntitlementSnapshot(
@@ -109,6 +123,10 @@ enum TrialComposition {
             await existing.value
             return
         }
+        // Stamped before the attempt, not after: a refresh that takes a while
+        // to time out would otherwise let the throttle elapse during its own
+        // call and permit a second attempt the moment it returns.
+        lastResolutionAttempt = Date()
         let task = Task { @MainActor in
             await entitlementStore.refresh()
         }
