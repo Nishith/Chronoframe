@@ -104,10 +104,17 @@ enum TrialComposition {
         // resolution meters the customer for the rest of the process lifetime,
         // and reconnecting the network does nothing. `Transaction.updates` only
         // fires on an actual transaction change, so it is not that safety net.
+        //
+        // `isResolutionInFlight` keeps the throttle from breaking the
+        // coalescing contract: the caller that starts a retry stamps the
+        // attempt time, so everyone arriving behind it would otherwise fail the
+        // interval check and be handed the stale snapshot instead of the answer
+        // already on its way. `resolveOnce()` joins rather than restarts.
         if EntitlementRetryPolicy.shouldResolve(
             state: entitlementStore.state,
             lastAttempt: lastResolutionAttempt,
-            now: Date()
+            now: Date(),
+            isResolutionInFlight: inFlightResolution != nil
         ) {
             await resolveOnce()
         }

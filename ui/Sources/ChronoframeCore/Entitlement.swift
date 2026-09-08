@@ -204,13 +204,27 @@ public enum EntitlementRetryPolicy {
     /// redraw without making a recovered network wait meaningfully longer.
     public static let unconfirmedRetryInterval: TimeInterval = 60
 
-    /// Whether a caller asking now should trigger a fresh resolution.
+    /// Whether a caller asking now should go through the resolution path.
+    ///
+    /// - Parameter isResolutionInFlight: whether a resolution is already
+    ///   running that this caller would join rather than start.
     public static func shouldResolve(
         state: EntitlementState,
         lastAttempt: Date?,
         now: Date,
+        isResolutionInFlight: Bool = false,
         retryInterval: TimeInterval = unconfirmedRetryInterval
     ) -> Bool {
+        // Join a resolution that is already running, whatever the throttle
+        // says. The throttle spaces out NEW attempts; it must never make a
+        // caller return a stale answer alongside a fresher one that is seconds
+        // from landing. Without this, the caller that starts a retry stamps the
+        // attempt time and every caller arriving behind it — a workspace gate
+        // racing the License pane — fails the interval check and is answered
+        // `verificationUnavailable`, refusing a customer the in-flight refresh
+        // was about to unlock.
+        if isResolutionInFlight { return true }
+
         // Never resolved. Always resolve, whatever the clock says.
         if state.isResolving { return true }
         // A settled answer is not re-asked; revocation arrives through

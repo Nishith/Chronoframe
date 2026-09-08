@@ -16,12 +16,14 @@ final class EntitlementRetryPolicyTests: XCTestCase {
     private func shouldResolve(
         _ state: EntitlementState,
         lastAttempt: Date?,
-        now: Date? = nil
+        now: Date? = nil,
+        isResolutionInFlight: Bool = false
     ) -> Bool {
         EntitlementRetryPolicy.shouldResolve(
             state: state,
             lastAttempt: lastAttempt,
             now: now ?? self.now,
+            isResolutionInFlight: isResolutionInFlight,
             retryInterval: interval
         )
     }
@@ -85,6 +87,51 @@ final class EntitlementRetryPolicyTests: XCTestCase {
     func testClockMovedBackwardsStillRetries() {
         let future = now.addingTimeInterval(interval * 100)
         XCTAssertTrue(shouldResolve(.verificationUnavailable, lastAttempt: future))
+    }
+
+    // MARK: - Coalescing beats the throttle
+
+    /// The throttle spaces out NEW attempts. It must never make a caller return
+    /// a stale answer beside a fresher one that is seconds from landing.
+    ///
+    /// The caller that starts a retry stamps `lastAttempt`, so without this
+    /// every caller arriving behind it — a workspace gate racing the License
+    /// pane or a trial-status refresh — would fail the interval check and be
+    /// answered `verificationUnavailable`, refusing a customer the in-flight
+    /// refresh was about to unlock.
+    func testAnInFlightResolutionIsJoinedEvenInsideTheThrottleWindow() {
+        let justStamped = now
+
+        XCTAssertFalse(
+            shouldResolve(.verificationUnavailable, lastAttempt: justStamped),
+            "Precondition: the throttle would otherwise refuse this caller"
+        )
+        XCTAssertTrue(
+            shouldResolve(
+                .verificationUnavailable,
+                lastAttempt: justStamped,
+                isResolutionInFlight: true
+            )
+        )
+    }
+
+    /// True for a settled state too. Joining is cheap, and the in-flight answer
+    /// is never staler than the one already in hand.
+    func testAnInFlightResolutionIsJoinedFromASettledState() {
+        XCTAssertFalse(shouldResolve(.locked, lastAttempt: nil))
+        XCTAssertTrue(shouldResolve(.locked, lastAttempt: nil, isResolutionInFlight: true))
+    }
+
+    /// With nothing in flight the throttle still governs, so an offline Mac
+    /// does not make a StoreKit call per redraw.
+    func testThrottleStillAppliesWhenNothingIsInFlight() {
+        XCTAssertFalse(
+            shouldResolve(
+                .verificationUnavailable,
+                lastAttempt: now.addingTimeInterval(-(interval / 2)),
+                isResolutionInFlight: false
+            )
+        )
     }
 
     // MARK: - The flags the policy reads
