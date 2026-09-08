@@ -34,7 +34,7 @@ struct TrialIndicatorLabel: View {
         TrialIndicatorModel.make(
             status: trialStatusStore.status,
             meter: meter,
-            isAppStoreChannel: TrialComposition.isMacAppStoreBuild
+            isAppStoreChannel: appState.isAppStoreChannel
         )
     }
 

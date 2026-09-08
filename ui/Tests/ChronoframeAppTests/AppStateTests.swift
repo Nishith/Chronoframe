@@ -29,11 +29,16 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(UITestScenario.settingsLayout.opensSettingsOnLaunch)
         XCTAssertTrue(UITestScenario.settingsPerformance.opensSettingsOnLaunch)
         XCTAssertTrue(UITestScenario.settingsDeduplicate.opensSettingsOnLaunch)
+        XCTAssertTrue(UITestScenario.settingsLicense.opensSettingsOnLaunch)
         XCTAssertTrue(UITestScenario.settingsDiagnostics.opensSettingsOnLaunch)
         XCTAssertTrue(UITestScenario.profilesPopulated.opensSettingsOnLaunch)
         XCTAssertFalse(UITestScenario.setupIncompleteRun.opensSettingsOnLaunch)
         XCTAssertFalse(UITestScenario.setupReady.opensSettingsOnLaunch)
         XCTAssertFalse(UITestScenario.healthDashboard.opensSettingsOnLaunch)
+        XCTAssertTrue(UITestScenario.runPreviewReview.usesMeteredTrialUI)
+        XCTAssertTrue(UITestScenario.settingsLicense.usesMeteredTrialUI)
+        XCTAssertTrue(UITestScenario.deduplicateReviewWide.usesMeteredTrialUI)
+        XCTAssertFalse(UITestScenario.setupReady.usesMeteredTrialUI)
     }
 
     @MainActor
@@ -91,6 +96,11 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsLayout).settingsSelection, .layout)
         XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsPerformance).settingsSelection, .performance)
         XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsDeduplicate).settingsSelection, .deduplicate)
+        let licenseState = UITestAppStateFactory.make(scenario: .settingsLicense)
+        XCTAssertEqual(licenseState.settingsSelection, .license)
+        XCTAssertTrue(licenseState.isAppStoreChannel)
+        XCTAssertEqual(licenseState.trialStatusStore.status.remaining(for: .organize), 380)
+        XCTAssertEqual(licenseState.trialStatusStore.status.remaining(for: .dedupe), 96)
         XCTAssertEqual(UITestAppStateFactory.make(scenario: .settingsDiagnostics).settingsSelection, .diagnostics)
     }
 

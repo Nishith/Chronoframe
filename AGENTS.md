@@ -139,6 +139,12 @@ Release packaging defaults to Developer ID signed, hardened-runtime, notarized, 
 - `docs/production-readiness-certification.md` is the release-gate evidence ledger.
 - `docs/remaining-work-plan.md` lists only unfinished certification and product-decision work.
 - `docs/free-trial-plan.md` is the plan for the paid-to-free migration: settled policy, the remaining tasks with risk markers, and the reasoning behind the choices that are easy to get wrong later. Read it before touching entitlement, trial-allowance, or App Store pricing work.
+
+The accessibility audit exercises metered IAP presentation without StoreKit: selected debug
+`UITestScenario` cases inject a locked entitlement and partial ledger balance through `AppState`.
+Keep that seam deterministic; do not run the audit under `MAS_BUILD` or make CI depend on an App
+Store account. `LiveAppTransactionClient` uses `AppTransaction.appTransactionID` when compiled by
+Swift 6.1+ and retains the original-purchase-date fallback for the Swift 6.0 CI toolchain.
 - `prodsec/Chronoframe/` contains historical review artifacts. Keep their findings for audit traceability, but do not treat old proposed implementations as current architecture.
 
 ## User-Facing Error Handling

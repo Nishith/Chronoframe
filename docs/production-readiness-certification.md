@@ -1,9 +1,16 @@
 # Chronoframe Production-Readiness Certification
 
 Certification date: 2026-06-20
+Status refresh: 2026-09-07
 Candidate branch: `codex/production-readiness-remediation`
 Baseline: `origin/main` at `081e00f`
 Implementation evidence commit: `80ff492`
+
+The candidate coordinates above preserve the original certification evidence. Current development
+has advanced to `origin/main` at `9c7ccff`; the IAP engineering-refresh candidate is
+`codex/iap-engineering-refresh`. The release decision remains blocked because the external signed
+artifact, volume, scale, and human-sign-off rows below are still open. Before release, replace the
+historical candidate coordinates with the final version 2 commit and artifact checksum.
 
 ## Release decision
 
@@ -34,8 +41,9 @@ This report intentionally distinguishes implementation evidence from environment
 | Warning-clean Xcode Debug build | PASS | Universal macOS Debug build succeeded with `CODE_SIGNING_ALLOWED=NO`; no compiler warnings |
 | macOS UI/accessibility suite | PASS | 21/21 local tests passed; hosted UI tests and the accessibility audit also passed in run `27896063597` |
 | CI-like arm64 Swift build | PASS | `swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store` |
-| Hosted CI checks | PASS | Run `27896063597`: SwiftPM, meaningful coverage, Xcode build, UI tests, accessibility audit, release archive smoke, whitespace, invariant, animation, and app-layer guards all passed |
-| Hosted CodeQL | PENDING | Run `27896063603` is analyzing Swift for implementation commit `80ff492`; do not mark PASS until the hosted conclusion is success |
+| Hosted CI checks | PASS | Current `origin/main` run `34144595001`: SwiftPM, meaningful coverage, MAS and ordinary Xcode builds, UI tests, accessibility audit, release archive smoke, whitespace, invariant, StoreKit, animation, and app-layer guards all passed |
+| Hosted CodeQL | PASS | Current `origin/main` run `34144595034` completed successfully for `9c7ccff`; this supersedes the cancelled historical run `27896063603` |
+| Metered IAP UI accessibility variants | PASS (local) | The engineering-refresh candidate injects a deterministic partial allowance into the License, Run, and Deduplicate UI-test scenarios. The full accessibility matrix and explicit metered-surface UI test passed locally on 2026-09-07; confirm the hosted PR result before merge |
 
 ## Implemented hardening evidence
 

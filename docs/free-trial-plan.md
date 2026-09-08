@@ -4,21 +4,25 @@ Chronoframe is migrating from a **paid-up-front** Mac App Store app to **free do
 non-consumable lifetime unlock**, with a metered free tier. This document is the implementation
 plan for that migration and the record of the decisions behind it.
 
-Grounded against the tree as of the "Free trial step 2" merge.
+Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 
 ## Status
 
 | # | Phase | State |
 |---|---|---|
 | 1 | Settle policy | Done — see [Settled policy](#settled-policy) |
-| 2 | StoreKit seams + entitlement state machine | **Merged.** Ships dark; nothing reads it |
+| 2 | StoreKit seams + entitlement state machine | **Merged.** Used by enforcement and UI |
 | 3 | Durable reservation ledger | **Merged.** T1–T6 |
 | 4 | Enforcement at the mutation surfaces | **Merged.** T7–T12 |
 | 5 | Unlock UI + free test batch | **Merged.** T13–T16 |
 | 6 | Test matrices | **Merged.** T17–T19 |
-| 7–9 | Product creation, release, monitoring | Not started |
+| 7 | App Store Connect product creation | Not recorded in the repository; verify manually |
+| 8 | Version 2 candidate and price cutover | Not started |
+| 9 | Release monitoring | Not started |
 
-Nothing is user-visible yet. The app is still paid-up-front.
+The implementation is complete, but it has not shipped. The public app remains paid-up-front;
+`grandfatherCutover` intentionally remains at its far-future fail-safe value until the version 2
+release and free-price transition are scheduled.
 
 ## Risk markers
 
@@ -514,26 +518,15 @@ requires a test with each change.
 `xcodebuild` sets it, so any `#if MAS_BUILD` code is compiled by **zero** lanes. Add a CI job
 building with `SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD`.
 
-### The metered variants are still unaudited
+### The metered variants are covered deterministically
 
-Carried over from T14, and **not** solved by this lane. Because no lane set `MAS_BUILD`, the
-accessibility audit only ever renders the **unrestricted-channel** variants: the License pane shows
-a status line with no allowance rows or Restore button, and the T16 workspace indicators render
-nothing at all. The metered variants are unaudited.
-
-T14 proposed running the audit itself under `MAS_BUILD`. On implementing T17 that looks wrong:
-`isMacAppStoreBuild` being true makes the app resolve entitlement through StoreKit, and CI runners
-have no App Store account, so a blocking accessibility gate would start depending on how StoreKit
-fails in a sandbox. That trades an audit gap for a flaky gate.
-
-The better route is to make the metered variants reachable **without** `MAS_BUILD`: let a UI-test
-scenario inject a resolved `TrialStatus` with a partial balance, so the audit sees the allowance
-rows, the Restore button, and both indicators deterministically and with no StoreKit involved. That
-needs a test seam on `TrialStatusStore`, whose `status` is `public private(set)` — a small change,
-but a new one rather than part of this lane.
-
-Left open deliberately rather than folded in here. This lane's job is type-checking the shipping
-configuration, and it does that.
+Completed in the 2026-09-07 engineering refresh. The accessibility audit still runs as an ordinary
+debug build rather than under `MAS_BUILD`, so it never depends on StoreKit, signing, or an App Store
+account. Selected UI-test scenarios inject a locked entitlement and a production-ledger-derived
+partial balance through `AppState`; the License pane therefore renders its allowance rows and
+Restore button, and the Run and Deduplicate workspaces render their remaining-allowance indicators.
+An explicit UI test asserts all four surfaces before the same scenarios enter the accessibility
+audit.
 
 ## T18 — StoreKit configuration file · Routine
 
@@ -573,6 +566,9 @@ twice. Also bump `MARKETING_VERSION` to `2.0`.
 
 ## T22 — Marketing and metadata copy · Routine
 
+**Merged.** The free-tier variants are staged in documentation but must not be published before the
+App Store price actually becomes free.
+
 `site/index.html`, `site/faq.html`, `README.md`, `docs/APP_STORE_RELEASE.md`,
 `docs/APP_STORE_METADATA.md`. "Free to try · $14.99 to unlock". **"No subscription, ever" stays
 true** and is worth keeping prominent. Review notes must disclose the trial limits explicitly.
@@ -588,14 +584,14 @@ The price drop is the **only irreversible step** — anyone who downloads the ap
 
 ---
 
-# Carry-forward gaps from step 2
+# Carry-forward notes from step 2
 
-- `AppTransactionInfo.revocationDate` is honoured by the resolver but supplied as `nil` by the live
-  adapter, pending confirmation that StoreKit exposes that property on `AppTransaction` rather than
-  only on `Transaction`. A one-line adapter fix once verified.
-- `ledgerAccountKey` falls back to `originalPurchaseDate` until the CI toolchain reaches the macOS
-  15.4 SDK, where `AppTransaction.appTransactionID` exists. `if #available` cannot bridge this —
-  the symbol must exist at compile time.
+- StoreKit's `AppTransaction` does not expose `revocationDate`; that property belongs to product
+  `Transaction`. The live app-transaction adapter therefore supplies `nil`. Product refunds and
+  Family Sharing revocations continue to flow through `Transaction.currentEntitlements`.
+- The live adapter uses `AppTransaction.appTransactionID` when compiled with Swift 6.1 or newer.
+  The older Swift 6.0 CI toolchain retains the signed `originalPurchaseDate` fallback, so both SDK
+  generations compile while current release builds get Apple's stable account-scoped identifier.
 - Step 2 implements `EntitlementState.locked` rather than the originally planned
   `.trial(allowance)`. The allowance belongs to the ledger, and wiring it into `EntitlementStore`
   would blur the two responsibilities. The UI composes them in T6 and step 5.

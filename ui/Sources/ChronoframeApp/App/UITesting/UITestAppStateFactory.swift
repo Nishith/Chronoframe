@@ -19,6 +19,13 @@ enum UITestAppStateFactory {
         let repository = MockProfilesRepository()
         let folderAccessService = MockFolderAccessService()
         let finderService = MockFinderService()
+        let trialFixture = meteredTrialFixture(for: scenario)
+        let trialEntitlementResolver: (@MainActor () async -> TrialEntitlementSnapshot)?
+        if let trialFixture {
+            trialEntitlementResolver = { trialFixture.snapshot }
+        } else {
+            trialEntitlementResolver = nil
+        }
 
         let historyStore: HistoryStore
         let engine: MockOrganizerEngine
@@ -136,6 +143,9 @@ enum UITestAppStateFactory {
             finderService: finderService,
             profilesRepository: repository,
             performInitialBootstrap: false,
+            trialStatusStore: trialFixture?.store,
+            isAppStoreChannel: scenario.usesMeteredTrialUI,
+            trialEntitlementResolver: trialEntitlementResolver,
             showSettingsWindowAction: showSettingsWindowAction
         )
         appStateBox.value = appState
@@ -171,6 +181,67 @@ enum UITestAppStateFactory {
         }
 
         return appState
+    }
+
+    private struct MeteredTrialFixture {
+        let store: TrialStatusStore
+        let snapshot: TrialEntitlementSnapshot
+    }
+
+    /// A stable partial balance for the App Store-only UI. The production
+    /// reservation API seeds it, so the fixture exercises the same balance
+    /// calculation as a real customer rather than assigning display values.
+    private static func meteredTrialFixture(for scenario: UITestScenario) -> MeteredTrialFixture? {
+        guard scenario.usesMeteredTrialUI else { return nil }
+
+        let accountKey = "chronoframe-ui-test-account"
+        let ledger = InMemoryTrialLedger()
+        seedCharge(
+            120,
+            meter: .organize,
+            runID: "00000000-0000-0000-0000-000000000501",
+            ledger: ledger,
+            accountKey: accountKey
+        )
+        seedCharge(
+            4,
+            meter: .dedupe,
+            runID: "00000000-0000-0000-0000-000000000502",
+            ledger: ledger,
+            accountKey: accountKey
+        )
+
+        let store = TrialStatusStore(ledger: ledger)
+        let snapshot = TrialEntitlementSnapshot(state: .locked, accountKey: accountKey)
+        store.refresh(entitlement: snapshot.state, accountKey: snapshot.accountKey)
+        return MeteredTrialFixture(store: store, snapshot: snapshot)
+    }
+
+    private static func seedCharge(
+        _ count: Int,
+        meter: TrialMeter,
+        runID rawRunID: String,
+        ledger: InMemoryTrialLedger,
+        accountKey: String
+    ) {
+        guard let runID = UUID(uuidString: rawRunID) else {
+            preconditionFailure("Invalid deterministic UI-test run ID")
+        }
+        do {
+            let decision = try ledger.reserve(
+                runID: runID,
+                accountKey: accountKey,
+                meter: meter,
+                count: count,
+                destinationRoot: "/Volumes/Archive/Chronoframe Library"
+            )
+            guard decision.isPermitted else {
+                preconditionFailure("Deterministic UI-test charge exceeded its allowance")
+            }
+            try ledger.finalize(runID: runID, actualCount: count)
+        } catch {
+            preconditionFailure("Could not seed deterministic UI-test trial state: \(error)")
+        }
     }
 
     private static func previewReviewEngine(sourcePath: String, destinationPath: String) -> MockOrganizerEngine {

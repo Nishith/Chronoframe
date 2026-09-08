@@ -729,6 +729,27 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    func testMeteredTrialScenariosExposeLicenseAndWorkspaceIndicators() async {
+        await MainActor.run {
+            let licenseApp = Self.launchApp(.settingsLicense)
+            XCTAssertTrue(Self.element(identifier: "settings.license", in: licenseApp).waitForExistence(timeout: 5))
+            XCTAssertTrue(Self.button(identifier: "license.restore", in: licenseApp).waitForExistence(timeout: 5))
+            XCTAssertTrue(licenseApp.staticTexts["380 of 500 left"].exists)
+            XCTAssertTrue(licenseApp.staticTexts["96 of 100 left"].exists)
+            licenseApp.terminate()
+
+            let runApp = Self.launchApp(.runPreviewReview)
+            XCTAssertTrue(Self.element(identifier: "trialIndicator.organize", in: runApp).waitForExistence(timeout: 5))
+            XCTAssertTrue(runApp.staticTexts["380 of 500 files left"].exists)
+            runApp.terminate()
+
+            let dedupeApp = Self.launchApp(.deduplicateReviewWide)
+            XCTAssertTrue(Self.element(identifier: "trialIndicator.dedupe", in: dedupeApp).waitForExistence(timeout: 10))
+            XCTAssertTrue(dedupeApp.staticTexts["96 of 100 duplicates left"].exists)
+            dedupeApp.terminate()
+        }
+    }
+
     func testReviewRejectionScreensAvoidKnownOverlapStates() async {
         await MainActor.run {
             let runApp = Self.launchApp(.setupIncompleteRun)

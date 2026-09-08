@@ -193,19 +193,22 @@ public struct LiveAppTransactionClient: AppTransactionClient {
         do {
             switch try await AppTransaction.shared {
             case .verified(let appTransaction):
+                // `appTransactionID` was added to the macOS 15.4 SDK. Keep the
+                // older Swift 6.0 CI lane buildable while shipping the stable,
+                // account-scoped identifier from current release toolchains.
+                #if compiler(>=6.1)
+                let appTransactionID: String? = appTransaction.appTransactionID
+                #else
+                let appTransactionID: String? = nil
+                #endif
                 return .success(
                     AppTransactionInfo(
                         originalPurchaseDate: appTransaction.originalPurchaseDate,
                         originalAppVersion: appTransaction.originalAppVersion,
-                        // `AppTransaction.appTransactionID` only exists in the
-                        // macOS 15.4 SDK and later, and CI builds against an
-                        // older one. `if #available` cannot bridge that — the
-                        // symbol must exist at compile time. Until the toolchain
-                        // moves, `AppTransactionInfo.ledgerAccountKey` derives an
-                        // account-scoped key from `originalPurchaseDate` instead.
-                        appTransactionID: nil,
-                        // See AppTransactionInfo.revocationDate: not wired
-                        // pending confirmation of the API surface.
+                        appTransactionID: appTransactionID,
+                        // `AppTransaction` has no revocation-date property.
+                        // Product refunds and Family Sharing changes are read
+                        // through `Transaction.currentEntitlements` instead.
                         revocationDate: nil
                     )
                 )

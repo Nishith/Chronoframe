@@ -52,6 +52,18 @@ enum UITestScenario: String, CaseIterable {
         }
     }
 
+    /// Scenarios that exercise the Mac App Store-only allowance presentation.
+    /// Their entitlement and ledger are injected by `UITestAppStateFactory`, so
+    /// the audit never depends on StoreKit, signing, or a test account.
+    var usesMeteredTrialUI: Bool {
+        switch self {
+        case .runPreviewReview, .settingsLicense, .deduplicateReviewWide, .deduplicateReviewCompact:
+            return true
+        default:
+            return false
+        }
+    }
+
     private var preferredMainWindowSize: NSSize {
         switch self {
         case .historyPopulated:

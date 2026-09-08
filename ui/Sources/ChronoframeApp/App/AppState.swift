@@ -30,13 +30,20 @@ final class AppState: ObservableObject {
     /// Entitlement composed with the trial ledger.
     ///
     /// Created lazily and deliberately NOT refreshed at launch: refreshing calls
-    /// StoreKit, and step 3 ships dark. The unlock UI (step 5) drives the first
-    /// refresh, so today this holds `.loading` and changes nothing a user can
-    /// observe.
-    private(set) lazy var trialStatusStore = TrialStatusStore(
-        ledger: TrialComposition.ledger,
-        bookkeepingAvailable: TrialComposition.isReadable
-    )
+    /// StoreKit. The License tab and metered workspaces drive the first refresh.
+    /// UI tests may inject a deterministic store so the metered variants can be
+    /// audited without an App Store account.
+    private let trialStatusStoreOverride: TrialStatusStore?
+    private(set) lazy var trialStatusStore: TrialStatusStore = trialStatusStoreOverride
+        ?? TrialStatusStore(
+            ledger: TrialComposition.ledger,
+            bookkeepingAvailable: TrialComposition.isReadable
+        )
+
+    /// Channel identity is a value on the app state so UI tests can render the
+    /// Mac App Store presentation without compiling or signing a store build.
+    let isAppStoreChannel: Bool
+    private let trialEntitlementResolver: @MainActor () async -> TrialEntitlementSnapshot
 
     private let folderAccessService: any FolderAccessServicing
     private let finderService: any FinderServicing
@@ -218,6 +225,9 @@ final class AppState: ObservableObject {
         droppedItemStager: DroppedItemStager = DroppedItemStager(),
         performInitialBootstrap: Bool = true,
         restoreBookmarksDuringBootstrap: Bool = true,
+        trialStatusStore: TrialStatusStore? = nil,
+        isAppStoreChannel: Bool = TrialComposition.isMacAppStoreBuild,
+        trialEntitlementResolver: (@MainActor () async -> TrialEntitlementSnapshot)? = nil,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
@@ -240,6 +250,11 @@ final class AppState: ObservableObject {
         self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.photosImportStore = photosImportStore ?? AppState.makePhotosImportStore()
         self.guardianStore = GuardianStore(engine: SwiftGuardianEngine(), notifier: GuardianUserNotifier())
+        self.trialStatusStoreOverride = trialStatusStore
+        self.isAppStoreChannel = isAppStoreChannel
+        self.trialEntitlementResolver = trialEntitlementResolver ?? {
+            await TrialComposition.resolvedEntitlement()
+        }
         self.folderAccessService = folderAccessService
         self.finderService = finderService
         self.profilesRepository = profilesRepository
@@ -254,10 +269,8 @@ final class AppState: ObservableObject {
         // filesystem recovery with settling any trial reservation the recovered
         // run left open; without a provider that second half is skipped.
         //
-        // A no-op today, because nothing reserves until step 4 — an empty ledger
-        // has no open reservations to settle. Wiring it here rather than leaving
-        // it for step 4 keeps enforcement a pure gating change, and keeps this
-        // decision at the composition root where it belongs.
+        // Keep the pairing at the composition root so every recovery path also
+        // settles any reservation whose filesystem work survived interruption.
         TrialComposition.installReconciler()
 
         observeEntitlementForTrialStatus()
@@ -428,7 +441,7 @@ final class AppState: ObservableObject {
     /// makes wiring this its job — without it the tab would show "Checking your
     /// purchase…" permanently.
     func refreshTrialStatus() async {
-        let snapshot = await TrialComposition.resolvedEntitlement()
+        let snapshot = await trialEntitlementResolver()
         trialStatusStore.refresh(entitlement: snapshot.state, accountKey: snapshot.accountKey)
     }
 
@@ -805,7 +818,7 @@ final class AppState: ObservableObject {
     /// renders nothing until the status resolves, so it has no view to hang a
     /// `.task` on at the one moment the refresh is needed.
     func refreshTrialStatusIfMetered() async {
-        guard TrialComposition.isMacAppStoreBuild else { return }
+        guard isAppStoreChannel else { return }
         await refreshTrialStatus()
     }
 
