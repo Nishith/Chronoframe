@@ -29,8 +29,15 @@ cd "$ROOT_DIR"
 # allowed and intentionally absent from this list.
 FORBIDDEN_REGEX='performChanges|performChangesAndWait|PHAssetChangeRequest|PHAssetCreationRequest|PHAssetCollectionChangeRequest|PHCollectionListChangeRequest|creationRequestForAsset|deleteAssets'
 
-mapfile -t photos_files < <(grep -rl --include='*.swift' 'import Photos' ui/Sources || true)
+# Bash 3.2 (macOS default) lacks `mapfile`, so we read line-by-line. The
+# `|| true` keeps a no-match grep (exit 1) from aborting under `set -e`.
+photos_files=()
+while IFS= read -r photos_file; do
+    photos_files+=("$photos_file")
+done < <(grep -rl --include='*.swift' 'import Photos' ui/Sources || true)
 
+# Note: under `set -u` on Bash 3.2, expanding "${photos_files[@]}" on an empty
+# array is an error, so this early return must come before any such expansion.
 if [[ ${#photos_files[@]} -eq 0 ]]; then
     echo "✓ No Swift files under ui/Sources import Photos; nothing to check."
     exit 0
