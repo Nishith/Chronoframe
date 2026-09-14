@@ -18,9 +18,15 @@
 # is only visible on screen.
 #
 # Scope: the view types `RootSplitView.detailView` switches to, read out of the
-# source so new destinations are covered automatically. The check is a
-# heuristic — it confirms the file mentions `navigationTitle`, not that the
-# modifier is applied unconditionally on every path.
+# source so new destinations are covered automatically.
+#
+# The check looks for an applied `.navigationTitle(` modifier, not the bare
+# identifier: `PhotosImportView` also declares a `static let navigationTitle`,
+# so an identifier match would still pass if someone deleted the modifier and
+# left the constant behind — exactly the regression this guard exists to catch.
+# It remains a heuristic in one respect: it cannot prove the modifier is reached
+# on every path (see `DeduplicateNavigationTitle`, which applies it
+# conditionally).
 #
 # Usage:
 #     script/check_detail_views_set_navigation_title.sh
@@ -39,7 +45,13 @@ fi
 
 # Pull the detail view type names out of the `detailView` switch body. The
 # property ends at the first closing brace back at four-space indentation.
-mapfile -t detail_views < <(
+# Bash 3.2 (macOS default) lacks `mapfile`, so we read line-by-line — the same
+# idiom `script/check_agents_invariants_have_tests.sh` uses.
+detail_views=()
+while IFS= read -r view; do
+    [[ -n "$view" ]] || continue
+    detail_views+=("$view")
+done < <(
     awk '
         /private var detailView/ { in_block = 1; next }
         in_block && /^    \}$/   { in_block = 0 }
@@ -56,7 +68,18 @@ fi
 
 violations=0
 for view in "${detail_views[@]}"; do
-    file="$(find ui/Sources/ChronoframeApp -type f -name "${view}.swift" -print -quit)"
+    matches=()
+    while IFS= read -r candidate; do
+        [[ -n "$candidate" ]] || continue
+        matches+=("$candidate")
+    done < <(find ui/Sources/ChronoframeApp -type f -name "${view}.swift")
+
+    if [[ ${#matches[@]} -eq 0 ]]; then
+        file=""
+    else
+        file="${matches[0]}"
+    fi
+
     if [[ -z "$file" ]]; then
         echo "✗ No source file found for detail view ${view}." >&2
         violations=$((violations + 1))
@@ -73,7 +96,7 @@ for view in "${detail_views[@]}"; do
     # reads as "no match". It only bites on a file large enough that the writer
     # is still writing when grep exits, so it surfaces as an intermittent false
     # violation on the biggest view rather than as a reproducible failure.
-    if [[ "$code" != *navigationTitle* ]]; then
+    if [[ "$code" != *.navigationTitle\(* ]]; then
         if [[ $violations -eq 0 ]]; then
             echo "✗ Detail destination views missing a navigation title:" >&2
         fi
