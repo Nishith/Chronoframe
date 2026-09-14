@@ -64,11 +64,16 @@ for view in "${detail_views[@]}"; do
     fi
 
     # Strip whole-line comments so this very explanation, quoted in a docstring,
-    # cannot satisfy the check on a view that never applies the modifier. The
-    # stripped source goes through a variable rather than a pipe into `grep -q`,
-    # which would exit early and SIGPIPE the upstream grep under `pipefail`.
+    # cannot satisfy the check on a view that never applies the modifier.
     code="$(grep -vE '^[[:space:]]*(//|\*|/\*)' "$file" || true)"
-    if ! printf '%s\n' "$code" | grep -q 'navigationTitle'; then
+
+    # Match with bash's own pattern operator, never by piping into `grep -q`.
+    # `grep -q` exits at the first match, the upstream writer takes SIGPIPE, and
+    # under `pipefail` that 141 becomes the pipeline's status — which `!` then
+    # reads as "no match". It only bites on a file large enough that the writer
+    # is still writing when grep exits, so it surfaces as an intermittent false
+    # violation on the biggest view rather than as a reproducible failure.
+    if [[ "$code" != *navigationTitle* ]]; then
         if [[ $violations -eq 0 ]]; then
             echo "✗ Detail destination views missing a navigation title:" >&2
         fi
