@@ -15,6 +15,19 @@ struct PhotosImportView: View {
 
     private let cellSize = CGSize(width: 118, height: 118)
 
+    /// The window title this destination publishes.
+    ///
+    /// Every detail destination must publish one. On macOS the unified toolbar
+    /// is what insets a `NavigationSplitView`'s detail column below the window
+    /// titlebar — the sidebar deliberately runs full height behind that chrome,
+    /// which is why it pays `DesignTokens.Sidebar.titlebarClearance` by hand. A
+    /// destination that supplies neither a navigation title nor a toolbar item
+    /// leaves the toolbar with nothing to draw, so the detail column starts at
+    /// the very top of the window and the window title — inherited from the
+    /// sidebar, so it reads "Chronoframe" — paints straight over this view's
+    /// header. `script/check_detail_views_set_navigation_title.sh` guards it.
+    static let navigationTitle = SidebarDestination.photos.title
+
     init(appState: AppState) {
         self.appState = appState
         self._store = ObservedObject(wrappedValue: appState.photosImportStore)
@@ -28,6 +41,7 @@ struct PhotosImportView: View {
             content
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .navigationTitle(Self.navigationTitle)
         .onAppear { appState.preparePhotosWorkspace() }
         .onDisappear { thumbnailLoader.purgeCache() }
     }

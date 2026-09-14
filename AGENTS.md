@@ -221,6 +221,7 @@ Be precise when discussing coverage.
 - Default branch is `main`, not `master`.
 - Use `codex/...` branch names for Codex work unless the user asks otherwise.
 - The `app-layer-test-check` CI job (PRs only) runs `script/check_app_layer_changes_have_tests.sh` against the PR base. It fails if the diff touches App-layer source (`ChronoframeApp/**` or `ChronoframeAppCore/Stores/**`) with no test change. This backstops the coverage gate, which only reaches `ChronoframeCore`. Escape hatch for genuinely test-free edits: `[skip-app-test-check]` in a commit message.
+- The `detail-view-title-check` CI job runs `script/check_detail_views_set_navigation_title.sh`. It reads the view types `RootSplitView.detailView` switches to and fails if one of them never mentions `navigationTitle`, so a new destination cannot ship with its header under the titlebar.
 - SwiftPM CI and the meaningful coverage script use `script/run_swift_test_suites.sh` to execute dynamically discovered groups of at most five XCTestCase suites in fresh processes. GitHub's `macos-14-arm64` image currently selects Swift 6.0.3, whose long-lived XCTest process can stop advancing partway through the 865-test suite even though every completed test passed. Keep the suite sharding until the runner toolchain is upgraded and a combined CI run is verified.
 - GitHub authentication is configured for `gh` in this workspace.
 - CodeQL workflow is `.github/workflows/codeql.yml`.
@@ -298,6 +299,7 @@ When editing UI:
 - Prefer native controls and predictable macOS workflows.
 - Avoid nested cards, decorative gradient/orb backgrounds, and visible instructional text that describes obvious UI mechanics.
 - Make error and empty states useful to a nontechnical person.
+- **Every sidebar destination's root detail view must set `.navigationTitle`.** On macOS the unified toolbar is what insets a `NavigationSplitView`'s detail column below the window titlebar; the sidebar deliberately runs full height behind that chrome and pays `DesignTokens.Sidebar.titlebarClearance` by hand, but the detail column has no such compensation. A destination that publishes neither a navigation title nor a toolbar item leaves the toolbar with nothing to draw, so the detail column starts at the very top of the window and the window title — inherited from the sidebar, so it reads "Chronoframe" — paints over the view's own header. `script/check_detail_views_set_navigation_title.sh` fails CI on a detail view that omits it. Nothing else catches this: the app builds and every test passes.
 
 ### Accessibility bar
 
