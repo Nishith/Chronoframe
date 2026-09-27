@@ -184,6 +184,50 @@ final class DestinationOperationLockTests: XCTestCase {
         assertUnsafeLockRejected(destination, offendingName: ".organize_logs")
     }
 
+    // AGENTS-INVARIANT: 19
+    func testRegularFileAncestorAboveLogsDirectoryIsRejected() throws {
+        // Exercises a multi-segment `lockFileURL` (the shape Guardian's
+        // `GuardianMultiRootLock` passes) where an ANCESTOR of the immediate
+        // parent — not the parent itself — is a regular file. `lstat` on the
+        // parent then fails (ENOTDIR) rather than reporting "not a
+        // directory", which must still be rejected, not leak Foundation's
+        // raw "already exists" error.
+        let destination = try makeDestination()
+        let blocker = destination.appendingPathComponent("blocker", isDirectory: false)
+        try Data("not a directory".utf8).write(to: blocker)
+        let lockFileURL = blocker
+            .appendingPathComponent("nested", isDirectory: true)
+            .appendingPathComponent(DestinationOperationLock.filename)
+
+        XCTAssertThrowsError(try DestinationOperationLock.acquire(
+            lockFileURL: lockFileURL,
+            surface: "test host",
+            operation: "transfer"
+        )) { error in
+            XCTAssertTrue(error is DestinationLockUnsafeError, "expected DestinationLockUnsafeError, got \(error)")
+        }
+    }
+
+    // AGENTS-INVARIANT: 19
+    func testSymlinkLoopAncestorAboveLogsDirectoryIsRejected() throws {
+        // Same multi-segment shape, but the ancestor is a self-referential
+        // symlink, which makes `lstat` on the parent fail with ELOOP.
+        let destination = try makeDestination()
+        let loop = destination.appendingPathComponent("loop", isDirectory: false)
+        try FileManager.default.createSymbolicLink(at: loop, withDestinationURL: loop)
+        let lockFileURL = loop
+            .appendingPathComponent("nested", isDirectory: true)
+            .appendingPathComponent(DestinationOperationLock.filename)
+
+        XCTAssertThrowsError(try DestinationOperationLock.acquire(
+            lockFileURL: lockFileURL,
+            surface: "test host",
+            operation: "transfer"
+        )) { error in
+            XCTAssertTrue(error is DestinationLockUnsafeError, "expected DestinationLockUnsafeError, got \(error)")
+        }
+    }
+
     func testDirectoryInPlaceOfLockFileIsRejected() throws {
         let destination = try makeDestination()
         try FileManager.default.createDirectory(at: lockURL(in: destination), withIntermediateDirectories: true)

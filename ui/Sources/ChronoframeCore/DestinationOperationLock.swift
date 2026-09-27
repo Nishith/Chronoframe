@@ -131,8 +131,23 @@ public enum DestinationOperationLock {
             // resolved; report it the same way as the other unsafe-parent
             // cases below instead of surfacing Foundation's raw error text.
             var directoryStatus = stat()
-            if lstat(directoryURL.path, &directoryStatus) == 0,
-               (directoryStatus.st_mode & S_IFMT) != S_IFDIR {
+            if lstat(directoryURL.path, &directoryStatus) == 0 {
+                if (directoryStatus.st_mode & S_IFMT) != S_IFDIR {
+                    throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+                }
+            } else if errno == ENOTDIR || errno == ELOOP {
+                // An ancestor of the parent folder — not the parent itself —
+                // is a link or special file, so `lstat` on the parent path
+                // fails too. Still unsafe, not a raw filesystem error.
+                throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+            }
+            // Anything else that reaches here and is still Foundation's
+            // "already exists" error (a TOCTOU race, or a case the checks
+            // above didn't resolve) is unsafe by construction: `createDirectory`
+            // only raises it when something is already at this path. Never let
+            // that raw NSCocoaErrorDomain error reach the UI.
+            let nsError = error as NSError
+            if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileWriteFileExistsError {
                 throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
             }
             throw error
