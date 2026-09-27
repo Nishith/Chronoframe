@@ -88,6 +88,14 @@ public final class RunSessionStore: ObservableObject {
     private var currentRunUsedFreeTestBatch = false
     /// Scope of the run currently streaming, carried into its completion
     /// record so consumers acknowledge only what the run could have handled.
+    ///
+    /// Seeded empty (not the confirmed selection) when a batch starts, and
+    /// only ever widened by the engine's own completion summary
+    /// (`RunSummary.copiedBatchSourcePaths`) once the run finishes — the
+    /// confirmed selection can be larger than what the execution re-plan
+    /// actually retained (`FreeTestBatchSelection.apply` drops a path whose
+    /// identity changed or vanished), so acknowledging the confirmed set
+    /// directly would checkpoint a file this run never copied.
     private var currentRunBatchSourcePaths: Set<String>?
     private var currentRunResumedPendingJobs = false
     @Published public private(set) var latestPreviewReviewPath: String?
@@ -580,7 +588,11 @@ public final class RunSessionStore: ObservableObject {
         // different for a batch than for a full transfer, and the completion
         // notification has to say which.
         currentRunUsedFreeTestBatch = batch != nil
-        currentRunBatchSourcePaths = batch.map { Set($0.confirmedIdentities.keys) }
+        // Conservative until the completion summary says otherwise: an empty
+        // set acknowledges nothing rather than the full confirmed selection,
+        // in case the run ends without ever reporting what it actually
+        // retained (see the property doc above).
+        currentRunBatchSourcePaths = batch.map { _ in [] }
         currentRunResumedPendingJobs = resumePendingJobs
         prompt = nil
         status = .running
@@ -789,6 +801,12 @@ public final class RunSessionStore: ObservableObject {
             )
 
         case let .complete(summary):
+            // Narrow to what the run actually retained, not the originally
+            // confirmed selection — see the property doc on
+            // `currentRunBatchSourcePaths`.
+            if currentRunUsedFreeTestBatch {
+                currentRunBatchSourcePaths = summary.copiedBatchSourcePaths ?? []
+            }
             status = summary.status
             currentTaskTitle = summary.title
             var finalMetrics = summary.metrics

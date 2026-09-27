@@ -124,24 +124,25 @@ final class RunCompletionRecordTests: XCTestCase {
                        "Failure records still identify the run so consumers can react (without acknowledging work)")
     }
 
-    private func finishedTransfer() -> MockOrganizerEngine.StreamMode {
+    private func finishedTransfer(copiedBatchSourcePaths: Set<String>? = nil) -> MockOrganizerEngine.StreamMode {
         .events([
             .complete(RunSummary(
                 status: .finished,
                 title: "Done",
                 metrics: RunMetrics(copiedCount: 1),
-                artifacts: RunArtifactPaths(destinationRoot: "/tmp/library")
+                artifacts: RunArtifactPaths(destinationRoot: "/tmp/library"),
+                copiedBatchSourcePaths: copiedBatchSourcePaths
             ))
         ])
     }
 
-    /// A batch record names exactly the confirmed source paths, and a later
-    /// full run does not inherit them.
+    /// A batch record names exactly the source paths the engine reports it
+    /// retained, and a later full run does not inherit them.
     @MainActor
     func testBatchRunRecordCarriesConfirmedPathsAndTheNextRunDoesNot() async throws {
         let engine = MockOrganizerEngine(
             preflightResult: .success(makePreflight(mode: .transfer)),
-            startMode: finishedTransfer()
+            startMode: finishedTransfer(copiedBatchSourcePaths: ["/tmp/watched-source/a.jpg"])
         )
         let store = makeStores(engine: engine)
         let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/watched-source", destinationPath: "/tmp/library")
@@ -163,6 +164,39 @@ final class RunCompletionRecordTests: XCTestCase {
         XCTAssertEqual(fullRecord.status, .finished)
         XCTAssertNil(fullRecord.batchSourcePaths, "A full run is not limited to the previous batch")
         XCTAssertFalse(fullRecord.resumedPendingJobs)
+    }
+
+    /// A confirmed path whose content changed before execution drops out of
+    /// `FreeTestBatchSelection.apply` and is never copied — the completion
+    /// record must reflect only what the engine actually retained
+    /// (`RunSummary.copiedBatchSourcePaths`), not the full confirmed
+    /// selection, or a watched-source checkpoint would acknowledge a file
+    /// this run never touched.
+    @MainActor
+    func testBatchRunRecordNarrowsToWhatTheReplanRetainedNotTheFullConfirmedSelection() async throws {
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(makePreflight(mode: .transfer)),
+            // The engine confirms only "a.jpg" was actually retained by the
+            // re-plan, even though "b.jpg" was also confirmed in the batch —
+            // simulating b.jpg's identity changing between confirmation and
+            // execution.
+            startMode: finishedTransfer(copiedBatchSourcePaths: ["/tmp/watched-source/a.jpg"])
+        )
+        let store = makeStores(engine: engine)
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/watched-source", destinationPath: "/tmp/library")
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            "/tmp/watched-source/a.jpg": FileIdentity(size: 1, digest: "a"),
+            "/tmp/watched-source/b.jpg": FileIdentity(size: 2, digest: "b")
+        ])
+
+        await store.requestRun(mode: .transfer, configuration: configuration, batch: batch)
+        _ = await waitForCondition { store.lastRunCompletion != nil }
+        let record = try XCTUnwrap(store.lastRunCompletion)
+        XCTAssertEqual(record.status, .finished)
+        XCTAssertEqual(
+            record.batchSourcePaths, ["/tmp/watched-source/a.jpg"],
+            "b.jpg was confirmed but not actually copied, so it must not be acknowledged"
+        )
     }
 
     @MainActor
