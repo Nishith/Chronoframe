@@ -743,7 +743,7 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
-    func testTimelineScrubbingUpdatesPreview() async {
+    func testTimelineSelectionUpdatesPreview() async {
         await MainActor.run {
             let app = Self.launchApp(.runPreviewReview)
 
@@ -753,7 +753,7 @@ final class ChronoframeUITests: XCTestCase {
             Self.selectTimelineBucket(timeline, atNormalizedX: 0.9)
 
             let clearButton = Self.button(identifier: "ClearTimelineSelectionButton", in: app)
-            XCTAssertTrue(clearButton.waitForExistence(timeout: 5), "Clear Selection button should appear after scrubbing")
+            XCTAssertTrue(clearButton.waitForExistence(timeout: 5), "Clear Selection button should appear after selecting a bucket")
 
             // The selection drawer opens below the timeline, which can sit at
             // the bottom of the window; scroll it into view as a user would.
@@ -768,7 +768,7 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
-    func testHistoryTimelineScrubbingFiltersEntries() async {
+    func testHistoryTimelineSelectionFiltersEntries() async {
         await MainActor.run {
             let app = Self.launchApp(.historyPopulated)
 
@@ -780,7 +780,7 @@ final class ChronoframeUITests: XCTestCase {
 
             Self.selectTimelineBucket(timeline, atNormalizedX: 0.8)
 
-            XCTAssertTrue(clearFilterButton.waitForExistence(timeout: 5), "Clear Timeline Filter button should appear after scrubbing")
+            XCTAssertTrue(clearFilterButton.waitForExistence(timeout: 5), "Clear Timeline Filter button should appear after selecting a bucket")
 
             Self.coordinateClick(clearFilterButton)
             XCTAssertFalse(clearFilterButton.exists, "Clear Timeline Filter button should disappear after clearing filter")
@@ -1501,15 +1501,21 @@ final class ChronoframeUITests: XCTestCase {
     }
 
     /// Scrolls the scroll view containing the button until the button lies
-    /// entirely inside the window, trying both directions. `isHittable` is not
-    /// enough: a button clipped by the window edge still reports hittable while
-    /// its centre, where `coordinateClick` lands, is outside the window.
+    /// entirely inside the window. `isHittable` is not enough: a button
+    /// clipped by the window edge still reports hittable while its centre,
+    /// where `coordinateClick` lands, is outside the window.
     @MainActor
     private static func scrollIntoView(_ element: XCUIElement, identifier: String, in app: XCUIApplication) -> Bool {
         let window = app.windows.firstMatch
         let scrollView = app.scrollViews.containing(.button, identifier: identifier).firstMatch
         func isFullyVisible() -> Bool { window.frame.contains(element.frame) }
-        for deltaY: CGFloat in [-120, 120] {
+        if isFullyVisible() { return true }
+
+        // Scroll toward the element first: a negative delta reveals content
+        // below the fold, a positive delta reveals content above it. Fall
+        // back to the other direction in case the first guess overshoots.
+        let towardDeltaY: CGFloat = element.frame.midY > window.frame.maxY ? -120 : 120
+        for deltaY in [towardDeltaY, -towardDeltaY] {
             for _ in 0..<8 {
                 if isFullyVisible() { return true }
                 scrollView.scroll(byDeltaX: 0, deltaY: deltaY)
