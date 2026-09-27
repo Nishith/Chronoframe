@@ -118,10 +118,25 @@ public enum DestinationOperationLock {
         operation: String
     ) throws -> DestinationOperationLease {
         let directoryURL = lockFileURL.deletingLastPathComponent()
-        try FileManager.default.createDirectory(
-            at: directoryURL,
-            withIntermediateDirectories: true
-        )
+        do {
+            try FileManager.default.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            // `createDirectory` throws here when the parent path already
+            // exists as something other than a directory (a FIFO or a
+            // regular file, for example). `lstat` — not `stat` — so a
+            // symlink parent is also treated as unsafe rather than silently
+            // resolved; report it the same way as the other unsafe-parent
+            // cases below instead of surfacing Foundation's raw error text.
+            var directoryStatus = stat()
+            if lstat(directoryURL.path, &directoryStatus) == 0,
+               (directoryStatus.st_mode & S_IFMT) != S_IFDIR {
+                throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+            }
+            throw error
+        }
         // The lock lives in a user-selected folder, so neither it nor its
         // parent folder is trusted: open both without following links, then
         // require the lock to be a regular file with no other hard links

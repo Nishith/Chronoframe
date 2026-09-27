@@ -165,6 +165,25 @@ final class DestinationOperationLockTests: XCTestCase {
         assertUnsafeLockRejected(destination, offendingName: DestinationOperationLock.filename)
     }
 
+    // AGENTS-INVARIANT: 19
+    func testRegularFileInPlaceOfLogsDirectoryIsRejected() throws {
+        let destination = try makeDestination()
+        try Data("not a directory".utf8).write(
+            to: destination.appendingPathComponent(".organize_logs", isDirectory: false)
+        )
+
+        assertUnsafeLockRejected(destination, offendingName: ".organize_logs")
+    }
+
+    // AGENTS-INVARIANT: 19
+    func testFifoInPlaceOfLogsDirectoryIsRejected() throws {
+        let destination = try makeDestination()
+        let logsPath = destination.appendingPathComponent(".organize_logs", isDirectory: false).path
+        XCTAssertEqual(mkfifo(logsPath, S_IRUSR | S_IWUSR), 0)
+
+        assertUnsafeLockRejected(destination, offendingName: ".organize_logs")
+    }
+
     func testDirectoryInPlaceOfLockFileIsRejected() throws {
         let destination = try makeDestination()
         try FileManager.default.createDirectory(at: lockURL(in: destination), withIntermediateDirectories: true)
