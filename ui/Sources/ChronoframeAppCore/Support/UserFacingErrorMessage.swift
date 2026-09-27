@@ -191,6 +191,8 @@ public enum UserFacingErrorMessage {
             return error.errorDescription
         case let error as DestinationBusyError:
             return error.errorDescription
+        case let error as DestinationLockUnsafeError:
+            return error.errorDescription
         case let error as ReceiptPreflightError:
             return error.errorDescription
         case let error as WatchedSourceRegistrationError:

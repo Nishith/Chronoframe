@@ -30,6 +30,21 @@ public struct DestinationBusyError: LocalizedError, Sendable, Equatable {
     }
 }
 
+/// The lock file, or the folder holding it, is a link or special file rather
+/// than Chronoframe's own regular lock file. The lock refuses to open or
+/// truncate it so a planted link can never redirect that write elsewhere.
+public struct DestinationLockUnsafeError: LocalizedError, Sendable, Equatable {
+    public let itemName: String
+
+    public init(itemName: String) {
+        self.itemName = itemName
+    }
+
+    public var errorDescription: String? {
+        "Chronoframe didn't start because “\(itemName)” is a link or special file where it expected its own lock file. Nothing was changed. Remove “\(itemName)” or choose a different destination, then try again."
+    }
+}
+
 public final class DestinationOperationLease: @unchecked Sendable {
     private let stateLock = NSLock()
     private var descriptor: Int32?
@@ -102,19 +117,58 @@ public enum DestinationOperationLock {
         surface: String,
         operation: String
     ) throws -> DestinationOperationLease {
+        let directoryURL = lockFileURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(
-            at: lockFileURL.deletingLastPathComponent(),
+            at: directoryURL,
             withIntermediateDirectories: true
         )
-        let descriptor = lockFileURL.path.withCString {
-            Darwin.open($0, O_RDWR | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR)
+        // The lock lives in a user-selected folder, so neither it nor its
+        // parent folder is trusted: open both without following links, then
+        // require the lock to be a regular file with no other hard links
+        // before it is truncated and rewritten below.
+        let directoryDescriptor = directoryURL.path.withCString {
+            Darwin.open($0, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
         }
-        guard descriptor >= 0 else {
+        guard directoryDescriptor >= 0 else {
+            let openError = errno
+            if openError == ELOOP || openError == ENOTDIR {
+                throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+            }
             throw NSError(
                 domain: NSPOSIXErrorDomain,
-                code: Int(errno),
+                code: Int(openError),
                 userInfo: [NSLocalizedDescriptionKey: "Chronoframe could not open the destination operation lock."]
             )
+        }
+        defer { _ = Darwin.close(directoryDescriptor) }
+
+        let lockName = lockFileURL.lastPathComponent
+        let descriptor = lockName.withCString {
+            Darwin.openat(
+                directoryDescriptor,
+                $0,
+                O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                S_IRUSR | S_IWUSR
+            )
+        }
+        guard descriptor >= 0 else {
+            let openError = errno
+            if openError == ELOOP || openError == EISDIR {
+                throw DestinationLockUnsafeError(itemName: lockName)
+            }
+            throw NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(openError),
+                userInfo: [NSLocalizedDescriptionKey: "Chronoframe could not open the destination operation lock."]
+            )
+        }
+        var status = stat()
+        guard fstat(descriptor, &status) == 0,
+              (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_nlink <= 1
+        else {
+            _ = Darwin.close(descriptor)
+            throw DestinationLockUnsafeError(itemName: lockName)
         }
 
         guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
