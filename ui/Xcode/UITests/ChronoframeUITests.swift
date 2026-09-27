@@ -781,6 +781,56 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    /// Regression guard for the Photos workspace overlapping the titlebar.
+    /// Selecting Photos used to lay the whole split view out at roughly 3000pt
+    /// tall and centre the overflow, which threw both the sidebar rows and the
+    /// workspace header up above the titlebar — the sidebar looked empty and
+    /// its rows collided with the traffic-light controls. See the zero
+    /// minimums on `PhotosImportView`'s root frame.
+    func testPhotosWorkspaceKeepsSidebarAndHeaderBelowTheTitlebar() async {
+        await MainActor.run {
+            let app = Self.launchApp(.setupReady)
+            let photosRow = Self.element(identifier: "sidebarDestination-photos", in: app)
+            XCTAssertTrue(photosRow.waitForExistence(timeout: 10))
+            photosRow.click()
+
+            let header = app.staticTexts["Import from Photos"]
+            XCTAssertTrue(header.waitForExistence(timeout: 10), "Photos workspace did not appear")
+
+            let window = app.windows.firstMatch
+            // Clears the traffic-light controls, matching the Organize
+            // assertion in testReviewRejectionScreensAvoidKnownOverlapStates.
+            let titlebarFloor = window.frame.minY + 72
+
+            for identifier in [
+                "sidebarDestination-organize",
+                "sidebarDestination-photos",
+                "sidebarDestination-deduplicate",
+            ] {
+                let row = Self.element(identifier: identifier, in: app)
+                XCTAssertTrue(row.exists, "\(identifier) disappeared while Photos was selected")
+                XCTAssertGreaterThanOrEqual(
+                    row.frame.minY,
+                    titlebarFloor,
+                    "\(identifier) must stay below the titlebar while Photos is selected"
+                )
+            }
+
+            XCTAssertGreaterThanOrEqual(
+                header.frame.minY,
+                window.frame.minY + 22,
+                "The Photos workspace header must stay below the titlebar"
+            )
+            Self.assertFrame(
+                header.frame,
+                named: "Photos workspace header",
+                isInside: window.frame,
+                scenario: Scenario.setupReady.rawValue
+            )
+            app.terminate()
+        }
+    }
+
     func testOrganizeTopChromeNeverShowsNextActionBannerAcrossScreens() async {
         await MainActor.run {
             for scenario in [

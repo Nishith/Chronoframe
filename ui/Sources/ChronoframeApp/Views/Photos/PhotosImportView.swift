@@ -40,7 +40,27 @@ struct PhotosImportView: View {
             Divider()
             content
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        // The explicit zero minimums are load-bearing, not decoration. This is
+        // the one detail destination whose states (the header, the
+        // authorization gate) are plain stacks rather than scrolling content,
+        // and its wrapping text makes its height demand explode when it is
+        // measured against a very narrow width — 3882pt when proposed 1pt of
+        // width, against a window some 800pt tall. Without these minimums,
+        // selecting Photos lays the whole split view out at roughly that
+        // height and centres the overflow, throwing the sidebar and this
+        // header up above the titlebar; the navigation title below does not
+        // prevent that on its own. Verified by hand in the running app, and
+        // guarded by `testPhotosWorkspaceKeepsSidebarAndHeaderBelowTheTitlebar`.
+        // The demand only misbehaves inside the split view: an `NSHostingView`
+        // of this view alone measures identically either way, which is why the
+        // guard is a UI test rather than a SwiftPM one.
+        .frame(
+            minWidth: 0,
+            maxWidth: .infinity,
+            minHeight: 0,
+            maxHeight: .infinity,
+            alignment: .topLeading
+        )
         .navigationTitle(Self.navigationTitle)
         .onAppear { appState.preparePhotosWorkspace() }
         .onDisappear { thumbnailLoader.purgeCache() }
