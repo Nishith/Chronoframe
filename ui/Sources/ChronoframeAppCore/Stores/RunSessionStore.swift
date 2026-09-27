@@ -24,6 +24,12 @@ public struct RunCompletionRecord: Equatable, Sendable {
     public let resolvedSourcePath: String?
     public let resolvedDestinationPath: String?
     public let finishedAt: Date
+    /// Source paths a free test batch confirmed, or nil when the run was not
+    /// limited to a batch. A successful batch copied at most these files.
+    public let batchSourcePaths: Set<String>?
+    /// True when the run resumed a queue left by an earlier, interrupted run
+    /// instead of planning from the current source.
+    public let resumedPendingJobs: Bool
 
     public init(
         runToken: UUID,
@@ -32,7 +38,9 @@ public struct RunCompletionRecord: Equatable, Sendable {
         configuration: RunConfiguration?,
         resolvedSourcePath: String?,
         resolvedDestinationPath: String?,
-        finishedAt: Date
+        finishedAt: Date,
+        batchSourcePaths: Set<String>? = nil,
+        resumedPendingJobs: Bool = false
     ) {
         self.runToken = runToken
         self.mode = mode
@@ -41,6 +49,8 @@ public struct RunCompletionRecord: Equatable, Sendable {
         self.resolvedSourcePath = resolvedSourcePath
         self.resolvedDestinationPath = resolvedDestinationPath
         self.finishedAt = finishedAt
+        self.batchSourcePaths = batchSourcePaths
+        self.resumedPendingJobs = resumedPendingJobs
     }
 }
 
@@ -76,6 +86,10 @@ public final class RunSessionStore: ObservableObject {
 
     /// Whether the run currently streaming is limited to a confirmed batch.
     private var currentRunUsedFreeTestBatch = false
+    /// Scope of the run currently streaming, carried into its completion
+    /// record so consumers acknowledge only what the run could have handled.
+    private var currentRunBatchSourcePaths: Set<String>?
+    private var currentRunResumedPendingJobs = false
     @Published public private(set) var latestPreviewReviewPath: String?
     /// Source URL of the file currently being copied, surfaced by the
     /// transfer phase. UI uses it to render a live QuickLook thumbnail in
@@ -521,6 +535,8 @@ public final class RunSessionStore: ObservableObject {
         directOperationLease = nil
         closeSecurityScope()
         currentMode = mode
+        currentRunBatchSourcePaths = nil
+        currentRunResumedPendingJobs = false
         currentPhase = nil
         currentTaskTitle = "Idle"
         progress = 0
@@ -564,6 +580,8 @@ public final class RunSessionStore: ObservableObject {
         // different for a batch than for a full transfer, and the completion
         // notification has to say which.
         currentRunUsedFreeTestBatch = batch != nil
+        currentRunBatchSourcePaths = batch.map { Set($0.confirmedIdentities.keys) }
+        currentRunResumedPendingJobs = resumePendingJobs
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
@@ -844,7 +862,9 @@ public final class RunSessionStore: ObservableObject {
             resolvedSourcePath: lastPreflight?.resolvedSourcePath,
             resolvedDestinationPath: lastPreflight?.resolvedDestinationPath
                 ?? (destinationRoot.isEmpty ? nil : destinationRoot),
-            finishedAt: Date()
+            finishedAt: Date(),
+            batchSourcePaths: currentRunBatchSourcePaths,
+            resumedPendingJobs: currentRunResumedPendingJobs
         )
     }
 
