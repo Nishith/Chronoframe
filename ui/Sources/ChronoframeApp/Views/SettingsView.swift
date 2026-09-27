@@ -296,6 +296,7 @@ private extension PerformanceSettingsTab {
         }
     }
 }
+
 private struct DeduplicateSettingsTab: View {
     @ObservedObject var preferencesStore: PreferencesStore
 

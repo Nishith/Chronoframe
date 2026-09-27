@@ -12,14 +12,17 @@ import XCTest
 /// none show as Custom.
 @MainActor
 final class SafetyPerformancePresetTests: XCTestCase {
-    private var suiteNames: [String] = []
+    // `nonisolated(unsafe)` per the RunSessionStoreTests precedent:
+    // XCTest runs setUp/tearDown and the @MainActor test bodies
+    // serially, so there is no concurrent access in practice.
+    private nonisolated(unsafe) var suiteNames: [String] = []
 
-    override func tearDown() async throws {
+    override func tearDown() {
         for name in suiteNames {
             UserDefaults().removePersistentDomain(forName: name)
         }
         suiteNames = []
-        try await super.tearDown()
+        super.tearDown()
     }
 
     private func makeDefaults() -> UserDefaults {
