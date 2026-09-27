@@ -43,6 +43,11 @@ public final class PhotosImportStore: ObservableObject {
     private let stagingParentURL: URL
     private let pageSize: Int
     private var loadedPageCount = 0
+    /// Each selected asset's summary, captured when it was selected, in
+    /// selection order. Selections persist across albums and pages, so the
+    /// export resolves from here rather than from the currently loaded
+    /// `assets`, keeping the exported set equal to `selectedCount`.
+    private var selectedSummaries: [PhotosAssetSummary] = []
 
     public init(
         access: any PhotosLibraryAccessing,
@@ -126,11 +131,15 @@ public final class PhotosImportStore: ObservableObject {
     public func toggleSelection(_ assetID: String) {
         if selectedAssetIDs.contains(assetID) {
             selectedAssetIDs.remove(assetID)
+            selectedSummaries.removeAll { $0.id == assetID }
             return
         }
         // Only importable media (photo/video) can be selected.
-        guard assets.first(where: { $0.id == assetID })?.mediaKind.isImportable == true else { return }
+        guard let summary = assets.first(where: { $0.id == assetID }),
+              summary.mediaKind.isImportable
+        else { return }
         selectedAssetIDs.insert(assetID)
+        selectedSummaries.append(summary)
     }
 
     public func isSelected(_ assetID: String) -> Bool {
@@ -139,6 +148,7 @@ public final class PhotosImportStore: ObservableObject {
 
     public func clearSelection() {
         selectedAssetIDs.removeAll()
+        selectedSummaries.removeAll()
     }
 
     // MARK: - Import preparation (read-only export into staging)
@@ -154,7 +164,6 @@ public final class PhotosImportStore: ObservableObject {
             return nil
         }
 
-        let selectedSummaries = assets.filter { selectedAssetIDs.contains($0.id) }
         let plan = PhotosExportPlanner.plan(for: selectedSummaries)
         guard !plan.isEmpty else {
             statusMessage = "Select at least one photo or video to import."
