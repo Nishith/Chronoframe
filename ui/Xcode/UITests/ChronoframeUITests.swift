@@ -1003,6 +1003,26 @@ final class ChronoframeUITests: XCTestCase {
                     "Review actions must not overlap the commit footer for \(scenario.rawValue)"
                 )
 
+                // BASH-08: the Keep/Delete choice must be reachable in its own
+                // region — not drawn over the group list or hidden behind the
+                // member strip. Existence alone missed this, since the
+                // clipped control stayed in the accessibility tree.
+                let decision = Self.element(identifier: "dedupeDecisionControl", in: app)
+                let strip = Self.element(identifier: "dedupeMemberStrip", in: app)
+                XCTAssertTrue(decision.waitForExistence(timeout: 5), "Keep/Delete should render for \(scenario.rawValue)")
+                XCTAssertTrue(strip.exists, "Member strip should render for \(scenario.rawValue)")
+                Self.scrollDetailControlIntoView(decision, above: strip, below: clusterList, in: app)
+                XCTAssertGreaterThanOrEqual(
+                    decision.frame.minY,
+                    clusterList.frame.maxY - 1,
+                    "Keep/Delete must not overlap the group list for \(scenario.rawValue)"
+                )
+                XCTAssertLessThanOrEqual(
+                    decision.frame.maxY,
+                    strip.frame.minY + 1,
+                    "Keep/Delete must not be hidden behind the member strip for \(scenario.rawValue)"
+                )
+
                 app.terminate()
             }
         }
@@ -1531,6 +1551,29 @@ final class ChronoframeUITests: XCTestCase {
             }
         }
         return isFullyVisible()
+    }
+
+    /// Scrolls the scroll view holding a review-detail control until the
+    /// control sits between the group list and the member strip, as a user
+    /// would scroll the detail column. Does nothing if nothing scrolls it.
+    @MainActor
+    private static func scrollDetailControlIntoView(
+        _ control: XCUIElement,
+        above strip: XCUIElement,
+        below list: XCUIElement,
+        in app: XCUIApplication
+    ) {
+        func isVisible() -> Bool {
+            control.frame.minY >= list.frame.maxY - 1 && control.frame.maxY <= strip.frame.minY + 1
+        }
+        let scrollView = app.scrollViews.containing(.any, identifier: "dedupeDecisionControl").firstMatch
+        guard scrollView.exists else { return }
+        for deltaY: CGFloat in [-60, 60] {
+            for _ in 0..<10 {
+                if isVisible() { return }
+                scrollView.scroll(byDeltaX: 0, deltaY: deltaY)
+            }
+        }
     }
 
     @MainActor

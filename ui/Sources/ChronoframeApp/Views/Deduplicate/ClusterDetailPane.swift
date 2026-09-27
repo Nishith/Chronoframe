@@ -98,6 +98,8 @@ struct ClusterDetailPane: View {
                     }
                 }
                 .frame(height: previewHeight)
+                // Never draw over the group list above or under the strip below.
+                .clipped()
 
                 PreviewResizeHandle(
                     dragChanged: { translation in
@@ -177,14 +179,16 @@ struct ClusterDetailPane: View {
     }
 
     private func detailContentCompact(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            preview(for: focused, cluster: cluster)
-                .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
-            if let focused {
-                metadataPanel(for: focused, cluster: cluster)
+        scrollableWhenConstrained {
+            VStack(spacing: DesignTokens.Spacing.md) {
+                preview(for: focused, cluster: cluster)
+                    .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
+                if let focused {
+                    metadataPanel(for: focused, cluster: cluster)
+                }
             }
+            .padding(DesignTokens.Spacing.md)
         }
-        .padding(DesignTokens.Spacing.md)
     }
 
     private func detailContentWide(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
@@ -193,11 +197,23 @@ struct ClusterDetailPane: View {
                 .frame(minWidth: 160, maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
             if let focused {
-                metadataPanel(for: focused, cluster: cluster)
-                    .frame(width: 200)
+                scrollableWhenConstrained {
+                    metadataPanel(for: focused, cluster: cluster)
+                }
+                .frame(width: 200)
             }
         }
         .padding(DesignTokens.Spacing.lg)
+    }
+
+    /// Hosts `content` in a vertical scroll view that only scrolls when the
+    /// content is taller than the height it is given, so decision controls
+    /// stay reachable in a short window instead of overflowing their region.
+    private func scrollableWhenConstrained<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView(.vertical) {
+            content()
+        }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     /// Default-mode preview area. When the cluster has 2+ members and the
@@ -579,6 +595,7 @@ struct ClusterDetailPane: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeDecisionControl)
     }
 
     private func memberThumb(member: PhotoCandidate, cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {

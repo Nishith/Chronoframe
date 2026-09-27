@@ -67,6 +67,8 @@ final class AccessibilityTests: XCTestCase {
         // literal is also asserted directly in ChronoframeUITests.swift's
         // testSetupHeroCardTitleIsNotBypassedAsToolbarTitleFalsePositive.
         XCTAssertEqual(AccessibilityIdentifiers.setupHeroTitle, "setupHeroTitle")
+        XCTAssertEqual(AccessibilityIdentifiers.dedupeDecisionControl, "dedupeDecisionControl")
+        XCTAssertEqual(AccessibilityIdentifiers.dedupeMemberStrip, "dedupeMemberStrip")
         // Parameterized identifiers must keep their prefix shape.
         XCTAssertEqual(AccessibilityIdentifiers.profileName("Meridian Travel"), "profileName-Meridian Travel")
         XCTAssertEqual(AccessibilityIdentifiers.openArtifact("abc"), "openArtifact_abc")
