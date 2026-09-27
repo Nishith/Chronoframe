@@ -10,6 +10,66 @@
     "detailedDescription": "Contrast failed for Idle"
   },
   {
+    "scenario": "setupIncompleteRun",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Run",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Run"
+  },
+  {
+    "scenario": "setupReady",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Setup",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Setup"
+  },
+  {
+    "scenario": "runPreviewReview",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Run",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Run"
+  },
+  {
+    "scenario": "healthDashboard",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Health",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Health"
+  },
+  {
+    "scenario": "watchedSources",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Organize",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Organize"
+  },
+  {
+    "scenario": "historyPopulated",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Run History",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Run History"
+  },
+  {
     "scenario": "setupReady",
     "auditType": "contrast",
     "role": "staticText",
