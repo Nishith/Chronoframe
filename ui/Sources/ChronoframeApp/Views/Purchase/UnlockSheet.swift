@@ -93,6 +93,12 @@ struct UnlockSheet: View {
         .padding(20)
         .frame(width: 420)
         .accessibilityIdentifier("unlockSheet")
+        .onAppear {
+            // A message from an earlier attempt describes an attempt this
+            // presentation has not made. Showing it before the customer
+            // touches anything reads as a fresh failure.
+            entitlementStore.dismissStatusMessage()
+        }
         .task {
             await reloadProduct()
         }

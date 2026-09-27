@@ -48,10 +48,10 @@ public struct LicenseStatusModel: Equatable, Sendable {
     ///   describe. Passed as a value rather than read from `#if MAS_BUILD`
     ///   here, so both branches stay compiled in every lane — the same reason
     ///   `TrialComposition.isMacAppStoreBuild` is a boolean.
-    /// - Parameters cutover/now: whether the App Store price has actually
-    ///   dropped to free yet. A legacy unlock means two different things on
-    ///   either side of that moment, and only one of them is true at a time —
-    ///   see `unlockedDetail`.
+    /// - Parameter cutover: when the App Store price drops to free. A legacy
+    ///   unlock means two different things on either side of that moment, and
+    ///   only one of them is true at a time — see `unlockedDetail`.
+    /// - Parameter now: the instant to describe, compared against `cutover`.
     public static func make(
         status: TrialStatus,
         isAppStoreChannel: Bool = true,

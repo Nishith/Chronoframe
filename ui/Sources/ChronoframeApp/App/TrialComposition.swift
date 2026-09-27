@@ -61,29 +61,6 @@ enum TrialComposition {
         snapshot: { await currentEntitlement() }
     )
 
-    /// A single in-flight resolution, shared by every caller that arrives while
-    /// it runs.
-    ///
-    /// Without this, two gates racing on a cold store both call `refresh()`.
-    /// `EntitlementStore` generation-tags concurrent refreshes and makes the
-    /// loser return WITHOUT setting state — so if the loser finishes first, its
-    /// caller reads `.loading` and refuses a customer who may well have paid.
-    /// Coalescing removes the race rather than retrying around it.
-    @MainActor
-    private static var inFlightResolution: Task<Void, Never>?
-
-    /// When resolution was last attempted, for the unconfirmed-retry throttle.
-    @MainActor
-    private static var lastResolutionAttempt: Date?
-
-    /// Resolve entitlement, waiting if it has not settled.
-    ///
-    /// `EntitlementState.loading` must make a gate WAIT rather than refuse — a
-    /// slow App Store response should never look like a paywall. Doing that here
-    /// rather than in the authorizer is what lets the authorizer stay a pure
-    /// decision, and means a `.loading` state reaching it signals a genuine
-    /// resolution failure rather than a race — at which point it is metered like
-    /// any other unconfirmable state rather than blocked outright.
     /// Resolve entitlement for a surface that is asking on the customer's
     /// behalf rather than gating on it — the Settings License tab.
     ///
@@ -96,50 +73,25 @@ enum TrialComposition {
         await currentEntitlement()
     }
 
+    /// Resolve entitlement, waiting if it has not settled.
+    ///
+    /// `EntitlementState.loading` must make a gate WAIT rather than refuse — a
+    /// slow App Store response should never look like a paywall. Doing that here
+    /// rather than in the authorizer is what lets the authorizer stay a pure
+    /// decision, and means a `.loading` state reaching it signals a genuine
+    /// resolution failure rather than a race — at which point it is metered like
+    /// any other unconfirmable state rather than blocked outright.
+    ///
+    /// Coalescing, the unconfirmed-retry throttle, and the bounded wait on a
+    /// retry all live in `EntitlementStore.resolveIfNeeded()`, where they are
+    /// unit-tested against fakes rather than a static over live StoreKit.
     @MainActor
     private static func currentEntitlement() async -> TrialEntitlementSnapshot {
-        // Resolving when unresolved is the obvious half. The other half is that
-        // `verificationUnavailable` and `unverified` must not be permanent: the
-        // store is a `static let`, so without a retry the first failed
-        // resolution meters the customer for the rest of the process lifetime,
-        // and reconnecting the network does nothing. `Transaction.updates` only
-        // fires on an actual transaction change, so it is not that safety net.
-        //
-        // `isResolutionInFlight` keeps the throttle from breaking the
-        // coalescing contract: the caller that starts a retry stamps the
-        // attempt time, so everyone arriving behind it would otherwise fail the
-        // interval check and be handed the stale snapshot instead of the answer
-        // already on its way. `resolveOnce()` joins rather than restarts.
-        if EntitlementRetryPolicy.shouldResolve(
-            state: entitlementStore.state,
-            lastAttempt: lastResolutionAttempt,
-            now: Date(),
-            isResolutionInFlight: inFlightResolution != nil
-        ) {
-            await resolveOnce()
-        }
+        await entitlementStore.resolveIfNeeded()
         return TrialEntitlementSnapshot(
             state: entitlementStore.state,
             accountKey: entitlementStore.ledgerAccountKey
         )
-    }
-
-    @MainActor
-    private static func resolveOnce() async {
-        if let existing = inFlightResolution {
-            await existing.value
-            return
-        }
-        // Stamped before the attempt, not after: a refresh that takes a while
-        // to time out would otherwise let the throttle elapse during its own
-        // call and permit a second attempt the moment it returns.
-        lastResolutionAttempt = Date()
-        let task = Task { @MainActor in
-            await entitlementStore.refresh()
-        }
-        inFlightResolution = task
-        await task.value
-        inFlightResolution = nil
     }
 
     /// Told what a revert undid, so the allowance comes back.

@@ -73,7 +73,10 @@ struct LicenseSettingsTab: View {
                                 await appState.refreshTrialStatus()
                             }
                         }
-                        .disabled(entitlementStore.isRestoring)
+                        // Also while the unlock sheet is buying: the store
+                        // refuses to overlap the two, so the button would do
+                        // nothing.
+                        .disabled(entitlementStore.isRestoring || entitlementStore.isPurchasing)
                         .accessibilityIdentifier("license.restore")
 
                         if entitlementStore.isRestoring {
@@ -93,6 +96,11 @@ struct LicenseSettingsTab: View {
         }
         .formStyle(.grouped)
         .accessibilityIdentifier("settings.license")
+        .onAppear {
+            // Same as the unlock sheet: a message left by an earlier attempt,
+            // possibly made from the sheet, is not news on opening this pane.
+            entitlementStore.dismissStatusMessage()
+        }
         .task {
             // Nothing to resolve off the App Store in an unrestricted channel,
             // and asking would be a StoreKit round-trip for an answer that

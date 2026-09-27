@@ -53,7 +53,7 @@ final class LicenseStatusPresentationTests: XCTestCase {
         let model = model(
             entitlement: .unlocked(reason: .legacyPurchase),
             allowance: .unlimited,
-            now: priceDrop
+            now: priceDrop.addingTimeInterval(86_400)
         )
 
         XCTAssertEqual(model.headline, "Unlocked")
@@ -90,6 +90,33 @@ final class LicenseStatusPresentationTests: XCTestCase {
         )
 
         XCTAssertTrue(model.detail.contains("before it moved to a free download"), model.detail)
+    }
+
+    /// The instant before the cutover is still the paid window. Pins the
+    /// comparison as `>=`, not `>` shifted a tick early.
+    func testInstantBeforeTheCutoverMakesNoPricingClaim() {
+        let model = model(
+            entitlement: .unlocked(reason: .legacyPurchase),
+            allowance: .unlimited,
+            now: priceDrop.addingTimeInterval(-1)
+        )
+
+        XCTAssertFalse(model.detail.localizedCaseInsensitiveContains("free download"), model.detail)
+        XCTAssertTrue(model.detail.contains("unlocked permanently"), model.detail)
+    }
+
+    /// A customer who is not unlocked is never told anything about the price
+    /// drop, on either side of it.
+    func testLockedCustomerGetsNoUnlockCopyOnEitherSideOfTheCutover() {
+        for now in [beforePriceDrop, priceDrop.addingTimeInterval(86_400)] {
+            let model = model(
+                entitlement: .locked,
+                allowance: .remaining(balance(organizeUsed: 10, dedupeUsed: 0)),
+                now: now
+            )
+            XCTAssertNotEqual(model.headline, "Unlocked")
+            XCTAssertFalse(model.detail.localizedCaseInsensitiveContains("free download"), model.detail)
+        }
     }
 
     /// An in-app purchase says the same thing on both sides of the cutover —

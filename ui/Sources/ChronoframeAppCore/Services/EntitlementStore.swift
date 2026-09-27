@@ -28,13 +28,15 @@ public final class EntitlementStore: ObservableObject {
 
     /// Set when a purchase or restore needs to say something to the user.
     ///
-    /// Cleared at the start of every purchase and restore, so a message always
-    /// describes the attempt in front of the customer. Without that it outlives
-    /// its attempt: the unlock sheet renders it unconditionally, so a customer
-    /// who hit one transient failure would reopen the sheet later and be shown
-    /// a stale "that purchase couldn't be completed" before touching anything.
-    /// Same lifecycle as `GuardianStore` and `PhotosImportStore`.
-    @Published public var statusMessage: String?
+    /// Owned by the store: a message always describes the attempt in front of
+    /// the customer, so it is cleared at the start of every purchase and
+    /// restore, whenever the entitlement resolves to unlocked, and when a
+    /// surface that shows it appears (`dismissStatusMessage()`). Without that
+    /// it outlives its attempt: the unlock sheet renders it unconditionally, so
+    /// a customer who hit one transient failure would reopen the sheet later
+    /// and be shown a stale "that purchase couldn't be completed" before
+    /// touching anything. Same lifecycle as `GuardianStore`.
+    @Published public private(set) var statusMessage: String?
 
     /// Stable key for the trial ledger, so switching Apple Accounts cannot
     /// reuse another account's spent allowance. Nil on macOS below 15.4, where
@@ -47,8 +49,33 @@ public final class EntitlementStore: ObservableObject {
     private let unlockProductID: String
     private let defaults: UserDefaults
     private let clock: @Sendable () -> Date
+    private let retryInterval: TimeInterval
+    private let unconfirmedWaitLimit: TimeInterval
+    private let sleep: @Sendable (TimeInterval) async -> Void
 
     private var updatesTask: Task<Void, Never>?
+
+    /// When the App Store was last asked anything that could settle the
+    /// entitlement — every `refresh()`, whoever called it, and restore's
+    /// `sync()`. The retry throttle reads this, so a restore or purchase that
+    /// just failed offline counts, and the License pane's follow-up read does
+    /// not immediately repeat the same failing round-trip.
+    private var lastAppStoreAttempt: Date?
+
+    /// The single resolution started by `resolveIfNeeded()`, shared by every
+    /// caller that arrives while it runs.
+    ///
+    /// Without this, two gates racing on a cold store both call `refresh()`.
+    /// The generation tag below makes the loser return WITHOUT setting state —
+    /// so if the loser finished first, its caller would read `.loading` and
+    /// refuse a customer who may well have paid. Coalescing removes the race
+    /// rather than retrying around it.
+    private var resolution: Task<Void, Never>?
+
+    /// Whether an unconfirmed answer re-checks itself in the background. Off
+    /// until `startObservingUpdates()`, so tests and the CLI never schedule it.
+    private var retriesWhileUnconfirmed = false
+    private var unconfirmedRetryTask: Task<Void, Never>?
 
     /// Guards against a stale refresh landing last.
     ///
@@ -67,7 +94,10 @@ public final class EntitlementStore: ObservableObject {
         policy: GrandfatherPolicy = ChronoframeUnlock.defaultPolicy(),
         unlockProductID: String = ChronoframeUnlock.productID,
         defaults: UserDefaults = .standard,
-        clock: @escaping @Sendable () -> Date = { Date() }
+        clock: @escaping @Sendable () -> Date = { Date() },
+        retryInterval: TimeInterval = EntitlementRetryPolicy.unconfirmedRetryInterval,
+        unconfirmedWaitLimit: TimeInterval = EntitlementStore.defaultUnconfirmedWaitLimit,
+        sleep: @escaping @Sendable (TimeInterval) async -> Void = EntitlementStore.taskSleep
     ) {
         self.storeKit = storeKit
         self.appTransactionClient = appTransactionClient
@@ -75,6 +105,22 @@ public final class EntitlementStore: ObservableObject {
         self.unlockProductID = unlockProductID
         self.defaults = defaults
         self.clock = clock
+        self.retryInterval = retryInterval
+        self.unconfirmedWaitLimit = unconfirmedWaitLimit
+        self.sleep = sleep
+    }
+
+    /// How long a gate holding an unconfirmed answer waits on a retry before
+    /// going ahead with the answer it has.
+    ///
+    /// Long enough for a network that has come back to answer; short enough
+    /// that an offline Mac does not hold an organize hostage to StoreKit's own
+    /// (unbounded) timeout. The retry keeps running after the wait gives up,
+    /// and its answer lands for the next caller.
+    public static let defaultUnconfirmedWaitLimit: TimeInterval = 3
+
+    public static let taskSleep: @Sendable (TimeInterval) async -> Void = { seconds in
+        try? await Task.sleep(nanoseconds: UInt64(max(0, seconds) * 1_000_000_000))
     }
 
     // MARK: Resolution
@@ -87,6 +133,7 @@ public final class EntitlementStore: ObservableObject {
     public func refresh() async {
         refreshGeneration &+= 1
         let generation = refreshGeneration
+        lastAppStoreAttempt = clock()
 
         // Bind to locals first. Both are Sendable existentials, so lifting them
         // out of `self` keeps the concurrent child tasks from having to reach
@@ -133,6 +180,107 @@ public final class EntitlementStore: ObservableObject {
                 clearCachedGrant()
             }
         }
+
+        // However the unlock arrived — a purchase, a restore, an Ask to Buy
+        // approval through `Transaction.updates`, or a retry after the network
+        // came back — an unlocked customer must not be left reading a failure
+        // or a "needs approval" note about an attempt that no longer matters.
+        if state.isUnlocked {
+            statusMessage = nil
+        }
+
+        scheduleUnconfirmedRetryIfNeeded()
+    }
+
+    /// Resolve on behalf of a gate or a status surface, sharing any resolution
+    /// already in flight.
+    ///
+    /// - `loading`: waits for the answer, however long it takes. A gate must
+    ///   never treat "not asked yet" as "not paid".
+    /// - `verificationUnavailable` / `unverified`: retries at most once per
+    ///   `retryInterval` (`EntitlementRetryPolicy`), and waits on that retry for
+    ///   at most `unconfirmedWaitLimit` before returning with the answer it
+    ///   already had. The retry itself carries on and lands for the next caller.
+    /// - `locked` / `unlocked`: settled, so returns at once unless a resolution
+    ///   is already running, which it joins on the same bounded wait.
+    public func resolveIfNeeded() async {
+        let hasAnswer = !state.isResolving
+        guard let task = startOrJoinResolution() else { return }
+        if hasAnswer {
+            await wait(for: task, upTo: unconfirmedWaitLimit)
+        } else {
+            await task.value
+        }
+    }
+
+    private func startOrJoinResolution() -> Task<Void, Never>? {
+        if let resolution { return resolution }
+        guard EntitlementRetryPolicy.shouldResolve(
+            state: state,
+            lastAttempt: lastAppStoreAttempt,
+            now: clock(),
+            retryInterval: retryInterval
+        ) else { return nil }
+
+        let task = Task { [self] in
+            await refresh()
+            resolution = nil
+        }
+        resolution = task
+        return task
+    }
+
+    /// Wait for `task`, or `limit` seconds, whichever comes first. The task is
+    /// not cancelled on timeout — only this caller stops waiting for it.
+    private func wait(for task: Task<Void, Never>, upTo limit: TimeInterval) async {
+        let sleep = self.sleep
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let resume = ResumeOnce(continuation)
+            let timer = Task {
+                await sleep(limit)
+                resume()
+            }
+            Task {
+                await task.value
+                timer.cancel()
+                resume()
+            }
+        }
+    }
+
+    /// While the answer is unconfirmed, ask again in the background.
+    ///
+    /// Gates and the License pane retry on demand, but nothing else asks: a
+    /// paying customer who launched offline would keep seeing a metered
+    /// allowance in the workspace until they happened to start a run or open
+    /// Settings. This re-checks every `retryInterval` until the answer settles,
+    /// and never before the first resolution — launch stays StoreKit-free.
+    private func scheduleUnconfirmedRetryIfNeeded() {
+        guard retriesWhileUnconfirmed, state.isUnconfirmed, unconfirmedRetryTask == nil else { return }
+        let sleep = self.sleep
+        let interval = retryInterval
+        unconfirmedRetryTask = Task { [weak self] in
+            await sleep(interval)
+            guard !Task.isCancelled, let self else { return }
+            self.unconfirmedRetryTask = nil
+            if let task = self.startOrJoinResolution() {
+                await task.value
+            }
+            // A resolution that landed schedules the next check itself; one the
+            // throttle declined (a gate asked moments ago) must not end the
+            // chain, or an offline Mac would stop re-checking for good.
+            self.scheduleUnconfirmedRetryIfNeeded()
+        }
+    }
+
+    /// Clear a message left over from an earlier attempt.
+    ///
+    /// Called when a surface that shows the message appears, so reopening the
+    /// unlock sheet does not greet the customer with a failure from last time.
+    /// Safe mid-attempt: a running purchase or restore writes its message only
+    /// as it finishes, so its outcome still lands after this.
+    public func dismissStatusMessage() {
+        statusMessage = nil
     }
 
     /// Fetch display metadata for the unlock. Safe to call repeatedly; the UI
@@ -144,7 +292,11 @@ public final class EntitlementStore: ObservableObject {
     // MARK: Purchase
 
     public func purchase() async {
-        guard !isPurchasing else { return }
+        // Purchase and restore are mutually exclusive: each ends by writing
+        // `statusMessage`, and whichever finished second would silently
+        // replace what the first needed to say — a restore reporting "no
+        // previous purchase" over "don't buy again" is the dangerous one.
+        guard !isPurchasing, !isRestoring else { return }
         isPurchasing = true
         defer { isPurchasing = false }
         // Cleared after the re-entrancy guard, not before: a concurrent call
@@ -179,11 +331,14 @@ public final class EntitlementStore: ObservableObject {
     /// Restore. Must only be called from an explicit user action — `sync()` can
     /// prompt for App Store authentication, which is hostile on launch.
     public func restore() async {
-        guard !isRestoring else { return }
+        // See `purchase()`: the two never overlap.
+        guard !isRestoring, !isPurchasing else { return }
         isRestoring = true
         defer { isRestoring = false }
         statusMessage = nil
 
+        // A failed sync is an App Store round-trip too, for the throttle.
+        lastAppStoreAttempt = clock()
         do {
             try await storeKit.sync()
         } catch {
@@ -217,7 +372,13 @@ public final class EntitlementStore: ObservableObject {
 
     /// Observe entitlement changes for the process lifetime. Refunds and Family
     /// Sharing revocations arrive here, so access is withdrawn without a relaunch.
+    ///
+    /// Also arms the background re-check for an unconfirmed answer
+    /// (`scheduleUnconfirmedRetryIfNeeded`): a network coming back is the other
+    /// entitlement change nothing else would notice.
     public func startObservingUpdates() {
+        retriesWhileUnconfirmed = true
+        scheduleUnconfirmedRetryIfNeeded()
         guard updatesTask == nil else { return }
         updatesTask = Task { [weak self] in
             guard let self else { return }
@@ -232,6 +393,9 @@ public final class EntitlementStore: ObservableObject {
     public func stopObservingUpdates() {
         updatesTask?.cancel()
         updatesTask = nil
+        retriesWhileUnconfirmed = false
+        unconfirmedRetryTask?.cancel()
+        unconfirmedRetryTask = nil
     }
 
     // MARK: Cache
@@ -261,4 +425,23 @@ public final class EntitlementStore: ObservableObject {
         decoder.dateDecodingStrategy = .iso8601
         return decoder
     }()
+}
+
+/// Resumes a continuation exactly once, from whichever of several racing
+/// tasks gets there first.
+private final class ResumeOnce: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+
+    init(_ continuation: CheckedContinuation<Void, Never>) {
+        self.continuation = continuation
+    }
+
+    func callAsFunction() {
+        lock.lock()
+        let pending = continuation
+        continuation = nil
+        lock.unlock()
+        pending?.resume()
+    }
 }
