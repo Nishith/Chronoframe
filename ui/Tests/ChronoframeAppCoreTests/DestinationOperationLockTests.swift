@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import XCTest
 @testable import ChronoframeCore
@@ -161,6 +162,48 @@ final class DestinationOperationLockTests: XCTestCase {
             withIntermediateDirectories: true
         )
         XCTAssertEqual(mkfifo(lockURL(in: destination).path, S_IRUSR | S_IWUSR), 0)
+
+        assertUnsafeLockRejected(destination, offendingName: DestinationOperationLock.filename)
+    }
+
+    // AGENTS-INVARIANT: 19
+    func testUnixDomainSocketInPlaceOfLockFileIsRejected() throws {
+        // Opening a UNIX domain socket via its filesystem path fails with
+        // ENOTSUP on Darwin rather than ELOOP/EISDIR, so this exercises a
+        // distinct errno path than the symlink/FIFO/hard-link cases above.
+        // AF_UNIX socket paths are capped at ~104 bytes on Darwin — far
+        // shorter than a destination lock path under NSTemporaryDirectory()
+        // — so the socket is bound at a short path and then hard-linked
+        // into place; the special file at the lock path is identical
+        // either way.
+        let destination = try makeDestination()
+        try FileManager.default.createDirectory(
+            at: lockURL(in: destination).deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let shortSocketPath = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("cf-sock-\(UUID().uuidString.prefix(8))").path
+        let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &address.sun_path) { rawBuffer in
+            shortSocketPath.withCString { cString in
+                let length = min(strlen(cString), rawBuffer.count - 1)
+                rawBuffer.baseAddress!.copyMemory(from: UnsafeRawPointer(cString), byteCount: length)
+            }
+        }
+        let bindResult = withUnsafePointer(to: &address) { pointer -> Int32 in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockaddrPointer in
+                Darwin.bind(descriptor, sockaddrPointer, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        XCTAssertEqual(bindResult, 0)
+        defer { unlink(shortSocketPath) }
+
+        XCTAssertEqual(link(shortSocketPath, lockURL(in: destination).path), 0)
 
         assertUnsafeLockRejected(destination, offendingName: DestinationOperationLock.filename)
     }

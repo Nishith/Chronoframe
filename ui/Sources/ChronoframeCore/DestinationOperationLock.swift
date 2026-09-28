@@ -183,7 +183,11 @@ public enum DestinationOperationLock {
         }
         guard descriptor >= 0 else {
             let openError = errno
-            if openError == ELOOP || openError == EISDIR {
+            // EOPNOTSUPP covers a UNIX domain socket at the lock path:
+            // opening one through the filesystem fails this way on Darwin
+            // instead of ELOOP/EISDIR, so it needs its own case to be
+            // treated as the same "link or special file" condition.
+            if openError == ELOOP || openError == EISDIR || openError == EOPNOTSUPP {
                 throw DestinationLockUnsafeError(itemName: lockName)
             }
             throw NSError(
