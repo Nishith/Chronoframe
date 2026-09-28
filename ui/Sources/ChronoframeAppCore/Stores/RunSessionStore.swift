@@ -24,8 +24,10 @@ public struct RunCompletionRecord: Equatable, Sendable {
     public let resolvedSourcePath: String?
     public let resolvedDestinationPath: String?
     public let finishedAt: Date
-    /// Source paths a free test batch confirmed, or nil when the run was not
-    /// limited to a batch. A successful batch copied at most these files.
+    /// For a free test batch, the source paths the execution re-plan actually
+    /// retained (a subset of what was confirmed), reported by the engine only
+    /// when the run finishes — empty otherwise, so nothing is acknowledged.
+    /// Nil when the run was not limited to a batch.
     public let batchSourcePaths: Set<String>?
     /// True when the run resumed a queue left by an earlier, interrupted run
     /// instead of planning from the current source.
@@ -543,6 +545,7 @@ public final class RunSessionStore: ObservableObject {
         directOperationLease = nil
         closeSecurityScope()
         currentMode = mode
+        currentRunUsedFreeTestBatch = false
         currentRunBatchSourcePaths = nil
         currentRunResumedPendingJobs = false
         currentPhase = nil

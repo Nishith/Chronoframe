@@ -139,7 +139,7 @@ final class RunCompletionRecordTests: XCTestCase {
     /// A batch record names exactly the source paths the engine reports it
     /// retained, and a later full run does not inherit them.
     @MainActor
-    func testBatchRunRecordCarriesConfirmedPathsAndTheNextRunDoesNot() async throws {
+    func testBatchRunRecordCarriesRetainedPathsAndTheNextRunDoesNot() async throws {
         let engine = MockOrganizerEngine(
             preflightResult: .success(makePreflight(mode: .transfer)),
             startMode: finishedTransfer(copiedBatchSourcePaths: ["/tmp/watched-source/a.jpg"])
@@ -197,6 +197,45 @@ final class RunCompletionRecordTests: XCTestCase {
             record.batchSourcePaths, ["/tmp/watched-source/a.jpg"],
             "b.jpg was confirmed but not actually copied, so it must not be acknowledged"
         )
+    }
+
+    /// A revert never goes through `beginStream`, so a batch flag left over
+    /// from an earlier free test batch must not make its record look like a
+    /// batch run (`[]` instead of nil).
+    @MainActor
+    func testRevertAfterABatchRunPublishesRecordWithNoBatchScope() async throws {
+        let destination = FileManager.default.temporaryDirectory
+            .appendingPathComponent("revert-after-batch-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: destination) }
+        let receiptURL = destination.appendingPathComponent(".organize_logs/audit_receipt.json")
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(makePreflight(mode: .transfer)),
+            startMode: finishedTransfer(copiedBatchSourcePaths: ["/tmp/watched-source/a.jpg"]),
+            revertMode: .events([
+                .complete(RunSummary(
+                    status: .reverted,
+                    title: "Revert complete",
+                    metrics: RunMetrics(revertedCount: 1),
+                    artifacts: RunArtifactPaths(destinationRoot: destination.path)
+                ))
+            ])
+        )
+        let store = makeStores(engine: engine)
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/watched-source", destinationPath: "/tmp/library")
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            "/tmp/watched-source/a.jpg": FileIdentity(size: 1, digest: "a")
+        ])
+
+        await store.requestRun(mode: .transfer, configuration: configuration, batch: batch)
+        _ = await waitForCondition { store.lastRunCompletion != nil }
+        let batchToken = try XCTUnwrap(store.lastRunCompletion).runToken
+
+        store.requestRevert(receiptURL: receiptURL, destinationRoot: destination.path)
+        _ = await waitForCondition { store.lastRunCompletion?.runToken != batchToken }
+        let revertRecord = try XCTUnwrap(store.lastRunCompletion)
+        XCTAssertEqual(revertRecord.mode, .revert)
+        XCTAssertNil(revertRecord.batchSourcePaths, "A revert is not a batch run")
     }
 
     @MainActor
