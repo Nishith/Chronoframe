@@ -69,6 +69,7 @@ struct SetupHeroSection: View {
     var body: some View {
         DetailHeroCard(
             title: "Setup",
+            titleAccessibilityIdentifier: AccessibilityIdentifiers.setupHeroTitle,
             message: "",
             badgeTitle: model.heroBadgeTitle,
             badgeSystemImage: model.heroBadgeSymbol,
