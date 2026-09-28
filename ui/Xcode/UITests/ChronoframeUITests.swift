@@ -816,6 +816,12 @@ final class ChronoframeUITests: XCTestCase {
                 )
             }
 
+            // Smaller than titlebarFloor above on purpose: the sidebar rows sit
+            // behind the traffic-light controls and must clear them by that
+            // much, but the detail column (this header) is inset by the
+            // toolbar itself, which — once it has something to draw — starts
+            // well above the traffic lights. This floor only needs to clear
+            // the titlebar's own height, not the full traffic-light band.
             XCTAssertGreaterThanOrEqual(
                 header.frame.minY,
                 window.frame.minY + 22,

@@ -24,9 +24,13 @@
 # identifier: `PhotosImportView` also declares a `static let navigationTitle`,
 # so an identifier match would still pass if someone deleted the modifier and
 # left the constant behind — exactly the regression this guard exists to catch.
-# It remains a heuristic in one respect: it cannot prove the modifier is reached
-# on every path (see `DeduplicateNavigationTitle`, which applies it
-# conditionally).
+# It remains a heuristic in two respects: it cannot prove the modifier is
+# reached on every path (see `DeduplicateNavigationTitle`, which applies it
+# conditionally), and its parser only recognizes a single-line
+# `TypeName(appState:` call per case — a case written across multiple lines
+# or via a factory function would silently parse to nothing for that case. The
+# case-count check below turns that specific failure mode into a loud CI
+# failure instead of a silent skip.
 #
 # Usage:
 #     script/check_detail_views_set_navigation_title.sh
@@ -66,6 +70,27 @@ if [[ ${#detail_views[@]} -eq 0 ]]; then
     exit 1
 fi
 
+# Cross-check against the number of `case` labels in the same block. The
+# parser above only recognizes a single-line `TypeName(appState:` call, so a
+# case written differently (multi-line, a factory call, two views in one
+# case) would otherwise parse to nothing for that case and vanish from
+# `detail_views` without a trace, passing the rest of the script trivially.
+case_count=$(
+    awk '
+        /private var detailView/ { in_block = 1; next }
+        in_block && /^    \}$/   { in_block = 0 }
+        in_block && /^[[:space:]]*case / { count++ }
+        END { print count + 0 }
+    ' "$ROOT_SPLIT_VIEW"
+)
+
+if [[ ${#detail_views[@]} -ne "$case_count" ]]; then
+    echo "✗ Parsed ${#detail_views[@]} detail view(s) but detailView has $case_count case(s)." >&2
+    echo "  This guard's parser only recognizes a single-line \`TypeName(appState:\` call" >&2
+    echo "  per case; update it to match however the mismatched case is written." >&2
+    exit 1
+fi
+
 violations=0
 for view in "${detail_views[@]}"; do
     matches=()
@@ -86,9 +111,15 @@ for view in "${detail_views[@]}"; do
         continue
     fi
 
-    # Strip whole-line comments so this very explanation, quoted in a docstring,
-    # cannot satisfy the check on a view that never applies the modifier.
-    code="$(grep -vE '^[[:space:]]*(//|\*|/\*)' "$file" || true)"
+    # Strip line comments — both whole-line and trailing — so this very
+    # explanation, quoted in a docstring, or a commented-out modifier
+    # (`.onAppear { } // .navigationTitle("x")`), cannot satisfy the check on
+    # a view that never applies the modifier live. The trailing-comment sed
+    # only matches `//` preceded by whitespace, which a same-line `://` in a
+    # string literal (a URL) will not be, so it does not truncate those. A
+    # `.navigationTitle(` sitting inside a `/* … */` block whose lines don't
+    # themselves start with `*` is a residual gap this heuristic accepts.
+    code="$(sed -E 's|[[:space:]]//.*$||' "$file" | grep -vE '^[[:space:]]*(//|\*|/\*)' || true)"
 
     # Match with bash's own pattern operator, never by piping into `grep -q`.
     # `grep -q` exits at the first match, the upstream writer takes SIGPIPE, and
