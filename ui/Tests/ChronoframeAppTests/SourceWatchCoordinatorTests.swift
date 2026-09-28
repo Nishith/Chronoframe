@@ -708,6 +708,160 @@ final class SourceWatchCoordinatorTests: XCTestCase {
         harness.coordinator.stop()
     }
 
+    /// BASH-03: a free test batch copies only the confirmed files, so a
+    /// successful batch may acknowledge only those. Before the fix every
+    /// frozen stamp was acknowledged and the uncopied file left the estimate.
+    @MainActor
+    func testSuccessfulBatchAcknowledgesOnlyBatchFilesSoTheRestStayPending() async throws {
+        let entries = ["a.jpg": settledStamp(1), "b.jpg": settledStamp(2)]
+        let script = ScanScript(results: [completeScan(entries), completeScan(entries)])
+        let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script, destinationPath: "/tmp/library")
+
+        await harness.coordinator.start()
+        _ = await waitForCondition { harness.store.state(for: harness.source.id)?.pendingEstimate == 2 }
+
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: harness.sourceURL.path, destinationPath: "/tmp/library")
+        harness.appHarness.engine.preflightResult = .success(RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: harness.sourceURL.path,
+            resolvedDestinationPath: "/tmp/library"
+        ))
+        let confirmedAPath = harness.sourceURL.appendingPathComponent("a.jpg").path
+        harness.appHarness.engine.startMode = .events([
+            .complete(RunSummary(
+                status: .finished,
+                title: "Done",
+                metrics: RunMetrics(copiedCount: 1),
+                artifacts: RunArtifactPaths(destinationRoot: "/tmp/library"),
+                copiedBatchSourcePaths: [confirmedAPath]
+            ))
+        ])
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            confirmedAPath: FileIdentity(size: 1, digest: "a")
+        ])
+
+        await harness.appHarness.runSessionStore.requestRun(mode: .transfer, configuration: configuration, batch: batch)
+        let finished = await waitForCondition {
+            harness.appHarness.runSessionStore.summary?.status == .finished
+        }
+        XCTAssertTrue(finished)
+
+        let acknowledged = await waitForCondition {
+            (try? harness.repository.checkpoint(for: harness.source.id))?.keys.contains("a.jpg") == true
+        }
+        XCTAssertTrue(acknowledged, "The copied batch file is acknowledged")
+        XCTAssertNil(try harness.repository.checkpoint(for: harness.source.id)["b.jpg"],
+                     "A file outside the batch was never copied — it must not be acknowledged")
+        let stillPending = await waitForCondition {
+            harness.store.state(for: harness.source.id)?.pendingEstimate == 1
+        }
+        XCTAssertTrue(stillPending, "The uncopied file stays in the estimate")
+        harness.coordinator.stop()
+    }
+
+    /// BASH-03 follow-up: a confirmed batch file whose identity changed
+    /// between confirmation and the execution re-plan drops out of
+    /// `FreeTestBatchSelection.apply` and is never copied, even though it was
+    /// confirmed. The coordinator must key acknowledgment off what the run
+    /// reports it actually retained (`RunSummary.copiedBatchSourcePaths`),
+    /// not the originally confirmed selection, or the changed file's stamp
+    /// would be checkpointed for a copy that never happened.
+    @MainActor
+    func testBatchAcknowledgesOnlyWhatTheReplanRetainedNotEveryConfirmedFile() async throws {
+        let entries = ["a.jpg": settledStamp(1), "b.jpg": settledStamp(2)]
+        let script = ScanScript(results: [completeScan(entries), completeScan(entries)])
+        let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script, destinationPath: "/tmp/library")
+
+        await harness.coordinator.start()
+        _ = await waitForCondition { harness.store.state(for: harness.source.id)?.pendingEstimate == 2 }
+
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: harness.sourceURL.path, destinationPath: "/tmp/library")
+        harness.appHarness.engine.preflightResult = .success(RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: harness.sourceURL.path,
+            resolvedDestinationPath: "/tmp/library"
+        ))
+        let confirmedAPath = harness.sourceURL.appendingPathComponent("a.jpg").path
+        let confirmedBPath = harness.sourceURL.appendingPathComponent("b.jpg").path
+        // Both a.jpg and b.jpg were confirmed, but the engine reports it only
+        // retained a.jpg — simulating b.jpg's content changing before the
+        // transfer re-planned, so b.jpg was never actually copied.
+        harness.appHarness.engine.startMode = .events([
+            .complete(RunSummary(
+                status: .finished,
+                title: "Done",
+                metrics: RunMetrics(copiedCount: 1),
+                artifacts: RunArtifactPaths(destinationRoot: "/tmp/library"),
+                copiedBatchSourcePaths: [confirmedAPath]
+            ))
+        ])
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            confirmedAPath: FileIdentity(size: 1, digest: "a"),
+            confirmedBPath: FileIdentity(size: 2, digest: "b")
+        ])
+
+        await harness.appHarness.runSessionStore.requestRun(mode: .transfer, configuration: configuration, batch: batch)
+        let finished = await waitForCondition {
+            harness.appHarness.runSessionStore.summary?.status == .finished
+        }
+        XCTAssertTrue(finished)
+
+        let acknowledged = await waitForCondition {
+            (try? harness.repository.checkpoint(for: harness.source.id))?.keys.contains("a.jpg") == true
+        }
+        XCTAssertTrue(acknowledged, "The file the re-plan actually retained is acknowledged")
+        XCTAssertNil(try harness.repository.checkpoint(for: harness.source.id)["b.jpg"],
+                     "b.jpg was confirmed but dropped by the re-plan — it was never copied, so it must stay pending")
+        let stillPending = await waitForCondition {
+            harness.store.state(for: harness.source.id)?.pendingEstimate == 1
+        }
+        XCTAssertTrue(stillPending, "The file dropped by the re-plan stays in the estimate")
+        harness.coordinator.stop()
+    }
+
+    /// BASH-03: resuming an interrupted queue copies that queue only — no plan
+    /// covers the watched files discovered now, and the queue may belong to a
+    /// different source entirely — so a resumed run acknowledges nothing.
+    @MainActor
+    func testResumedPendingQueueAcknowledgesNothing() async throws {
+        let entries = ["a.jpg": settledStamp(1), "b.jpg": settledStamp(2)]
+        let script = ScanScript(results: [completeScan(entries), completeScan(entries)])
+        let harness = Harness(testDirectory: temporaryDirectoryURL, scanScript: script, destinationPath: "/tmp/library")
+
+        await harness.coordinator.start()
+        _ = await waitForCondition { harness.store.state(for: harness.source.id)?.pendingEstimate == 2 }
+
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: harness.sourceURL.path, destinationPath: "/tmp/library")
+        harness.appHarness.engine.preflightResult = .success(RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: harness.sourceURL.path,
+            resolvedDestinationPath: "/tmp/library",
+            pendingJobCount: 3
+        ))
+        harness.appHarness.engine.resumeMode = .events([
+            .complete(RunSummary(
+                status: .finished,
+                title: "Done",
+                metrics: RunMetrics(copiedCount: 3),
+                artifacts: RunArtifactPaths(destinationRoot: "/tmp/library")
+            ))
+        ])
+
+        await harness.appHarness.runSessionStore.requestRun(mode: .transfer, configuration: configuration)
+        XCTAssertEqual(harness.appHarness.runSessionStore.prompt?.kind, .resumePendingJobs)
+        harness.appHarness.runSessionStore.confirmPrompt()
+        let finished = await waitForCondition {
+            harness.appHarness.runSessionStore.summary?.status == .finished
+        }
+        XCTAssertTrue(finished)
+
+        try? await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertEqual(try? harness.repository.checkpoint(for: harness.source.id), [:],
+                       "A resumed queue proves nothing about the watched files discovered now")
+        XCTAssertEqual(harness.store.state(for: harness.source.id)?.pendingEstimate, 2)
+        harness.coordinator.stop()
+    }
+
     // MARK: - Conflicts
 
     @MainActor

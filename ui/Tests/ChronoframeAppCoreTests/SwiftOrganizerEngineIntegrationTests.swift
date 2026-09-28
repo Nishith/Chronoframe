@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import XCTest
 @testable import ChronoframeAppCore
@@ -364,6 +365,148 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(
             atPath: destinationURL.appendingPathComponent("2024/01/02/2024-01-02_001.jpg").path
         ))
+    }
+
+    /// A confirmed batch file whose content changes before the execution
+    /// re-plan drops out of `FreeTestBatchSelection.apply` — its identity no
+    /// longer matches what was confirmed — so it is never copied, even
+    /// though it was part of the batch offered and accepted. The completion
+    /// summary's `copiedBatchSourcePaths` must reflect only the file that
+    /// was actually retained and copied, not the full confirmed selection,
+    /// or a consumer keying off it (the watched-source checkpoint) would
+    /// acknowledge a file this run never touched.
+    @MainActor
+    func testBatchDropsAConfirmedFileWhoseIdentityChangedBeforeTheReplan() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        // MediaDiscovery reports the kernel-canonical path (e.g. /var/folders/...
+        // resolves through the /private firmlink on macOS, which
+        // `resolvingSymlinksInPath()` does not follow). Confirming the batch
+        // against the literal, non-canonical path would make
+        // FreeTestBatchSelection.apply fail to match anything, which is not
+        // what this test is about.
+        let resolvedSourceURL = URL(fileURLWithPath: Self.canonicalPath(sourceURL), isDirectory: true)
+        let aURL = resolvedSourceURL.appendingPathComponent("camera/IMG_20240102_101010.jpg")
+        let bURL = resolvedSourceURL.appendingPathComponent("camera/IMG_20240103_101010.jpg")
+        try FileManager.default.createDirectory(at: aURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("alpha".utf8).write(to: aURL)
+        try Data("beta-original".utf8).write(to: bURL)
+
+        // Confirm the batch against the files as they stood at confirmation time.
+        let hasher = FileIdentityHasher()
+        let confirmedIdentities: [String: FileIdentity] = [
+            aURL.path: try hasher.hashIdentity(at: aURL),
+            bURL.path: try hasher.hashIdentity(at: bURL),
+        ]
+        let batch = FreeTestBatchSelection(confirmedIdentities: confirmedIdentities)
+
+        // b.jpg changes in place after confirmation, before the run's re-plan.
+        try Data("beta-edited".utf8).write(to: bURL)
+
+        let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path),
+            batch: batch
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .finished)
+        XCTAssertEqual(summary.metrics.copiedCount, 1)
+        XCTAssertEqual(
+            summary.copiedBatchSourcePaths, [aURL.path],
+            "b.jpg was confirmed but changed before the re-plan, so it must not be reported as retained"
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.appendingPathComponent("2024/01/02/2024-01-02_001.jpg").path
+        ))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: destinationURL.appendingPathComponent("2024/01/03/2024-01-03_001.jpg").path
+        ), "The changed file was never copied")
+
+        // The shortfall is surfaced, not silently absorbed.
+        let shortfallIssues = events.compactMap { event -> RunIssue? in
+            if case let .issue(issue) = event { return issue }
+            return nil
+        }
+        XCTAssertTrue(
+            shortfallIssues.contains { $0.message.contains("1 file of the 2 you confirmed") },
+            "A shrunk batch must say so"
+        )
+    }
+
+    /// An unreadable file *outside* the batch still fails the whole run
+    /// (`hashErrorCount` is computed from the full discovered set, not the
+    /// reduced batch), even though every batch file copied cleanly. The
+    /// completion summary must not report `copiedBatchSourcePaths` for a run
+    /// that finished `.failed` — a consumer that keyed acknowledgment off
+    /// "retained" paths without checking status would otherwise treat a
+    /// failed run as if the batch had succeeded.
+    @MainActor
+    func testBatchReportsNoRetainedPathsWhenAnUnrelatedFileFailsToHash() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        // MediaDiscovery reports the kernel-canonical path (e.g. /var/folders/...
+        // resolves through the /private firmlink on macOS, which
+        // `resolvingSymlinksInPath()` does not follow). Confirming the batch
+        // against the literal, non-canonical path would make
+        // FreeTestBatchSelection.apply fail to match anything, which is not
+        // what this test is about.
+        let resolvedSourceURL = URL(fileURLWithPath: Self.canonicalPath(sourceURL), isDirectory: true)
+        let goodURL = resolvedSourceURL.appendingPathComponent("camera/IMG_20240102_101010.jpg")
+        let badURL = resolvedSourceURL.appendingPathComponent("camera/IMG_20240103_101010.jpg")
+        try FileManager.default.createDirectory(at: goodURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("good".utf8).write(to: goodURL)
+        try Data("bad".utf8).write(to: badURL)
+        try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o000)], ofItemAtPath: badURL.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o644)], ofItemAtPath: badURL.path) }
+
+        // The batch confirms only the good, readable file.
+        let hasher = FileIdentityHasher()
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            goodURL.path: try hasher.hashIdentity(at: goodURL),
+        ])
+
+        let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path),
+            batch: batch
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .failed, "The unrelated hash error still fails the run")
+        XCTAssertEqual(summary.metrics.copiedCount, 1, "The confirmed file was still copied")
+        XCTAssertNil(
+            summary.copiedBatchSourcePaths,
+            "A failed run must not report retained batch paths, even though the batch file itself copied"
+        )
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.appendingPathComponent("2024/01/02/2024-01-02_001.jpg").path
+        ), "The batch file was copied even though the overall run is reported as failed")
     }
 
     /// Finding #3: a parallel transfer paused on permanently-low disk must
@@ -1047,6 +1190,17 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
             digests[url.path] = try hasher.hashIdentity(at: url).rawValue
         }
         return digests
+    }
+
+    /// The kernel-canonical form of a path, resolving firmlinks (e.g.
+    /// /var -> /private/var) that `URL.resolvingSymlinksInPath()` leaves
+    /// alone. `MediaDiscovery` reports paths in this canonical form, so a
+    /// test confirming a batch against a literal path built from
+    /// `FileManager.default.temporaryDirectory` has to match it here first.
+    private static func canonicalPath(_ url: URL) -> String {
+        guard let resolved = realpath(url.path, nil) else { return url.path }
+        defer { free(resolved) }
+        return String(cString: resolved)
     }
 
     private static func collect(_ stream: AsyncThrowingStream<RunEvent, Error>) async throws -> [RunEvent] {

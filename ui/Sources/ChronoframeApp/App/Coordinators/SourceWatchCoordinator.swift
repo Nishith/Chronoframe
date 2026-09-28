@@ -587,8 +587,22 @@ final class SourceWatchCoordinator {
             return
         }
         guard let frozen, frozen.token == record.runToken else { return }
+        // A resumed queue was planned by an earlier run — possibly for a
+        // different source — so it proves nothing about what is here now.
+        guard !record.resumedPendingJobs else { return }
         guard let resolvedSource = record.resolvedSourcePath else { return }
         let standardizedSource = URL(fileURLWithPath: resolvedSource, isDirectory: true).standardizedFileURL.path
+        // A batch copied at most its confirmed files. Map them to
+        // source-relative checkpoint keys; a path outside the source root
+        // maps to nothing and so is never acknowledged.
+        let batchRelativePaths: Set<String>? = record.batchSourcePaths.map { paths in
+            let rootPrefix = standardizedSource.hasSuffix("/") ? standardizedSource : standardizedSource + "/"
+            return Set(paths.compactMap { path -> String? in
+                let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+                guard standardizedPath.hasPrefix(rootPrefix) else { return nil }
+                return String(standardizedPath.dropFirst(rootPrefix.count))
+            })
+        }
 
         for state in store.states {
             let sourcePath = URL(fileURLWithPath: state.source.path, isDirectory: true).standardizedFileURL.path
@@ -596,8 +610,11 @@ final class SourceWatchCoordinator {
                   let captured = frozen.stampsBySource[state.id]
             else { continue }
 
+            let acknowledging = batchRelativePaths.map { batchPaths in
+                captured.filter { batchPaths.contains($0.key) }
+            } ?? captured
             if let checkpoint = try? repository.checkpoint(for: state.id) {
-                let merged = WatchedSourceFreshness.merged(acknowledged: checkpoint, acknowledging: captured)
+                let merged = WatchedSourceFreshness.merged(acknowledged: checkpoint, acknowledging: acknowledging)
                 try? repository.replaceCheckpoint(for: state.id, entries: merged)
             }
             // Recount from the live overlay so mid-run arrivals surface

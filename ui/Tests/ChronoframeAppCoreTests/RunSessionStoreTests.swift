@@ -609,6 +609,47 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.metrics.plannedCount, 0)
     }
 
+    /// `consume(.complete)` rebuilds the published `RunSummary` field by
+    /// field (to splice in the carried-forward date histogram) instead of
+    /// mutating a copy of the engine's summary. `copiedBatchSourcePaths` must
+    /// be carried into that rebuild too, or `store.summary` — and anything
+    /// that reads it, such as `postRunCompletionNotification` — always sees
+    /// nil regardless of what the engine reported.
+    @MainActor
+    func testPublishedSummaryCarriesCopiedBatchSourcePathsFromTheEngine() async throws {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/watched-source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath
+        )
+        let confirmedPath = "/tmp/watched-source/a.jpg"
+        let summary = RunSummary(
+            status: .finished,
+            title: "Done",
+            metrics: RunMetrics(copiedCount: 1),
+            artifacts: RunArtifactPaths(destinationRoot: tempDestinationURL.path),
+            copiedBatchSourcePaths: [confirmedPath]
+        )
+        let engine = MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .events([.complete(summary)])
+        )
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            confirmedPath: FileIdentity(size: 1, digest: "a"),
+        ])
+
+        await store.requestRun(mode: .transfer, configuration: configuration, batch: batch)
+        let finished = await waitForCondition { store.summary != nil }
+        XCTAssertTrue(finished)
+
+        XCTAssertEqual(
+            store.summary?.copiedBatchSourcePaths, [confirmedPath],
+            "The published summary must carry the engine's retained-paths report, not drop it during the rebuild"
+        )
+    }
+
     // MARK: - Accumulated issue/error counting
 
     @MainActor

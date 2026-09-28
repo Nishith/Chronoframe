@@ -24,6 +24,14 @@ public struct RunCompletionRecord: Equatable, Sendable {
     public let resolvedSourcePath: String?
     public let resolvedDestinationPath: String?
     public let finishedAt: Date
+    /// For a free test batch, the source paths the execution re-plan actually
+    /// retained (a subset of what was confirmed), reported by the engine only
+    /// when the run finishes — empty otherwise, so nothing is acknowledged.
+    /// Nil when the run was not limited to a batch.
+    public let batchSourcePaths: Set<String>?
+    /// True when the run resumed a queue left by an earlier, interrupted run
+    /// instead of planning from the current source.
+    public let resumedPendingJobs: Bool
 
     public init(
         runToken: UUID,
@@ -32,7 +40,9 @@ public struct RunCompletionRecord: Equatable, Sendable {
         configuration: RunConfiguration?,
         resolvedSourcePath: String?,
         resolvedDestinationPath: String?,
-        finishedAt: Date
+        finishedAt: Date,
+        batchSourcePaths: Set<String>? = nil,
+        resumedPendingJobs: Bool = false
     ) {
         self.runToken = runToken
         self.mode = mode
@@ -41,6 +51,8 @@ public struct RunCompletionRecord: Equatable, Sendable {
         self.resolvedSourcePath = resolvedSourcePath
         self.resolvedDestinationPath = resolvedDestinationPath
         self.finishedAt = finishedAt
+        self.batchSourcePaths = batchSourcePaths
+        self.resumedPendingJobs = resumedPendingJobs
     }
 }
 
@@ -76,6 +88,18 @@ public final class RunSessionStore: ObservableObject {
 
     /// Whether the run currently streaming is limited to a confirmed batch.
     private var currentRunUsedFreeTestBatch = false
+    /// Scope of the run currently streaming, carried into its completion
+    /// record so consumers acknowledge only what the run could have handled.
+    ///
+    /// Seeded empty (not the confirmed selection) when a batch starts, and
+    /// only ever widened by the engine's own completion summary
+    /// (`RunSummary.copiedBatchSourcePaths`) once the run finishes — the
+    /// confirmed selection can be larger than what the execution re-plan
+    /// actually retained (`FreeTestBatchSelection.apply` drops a path whose
+    /// identity changed or vanished), so acknowledging the confirmed set
+    /// directly would checkpoint a file this run never copied.
+    private var currentRunBatchSourcePaths: Set<String>?
+    private var currentRunResumedPendingJobs = false
     @Published public private(set) var latestPreviewReviewPath: String?
     /// Source URL of the file currently being copied, surfaced by the
     /// transfer phase. UI uses it to render a live QuickLook thumbnail in
@@ -521,6 +545,9 @@ public final class RunSessionStore: ObservableObject {
         directOperationLease = nil
         closeSecurityScope()
         currentMode = mode
+        currentRunUsedFreeTestBatch = false
+        currentRunBatchSourcePaths = nil
+        currentRunResumedPendingJobs = false
         currentPhase = nil
         currentTaskTitle = "Idle"
         progress = 0
@@ -564,6 +591,12 @@ public final class RunSessionStore: ObservableObject {
         // different for a batch than for a full transfer, and the completion
         // notification has to say which.
         currentRunUsedFreeTestBatch = batch != nil
+        // Conservative until the completion summary says otherwise: an empty
+        // set acknowledges nothing rather than the full confirmed selection,
+        // in case the run ends without ever reporting what it actually
+        // retained (see the property doc above).
+        currentRunBatchSourcePaths = batch.map { _ in [] }
+        currentRunResumedPendingJobs = resumePendingJobs
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
@@ -771,6 +804,12 @@ public final class RunSessionStore: ObservableObject {
             )
 
         case let .complete(summary):
+            // Narrow to what the run actually retained, not the originally
+            // confirmed selection — see the property doc on
+            // `currentRunBatchSourcePaths`.
+            if currentRunUsedFreeTestBatch {
+                currentRunBatchSourcePaths = summary.copiedBatchSourcePaths ?? []
+            }
             status = summary.status
             currentTaskTitle = summary.title
             var finalMetrics = summary.metrics
@@ -782,7 +821,8 @@ public final class RunSessionStore: ObservableObject {
                 title: summary.title,
                 metrics: finalMetrics,
                 artifacts: summary.artifacts,
-                failureMessage: summary.failureMessage
+                failureMessage: summary.failureMessage,
+                copiedBatchSourcePaths: summary.copiedBatchSourcePaths
             )
             metrics = finalMetrics
             artifacts = summary.artifacts
@@ -844,7 +884,9 @@ public final class RunSessionStore: ObservableObject {
             resolvedSourcePath: lastPreflight?.resolvedSourcePath,
             resolvedDestinationPath: lastPreflight?.resolvedDestinationPath
                 ?? (destinationRoot.isEmpty ? nil : destinationRoot),
-            finishedAt: Date()
+            finishedAt: Date(),
+            batchSourcePaths: currentRunBatchSourcePaths,
+            resumedPendingJobs: currentRunResumedPendingJobs
         )
     }
 

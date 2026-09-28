@@ -734,6 +734,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         // new or altered files cannot smuggle them in here.
         let result = batch.map { plan.reduced(to: $0) } ?? plan
 
+        // The narrowed selection's own source paths, not the originally
+        // confirmed ones: `plan.reduced(to:)` already drops any confirmed
+        // path whose identity changed or vanished before this re-plan, and a
+        // consumer deciding what to acknowledge (e.g. a watched-source
+        // checkpoint) must see that same subset, not what was merely offered.
+        let retainedBatchSourcePaths: Set<String>? = batch != nil ? Set(result.transfers.map(\.sourcePath)) : nil
+
         emitPostPlanningEvents(for: result, into: continuation)
         runLogger.log(
             "Classification: \(result.counts.alreadyInDestinationCount) already in dest, \(result.counts.newCount) new, \(result.counts.duplicateCount) internal dups, \(result.counts.hashErrorCount) hash errors"
@@ -786,7 +793,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             hashErrorCount: result.counts.hashErrorCount,
                             dateHistogram: result.dateHistogram
                         ),
-                        artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
+                        artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL),
+                        copiedBatchSourcePaths: retainedBatchSourcePaths
                     )
                 )
             )
@@ -990,7 +998,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     artifacts: executionResult.artifacts,
                     failureMessage: completedStatus == .failed
                         ? "The transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched."
-                        : nil
+                        : nil,
+                    // Only report retained batch paths on an actual finish:
+                    // `retainedBatchSourcePaths` is the set the re-plan
+                    // enqueued, not the set that necessarily copied, and a
+                    // consumer keying off "retained" for acknowledgment must
+                    // never see it for a run that left files unprocessed.
+                    copiedBatchSourcePaths: completedStatus == .finished ? retainedBatchSourcePaths : nil
                 )
             )
         )

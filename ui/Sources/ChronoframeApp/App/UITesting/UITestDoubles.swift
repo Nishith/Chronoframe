@@ -19,6 +19,7 @@ final class MockOrganizerEngine: OrganizerEngine {
     var resumeMode: StreamMode
     var startConfigurations: [RunConfiguration] = []
     var resumeConfigurations: [RunConfiguration] = []
+    var startBatches: [FreeTestBatchSelection] = []
     /// Configurations as passed INTO preflight — unlike
     /// `startConfigurations` (which reflect the canned preflight result),
     /// these record exactly what the caller requested. Watched-import
@@ -54,6 +55,15 @@ final class MockOrganizerEngine: OrganizerEngine {
 
     func start(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error> {
         startConfigurations.append(configuration)
+        return try makeStream(for: startMode)
+    }
+
+    func start(
+        _ configuration: RunConfiguration,
+        batch: FreeTestBatchSelection
+    ) throws -> AsyncThrowingStream<RunEvent, Error> {
+        startConfigurations.append(configuration)
+        startBatches.append(batch)
         return try makeStream(for: startMode)
     }
 

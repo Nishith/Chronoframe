@@ -414,19 +414,29 @@ public struct RunSummary: Equatable, Codable, Sendable {
     public var metrics: RunMetrics
     public var artifacts: RunArtifactPaths
     public var failureMessage: String?
+    /// For a free test batch transfer, the source paths the execution
+    /// re-plan actually retained — a subset of what was confirmed, since a
+    /// file whose identity changed or vanished between confirmation and
+    /// execution drops out of `FreeTestBatchSelection.apply`. Nil when the
+    /// run was not a batch. A consumer that needs "what did this run
+    /// actually copy" for a batch must read this rather than the originally
+    /// confirmed selection.
+    public var copiedBatchSourcePaths: Set<String>?
 
     public init(
         status: RunStatus,
         title: String,
         metrics: RunMetrics,
         artifacts: RunArtifactPaths,
-        failureMessage: String? = nil
+        failureMessage: String? = nil,
+        copiedBatchSourcePaths: Set<String>? = nil
     ) {
         self.status = status
         self.title = title
         self.metrics = metrics
         self.artifacts = artifacts
         self.failureMessage = failureMessage
+        self.copiedBatchSourcePaths = copiedBatchSourcePaths
     }
 }
 
