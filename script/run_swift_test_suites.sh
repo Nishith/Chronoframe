@@ -34,7 +34,7 @@ if [[ -n "$COVERAGE_FLAG" ]]; then
     coverage_profile_store=".tmp/swift-suite-profraw"
     rm -rf "$coverage_profile_store"
     mkdir -p "$coverage_profile_store"
-    find ui/.build -type f -path '*/debug/codecov/*.profraw' -delete 2>/dev/null || true
+    find ui/.build -type f -ipath '*/debug/codecov/*.profraw' -delete 2>/dev/null || true
 fi
 
 # GitHub's macos-14-arm64 image selects Swift 6.0.3. Its XCTest process can
@@ -52,7 +52,7 @@ run_shard() {
     SHARD_INDEX=$((SHARD_INDEX + 1))
 
     if [[ -n "$COVERAGE_FLAG" ]]; then
-        find ui/.build -type f -path '*/debug/codecov/*.profraw' -delete 2>/dev/null || true
+        find ui/.build -type f -ipath '*/debug/codecov/*.profraw' -delete 2>/dev/null || true
     fi
 
     echo "Running Swift test shard $SHARD_INDEX ($shard_suite_count suites)"
@@ -65,7 +65,7 @@ run_shard() {
         while IFS= read -r profile; do
             cp "$profile" "$coverage_profile_store/shard-${SHARD_INDEX}-$(basename "$profile")"
             profile_count=$((profile_count + 1))
-        done < <(find ui/.build -type f -path '*/debug/codecov/*.profraw' -print)
+        done < <(find ui/.build -type f -ipath '*/debug/codecov/*.profraw' -print)
 
         if (( profile_count == 0 )); then
             echo "No coverage profile was produced for shard $SHARD_INDEX." >&2
@@ -97,7 +97,7 @@ if (( current_suite_count > 0 )); then
 fi
 
 if [[ -n "$COVERAGE_FLAG" ]]; then
-    codecov_dir="$(find ui/.build -type d -path '*/debug/codecov' -print -quit)"
+    codecov_dir="$(find ui/.build -type d -ipath '*/debug/codecov' -print -quit)"
     if [[ -z "$codecov_dir" ]]; then
         echo "SwiftPM coverage directory was not created." >&2
         exit 1
