@@ -1051,6 +1051,17 @@ final class ChronoframeUITests: XCTestCase {
                     )
                 }
 
+                // The preview region above the member strip must leave room to
+                // actually inspect a photo, not a sliver that only scrolls.
+                let detail = Self.element(identifier: "dedupeReviewDetail", in: app)
+                XCTAssertTrue(detail.exists, "Review detail should render for \(scenario.rawValue)")
+                let previewRegionHeight = strip.frame.minY - detail.frame.minY
+                XCTAssertGreaterThanOrEqual(
+                    previewRegionHeight,
+                    160,
+                    "Preview region is only \(previewRegionHeight)pt tall for \(scenario.rawValue)"
+                )
+
                 app.terminate()
             }
         }

@@ -333,6 +333,16 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertLessThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMaxHeight)
     }
 
+    func testTrustSummaryCondensesOnlyInShortWindows() {
+        let threshold = DesignTokens.DeduplicateLayout.condensedTrustSummaryBelowHeight
+        // Minimum window (700pt) minus title bar: the cards would starve the preview.
+        XCTAssertTrue(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: 648))
+        XCTAssertTrue(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: threshold - 1))
+        XCTAssertFalse(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: threshold))
+        // Default window (820pt) keeps the full cards.
+        XCTAssertFalse(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: 768))
+    }
+
     func testDetailPreviewResizeBoundsPreservePreviewSpace() {
         let availableHeight: CGFloat = 900
         let bounds = DeduplicateDetailPreviewLayout.thumbnailStripHeightBounds(forAvailableHeight: availableHeight)
