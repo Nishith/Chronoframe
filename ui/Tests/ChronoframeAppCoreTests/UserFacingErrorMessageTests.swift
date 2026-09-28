@@ -36,6 +36,17 @@ final class UserFacingErrorMessageTests: XCTestCase {
         XCTAssertTrue(message.contains("backend launch failed"))
     }
 
+    func testUnsafeDestinationLockUsesItsOwnPlainMessage() {
+        let message = UserFacingErrorMessage.message(
+            for: DestinationLockUnsafeError(itemName: ".organize_logs"),
+            context: .run
+        )
+
+        XCTAssertTrue(message.contains("“.organize_logs” is a link or special file"), message)
+        XCTAssertTrue(message.contains("Nothing was changed"), message)
+        XCTAssertFalse(message.contains("NSPOSIXErrorDomain"), message)
+    }
+
     func testCommonFoundationErrorsExplainMissingFiles() {
         let error = NSError(
             domain: NSCocoaErrorDomain,

@@ -30,6 +30,21 @@ public struct DestinationBusyError: LocalizedError, Sendable, Equatable {
     }
 }
 
+/// The lock file, or the folder holding it, is a link or special file rather
+/// than Chronoframe's own regular lock file. The lock refuses to open or
+/// truncate it so a planted link can never redirect that write elsewhere.
+public struct DestinationLockUnsafeError: LocalizedError, Sendable, Equatable {
+    public let itemName: String
+
+    public init(itemName: String) {
+        self.itemName = itemName
+    }
+
+    public var errorDescription: String? {
+        "Chronoframe didn't start because “\(itemName)” is a link or special file where it expected its own lock file. Nothing was changed. Remove “\(itemName)” or choose a different destination, then try again."
+    }
+}
+
 public final class DestinationOperationLease: @unchecked Sendable {
     private let stateLock = NSLock()
     private var descriptor: Int32?
@@ -102,19 +117,93 @@ public enum DestinationOperationLock {
         surface: String,
         operation: String
     ) throws -> DestinationOperationLease {
-        try FileManager.default.createDirectory(
-            at: lockFileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        let descriptor = lockFileURL.path.withCString {
-            Darwin.open($0, O_RDWR | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR)
+        let directoryURL = lockFileURL.deletingLastPathComponent()
+        do {
+            try FileManager.default.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            // `createDirectory` throws here when the parent path already
+            // exists as something other than a directory (a FIFO or a
+            // regular file, for example). `lstat` — not `stat` — so a
+            // symlink parent is also treated as unsafe rather than silently
+            // resolved; report it the same way as the other unsafe-parent
+            // cases below instead of surfacing Foundation's raw error text.
+            var directoryStatus = stat()
+            if lstat(directoryURL.path, &directoryStatus) == 0 {
+                if (directoryStatus.st_mode & S_IFMT) != S_IFDIR {
+                    throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+                }
+            } else if errno == ENOTDIR || errno == ELOOP {
+                // An ancestor of the parent folder — not the parent itself —
+                // is a link or special file, so `lstat` on the parent path
+                // fails too. Still unsafe, not a raw filesystem error; name
+                // the ancestor at fault, not the folder beneath it.
+                throw DestinationLockUnsafeError(itemName: unsafeAncestorName(of: directoryURL))
+            }
+            // Anything else that reaches here and is still Foundation's
+            // "already exists" error (a TOCTOU race, or a case the checks
+            // above didn't resolve) is unsafe by construction: `createDirectory`
+            // only raises it when something is already at this path. Never let
+            // that raw NSCocoaErrorDomain error reach the UI.
+            let nsError = error as NSError
+            if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileWriteFileExistsError {
+                throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+            }
+            throw error
         }
-        guard descriptor >= 0 else {
+        // The lock lives in a user-selected folder, so neither it nor its
+        // parent folder is trusted: open both without following links, then
+        // require the lock to be a regular file with no other hard links
+        // before it is truncated and rewritten below.
+        let directoryDescriptor = directoryURL.path.withCString {
+            Darwin.open($0, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)
+        }
+        guard directoryDescriptor >= 0 else {
+            let openError = errno
+            if openError == ELOOP || openError == ENOTDIR {
+                throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+            }
             throw NSError(
                 domain: NSPOSIXErrorDomain,
-                code: Int(errno),
+                code: Int(openError),
                 userInfo: [NSLocalizedDescriptionKey: "Chronoframe could not open the destination operation lock."]
             )
+        }
+        defer { _ = Darwin.close(directoryDescriptor) }
+
+        let lockName = lockFileURL.lastPathComponent
+        let descriptor = lockName.withCString {
+            Darwin.openat(
+                directoryDescriptor,
+                $0,
+                O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                S_IRUSR | S_IWUSR
+            )
+        }
+        guard descriptor >= 0 else {
+            let openError = errno
+            // EOPNOTSUPP covers a UNIX domain socket at the lock path:
+            // opening one through the filesystem fails this way on Darwin
+            // instead of ELOOP/EISDIR, so it needs its own case to be
+            // treated as the same "link or special file" condition.
+            if openError == ELOOP || openError == EISDIR || openError == EOPNOTSUPP {
+                throw DestinationLockUnsafeError(itemName: lockName)
+            }
+            throw NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(openError),
+                userInfo: [NSLocalizedDescriptionKey: "Chronoframe could not open the destination operation lock."]
+            )
+        }
+        var status = stat()
+        guard fstat(descriptor, &status) == 0,
+              (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_nlink <= 1
+        else {
+            _ = Darwin.close(descriptor)
+            throw DestinationLockUnsafeError(itemName: lockName)
         }
 
         guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
@@ -165,6 +254,22 @@ public enum DestinationOperationLock {
         if let diagnostic = readDiagnostic(descriptor: descriptor) { return diagnostic }
         usleep(10_000)
         return readDiagnostic(descriptor: descriptor)
+    }
+
+    /// Nearest ancestor of `directoryURL` that is not a directory (a file, or a
+    /// symlink loop), so the message names the item the user must remove.
+    private static func unsafeAncestorName(of directoryURL: URL) -> String {
+        var ancestor = directoryURL.deletingLastPathComponent()
+        while ancestor.path != "/", !ancestor.path.isEmpty {
+            var status = stat()
+            if stat(ancestor.path, &status) == 0 {
+                if (status.st_mode & S_IFMT) != S_IFDIR { return ancestor.lastPathComponent }
+            } else if errno == ELOOP {
+                return ancestor.lastPathComponent
+            }
+            ancestor = ancestor.deletingLastPathComponent()
+        }
+        return directoryURL.lastPathComponent
     }
 
     private static func readDiagnostic(descriptor: Int32) -> DestinationOperationDiagnostic? {
