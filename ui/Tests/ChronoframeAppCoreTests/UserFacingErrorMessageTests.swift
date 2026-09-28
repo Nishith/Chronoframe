@@ -47,6 +47,17 @@ final class UserFacingErrorMessageTests: XCTestCase {
         XCTAssertFalse(message.contains("NSPOSIXErrorDomain"), message)
     }
 
+    func testUnsafeDestinationMetadataUsesItsOwnPlainMessage() {
+        let message = UserFacingErrorMessage.message(
+            for: DestinationMetadataUnsafeError(itemName: ".organize_log.txt"),
+            context: .run
+        )
+
+        XCTAssertTrue(message.contains("“.organize_log.txt” in the destination is a link or special file"), message)
+        XCTAssertTrue(message.contains("Nothing was changed"), message)
+        XCTAssertFalse(message.contains("NSPOSIXErrorDomain"), message)
+    }
+
     func testCommonFoundationErrorsExplainMissingFiles() {
         let error = NSError(
             domain: NSCocoaErrorDomain,

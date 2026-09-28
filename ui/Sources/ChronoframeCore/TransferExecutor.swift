@@ -118,12 +118,7 @@ public final class PersistentRunLogger: @unchecked Sendable {
             try? FileManager.default.moveItem(at: logURL, to: rotatedURL)
         }
 
-        if !FileManager.default.fileExists(atPath: logURL.path) {
-            FileManager.default.createFile(atPath: logURL.path, contents: Data())
-        }
-
-        let newHandle = try FileHandle(forWritingTo: logURL)
-        try newHandle.seekToEnd()
+        let newHandle = try DestinationMetadataFile.openForAppending(at: logURL)
         lock.withLock { $0 = newHandle }
     }
 
