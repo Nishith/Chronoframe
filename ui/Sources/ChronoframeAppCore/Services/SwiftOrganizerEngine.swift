@@ -999,7 +999,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     failureMessage: completedStatus == .failed
                         ? "The transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched."
                         : nil,
-                    copiedBatchSourcePaths: retainedBatchSourcePaths
+                    // Only report retained batch paths on an actual finish:
+                    // `retainedBatchSourcePaths` is the set the re-plan
+                    // enqueued, not the set that necessarily copied, and a
+                    // consumer keying off "retained" for acknowledgment must
+                    // never see it for a run that left files unprocessed.
+                    copiedBatchSourcePaths: completedStatus == .finished ? retainedBatchSourcePaths : nil
                 )
             )
         )

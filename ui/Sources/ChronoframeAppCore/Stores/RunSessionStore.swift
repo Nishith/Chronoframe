@@ -818,7 +818,8 @@ public final class RunSessionStore: ObservableObject {
                 title: summary.title,
                 metrics: finalMetrics,
                 artifacts: summary.artifacts,
-                failureMessage: summary.failureMessage
+                failureMessage: summary.failureMessage,
+                copiedBatchSourcePaths: summary.copiedBatchSourcePaths
             )
             metrics = finalMetrics
             artifacts = summary.artifacts

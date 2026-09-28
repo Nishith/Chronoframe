@@ -447,6 +447,68 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
         )
     }
 
+    /// An unreadable file *outside* the batch still fails the whole run
+    /// (`hashErrorCount` is computed from the full discovered set, not the
+    /// reduced batch), even though every batch file copied cleanly. The
+    /// completion summary must not report `copiedBatchSourcePaths` for a run
+    /// that finished `.failed` — a consumer that keyed acknowledgment off
+    /// "retained" paths without checking status would otherwise treat a
+    /// failed run as if the batch had succeeded.
+    @MainActor
+    func testBatchReportsNoRetainedPathsWhenAnUnrelatedFileFailsToHash() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+        // MediaDiscovery reports the kernel-canonical path (e.g. /var/folders/...
+        // resolves through the /private firmlink on macOS, which
+        // `resolvingSymlinksInPath()` does not follow). Confirming the batch
+        // against the literal, non-canonical path would make
+        // FreeTestBatchSelection.apply fail to match anything, which is not
+        // what this test is about.
+        let resolvedSourceURL = URL(fileURLWithPath: Self.canonicalPath(sourceURL), isDirectory: true)
+        let goodURL = resolvedSourceURL.appendingPathComponent("camera/IMG_20240102_101010.jpg")
+        let badURL = resolvedSourceURL.appendingPathComponent("camera/IMG_20240103_101010.jpg")
+        try FileManager.default.createDirectory(at: goodURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("good".utf8).write(to: goodURL)
+        try Data("bad".utf8).write(to: badURL)
+        try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o000)], ofItemAtPath: badURL.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: NSNumber(value: 0o644)], ofItemAtPath: badURL.path) }
+
+        // The batch confirms only the good, readable file.
+        let hasher = FileIdentityHasher()
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            goodURL.path: try hasher.hashIdentity(at: goodURL),
+        ])
+
+        let engine = SwiftOrganizerEngine(
+            authorizer: UnrestrictedTrialAuthorizer(),
+            profilesRepository: TestProfilesRepository(
+                profiles: [],
+                profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")
+            )
+        )
+        let stream = try engine.start(
+            RunConfiguration(mode: .transfer, sourcePath: sourceURL.path, destinationPath: destinationURL.path),
+            batch: batch
+        )
+        let events = try await Self.collect(stream)
+
+        guard case let .complete(summary)? = events.last else {
+            return XCTFail("Expected completion summary")
+        }
+        XCTAssertEqual(summary.status, .failed, "The unrelated hash error still fails the run")
+        XCTAssertEqual(summary.metrics.copiedCount, 1, "The confirmed file was still copied")
+        XCTAssertNil(
+            summary.copiedBatchSourcePaths,
+            "A failed run must not report retained batch paths, even though the batch file itself copied"
+        )
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.appendingPathComponent("2024/01/02/2024-01-02_001.jpg").path
+        ), "The batch file was copied even though the overall run is reported as failed")
+    }
+
     /// Finding #3: a parallel transfer paused on permanently-low disk must
     /// observe `cancelCurrentRun()` and stop. The copy workers run on GCD
     /// queues where `Task.isCancelled` is always false, so before the shared
