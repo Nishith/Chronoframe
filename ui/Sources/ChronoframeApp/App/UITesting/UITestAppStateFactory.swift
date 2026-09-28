@@ -450,12 +450,27 @@ enum UITestAppStateFactory {
                 ))
             }
 
+            // Cluster 1 carries safety warnings so the review UI's warning
+            // banner has a fixture to render against: it's the cluster that
+            // becomes focused after accepting cluster 0 in
+            // testDeduplicateReviewKeepsActionsVisibleAtWideAndCompactSizes,
+            // which checks that Keep/Delete stays reachable at compact size
+            // even with the banner present (BASH-08 follow-up).
+            let annotation: ClusterAnnotation? = index == 1
+                ? ClusterAnnotation(
+                    confidence: .medium,
+                    matchReason: MatchReason(kind: kind),
+                    warnings: [.differentFraming(cropDelta: 0.35), .largeTimeGap(seconds: 42)]
+                )
+                : nil
+
             clusters.append(DuplicateCluster(
                 id: UUID(uuidString: "00000000-0000-0000-0000-\(String(format: "%012d", index + 1))") ?? UUID(),
                 kind: kind,
                 members: members,
                 suggestedKeeperIDs: [members[0].id],
-                bytesIfPruned: members.dropFirst().reduce(Int64(0)) { $0 + $1.size }
+                bytesIfPruned: members.dropFirst().reduce(Int64(0)) { $0 + $1.size },
+                annotation: annotation
             ))
         }
         return clusters

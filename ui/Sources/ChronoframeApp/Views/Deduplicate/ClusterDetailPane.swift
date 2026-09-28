@@ -90,10 +90,16 @@ struct ClusterDetailPane: View {
             let isWideLayout = geometry.size.width >= 450
             VStack(spacing: 0) {
                 VStack(spacing: 0) {
-                    warningBanner(for: cluster)
                     if isWideLayout {
+                        warningBanner(for: cluster)
                         detailContentWide(focused: focused, cluster: cluster)
                     } else {
+                        // Compact: the banner rides inside the same scroll view as
+                        // the preview/metadata stack (below) rather than sitting
+                        // above it as a fixed-height sibling. A fixed sibling
+                        // would eat into the ~100pt preview region on its own,
+                        // and could squeeze the scroll view holding Keep/Delete
+                        // down to nothing for a cluster with several warnings.
                         detailContentCompact(focused: focused, cluster: cluster)
                     }
                 }
@@ -181,6 +187,7 @@ struct ClusterDetailPane: View {
     private func detailContentCompact(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
         scrollableWhenConstrained {
             VStack(spacing: DesignTokens.Spacing.md) {
+                warningBanner(for: cluster)
                 preview(for: focused, cluster: cluster)
                     .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
                 if let focused {

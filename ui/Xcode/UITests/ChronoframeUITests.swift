@@ -1006,7 +1006,11 @@ final class ChronoframeUITests: XCTestCase {
                 // BASH-08: the Keep/Delete choice must be reachable in its own
                 // region — not drawn over the group list or hidden behind the
                 // member strip. Existence alone missed this, since the
-                // clipped control stayed in the accessibility tree.
+                // clipped control stayed in the accessibility tree. The cluster
+                // now focused (index 1 in sampleDeduplicateClusters) carries
+                // safety warnings, so this also exercises the warning banner:
+                // it must not squeeze the scroll view holding Keep/Delete down
+                // to nothing at the compact size.
                 let decision = Self.element(identifier: "dedupeDecisionControl", in: app)
                 let strip = Self.element(identifier: "dedupeMemberStrip", in: app)
                 XCTAssertTrue(decision.waitForExistence(timeout: 5), "Keep/Delete should render for \(scenario.rawValue)")
