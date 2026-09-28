@@ -63,13 +63,23 @@ public final class EntitlementStore: ObservableObject {
     private var lastAppStoreAttempt: Date?
 
     /// The single resolution started by `resolveIfNeeded()`, shared by every
-    /// caller that arrives while it runs.
+    /// OTHER `resolveIfNeeded()` caller that arrives while it runs.
     ///
-    /// Without this, two gates racing on a cold store both call `refresh()`.
-    /// The generation tag below makes the loser return WITHOUT setting state —
-    /// so if the loser finished first, its caller would read `.loading` and
-    /// refuse a customer who may well have paid. Coalescing removes the race
-    /// rather than retrying around it.
+    /// This does NOT coalesce every `refresh()` call in the store: `purchase()`,
+    /// `restore()`, and the transaction-update observer all call `refresh()`
+    /// directly, bypassing this field entirely, so any of them can run
+    /// concurrently with a `resolveIfNeeded()`-driven resolution (or with each
+    /// other). `refreshGeneration` below keeps the PUBLISHED `state` consistent
+    /// across that race, but it also means a caller that needs to describe ITS
+    /// OWN outcome — `restore()`'s message — cannot trust `state` right after
+    /// `await refresh()`; it must use the value `refresh()` itself returns. See
+    /// that method's doc comment.
+    ///
+    /// Without `resolution`, two `resolveIfNeeded()` callers racing on a cold
+    /// store would both call `refresh()`. The generation tag makes the loser
+    /// return WITHOUT setting state — so if the loser finished first, its
+    /// caller would read `.loading` and refuse a customer who may well have
+    /// paid. Coalescing removes that race rather than retrying around it.
     private var resolution: Task<Void, Never>?
 
     /// Whether an unconfirmed answer re-checks itself in the background. Off
@@ -130,7 +140,17 @@ public final class EntitlementStore: ObservableObject {
     /// Must be called at launch: `Transaction.updates` delivers *subsequent*
     /// changes only and never the initial state, so an app that only observes
     /// updates shows a paywall to every paying customer on every cold start.
-    public func refresh() async {
+    ///
+    /// Returns the entitlement THIS call resolved, whether or not it went on to
+    /// win the write into the published `state` below. `refresh()` is not
+    /// coalesced across direct callers (see `resolution`'s doc comment), so a
+    /// concurrent, unrelated refresh can beat this one to `state` and make the
+    /// generation guard below discard this call's write. A caller that needs
+    /// to describe its OWN round trip — `restore()`'s message — must read the
+    /// return value, not `state`, or it can end up reporting an entirely
+    /// different call's outcome.
+    @discardableResult
+    public func refresh() async -> EntitlementState {
         refreshGeneration &+= 1
         let generation = refreshGeneration
         lastAppStoreAttempt = clock()
@@ -146,15 +166,9 @@ public final class EntitlementStore: ObservableObject {
 
         let owned = await ownedTask
         let appTransaction = await appTransactionTask
-
-        // A newer refresh started and already settled while we were suspended.
-        // Its answer is fresher than ours; discard this one entirely, including
-        // the cache write below.
-        guard generation == refreshGeneration else { return }
-
         let now = clock()
 
-        state = EntitlementResolver.resolve(
+        let resolved = EntitlementResolver.resolve(
             ownedProducts: owned,
             appTransaction: appTransaction,
             cachedLegacyGrant: cachedGrant(),
@@ -162,6 +176,14 @@ public final class EntitlementStore: ObservableObject {
             policy: policy,
             now: now
         )
+
+        // A newer refresh started and already settled while we were suspended.
+        // Its answer is fresher than ours for the PUBLISHED state and the
+        // cache, so discard those effects — but `resolved` is still this
+        // call's own answer, and is handed back regardless.
+        guard generation == refreshGeneration else { return resolved }
+
+        state = resolved
 
         if case .success(let info) = appTransaction {
             ledgerAccountKey = info.ledgerAccountKey
@@ -190,6 +212,7 @@ public final class EntitlementStore: ObservableObject {
         }
 
         scheduleUnconfirmedRetryIfNeeded()
+        return resolved
     }
 
     /// Resolve on behalf of a gate or a status surface, sharing any resolution
@@ -230,21 +253,32 @@ public final class EntitlementStore: ObservableObject {
         return task
     }
 
-    /// Wait for `task`, or `limit` seconds, whichever comes first. The task is
-    /// not cancelled on timeout — only this caller stops waiting for it.
+    /// Wait for `task`, or `limit` seconds, whichever comes first. The shared
+    /// `task` is not cancelled on timeout — only this caller stops waiting for
+    /// it. Cancelling the CALLING task (e.g. a `.task` view modifier whose view
+    /// disappeared) also ends the wait immediately, rather than sitting out
+    /// `limit` for no one — same `withTaskCancellationHandler` + resume-once
+    /// gate shape as `BoundedLivePhotoMetadataLoader`'s `OutcomeGate`.
     private func wait(for task: Task<Void, Never>, upTo limit: TimeInterval) async {
         let sleep = self.sleep
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            let resume = ResumeOnce(continuation)
-            let timer = Task {
-                await sleep(limit)
-                resume()
+        let resume = ResumeOnce()
+        let timer = Task {
+            await sleep(limit)
+            resume()
+        }
+        let waiter = Task {
+            await task.value
+            timer.cancel()
+            resume()
+        }
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                resume.install(continuation)
             }
-            Task {
-                await task.value
-                timer.cancel()
-                resume()
-            }
+        } onCancel: {
+            timer.cancel()
+            waiter.cancel()
+            resume()
         }
     }
 
@@ -307,25 +341,46 @@ public final class EntitlementStore: ObservableObject {
         case .purchased:
             await refresh()
         case .pending:
-            statusMessage = "Your purchase needs approval before it can finish. "
-                + "Chronoframe will unlock automatically once it's approved."
+            setStatusMessageUnlessUnlocked(
+                "Your purchase needs approval before it can finish. "
+                    + "Chronoframe will unlock automatically once it's approved."
+            )
         case .userCancelled:
             break
         case .unverified:
             // The App Store completed this purchase; only local verification
             // failed. Saying "nothing was charged" would be false, and would
             // push someone toward paying a second time.
-            statusMessage = "Chronoframe couldn't verify that purchase on this Mac. "
-                + "Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock."
+            setStatusMessageUnlessUnlocked(
+                "Chronoframe couldn't verify that purchase on this Mac. "
+                    + "Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock."
+            )
         case .productUnavailable:
-            statusMessage = "Chronoframe couldn't load the unlock from the App Store. "
-                + "Check your connection and try again."
+            setStatusMessageUnlessUnlocked(
+                "Chronoframe couldn't load the unlock from the App Store. "
+                    + "Check your connection and try again."
+            )
         case .failed:
             // The diagnostic stays out of the UI by design; raw StoreKit and
             // NSError wording is never shown to the user.
-            statusMessage = "That purchase couldn't be completed. "
-                + "Check your connection and try again, or use Restore Purchases if you've already bought the unlock."
+            setStatusMessageUnlessUnlocked(
+                "That purchase couldn't be completed. "
+                    + "Check your connection and try again, or use Restore Purchases if you've already bought the unlock."
+            )
         }
+    }
+
+    /// Skips setting a pending/failure message if a concurrent, unrelated
+    /// refresh already unlocked the store while `storeKit.purchase(productID:)`
+    /// was in flight — the same rule `refresh()` applies to its own message
+    /// clearing (`if state.isUnlocked { statusMessage = nil }`). Without this,
+    /// an outcome that lost its race with an unrelated unlock (a second
+    /// device's Ask to Buy approval arriving through `Transaction.updates`
+    /// mid-purchase, say) would leave a stale "needs approval" or failure note
+    /// next to an entitlement that is, in fact, already unlocked.
+    private func setStatusMessageUnlessUnlocked(_ message: String) {
+        guard !state.isUnlocked else { return }
+        statusMessage = message
     }
 
     /// Restore. Must only be called from an explicit user action — `sync()` can
@@ -346,9 +401,15 @@ public final class EntitlementStore: ObservableObject {
                 + "Check your connection and try again."
             return
         }
-        await refresh()
+        // Switch on what THIS round trip found, not the published `state`:
+        // `refresh()` is not coalesced across direct callers (see
+        // `resolution`'s doc comment), so an unrelated concurrent refresh can
+        // win the generation tag and leave `state` describing a different
+        // call entirely. See `testRestoreReportsItsOwnOutcomeDespiteA
+        // ConcurrentRefreshRace`.
+        let result = await refresh()
 
-        switch state {
+        switch result {
         case .locked:
             // Said plainly: restore only recovers an existing purchase. It is
             // not a repair path for someone who has never bought the unlock,
@@ -428,17 +489,29 @@ public final class EntitlementStore: ObservableObject {
 }
 
 /// Resumes a continuation exactly once, from whichever of several racing
-/// tasks gets there first.
+/// tasks — or the wait itself being cancelled — gets there first.
 private final class ResumeOnce: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Void, Never>?
+    private var resolved = false
 
-    init(_ continuation: CheckedContinuation<Void, Never>) {
-        self.continuation = continuation
+    /// Installs the continuation to resume later, or resumes it immediately
+    /// if `callAsFunction()` already ran before this was installed (e.g. the
+    /// wait was already cancelled before `withCheckedContinuation` set up).
+    func install(_ continuation: CheckedContinuation<Void, Never>) {
+        lock.lock()
+        if resolved {
+            lock.unlock()
+            continuation.resume()
+        } else {
+            self.continuation = continuation
+            lock.unlock()
+        }
     }
 
     func callAsFunction() {
         lock.lock()
+        resolved = true
         let pending = continuation
         continuation = nil
         lock.unlock()

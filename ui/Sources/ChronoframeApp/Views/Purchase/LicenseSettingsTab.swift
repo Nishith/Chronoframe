@@ -96,11 +96,13 @@ struct LicenseSettingsTab: View {
         }
         .formStyle(.grouped)
         .accessibilityIdentifier("settings.license")
-        .onAppear {
-            // Same as the unlock sheet: a message left by an earlier attempt,
-            // possibly made from the sheet, is not news on opening this pane.
-            entitlementStore.dismissStatusMessage()
-        }
+        // Dismissing a leftover message on `.onAppear` here would also fire on
+        // every return trip to this tab within an already-open Settings window
+        // (SwiftUI recreates a `TabView` tab's content when you switch away and
+        // back), wiping a restore/purchase outcome the customer just produced
+        // before they had a chance to read it twice or act on it. The dismissal
+        // that belongs to "opening this pane fresh" lives once, at the Settings
+        // window level — see `SettingsView`.
         .task {
             // Nothing to resolve off the App Store in an unrestricted channel,
             // and asking would be a StoreKit round-trip for an answer that

@@ -382,6 +382,41 @@ final class EntitlementStoreTests: XCTestCase {
         XCTAssertNotNil(store.statusMessage)
     }
 
+    /// Regression: `purchase()`'s outcome and any concurrent, unrelated
+    /// refresh (the transaction-update observer picking up a different
+    /// already-approved transaction, a background retry, another
+    /// `resolveIfNeeded()` caller) are not coalesced — both call `refresh()`
+    /// independently. If that concurrent refresh unlocks the store WHILE
+    /// `storeKit.purchase(productID:)` is still suspended, the `.pending`
+    /// branch must not paper over the now-current "Unlocked" status with a
+    /// stale "needs approval" note.
+    @MainActor
+    func testPendingOutcomeDoesNotOverwriteAConcurrentUnlock() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.purchaseResult = .pending
+        let appTransaction = FakeAppTransactionClient()
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        storeKit.whilePurchaseSuspended = { [weak storeKit, weak store] in
+            guard let storeKit, let store else { return }
+            // A second, unrelated device's approval lands through
+            // `Transaction.updates` and unlocks the store before this
+            // purchase's own `.pending` outcome comes back.
+            storeKit.ownedResult = .success([
+                OwnedProduct(productID: ChronoframeUnlock.productID, purchaseDate: Date())
+            ])
+            await store.refresh()
+        }
+
+        await store.purchase()
+
+        XCTAssertTrue(store.state.isUnlocked, "Precondition: the concurrent refresh unlocked it")
+        XCTAssertNil(
+            store.statusMessage,
+            "Already unlocked by the time .pending came back; must not show a stale approval note"
+        )
+    }
+
     /// A message must describe the attempt in front of the customer, not an
     /// earlier one. The unlock sheet renders `statusMessage` unconditionally,
     /// so a message that outlived its attempt greets the next sheet with a
@@ -429,6 +464,50 @@ final class EntitlementStoreTests: XCTestCase {
         XCTAssertNil(
             store.statusMessage,
             "An unlocked customer must not be left reading a purchase failure"
+        )
+    }
+
+    /// HIGH regression: `restore()` calls `refresh()` and then picked its
+    /// message from the PUBLISHED `state`. `refresh()` is not coalesced across
+    /// direct callers (see the `resolution` doc comment) — a concurrent,
+    /// unrelated `refresh()` (the background unconfirmed-retry, the
+    /// transaction-update observer, or another `resolveIfNeeded()` caller) can
+    /// enter and finish writing `state` while restore's own `refresh()` is
+    /// still suspended on the network. `refreshGeneration` then discards
+    /// restore's own (correct) answer as "stale", and restore reports the
+    /// OTHER call's state instead of its own. Fixed by having `restore()`
+    /// switch on the value `refresh()` itself returns.
+    @MainActor
+    func testRestoreReportsItsOwnOutcomeDespiteAConcurrentRefreshRace() async {
+        let storeKit = FakeStoreKitClient()
+        let appTransaction = FakeAppTransactionClient() // no legacy transaction
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        // What restore's own sync()+refresh() round trip should find: the
+        // purchase really is there.
+        storeKit.ownedResult = ownedUnlock()
+
+        var hasInterleaved = false
+        storeKit.whileOwnedProductsSuspended = { [weak storeKit, weak store] in
+            guard !hasInterleaved, let storeKit, let store else { return }
+            hasInterleaved = true
+            // A second, unrelated refresh races in and reads DIFFERENT
+            // (stale) data — standing in for a background retry or the
+            // transaction-update observer, neither of which is coalesced
+            // with restore's own direct `refresh()` call. It enters after
+            // restore's own call and so wins the generation tag, but it must
+            // not get to speak for restore's own outcome.
+            storeKit.ownedResult = .success([])
+            await store.refresh()
+        }
+
+        await store.restore()
+
+        XCTAssertNil(
+            store.statusMessage,
+            "Restore's own round trip found the purchase; it must not report " +
+                "\"No previous purchase was found\" because an unrelated concurrent " +
+                "refresh raced it and won the generation tag: \(store.statusMessage ?? "nil")"
         )
     }
 
