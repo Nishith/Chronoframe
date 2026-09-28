@@ -69,6 +69,8 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.setupHeroTitle, "setupHeroTitle")
         XCTAssertEqual(AccessibilityIdentifiers.dedupeDecisionControl, "dedupeDecisionControl")
         XCTAssertEqual(AccessibilityIdentifiers.dedupeMemberStrip, "dedupeMemberStrip")
+        XCTAssertEqual(AccessibilityIdentifiers.trialIndicatorOrganize, "trialIndicator.organize")
+        XCTAssertEqual(AccessibilityIdentifiers.trialIndicatorDedupe, "trialIndicator.dedupe")
         // Parameterized identifiers must keep their prefix shape.
         XCTAssertEqual(AccessibilityIdentifiers.profileName("Meridian Travel"), "profileName-Meridian Travel")
         XCTAssertEqual(AccessibilityIdentifiers.openArtifact("abc"), "openArtifact_abc")

@@ -58,19 +58,12 @@ struct DeduplicateView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            // How much of the duplicate allowance is left (T16). The padding is
-            // inside the conditional so an unlocked customer gets no inset at
-            // all rather than an empty band of it.
-            TrialIndicatorLabel(
-                appState: appState,
-                meter: .dedupe,
-                insets: EdgeInsets(
-                    top: 0,
-                    leading: DesignTokens.Layout.sectionSpacing,
-                    bottom: 8,
-                    trailing: DesignTokens.Layout.sectionSpacing
-                )
-            )
+            // The review screen reserves its own inset: its `.inspector` lays
+            // the review out to the window's bottom edge regardless of an inset
+            // from out here, which drew the counter over the commit buttons.
+            if !isShowingReview {
+                trialIndicator
+            }
         }
         .modifier(DeduplicateNavigationTitle(title: navigationTitle))
         .task {
@@ -102,11 +95,31 @@ struct DeduplicateView: View {
 
     // MARK: - Idle
 
-    private var navigationTitle: String {
+    private var isShowingReview: Bool {
         if case .readyToReview = sessionStore.status, !sessionStore.clusters.isEmpty {
-            return ""
+            return true
         }
-        return "Deduplicate"
+        return false
+    }
+
+    private var navigationTitle: String {
+        isShowingReview ? "" : "Deduplicate"
+    }
+
+    /// How much of the duplicate allowance is left (T16). The padding is inside
+    /// the label's conditional so an unlocked customer gets no inset at all
+    /// rather than an empty band of it.
+    private var trialIndicator: some View {
+        TrialIndicatorLabel(
+            appState: appState,
+            meter: .dedupe,
+            insets: EdgeInsets(
+                top: 0,
+                leading: DesignTokens.Layout.sectionSpacing,
+                bottom: 8,
+                trailing: DesignTokens.Layout.sectionSpacing
+            )
+        )
     }
 
     private var destinationCard: some View {
@@ -343,6 +356,11 @@ struct DeduplicateView: View {
             if focusedClusterID != selection {
                 focusedClusterID = selection
             }
+        }
+        // Inside the inspector, not outside it: `.inspector` ignores a bottom
+        // inset applied around it, so the counter would overlap the footer.
+        .safeAreaInset(edge: .bottom) {
+            trialIndicator
         }
         .inspector(isPresented: $showingComparisonInspector) {
             if let paths = sideBySideComparisonPaths {
