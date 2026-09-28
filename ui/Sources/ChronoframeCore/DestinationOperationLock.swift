@@ -138,8 +138,9 @@ public enum DestinationOperationLock {
             } else if errno == ENOTDIR || errno == ELOOP {
                 // An ancestor of the parent folder — not the parent itself —
                 // is a link or special file, so `lstat` on the parent path
-                // fails too. Still unsafe, not a raw filesystem error.
-                throw DestinationLockUnsafeError(itemName: directoryURL.lastPathComponent)
+                // fails too. Still unsafe, not a raw filesystem error; name
+                // the ancestor at fault, not the folder beneath it.
+                throw DestinationLockUnsafeError(itemName: unsafeAncestorName(of: directoryURL))
             }
             // Anything else that reaches here and is still Foundation's
             // "already exists" error (a TOCTOU race, or a case the checks
@@ -253,6 +254,22 @@ public enum DestinationOperationLock {
         if let diagnostic = readDiagnostic(descriptor: descriptor) { return diagnostic }
         usleep(10_000)
         return readDiagnostic(descriptor: descriptor)
+    }
+
+    /// Nearest ancestor of `directoryURL` that is not a directory (a file, or a
+    /// symlink loop), so the message names the item the user must remove.
+    private static func unsafeAncestorName(of directoryURL: URL) -> String {
+        var ancestor = directoryURL.deletingLastPathComponent()
+        while ancestor.path != "/", !ancestor.path.isEmpty {
+            var status = stat()
+            if stat(ancestor.path, &status) == 0 {
+                if (status.st_mode & S_IFMT) != S_IFDIR { return ancestor.lastPathComponent }
+            } else if errno == ELOOP {
+                return ancestor.lastPathComponent
+            }
+            ancestor = ancestor.deletingLastPathComponent()
+        }
+        return directoryURL.lastPathComponent
     }
 
     private static func readDiagnostic(descriptor: Int32) -> DestinationOperationDiagnostic? {

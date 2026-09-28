@@ -247,7 +247,9 @@ final class DestinationOperationLockTests: XCTestCase {
             surface: "test host",
             operation: "transfer"
         )) { error in
-            XCTAssertTrue(error is DestinationLockUnsafeError, "expected DestinationLockUnsafeError, got \(error)")
+            // The message must name the offending ancestor, not the
+            // non-existent folder beneath it.
+            XCTAssertEqual((error as? DestinationLockUnsafeError)?.itemName, "blocker", "got \(error)")
         }
     }
 
@@ -267,7 +269,7 @@ final class DestinationOperationLockTests: XCTestCase {
             surface: "test host",
             operation: "transfer"
         )) { error in
-            XCTAssertTrue(error is DestinationLockUnsafeError, "expected DestinationLockUnsafeError, got \(error)")
+            XCTAssertEqual((error as? DestinationLockUnsafeError)?.itemName, "loop", "got \(error)")
         }
     }
 
