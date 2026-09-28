@@ -176,6 +176,133 @@ final class PhotosImportStoreTests: XCTestCase {
         XCTAssertEqual(staged.count, 2)
     }
 
+    /// BASH-02: selecting in album A, switching to album B and selecting there
+    /// must export both. Before the fix only B's asset was exported while the
+    /// UI still showed two selected.
+    @MainActor
+    func testSelectionsFromDifferentAlbumsAreAllExported() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let store = makeStore(
+            albums: [album("A", count: 1), album("B", count: 1)],
+            assetsByAlbum: ["A": [asset("a")], "B": [asset("b")]],
+            staging: staging,
+            pageSize: 10
+        )
+        store.loadAlbumsIfAuthorized()
+        store.toggleSelection("a")
+        store.selectAlbum(id: "B")
+        store.toggleSelection("b")
+        XCTAssertEqual(store.selectedCount, 2)
+
+        let context = await store.prepareImport(
+            destination: PhotosImportStore.DestinationCapture(path: "/tmp/dest", bookmarkKeys: [])
+        )
+
+        let unwrapped = try XCTUnwrap(context)
+        XCTAssertEqual(Set(unwrapped.assetIDs), ["a", "b"])
+        XCTAssertEqual(unwrapped.assetIDs.count, store.selectedCount, "Exported set matches the displayed count")
+        let staged = try FileManager.default.contentsOfDirectory(atPath: unwrapped.stagingDirectoryURL.path)
+        XCTAssertEqual(staged.count, 2)
+    }
+
+    @MainActor
+    func testSelectionSurvivesReturningToAnAlbumAndCanBeDeselectedThere() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let store = makeStore(
+            albums: [album("A", count: 1), album("B", count: 1)],
+            assetsByAlbum: ["A": [asset("a")], "B": [asset("b")]],
+            staging: staging,
+            pageSize: 10
+        )
+        store.loadAlbumsIfAuthorized()
+        store.toggleSelection("a")
+        store.selectAlbum(id: "B")
+        store.toggleSelection("b")
+        store.selectAlbum(id: "A")
+        XCTAssertTrue(store.isSelected("a"))
+
+        store.toggleSelection("a")
+
+        XCTAssertEqual(store.selectedCount, 1)
+        let context = await store.prepareImport(
+            destination: PhotosImportStore.DestinationCapture(path: "/tmp/dest", bookmarkKeys: [])
+        )
+        XCTAssertEqual(try XCTUnwrap(context).assetIDs, ["b"])
+    }
+
+    @MainActor
+    func testAssetInTwoAlbumsIsOneSelection() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let store = makeStore(
+            albums: [album("All", count: 1), album("Favorites", count: 1)],
+            assetsByAlbum: ["All": [asset("x")], "Favorites": [asset("x")]],
+            staging: staging,
+            pageSize: 10
+        )
+        store.loadAlbumsIfAuthorized()
+        store.toggleSelection("x")
+        store.selectAlbum(id: "Favorites")
+        XCTAssertTrue(store.isSelected("x"))
+        XCTAssertEqual(store.selectedCount, 1)
+
+        let context = await store.prepareImport(
+            destination: PhotosImportStore.DestinationCapture(path: "/tmp/dest", bookmarkKeys: [])
+        )
+        XCTAssertEqual(try XCTUnwrap(context).assetIDs, ["x"])
+
+        store.toggleSelection("x")
+        XCTAssertEqual(store.selectedCount, 0)
+    }
+
+    @MainActor
+    func testSelectionFromALaterPageIsExportedAfterSwitchingAlbums() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let store = makeStore(
+            albums: [album("A", count: 3), album("B", count: 1)],
+            assetsByAlbum: ["A": [asset("a1"), asset("a2"), asset("a3")], "B": [asset("b")]],
+            staging: staging,
+            pageSize: 2
+        )
+        store.loadAlbumsIfAuthorized()
+        store.toggleSelection("a1")
+        store.loadMoreAssets()
+        store.toggleSelection("a3")
+        store.selectAlbum(id: "B")
+
+        let context = await store.prepareImport(
+            destination: PhotosImportStore.DestinationCapture(path: "/tmp/dest", bookmarkKeys: [])
+        )
+        XCTAssertEqual(Set(try XCTUnwrap(context).assetIDs), ["a1", "a3"])
+    }
+
+    @MainActor
+    func testClearSelectionClearsEveryAlbum() async {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let store = makeStore(
+            albums: [album("A", count: 1), album("B", count: 1)],
+            assetsByAlbum: ["A": [asset("a")], "B": [asset("b")]],
+            staging: staging,
+            pageSize: 10
+        )
+        store.loadAlbumsIfAuthorized()
+        store.toggleSelection("a")
+        store.selectAlbum(id: "B")
+        store.toggleSelection("b")
+
+        store.clearSelection()
+
+        XCTAssertEqual(store.selectedCount, 0)
+        let context = await store.prepareImport(
+            destination: PhotosImportStore.DestinationCapture(path: "/tmp/dest", bookmarkKeys: [])
+        )
+        XCTAssertNil(context)
+    }
+
     @MainActor
     func testPrepareImportWithoutDestinationFails() async {
         let staging = stagingParent()
