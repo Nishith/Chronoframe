@@ -42,7 +42,7 @@ Authoritative current references:
 Required inputs are external to the repository:
 
 - Install a `Developer ID Application` identity.
-- Set `CHRONOFRAME_TEAM_ID`.
+- Set `CHRONOFRAME_DEVELOPMENT_TEAM`.
 - Configure `CHRONOFRAME_NOTARY_PROFILE`.
 - Run the non-local `ui/archive.sh` path.
 - Preserve notarization submission/result, stapling validation, Gatekeeper

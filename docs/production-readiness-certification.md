@@ -67,7 +67,7 @@ This report intentionally distinguishes implementation evidence from environment
 | Gate | Status | Evidence / blocker |
 |---|---|---|
 | Developer ID identity available | BLOCKED | Keychain contains Apple Development and Apple Distribution identities, but no `Developer ID Application` identity required by the Developer ID archive flow |
-| Team ID configured | BLOCKED | `CHRONOFRAME_TEAM_ID` is unset |
+| Team ID configured | BLOCKED | `CHRONOFRAME_DEVELOPMENT_TEAM` is unset |
 | Notary profile configured | BLOCKED | `CHRONOFRAME_NOTARY_PROFILE` is unset |
 | Hardened-runtime archive | PENDING | `ui/archive.sh` after credentials are installed |
 | Notarization accepted | PENDING | Preserve `notarytool` submission ID and result |
