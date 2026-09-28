@@ -9,26 +9,25 @@
   <link rel="canonical" href="https://chronoframe.app/support.html" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20260523-f" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260523-f" />
-  <link rel="stylesheet" href="styles.css?v=20260719" />
+  <link rel="stylesheet" href="styles.css?v=20260928" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-nav">
     <div class="container">
-      <a class="brand" href="index.html"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+      <a class="brand" href="index.html" aria-label="Chronoframe home"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
       <nav class="nav-links" aria-label="Primary">
-        <a href="index.html">Home</a>
         <a href="features.html">How it works</a>
         <a href="safety.html">Safety</a>
-        <a href="privacy.html">Privacy</a>
         <a href="faq.html">FAQ</a>
         <a href="support.html" aria-current="page">Support</a>
       </nav>
+      <a class="nav-download" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">Try free</a>
     </div>
   </header>
 
-  <main id="main">
+  <main id="main" tabindex="-1">
     <section class="page-head">
       <div class="container">
         <a class="back" href="index.html">&larr; Back to Chronoframe</a>
@@ -57,15 +56,23 @@
             <li>Click <strong>Move to Trash</strong> only after the plan looks right. Selected duplicates move to the macOS Trash.</li>
           </ul>
 
+          <h2 id="purchases">Trial and purchase help</h2>
+          <p>The free allowance covers 500 files organized and 100 duplicate files moved to Trash, with no time limit. Preview and review remain available after the allowance is used. Revert never requires a purchase.</p>
+          <p>If you already purchased the paid app or lifetime unlock, use the same Apple Account and choose <strong>Restore Purchases</strong> in Settings. Don’t buy again to troubleshoot missing access. Store verification may need an internet connection; if restoring still fails, contact support with the message shown.</p>
+          <h3>Import from Apple Photos</h3>
+          <p>Open <strong>Photos</strong>, authorize access, select your photos and videos, and choose <strong>Review &amp; Import</strong>. Chronoframe imports unedited originals, not your edited versions. Keep enough local disk space for temporary exports as well as the destination copies; iCloud-only originals need a network connection.</p>
+          <h3>Watch a regular source</h3>
+          <p>Add the folder under <strong>Organize &rarr; Sources</strong>. Keep Chronoframe running to monitor arrivals. The count is an estimate, and each import still needs your review and approval.</p>
+
           <h2>Frequently asked questions</h2>
 
           <div class="qa">
             <p class="q">Will Chronoframe delete or modify my original photos?</p>
-            <p class="a">No. Chronoframe only reads your source folder. Your originals are never moved, modified, or deleted. You control when, and whether, to delete the source folder yourself.</p>
+            <p class="a">Organize only reads your source folder and copies into a separate destination. Deduplicate is a separate action that moves approved files in the folder you scan to Trash. Apple Photos import only reads your Photos library.</p>
           </div>
           <div class="qa">
             <p class="q">What can I undo?</p>
-            <p class="a">Open <strong>Organize &rarr; History</strong> to undo supported transfers, dedupe commits, and reorganize runs. Chronoframe acts only when each file still matches its receipt, so it won't touch files that already existed or were changed afterward.</p>
+            <p class="a">Open <strong>Organize &rarr; History</strong> to undo supported transfers, dedupe commits, and reorganize runs. Chronoframe acts only when each file still matches its receipt, so it won't touch files that already existed or were changed afterward. Dedupe restore also requires the recorded items to remain in Trash with matching contents; it cannot recover emptied Trash.</p>
           </div>
           <div class="qa">
             <p class="q">What happens after an interrupted run?</p>
@@ -148,31 +155,17 @@
     <div class="container">
       <div class="footer-top">
         <div class="footer-cta">
-          <h2>Get Chronoframe</h2>
-          <p>Organize and deduplicate your photo library on macOS, safely. One-time purchase.</p>
-          <a class="appstore-badge" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-            <span class="badge-text"><span class="badge-small">Download on the</span><span class="badge-large">Mac App Store</span></span>
-          </a>
+          <a class="brand" href="index.html"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+          <p>A little order for a lifetime of memories.<br />Made for Mac by Nishith Nand.</p>
         </div>
         <nav class="footer-nav" aria-label="Footer">
-          <a href="index.html">Home</a>
-          <a href="privacy.html">Privacy</a>
-          <a href="features.html">Features</a>
-          <a href="support.html">Support</a>
-          <a href="safety.html">Safety</a>
-          <a href="mailto:support@chronoframe.app">Contact</a>
-          <a href="faq.html">FAQ</a>
+          <a href="features.html">How it works</a><a href="safety.html">Safety &amp; recovery</a>
+          <a href="index.html#demo">Watch the demo</a><a href="privacy.html">Privacy</a>
+          <a href="faq.html">FAQ</a><a href="support.html">Support</a>
+          <a href="index.html#download">Try Chronoframe free</a><a href="mailto:support@chronoframe.app">Contact the maker</a>
         </nav>
       </div>
-      <div class="footer-bottom">
-        <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
-        <div class="footer-links">
-          <a href="privacy.html">Privacy Policy</a>
-          <a href="support.html">Support</a>
-          <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>
-        </div>
-      </div>
+      <div class="footer-bottom"><span>&copy; 2026 Nishith Nand</span><span>On your Mac. Under your control.</span></div>
     </div>
   </footer>
 </body>
