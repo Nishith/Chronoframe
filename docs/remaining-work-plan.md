@@ -1,6 +1,6 @@
 # Chronoframe Remaining Production-Readiness Work
 
-Status date: 2026-06-20
+Status date: 2026-06-20 (release scope for version 2.0 revised 2026-09-28)
 
 This is the current follow-up plan after PR #160. The earlier review-remediation
 plan described destination locking, immutable dedupe plans, quarantine,
@@ -35,7 +35,79 @@ Authoritative current references:
 - Hosted CI green at implementation commit `80ff492`; hosted CodeQL is tracked
   separately in the certification report until it completes.
 
-## Mandatory Release Gates Still Open
+## Version 2.0 Release Scope (revised 2026-09-28)
+
+After the September 2026 release bug bash, the owner set the scope for version
+2.0: **one developer, Mac App Store distribution only.** The four June gates
+below were written for a broader, team-staffed release. For 2.0 they apply as
+follows. Their original text is kept below as a record; nothing in it is
+relabelled PASS.
+
+| June gate | Status for 2.0 |
+|---|---|
+| 1. Developer ID distribution | **Out of scope.** 2.0 ships only through the Mac App Store. Revisit if a direct-download build is planned. |
+| 2. Signed App Sandbox matrix | **Replaced** by the focused manual session below, run on a signed TestFlight build. |
+| 3. 100,000-file / 1-TB certification | **Deferred**, with the eight-hour soak. Replaced by the realistic performance check below. Do not advertise certified performance at the 100,000-file / 1-TB scale. |
+| 4. Human sign-off | **Removed.** The owner records one Go decision (below). |
+
+A concrete safety failure is never deferred by this revision. A failing
+migration or a wrong-file deletion still blocks the release.
+
+### What blocks 2.0
+
+A credible unresolved risk of corrupting or deleting the wrong files; broken
+copy, verification or recovery; an unusable core workflow; broken App Store
+installation, purchase or access; or a new, unexplained safety-test failure.
+Cosmetic defects, untested hardware combinations and small performance changes
+do not block on their own; record them.
+
+### Automated baseline (on the final merged commit)
+
+- `script/run_swift_test_suites.sh`, the invariant, app-layer, Photos
+  read-only, StoreKit and other CI guards, `script/swift_meaningful_coverage.sh`
+  and `git diff --check`.
+- The full UI suite and the accessibility audit. Record narrow exceptions with
+  evidence rather than disabling checks.
+- A Mac App Store Release build from clean tracked source with the 2.0 version
+  and an explicit build number; confirm architectures, minimum macOS and
+  sandbox entitlements.
+- Hosted CI and CodeQL on the final commit.
+
+### Focused manual session (signed TestFlight build)
+
+The ad hoc QA build cannot prove bookmark or StoreKit behaviour, so these run on
+TestFlight with the real bundle identity.
+
+| Check | Pass condition |
+|---|---|
+| Fresh install and persistence | Correct version shown; folders and preferences survive relaunch; unavailable folders explain what to do. |
+| Copy, repeat, revert | Source hashes unchanged; copies match; nothing overwritten; a repeat copies nothing new; revert removes only matching copies. |
+| Dedupe and restore | Exactly the reviewed files go to the Trash; kept pair halves and sidecars survive; restored bytes match. |
+| Interrupt and recover | Force quit mid-run, relaunch and recover twice: sources untouched, honest partial result, retry is idempotent. |
+| Upgrade from 1.x | Settings, folder access and existing receipts still work after upgrading from the current public version. |
+| Photos and watched batch | Cross-album import matches the review; the Photos library is untouched; a one-file watched batch leaves the other file pending. |
+| StoreKit (sandbox) | Existing paid user keeps access; new user gets the free allowance; purchase, restore, cancellation, offline relaunch and an exhausted allowance behave; revert works without unlocking. |
+| Usability | Small window, light and dark, keyboard and VoiceOver through preview, review, confirmation and recovery. |
+| External drive (if advertised) | One real drive: organize, disconnect and reconnect, bookmark restore. Record the drive and format tested and what was not. |
+
+### Realistic performance check
+
+Repeat the 1,000-file regression on an idle Mac, and run a representative
+mixed-media library of roughly 10,000 files (record the real count and bytes):
+cold/warm correctness, memory and cancellation. Block on corruption, hangs,
+unbounded memory or unusable cancellation, not on modest latency.
+
+### Go decision
+
+The owner records, for the exact candidate: commit, version/build and archive
+identity; the checks passed, with links to evidence; accepted residual risks
+with impact and workaround; the decision and its date.
+
+Before the price drops to free, `ChronoframeUnlock.grandfatherCutover` must be
+set to the scheduled price-change moment (see `docs/free-trial-plan.md` T21 and
+`docs/APP_STORE_RELEASE.md`).
+
+## Original June 2026 Release Gates (superseded for 2.0)
 
 ### 1. Developer ID Distribution
 
