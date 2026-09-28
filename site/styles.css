@@ -206,7 +206,7 @@ figure.shot {
 }
 figure.shot img {
   display: block; width: 100%; height: auto;
-  aspect-ratio: 16 / 10; object-fit: cover;
+  aspect-ratio: 16 / 9; object-fit: contain;
   background: var(--elevated);
   border-bottom: 1px solid var(--hairline);
 }
@@ -226,7 +226,7 @@ figure.shot figcaption strong { color: var(--ink-primary); display: block; margi
 }
 .pitch img {
   display: block; width: 100%; height: auto;
-  aspect-ratio: 16 / 10; object-fit: cover;
+  aspect-ratio: 16 / 9; object-fit: contain;
   background: var(--elevated);
   border-bottom: 1px solid var(--hairline);
 }
@@ -512,3 +512,8 @@ button { font: inherit; }
 .purchase-card .unlock-note { font-size: 15px; line-height: 1.6; }
 .unlock-note strong { color: var(--ink-primary); }
 @media (max-width: 720px) { .feature-notes { grid-template-columns: 1fr; gap: 28px; } }
+
+/* Product captures retain the complete app window, including the footer controls. */
+.screenshot-link { display: block; }
+.screenshot-link:focus-visible { outline-offset: -4px; }
+.step-row.step-row-text { display: block; max-width: 72ch; border-left: 2px solid var(--hairline-strong); padding-left: 24px; }

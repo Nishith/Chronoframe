@@ -178,3 +178,22 @@ describes the visual actions because there is no spoken narration.
 
 The website changes are reviewable independently of the ongoing app/release work.
 Publishing still happens through the repository’s existing main → GitHub Pages workflow.
+
+
+## Screenshot correction after owner review
+
+The initial website pass retained the seven older light-interface product images.
+That was a review miss: the newer video and release copy made the mismatch more visible.
+The five active illustrated workflows now use the approved September marketing captures,
+with source digests in `site/assets/screenshots/provenance.json`. These are existing
+captures, not freshly recorded final-trial-build screens. Setup was compared with the
+September 27 local development build. The old Health and detection-setup illustrations
+were removed from the page while retaining their explanations.
+
+Image descriptions now match the actual 4,000-file demo and sandboarding comparison.
+New filenames prevent the browser from reusing old image caches. The former cover
+sizing cropped controls at different aspect ratios; contain sizing preserves the whole
+window, and linked images allow full-resolution inspection. Trial counts are described
+in text, not painted onto screenshots. The page identifies the full-access demo context.
+
+![Refreshed product screenshots](site-review/15-refreshed-product-screens.png)
