@@ -61,6 +61,12 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.dedupeAcceptClusterSuggestionButton, "dedupeAcceptClusterSuggestionButton")
         XCTAssertEqual(AccessibilityIdentifiers.dedupeAcceptAllSuggestionsButton, "dedupeAcceptAllSuggestionsButton")
         XCTAssertEqual(AccessibilityIdentifiers.dedupeCommitButton, "dedupeCommitButton")
+        // Set on SetupHeroSection's DetailHeroCard title so the accessibility
+        // audit can tell it apart from the identically-worded
+        // `.navigationTitle("Setup")` toolbar title (BASH-06 follow-up); the
+        // literal is also asserted directly in ChronoframeUITests.swift's
+        // testSetupHeroCardTitleIsNotBypassedAsToolbarTitleFalsePositive.
+        XCTAssertEqual(AccessibilityIdentifiers.setupHeroTitle, "setupHeroTitle")
         // Parameterized identifiers must keep their prefix shape.
         XCTAssertEqual(AccessibilityIdentifiers.profileName("Meridian Travel"), "profileName-Meridian Travel")
         XCTAssertEqual(AccessibilityIdentifiers.openArtifact("abc"), "openArtifact_abc")
