@@ -1002,6 +1002,14 @@ final class ChronoframeUITests: XCTestCase {
                     footer.frame.minY + 1,
                     "Review actions must not overlap the commit footer for \(scenario.rawValue)"
                 )
+                // The frame check above allows 5pt of slack; Accept & Next sat
+                // flush against the window edge with its corner cut off while
+                // passing it. Require the button to clear the edge.
+                XCTAssertLessThanOrEqual(
+                    acceptCluster.frame.maxX,
+                    window.frame.maxX - 4,
+                    "Accept & Next \(acceptCluster.frame) must clear the window edge \(window.frame) for \(scenario.rawValue)"
+                )
 
                 // BASH-08: the Keep/Delete choice must be reachable in its own
                 // region — not drawn over the group list or hidden behind the

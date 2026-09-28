@@ -397,6 +397,10 @@ struct DeduplicateView: View {
                 reviewClusterDetail
                     .frame(minWidth: DesignTokens.DeduplicateLayout.detailMinWidth)
             }
+            // Left to size itself, the AppKit split view came out ~15pt wider
+            // than the window, clipping the detail pane's right edge (the
+            // metadata card and Accept & Next).
+            .frame(width: availableSize.width)
         case .compact:
             VStack(spacing: 0) {
                 reviewClusterList
