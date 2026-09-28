@@ -98,7 +98,7 @@ jobs:
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
-      - uses: github/codeql-action/init@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: steps.detect.outputs.analyze == 'true'
         with:
           languages: swift
@@ -112,7 +112,7 @@ jobs:
           CLANG_MODULE_CACHE_PATH="$RUNNER_TEMP/modulecache" \
           SWIFTPM_MODULECACHE_OVERRIDE="$RUNNER_TEMP/modulecache" \
             swift build --package-path ui --product ChronoframeApp --arch arm64 --disable-index-store
-      - uses: github/codeql-action/analyze@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: steps.detect.outputs.analyze == 'true'
         with:
           category: "/language:swift"
