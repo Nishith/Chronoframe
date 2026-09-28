@@ -758,7 +758,7 @@ final class ChronoframeUITests: XCTestCase {
             // The selection drawer opens below the timeline, which can sit at
             // the bottom of the window; scroll it into view as a user would.
             XCTAssertTrue(
-                Self.scrollIntoView(clearButton, identifier: "ClearTimelineSelectionButton", in: app),
+                Self.scrollIntoView(clearButton, in: app),
                 "Clear Selection button should be scrollable into view"
             )
             Self.coordinateClick(clearButton)
@@ -1505,20 +1505,28 @@ final class ChronoframeUITests: XCTestCase {
     /// clipped by the window edge still reports hittable while its centre,
     /// where `coordinateClick` lands, is outside the window.
     @MainActor
-    private static func scrollIntoView(_ element: XCUIElement, identifier: String, in app: XCUIApplication) -> Bool {
+    private static func scrollIntoView(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
         let window = app.windows.firstMatch
-        let scrollView = app.scrollViews.containing(.button, identifier: identifier).firstMatch
+        let scrollView = app.scrollViews.containing(.button, identifier: element.identifier).firstMatch
         func isFullyVisible() -> Bool { window.frame.contains(element.frame) }
         if isFullyVisible() { return true }
 
         // Scroll toward the element first: a negative delta reveals content
-        // below the fold, a positive delta reveals content above it. Fall
-        // back to the other direction in case the first guess overshoots.
+        // below the fold, a positive delta reveals content above it. Keep
+        // scrolling that direction as long as it keeps moving the element
+        // (so a correct guess that simply needs more iterations isn't cut
+        // off), and only fall back to the other direction once the scroll
+        // view stops responding (its frame stops changing), which signals
+        // the guess was wrong rather than merely slow.
         let towardDeltaY: CGFloat = element.frame.midY > window.frame.maxY ? -120 : 120
         for deltaY in [towardDeltaY, -towardDeltaY] {
-            for _ in 0..<8 {
+            var previousFrame = element.frame
+            for _ in 0..<20 {
                 if isFullyVisible() { return true }
                 scrollView.scroll(byDeltaX: 0, deltaY: deltaY)
+                let currentFrame = element.frame
+                if currentFrame == previousFrame { break }
+                previousFrame = currentFrame
             }
         }
         return isFullyVisible()
