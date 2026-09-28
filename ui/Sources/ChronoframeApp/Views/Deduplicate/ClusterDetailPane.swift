@@ -707,12 +707,16 @@ struct ClusterDetailPane: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
+                    // The banner sits on the image stage, which is dark in
+                    // both appearances; the default and ink colours turn dark
+                    // in light mode and fail contrast there.
                     Text(DeduplicateAccessibilityText.intentionallyDifferentNote(cluster))
                         .scaledFont(.label, weight: .semibold)
+                        .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                     ForEach(Array(annotation.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(MatchReasonFormatter.warningSummary(warning))
                             .scaledFont(.label)
-                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                            .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                     }
                 }
                 Spacer()
