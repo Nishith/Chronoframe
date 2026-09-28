@@ -130,6 +130,11 @@ public final class OrganizerDatabase: @unchecked Sendable {
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
+            // The cache lives in a user-selected destination: never create
+            // tables inside a file some link or hard link points at.
+            // (SQLITE_OPEN_NOFOLLOW is not used: it rejects a link in any
+            // path component, including /var -> /private/var.)
+            try DestinationMetadataFile.requireRegularFileIfPresent(at: url)
         }
 
         let flags = readOnly

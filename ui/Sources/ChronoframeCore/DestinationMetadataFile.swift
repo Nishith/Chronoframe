@@ -58,4 +58,23 @@ public enum DestinationMetadataFile {
         }
         return FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
     }
+
+    /// For files another library opens by path (SQLite): if anything already
+    /// exists at `url`, it must be a regular file with no other hard links.
+    /// A missing file is fine; the caller creates it.
+    public static func requireRegularFileIfPresent(at url: URL) throws {
+        var status = stat()
+        guard lstat(url.path, &status) == 0 else {
+            let statError = errno
+            if statError == ENOENT { return }
+            throw NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(statError),
+                userInfo: [NSFilePathErrorKey: url.path]
+            )
+        }
+        guard (status.st_mode & S_IFMT) == S_IFREG, status.st_nlink <= 1 else {
+            throw DestinationMetadataUnsafeError(itemName: url.lastPathComponent)
+        }
+    }
 }
