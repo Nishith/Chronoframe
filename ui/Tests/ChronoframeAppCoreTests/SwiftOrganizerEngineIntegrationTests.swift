@@ -141,6 +141,39 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
     }
 
     @MainActor
+    func testStartPreviewRefusesDanglingSymlinkAtRunLogAndCreatesNothingThroughIt() async throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        try Data("alpha".utf8).write(to: sourceURL.appendingPathComponent("IMG_20240102_101010.jpg"))
+
+        // A dangling link reads as "missing" to fileExists, so a create-if-absent
+        // write would materialize a file at the link's target.
+        let plantedTarget = temporaryDirectoryURL.appendingPathComponent("planted-target.txt")
+        try FileManager.default.createSymbolicLink(
+            at: destinationURL.appendingPathComponent(".organize_log.txt"),
+            withDestinationURL: plantedTarget
+        )
+
+        let stream = try makeEngine().start(
+            RunConfiguration(mode: .preview, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        )
+
+        do {
+            _ = try await Self.collect(stream)
+            XCTFail("Preview must refuse a link where the run log belongs")
+        } catch {
+            XCTAssertEqual(
+                error as? DestinationMetadataUnsafeError,
+                DestinationMetadataUnsafeError(itemName: ".organize_log.txt")
+            )
+        }
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: plantedTarget.path))
+    }
+
+    @MainActor
     func testStartPreviewSurfacesCrowdedGreenfieldDayAsInfo() async throws {
         let sourceURL = temporaryDirectoryURL.appendingPathComponent("crowded-source", isDirectory: true)
         let destinationURL = temporaryDirectoryURL.appendingPathComponent("crowded-dest", isDirectory: true)
