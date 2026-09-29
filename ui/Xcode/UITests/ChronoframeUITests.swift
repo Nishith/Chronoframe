@@ -1011,6 +1011,12 @@ final class ChronoframeUITests: XCTestCase {
                 // safety warnings, so this also exercises the warning banner:
                 // it must not squeeze the scroll view holding Keep/Delete down
                 // to nothing at the compact size.
+                // Fails loudly if the fixture's warning cluster stops being the
+                // focused one, so the banner path can't be skipped silently.
+                XCTAssertTrue(
+                    app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "These photos may be intentionally different")).firstMatch.exists,
+                    "The focused cluster should show its warning banner for \(scenario.rawValue)"
+                )
                 let decision = Self.element(identifier: "dedupeDecisionControl", in: app)
                 let strip = Self.element(identifier: "dedupeMemberStrip", in: app)
                 XCTAssertTrue(decision.waitForExistence(timeout: 5), "Keep/Delete should render for \(scenario.rawValue)")

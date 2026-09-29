@@ -186,15 +186,19 @@ struct ClusterDetailPane: View {
 
     private func detailContentCompact(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
         scrollableWhenConstrained {
-            VStack(spacing: DesignTokens.Spacing.md) {
+            VStack(spacing: 0) {
+                // The banner carries its own gutters, so it sits outside the
+                // padded stack to stay aligned with the wide layout.
                 warningBanner(for: cluster)
-                preview(for: focused, cluster: cluster)
-                    .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
-                if let focused {
-                    metadataPanel(for: focused, cluster: cluster)
+                VStack(spacing: DesignTokens.Spacing.md) {
+                    preview(for: focused, cluster: cluster)
+                        .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
+                    if let focused {
+                        metadataPanel(for: focused, cluster: cluster)
+                    }
                 }
+                .padding(DesignTokens.Spacing.md)
             }
-            .padding(DesignTokens.Spacing.md)
         }
     }
 
