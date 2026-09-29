@@ -277,7 +277,7 @@ As of 2026-06-20:
 - PR #160 (`codex/production-readiness-remediation`) implements destination locking, immutable content-verified dedupe plans, quarantine verification, durable organize/dedupe/reorganize recovery, and bounded Live Photo metadata work.
 - Implementation commit `80ff492` passed hosted CI run `27896063597`, including SwiftPM, meaningful coverage, Xcode build, UI tests, accessibility audit, release archive smoke, and all repository guards.
 - Hosted CodeQL for that implementation commit was still in progress when the certification documentation was refreshed; check the current PR status before claiming it passed.
-- The release remains blocked on Developer ID/notarization credentials, the signed sandbox/external-volume matrix, the real 100,000-file / 1-TB benchmark, and final human sign-off. The video calibration gate passed on the local labeled corpus, with larger-negative-set follow-up recommended for stronger threshold confidence.
+- For version 2.0 (owner decision 2026-09-28: Mac App Store only) the Developer ID, signed-matrix, 1-TB and human sign-off gates are out of scope, replaced or deferred per `docs/remaining-work-plan.md` "Version 2.0 Release Scope"; 2.0 needs the owner's Go record instead. As of 2026-06-20 the full June release remained blocked on Developer ID/notarization credentials, the signed sandbox/external-volume matrix, the real 100,000-file / 1-TB benchmark, and final human sign-off. The video calibration gate passed on the local labeled corpus, with larger-negative-set follow-up recommended for stronger threshold confidence.
 
 Verify freshness before relying on these details for a new CI/debugging or release task.
 
