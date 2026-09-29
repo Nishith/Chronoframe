@@ -57,6 +57,7 @@ final class OrganizerDatabaseLinkTests: XCTestCase {
         }
     }
 
+    // AGENTS-INVARIANT: 26
     func testSymlinkToAnotherDatabaseIsRejectedAndThatDatabaseIsUntouched() throws {
         let destination = try makeDirectory()
         let other = try makeOtherDatabase(in: try makeDirectory())
@@ -78,6 +79,7 @@ final class OrganizerDatabaseLinkTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: empty).count, 0)
     }
 
+    // AGENTS-INVARIANT: 26
     func testHardLinkToAnotherDatabaseIsRejectedAndThatDatabaseIsUntouched() throws {
         let destination = try makeDirectory()
         let other = try makeOtherDatabase(in: destination)
