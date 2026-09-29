@@ -46,7 +46,7 @@ If the issue persists, [report it on GitHub](https://github.com/Nishith/Chronofr
 - Check the **Console** tab in the Run workspace to see progress.
 - If it's frozen (no progress for several minutes), force-quit and try again.
 - **To speed up future previews:**
-  - Open **Settings → Performance** and pick a faster preset or raise the worker-thread count
+  - Open **Settings → Performance** and raise the worker-thread count (the presets only switch parallel copying and reset workers to 8, so they don't speed up a preview)
   - Filter your source folder to smaller batches
   - Keep your library on a local SSD rather than a network drive
 

@@ -150,63 +150,58 @@ private struct GeneralSettingsTab: View {
     }
 }
 
-private enum SafetyPerformancePreset: String, CaseIterable, Identifiable {
-    case safest
-    case balanced
-    case fastRepeat
+/// One-click throughput settings. Each preset sets exact values, so a preset
+/// shows as selected only when every setting it controls matches; anything
+/// else is Custom. Standard is the app's default configuration, and both
+/// presets keep copy verification on.
+enum SafetyPerformancePreset: String, CaseIterable, Identifiable {
+    case standard
+    case oneAtATime
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .safest:
-            return "Safest"
-        case .balanced:
-            return "Balanced"
-        case .fastRepeat:
-            return "Fast Repeat Runs"
+        case .standard:
+            return "Standard"
+        case .oneAtATime:
+            return "One at a Time"
         }
     }
 
     var summary: String {
         switch self {
-        case .safest:
-            return "Verification on, full destination scan, serial transfer."
-        case .balanced:
-            return "Verification on with cached destination scanning."
-        case .fastRepeat:
-            return "Cached scanning and parallel transfer for familiar destinations."
+        case .standard:
+            return "Verified copies, several files at once, \(workerCount) worker threads."
+        case .oneAtATime:
+            return "Verified copies, one file at a time, \(workerCount) worker threads."
         }
+    }
+
+    var workerCount: Int { 8 }
+
+    var parallelTransferEnabled: Bool {
+        self == .standard
     }
 
     @MainActor
     func apply(to preferencesStore: PreferencesStore) {
-        switch self {
-        case .safest:
-            preferencesStore.verifyCopies = true
-            preferencesStore.parallelTransferEnabled = false
-            preferencesStore.workerCount = min(preferencesStore.workerCount, 8)
-        case .balanced:
-            preferencesStore.verifyCopies = true
-            preferencesStore.parallelTransferEnabled = false
-            preferencesStore.workerCount = max(4, min(preferencesStore.workerCount, 12))
-        case .fastRepeat:
-            preferencesStore.verifyCopies = true
-            preferencesStore.parallelTransferEnabled = true
-            preferencesStore.workerCount = max(preferencesStore.workerCount, 12)
-        }
+        preferencesStore.verifyCopies = true
+        preferencesStore.parallelTransferEnabled = parallelTransferEnabled
+        preferencesStore.workerCount = workerCount
     }
 
-    /// Returns the best-matching preset for the current preferences.
-    /// Uses `parallelTransferEnabled` as the primary discriminator (it
-    /// is mutually exclusive between fastRepeat and the other two), then
-    /// `workerCount` to choose between safest and balanced.
     @MainActor
-    static func bestMatch(for preferencesStore: PreferencesStore) -> SafetyPerformancePreset {
-        if preferencesStore.parallelTransferEnabled {
-            return .fastRepeat
-        }
-        return preferencesStore.workerCount <= 8 ? .safest : .balanced
+    func matches(_ preferencesStore: PreferencesStore) -> Bool {
+        preferencesStore.verifyCopies
+            && preferencesStore.parallelTransferEnabled == parallelTransferEnabled
+            && preferencesStore.workerCount == workerCount
+    }
+
+    /// The preset the current settings match exactly, or nil for Custom.
+    @MainActor
+    static func matching(_ preferencesStore: PreferencesStore) -> SafetyPerformancePreset? {
+        allCases.first { $0.matches(preferencesStore) }
     }
 }
 
@@ -216,29 +211,21 @@ private struct PerformanceSettingsTab: View {
     var body: some View {
         Form {
             Section {
+                let activePreset = SafetyPerformancePreset.matching(preferencesStore)
                 ForEach(SafetyPerformancePreset.allCases) { preset in
-                    let isActive = SafetyPerformancePreset.bestMatch(for: preferencesStore) == preset
                     Button {
                         preset.apply(to: preferencesStore)
                     } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(preset.title)
-                                Text(preset.summary)
-                                    .font(.callout)
-                                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                            }
-                            Spacer()
-                            if isActive {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(DesignTokens.ColorSystem.accentAction)
-                            } else {
-                                Image(systemName: "circle")
-                                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.4))
-                            }
-                        }
+                        presetRow(title: preset.title, summary: preset.summary, isActive: activePreset == preset)
                     }
                     .buttonStyle(.plain)
+                }
+                if activePreset == nil {
+                    presetRow(
+                        title: "Custom",
+                        summary: "The settings below don't match a preset.",
+                        isActive: true
+                    )
                 }
             } header: {
                 Text("Presets")
@@ -286,6 +273,27 @@ private struct PerformanceSettingsTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+private extension PerformanceSettingsTab {
+    func presetRow(title: String, summary: String, isActive: Bool) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(summary)
+                    .font(.callout)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+            }
+            Spacer()
+            if isActive {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(DesignTokens.ColorSystem.accentAction)
+            } else {
+                Image(systemName: "circle")
+                    .foregroundStyle(DesignTokens.ColorSystem.inkMuted.opacity(0.4))
+            }
+        }
     }
 }
 
