@@ -15,12 +15,36 @@ mkdir -p "$XDG_CACHE_HOME" "$CLANG_MODULE_CACHE_PATH"
 script/run_swift_test_suites.sh --coverage
 rm -f ui/default.profraw
 
-CODECOV_DIR="$(find ui/.build -type d -path '*/debug/codecov' -print -quit)"
-TEST_BINARY="$(
-    find ui/.build -type f \
-        -path '*/debug/ChronoframeUIPackageTests.xctest/Contents/MacOS/ChronoframeUIPackageTests' \
-        -print -quit
+# `-ipath`: the older SwiftPM build layout (CI's Swift 6.0.3) writes to
+# `.build/<triple>/debug/`, the newer one (Swift 6.4+) to
+# `.build/out/Products/Debug/`.
+# If a toolchain upgrade left a stale layout's tree behind, use the one the
+# test run just wrote (newest), and look for test bundles only beside it.
+CODECOV_DIR="$(
+    find ui/.build -type d -ipath '*/debug/codecov' -exec stat -f '%m %N' {} + 2>/dev/null \
+        | sort -rn | head -n 1 | cut -d' ' -f2-
 )"
+TEST_BINARY=""
+if [[ -n "$CODECOV_DIR" ]]; then
+    PRODUCTS_DIR="$(dirname "$CODECOV_DIR")"
+    TEST_BINARY="$(
+        find "$PRODUCTS_DIR" -maxdepth 4 -type f \
+            -path '*/ChronoframeUIPackageTests.xctest/Contents/MacOS/ChronoframeUIPackageTests' \
+            -print -quit
+    )"
+fi
+# The newer layout builds one test bundle per test target instead of a single
+# package bundle; hand llvm-cov every bundle so all instrumented code is seen.
+EXTRA_OBJECTS=()
+if [[ -z "$TEST_BINARY" && -n "$CODECOV_DIR" ]]; then
+    while IFS= read -r binary; do
+        if [[ -z "$TEST_BINARY" ]]; then
+            TEST_BINARY="$binary"
+        else
+            EXTRA_OBJECTS+=(-object "$binary")
+        fi
+    done < <(find "$PRODUCTS_DIR" -maxdepth 4 -type f -path '*.xctest/Contents/MacOS/*' | sort)
+fi
 
 if [[ -z "$CODECOV_DIR" || -z "$TEST_BINARY" ]]; then
     echo "SwiftPM coverage artifacts were not created." >&2
@@ -30,7 +54,7 @@ fi
 PROFDATA_PATH="$CODECOV_DIR/default.profdata"
 CODECOV_PATH="$CODECOV_DIR/ChronoframeUI.json"
 xcrun llvm-profdata merge -sparse "$CODECOV_DIR"/*.profraw -o "$PROFDATA_PATH"
-xcrun llvm-cov export "$TEST_BINARY" \
+xcrun llvm-cov export "$TEST_BINARY" ${EXTRA_OBJECTS[@]+"${EXTRA_OBJECTS[@]}"} \
     -instr-profile="$PROFDATA_PATH" > "$CODECOV_PATH"
 
 if [[ ! -f "$CODECOV_PATH" ]]; then
