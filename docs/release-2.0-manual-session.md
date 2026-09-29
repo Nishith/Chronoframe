@@ -3,8 +3,8 @@
 Date: 2026-09-28. Scope and pass conditions: `docs/remaining-work-plan.md` § "Version 2.0 Release
 Scope".
 
-**What was tested.** A pre-merge integration of every open 2.0 pull request (#217–#234, #212,
-#226, plus version 2.0) on top of `main` at `d363818`, integration commit `b296eb8` (not pushed).
+**What was tested.** A pre-merge integration of every open 2.0 pull request (#217–#234, including #226,
+plus #212 and version 2.0) on top of `main` at `d363818`, integration commit `b296eb8` (not pushed).
 Mac App Store flavour (`MAS_BUILD`), Release configuration, ad-hoc signed with the shipping sandbox
 entitlements: **Chronoframe 2.0 (481)**, bundle `com.nishith.chronoframe`, arm64 + x86_64,
 minimum macOS 14. macOS 27 on Apple silicon. The organize, recovery, upgrade and performance
@@ -25,7 +25,7 @@ sidecar, a non-media file and a symlink escaping the source; plus 1,000-file and
 |---|---|---|
 | Copy, repeat, revert | **PASS** | 32 of 32 copies byte-identical to their sources; receipt `COMPLETED`, verification on. Exact duplicates filed under `Duplicate/`; same-day name collision became `_001`/`_002`; non-media file and escaping symlink skipped; the symlink's target unchanged. Repeat run: "Nothing to copy". A new same-day photo became `_002`, `_001` unchanged. Revert: 31 reverted, the one copy edited after transfer **preserved**, a later receipt's file untouched. Source tree byte-identical throughout. |
 | Interrupt and recover (internal disk) | **PASS** | `kill -9` at ~2,500 of 10,000. Relaunch recovered the run as `ABORTED` and copied the remaining 7,488; a second relaunch copied nothing. Final: 10,000 distinct files, each byte-identical to a source, none twice, no temp files left; receipts 2,512 + 7,488. Reverting the aborted run removed its 2,512 files; reverting again was a no-op ("2512 already missing"). |
-| Dedupe and restore | **PASS** | Real scan → plan → commit to the real macOS Trash → revert on fixtures. Four exact-duplicate groups; exactly the four planned files trashed, Trash bytes equal the originals; the paired JPEG kept, its `.CR2` and the XMP sidecar untouched; revert restored every file byte-for-byte (36 files before and after). The synthetic HEIC+MOV lacks Apple's content identifier, so Live Photo Keep-wins was not exercised here (unit-tested). |
+| Dedupe and restore | **PASS**, with finding F2 | Real scan → plan → commit to the real macOS Trash → revert on fixtures. Four exact-duplicate groups; exactly the four planned files trashed, Trash bytes equal the originals; the paired JPEG kept, its `.CR2` and the XMP sidecar untouched; revert restored every file byte-for-byte (36 files before and after). The synthetic HEIC+MOV lacks Apple's content identifier, so Live Photo Keep-wins was not exercised here (unit-tested). |
 | Upgrade from 1.x | **PASS** (engine level) | Destination organized by `v1.1.297` (receipt schema 2, cache DB version 0). 2.0 migrated the cache (added `DedupeMutationIdentities`), treated all 32 files as already present, placed a new photo correctly and reverted the 1.1 receipt. Settings, bookmarks and folder access across an App Store upgrade: *TestFlight*. |
 | External drive — APFS image | **PASS**, with finding F3 | Transfer to an attached APFS disk image, force-ejected mid-run: copies failed, the run stopped after 5 failures and said to reconnect the drive; nothing crashed. After reattaching, recovery completed and the volume held all 10,000 files, none twice, no temp files. |
 | External drive — exFAT image | **FAIL** — finding F1 | Every copy fails. |
@@ -49,3 +49,10 @@ Local automated baseline on the integration (2026-09-28): full SwiftPM lane 0 fa
 guards and the site check pass; 24 of 24 UI tests pass; meaningful coverage 95.52 % on `main` with
 #233; Release build succeeds. The accessibility audit is validated on hosted CI (macOS 14); locally
 on macOS 27 it stops on the sidebar "LIBRARY" heading.
+
+## Open for the Go decision
+
+F1 (exFAT organize fails for every file) and F2 (deduplicated files are hidden in the Trash) are
+unresolved. Under "What blocks 2.0" in `docs/remaining-work-plan.md` (broken copy or recovery;
+Trash recoverability) each needs an explicit owner decision before Go: fix, or accept with the
+impact and workaround recorded. The severities above are proposals, not decisions.

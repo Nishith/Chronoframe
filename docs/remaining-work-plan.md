@@ -100,12 +100,14 @@ unbounded memory or unusable cancellation, not on modest latency.
 ### Go decision
 
 The owner records, for the exact candidate: commit, version/build and archive
-identity; the checks passed, with links to evidence; accepted residual risks
+identity, and the `grandfatherCutover` value it contains; the checks passed, with links to evidence; accepted residual risks
 with impact and workaround; the decision and its date.
 
-Before the price drops to free, `ChronoframeUnlock.grandfatherCutover` must be
-set to the scheduled price-change moment (see `docs/free-trial-plan.md` T21 and
-`docs/APP_STORE_RELEASE.md`).
+`ChronoframeUnlock.grandfatherCutover` is a compile-time constant, so it must
+already be set to the scheduled price-change moment (biased a few hours late) in
+the 2.0 binary that is submitted, not after release (see `docs/free-trial-plan.md`
+T21 and `docs/APP_STORE_RELEASE.md`). The Go record confirms the value in the
+exact candidate.
 
 ## Original June 2026 Release Gates (superseded for 2.0)
 
