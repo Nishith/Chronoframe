@@ -1510,6 +1510,7 @@ final class ChronoframeUITests: XCTestCase {
         let scrollView = app.scrollViews.containing(.button, identifier: element.identifier).firstMatch
         func isFullyVisible() -> Bool { window.frame.contains(element.frame) }
         if isFullyVisible() { return true }
+        guard scrollView.exists else { return false }
 
         // Scroll toward the element first: a negative delta reveals content
         // below the fold, a positive delta reveals content above it. Keep
@@ -1518,7 +1519,7 @@ final class ChronoframeUITests: XCTestCase {
         // off), and only fall back to the other direction once the scroll
         // view stops responding (its frame stops changing), which signals
         // the guess was wrong rather than merely slow.
-        let towardDeltaY: CGFloat = element.frame.midY > window.frame.maxY ? -120 : 120
+        let towardDeltaY: CGFloat = element.frame.maxY > window.frame.maxY ? -120 : 120
         for deltaY in [towardDeltaY, -towardDeltaY] {
             var previousFrame = element.frame
             for _ in 0..<20 {
