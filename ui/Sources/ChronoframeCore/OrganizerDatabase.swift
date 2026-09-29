@@ -125,11 +125,19 @@ public final class OrganizerDatabase: @unchecked Sendable {
     public init(url: URL, readOnly: Bool = false) throws {
         self.url = url
 
+        var anchor: DestinationMetadataFile.Anchor?
         if !readOnly {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
+            // The cache lives in a user-selected destination: never create
+            // tables inside a file some link or hard link points at. The
+            // anchor is opened without following links; once SQLite has
+            // opened the path it must still name that same file.
+            // (SQLITE_OPEN_NOFOLLOW is not used: it rejects a link in any
+            // path component, including /var -> /private/var.)
+            anchor = try DestinationMetadataFile.openAnchor(at: url)
         }
 
         let flags = readOnly
@@ -141,6 +149,13 @@ public final class OrganizerDatabase: @unchecked Sendable {
             let message = Self.errorMessage(from: handle)
             sqlite3_close(handle)
             throw OrganizerDatabaseError.openFailed(message)
+        }
+
+        do {
+            try anchor?.confirmPathStillRefersToFile()
+        } catch {
+            sqlite3_close(handle)
+            throw error
         }
 
         database = handle
