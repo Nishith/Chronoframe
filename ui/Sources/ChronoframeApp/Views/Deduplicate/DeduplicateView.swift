@@ -58,19 +58,12 @@ struct DeduplicateView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            // How much of the duplicate allowance is left (T16). The padding is
-            // inside the conditional so an unlocked customer gets no inset at
-            // all rather than an empty band of it.
-            TrialIndicatorLabel(
-                appState: appState,
-                meter: .dedupe,
-                insets: EdgeInsets(
-                    top: 0,
-                    leading: DesignTokens.Layout.sectionSpacing,
-                    bottom: 8,
-                    trailing: DesignTokens.Layout.sectionSpacing
-                )
-            )
+            // The review screen reserves its own inset: its `.inspector` lays
+            // the review out to the window's bottom edge regardless of an inset
+            // from out here, which drew the counter over the commit buttons.
+            if !isShowingReview {
+                trialIndicator
+            }
         }
         .modifier(DeduplicateNavigationTitle(title: navigationTitle))
         .task {
@@ -102,11 +95,31 @@ struct DeduplicateView: View {
 
     // MARK: - Idle
 
-    private var navigationTitle: String {
+    private var isShowingReview: Bool {
         if case .readyToReview = sessionStore.status, !sessionStore.clusters.isEmpty {
-            return ""
+            return true
         }
-        return "Deduplicate"
+        return false
+    }
+
+    private var navigationTitle: String {
+        isShowingReview ? "" : "Deduplicate"
+    }
+
+    /// How much of the duplicate allowance is left (T16). The padding is inside
+    /// the label's conditional so an unlocked customer gets no inset at all
+    /// rather than an empty band of it.
+    private var trialIndicator: some View {
+        TrialIndicatorLabel(
+            appState: appState,
+            meter: .dedupe,
+            insets: EdgeInsets(
+                top: 0,
+                leading: DesignTokens.Layout.sectionSpacing,
+                bottom: 8,
+                trailing: DesignTokens.Layout.sectionSpacing
+            )
+        )
     }
 
     private var destinationCard: some View {
@@ -312,7 +325,12 @@ struct DeduplicateView: View {
                 reviewBody(for: geometry.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
-                commitFooter
+                commitFooter(
+                    condensedTrustSummary: DeduplicateReviewLayout.usesCondensedTrustSummary(
+                        forAvailableHeight: geometry.size.height,
+                        mode: DeduplicateReviewLayout.mode(forWidth: geometry.size.width)
+                    )
+                )
             }
             .quickLookPreview($selectedDedupeItemURL)
             .background {
@@ -344,6 +362,11 @@ struct DeduplicateView: View {
                 focusedClusterID = selection
             }
         }
+        // Inside the inspector, not outside it: `.inspector` ignores a bottom
+        // inset applied around it, so the counter would overlap the footer.
+        .safeAreaInset(edge: .bottom) {
+            trialIndicator
+        }
         .inspector(isPresented: $showingComparisonInspector) {
             if let paths = sideBySideComparisonPaths {
                 ComparisonOverlayView(
@@ -374,6 +397,10 @@ struct DeduplicateView: View {
                 reviewClusterDetail
                     .frame(minWidth: DesignTokens.DeduplicateLayout.detailMinWidth)
             }
+            // Left to size itself, the AppKit split view came out ~15pt wider
+            // than the window, clipping the detail pane's right edge (the
+            // metadata card and Accept & Next).
+            .frame(width: availableSize.width)
         case .compact:
             VStack(spacing: 0) {
                 reviewClusterList
@@ -423,7 +450,7 @@ struct DeduplicateView: View {
         )
     }
 
-    private var commitFooter: some View {
+    private func commitFooter(condensedTrustSummary: Bool) -> some View {
         let plan = sessionStore.reviewedDeletionPlan()
         let toDelete = plan.count
         let bytes = plan.totalBytes
@@ -437,7 +464,7 @@ struct DeduplicateView: View {
                 reviewedGroups: reviewedCount,
                 unreviewedGroups: unreviewedCount,
                 willDeleteCount: toDelete
-            ))
+            ), isCondensed: condensedTrustSummary)
             .padding(.horizontal, DesignTokens.Spacing.md)
 
             Divider()
@@ -1024,6 +1051,18 @@ enum DeduplicateReviewLayout {
             max(height * 0.32, DesignTokens.DeduplicateLayout.compactClusterListMinHeight),
             DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
         )
+    }
+
+    /// Whether the commit footer shows its safeguards as one line rather than
+    /// cards. The cards take about 200pt, which at the minimum window height
+    /// left the photo preview a ~70pt sliver.
+    static func usesCondensedTrustSummary(forAvailableHeight height: CGFloat, mode: Mode) -> Bool {
+        switch mode {
+        case .wide:
+            height < DesignTokens.DeduplicateLayout.condensedTrustSummaryBelowHeight
+        case .compact:
+            height < DesignTokens.DeduplicateLayout.compactCondensedTrustSummaryBelowHeight
+        }
     }
 }
 

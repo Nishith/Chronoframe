@@ -1,22 +1,35 @@
 # Chronoframe Production-Readiness Certification
 
 Certification date: 2026-06-20
-Status refresh: 2026-09-07
+Status refresh: 2026-09-07; release scope for version 2.0 revised 2026-09-28
 Candidate branch: `codex/production-readiness-remediation`
 Baseline: `origin/main` at `081e00f`
 Implementation evidence commit: `80ff492`
 
-The candidate coordinates above preserve the original certification evidence. Current development
-has advanced to `origin/main` at `9c7ccff`; the IAP engineering-refresh candidate is
-`codex/iap-engineering-refresh`. The release decision remains blocked because the external signed
-artifact, volume, scale, and human-sign-off rows below are still open. Before release, replace the
-historical candidate coordinates with the final version 2 commit and artifact checksum.
+The candidate coordinates above preserve the original certification evidence. Before release,
+replace them with the final version 2.0 commit, build number and archive identity.
 
 ## Release decision
 
-**BLOCKED — do not ship this candidate until every mandatory row below is PASS.**
+**NOT YET GO for version 2.0.** The September 2026 release bug bash (BASH-01…08) fixes are in
+review, and the focused manual session and Go record below are not complete.
 
-This report intentionally distinguishes implementation evidence from environment-backed certification. A missing credential, corpus, external drive, or capacity fixture is not treated as a pass.
+**Scope for 2.0: one developer, Mac App Store distribution only** (owner decision, 2026-09-28).
+`docs/remaining-work-plan.md` § "Version 2.0 Release Scope" defines what blocks 2.0, the automated
+baseline, the focused manual session and the Go record. Under that scope the sections below apply
+as follows. Their recorded results are kept, and nothing is relabelled PASS:
+
+| Section | Status for 2.0 |
+|---|---|
+| Automated gates | Still required, re-run on the final 2.0 commit. |
+| Developer ID distribution | **Out of scope** (App Store only). The BLOCKED rows below are not 2.0 blockers. |
+| Signed-sandbox matrix | **Replaced** by the focused manual session on a signed TestFlight build. The matrix rows stay PENDING as a record. |
+| Video corpus certification | PASS, unchanged. |
+| 100,000-file / 1-TB certification | **Deferred** with the eight-hour soak. Replaced by the realistic performance check; do not advertise certified performance at that scale. |
+| Required final sign-off | **Removed.** Replaced by the owner's single Go record. |
+
+This report still distinguishes implementation evidence from environment-backed certification. A
+missing credential, corpus, external drive, or capacity fixture is not treated as a pass.
 
 ## Certification environment
 
@@ -64,10 +77,12 @@ This report intentionally distinguishes implementation evidence from environment
 
 ## Developer ID distribution
 
+**Out of scope for 2.0 (Mac App Store only).** Kept as the record for a future direct-download build.
+
 | Gate | Status | Evidence / blocker |
 |---|---|---|
 | Developer ID identity available | BLOCKED | Keychain contains Apple Development and Apple Distribution identities, but no `Developer ID Application` identity required by the Developer ID archive flow |
-| Team ID configured | BLOCKED | `CHRONOFRAME_TEAM_ID` is unset |
+| Team ID configured | BLOCKED | `CHRONOFRAME_DEVELOPMENT_TEAM` is unset |
 | Notary profile configured | BLOCKED | `CHRONOFRAME_NOTARY_PROFILE` is unset |
 | Hardened-runtime archive | PENDING | `ui/archive.sh` after credentials are installed |
 | Notarization accepted | PENDING | Preserve `notarytool` submission ID and result |
@@ -76,6 +91,8 @@ This report intentionally distinguishes implementation evidence from environment
 | Signed artifact SHA-256 | PENDING | Preserve `shasum -a 256 <artifact>` output |
 
 ## Signed-sandbox matrix
+
+**Replaced for 2.0** by the focused manual session on a signed TestFlight build (`docs/remaining-work-plan.md`). Rows remain PENDING as a record.
 
 Run against the exact signed/stapled candidate, not an ad hoc build.
 
@@ -108,6 +125,8 @@ Calibration ran on 2026-06-20 against a local labeled corpus (5 duplicate groups
 
 ## 100,000-file / 1-TB certification
 
+**Deferred for 2.0**, with the eight-hour soak; replaced by the realistic performance check (`docs/remaining-work-plan.md`). Do not advertise certified performance at this scale.
+
 The workspace volume had only 454 GiB free, so a real 1-TB corpus could not be constructed here. Sparse files are not acceptable evidence for direct sequential BLAKE2b throughput or filesystem behavior.
 
 | Metric | Required | Candidate result |
@@ -122,6 +141,8 @@ The workspace volume had only 454 GiB free, so a real 1-TB corpus could not be c
 Record corpus generation method, filesystem/volume model, direct-hash baseline command, Chronoframe commands, `/usr/bin/time -l` output, and correctness-manifest checksums.
 
 ## Required final sign-off
+
+**Removed for 2.0**, replaced by the owner's single Go record (`docs/remaining-work-plan.md`). The June list is kept below as a record.
 
 - Engineering owner: PENDING
 - Security/privacy review: PENDING
