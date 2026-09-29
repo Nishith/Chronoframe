@@ -59,22 +59,71 @@ public enum DestinationMetadataFile {
         return FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
     }
 
-    /// For files another library opens by path (SQLite): if anything already
-    /// exists at `url`, it must be a regular file with no other hard links.
-    /// A missing file is fine; the caller creates it.
-    public static func requireRegularFileIfPresent(at url: URL) throws {
-        var status = stat()
-        guard lstat(url.path, &status) == 0 else {
-            let statError = errno
-            if statError == ENOENT { return }
+    /// For files another library opens by path (SQLite). Creates `url` if it is
+    /// missing, without following a link, and returns an anchor on the regular
+    /// file found there. After the other library has opened the path, call
+    /// `Anchor.confirmPathStillRefersToFile()` before anything is written: it
+    /// fails if the path now names a different file, a link, or a file with
+    /// extra hard links.
+    public static func openAnchor(at url: URL) throws -> Anchor {
+        let descriptor = url.path.withCString {
+            Darwin.open(
+                $0,
+                O_RDWR | O_CREAT | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
+            )
+        }
+        guard descriptor >= 0 else {
+            let openError = errno
+            if openError == ELOOP || openError == EISDIR || openError == ENXIO || openError == EOPNOTSUPP {
+                throw DestinationMetadataUnsafeError(itemName: url.lastPathComponent)
+            }
             throw NSError(
                 domain: NSPOSIXErrorDomain,
-                code: Int(statError),
+                code: Int(openError),
                 userInfo: [NSFilePathErrorKey: url.path]
             )
         }
-        guard (status.st_mode & S_IFMT) == S_IFREG, status.st_nlink <= 1 else {
+        var status = stat()
+        guard fstat(descriptor, &status) == 0,
+              (status.st_mode & S_IFMT) == S_IFREG,
+              status.st_nlink <= 1
+        else {
+            _ = Darwin.close(descriptor)
             throw DestinationMetadataUnsafeError(itemName: url.lastPathComponent)
+        }
+        return Anchor(url: url, descriptor: descriptor, device: status.st_dev, inode: status.st_ino)
+    }
+
+    public final class Anchor {
+        private let url: URL
+        private let descriptor: Int32
+        private let device: dev_t
+        private let inode: ino_t
+
+        fileprivate init(url: URL, descriptor: Int32, device: dev_t, inode: ino_t) {
+            self.url = url
+            self.descriptor = descriptor
+            self.device = device
+            self.inode = inode
+        }
+
+        deinit {
+            _ = Darwin.close(descriptor)
+        }
+
+        public func confirmPathStillRefersToFile() throws {
+            var status = stat()
+            guard lstat(url.path, &status) == 0 else {
+                throw DestinationMetadataUnsafeError(itemName: url.lastPathComponent)
+            }
+            guard (status.st_mode & S_IFMT) == S_IFREG,
+                  status.st_nlink <= 1,
+                  status.st_dev == device,
+                  status.st_ino == inode
+            else {
+                throw DestinationMetadataUnsafeError(itemName: url.lastPathComponent)
+            }
         }
     }
 }

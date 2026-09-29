@@ -88,6 +88,44 @@ final class OrganizerDatabaseLinkTests: XCTestCase {
         XCTAssertEqual(try tableNames(in: other), ["notes"])
     }
 
+    func testDanglingSymlinkIsRejectedAndItsTargetIsNotCreated() throws {
+        let destination = try makeDirectory()
+        let target = try makeDirectory().appendingPathComponent("not-yet.db")
+        try FileManager.default.createSymbolicLink(at: cacheURL(in: destination), withDestinationURL: target)
+
+        assertRejected(cacheURL(in: destination))
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.path))
+    }
+
+    func testAnchorDetectsThePathBeingSwappedForALinkAfterItWasOpened() throws {
+        let destination = try makeDirectory()
+        let other = try makeOtherDatabase(in: try makeDirectory())
+        let anchor = try DestinationMetadataFile.openAnchor(at: cacheURL(in: destination))
+        XCTAssertNoThrow(try anchor.confirmPathStillRefersToFile())
+
+        try FileManager.default.removeItem(at: cacheURL(in: destination))
+        try FileManager.default.createSymbolicLink(at: cacheURL(in: destination), withDestinationURL: other)
+
+        XCTAssertThrowsError(try anchor.confirmPathStillRefersToFile()) { error in
+            XCTAssertEqual(error as? DestinationMetadataUnsafeError, DestinationMetadataUnsafeError(itemName: ".organize_cache.db"))
+        }
+    }
+
+    func testAnchorDetectsADifferentRegularFileAtThePathAndAHardLinkToTheSameFile() throws {
+        let destination = try makeDirectory()
+        let anchor = try DestinationMetadataFile.openAnchor(at: cacheURL(in: destination))
+
+        try FileManager.default.linkItem(at: cacheURL(in: destination), to: destination.appendingPathComponent("second-name"))
+        XCTAssertThrowsError(try anchor.confirmPathStillRefersToFile())
+        try FileManager.default.removeItem(at: destination.appendingPathComponent("second-name"))
+        XCTAssertNoThrow(try anchor.confirmPathStillRefersToFile())
+
+        try FileManager.default.removeItem(at: cacheURL(in: destination))
+        XCTAssertTrue(FileManager.default.createFile(atPath: cacheURL(in: destination).path, contents: Data()))
+        XCTAssertThrowsError(try anchor.confirmPathStillRefersToFile())
+    }
+
     func testCacheIsCreatedAndReopened() throws {
         let destination = try makeDirectory()
 
