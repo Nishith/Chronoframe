@@ -333,6 +333,33 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertLessThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMaxHeight)
     }
 
+    func testTrustSummaryCondensesOnlyInShortWindows() {
+        let threshold = DesignTokens.DeduplicateLayout.condensedTrustSummaryBelowHeight
+        // Minimum window (700pt) minus title bar: the cards would starve the preview.
+        XCTAssertTrue(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: 648, mode: .wide))
+        XCTAssertTrue(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: threshold - 1, mode: .wide))
+        XCTAssertFalse(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: threshold, mode: .wide))
+        // Default window (820pt) keeps the full cards.
+        XCTAssertFalse(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: 768, mode: .wide))
+    }
+
+    func testCompactTrustSummaryDoesNotReturnToCardsWhilePreviewIsStillShort() {
+        // In compact width the group list takes 32% of the height, so the
+        // cards leave under 160pt of preview until the review area is about
+        // 780pt tall. The 720pt wide-layout cut-over must not apply here: one
+        // more point of height would swap ~175pt of preview for the cards.
+        let compactThreshold = DesignTokens.DeduplicateLayout.compactCondensedTrustSummaryBelowHeight
+        XCTAssertGreaterThan(compactThreshold, DesignTokens.DeduplicateLayout.condensedTrustSummaryBelowHeight)
+        for height: CGFloat in [648, 719, 720, 721, 768, compactThreshold - 1] {
+            XCTAssertTrue(
+                DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: height, mode: .compact),
+                "Compact layout should stay condensed at \(height)pt"
+            )
+        }
+        XCTAssertFalse(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: compactThreshold, mode: .compact))
+        XCTAssertFalse(DeduplicateReviewLayout.usesCondensedTrustSummary(forAvailableHeight: 1_000, mode: .compact))
+    }
+
     func testDetailPreviewResizeBoundsPreservePreviewSpace() {
         let availableHeight: CGFloat = 900
         let bounds = DeduplicateDetailPreviewLayout.thumbnailStripHeightBounds(forAvailableHeight: availableHeight)

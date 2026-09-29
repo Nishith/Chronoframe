@@ -1154,10 +1154,47 @@ struct SandboxDetailPopover: View {
 
 struct TrustProofSurface: View {
     let items: [TrustProofItem]
+    /// One plain line per safeguard (symbol and title), with the full message
+    /// kept in the tooltip. For a short window, where the cards would crowd out
+    /// the content they sit under.
+    var isCondensed = false
 
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
 
     var body: some View {
+        if isCondensed {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.Spacing.lg) {
+                    condensedItems
+                }
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
+                    condensedItems
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            cards
+        }
+    }
+
+    private var condensedItems: some View {
+        ForEach(items) { item in
+            Label {
+                Text(item.title)
+                    .scaledFont(.body, weight: .semibold)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+            } icon: {
+                Image(systemName: item.symbol)
+                    .foregroundStyle(item.tone.color)
+            }
+            .fixedSize()
+            .help(item.message)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(item.accessibilityLabel)
+        }
+    }
+
+    private var cards: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(items) { item in
                 HStack(alignment: .top, spacing: 10) {
