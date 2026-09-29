@@ -325,7 +325,12 @@ struct DeduplicateView: View {
                 reviewBody(for: geometry.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
-                commitFooter
+                commitFooter(
+                    condensedTrustSummary: DeduplicateReviewLayout.usesCondensedTrustSummary(
+                        forAvailableHeight: geometry.size.height,
+                        mode: DeduplicateReviewLayout.mode(forWidth: geometry.size.width)
+                    )
+                )
             }
             .quickLookPreview($selectedDedupeItemURL)
             .background {
@@ -441,7 +446,7 @@ struct DeduplicateView: View {
         )
     }
 
-    private var commitFooter: some View {
+    private func commitFooter(condensedTrustSummary: Bool) -> some View {
         let plan = sessionStore.reviewedDeletionPlan()
         let toDelete = plan.count
         let bytes = plan.totalBytes
@@ -455,7 +460,7 @@ struct DeduplicateView: View {
                 reviewedGroups: reviewedCount,
                 unreviewedGroups: unreviewedCount,
                 willDeleteCount: toDelete
-            ))
+            ), isCondensed: condensedTrustSummary)
             .padding(.horizontal, DesignTokens.Spacing.md)
 
             Divider()
@@ -1042,6 +1047,18 @@ enum DeduplicateReviewLayout {
             max(height * 0.32, DesignTokens.DeduplicateLayout.compactClusterListMinHeight),
             DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
         )
+    }
+
+    /// Whether the commit footer shows its safeguards as one line rather than
+    /// cards. The cards take about 200pt, which at the minimum window height
+    /// left the photo preview a ~70pt sliver.
+    static func usesCondensedTrustSummary(forAvailableHeight height: CGFloat, mode: Mode) -> Bool {
+        switch mode {
+        case .wide:
+            height < DesignTokens.DeduplicateLayout.condensedTrustSummaryBelowHeight
+        case .compact:
+            height < DesignTokens.DeduplicateLayout.compactCondensedTrustSummaryBelowHeight
+        }
     }
 }
 

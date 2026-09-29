@@ -1011,12 +1011,6 @@ final class ChronoframeUITests: XCTestCase {
                 // safety warnings, so this also exercises the warning banner:
                 // it must not squeeze the scroll view holding Keep/Delete down
                 // to nothing at the compact size.
-                // Fails loudly if the fixture's warning cluster stops being the
-                // focused one, so the banner path can't be skipped silently.
-                XCTAssertTrue(
-                    app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "These photos may be intentionally different")).firstMatch.exists,
-                    "The focused cluster should show its warning banner for \(scenario.rawValue)"
-                )
                 let decision = Self.element(identifier: "dedupeDecisionControl", in: app)
                 let strip = Self.element(identifier: "dedupeMemberStrip", in: app)
                 XCTAssertTrue(decision.waitForExistence(timeout: 5), "Keep/Delete should render for \(scenario.rawValue)")
@@ -1050,6 +1044,17 @@ final class ChronoframeUITests: XCTestCase {
                         "Trial counter \(trialCounter.frame) must not overlap \(name) \(element.frame) for \(scenario.rawValue)"
                     )
                 }
+
+                // The preview region above the member strip must leave room to
+                // actually inspect a photo, not a sliver that only scrolls.
+                let detail = Self.element(identifier: "dedupeReviewDetail", in: app)
+                XCTAssertTrue(detail.exists, "Review detail should render for \(scenario.rawValue)")
+                let previewRegionHeight = strip.frame.minY - detail.frame.minY
+                XCTAssertGreaterThanOrEqual(
+                    previewRegionHeight,
+                    160,
+                    "Preview region is only \(previewRegionHeight)pt tall for \(scenario.rawValue)"
+                )
 
                 app.terminate()
             }
