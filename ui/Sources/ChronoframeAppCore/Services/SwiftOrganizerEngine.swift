@@ -1306,11 +1306,12 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         let previewReviewURL = logsDirectoryURL.appendingPathComponent("preview_review_\(timestamp).jsonl")
         let logURL = destinationURL.appendingPathComponent(".organize_log.txt")
 
+        // Create the log without following links, before any other artifact is
+        // written, so a link planted at its fixed name is refused with nothing changed.
+        try DestinationMetadataFile.openForAppending(at: logURL).close()
+
         try writeReport(result.transfers, to: reportURL)
         try writePreviewReview(result.previewReviewItems, to: previewReviewURL)
-        if !FileManager.default.fileExists(atPath: logURL.path) {
-            try Data().write(to: logURL)
-        }
 
         return RunArtifactPaths(
             destinationRoot: destinationRoot,
