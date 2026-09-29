@@ -1117,7 +1117,11 @@ public struct TransferExecutor: Sendable {
     /// with an exclusive, empty placeholder, which fails with EEXIST if
     /// anything is already there so the caller moves on to the next collision
     /// name, and the copy is renamed only over that placeholder, checked to be
-    /// the same empty file immediately before. A crash between the claim and
+    /// the same empty file immediately before. The check and the rename are
+    /// separate syscalls, because this filesystem offers no atomic
+    /// non-replacing rename or link; a writer that swaps a file in inside that
+    /// gap is not detected, but Chronoframe's own writers are excluded by the
+    /// destination lock. A crash between the claim and
     /// the rename leaves only the empty placeholder, which recovery treats as
     /// an unexpected destination and never removes.
     func renameClaimingDestination(

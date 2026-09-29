@@ -279,6 +279,24 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path))
     }
 
+    /// If the final rename fails after the claim, no empty placeholder may be
+    /// left at the destination name.
+    // AGENTS-INVARIANT: 4
+    func testClaimingRenameRemovesItsPlaceholderWhenTheRenameFails() throws {
+        let staged = temporaryDirectoryURL.appendingPathComponent("missing-staged.jpg.tmp")
+        let destination = temporaryDirectoryURL.appendingPathComponent("final.jpg")
+
+        XCTAssertThrowsError(
+            try TransferExecutor().renameClaimingDestination(from: staged.path, to: destination.path)
+        ) { error in
+            XCTAssertEqual((error as NSError).code, Int(ENOENT))
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: destination.path),
+            "an empty placeholder was left at the destination name"
+        )
+    }
+
     private static let exclusiveRenameUnsupported: @Sendable (String, String) -> Int32 = { _, _ in
         errno = ENOTSUP
         return -1
