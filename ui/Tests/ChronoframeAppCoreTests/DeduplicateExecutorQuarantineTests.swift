@@ -10,6 +10,7 @@ final class DeduplicateExecutorQuarantineTests: XCTestCase {
         var failingQuarantineOriginalName: String?
         var nilTrashOriginalName: String?
         var failingMoveSourceName: String?
+        var failMovesIntoTrash = false
         var recreateOriginalPathBeforeQuarantineFailure: URL?
         var swapOnQuarantine: Data?
 
@@ -21,6 +22,11 @@ final class DeduplicateExecutorQuarantineTests: XCTestCase {
         }
         func moveItem(at sourceURL: URL, to destinationURL: URL) throws {
             if let failingMoveSourceName, sourceURL.lastPathComponent.hasSuffix(failingMoveSourceName) {
+                throw CocoaError(.fileWriteNoPermission)
+            }
+            if failMovesIntoTrash,
+               destinationURL.deletingLastPathComponent().standardizedFileURL.path == root.standardizedFileURL.path
+            {
                 throw CocoaError(.fileWriteNoPermission)
             }
             try FileManager.default.moveItem(at: sourceURL, to: destinationURL)
@@ -98,6 +104,114 @@ final class DeduplicateExecutorQuarantineTests: XCTestCase {
             runID: UUID()
         ) { events.append(event) }
         return events
+    }
+
+    /// If the Trash rename fails and the journal cannot be pointed back at the
+    /// hidden name, the journal's latest `.trashed` record would name a Trash
+    /// location that never existed and the receipt would inherit it. The run
+    /// must stop and put the file back instead of leaving it unfindable.
+    // AGENTS-INVARIANT: 9
+    // AGENTS-INVARIANT: 12
+    func testFailedTrashRenameWithUnwritableJournalRestoresTheFile() throws {
+        try assertJournalFailureRestoresFile(failingAppend: 4, failRename: true)
+    }
+
+    /// A journal append that fails before the rename may leave a partial
+    /// line, so it stops the run like every other journal failure.
+    // AGENTS-INVARIANT: 9
+    // AGENTS-INVARIANT: 12
+    func testUnwritableJournalBeforeTrashRenameRestoresTheFile() throws {
+        try assertJournalFailureRestoresFile(failingAppend: 3, failRename: false)
+    }
+
+    private func assertJournalFailureRestoresFile(failingAppend: Int, failRename: Bool) throws {
+        let root = try makeRoot()
+        let file = root.appendingPathComponent("IMG_1.JPG")
+        try Data([4, 2]).write(to: file)
+        let operations = TestTrashOps(root: root.appendingPathComponent("Trash"))
+        operations.failMovesIntoTrash = failRename
+        var appended: [DeduplicateSpoolRecord] = []
+
+        XCTAssertThrowsError(try DeduplicateExecutor.quarantineValidateAndTrash(
+            items: [item(file, clusterID: UUID())],
+            fileOperations: operations,
+            prepareJournal: { item, quarantineURL in
+                try DeduplicateExecutor.makeIntentRecord(item: item, quarantineURL: quarantineURL)
+            },
+            recordJournal: { record in
+                // intent is prepared separately; appends here are quarantined,
+                // trashed (hidden), trashed (visible), then the corrective one.
+                appended.append(record)
+                if appended.count == failingAppend { throw CocoaError(.fileWriteOutOfSpace) }
+            }
+        ))
+
+        XCTAssertEqual(try Data(contentsOf: file), Data([4, 2]), "the file must be back at its original path")
+        let leftInTrash = (try? FileManager.default.contentsOfDirectory(atPath: root.appendingPathComponent("Trash").path)) ?? []
+        XCTAssertTrue(leftInTrash.isEmpty, "nothing may be stranded in the Trash: \(leftInTrash)")
+    }
+
+    /// A rename that fails with a working journal leaves the item in the Trash
+    /// under its hidden name, and the receipt and Revert use that location.
+    // AGENTS-INVARIANT: 12
+    // AGENTS-INVARIANT: 20
+    func testFailedTrashRenameKeepsHiddenNameInReceiptAndRevertRestores() async throws {
+        let root = try makeRoot()
+        let file = root.appendingPathComponent("IMG_2.JPG")
+        try Data([7, 7]).write(to: file)
+        let operations = TestTrashOps(root: root.appendingPathComponent("Trash"))
+        operations.failMovesIntoTrash = true
+
+        let events = try await commit(
+            plan: DeduplicationPlan(items: [item(file, clusterID: UUID())]),
+            root: root,
+            operations: operations
+        )
+
+        var trashURL: URL?
+        var receiptPath: String?
+        for event in events {
+            if case let .itemTrashed(_, url, _) = event { trashURL = url }
+            if case let .complete(summary) = event { receiptPath = summary.receiptPath }
+        }
+        let trashed = try XCTUnwrap(trashURL)
+        XCTAssertTrue(trashed.lastPathComponent.contains(".chronoframe-quarantine-"))
+        XCTAssertEqual(try Data(contentsOf: trashed), Data([7, 7]))
+        let receiptURL = URL(fileURLWithPath: try XCTUnwrap(receiptPath))
+        let receipt = try JSONDecoder.dedupe.decode(DeduplicateAuditReceipt.self, from: Data(contentsOf: receiptURL))
+        XCTAssertEqual(receipt.items.first?.trashURL.flatMap(URL.init(string:))?.standardizedFileURL, trashed.standardizedFileURL)
+
+        operations.failMovesIntoTrash = false
+        for try await _ in DeduplicateExecutor(fileOperations: operations).revert(receiptURL: receiptURL) {}
+        XCTAssertEqual(try Data(contentsOf: file), Data([7, 7]))
+    }
+
+    /// A crash between journaling the visible Trash name and renaming to it
+    /// leaves the journal naming a location that does not exist yet. Reading
+    /// the journal must fall back to the hidden name the item still has.
+    // AGENTS-INVARIANT: 9
+    // AGENTS-INVARIANT: 20
+    func testJournalNamingMissingVisibleTrashNameFallsBackToHiddenName() throws {
+        let root = try makeRoot()
+        let hidden = root.appendingPathComponent(".chronoframe-quarantine-X-IMG_3.JPG")
+        try Data([3]).write(to: hidden)
+        let visible = root.appendingPathComponent("IMG_3.JPG")
+        let record = DeduplicateSpoolRecord(
+            state: .trashed,
+            originalPath: root.appendingPathComponent("elsewhere/IMG_3.JPG").path,
+            quarantinePath: hidden.path,
+            predictedTrashURL: hidden.absoluteString,
+            actualTrashURL: visible.absoluteString
+        )
+        let spool = root.appendingPathComponent("journal.spool")
+        var line = try JSONEncoder.dedupeSpool.encode(record)
+        line.append(Data("\n".utf8))
+        try line.write(to: spool)
+
+        XCTAssertEqual(try DeduplicateExecutor.loadSpoolRecords(from: spool)[record.originalPath], hidden.absoluteString)
+
+        try Data([3]).write(to: visible) // once the rename has happened, the visible name wins
+        XCTAssertEqual(try DeduplicateExecutor.loadSpoolRecords(from: spool)[record.originalPath], visible.absoluteString)
     }
 
     // AGENTS-INVARIANT: 18
