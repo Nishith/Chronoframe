@@ -1648,7 +1648,7 @@ final class DeduplicateTests: XCTestCase {
     }
 
     /// A duplicate moved to the Trash must keep its own name there, so the
-    /// user can find it in Finder and use Put Back. It used to land under the
+    /// user can find it in Finder. It used to land under the
     /// hidden `.chronoframe-quarantine-<UUID>-<name>` it was verified under.
     // AGENTS-INVARIANT: 12
     // AGENTS-INVARIANT: 18
