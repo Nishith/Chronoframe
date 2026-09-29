@@ -558,6 +558,20 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
         self.actions = actions()
     }
 
+    /// Only cards that opt in get an identifier; the rest are left untouched
+    /// rather than carrying an explicit empty one.
+    @ViewBuilder
+    private var titleText: some View {
+        let text = Text(title)
+            .scaledFont(.title)
+            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+        if let titleAccessibilityIdentifier {
+            text.accessibilityIdentifier(titleAccessibilityIdentifier)
+        } else {
+            text
+        }
+    }
+
     var body: some View {
         MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
@@ -571,10 +585,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                     )
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .scaledFont(.title)
-                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                            .accessibilityIdentifier(titleAccessibilityIdentifier ?? "")
+                        titleText
 
                         if !message.isEmpty {
                             Text(message)
