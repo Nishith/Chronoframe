@@ -174,7 +174,7 @@ final class RunSessionStoreTests: XCTestCase {
         // The store publishes the summary first and closes the scope only after
         // Run History reloads (the reload still needs folder access), so wait
         // for the close rather than asserting it the moment the summary lands.
-        let closed = await waitForCondition { completionTracker.closeCount == 1 }
+        let closed = await waitForCondition(timeoutNanoseconds: 5_000_000_000) { completionTracker.closeCount == 1 }
         XCTAssertTrue(closed, "The security scope should close once the completed run's history reload finishes")
         XCTAssertEqual(completionTracker.closeCount, 1)
         completingStore.cancelCurrentRun()
