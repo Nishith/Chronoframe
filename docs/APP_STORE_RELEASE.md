@@ -205,6 +205,13 @@ Version 2.0 introduces the free tier in the binary. It does **not** make the app
 
 Step 5 is a real step, not bookkeeping. `.github/workflows/pages.yml` deploys to chronoframe.app on **any** push to `main` touching `site/**`, so that copy goes live the moment it merges — there is no staging environment to hold it in. Merging it before step 4 advertises a free download while the App Store is still charging up front; merging it long after leaves the site quoting a price the store no longer has. Prepare the change ahead of time and merge it in the same sitting as the price transition.
 
+The in-app Settings → License copy needs no step of its own. `LicenseStatusModel` compares the
+current time against `grandfatherCutover`, so before the cutover a grandfathered customer is told
+only that Chronoframe is unlocked permanently, and after it they are told they bought before the
+move to a free download. Setting the constant in step 4 switches that sentence; there is no second
+string to remember. During the paid window every customer resolves to `legacyPurchase`, so this is
+the copy all of them see.
+
 The same asymmetry governs `grandfatherCutover`: bias it a few hours **late**. Erring late grandfathers a handful of free downloaders, which costs a little revenue. Erring early asks customers who just paid to pay a second time.
 
 ## Launch Tasks

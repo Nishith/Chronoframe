@@ -74,6 +74,15 @@ struct SettingsView: View {
             #if DEBUG
             UITestScenario.configureCurrentWindow(for: UITestScenario.current(), isSettings: true)
             #endif
+            // Deliberately here, not in `LicenseSettingsTab`: this `onAppear`
+            // fires once per fresh Settings window open, not on every return
+            // trip to the License tab within an already-open window (SwiftUI
+            // recreates a `TabView` tab's content on each switch). A message
+            // left by an earlier attempt, possibly made from the unlock sheet,
+            // is not news on opening Settings — but a restore/purchase outcome
+            // the customer just produced on the License tab must survive them
+            // glancing at another tab and back.
+            TrialComposition.entitlementStore.dismissStatusMessage()
         }
         .navigationTitle("Settings")
     }
