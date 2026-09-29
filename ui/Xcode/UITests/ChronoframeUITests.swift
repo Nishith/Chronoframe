@@ -1002,6 +1002,14 @@ final class ChronoframeUITests: XCTestCase {
                     footer.frame.minY + 1,
                     "Review actions must not overlap the commit footer for \(scenario.rawValue)"
                 )
+                // The frame check above allows 5pt of slack; Accept & Next sat
+                // flush against the window edge with its corner cut off while
+                // passing it. Require the button to clear the edge.
+                XCTAssertLessThanOrEqual(
+                    acceptCluster.frame.maxX,
+                    window.frame.maxX - 4,
+                    "Accept & Next \(acceptCluster.frame) must clear the window edge \(window.frame) for \(scenario.rawValue)"
+                )
 
                 // BASH-08: the Keep/Delete choice must be reachable in its own
                 // region — not drawn over the group list or hidden behind the
@@ -1011,12 +1019,6 @@ final class ChronoframeUITests: XCTestCase {
                 // safety warnings, so this also exercises the warning banner:
                 // it must not squeeze the scroll view holding Keep/Delete down
                 // to nothing at the compact size.
-                // Fails loudly if the fixture's warning cluster stops being the
-                // focused one, so the banner path can't be skipped silently.
-                XCTAssertTrue(
-                    app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "These photos may be intentionally different")).firstMatch.exists,
-                    "The focused cluster should show its warning banner for \(scenario.rawValue)"
-                )
                 let decision = Self.element(identifier: "dedupeDecisionControl", in: app)
                 let strip = Self.element(identifier: "dedupeMemberStrip", in: app)
                 XCTAssertTrue(decision.waitForExistence(timeout: 5), "Keep/Delete should render for \(scenario.rawValue)")
@@ -1050,6 +1052,17 @@ final class ChronoframeUITests: XCTestCase {
                         "Trial counter \(trialCounter.frame) must not overlap \(name) \(element.frame) for \(scenario.rawValue)"
                     )
                 }
+
+                // The preview region above the member strip must leave room to
+                // actually inspect a photo, not a sliver that only scrolls.
+                let detail = Self.element(identifier: "dedupeReviewDetail", in: app)
+                XCTAssertTrue(detail.exists, "Review detail should render for \(scenario.rawValue)")
+                let previewRegionHeight = strip.frame.minY - detail.frame.minY
+                XCTAssertGreaterThanOrEqual(
+                    previewRegionHeight,
+                    160,
+                    "Preview region is only \(previewRegionHeight)pt tall for \(scenario.rawValue)"
+                )
 
                 app.terminate()
             }

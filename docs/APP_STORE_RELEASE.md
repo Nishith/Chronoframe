@@ -6,7 +6,7 @@ This checklist is the release source of truth for the next Chronoframe Mac App S
 
 Chronoframe is ready to submit only when all items below are complete:
 
-- Every mandatory row in [production-readiness-certification.md](production-readiness-certification.md) is `PASS`, with the final candidate commit and artifact checksum recorded.
+- The version 2.0 gates in [remaining-work-plan.md](remaining-work-plan.md) ("Version 2.0 Release Scope") are met, and the certification report's "Status for 2.0" table is honoured: Developer ID distribution is out of scope, the signed-sandbox matrix is replaced by the focused manual session, the 100,000-file / 1-TB run is deferred, and the owner has recorded the Go decision for the final candidate commit, build number and archive identity. Rows the report marks BLOCKED or PENDING for those out-of-scope gates are not relabelled PASS.
 - `script/run_swift_test_suites.sh` passes with the local cache/home environment from `AGENTS.md`.
 - `script/check_agents_invariants_have_tests.sh` and `script/swift_meaningful_coverage.sh` pass.
 - `xcodebuild -project ui/Chronoframe.xcodeproj -scheme Chronoframe -configuration Debug -derivedDataPath .tmp/ChronoframeDerivedData -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO build` passes.
@@ -14,7 +14,7 @@ Chronoframe is ready to submit only when all items below are complete:
 - `./ui/archive-mas.sh --local` passes bundle structure validation.
 - A signed non-local `./ui/archive-mas.sh` archive exports successfully with Apple Distribution or 3rd Party Mac Developer Application signing.
 - The exported build uploads to App Store Connect and processes successfully.
-- Internal TestFlight passes the manual matrix below, including the free trial and unlock rows.
+- Internal TestFlight passes the manual matrix below, including the free trial and unlock rows, and the focused manual session in `remaining-work-plan.md`.
 - App Store metadata, screenshots, privacy policy URL, support URL, and pricing are complete in App Store Connect.
 - The in-app purchase exists in App Store Connect with Family Sharing ON, and is attached to this version for submission.
 - `ChronoframeUnlock.grandfatherCutover` is set to the scheduled price-change moment, biased a few hours late, and `MARKETING_VERSION` is `2.0`. Shipping the far-future default after the price drops makes the app permanently free for everyone.
