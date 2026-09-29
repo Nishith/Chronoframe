@@ -391,6 +391,7 @@ button { font: inherit; }
 .demo-heading > span { color: var(--ink-muted); font-size: 13px; }
 .demo-film { margin: 0; border: 1px solid var(--hairline-strong); border-radius: 16px; overflow: hidden; background: #0c1013; }
 .demo-film video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #0c1013; }
+.demo-film video:focus-visible { outline-offset: -4px; }
 .demo-film figcaption { padding: 14px 18px; font-size: 13px; color: var(--ink-secondary); border-top: 1px solid var(--hairline); }
 .demo-chapters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
 .demo-chapters button { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 3px; padding: 12px; color: var(--ink-secondary); font-size: 13px; line-height: 1.4; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; }

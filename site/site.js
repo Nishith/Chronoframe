@@ -8,6 +8,7 @@
 
   const playButton = document.querySelector(".demo-play");
   let pendingTime = null;
+  const loadError = "The video couldn’t load. You can read the transcript below or open the video directly.";
   const report = (message) => {
     status.textContent = message;
     status.hidden = !message;
@@ -20,11 +21,11 @@
   video.addEventListener("loadedmetadata", seek);
   video.addEventListener("error", () => {
     pendingTime = null;
-    report("The video couldn’t load. You can read the transcript below or open the video directly.");
+    report(loadError);
   });
   // Some browsers report source failures only on the <source> element.
   video.querySelector("source")?.addEventListener("error", () => {
-    report("The video couldn’t load. You can read the transcript below or open the video directly.");
+    report(loadError);
   });
   chapters.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-demo-time]");
@@ -37,6 +38,7 @@
     video.scrollIntoView({ block: "center" });
     video.focus({ preventScroll: true });
     video.play().catch(() => {
+      if (video.error) { pendingTime = null; report(loadError); return; }
       report("Press Play on the video to start this chapter, or read the transcript below.");
     });
   });
@@ -45,7 +47,7 @@
     playButton.addEventListener("click", () => {
       report("");
       video.focus({ preventScroll: true });
-      video.play().catch(() => report("Press Play on the video, or read the transcript below."));
+      video.play().catch(() => report(video.error ? loadError : "Press Play on the video, or read the transcript below."));
     });
     video.addEventListener("play", () => { playButton.hidden = true; });
     video.addEventListener("ended", () => { playButton.hidden = false; });
