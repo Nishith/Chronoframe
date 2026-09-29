@@ -126,6 +126,43 @@ final class OrganizerDatabaseLinkTests: XCTestCase {
         XCTAssertThrowsError(try anchor.confirmPathStillRefersToFile())
     }
 
+    func testDirectoryAtTheCachePathIsRejected() throws {
+        let destination = try makeDirectory()
+        try FileManager.default.createDirectory(at: cacheURL(in: destination), withIntermediateDirectories: false)
+
+        assertRejected(cacheURL(in: destination))
+    }
+
+    func testFIFOAtTheCachePathIsRejectedWithoutBlocking() throws {
+        let destination = try makeDirectory()
+        XCTAssertEqual(mkfifo(cacheURL(in: destination).path, 0o600), 0)
+
+        assertRejected(cacheURL(in: destination))
+    }
+
+    func testSymlinksAtSQLiteSidecarNamesAreNotFollowed() throws {
+        let destination = try makeDirectory()
+        let victims = try makeDirectory()
+        let walTarget = victims.appendingPathComponent("wal-target")
+        let shmTarget = victims.appendingPathComponent("shm-target")
+        for target in [walTarget, shmTarget] {
+            XCTAssertTrue(FileManager.default.createFile(atPath: target.path, contents: Data()))
+        }
+        try FileManager.default.createSymbolicLink(
+            at: destination.appendingPathComponent(".organize_cache.db-wal"), withDestinationURL: walTarget
+        )
+        try FileManager.default.createSymbolicLink(
+            at: destination.appendingPathComponent(".organize_cache.db-shm"), withDestinationURL: shmTarget
+        )
+
+        if let database = try? OrganizerDatabase(url: cacheURL(in: destination)) {
+            database.close()
+        }
+
+        XCTAssertEqual(try Data(contentsOf: walTarget).count, 0)
+        XCTAssertEqual(try Data(contentsOf: shmTarget).count, 0)
+    }
+
     func testCacheIsCreatedAndReopened() throws {
         let destination = try makeDirectory()
 
