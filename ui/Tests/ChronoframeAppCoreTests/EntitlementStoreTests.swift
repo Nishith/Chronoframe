@@ -808,6 +808,111 @@ final class EntitlementStoreTests: XCTestCase {
         XCTAssertEqual(store.statusMessage?.contains("Don't buy again"), true, store.statusMessage ?? "nil")
     }
 
+    /// The Ask to Buy note and the "verification failed, don't buy again"
+    /// warning describe something still outstanding — an approval that has not
+    /// arrived, or a charge the App Store already took. The unlock sheet has no
+    /// other place to say so, so re-presenting it or opening Settings must not
+    /// wipe them and leave a bare Buy button.
+    @MainActor
+    func testDismissKeepsAnUnverifiedPurchaseWarning() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.purchaseResult = .unverified
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+        await store.refresh()
+        await store.purchase()
+
+        store.dismissStatusMessage()
+
+        XCTAssertEqual(store.statusMessage?.contains("Don't buy again"), true, store.statusMessage ?? "nil")
+    }
+
+    @MainActor
+    func testDismissKeepsThePendingApprovalNote() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.purchaseResult = .pending
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+        await store.refresh()
+        await store.purchase()
+
+        store.dismissStatusMessage()
+
+        XCTAssertNotNil(store.statusMessage, "An approval still outstanding must stay visible")
+    }
+
+    /// The outstanding note is still cleared by the customer's next attempt,
+    /// and dismissing does not make a later failure sticky.
+    @MainActor
+    func testNextAttemptStillReplacesAnOutstandingNote() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.purchaseResult = .unverified
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+        await store.refresh()
+        await store.purchase()
+
+        storeKit.purchaseResult = .failed(diagnostic: "boom")
+        await store.purchase()
+        store.dismissStatusMessage()
+
+        XCTAssertNil(store.statusMessage, "A plain failure is not outstanding; dismissal clears it")
+    }
+
+    /// restore() must apply the same rule as purchase(): an outcome that lost
+    /// its race with an unrelated unlock is not shown beside "Unlocked".
+    @MainActor
+    func testRestoreLockedOutcomeDoesNotOverwriteAConcurrentUnlock() async {
+        let storeKit = FakeStoreKitClient()
+        let appTransaction = FakeAppTransactionClient()
+        appTransaction.result = .success(newInfo())
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        var hasInterleaved = false
+        storeKit.whileOwnedProductsSuspended = { [weak storeKit, weak store] in
+            guard !hasInterleaved, let storeKit, let store else { return }
+            hasInterleaved = true
+            // Restore's own read already captured "nothing owned"; an approval
+            // then lands through an unrelated refresh and unlocks the store.
+            storeKit.ownedResult = .success([
+                OwnedProduct(productID: ChronoframeUnlock.productID, purchaseDate: Date())
+            ])
+            await store.refresh()
+        }
+
+        await store.restore()
+
+        XCTAssertTrue(store.state.isUnlocked, "Precondition: the concurrent refresh unlocked it")
+        XCTAssertNil(
+            store.statusMessage,
+            "No previous purchase was found is untrue beside Unlocked: \(store.statusMessage ?? "nil")"
+        )
+    }
+
+    @MainActor
+    func testRestoreSyncFailureDoesNotOverwriteAConcurrentUnlock() async {
+        let storeKit = FakeStoreKitClient()
+        storeKit.syncError = FakeError()
+        let appTransaction = FakeAppTransactionClient()
+        let store = makeStore(storeKit: storeKit, appTransaction: appTransaction)
+
+        storeKit.whileSyncSuspended = { [weak storeKit, weak store] in
+            guard let storeKit, let store else { return }
+            storeKit.ownedResult = .success([
+                OwnedProduct(productID: ChronoframeUnlock.productID, purchaseDate: Date())
+            ])
+            await store.refresh()
+        }
+
+        await store.restore()
+
+        XCTAssertTrue(store.state.isUnlocked, "Precondition: the concurrent refresh unlocked it")
+        XCTAssertNil(store.statusMessage, store.statusMessage ?? "nil")
+    }
+
     /// However the unlock arrives — here an Ask to Buy approval delivered
     /// through `Transaction.updates` after `purchase()` returned `.pending` —
     /// the "needs approval" note must not sit beside an unlocked entitlement.

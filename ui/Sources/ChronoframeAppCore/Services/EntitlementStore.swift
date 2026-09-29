@@ -36,7 +36,17 @@ public final class EntitlementStore: ObservableObject {
     /// a customer who hit one transient failure would reopen the sheet later
     /// and be shown a stale "that purchase couldn't be completed" before
     /// touching anything. Same lifecycle as `GuardianStore`.
-    @Published public private(set) var statusMessage: String?
+    @Published public private(set) var statusMessage: String? {
+        didSet { if statusMessage == nil { statusMessageSurvivesDismissal = false } }
+    }
+
+    /// True for a message about something still outstanding — an Ask to Buy
+    /// approval that has not arrived, or a purchase the App Store completed but
+    /// this Mac could not verify. `dismissStatusMessage()` leaves these alone:
+    /// the unlock sheet has no other place to say so, and wiping "Don't buy
+    /// again" on re-presentation would leave a bare Buy button. The customer's
+    /// next attempt, or an unlock by any route, still clears them.
+    private var statusMessageSurvivesDismissal = false
 
     /// Stable key for the trial ledger, so switching Apple Accounts cannot
     /// reuse another account's spent allowance. Nil on macOS below 15.4, where
@@ -312,8 +322,10 @@ public final class EntitlementStore: ObservableObject {
     /// Called when a surface that shows the message appears, so reopening the
     /// unlock sheet does not greet the customer with a failure from last time.
     /// Safe mid-attempt: a running purchase or restore writes its message only
-    /// as it finishes, so its outcome still lands after this.
+    /// as it finishes, so its outcome still lands after this. A message about
+    /// something still outstanding (`statusMessageSurvivesDismissal`) stays.
     public func dismissStatusMessage() {
+        guard !statusMessageSurvivesDismissal else { return }
         statusMessage = nil
     }
 
@@ -343,7 +355,8 @@ public final class EntitlementStore: ObservableObject {
         case .pending:
             setStatusMessageUnlessUnlocked(
                 "Your purchase needs approval before it can finish. "
-                    + "Chronoframe will unlock automatically once it's approved."
+                    + "Chronoframe will unlock automatically once it's approved.",
+                survivesDismissal: true
             )
         case .userCancelled:
             break
@@ -353,7 +366,8 @@ public final class EntitlementStore: ObservableObject {
             // push someone toward paying a second time.
             setStatusMessageUnlessUnlocked(
                 "Chronoframe couldn't verify that purchase on this Mac. "
-                    + "Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock."
+                    + "Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock.",
+                survivesDismissal: true
             )
         case .productUnavailable:
             setStatusMessageUnlessUnlocked(
@@ -378,9 +392,10 @@ public final class EntitlementStore: ObservableObject {
     /// device's Ask to Buy approval arriving through `Transaction.updates`
     /// mid-purchase, say) would leave a stale "needs approval" or failure note
     /// next to an entitlement that is, in fact, already unlocked.
-    private func setStatusMessageUnlessUnlocked(_ message: String) {
+    private func setStatusMessageUnlessUnlocked(_ message: String, survivesDismissal: Bool = false) {
         guard !state.isUnlocked else { return }
         statusMessage = message
+        statusMessageSurvivesDismissal = survivesDismissal
     }
 
     /// Restore. Must only be called from an explicit user action — `sync()` can
@@ -397,16 +412,18 @@ public final class EntitlementStore: ObservableObject {
         do {
             try await storeKit.sync()
         } catch {
-            statusMessage = "Chronoframe couldn't reach the App Store to restore your purchase. "
-                + "Check your connection and try again."
+            setStatusMessageUnlessUnlocked(
+                "Chronoframe couldn't reach the App Store to restore your purchase. "
+                    + "Check your connection and try again."
+            )
             return
         }
         // Switch on what THIS round trip found, not the published `state`:
         // `refresh()` is not coalesced across direct callers (see
         // `resolution`'s doc comment), so an unrelated concurrent refresh can
         // win the generation tag and leave `state` describing a different
-        // call entirely. See `testRestoreReportsItsOwnOutcomeDespiteA
-        // ConcurrentRefreshRace`.
+        // call entirely. See
+        // `testRestoreReportsItsOwnOutcomeDespiteAConcurrentRefreshRace`.
         let result = await refresh()
 
         switch result {
@@ -414,16 +431,22 @@ public final class EntitlementStore: ObservableObject {
             // Said plainly: restore only recovers an existing purchase. It is
             // not a repair path for someone who has never bought the unlock,
             // and implying otherwise sends people round in circles.
-            statusMessage = "No previous purchase was found for this Apple Account. "
-                + "If you bought Chronoframe with a different account, sign in with that one."
+            setStatusMessageUnlessUnlocked(
+                "No previous purchase was found for this Apple Account. "
+                    + "If you bought Chronoframe with a different account, sign in with that one."
+            )
         case .verificationUnavailable:
             // Emphatically not the same as "you never paid". Diagnosing a
             // missing account to someone who did pay is the worse error.
-            statusMessage = "Chronoframe couldn't reach the App Store to check your purchase. "
-                + "Your access is unchanged — try again once you're back online."
+            setStatusMessageUnlessUnlocked(
+                "Chronoframe couldn't reach the App Store to check your purchase. "
+                    + "Your access is unchanged — try again once you're back online."
+            )
         case .unverified:
-            statusMessage = "The App Store's response couldn't be verified on this Mac. "
-                + "Try again, and contact support if it keeps happening."
+            setStatusMessageUnlessUnlocked(
+                "The App Store's response couldn't be verified on this Mac. "
+                    + "Try again, and contact support if it keeps happening."
+            )
         case .unlocked, .loading:
             break
         }
