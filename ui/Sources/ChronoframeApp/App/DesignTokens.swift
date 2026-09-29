@@ -79,6 +79,10 @@ enum DesignTokens {
         /// Review heights below this show the commit footer's safeguards as one
         /// line. The default 820pt window stays above it.
         static let condensedTrustSummaryBelowHeight: CGFloat = 720
+        /// Same rule in the compact (stacked) layout, where the group list also
+        /// takes 32% of the height: with cards the preview stays under
+        /// `compactPreviewMinHeight` until the review area is about 780pt tall.
+        static let compactCondensedTrustSummaryBelowHeight: CGFloat = 800
         static let detailMinWidth: CGFloat = 420
     }
 

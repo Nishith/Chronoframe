@@ -327,7 +327,8 @@ struct DeduplicateView: View {
                 Divider()
                 commitFooter(
                     condensedTrustSummary: DeduplicateReviewLayout.usesCondensedTrustSummary(
-                        forAvailableHeight: geometry.size.height
+                        forAvailableHeight: geometry.size.height,
+                        mode: DeduplicateReviewLayout.mode(forWidth: geometry.size.width)
                     )
                 )
             }
@@ -1051,8 +1052,13 @@ enum DeduplicateReviewLayout {
     /// Whether the commit footer shows its safeguards as one line rather than
     /// cards. The cards take about 200pt, which at the minimum window height
     /// left the photo preview a ~70pt sliver.
-    static func usesCondensedTrustSummary(forAvailableHeight height: CGFloat) -> Bool {
-        height < DesignTokens.DeduplicateLayout.condensedTrustSummaryBelowHeight
+    static func usesCondensedTrustSummary(forAvailableHeight height: CGFloat, mode: Mode) -> Bool {
+        switch mode {
+        case .wide:
+            height < DesignTokens.DeduplicateLayout.condensedTrustSummaryBelowHeight
+        case .compact:
+            height < DesignTokens.DeduplicateLayout.compactCondensedTrustSummaryBelowHeight
+        }
     }
 }
 
