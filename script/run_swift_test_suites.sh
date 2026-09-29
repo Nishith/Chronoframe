@@ -97,7 +97,11 @@ if (( current_suite_count > 0 )); then
 fi
 
 if [[ -n "$COVERAGE_FLAG" ]]; then
-    codecov_dir="$(find ui/.build -type d -ipath '*/debug/codecov' -print -quit)"
+    # Newest wins: a toolchain upgrade can leave a stale layout's tree behind.
+    codecov_dir="$(
+        find ui/.build -type d -ipath '*/debug/codecov' -exec stat -f '%m %N' {} + 2>/dev/null \
+            | sort -rn | head -n 1 | cut -d' ' -f2-
+    )"
     if [[ -z "$codecov_dir" ]]; then
         echo "SwiftPM coverage directory was not created." >&2
         exit 1
