@@ -150,6 +150,158 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         )
     }
 
+    // MARK: - Filesystems without RENAME_EXCL (exFAT)
+
+    /// macOS 27's exFAT driver rejects `renamex_np(…, RENAME_EXCL)` with
+    /// ENOTSUP, which failed every copy onto an exFAT drive. The copy must
+    /// still land, byte-identical, with no staging file left behind.
+    // AGENTS-INVARIANT: 2
+    func testTransferCompletesWhenExclusiveRenameIsUnsupported() throws {
+        let env = try makeEnvironment(jobCount: 3)
+        var executor = TransferExecutor()
+        executor.exclusiveRename = Self.exclusiveRenameUnsupported
+
+        let result = try executor.execute(
+            queuedJobs: env.jobs,
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: true,
+            runLogger: env.logger,
+            runID: UUID()
+        )
+
+        XCTAssertEqual(result.copiedCount, 3)
+        XCTAssertEqual(result.failedCount, 0)
+        for job in env.jobs {
+            XCTAssertEqual(
+                FileManager.default.contents(atPath: job.destinationPath),
+                FileManager.default.contents(atPath: job.sourcePath)
+            )
+            let neighbours = try FileManager.default.contentsOfDirectory(
+                atPath: URL(fileURLWithPath: job.destinationPath).deletingLastPathComponent().path
+            )
+            XCTAssertFalse(neighbours.contains { $0.hasSuffix(".tmp") }, "staging file left behind: \(neighbours)")
+        }
+    }
+
+    /// The fallback must keep the no-overwrite guarantee: an existing file at
+    /// the planned name stays as it was and the copy takes a collision name.
+    // AGENTS-INVARIANT: 4
+    func testExclusiveRenameFallbackNeverOverwritesAnExistingDestination() throws {
+        let env = try makeEnvironment(jobCount: 1)
+        let job = env.jobs[0]
+        let destinationURL = URL(fileURLWithPath: job.destinationPath)
+        try FileManager.default.createDirectory(
+            at: destinationURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("preexisting bytes".utf8).write(to: destinationURL)
+        var executor = TransferExecutor()
+        executor.exclusiveRename = Self.exclusiveRenameUnsupported
+
+        let result = try executor.execute(
+            queuedJobs: [job],
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: true,
+            runLogger: env.logger,
+            runID: UUID()
+        )
+
+        XCTAssertEqual(result.copiedCount, 1)
+        XCTAssertEqual(try String(contentsOf: destinationURL, encoding: .utf8), "preexisting bytes")
+        let neighbours = try FileManager.default.contentsOfDirectory(atPath: destinationURL.deletingLastPathComponent().path)
+        let collision = try XCTUnwrap(neighbours.first { $0.contains("_collision_") }, "no collision copy in \(neighbours)")
+        XCTAssertEqual(
+            FileManager.default.contents(atPath: destinationURL.deletingLastPathComponent().appendingPathComponent(collision).path),
+            FileManager.default.contents(atPath: job.sourcePath)
+        )
+    }
+
+    /// A link planted at the final name is refused, not followed or replaced.
+    // AGENTS-INVARIANT: 4
+    func testClaimingRenameRefusesALinkAtTheDestinationName() throws {
+        let staged = temporaryDirectoryURL.appendingPathComponent("staged.jpg.tmp")
+        let target = temporaryDirectoryURL.appendingPathComponent("elsewhere.jpg")
+        let destination = temporaryDirectoryURL.appendingPathComponent("final.jpg")
+        try Data("copy".utf8).write(to: staged)
+        try Data("someone else's file".utf8).write(to: target)
+        try FileManager.default.createSymbolicLink(at: destination, withDestinationURL: target)
+
+        XCTAssertThrowsError(
+            try TransferExecutor().renameClaimingDestination(from: staged.path, to: destination.path)
+        ) { error in
+            XCTAssertEqual((error as NSError).code, Int(EEXIST))
+        }
+        XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), "someone else's file")
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(atPath: destination.path),
+            target.path
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path), "the staged copy must survive for a retry")
+    }
+
+    /// If anything replaces the placeholder between the claim and the rename,
+    /// that file is left alone and the caller is told to pick another name.
+    // AGENTS-INVARIANT: 4
+    func testClaimingRenameLeavesAFileThatReplacedThePlaceholder() throws {
+        let staged = temporaryDirectoryURL.appendingPathComponent("staged.jpg.tmp")
+        let destination = temporaryDirectoryURL.appendingPathComponent("final.jpg")
+        let intruder = temporaryDirectoryURL.appendingPathComponent("intruder.jpg")
+        try Data("copy".utf8).write(to: staged)
+        try Data("arrived meanwhile".utf8).write(to: intruder)
+
+        XCTAssertThrowsError(
+            try TransferExecutor().renameClaimingDestination(from: staged.path, to: destination.path) {
+                XCTAssertEqual(rename(intruder.path, destination.path), 0)
+            }
+        ) { error in
+            XCTAssertEqual((error as NSError).code, Int(EEXIST))
+        }
+        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "arrived meanwhile")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path), "the staged copy must survive for a retry")
+    }
+
+    /// A regular file already at the final name is never replaced.
+    // AGENTS-INVARIANT: 4
+    func testClaimingRenameRefusesAnExistingFile() throws {
+        let staged = temporaryDirectoryURL.appendingPathComponent("staged.jpg.tmp")
+        let destination = temporaryDirectoryURL.appendingPathComponent("final.jpg")
+        try Data("copy".utf8).write(to: staged)
+        try Data("already here".utf8).write(to: destination)
+
+        XCTAssertThrowsError(
+            try TransferExecutor().renameClaimingDestination(from: staged.path, to: destination.path)
+        ) { error in
+            XCTAssertEqual((error as NSError).code, Int(EEXIST))
+        }
+        XCTAssertEqual(try String(contentsOf: destination, encoding: .utf8), "already here")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staged.path))
+    }
+
+    /// If the final rename fails after the claim, no empty placeholder may be
+    /// left at the destination name.
+    // AGENTS-INVARIANT: 4
+    func testClaimingRenameRemovesItsPlaceholderWhenTheRenameFails() throws {
+        let staged = temporaryDirectoryURL.appendingPathComponent("missing-staged.jpg.tmp")
+        let destination = temporaryDirectoryURL.appendingPathComponent("final.jpg")
+
+        XCTAssertThrowsError(
+            try TransferExecutor().renameClaimingDestination(from: staged.path, to: destination.path)
+        ) { error in
+            XCTAssertEqual((error as NSError).code, Int(ENOENT))
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: destination.path),
+            "an empty placeholder was left at the destination name"
+        )
+    }
+
+    private static let exclusiveRenameUnsupported: @Sendable (String, String) -> Int32 = { _, _ in
+        errno = ENOTSUP
+        return -1
+    }
+
     // MARK: - cleanupTemporaryFiles
 
     /// Pre-existing `.tmp` files from a previous interrupted run should be

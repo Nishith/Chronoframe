@@ -191,6 +191,12 @@ public struct TransferExecutor: Sendable {
         guard result == 0 else { return nil }
         return Int64(fileSystemStatus.f_bavail) * Int64(fileSystemStatus.f_frsize)
     }
+    /// Stands in for `renamex_np(…, RENAME_EXCL)`, so tests can reproduce a
+    /// filesystem that rejects it. Returns the syscall's result, with `errno`
+    /// set on failure.
+    public var exclusiveRename: @Sendable (String, String) -> Int32 = { source, destination in
+        TransferExecutor.systemExclusiveRename(from: source, to: destination)
+    }
     #endif
 
     public init(
@@ -1073,14 +1079,25 @@ public struct TransferExecutor: Sendable {
         }
     }
 
-    private func renameFile(from sourcePath: String, to destinationPath: String) throws {
-        let result = sourcePath.withCString { sourcePointer in
+    static func systemExclusiveRename(from sourcePath: String, to destinationPath: String) -> Int32 {
+        sourcePath.withCString { sourcePointer in
             destinationPath.withCString { destinationPointer in
                 renamex_np(sourcePointer, destinationPointer, UInt32(RENAME_EXCL))
             }
         }
-        guard result == 0 else {
-            throw currentPOSIXError()
+    }
+
+    private func renameFile(from sourcePath: String, to destinationPath: String) throws {
+        #if DEBUG
+        let result = exclusiveRename(sourcePath, destinationPath)
+        #else
+        let result = Self.systemExclusiveRename(from: sourcePath, to: destinationPath)
+        #endif
+        if result != 0 {
+            guard errno == ENOTSUP else {
+                throw currentPOSIXError()
+            }
+            try renameClaimingDestination(from: sourcePath, to: destinationPath)
         }
         // Phase 1 finding (P1, ranked-out from Top 10): fsync the parent
         // directory after the rename so the directory entry survives
@@ -1092,6 +1109,64 @@ public struct TransferExecutor: Sendable {
         // requires the parent-dir fsync to actually make a completed
         // run crash-recoverable.
         fsyncParentDirectory(of: destinationPath)
+    }
+
+    /// Places a finished copy on a filesystem whose rename cannot refuse to
+    /// replace an existing name (macOS 27's exFAT rejects `RENAME_EXCL` with
+    /// ENOTSUP). It still never overwrites: the final name is first claimed
+    /// with an exclusive, empty placeholder, which fails with EEXIST if
+    /// anything is already there so the caller moves on to the next collision
+    /// name, and the copy is renamed only over that placeholder, checked to be
+    /// the same empty file immediately before. The check and the rename are
+    /// separate syscalls, because this filesystem offers no atomic
+    /// non-replacing rename or link; a writer that swaps a file in inside that
+    /// gap is not detected, but Chronoframe's own writers are excluded by the
+    /// destination lock. A crash between the claim and
+    /// the rename leaves only the empty placeholder, which recovery treats as
+    /// an unexpected destination and never removes.
+    func renameClaimingDestination(
+        from sourcePath: String,
+        to destinationPath: String,
+        afterClaim: () -> Void = {}
+    ) throws {
+        let descriptor = destinationPath.withCString {
+            open($0, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
+        }
+        guard descriptor >= 0 else {
+            throw currentPOSIXError()
+        }
+        var claimed = stat()
+        let statResult = fstat(descriptor, &claimed)
+        close(descriptor)
+        func isClaimedPlaceholder() -> Bool {
+            var current = stat()
+            return lstat(destinationPath, &current) == 0
+                && current.st_dev == claimed.st_dev
+                && current.st_ino == claimed.st_ino
+                && (current.st_mode & S_IFMT) == S_IFREG
+                && current.st_size == 0
+        }
+        guard statResult == 0 else {
+            // Without the placeholder's identity nothing proves the name is
+            // still ours, so leave it rather than remove it.
+            throw currentPOSIXError()
+        }
+
+        afterClaim()
+
+        guard isClaimedPlaceholder() else {
+            throw posixError(
+                code: EEXIST,
+                description: "The destination name changed before the copy could be placed: \(destinationPath)"
+            )
+        }
+        guard rename(sourcePath, destinationPath) == 0 else {
+            let error = currentPOSIXError()
+            if isClaimedPlaceholder() {
+                unlink(destinationPath)
+            }
+            throw error
+        }
     }
 
     /// Best-effort fsync of the directory containing `childPath`. Logs
