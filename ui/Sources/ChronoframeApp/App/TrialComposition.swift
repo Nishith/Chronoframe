@@ -61,25 +61,6 @@ enum TrialComposition {
         snapshot: { await currentEntitlement() }
     )
 
-    /// A single in-flight resolution, shared by every caller that arrives while
-    /// it runs.
-    ///
-    /// Without this, two gates racing on a cold store both call `refresh()`.
-    /// `EntitlementStore` generation-tags concurrent refreshes and makes the
-    /// loser return WITHOUT setting state — so if the loser finishes first, its
-    /// caller reads `.loading` and refuses a customer who may well have paid.
-    /// Coalescing removes the race rather than retrying around it.
-    @MainActor
-    private static var inFlightResolution: Task<Void, Never>?
-
-    /// Resolve entitlement, waiting if it has not settled.
-    ///
-    /// `EntitlementState.loading` must make a gate WAIT rather than refuse — a
-    /// slow App Store response should never look like a paywall. Doing that here
-    /// rather than in the authorizer is what lets the authorizer stay a pure
-    /// decision, and means a `.loading` state reaching it signals a genuine
-    /// resolution failure rather than a race — at which point it is metered like
-    /// any other unconfirmable state rather than blocked outright.
     /// Resolve entitlement for a surface that is asking on the customer's
     /// behalf rather than gating on it — the Settings License tab.
     ///
@@ -92,29 +73,25 @@ enum TrialComposition {
         await currentEntitlement()
     }
 
+    /// Resolve entitlement, waiting if it has not settled.
+    ///
+    /// `EntitlementState.loading` must make a gate WAIT rather than refuse — a
+    /// slow App Store response should never look like a paywall. Doing that here
+    /// rather than in the authorizer is what lets the authorizer stay a pure
+    /// decision, and means a `.loading` state reaching it signals a genuine
+    /// resolution failure rather than a race — at which point it is metered like
+    /// any other unconfirmable state rather than blocked outright.
+    ///
+    /// Coalescing, the unconfirmed-retry throttle, and the bounded wait on a
+    /// retry all live in `EntitlementStore.resolveIfNeeded()`, where they are
+    /// unit-tested against fakes rather than a static over live StoreKit.
     @MainActor
     private static func currentEntitlement() async -> TrialEntitlementSnapshot {
-        if entitlementStore.state.isResolving {
-            await resolveOnce()
-        }
+        await entitlementStore.resolveIfNeeded()
         return TrialEntitlementSnapshot(
             state: entitlementStore.state,
             accountKey: entitlementStore.ledgerAccountKey
         )
-    }
-
-    @MainActor
-    private static func resolveOnce() async {
-        if let existing = inFlightResolution {
-            await existing.value
-            return
-        }
-        let task = Task { @MainActor in
-            await entitlementStore.refresh()
-        }
-        inFlightResolution = task
-        await task.value
-        inFlightResolution = nil
     }
 
     /// Told what a revert undid, so the allowance comes back.
