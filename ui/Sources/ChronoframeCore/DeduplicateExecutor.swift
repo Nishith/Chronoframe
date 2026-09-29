@@ -592,6 +592,18 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         throw DedupeJournalTransitionError(underlying: error)
                     }
                 }
+                if let trashURL,
+                   let visibleURL = Self.giveTrashedItemItsName(
+                       at: trashURL,
+                       originalName: URL(fileURLWithPath: entry.item.path).lastPathComponent,
+                       journal: journalByPath[entry.item.path],
+                       recordJournal: recordJournal,
+                       fileOperations: fileOperations
+                   )
+                {
+                    trashed[trashed.count - 1].trashURL = visibleURL
+                    journalByPath[entry.item.path]?.actualTrashURL = visibleURL.absoluteString
+                }
             } catch let journalError as DedupeJournalTransitionError {
                 // The rollback above has already preserved every reachable
                 // member. Propagate so the run stops; continuing without a
@@ -644,6 +656,64 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         }
 
         return trashed.map { MutationResult(item: $0.item, outcome: .trashed($0.trashURL)) }
+    }
+
+    /// Moves a trashed item from the hidden quarantine name it was verified
+    /// under back to its own file name inside the Trash, so Finder shows it.
+    /// Best-effort: on any failure the item stays in the Trash under the
+    /// hidden name, which Revert still restores from. The journal names the
+    /// visible location before the move, and recovery also checks the
+    /// predicted (hidden) name and the pre-Trash bookmark, so an interruption
+    /// at any point leaves the item findable. Never replaces a Trash item.
+    static func giveTrashedItemItsName(
+        at trashURL: URL,
+        originalName: String,
+        journal: DeduplicateSpoolRecord?,
+        recordJournal: (DeduplicateSpoolRecord) throws -> Void,
+        fileOperations: any DeduplicateFileOperations
+    ) -> URL? {
+        guard let visibleURL = availableTrashURL(named: originalName, in: trashURL.deletingLastPathComponent()) else {
+            return nil
+        }
+        if var journal {
+            journal.actualTrashURL = visibleURL.absoluteString
+            guard (try? recordJournal(journal)) != nil else { return nil }
+        }
+        do {
+            // moveItem refuses an existing destination, so a name taken
+            // since the check above is never replaced.
+            try fileOperations.moveItem(at: trashURL, to: visibleURL)
+            return visibleURL
+        } catch {
+            if var journal {
+                journal.actualTrashURL = trashURL.absoluteString
+                try? recordJournal(journal)
+            }
+            return nil
+        }
+    }
+
+    /// `name`, or Finder-style `name 2`, `name 3`, … beside it, whichever is
+    /// free in `directory`.
+    static func availableTrashURL(named name: String, in directory: URL) -> URL? {
+        let pathExtension = (name as NSString).pathExtension
+        let base = (name as NSString).deletingPathExtension
+        for index in 1...999 {
+            let candidateName: String
+            if index == 1 {
+                candidateName = name
+            } else if pathExtension.isEmpty {
+                candidateName = "\(base) \(index)"
+            } else {
+                candidateName = "\(base) \(index).\(pathExtension)"
+            }
+            let candidate = directory.appendingPathComponent(candidateName, isDirectory: false)
+            var st = stat()
+            if lstat(candidate.path, &st) != 0, errno == ENOENT {
+                return candidate
+            }
+        }
+        return nil
     }
 
     private struct DedupeJournalTransitionError: Error {

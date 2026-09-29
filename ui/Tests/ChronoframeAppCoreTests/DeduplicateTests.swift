@@ -1647,6 +1647,88 @@ final class DeduplicateTests: XCTestCase {
         XCTAssertEqual(revertSummary?.receiptPath, receiptURL.path)
     }
 
+    /// A duplicate moved to the Trash must keep its own name there, so the
+    /// user can find it in Finder and use Put Back. It used to land under the
+    /// hidden `.chronoframe-quarantine-<UUID>-<name>` it was verified under.
+    // AGENTS-INVARIANT: 12
+    // AGENTS-INVARIANT: 18
+    func testTrashedDuplicateKeepsItsOriginalNameInTheTrash() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeTrashName-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let fileURL = temporaryDirectory.appendingPathComponent("IMG_4021.jpg")
+        try Data(repeating: 0xC3, count: 40).write(to: fileURL)
+        let fakeTrashRoot = temporaryDirectory.appendingPathComponent("FakeTrash", isDirectory: true)
+
+        let (trashURL, receiptURL, executor) = try await commitSingleItem(at: fileURL, trashRoot: fakeTrashRoot)
+
+        XCTAssertEqual(trashURL.lastPathComponent, "IMG_4021.jpg")
+        XCTAssertEqual(try Data(contentsOf: trashURL), Data(repeating: 0xC3, count: 40))
+        let trashNames = try FileManager.default.contentsOfDirectory(atPath: trashURL.deletingLastPathComponent().path)
+        XCTAssertFalse(trashNames.contains { $0.hasPrefix(".") }, "nothing hidden may be left in the Trash: \(trashNames)")
+        let receipt = try JSONDecoder.dedupe.decode(DeduplicateAuditReceipt.self, from: Data(contentsOf: receiptURL))
+        XCTAssertEqual(receipt.items.first?.trashURL.flatMap(URL.init(string:))?.standardizedFileURL, trashURL.standardizedFileURL)
+
+        for try await _ in executor.revert(receiptURL: receiptURL) {}
+        XCTAssertEqual(try Data(contentsOf: fileURL), Data(repeating: 0xC3, count: 40), "Revert must restore from the visible name")
+    }
+
+    /// When the Trash already holds a file of that name, the duplicate takes
+    /// a numbered name beside it; the file already in the Trash is untouched.
+    // AGENTS-INVARIANT: 12
+    func testTrashNameCollisionGetsANumberedNameAndNeverOverwrites() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("DedupeTrashName-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let fileURL = temporaryDirectory.appendingPathComponent("IMG_4021.jpg")
+        try Data(repeating: 0xC3, count: 40).write(to: fileURL)
+        let fakeTrashRoot = temporaryDirectory.appendingPathComponent("FakeTrash", isDirectory: true)
+        try FileManager.default.createDirectory(at: fakeTrashRoot, withIntermediateDirectories: true)
+        let alreadyTrashed = fakeTrashRoot.appendingPathComponent("IMG_4021.jpg")
+        try Data("trashed earlier".utf8).write(to: alreadyTrashed)
+
+        let (trashURL, _, _) = try await commitSingleItem(at: fileURL, trashRoot: fakeTrashRoot)
+
+        XCTAssertEqual(trashURL.lastPathComponent, "IMG_4021 2.jpg")
+        XCTAssertEqual(try Data(contentsOf: trashURL), Data(repeating: 0xC3, count: 40))
+        XCTAssertEqual(try String(contentsOf: alreadyTrashed, encoding: .utf8), "trashed earlier")
+    }
+
+    private func commitSingleItem(
+        at fileURL: URL,
+        trashRoot: URL
+    ) async throws -> (trashURL: URL, receiptURL: URL, executor: DeduplicateExecutor) {
+        let plan = DeduplicationPlan(items: [
+            DeduplicationPlan.Item(
+                path: fileURL.path,
+                sizeBytes: Int64((try? Data(contentsOf: fileURL).count) ?? 0),
+                owningClusterID: UUID(),
+                owningClusterKind: .exactDuplicate,
+                pairOrigin: nil,
+                expectedIdentity: testFileIdentity(at: fileURL)
+            ),
+        ])
+        let executor = DeduplicateExecutor(fileOperations: MockDeduplicateFileOperations(trashRoot: trashRoot))
+        var trashURL: URL?
+        var summary: DeduplicateCommitSummary?
+        for try await event in executor.commit(
+            plan: plan,
+            destinationRoot: fileURL.deletingLastPathComponent().path,
+            hardDelete: false,
+            runID: UUID()
+        ) {
+            if case let .itemTrashed(_, url, _) = event { trashURL = url }
+            if case let .complete(completed) = event { summary = completed }
+        }
+        return (
+            try XCTUnwrap(trashURL),
+            URL(fileURLWithPath: try XCTUnwrap(summary?.receiptPath)),
+            executor
+        )
+    }
+
     func testCommitCancellationWritesAbortedReceiptAndLeavesRemainingFile() async throws {
         let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("DedupeCancel-\(UUID().uuidString)")

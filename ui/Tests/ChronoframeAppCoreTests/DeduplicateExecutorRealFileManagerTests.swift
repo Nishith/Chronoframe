@@ -88,6 +88,12 @@ final class DeduplicateExecutorRealFileManagerTests: XCTestCase {
             "Trashed file must no longer exist at the original path")
         XCTAssertTrue(FileManager.default.fileExists(atPath: trashedURL.path),
             "Trashed file must exist at the returned trash URL: \(trashedURL.path)")
+        // Visible in the real Trash under its own name ("dup-b.jpg", or a
+        // numbered "dup-b N.jpg" if the Trash already holds one), not hidden.
+        XCTAssertFalse(trashedURL.lastPathComponent.hasPrefix("."),
+            "Trashed file must not be hidden in the Trash: \(trashedURL.lastPathComponent)")
+        XCTAssertTrue(trashedURL.lastPathComponent.hasPrefix("dup-b"),
+            "Trashed file must keep its own name in the Trash: \(trashedURL.lastPathComponent)")
         XCTAssertTrue(FileManager.default.fileExists(atPath: targetA.path),
             "Untouched cluster mate must remain on disk")
 
