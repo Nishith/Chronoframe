@@ -517,6 +517,12 @@ struct SectionHeading: View {
 struct DetailHeroCard<Summary: View, Actions: View>: View {
     let eyebrow: String?
     let title: String
+    /// Optional accessibility identifier for the title text. Set this when
+    /// `title` is a short word that also appears as this screen's window
+    /// `.navigationTitle(...)` (e.g. "Setup"), so the accessibility audit can
+    /// tell the app-authored card title apart from the system-drawn toolbar
+    /// title by identifier rather than by text content alone.
+    let titleAccessibilityIdentifier: String?
     let message: String
     let badgeTitle: String
     let badgeSystemImage: String?
@@ -529,6 +535,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
     init(
         eyebrow: String? = nil,
         title: String,
+        titleAccessibilityIdentifier: String? = nil,
         message: String,
         badgeTitle: String,
         badgeSystemImage: String? = nil,
@@ -540,6 +547,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
     ) {
         self.eyebrow = eyebrow
         self.title = title
+        self.titleAccessibilityIdentifier = titleAccessibilityIdentifier
         self.message = message
         self.badgeTitle = badgeTitle
         self.badgeSystemImage = badgeSystemImage
@@ -548,6 +556,20 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
         self.usesBrandMark = usesBrandMark
         self.summary = summary()
         self.actions = actions()
+    }
+
+    /// Only cards that opt in get an identifier; the rest are left untouched
+    /// rather than carrying an explicit empty one.
+    @ViewBuilder
+    private var titleText: some View {
+        let text = Text(title)
+            .scaledFont(.title)
+            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+        if let titleAccessibilityIdentifier {
+            text.accessibilityIdentifier(titleAccessibilityIdentifier)
+        } else {
+            text
+        }
     }
 
     var body: some View {
@@ -563,9 +585,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                     )
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .scaledFont(.title)
-                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                        titleText
 
                         if !message.isEmpty {
                             Text(message)

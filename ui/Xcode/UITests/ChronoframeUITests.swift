@@ -527,6 +527,89 @@ final class ChronoframeUITests: XCTestCase {
         ))
     }
 
+    // Regression coverage for BASH-06's review finding: a toolbar-title false
+    // positive must be matched exactly, not by substring, so a genuine contrast
+    // regression on unrelated app-authored text sharing a word (e.g. "Library
+    // Health" / "Healthy" on healthDashboard) is never silently swallowed.
+    func testToolbarTitleFalsePositivesAreMatchedExactlyNotBySubstring() {
+        func toolbarTitleIssue(_ title: String) -> A11yAuditFingerprint {
+            A11yAuditFingerprint(
+                auditType: "contrast",
+                role: "staticText",
+                identifier: "",
+                label: "",
+                value: title,
+                compactDescription: "Contrast failed",
+                detailedDescription: "Contrast failed for \(title)"
+            )
+        }
+
+        let expectations: [(Scenario, String)] = [
+            (.setupIncompleteRun, "Run"),
+            (.runPreviewReview, "Run"),
+            (.setupReady, "Setup"),
+            (.healthDashboard, "Health"),
+            (.watchedSources, "Organize"),
+            (.historyPopulated, "Run History")
+        ]
+        for (scenario, title) in expectations {
+            XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
+                toolbarTitleIssue(title),
+                scenario: scenario,
+                baselineEntries: []
+            ), "\(title) toolbar title should be bypassed on \(scenario)")
+        }
+
+        // A different scenario's toolbar title must not leak across scenarios.
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            toolbarTitleIssue("Setup"),
+            scenario: .healthDashboard,
+            baselineEntries: []
+        ))
+
+        // The healthDashboard scenario renders "Library Health" (card title) and
+        // "Healthy" (legend) as real app-authored text alongside the "Health"
+        // toolbar title. A substring match would incorrectly bypass contrast
+        // regressions on these — they must still hard-fail.
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            toolbarTitleIssue("Library Health"),
+            scenario: .healthDashboard,
+            baselineEntries: []
+        ))
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            toolbarTitleIssue("Healthy"),
+            scenario: .healthDashboard,
+            baselineEntries: []
+        ))
+    }
+
+    // Regression coverage for a second BASH-06 review finding: the setupReady
+    // scenario's DetailHeroCard renders a "Setup" title (SetupSectionViews.swift)
+    // that is textually identical to the window's ".navigationTitle(\"Setup\")".
+    // Matching by exact text alone (rather than substring) does not disambiguate
+    // two elements with the *same* text, so the hero card title now carries a
+    // non-empty accessibilityIdentifier (AccessibilityIdentifiers.setupHeroTitle
+    // in the app target, "setupHeroTitle" here) specifically so its audit
+    // fingerprint no longer satisfies the toolbar-title bypass's
+    // `identifier.isEmpty` precondition — a genuine contrast regression on that
+    // card title must still hard-fail.
+    func testSetupHeroCardTitleIsNotBypassedAsToolbarTitleFalsePositive() {
+        let heroCardTitleIssue = A11yAuditFingerprint(
+            auditType: "contrast",
+            role: "staticText",
+            identifier: "setupHeroTitle",
+            label: "",
+            value: "Setup",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for Setup"
+        )
+        XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
+            heroCardTitleIssue,
+            scenario: .setupReady,
+            baselineEntries: []
+        ), "The hero card's \"Setup\" title must not be bypassed by the toolbar-title exception now that it carries its own accessibility identifier")
+    }
+
     func testUnlabeledSwiftUILayoutWrapperFindingsAreBypassedNarrowly() {
         let layoutGroup = A11yAuditFingerprint(
             auditType: "sufficientElementDescription",
@@ -1099,26 +1182,52 @@ final class ChronoframeUITests: XCTestCase {
            issue.compactDescription == "Unknown role" {
             return true
         }
-        if issue.auditType == "contrast",
-           issue.role == "staticText",
-           issue.identifier.isEmpty,
-           issue.compactDescription == "Contrast failed",
-           scenario.opensSettingsOnLaunch,
-           (contrastTarget(for: issue) == "settings" || contrastTarget(for: issue) == "chronoframe") {
-            return true
-        }
-        if issue.auditType == "contrast",
-           issue.role == "staticText",
-           issue.identifier.isEmpty,
-           issue.compactDescription == "Contrast failed",
-           (scenario == .deduplicateReviewWide || scenario == .deduplicateReviewCompact || scenario == .historyPopulated),
-           contrastTarget(for: issue) == "chronoframe" {
-            return true
+        if isUnidentifiedStaticTextContrastFailure(issue) {
+            let target = contrastTarget(for: issue)
+            if scenario.opensSettingsOnLaunch, target == "settings" || target == "chronoframe" {
+                return true
+            }
+            if scenario == .deduplicateReviewWide || scenario == .deduplicateReviewCompact || scenario == .historyPopulated,
+               target == "chronoframe" {
+                return true
+            }
+            if let expectedToolbarTitle = toolbarTitleFalsePositives[scenario], target == expectedToolbarTitle {
+                return true
+            }
         }
         return issue.role == "role_14" &&
                issue.label.localizedCaseInsensitiveCompare("emoji & symbols") == .orderedSame &&
                issue.auditType == "sufficientElementDescription"
     }
+
+    /// A contrast-audit failure on an app-rendered label with no accessibility
+    /// identifier — the common shape every system-chrome contrast false
+    /// positive takes (the Settings/Chronoframe window title, the toolbar
+    /// titles). Extracted because these four checks previously repeated
+    /// verbatim across three separate bypass rules below.
+    private static func isUnidentifiedStaticTextContrastFailure(_ issue: A11yAuditFingerprint) -> Bool {
+        issue.auditType == "contrast" &&
+            issue.role == "staticText" &&
+            issue.identifier.isEmpty &&
+            issue.compactDescription == "Contrast failed"
+    }
+
+    /// Window toolbar titles the system draws from `.navigationTitle(...)` on
+    /// each scenario's primary destination (BASH-06). Matched by *exact*
+    /// lowercased target rather than the baseline file's substring matching,
+    /// because several of these titles ("Health", "Setup") are single words
+    /// that are also substrings of unrelated app-authored text on the same
+    /// screen (e.g. healthDashboard's "Library Health" title and "Healthy"
+    /// legend) — a substring baseline entry would silently swallow a real
+    /// contrast regression on that unrelated text.
+    private static let toolbarTitleFalsePositives: [Scenario: String] = [
+        .setupIncompleteRun: "run",
+        .runPreviewReview: "run",
+        .setupReady: "setup",
+        .healthDashboard: "health",
+        .watchedSources: "organize",
+        .historyPopulated: "run history"
+    ]
 
     private static func isUnlabeledSwiftUILayoutWrapperIssue(_ issue: A11yAuditFingerprint) -> Bool {
         // XCTest reports SwiftUI layout scaffolding as Window/Application
