@@ -72,9 +72,9 @@ struct TrialIndicatorLabel: View {
     private var identifier: String {
         switch meter {
         case .organize:
-            return "trialIndicator.organize"
+            return AccessibilityIdentifiers.trialIndicatorOrganize
         case .dedupe:
-            return "trialIndicator.dedupe"
+            return AccessibilityIdentifiers.trialIndicatorDedupe
         }
     }
 }

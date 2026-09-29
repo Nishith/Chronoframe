@@ -1033,6 +1033,24 @@ final class ChronoframeUITests: XCTestCase {
                     "Keep/Delete must not be hidden behind the member strip for \(scenario.rawValue)"
                 )
 
+                // The free-trial counter must sit clear of the commit actions,
+                // not be drawn on top of them.
+                let trialCounter = Self.element(identifier: "trialIndicator.dedupe", in: app)
+                XCTAssertTrue(trialCounter.waitForExistence(timeout: 5), "Trial counter should render for \(scenario.rawValue)")
+                Self.assertFrame(
+                    trialCounter.frame,
+                    named: "trial counter",
+                    isInside: window.frame,
+                    scenario: scenario.rawValue,
+                    tolerance: 5
+                )
+                for (name, element) in [("accept all", acceptAll), ("commit", commit)] {
+                    XCTAssertFalse(
+                        trialCounter.frame.intersects(element.frame),
+                        "Trial counter \(trialCounter.frame) must not overlap \(name) \(element.frame) for \(scenario.rawValue)"
+                    )
+                }
+
                 app.terminate()
             }
         }

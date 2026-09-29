@@ -94,6 +94,11 @@ enum AccessibilityIdentifiers {
 
     static let activeProfileBadge = "activeProfileBadge"
 
+    // MARK: - Free trial
+
+    static let trialIndicatorOrganize = "trialIndicator.organize"
+    static let trialIndicatorDedupe = "trialIndicator.dedupe"
+
     // MARK: - Settings
 
     static let diagnosticsLogBufferStepper = "diagnosticsLogBufferStepper"
@@ -142,6 +147,7 @@ enum AccessibilityIdentifiers {
         historyFilterControl, recoveryCenterSection, useHistoricalSourceButton,
         revealHistoricalSourceButton,
         activeProfileBadge,
+        trialIndicatorOrganize, trialIndicatorDedupe,
         diagnosticsLogBufferStepper, smartEventSuggestionsToggle,
     ]
 }
