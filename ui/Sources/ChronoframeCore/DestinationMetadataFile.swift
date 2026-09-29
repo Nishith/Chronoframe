@@ -24,7 +24,7 @@ public enum DestinationMetadataFile {
     /// Opens (creating if needed) `url` for appending.
     public static func openForAppending(at url: URL) throws -> FileHandle {
         // O_NONBLOCK keeps a FIFO planted at `url` from blocking the open; it
-        // has no effect on writes to the regular file this requires.
+        // is cleared again below once the file is confirmed regular.
         let descriptor = url.path.withCString {
             Darwin.open(
                 $0,
@@ -34,7 +34,7 @@ public enum DestinationMetadataFile {
         }
         guard descriptor >= 0 else {
             let openError = errno
-            if openError == ELOOP || openError == EISDIR || openError == ENXIO {
+            if openError == ELOOP || openError == EISDIR || openError == ENXIO || openError == EOPNOTSUPP {
                 throw DestinationMetadataUnsafeError(itemName: url.lastPathComponent)
             }
             throw NSError(
@@ -50,6 +50,11 @@ public enum DestinationMetadataFile {
         else {
             _ = Darwin.close(descriptor)
             throw DestinationMetadataUnsafeError(itemName: url.lastPathComponent)
+        }
+        // O_NONBLOCK was only for the open above; don't leave it on the log's descriptor.
+        let flags = fcntl(descriptor, F_GETFL)
+        if flags >= 0 {
+            _ = fcntl(descriptor, F_SETFL, flags & ~O_NONBLOCK)
         }
         return FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
     }
