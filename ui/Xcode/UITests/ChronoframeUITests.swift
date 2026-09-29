@@ -743,20 +743,24 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
-    func testTimelineScrubbingUpdatesPreview() async {
+    func testTimelineSelectionUpdatesPreview() async {
         await MainActor.run {
             let app = Self.launchApp(.runPreviewReview)
 
             let timeline = Self.element(identifier: "InteractiveTimeline", in: app)
             XCTAssertTrue(timeline.waitForExistence(timeout: 5), "Timeline should render in run preview")
 
-            let startCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.1, dy: 0.5))
-            let endCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
-            startCoordinate.press(forDuration: 0.1, thenDragTo: endCoordinate)
+            Self.selectTimelineBucket(timeline, atNormalizedX: 0.9)
 
             let clearButton = Self.button(identifier: "ClearTimelineSelectionButton", in: app)
-            XCTAssertTrue(clearButton.waitForExistence(timeout: 5), "Clear Selection button should appear after scrubbing")
+            XCTAssertTrue(clearButton.waitForExistence(timeout: 5), "Clear Selection button should appear after selecting a bucket")
 
+            // The selection drawer opens below the timeline, which can sit at
+            // the bottom of the window; scroll it into view as a user would.
+            XCTAssertTrue(
+                Self.scrollIntoView(clearButton, in: app),
+                "Clear Selection button should be scrollable into view"
+            )
             Self.coordinateClick(clearButton)
             XCTAssertFalse(clearButton.exists, "Clear Selection button should disappear after clearing selection")
 
@@ -764,7 +768,7 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
-    func testHistoryTimelineScrubbingFiltersEntries() async {
+    func testHistoryTimelineSelectionFiltersEntries() async {
         await MainActor.run {
             let app = Self.launchApp(.historyPopulated)
 
@@ -774,11 +778,9 @@ final class ChronoframeUITests: XCTestCase {
             let clearFilterButton = Self.button(identifier: "ClearTimelineFilterButton", in: app)
             XCTAssertFalse(clearFilterButton.exists, "Clear Timeline Filter button should not be present initially")
 
-            let startCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
-            let endCoordinate = timeline.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5))
-            startCoordinate.press(forDuration: 0.1, thenDragTo: endCoordinate)
+            Self.selectTimelineBucket(timeline, atNormalizedX: 0.8)
 
-            XCTAssertTrue(clearFilterButton.waitForExistence(timeout: 5), "Clear Timeline Filter button should appear after scrubbing")
+            XCTAssertTrue(clearFilterButton.waitForExistence(timeout: 5), "Clear Timeline Filter button should appear after selecting a bucket")
 
             Self.coordinateClick(clearFilterButton)
             XCTAssertFalse(clearFilterButton.exists, "Clear Timeline Filter button should disappear after clearing filter")
@@ -1485,6 +1487,50 @@ final class ChronoframeUITests: XCTestCase {
         } else {
             element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
         }
+    }
+
+    /// Selects the timeline bucket under a point with a click. The timeline's
+    /// `DragGesture(minimumDistance: 0)` selects on press, so a click drives
+    /// the same selection path as a scrub. XCTest's synthesized
+    /// `press(forDuration:thenDragTo:)` never reaches that gesture on
+    /// macOS 27 (clicks do, and a real mouse drag selects correctly), so the
+    /// tests click rather than drag.
+    @MainActor
+    private static func selectTimelineBucket(_ timeline: XCUIElement, atNormalizedX x: CGFloat) {
+        timeline.coordinate(withNormalizedOffset: CGVector(dx: x, dy: 0.5)).click()
+    }
+
+    /// Scrolls the scroll view containing the button until the button lies
+    /// entirely inside the window. `isHittable` is not enough: a button
+    /// clipped by the window edge still reports hittable while its centre,
+    /// where `coordinateClick` lands, is outside the window.
+    @MainActor
+    private static func scrollIntoView(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        let window = app.windows.firstMatch
+        let scrollView = app.scrollViews.containing(.button, identifier: element.identifier).firstMatch
+        func isFullyVisible() -> Bool { window.frame.contains(element.frame) }
+        if isFullyVisible() { return true }
+        guard scrollView.exists else { return false }
+
+        // Scroll toward the element first: a negative delta reveals content
+        // below the fold, a positive delta reveals content above it. Keep
+        // scrolling that direction as long as it keeps moving the element
+        // (so a correct guess that simply needs more iterations isn't cut
+        // off), and only fall back to the other direction once the scroll
+        // view stops responding (its frame stops changing), which signals
+        // the guess was wrong rather than merely slow.
+        let towardDeltaY: CGFloat = element.frame.maxY > window.frame.maxY ? -120 : 120
+        for deltaY in [towardDeltaY, -towardDeltaY] {
+            var previousFrame = element.frame
+            for _ in 0..<20 {
+                if isFullyVisible() { return true }
+                scrollView.scroll(byDeltaX: 0, deltaY: deltaY)
+                let currentFrame = element.frame
+                if currentFrame == previousFrame { break }
+                previousFrame = currentFrame
+            }
+        }
+        return isFullyVisible()
     }
 
     @MainActor
