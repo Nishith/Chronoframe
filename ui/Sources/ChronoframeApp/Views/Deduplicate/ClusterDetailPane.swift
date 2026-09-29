@@ -90,14 +90,22 @@ struct ClusterDetailPane: View {
             let isWideLayout = geometry.size.width >= 450
             VStack(spacing: 0) {
                 VStack(spacing: 0) {
-                    warningBanner(for: cluster)
                     if isWideLayout {
+                        warningBanner(for: cluster)
                         detailContentWide(focused: focused, cluster: cluster)
                     } else {
+                        // Compact: the banner rides inside the same scroll view as
+                        // the preview/metadata stack (below) rather than sitting
+                        // above it as a fixed-height sibling. A fixed sibling
+                        // would eat into the ~100pt preview region on its own,
+                        // and could squeeze the scroll view holding Keep/Delete
+                        // down to nothing for a cluster with several warnings.
                         detailContentCompact(focused: focused, cluster: cluster)
                     }
                 }
                 .frame(height: previewHeight)
+                // Never draw over the group list above or under the strip below.
+                .clipped()
 
                 PreviewResizeHandle(
                     dragChanged: { translation in
@@ -177,14 +185,21 @@ struct ClusterDetailPane: View {
     }
 
     private func detailContentCompact(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
-        VStack(spacing: DesignTokens.Spacing.md) {
-            preview(for: focused, cluster: cluster)
-                .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
-            if let focused {
-                metadataPanel(for: focused, cluster: cluster)
+        scrollableWhenConstrained {
+            VStack(spacing: 0) {
+                // The banner carries its own gutters, so it sits outside the
+                // padded stack to stay aligned with the wide layout.
+                warningBanner(for: cluster)
+                VStack(spacing: DesignTokens.Spacing.md) {
+                    preview(for: focused, cluster: cluster)
+                        .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
+                    if let focused {
+                        metadataPanel(for: focused, cluster: cluster)
+                    }
+                }
+                .padding(DesignTokens.Spacing.md)
             }
         }
-        .padding(DesignTokens.Spacing.md)
     }
 
     private func detailContentWide(focused: PhotoCandidate?, cluster: DuplicateCluster) -> some View {
@@ -193,11 +208,23 @@ struct ClusterDetailPane: View {
                 .frame(minWidth: 160, maxWidth: .infinity, maxHeight: .infinity)
                 .layoutPriority(1)
             if let focused {
-                metadataPanel(for: focused, cluster: cluster)
-                    .frame(width: 200)
+                scrollableWhenConstrained {
+                    metadataPanel(for: focused, cluster: cluster)
+                }
+                .frame(width: 200)
             }
         }
         .padding(DesignTokens.Spacing.lg)
+    }
+
+    /// Hosts `content` in a vertical scroll view that only scrolls when the
+    /// content is taller than the height it is given, so decision controls
+    /// stay reachable in a short window instead of overflowing their region.
+    private func scrollableWhenConstrained<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        ScrollView(.vertical) {
+            content()
+        }
+        .scrollBounceBehavior(.basedOnSize)
     }
 
     /// Default-mode preview area. When the cluster has 2+ members and the
@@ -579,6 +606,7 @@ struct ClusterDetailPane: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .accessibilityIdentifier(AccessibilityIdentifiers.dedupeDecisionControl)
     }
 
     private func memberThumb(member: PhotoCandidate, cluster: DuplicateCluster, thumbnailSize: CGFloat) -> some View {
@@ -683,12 +711,16 @@ struct ClusterDetailPane: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
+                    // The banner sits on the image stage, which is dark in
+                    // both appearances; the default and ink colours turn dark
+                    // in light mode and fail contrast there.
                     Text(DeduplicateAccessibilityText.intentionallyDifferentNote(cluster))
                         .scaledFont(.label, weight: .semibold)
+                        .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                     ForEach(Array(annotation.warnings.enumerated()), id: \.offset) { _, warning in
                         Text(MatchReasonFormatter.warningSummary(warning))
                             .scaledFont(.label)
-                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                            .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                     }
                 }
                 Spacer()

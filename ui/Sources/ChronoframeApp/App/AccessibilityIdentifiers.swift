@@ -69,6 +69,7 @@ enum AccessibilityIdentifiers {
     static let dedupeCommitButton = "dedupeCommitButton"
     static let dedupeCommitFooter = "dedupeCommitFooter"
     static let dedupeCommitReviewedButton = "dedupeCommitReviewedButton"
+    static let dedupeDecisionControl = "dedupeDecisionControl"
     static let dedupeFolderHistorySection = "dedupeFolderHistorySection"
     static let dedupeMemberStrip = "dedupeMemberStrip"
     static let dedupeOpenRunHistoryButton = "dedupeOpenRunHistoryButton"
@@ -134,7 +135,7 @@ enum AccessibilityIdentifiers {
         dedupeAcceptAllSuggestionsButton, dedupeAcceptClusterSuggestionButton,
         dedupeAcceptHighConfidenceButton, dedupeCancelCommitButton, dedupeChangeFolderButton,
         dedupeCommitButton, dedupeCommitFooter, dedupeCommitReviewedButton,
-        dedupeFolderHistorySection, dedupeMemberStrip, dedupeOpenRunHistoryButton,
+        dedupeDecisionControl, dedupeFolderHistorySection, dedupeMemberStrip, dedupeOpenRunHistoryButton,
         dedupePausedScanSection, dedupeRapidTriageButton, dedupeResumePausedScanButton,
         dedupeReviewActionsMenu, dedupeReviewChangeFolderButton, dedupeReviewClusterList,
         dedupeReviewDetail, dedupeReviewSettingsButton, dedupeUseHistoryFolderButton,
