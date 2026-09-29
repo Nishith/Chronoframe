@@ -28,6 +28,7 @@ final class ReceiptDurabilityTests: XCTestCase {
         logs.appendingPathComponent("audit_receipt_20260927_120000_run.json")
     }
 
+    // AGENTS-INVARIANT: 9
     func testLinkAtPredictableTempNameIsNeverWrittenThrough() throws {
         let logs = try makeDirectory()
         let sentinel = try makeSentinel(in: try makeDirectory())
@@ -40,6 +41,7 @@ final class ReceiptDurabilityTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: receiptURL(in: logs)), receiptData)
     }
 
+    // AGENTS-INVARIANT: 9
     func testHardLinkAtPredictableTempNameIsNeverWrittenThrough() throws {
         let logs = try makeDirectory()
         let sentinel = try makeSentinel(in: logs)
@@ -84,5 +86,35 @@ final class ReceiptDurabilityTests: XCTestCase {
             try FileManager.default.contentsOfDirectory(atPath: logs.path),
             [receiptURL(in: logs).lastPathComponent]
         )
+    }
+
+    func testFailedRenameThrowsAndRemovesOnlyItsOwnTemp() throws {
+        let logs = try makeDirectory()
+        // A directory at the receipt name makes the final rename fail.
+        let receipt = receiptURL(in: logs)
+        try FileManager.default.createDirectory(at: receipt, withIntermediateDirectories: true)
+        try Data("keep".utf8).write(to: receipt.appendingPathComponent("inside.txt"))
+        let bystander = logs.appendingPathComponent("audit_receipt_other.json.tmp")
+        try Data("BYSTANDER".utf8).write(to: bystander)
+
+        XCTAssertThrowsError(try ReceiptDurability.durablyWrite(data: receiptData, to: receipt))
+
+        XCTAssertEqual(
+            Set(try FileManager.default.contentsOfDirectory(atPath: logs.path)),
+            [receipt.lastPathComponent, bystander.lastPathComponent]
+        )
+        XCTAssertEqual(try String(contentsOf: bystander, encoding: .utf8), "BYSTANDER")
+        XCTAssertEqual(try Data(contentsOf: receipt.appendingPathComponent("inside.txt")), Data("keep".utf8))
+    }
+
+    func testUnwritableDirectoryThrowsWithoutLeavingFiles() throws {
+        let logs = try makeDirectory()
+        XCTAssertEqual(chmod(logs.path, S_IRUSR | S_IXUSR), 0)
+        addTeardownBlock { _ = chmod(logs.path, S_IRWXU) }
+        try XCTSkipIf(access(logs.path, W_OK) == 0, "Directory stayed writable (running with elevated privileges).")
+
+        XCTAssertThrowsError(try ReceiptDurability.durablyWrite(data: receiptData, to: receiptURL(in: logs)))
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: logs.path), [])
     }
 }

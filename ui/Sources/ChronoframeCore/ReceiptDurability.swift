@@ -29,8 +29,12 @@ public enum ReceiptDurability {
                 var written = 0
                 while written < rawBuffer.count {
                     let result = Darwin.write(fd, rawBuffer.baseAddress!.advanced(by: written), rawBuffer.count - written)
+                    if result < 0 && errno == EINTR {
+                        continue
+                    }
                     guard result > 0 else {
-                        let code = errno
+                        // A zero-byte write sets no errno; don't report a stale one.
+                        let code = result == 0 ? EIO : errno
                         throw NSError(
                             domain: NSPOSIXErrorDomain,
                             code: Int(code),
