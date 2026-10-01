@@ -29,6 +29,7 @@ final class ReceiptDurabilityTests: XCTestCase {
     }
 
     // AGENTS-INVARIANT: 9
+    // AGENTS-INVARIANT: 26
     func testLinkAtPredictableTempNameIsNeverWrittenThrough() throws {
         let logs = try makeDirectory()
         let sentinel = try makeSentinel(in: try makeDirectory())
@@ -42,6 +43,7 @@ final class ReceiptDurabilityTests: XCTestCase {
     }
 
     // AGENTS-INVARIANT: 9
+    // AGENTS-INVARIANT: 26
     func testHardLinkAtPredictableTempNameIsNeverWrittenThrough() throws {
         let logs = try makeDirectory()
         let sentinel = try makeSentinel(in: logs)
@@ -62,6 +64,7 @@ final class ReceiptDurabilityTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: receiptURL(in: logs)), receiptData)
     }
 
+    // AGENTS-INVARIANT: 26
     func testLinkAtReceiptNameIsReplacedNotWrittenThrough() throws {
         let logs = try makeDirectory()
         let sentinel = try makeSentinel(in: try makeDirectory())
