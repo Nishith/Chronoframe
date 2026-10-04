@@ -83,10 +83,22 @@ struct UnlockSheet: View {
 
             Divider()
 
-            HStack(spacing: 10) {
-                Spacer()
+            VStack(alignment: .trailing, spacing: 10) {
+                // Give the localized product name and price their own line.
+                // Sharing the 380pt content width with Restore and Not Now
+                // compressed the purchase label until its price disappeared.
                 ForEach(Array(buttonRowActions.enumerated()), id: \.offset) { _, action in
-                    button(for: action)
+                    if case .buy = action {
+                        button(for: action)
+                    }
+                }
+                HStack(spacing: 10) {
+                    Spacer()
+                    ForEach(Array(buttonRowActions.enumerated()), id: \.offset) { _, action in
+                        if case .buy = action {} else {
+                            button(for: action)
+                        }
+                    }
                 }
             }
         }
@@ -116,8 +128,11 @@ struct UnlockSheet: View {
     private func button(for action: UnlockSheetAction) -> some View {
         switch action {
         case let .buy(displayName, displayPrice):
-            Button("\(displayName) · \(displayPrice)") {
+            Button {
                 Task { await entitlementStore.purchase() }
+            } label: {
+                Text("\(displayName) · \(displayPrice)")
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .keyboardShortcut(.defaultAction)
             .disabled(model.isBusy)
