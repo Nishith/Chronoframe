@@ -267,6 +267,16 @@ public struct TransferExecutor: Sendable {
             }
         }
 
+        // The enumeration above skips hidden folders, so the logs folder's own
+        // temporaries (receipt, report and review files whose write was cut off)
+        // are swept here.
+        cleanedCount += DestinationMetadataFile.removeOrphanedTemporaries(
+            in: destinationRoot.appendingPathComponent(
+                EngineArtifactLayout.chronoframeDefault.logsDirectoryName,
+                isDirectory: true
+            )
+        )
+
         return cleanedCount
     }
 
@@ -330,10 +340,18 @@ public struct TransferExecutor: Sendable {
         // matching what `pipeTransferSpool` writes into the receipt's
         // "transfers" array during normal `finish()`.
         let spoolBody: String
-        if FileManager.default.fileExists(atPath: spoolURL.path),
-           let data = try? Data(contentsOf: spoolURL),
-           let body = String(data: data, encoding: .utf8) {
-            spoolBody = body
+        if FileManager.default.fileExists(atPath: spoolURL.path) {
+            do {
+                let data = try DestinationMetadataFile.readContents(at: spoolURL)
+                spoolBody = String(data: data, encoding: .utf8) ?? ""
+            } catch is DestinationMetadataUnsafeError {
+                // A link or special file at the spool's name is not the journal
+                // this run wrote. Leave the receipt PENDING and the entry in
+                // place rather than splice another file's bytes into it.
+                return false
+            } catch {
+                spoolBody = ""
+            }
         } else {
             spoolBody = ""
         }
@@ -367,15 +385,11 @@ public struct TransferExecutor: Sendable {
         out += sanitizedSpoolBody(spoolBody)
         out += "\n  ]\n}\n"
 
-        let tempURL = receiptURL.appendingPathExtension("recovery.tmp")
         do {
-            try out.data(using: .utf8)?.write(to: tempURL, options: [.atomic])
-            try FileManager.default.removeItem(at: receiptURL)
-            try FileManager.default.moveItem(at: tempURL, to: receiptURL)
+            try ReceiptDurability.durablyWrite(data: Data(out.utf8), to: receiptURL)
             try? FileManager.default.removeItem(at: spoolURL)
             return true
         } catch {
-            try? FileManager.default.removeItem(at: tempURL)
             return false
         }
     }
@@ -1351,6 +1365,9 @@ final class StreamingAuditReceiptWriter {
     private let fileManager: FileManager
 
     private var spoolHandle: FileHandle?
+    /// The spool file as opened, so the read-back in `finish()` can tell it is
+    /// still the same file and not something swapped in at the same path.
+    private var spoolFileID: DestinationMetadataFile.FileID?
     private var finalizationTemporaryURL: URL?
     private var transferCount = 0
     private var finished = false
@@ -1389,6 +1406,7 @@ final class StreamingAuditReceiptWriter {
         let spoolHandle = try DestinationMetadataFile.openForAppending(at: transferSpoolURL)
         try spoolHandle.truncate(atOffset: 0)
         self.spoolHandle = spoolHandle
+        self.spoolFileID = DestinationMetadataFile.fileID(of: spoolHandle)
 
         // Phase 1 finding #3: write a PENDING receipt header BEFORE
         // any transfer happens. If the run dies (SIGKILL, power loss,
@@ -1482,20 +1500,8 @@ final class StreamingAuditReceiptWriter {
             _ = fcntl(receiptHandle.fileDescriptor, F_FULLFSYNC)
             try receiptHandle.close()
 
-            let renameResult: Int32 = temporaryReceiptURL.withUnsafeFileSystemRepresentation { sourcePointer in
-                finalReceiptURL.withUnsafeFileSystemRepresentation { destinationPointer in
-                    guard let sourcePointer, let destinationPointer else { return Int32(-1) }
-                    return Darwin.rename(sourcePointer, destinationPointer)
-                }
-            }
-            if renameResult != 0 {
-                let code = errno
-                throw NSError(
-                    domain: NSPOSIXErrorDomain,
-                    code: Int(code),
-                    userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(code))]
-                )
-            }
+            try DestinationMetadataFile.renameReplacing(temporaryReceiptURL, with: finalReceiptURL)
+            finalizationTemporaryURL = nil
             let parentPath = (finalReceiptURL.path as NSString).deletingLastPathComponent
             if !parentPath.isEmpty {
                 try? ReceiptDurability.fsyncDirectory(atPath: parentPath)
@@ -1505,6 +1511,7 @@ final class StreamingAuditReceiptWriter {
         } catch {
             try? receiptHandle.close()
             try? fileManager.removeItem(at: temporaryReceiptURL)
+            finalizationTemporaryURL = nil
             throw error
         }
     }
@@ -1522,16 +1529,17 @@ final class StreamingAuditReceiptWriter {
         // PENDING receipt + spool are exactly what the next startup
         // needs to recover the run. The only thing that should be
         // cleaned up here is the per-finalize temp receipt
-        // (`.json.tmp`) that the `finish()` path may have left mid-
+        // (`.json.<uuid>.tmp`) that the `finish()` path may have left mid-
         // write — that's an internal artifact of finalization and
         // not the durable record of the run.
         if let finalizationTemporaryURL {
             try? fileManager.removeItem(at: finalizationTemporaryURL)
+            self.finalizationTemporaryURL = nil
         }
     }
 
     private func pipeTransferSpool(into receiptHandle: FileHandle) throws {
-        let sourceHandle = try FileHandle(forReadingFrom: transferSpoolURL)
+        let sourceHandle = try DestinationMetadataFile.openForReading(at: transferSpoolURL, expecting: spoolFileID)
         defer {
             try? sourceHandle.close()
         }

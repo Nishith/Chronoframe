@@ -1323,9 +1323,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     }
 
     nonisolated static func writeReport(_ transfers: [PlannedTransfer], to reportURL: URL) throws {
-        let (handle, temporaryReportURL) = try DestinationMetadataFile.createTemporary(beside: reportURL)
-
-        do {
+        try DestinationMetadataFile.replaceFile(at: reportURL) { handle in
             try handle.write(contentsOf: Data("Source,Destination,Hash,Status\n".utf8))
             for transfer in transfers {
                 let row = [
@@ -1337,16 +1335,6 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                 .joined(separator: ",") + "\n"
                 try handle.write(contentsOf: Data(row.utf8))
             }
-            try handle.close()
-
-            if FileManager.default.fileExists(atPath: reportURL.path) {
-                try FileManager.default.removeItem(at: reportURL)
-            }
-            try FileManager.default.moveItem(at: temporaryReportURL, to: reportURL)
-        } catch {
-            try? handle.close()
-            try? FileManager.default.removeItem(at: temporaryReportURL)
-            throw error
         }
     }
 
@@ -1358,25 +1346,13 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         _ items: [PreviewReviewItem],
         to url: URL
     ) throws {
-        let (handle, temporaryURL) = try DestinationMetadataFile.createTemporary(beside: url)
         let encoder = JSONEncoder()
-
-        do {
+        try DestinationMetadataFile.replaceFile(at: url) { handle in
             for item in items {
                 let data = try encoder.encode(item)
                 try handle.write(contentsOf: data)
                 try handle.write(contentsOf: Data("\n".utf8))
             }
-            try handle.close()
-
-            if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
-            }
-            try FileManager.default.moveItem(at: temporaryURL, to: url)
-        } catch {
-            try? handle.close()
-            try? FileManager.default.removeItem(at: temporaryURL)
-            throw error
         }
     }
 

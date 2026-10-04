@@ -13,13 +13,23 @@ import Foundation
 public final class DeduplicateExecutor: @unchecked Sendable {
     private var cancelFlag = ManagedAtomicBool()
     private let fileOperations: DeduplicateFileOperations
+    /// The run's start time, which names its receipt and journal. Injected so a
+    /// test can know those names before the run picks them.
+    private let now: @Sendable () -> Date
 
     public init() {
         self.fileOperations = FileManagerDeduplicateFileOperations()
+        self.now = { Date() }
     }
 
-    init(fileOperations: DeduplicateFileOperations) {
+    init(now: @escaping @Sendable () -> Date) {
+        self.fileOperations = FileManagerDeduplicateFileOperations()
+        self.now = now
+    }
+
+    init(fileOperations: DeduplicateFileOperations, now: @escaping @Sendable () -> Date = { Date() }) {
         self.fileOperations = fileOperations
+        self.now = now
     }
 
     public func cancel() {
@@ -51,6 +61,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         cancelFlag.set(false)
         let cancelFlag = self.cancelFlag
         let fileOperations = self.fileOperations
+        let now = self.now
 
         return AsyncThrowingStream<DeduplicateCommitEvent, Error> { continuation in
             Task.detached {
@@ -72,9 +83,10 @@ public final class DeduplicateExecutor: @unchecked Sendable {
 
                 continuation.yield(.started(totalToDelete: plan.items.count))
 
-                let startedAt = Date()
+                let startedAt = now()
                 let receiptURL: URL
                 let spoolURL: URL
+                let spoolHandle: FileHandle
                 var receiptItems = plan.items.map { planItem in
                     DeduplicateAuditReceipt.Item(
                         originalPath: planItem.path,
@@ -90,31 +102,36 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                 do {
                     receiptURL = try Self.makeReceiptURL(logsDirectory: logsDirectory, runID: runID, createdAt: startedAt)
                     spoolURL = Self.spoolURL(for: receiptURL)
-                    try Self.writeReceipt(
-                        receiptURL: receiptURL,
-                        runID: runID,
-                        status: "PENDING",
-                        createdAt: startedAt,
-                        finishedAt: nil,
-                        destinationRoot: destinationRoot,
-                        additionalSourceRoots: additionalSourceRoots,
-                        items: receiptItems,
-                        bytesReclaimed: 0,
-                        abortReason: nil
-                    )
+                    // Open the journal, and so refuse a link planted at its
+                    // name, before the PENDING receipt exists: a refused run
+                    // must not leave a receipt for a run that never started.
+                    spoolHandle = try Self.openNewSpool(at: spoolURL)
+                    do {
+                        try Self.writeReceipt(
+                            receiptURL: receiptURL,
+                            runID: runID,
+                            status: "PENDING",
+                            createdAt: startedAt,
+                            finishedAt: nil,
+                            destinationRoot: destinationRoot,
+                            additionalSourceRoots: additionalSourceRoots,
+                            items: receiptItems,
+                            bytesReclaimed: 0,
+                            abortReason: nil
+                        )
+                    } catch {
+                        // The journal is empty and this run created it.
+                        try? spoolHandle.close()
+                        try? FileManager.default.removeItem(at: spoolURL)
+                        throw error
+                    }
                 } catch {
                     continuation.finish(throwing: ReceiptPreflightError(underlying: error))
                     return
                 }
-
-                let spoolHandle: FileHandle
-                do {
-                    spoolHandle = try DestinationMetadataFile.openForAppending(at: spoolURL)
-                    try spoolHandle.truncate(atOffset: 0)
-                } catch {
-                    continuation.finish(throwing: ReceiptPreflightError(underlying: error))
-                    return
-                }
+                // The journal as this run opened it, so its read-back at the end
+                // can tell it is still that file.
+                let spoolFileID = DestinationMetadataFile.fileID(of: spoolHandle)
                 defer {
                     try? spoolHandle.close()
                 }
@@ -239,7 +256,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                     ? "COMPLETED"
                     : "ABORTED"
                 do {
-                    let recordedTrashURLs = try Self.loadSpoolRecords(from: spoolURL)
+                    let recordedTrashURLs = try Self.loadSpoolRecords(from: spoolURL, expecting: spoolFileID)
                     for index in receiptItems.indices {
                         if let trashURL = recordedTrashURLs[receiptItems[index].originalPath] {
                             receiptItems[index].trashURL = trashURL
@@ -1046,6 +1063,23 @@ public final class DeduplicateExecutor: @unchecked Sendable {
         receiptURL.appendingPathExtension("spool")
     }
 
+    /// Opens this run's journal. A journal already holding records belongs to
+    /// an earlier run that has not been recovered yet (same run ID, same
+    /// second), and is the only record of what that run moved, so it is left
+    /// as it is and this run does not start.
+    static func openNewSpool(at spoolURL: URL) throws -> FileHandle {
+        let handle = try DestinationMetadataFile.openForAppending(at: spoolURL)
+        do {
+            guard try handle.seekToEnd() == 0 else {
+                throw DeduplicateJournalInUseError()
+            }
+        } catch {
+            try? handle.close()
+            throw error
+        }
+        return handle
+    }
+
     static func appendSpoolRecord(_ record: DeduplicateSpoolRecord, to handle: FileHandle) throws {
         var data = try JSONEncoder.dedupeSpool.encode(record)
         data.append(Data("\n".utf8))
@@ -1059,9 +1093,15 @@ public final class DeduplicateExecutor: @unchecked Sendable {
     /// Public so trial reconciliation can read a crashed commit's journal
     /// without duplicating the parser. Strictly read-only: the journal is
     /// recovery evidence and is never deleted by a reader.
-    public static func loadSpoolRecords(from spoolURL: URL) throws -> [String: String] {
-        guard FileManager.default.fileExists(atPath: spoolURL.path) else { return [:] }
-        let data = try Data(contentsOf: spoolURL)
+    public static func loadSpoolRecords(
+        from spoolURL: URL,
+        expecting journalID: DestinationMetadataFile.FileID? = nil
+    ) throws -> [String: String] {
+        // Read without following a link: a journal that is now a link is not the
+        // one a run wrote, and what it names must never reach a receipt.
+        guard let data = try DestinationMetadataFile.readContentsIfPresent(at: spoolURL, expecting: journalID) else {
+            return [:]
+        }
         guard let raw = String(data: data, encoding: .utf8) else { return [:] }
         var records: [String: String] = [:]
         for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
@@ -1097,8 +1137,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
     }
 
     static func loadLatestJournalRecords(from spoolURL: URL) throws -> [String: DeduplicateSpoolRecord] {
-        guard FileManager.default.fileExists(atPath: spoolURL.path) else { return [:] }
-        let data = try Data(contentsOf: spoolURL)
+        guard let data = try DestinationMetadataFile.readContentsIfPresent(at: spoolURL) else { return [:] }
         guard let raw = String(data: data, encoding: .utf8) else { return [:] }
         var records: [String: DeduplicateSpoolRecord] = [:]
         for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
@@ -1338,6 +1377,12 @@ public struct ReceiptPreflightError: LocalizedError {
 
     public var errorDescription: String? {
         "Chronoframe cannot write the dedupe audit receipt to this destination, so the deduplicate run was aborted before any files changed. Ensure the destination volume is writable and try again. Details: \(underlying.localizedDescription)"
+    }
+}
+
+struct DeduplicateJournalInUseError: LocalizedError {
+    var errorDescription: String? {
+        "An earlier deduplicate run's recovery journal is still waiting to be recovered, so Chronoframe didn't start. Nothing was changed. Try again in a moment."
     }
 }
 

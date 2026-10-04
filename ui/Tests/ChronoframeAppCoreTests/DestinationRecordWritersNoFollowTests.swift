@@ -134,24 +134,166 @@ final class DestinationRecordWritersNoFollowTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: outside.path))
     }
 
+    // MARK: - Organize receipt: spool read-back, retry and recovery
+
+    private func receiptStatus(at url: URL) throws -> String? {
+        let data = try Data(contentsOf: url)
+        return (try JSONSerialization.jsonObject(with: data) as? [String: Any])?["status"] as? String
+    }
+
+    private let forgedSpoolBody = #"    {"source":"/elsewhere/forged.jpg","destination":"/dst/forged.jpg","hash":"x"}"#
+
+    private func assertSpoolSwapIsRefusedAtFinalization(
+        swapIn: (_ spool: URL, _ sentinel: URL) throws -> Void,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let destination = try makeDirectory()
+        let logs = try organizeLogsDirectory(in: destination)
+        let sentinel = try makeSentinel(in: try makeDirectory())
+        let stem = receiptStem(in: logs)
+        let writer = try StreamingAuditReceiptWriter(
+            destinationRoot: destination,
+            runID: receiptRunID,
+            createdAt: receiptCreatedAt
+        )
+        try writer.appendTransfer(sourcePath: "/src/a.jpg", destinationPath: "/dst/a.jpg", hash: "h")
+        let spool = logs.appendingPathComponent("\(stem).transfers.tmp")
+        try FileManager.default.removeItem(at: spool)
+        try swapIn(spool, sentinel)
+
+        XCTAssertThrowsError(
+            try writer.finish(status: "COMPLETED", abortReason: nil, attemptedJobs: 1, failedCount: 0, verifyCopies: false),
+            file: file,
+            line: line
+        ) { error in
+            XCTAssertTrue(error is DestinationMetadataUnsafeError, "got \(error)", file: file, line: line)
+        }
+
+        XCTAssertEqual(
+            try receiptStatus(at: logs.appendingPathComponent("\(stem).json")),
+            "PENDING",
+            "A refused finalization must leave the PENDING receipt for recovery",
+            file: file,
+            line: line
+        )
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: logs.path)
+            .filter { $0.hasSuffix(".tmp") && $0 != "\(stem).transfers.tmp" }
+        XCTAssertEqual(leftovers, [], "A refused finalization must remove its own temporary file", file: file, line: line)
+        XCTAssertEqual(
+            try String(contentsOf: sentinel, encoding: .utf8),
+            forgedSpoolBody,
+            "The planted file must not be written to",
+            file: file,
+            line: line
+        )
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testSpoolSwappedForSymlinkIsNotEmbeddedInTheFinalizedReceipt() throws {
+        try assertSpoolSwapIsRefusedAtFinalization { spool, sentinel in
+            try Data(self.forgedSpoolBody.utf8).write(to: sentinel)
+            try FileManager.default.createSymbolicLink(at: spool, withDestinationURL: sentinel)
+        }
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testSpoolSwappedForAnotherRegularFileIsNotEmbeddedInTheFinalizedReceipt() throws {
+        try assertSpoolSwapIsRefusedAtFinalization { spool, sentinel in
+            try Data(self.forgedSpoolBody.utf8).write(to: sentinel)
+            try Data(self.forgedSpoolBody.utf8).write(to: spool)
+        }
+    }
+
+    func testFinalizationCanBeRetriedAfterAFailedRenameAndLeavesNoTemporaryFile() throws {
+        let destination = try makeDirectory()
+        let logs = try organizeLogsDirectory(in: destination)
+        let stem = receiptStem(in: logs)
+        let writer = try StreamingAuditReceiptWriter(
+            destinationRoot: destination,
+            runID: receiptRunID,
+            createdAt: receiptCreatedAt
+        )
+        try writer.appendTransfer(sourcePath: "/src/a.jpg", destinationPath: "/dst/a.jpg", hash: "h")
+        // A directory where the receipt belongs makes the final rename fail.
+        let receipt = logs.appendingPathComponent("\(stem).json")
+        try FileManager.default.removeItem(at: receipt)
+        try FileManager.default.createDirectory(at: receipt, withIntermediateDirectories: false)
+
+        XCTAssertThrowsError(
+            try writer.finish(status: "COMPLETED", abortReason: nil, attemptedJobs: 1, failedCount: 0, verifyCopies: false)
+        )
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: logs.path).filter { $0.hasSuffix(".tmp") && $0 != "\(stem).transfers.tmp" },
+            []
+        )
+
+        try FileManager.default.removeItem(at: receipt)
+        try writer.finish(status: "COMPLETED", abortReason: nil, attemptedJobs: 1, failedCount: 0, verifyCopies: false)
+
+        try assertFinalizedReceipt(in: logs, stem: stem, planted: "")
+    }
+
+    private func leaveInterruptedRun(in destination: URL) throws -> (logs: URL, stem: String) {
+        let logs = try organizeLogsDirectory(in: destination)
+        let stem = receiptStem(in: logs)
+        do {
+            let writer = try StreamingAuditReceiptWriter(
+                destinationRoot: destination,
+                runID: receiptRunID,
+                createdAt: receiptCreatedAt
+            )
+            try writer.appendTransfer(sourcePath: "/src/a.jpg", destinationPath: "/dst/a.jpg", hash: "h")
+        }
+        return (logs, stem)
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testRecoveryDoesNotReadAJournalThatIsNowALink() throws {
+        let destination = try makeDirectory()
+        let (logs, stem) = try leaveInterruptedRun(in: destination)
+        let sentinel = try makeSentinel(in: try makeDirectory())
+        try Data(forgedSpoolBody.utf8).write(to: sentinel)
+        let spool = logs.appendingPathComponent("\(stem).transfers.tmp")
+        try FileManager.default.removeItem(at: spool)
+        try FileManager.default.createSymbolicLink(at: spool, withDestinationURL: sentinel)
+
+        XCTAssertEqual(TransferExecutor().recoverInterruptedRuns(at: destination), 0)
+
+        XCTAssertEqual(try receiptStatus(at: logs.appendingPathComponent("\(stem).json")), "PENDING")
+        XCTAssertNotNil(try? FileManager.default.destinationOfSymbolicLink(atPath: spool.path), "The planted link is left for the user to look at")
+        XCTAssertEqual(try String(contentsOf: sentinel, encoding: .utf8), forgedSpoolBody)
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testRecoveryNeverWritesThroughALinkAtItsOldTemporaryName() throws {
+        let destination = try makeDirectory()
+        let (logs, stem) = try leaveInterruptedRun(in: destination)
+        let sentinel = try makeSentinel(in: try makeDirectory())
+        let receipt = logs.appendingPathComponent("\(stem).json")
+        try FileManager.default.createSymbolicLink(
+            at: receipt.appendingPathExtension("recovery.tmp"),
+            withDestinationURL: sentinel
+        )
+
+        XCTAssertEqual(TransferExecutor().recoverInterruptedRuns(at: destination), 1)
+
+        assertSentinelUntouched(sentinel)
+        XCTAssertEqual(try receiptStatus(at: receipt), "ABORTED")
+        let data = try Data(contentsOf: receipt)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual((payload["transfers"] as? [[String: Any]])?.count, 1, "The journalled transfer is kept")
+    }
+
     // MARK: - Dedupe spool journal
 
-    // The spool name is `<receipt>.json.spool`, and the receipt name carries the
-    // start time to the second, so plant the link at every name this run could pick.
-    private func plantDedupeSpoolLinks(
-        in logs: URL,
-        runID: UUID,
-        plant: (URL) throws -> Void
-    ) throws {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        for offset in -2...6 {
-            let timestamp = formatter.string(from: Date().addingTimeInterval(TimeInterval(offset)))
-            let receipt = logs.appendingPathComponent("dedupe_audit_receipt_\(timestamp)_\(runID.uuidString).json")
-            try plant(DeduplicateExecutor.spoolURL(for: receipt))
-        }
+    // The receipt name carries the start time to the second and the spool name is
+    // `<receipt>.json.spool`, so a fixed clock tells the test the exact name the
+    // run is about to use.
+    private let dedupeStart = Date(timeIntervalSince1970: 1_790_000_000)
+
+    private func dedupeReceiptURL(in logs: URL, runID: UUID) throws -> URL {
+        try DeduplicateExecutor.makeReceiptURL(logsDirectory: logs, runID: runID, createdAt: dedupeStart)
     }
 
     private func runDedupeCommit(destination: URL, target: URL, runID: UUID) async -> Error? {
@@ -165,7 +307,8 @@ final class DestinationRecordWritersNoFollowTests: XCTestCase {
                 expectedIdentity: testFileIdentity(at: target)
             )
         ])
-        let stream = DeduplicateExecutor().commit(
+        let start = dedupeStart
+        let stream = DeduplicateExecutor(now: { start }).commit(
             plan: plan,
             destinationRoot: destination.path,
             hardDelete: false,
@@ -179,17 +322,28 @@ final class DestinationRecordWritersNoFollowTests: XCTestCase {
         return nil
     }
 
+    private func dedupeReceipts(in logs: URL) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: logs.path)
+            .filter { $0.hasPrefix("dedupe_audit_receipt_") && $0.hasSuffix(".json") }
+    }
+
+    private func makeDedupeVictim(in destination: URL) throws -> URL {
+        let target = destination.appendingPathComponent("victim.jpg")
+        try Data(repeating: 0x42, count: 64).write(to: target)
+        return target
+    }
+
     // AGENTS-INVARIANT: 26
     func testHardLinkAtDedupeSpoolNameIsRefusedBeforeAnyFileMoves() async throws {
         let destination = try makeDirectory()
         let logs = try organizeLogsDirectory(in: destination)
         let sentinel = try makeSentinel(in: try makeDirectory())
-        let target = destination.appendingPathComponent("victim.jpg")
-        try Data(repeating: 0x42, count: 64).write(to: target)
+        let target = try makeDedupeVictim(in: destination)
         let runID = UUID()
-        try plantDedupeSpoolLinks(in: logs, runID: runID) {
-            try FileManager.default.linkItem(at: sentinel, to: $0)
-        }
+        try FileManager.default.linkItem(
+            at: sentinel,
+            to: DeduplicateExecutor.spoolURL(for: try dedupeReceiptURL(in: logs, runID: runID))
+        )
 
         let error = await runDedupeCommit(destination: destination, target: target, runID: runID)
 
@@ -203,18 +357,164 @@ final class DestinationRecordWritersNoFollowTests: XCTestCase {
         let destination = try makeDirectory()
         let logs = try organizeLogsDirectory(in: destination)
         let outside = try makeDirectory().appendingPathComponent("created-through-link.txt")
-        let target = destination.appendingPathComponent("victim.jpg")
-        try Data(repeating: 0x42, count: 64).write(to: target)
+        let target = try makeDedupeVictim(in: destination)
         let runID = UUID()
-        try plantDedupeSpoolLinks(in: logs, runID: runID) {
-            try FileManager.default.createSymbolicLink(at: $0, withDestinationURL: outside)
-        }
+        try FileManager.default.createSymbolicLink(
+            at: DeduplicateExecutor.spoolURL(for: try dedupeReceiptURL(in: logs, runID: runID)),
+            withDestinationURL: outside
+        )
 
         let error = await runDedupeCommit(destination: destination, target: target, runID: runID)
 
         XCTAssertTrue(error is ReceiptPreflightError, "got \(String(describing: error))")
         XCTAssertFalse(FileManager.default.fileExists(atPath: outside.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: target.path))
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testRefusedDedupeSpoolLeavesNoPendingReceiptBehind() async throws {
+        let destination = try makeDirectory()
+        let logs = try organizeLogsDirectory(in: destination)
+        let sentinel = try makeSentinel(in: try makeDirectory())
+        let target = try makeDedupeVictim(in: destination)
+        let runID = UUID()
+        try FileManager.default.createSymbolicLink(
+            at: DeduplicateExecutor.spoolURL(for: try dedupeReceiptURL(in: logs, runID: runID)),
+            withDestinationURL: sentinel
+        )
+
+        let error = await runDedupeCommit(destination: destination, target: target, runID: runID)
+
+        XCTAssertTrue(error is ReceiptPreflightError, "got \(String(describing: error))")
+        XCTAssertEqual(
+            try dedupeReceipts(in: logs),
+            [],
+            "A run that never started must not leave a PENDING receipt for Recovery and Run History to find"
+        )
+        XCTAssertEqual(DeduplicateExecutor.recoverInterruptedRuns(at: destination), 0)
+        assertSentinelUntouched(sentinel)
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testRetainedDedupeJournalIsNeverTruncatedAndTheRunDoesNotStart() async throws {
+        let destination = try makeDirectory()
+        let logs = try organizeLogsDirectory(in: destination)
+        let target = try makeDedupeVictim(in: destination)
+        let runID = UUID()
+        let receiptURL = try dedupeReceiptURL(in: logs, runID: runID)
+        let spoolURL = DeduplicateExecutor.spoolURL(for: receiptURL)
+        let retained = Data(#"{"state":"trashed","originalPath":"/dst/earlier.jpg","schemaVersion":2}"#.utf8 + [0x0A])
+        try retained.write(to: spoolURL)
+
+        let error = await runDedupeCommit(destination: destination, target: target, runID: runID)
+
+        let preflight = try XCTUnwrap(error as? ReceiptPreflightError, "got \(String(describing: error))")
+        XCTAssertTrue(preflight.underlying is DeduplicateJournalInUseError, "got \(preflight.underlying)")
+        XCTAssertEqual(try Data(contentsOf: spoolURL), retained, "The retained journal is the only record of what the earlier run moved")
+        XCTAssertEqual(try dedupeReceipts(in: logs), [], "The refused run must not write a receipt over the earlier run's name")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: target.path))
+    }
+
+    // MARK: - Dedupe journal read-back
+
+    private let forgedJournalLine = #"{"state":"trashed","originalPath":"/dst/forged.jpg","actualTrashURL":"file:///elsewhere/forged.jpg","schemaVersion":2}"#
+
+    private func plantForgedJournal(at spool: URL, sentinel: URL) throws {
+        try Data((forgedJournalLine + "\n").utf8).write(to: sentinel)
+        try FileManager.default.createSymbolicLink(at: spool, withDestinationURL: sentinel)
+    }
+
+    private func assertRefused(_ body: () throws -> Any, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertThrowsError(try body(), file: file, line: line) { error in
+            XCTAssertTrue(error is DestinationMetadataUnsafeError, "got \(error)", file: file, line: line)
+        }
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testDedupeJournalReadersRefuseAJournalThatIsALink() throws {
+        let logs = try organizeLogsDirectory(in: try makeDirectory())
+        let sentinel = try makeSentinel(in: try makeDirectory())
+        let spool = logs.appendingPathComponent("dedupe_audit_receipt_x.json.spool")
+        try plantForgedJournal(at: spool, sentinel: sentinel)
+
+        assertRefused { try DeduplicateExecutor.loadSpoolRecords(from: spool) }
+        assertRefused { try DeduplicateExecutor.loadLatestJournalRecords(from: spool) }
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testDedupeJournalReadersRefuseADanglingLinkInsteadOfTreatingItAsAnAbsentJournal() throws {
+        let logs = try organizeLogsDirectory(in: try makeDirectory())
+        let spool = logs.appendingPathComponent("dedupe_audit_receipt_x.json.spool")
+        try FileManager.default.createSymbolicLink(
+            at: spool,
+            withDestinationURL: logs.appendingPathComponent("nowhere.txt")
+        )
+
+        assertRefused { try DeduplicateExecutor.loadSpoolRecords(from: spool) }
+        assertRefused { try DeduplicateExecutor.loadLatestJournalRecords(from: spool) }
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testDedupeJournalReadBackRefusesAFileThatIsNotTheJournalTheRunOpened() throws {
+        let logs = try organizeLogsDirectory(in: try makeDirectory())
+        let spool = logs.appendingPathComponent("dedupe_audit_receipt_x.json.spool")
+        let handle = try DestinationMetadataFile.openForAppending(at: spool)
+        try handle.write(contentsOf: Data((forgedJournalLine + "\n").utf8))
+        let journalID = try XCTUnwrap(DestinationMetadataFile.fileID(of: handle))
+        try handle.close()
+
+        XCTAssertEqual(try DeduplicateExecutor.loadSpoolRecords(from: spool, expecting: journalID).count, 1)
+
+        try FileManager.default.removeItem(at: spool)
+        try Data((forgedJournalLine + "\n").utf8).write(to: spool)
+        assertRefused { try DeduplicateExecutor.loadSpoolRecords(from: spool, expecting: journalID) }
+    }
+
+    func testDedupeJournalReadersTreatAMissingJournalAsEmpty() throws {
+        let logs = try organizeLogsDirectory(in: try makeDirectory())
+        let spool = logs.appendingPathComponent("dedupe_audit_receipt_x.json.spool")
+
+        XCTAssertEqual(try DeduplicateExecutor.loadSpoolRecords(from: spool), [:])
+        XCTAssertEqual(try DeduplicateExecutor.loadLatestJournalRecords(from: spool).count, 0)
+    }
+
+    // AGENTS-INVARIANT: 26
+    func testDedupeRecoveryLeavesTheReceiptPendingWhenItsJournalIsALink() throws {
+        let destination = try makeDirectory()
+        let logs = try organizeLogsDirectory(in: destination)
+        let sentinel = try makeSentinel(in: try makeDirectory())
+        let runID = UUID()
+        let receiptURL = try dedupeReceiptURL(in: logs, runID: runID)
+        try DeduplicateExecutor.writeReceipt(
+            receiptURL: receiptURL,
+            runID: runID,
+            status: "PENDING",
+            createdAt: dedupeStart,
+            finishedAt: nil,
+            destinationRoot: destination.path,
+            items: [
+                DeduplicateAuditReceipt.Item(
+                    originalPath: "/dst/forged.jpg",
+                    sizeBytes: 64,
+                    trashURL: nil,
+                    method: .trash,
+                    clusterID: UUID(),
+                    clusterKind: .exactDuplicate,
+                    mediaKind: .photo,
+                    expectedIdentity: nil
+                )
+            ],
+            bytesReclaimed: 0,
+            abortReason: nil
+        )
+        try plantForgedJournal(at: DeduplicateExecutor.spoolURL(for: receiptURL), sentinel: sentinel)
+
+        XCTAssertEqual(DeduplicateExecutor.recoverInterruptedRuns(at: destination), 0)
+
+        let receipt = try JSONDecoder.dedupe.decode(DeduplicateAuditReceipt.self, from: Data(contentsOf: receiptURL))
+        XCTAssertEqual(receipt.status, "PENDING", "A forged journal must not settle the receipt")
+        XCTAssertNil(receipt.items.first?.trashURL, "A forged Trash location must never reach a receipt that revert trusts")
+        XCTAssertNotNil(try? FileManager.default.destinationOfSymbolicLink(atPath: DeduplicateExecutor.spoolURL(for: receiptURL).path))
     }
 
     // MARK: - Dry-run report and preview review
