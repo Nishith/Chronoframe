@@ -195,6 +195,13 @@ nothing, so it can only ever pass these vacuously.
 
 ## Pricing Cutover
 
+Planned free-download date: **October 26, 2026**, selected by the owner. Candidate acquisition
+cutoff: **2026-10-26T07:00:00Z** (midnight PDT), four hours after the latest regional start
+in Apple’s table for that date. The earliest regional change is October 25 at 14:00 UTC;
+finish the required seven-day paid V2 window before then. Postpone and ship a later cutoff
+before the current cutoff if approval or real-purchaser verification is delayed.
+
+
 Version 2.0 introduces the free tier in the binary. It does **not** make the app free. Those are two separate releases with a deliberate gap between them, and the order is the whole point: the price drop is the only step that cannot be undone, because anyone who downloads the app while it is free keeps it.
 
 1. **Submit the in-app purchase with version 2.0.** Apple requires a new app version to accompany a first non-consumable; the product cannot be approved on its own.

@@ -1,0 +1,74 @@
+{
+  "audited_on": "2026-10-04",
+  "main_commit_checked": "9a96e83c6a1a4ce7bae7da156f81c349da8e8f92",
+  "files": [
+    {
+      "path": "marketing/release-2.0/screenshots/01-4000-timeline-app-store.png",
+      "bytes": 1153719,
+      "sha256": "5912ed773a7181fd6dd25c036f8c2784fb1f5e5888ca41d5867cc65358b38290",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "path": "marketing/release-2.0/screenshots/02-setup-app-store.png",
+      "bytes": 2098220,
+      "sha256": "c305a9b3c83f131004bf1bc3c5d2b002f782a32ac03a2f853c2da2e2263d3ea1",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "path": "marketing/release-2.0/screenshots/03-deduplicate-app-store.png",
+      "bytes": 2454439,
+      "sha256": "93cb4725d6b139cd04c2b11681f4916d61a7afb916faa6a00704adef95bfd357",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "path": "marketing/release-2.0/screenshots/04-verified-transfer-app-store.png",
+      "bytes": 989186,
+      "sha256": "66394ffb4ff2d425699be528737050beaf7e207a8fdf0846956d6e30b521187d",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "path": "marketing/release-2.0/screenshots/05-user-control-app-store.png",
+      "bytes": 3217856,
+      "sha256": "6894dbf57ba4195f845932bc6eb65b835dcb76373ea0a4fac8a82c1bfa86d46d",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "path": "marketing/release-2.0/screenshots/06-run-history-app-store.png",
+      "bytes": 1136404,
+      "sha256": "e7caa44c45b00aace3e5c87df6f566bf793f5f63122a175924f1923944fde3f2",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "path": "marketing/release-2.0/screenshots/07-photos-read-only-app-store.png",
+      "bytes": 333257,
+      "sha256": "beaacdd85adc1be009a5a3a99d0ad21bcff9aa64278bd79c53b0f58a56202049",
+      "width": 2880,
+      "height": 1800
+    },
+    {
+      "path": "marketing/app-preview/exports/Chronoframe-App-Store-Preview.mp4",
+      "bytes": 41692274,
+      "sha256": "6b63cd641e6ec44b9a5ff5416f8cfb32a4cf5a6a0bc2b5d502330c2b4312282f"
+    },
+    {
+      "path": "marketing/social-video/exports/Chronoframe-YouTube-4K.mp4",
+      "bytes": 64646769,
+      "sha256": "db060a84a2f52d0ba7076da2248b017eec7057ca4a5d8cf5a5531044e8e4be4d"
+    },
+    {
+      "path": "marketing/social-video/exports/Chronoframe-Social-Vertical-1080x1920.mp4",
+      "bytes": 8449383,
+      "sha256": "1c521561937109bdb35dea19e457735912e559a987b5e5b2575fb6e04cc91945"
+    }
+  ],
+  "planned_free_download_date": "2026-10-26",
+  "grandfather_cutover_utc": "2026-10-26T07:00:00Z",
+  "candidate_version": "2.0",
+  "candidate_build": "500"
+}

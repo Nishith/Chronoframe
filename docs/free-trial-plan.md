@@ -17,12 +17,13 @@ Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 | 5 | Unlock UI + free test batch | **Merged.** T13–T16 |
 | 6 | Test matrices | **Merged.** T17–T19 |
 | 7 | App Store Connect product creation | Not recorded in the repository; verify manually |
-| 8 | Version 2 candidate and price cutover | Not started |
+| 8 | Version 2 candidate and price cutover | Preparation in progress; planned free date October 26, 2026 |
 | 9 | Release monitoring | Not started |
 
 The implementation is complete, but it has not shipped. The public app remains paid-up-front;
-`grandfatherCutover` intentionally remains at its far-future fail-safe value until the version 2
-release and free-price transition are scheduled.
+The owner selected October 26, 2026 for the planned free-price transition. The candidate
+sets `grandfatherCutover` to `2026-10-26T07:00:00Z` (midnight PDT). The App Store price
+remains paid until the release and purchaser-verification gates below have passed.
 
 ## Risk markers
 
@@ -554,15 +555,22 @@ version.
 
 ## T21 — Set the cutover · Safety-critical
 
-`ChronoframeUnlock.grandfatherCutover` in `ui/Sources/ChronoframeCore/Entitlement.swift` is
-far-future today, which is **correct while the app is still paid** — every customer is a paying
-customer, so grandfathering everyone is right, and shipping it unedited cannot charge anyone twice.
+`ChronoframeUnlock.grandfatherCutover` in `ui/Sources/ChronoframeCore/Entitlement.swift`
+is set to **2026-10-26T07:00:00Z** for the owner's October 26 free-price transition.
+Apple's official regional timing table, queried for October 26, ends at 03:00 UTC;
+the four-hour margin intentionally favors paid customers. The marketing version is 2.0.
 
-Set it to the scheduled price-change moment, **biased a few hours late**, as part of the release.
-Erring late grandfathers a handful of free downloaders; erring early asks paying customers to buy
-twice. Also bump `MARKETING_VERSION` to `2.0`.
+Source: https://developer.apple.com/help/app-store-connect/reference/pricing-and-availability/app-store-pricing-and-availability-start-times-by-country-or-region/
 
-**Leaving it unedited after the price drops makes the app permanently free for everyone.**
+Release V2 while paid and verify real paid acquisitions for at least seven days before
+scheduling the free price. Apple's earliest listed regional transition is October 25
+at 14:00 UTC, so the seven-day paid window must finish before that instant. If approval,
+verification, or storefront propagation runs late, **postpone the free date and ship a
+later cutoff before October 26 at 07:00 UTC**. Never leave the app paid beyond the cutoff
+in the installed binary: later paid purchasers would otherwise lose legacy access.
+
+The release-policy test pins the chosen timestamp, paid V2 acquisitions, and the exclusive
+boundary. Sandbox receipts cannot replace the real-purchaser verification gate.
 
 ## T22 — Marketing and metadata copy · Routine
 

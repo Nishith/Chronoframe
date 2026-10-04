@@ -1,0 +1,30 @@
+Chronoframe brings scattered photos and videos into a clean, dated library, then helps you review duplicates and reclaim space. Every workflow starts with a preview and your approval.
+
+ORGANIZE
+Choose a source folder and a destination, select a date-based layout, and preview the plan. Chronoframe resolves dates from photo metadata, filenames, and file dates, with uncertain dates available for review. Your source files are only read: never moved, renamed, edited, or deleted.
+
+IMPORT FROM APPLE PHOTOS
+Import copies of selected original photos and videos into your organized destination. Chronoframe reads and exports from Photos; it never changes or deletes anything in your Photos library.
+
+WATCHED SOURCES
+Register source folders and see an estimate of new items. Review each import before it runs. You stay in control of what is copied and where it goes.
+
+DEDUPLICATE
+Find exact photo and video copies by content, plus similar photos, bursts, RAW+JPEG pairs, and Live Photo pairs. Optional similar-video matching helps you review re-encodes and resizes. Compare candidates, choose keepers, and approve which files move to macOS Trash. Chronoframe does not permanently delete them.
+
+SAFE BY DESIGN
+• Preview before copying or trashing.
+• Filename collisions receive distinct names; existing destination files are not overwritten.
+• Transfers verify written copies by default.
+• Pair and sidecar handling protects kept companions.
+• Run History records receipts and supports content-verified revert. Trashed items can be restored while they remain in Trash with their recorded contents.
+• Interrupted work is reconciled on relaunch, with clear guidance when a drive or manual recovery is needed.
+
+PRIVATE
+Your media is processed on your Mac and is never uploaded by Chronoframe. There is no Chronoframe account, advertising, analytics, or tracking. Importing iCloud-only originals may require macOS to download them from your own iCloud account. Purchase and restore verification use Apple's App Store services.
+
+EXISTING CUSTOMERS
+If you bought Chronoframe while it was a paid app, your purchase covers unrestricted use after the planned move to a free download with a one-time unlock. No subscription.
+
+REQUIREMENTS
+macOS 14.0 or later. Apple Silicon and Intel. Local organizing, duplicate review, and history work offline.

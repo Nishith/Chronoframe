@@ -188,3 +188,7 @@ Then set the Pages custom domain (`gh api -X PUT repos/Nishith/Chronoframe/pages
 After the App Store listing is live, replace the Mac App Store button `href` in `site/index.html` with the live App Store product URL.
 
 **Every push to `main` that touches `site/**` publishes immediately.** There is no staging step, so the site's pricing copy is live the moment it merges. `site/index.html` and `site/faq.html` currently say "$14.99 introductory price · One-time purchase", which is true today and stays true through version 2.0. Changing them to free-to-try before the App Store price actually drops would advertise a free download while customers are still charged up front. That copy change is therefore part of the cutover, not part of this release — see the cutover step in `docs/APP_STORE_RELEASE.md`.
+
+## October 2026 prepared submission
+
+The V2 draft was updated on October 4. Copy-ready values are in `marketing/release-2.0/metadata/fields.json` and the adjacent text files. They correct the macOS requirement to 14.0, describe Photos import and watched sources, and qualify revert against retained, unchanged Trash contents. The app remains paid during the first V2 rollout. The planned free date is October 26, subject to the release gates.
