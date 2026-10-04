@@ -102,7 +102,6 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                         bytesReclaimed: 0,
                         abortReason: nil
                     )
-                    FileManager.default.createFile(atPath: spoolURL.path, contents: Data())
                 } catch {
                     continuation.finish(throwing: ReceiptPreflightError(underlying: error))
                     return
@@ -110,8 +109,8 @@ public final class DeduplicateExecutor: @unchecked Sendable {
 
                 let spoolHandle: FileHandle
                 do {
-                    spoolHandle = try FileHandle(forWritingTo: spoolURL)
-                    try spoolHandle.seekToEnd()
+                    spoolHandle = try DestinationMetadataFile.openForAppending(at: spoolURL)
+                    try spoolHandle.truncate(atOffset: 0)
                 } catch {
                     continuation.finish(throwing: ReceiptPreflightError(underlying: error))
                     return

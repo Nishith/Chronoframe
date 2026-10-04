@@ -59,6 +59,29 @@ public enum DestinationMetadataFile {
         return FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
     }
 
+    /// Creates a uniquely named temporary file beside `url`, to be written and
+    /// then renamed over `url`. The name is not predictable and the file is
+    /// created `O_EXCL | O_NOFOLLOW` by the same call that opens it, so there is
+    /// no gap between creating and opening in which a link could be planted.
+    public static func createTemporary(beside url: URL) throws -> (handle: FileHandle, url: URL) {
+        let temporaryURL = url.appendingPathExtension("\(UUID().uuidString).tmp")
+        let descriptor = temporaryURL.path.withCString {
+            Darwin.open(
+                $0,
+                O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
+            )
+        }
+        guard descriptor >= 0 else {
+            throw NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(errno),
+                userInfo: [NSFilePathErrorKey: temporaryURL.path]
+            )
+        }
+        return (FileHandle(fileDescriptor: descriptor, closeOnDealloc: true), temporaryURL)
+    }
+
     /// For files another library opens by path (SQLite). Creates `url` if it is
     /// missing, without following a link, and returns an anchor on the regular
     /// file found there. After the other library has opened the path, call

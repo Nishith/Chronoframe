@@ -1342,7 +1342,7 @@ private final class ParallelTransferOutcomes: @unchecked Sendable {
     }
 }
 
-private final class StreamingAuditReceiptWriter {
+final class StreamingAuditReceiptWriter {
     private let finalReceiptURL: URL
     private let transferSpoolURL: URL
     private let createdAt: Date
@@ -1351,6 +1351,7 @@ private final class StreamingAuditReceiptWriter {
     private let fileManager: FileManager
 
     private var spoolHandle: FileHandle?
+    private var finalizationTemporaryURL: URL?
     private var transferCount = 0
     private var finished = false
 
@@ -1385,8 +1386,9 @@ private final class StreamingAuditReceiptWriter {
         self.finalReceiptURL = logsDirectoryURL.appendingPathComponent("\(stem).json")
         self.transferSpoolURL = logsDirectoryURL.appendingPathComponent("\(stem).transfers.tmp")
 
-        fileManager.createFile(atPath: transferSpoolURL.path, contents: Data())
-        self.spoolHandle = try FileHandle(forWritingTo: transferSpoolURL)
+        let spoolHandle = try DestinationMetadataFile.openForAppending(at: transferSpoolURL)
+        try spoolHandle.truncate(atOffset: 0)
+        self.spoolHandle = spoolHandle
 
         // Phase 1 finding #3: write a PENDING receipt header BEFORE
         // any transfer happens. If the run dies (SIGKILL, power loss,
@@ -1454,9 +1456,8 @@ private final class StreamingAuditReceiptWriter {
         try spoolHandle?.close()
         spoolHandle = nil
 
-        let temporaryReceiptURL = finalReceiptURL.appendingPathExtension("tmp")
-        fileManager.createFile(atPath: temporaryReceiptURL.path, contents: Data())
-        let receiptHandle = try FileHandle(forWritingTo: temporaryReceiptURL)
+        let (receiptHandle, temporaryReceiptURL) = try DestinationMetadataFile.createTemporary(beside: finalReceiptURL)
+        finalizationTemporaryURL = temporaryReceiptURL
 
         do {
             try receiptHandle.write(contentsOf: Data("{\n".utf8))
@@ -1524,7 +1525,9 @@ private final class StreamingAuditReceiptWriter {
         // (`.json.tmp`) that the `finish()` path may have left mid-
         // write — that's an internal artifact of finalization and
         // not the durable record of the run.
-        try? fileManager.removeItem(at: finalReceiptURL.appendingPathExtension("tmp"))
+        if let finalizationTemporaryURL {
+            try? fileManager.removeItem(at: finalizationTemporaryURL)
+        }
     }
 
     private func pipeTransferSpool(into receiptHandle: FileHandle) throws {
