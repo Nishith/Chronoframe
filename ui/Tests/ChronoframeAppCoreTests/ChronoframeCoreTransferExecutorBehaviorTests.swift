@@ -1097,7 +1097,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         // The temporary spool used while building the receipt must not survive.
         let leftoverSpools = try FileManager.default
             .contentsOfDirectory(atPath: logsDirectory.path)
-            .filter { $0.hasSuffix(".transfers.tmp") || $0.hasSuffix(".json.tmp") }
+            .filter { $0.hasSuffix(".tmp") }
         XCTAssertEqual(leftoverSpools, [], "spool/temp files must be removed once the receipt is finalized")
     }
 

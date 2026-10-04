@@ -1322,12 +1322,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         )
     }
 
-    nonisolated private static func writeReport(_ transfers: [PlannedTransfer], to reportURL: URL) throws {
-        let temporaryReportURL = reportURL.appendingPathExtension("tmp")
-        FileManager.default.createFile(atPath: temporaryReportURL.path, contents: Data())
-        let handle = try FileHandle(forWritingTo: temporaryReportURL)
-
-        do {
+    nonisolated static func writeReport(_ transfers: [PlannedTransfer], to reportURL: URL) throws {
+        try DestinationMetadataFile.replaceFile(at: reportURL) { handle in
             try handle.write(contentsOf: Data("Source,Destination,Hash,Status\n".utf8))
             for transfer in transfers {
                 let row = [
@@ -1339,16 +1335,6 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                 .joined(separator: ",") + "\n"
                 try handle.write(contentsOf: Data(row.utf8))
             }
-            try handle.close()
-
-            if FileManager.default.fileExists(atPath: reportURL.path) {
-                try FileManager.default.removeItem(at: reportURL)
-            }
-            try FileManager.default.moveItem(at: temporaryReportURL, to: reportURL)
-        } catch {
-            try? handle.close()
-            try? FileManager.default.removeItem(at: temporaryReportURL)
-            throw error
         }
     }
 
@@ -1356,31 +1342,17 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
     }
 
-    nonisolated private static func writePreviewReview(
+    nonisolated static func writePreviewReview(
         _ items: [PreviewReviewItem],
         to url: URL
     ) throws {
-        let temporaryURL = url.appendingPathExtension("tmp")
-        FileManager.default.createFile(atPath: temporaryURL.path, contents: Data())
-        let handle = try FileHandle(forWritingTo: temporaryURL)
         let encoder = JSONEncoder()
-
-        do {
+        try DestinationMetadataFile.replaceFile(at: url) { handle in
             for item in items {
                 let data = try encoder.encode(item)
                 try handle.write(contentsOf: data)
                 try handle.write(contentsOf: Data("\n".utf8))
             }
-            try handle.close()
-
-            if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
-            }
-            try FileManager.default.moveItem(at: temporaryURL, to: url)
-        } catch {
-            try? handle.close()
-            try? FileManager.default.removeItem(at: temporaryURL)
-            throw error
         }
     }
 
