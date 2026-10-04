@@ -13,19 +13,21 @@ Release preparation is in progress. **2.0 (500) has been uploaded successfully**
 | Rollout deadline | For October 26, finish seven live-and-paid days before the earliest regional transition: paid V2 must be live by **October 18, 07:00 PDT**. Prefer earlier. If this slips, postpone the free date and ship a later cutoff before October 26, 00:00 PDT. Never keep charging beyond the cutoff in the installed binary. |
 | Local verification | **1,724 Swift tests passed**, all shards. Meaningful line coverage **95.81%**, raw aggregate **70.98%**. Restricted sandbox initially prevented package metadata lookup; traversal and the full lane passed with normal macOS access. |
 | Signed package | **2.0 (500)**, universal arm64/x86_64, macOS 14, MAS_BUILD, valid Apple Distribution signature, hardened runtime, sandbox/folder/bookmark/Photos entitlements, privacy manifest and provisioning profile. Exported app inspected inside the actual package. |
-| Build upload | Xcode reports **Upload succeeded / EXPORT SUCCEEDED**. Apple processing and TestFlight availability still need verification. No review submission made. |
+| Build upload | Xcode reports **Upload succeeded / EXPORT SUCCEEDED**. Processing completed, export-compliance answer saved, and **2.0 (500) is Testing in the existing Internal testers group**. No review submission made. |
 | Package identity | SHA-256 `16576870570e9604f3c7f6252dd9e1b9b6e27968cfb94ec424128416fe36ff3b`. Archive and package preserved under `release-artifacts/2.0-500`. |
-| Store listing | Version 2.0 saved; description, promotional text, What's New, keywords and reviewer notes updated. Minimum macOS corrected, recovery qualified, manual release selected. Old build 373 remains selected until processed build 500 replaces it. |
-| Unlock product | Non-consumable `com.nishith.chronoframe.unlock`, Apple ID **6819083459**, created. Family Sharing visibly enabled, English localization saved, US $14.99 pricing configured, all 175 territories selected. Recheck persistence of availability/review notes after resuming the browser; product remains a draft. Review screenshot still needed. |
+| Store listing | Version 2.0 saved; description, promotional text, What's New, keywords and reviewer notes updated. Minimum macOS corrected, recovery qualified, manual release selected. **Processed build 2.0 (500) is selected and saved**; expired build 373 unlinked. Required recorded-time-zone folder migration note added for upgrades from public 1.1. |
+| Unlock product | Non-consumable `com.nishith.chronoframe.unlock`, Apple ID **6819083459**, created. Family Sharing visibly enabled, English localization saved, US $14.99 pricing configured, all 175 territories selected. Availability and corrected review notes persisted after reload; product remains a draft. Review screenshot still needed. |
 | Screenshots | Seven final PNGs, 2880×1800. History heading corrected to “Receipts for safer undo.” All tracked in PR #239. Old eight images removed from the draft with owner approval. **Replacement upload is blocked; draft currently has no screenshots.** |
 | Browser upload blocker | Chrome extension lacks “Allow access to file URLs”; the native picker did not respond to automation. Owner was asked to enable access and close the picker. Upload consent for seven screenshots, App Store preview, build 500 and Family Sharing was explicitly received. |
+| Account requirements | Paid and free agreements, bank account, W-9 and Digital Services Act compliance all **Active**. Photo & Video category confirmed. Updated age-rating questionnaire completed (new Social Media questions answered No); calculated rating stays **4+**. No legal agreement accepted or financial details changed. |
 | IAP review capture | Existing license UI test capture attempt could not initialize macOS UI automation. Temporary test edit restored. No review image fabricated, no manual signed-build pass claimed. |
 | Media backup | `release-artifacts/2.0-500/marketing-source-and-exports.tar.gz` preserves source footage, scripts, provenance and exports. This is a second local copy, not an off-device backup. Generated media are now explicitly git-ignored. |
+| YouTube draft | YouTube Studio is signed into the **Nishith Nand** channel. Upload dialog prepared; specific file/destination approval requested. No video uploaded or published. Browser file access remains a blocker. |
 | Launch copy | `marketing/release-2.0/LAUNCH_COPY.md` has current free-tier social/community copy. Historical drafts are marked obsolete for this launch. No public post published. |
 | Held website | PR #226 remains held. Planned video publication date changed to October 26; sitemap modification dates updated to October 4. Recheck if launch moves. No website deployment triggered. |
 | Hosted checks | PR #239 CI/CodeQL running when last inspected; all static guards passed. Latest main's standalone SwiftPM job was cancelled, while coverage and other main gates passed. Require candidate checks before merging/submitting. |
 
-Resume media uploads in [the V2 draft](https://appstoreconnect.apple.com/apps/6771245052/distribution/macos/version/inflight) after enabling Chrome file access. Upload the seven numbered PNGs (exclude contact-sheet.png) and the 29.8-second App Store preview; set poster to 11.5 seconds. Then verify IAP metadata, supply its review screenshot, select processed build 500, and run the signed TestFlight session before adding app and IAP to review.
+Resume media uploads in [the V2 draft](https://appstoreconnect.apple.com/apps/6771245052/distribution/macos/version/inflight) after enabling Chrome file access. Upload the seven numbered PNGs (exclude contact-sheet.png) and the 29.8-second App Store preview; set poster to 11.5 seconds. Then supply the IAP review screenshot and run the signed TestFlight session before adding app and IAP to review. Build 500 is already selected. Use [the prepared candidate session record](release-2.0-500-manual-session.md) for the remaining checks and owner decision.
 
 ## Initial audit snapshot
 
@@ -62,12 +64,12 @@ Current evidence:
 
 ## 1. Freeze the candidate and settle the transition date
 
-- [ ] Preserve the marketing exports, source footage, provenance, and scripts in a durable backup. Generated videos are git-ignored; pushing the repository does not back them up. The copied screenshots and `asset-manifest.json` are local and have not been committed.
+- [x] Preserve source footage, scripts, provenance, exports, signed archive and package under `release-artifacts/2.0-500`. Screenshots and manifest are committed in PR #239. This is a second local copy; an off-device backup remains advisable.
 - [ ] Use a clean checkout of current `main` containing every final fix. Wait for all required checks on the exact candidate SHA to finish successfully. Repeat checks after changing the cutoff.
-- [ ] Choose a conservative free-download date that allows App Review, release of paid V2, **at least seven days** of real paid-storefront use, and grandfathering verification.
-- [ ] Set the compiled `grandfatherCutover` to that transition, biased late. Account for the last storefront still accepting paid purchases, not just the US date: Apple applies scheduled pricing by storefront time zone. Record the UTC instant and its Los Angeles equivalent. If approval or rollout slips beyond the cutoff, postpone the price change and ship a corrected cutoff build first.
-- [ ] Prefer setting the real cutoff in the initial V2 candidate, as `APP_STORE_RELEASE.md` and `remaining-work-plan.md` require. The source comment instead describes a later cutoff build. If V2 ships paid with the 2100 default, an additional approved, released binary with the real cutoff is mandatory before making the download free. Do not drop the price first.
-- [ ] Choose an explicit unused build number higher than the last uploaded build. The stamping script accepts `CHRONOFRAME_BUILD_NUMBER`; do not assume Xcode's `CURRENT_PROJECT_VERSION = 2` is the actual exported build number.
+- [x] Choose a conservative free-download date that allows App Review, release of paid V2, **at least seven days** of real paid-storefront use, and grandfathering verification.
+- [x] Set the compiled `grandfatherCutover` to that transition, biased late. Account for the last storefront still accepting paid purchases, not just the US date: Apple applies scheduled pricing by storefront time zone. Record the UTC instant and its Los Angeles equivalent. If approval or rollout slips beyond the cutoff, postpone the price change and ship a corrected cutoff build first.
+- [x] Set the real cutoff in the initial V2 candidate, as required. Build 500 contains October 26 at 07:00 UTC. The source comment and release documentation now agree.
+- [x] Choose an explicit unused build number higher than the last uploaded build. The stamping script accepts `CHRONOFRAME_BUILD_NUMBER`; do not assume Xcode's `CURRENT_PROJECT_VERSION = 2` is the actual exported build number.
 
 The seven-day paid hold is the project's migration policy, not an Apple review requirement. Developer ID notarization and the deferred 100,000-file/1-TB certification are outside this V2 launch scope.
 
@@ -75,10 +77,10 @@ The seven-day paid hold is the project's migration policy, not an Apple review r
 
 In [App Store Connect](https://appstoreconnect.apple.com/apps/6771245052/distribution/iaps):
 
-- [ ] Create **Non-Consumable** → reference/display name **Chronoframe Unlock** → product ID **`com.nishith.chronoframe.unlock`**.
-- [ ] Set the initial US price to **$14.99**, select intended territories, and turn **Family Sharing ON**. Apple does not allow turning it off afterward.
+- [x] Create **Non-Consumable** → reference/display name **Chronoframe Unlock** → product ID **`com.nishith.chronoframe.unlock`**.
+- [x] Set the initial US price to **$14.99**, select intended territories, and turn **Family Sharing ON**. Apple does not allow turning it off afterward.
 - [ ] Use the localized description **“Unlimited organizing and duplicate cleanup.”** Add the required review screenshot of the unlock interface and any requested review details; complete the product metadata.
-- [ ] Check Business for active agreements and complete any outstanding tax, banking, or distribution-compliance prompts. These account-level items were not certified by this audit.
+- [x] Check Business: agreements, banking, tax and Digital Services Act compliance are Active. No outstanding action was shown.
 
 From the clean final checkout, build with the project's MAS script. Supply your chosen build number in place of the placeholder:
 
@@ -86,14 +88,15 @@ From the clean final checkout, build with the project's MAS script. Supply your 
 CHRONOFRAME_BUILD_NUMBER=<unused-build-number> ./ui/archive-mas.sh
 ```
 
-- [ ] Use the **non-local** script path. `--local` is unsigned structure validation, not a releasable artifact. The script enables `MAS_BUILD`; an ordinary Xcode archive without that condition would use the unrestricted distribution policy.
-- [ ] Confirm export/validation success, version **2.0**, chosen build number, arm64 + x86_64, minimum macOS **14.0**, sandbox, folder/bookmark and Photos entitlements, privacy manifest, and App Store distribution signing.
-- [ ] Preserve the archive and exported package before rerunning the script: it replaces its previous archive/export directories. Record commit SHA, version/build, cutoff, archive identity, and package SHA-256.
-- [ ] Upload through **Xcode → Window → Organizer → Distribute App → App Store Connect → Upload**, or use Transporter with the exported package. Wait for processing and address any validation/export-compliance prompts.
+- [x] Use the **non-local** script path. `--local` is unsigned structure validation, not a releasable artifact. The script enables `MAS_BUILD`; an ordinary Xcode archive without that condition would use the unrestricted distribution policy.
+- [x] Confirm export/validation success, version **2.0**, chosen build number, arm64 + x86_64, minimum macOS **14.0**, sandbox, folder/bookmark and Photos entitlements, privacy manifest, and App Store distribution signing.
+- [x] Preserve the archive and exported package before rerunning the script: it replaces its previous archive/export directories. Record commit SHA, version/build, cutoff, archive identity, and package SHA-256.
+- [x] Upload through **Xcode → Window → Organizer → Distribute App → App Store Connect → Upload**, or use Transporter with the exported package. Wait for processing and address any validation/export-compliance prompts.
 
 ## 3. Run the final TestFlight session
 
-- [ ] Add the processed V2 build to the internal testing group and install it through TestFlight.
+- [x] Confirm processed V2 build in the existing internal testing group (2.0/500, Testing).
+- [ ] Install build 500 through TestFlight and record the focused signed-build session below.
 - [ ] Run the focused manual session in `remaining-work-plan.md`: fresh install/persistence; copy/repeat/revert; dedupe/Trash/restore; force quit and repeat recovery; upgrade from public 1.1; Photos import and watched batch; purchase/access; small-window/light/dark/keyboard/VoiceOver; and a real external drive if advertised.
 - [ ] Include the realistic 1,000/approximately 10,000-file checks and record dataset count/bytes, cold/warm correctness, memory, cancellation, and drive format.
 - [ ] Verify StoreKit product availability, existing paid access, restore, cancellation, offline behavior, exhausted allowance, free test batch, and ungated revert with the appropriate test environment. Before the future cutoff, a new sandbox/TestFlight account may correctly qualify for legacy access; that alone does **not** test the locked allowance or purchase prompt. Keep deterministic locked-state tests separate from signed TestFlight and real paid-purchase evidence.
@@ -103,16 +106,16 @@ CHRONOFRAME_BUILD_NUMBER=<unused-build-number> ./ui/archive-mas.sh
 
 Open the existing [draft version](https://appstoreconnect.apple.com/apps/6771245052/distribution/macos/version/inflight).
 
-- [ ] Change the draft's Version field from **1.2 to 2.0**, save, and replace build **373** with the processed V2 candidate.
-- [ ] Replace the old description, promotional text, What's New, and review notes using [APP_STORE_METADATA.md](APP_STORE_METADATA.md). Use the **paid-window** variants for the initial release.
-- [ ] Ensure the description says **macOS 14.0 or later**. Replace “always recover” with conditional recovery: files must remain in Trash with their recorded contents. Avoid a blanket offline claim for initial purchase/restore or downloading iCloud-only originals.
-- [ ] In What's New, include the actual V2 customer benefits: Photos import, watched-source review, optional similar-video review, safety/recovery and interface improvements, plus existing-purchase protection. The staged notes currently focus mostly on pricing migration.
-- [ ] Paste the full review notes, including **500 organized files + 100 duplicates trashed**, cumulative per Apple Account per Mac, permanent allowance, free scanning/review/history, one non-consumable unlock, grandfathered paid access, and revert refunds. Mention that the app remains paid during the initial transition window.
-- [ ] Keep no app sign-in required; confirm review contact details, Photo & Video category, URLs, privacy declaration, and updated age-rating questionnaire. Do not advertise the disabled Library Guardian feature.
+- [x] Change draft Version to **2.0**, save, and replace build **373** with **2.0 (500)**.
+- [x] Replace the old description, promotional text, What's New, and review notes using [APP_STORE_METADATA.md](APP_STORE_METADATA.md). Use the **paid-window** variants for the initial release.
+- [x] Ensure the description says **macOS 14.0 or later**. Replace “always recover” with conditional recovery: files must remain in Trash with their recorded contents. Avoid a blanket offline claim for initial purchase/restore or downloading iCloud-only originals.
+- [x] In What's New, include the actual V2 customer benefits: Photos import, watched-source review, optional similar-video review, safety/recovery and interface improvements, plus existing-purchase protection. The staged notes currently focus mostly on pricing migration.
+- [x] Paste the full review notes, including **500 organized files + 100 duplicates trashed**, cumulative per Apple Account per Mac, permanent allowance, free scanning/review/history, one non-consumable unlock, grandfathered paid access, and revert refunds. Mention that the app remains paid during the initial transition window.
+- [x] Keep no app sign-in required; confirm review contact details, Photo & Video category, URLs, privacy declaration, and updated age-rating questionnaire. Do not advertise the disabled Library Guardian feature.
 - [ ] Replace the older screenshot set with the numbered files in `marketing/release-2.0/screenshots`. Upload the actual screenshots, not `contact-sheet.png`. All seven files have accepted dimensions.
-- [ ] Tighten or omit **06-run-history-app-store.png**: “Every run leaves a way back” implies unconditional recovery, which the product does not guarantee. Suggested heading: **“Receipts for safer undo.”** The six other screenshots can be used without waiting on this caption change; 07 shows the Photos permission entry point rather than a populated library.
+- [x] Correct **06-run-history-app-store.png** to **“Receipts for safer undo.”** Regenerated and visually checked. 07 shows the Photos permission entry point rather than a populated library.
 - [ ] Upload `marketing/app-preview/exports/Chronoframe-App-Store-Preview.mp4` into the Mac **App Preview** slot. Set its poster timestamp to **11.5 seconds**, matching the provided poster. Do not use the 60-second social film as the App Store preview.
-- [ ] Select **Manually release this version** to coordinate publication. Keep existing ratings unless you specifically decide to reset them.
+- [x] Select **Manually release this version** to coordinate publication. Keep existing ratings unless you specifically decide to reset them.
 - [ ] Include the first lifetime-unlock IAP with V2 in the same submission. Select **Add for Review**, inspect the draft submission, then **Submit for Review**. Add for Review alone does not submit it.
 
 Apple references checked for this audit: [Mac screenshots](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications), [preview specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications), [IAP submission](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-in-app-purchase/), and [app submission](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-app/).
@@ -125,7 +128,7 @@ Apple references checked for this audit: [Mac screenshots](https://developer.app
 - [ ] Only proceed when the released binary contains the correct cutoff, grandfathering has been verified, and the IAP is approved and available. If any condition fails, keep the app paid and postpone the transition.
 - [ ] Execute the free-download schedule for all intended territories. Apple applies pricing changes by storefront time zone, and propagation may take time; inspect actual storefronts rather than assuming a single instantaneous worldwide switch. See [Apple's price scheduling instructions](https://developer.apple.com/help/app-store-connect/manage-app-pricing/schedule-price-changes-for-apps/).
 - [ ] Verify a real account whose first acquisition is **after the cutoff** receives the allowance, while prior paid customers retain unrestricted use. Test purchase and restore against the production product.
-- [ ] When the advertised storefront is free, merge **PR #226**, wait for Pages deployment, and verify the live video, trial terms, privacy/support links and App Store CTA. Update the PR's stale September publication dates and resolve any new conflicts before merging. Every `site/**` push to `main` deploys immediately.
+- [ ] When the advertised storefront is free, merge **PR #226**, wait for Pages deployment, and verify the live video, trial terms, privacy/support links and App Store CTA. Planned publication date is now October 26 and sitemap last-modified date October 4; recheck dates and conflicts before merging. Every `site/**` push to `main` deploys immediately.
 - [ ] Update README and App Store promotional text to the free-to-try variants. Keep the pricing-neutral description or coordinate a reviewed follow-up version for description changes; do not assume the released description is freely editable.
 
 ## 6. Send out the marketing assets
@@ -144,7 +147,7 @@ Apple references checked for this audit: [Mac screenshots](https://developer.app
 - [ ] Play the complete App Store and social films once with sound and once muted. Technical checks passed; this audit did not audition the music. Confirm caption readability, covers, and the final call to action on a phone.
 - [ ] Upload the 4K video to YouTube as **unlisted** first; add thumbnail, title, description, caption track and photo/music credit. Wait for HD/4K processing and inspect playback before publishing.
 - [ ] Prepare the vertical posts as drafts with the provided captions and cover. Use the pricing-neutral publishing copy during the paid window. For a free-trial launch, wait until the free storefront and website are verified before publishing.
-- [ ] Update the older Reddit/Show HN drafts to match the live offer: **free download; 500 organized files and 100 trashed duplicates; $14.99 US one-time unlock; existing paid customers keep access**. Remove the older paid-download/no-trial framing. Preserve the limits on revert and review each community's current posting rules.
+- [x] Prepare replacement Reddit/Show HN launch copy and mark older drafts obsolete. Planned offer: **free download; 500 organized files and 100 trashed duplicates; $14.99 US one-time unlock; existing paid customers keep access**. Remove the older paid-download/no-trial framing. Preserve the limits on revert and review each community's current posting rules.
 - [ ] Publish YouTube and the initial social announcement after the website/store checks pass. Spread community posts out and disclose that you are the developer. Include both [chronoframe.app](https://chronoframe.app/) and the [App Store listing](https://apps.apple.com/us/app/chronoframe/id6771245052) where supported.
 - [ ] For the first week, check support messages, App Store reviews, TestFlight/crash feedback, purchase/restore failures, and copying/Trash/recovery reports daily. Respond to questions and pause further promotion if a core safety or access failure emerges.
 

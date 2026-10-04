@@ -96,13 +96,22 @@ Publish only once the App Store price is actually free. It is the variant above 
 
 ## What's New (release notes for version 2.0)
 
-Version 2.0 ships **while the app is still $14.99 up front** — see [Pricing](#pricing). Everyone who buys it in that window is grandfathered, so for every customer who can read these notes on day one, the free tier is dormant and the in-app purchase is something they never need. Describe what is true for *them*: nothing changes, and their purchase is safe when the price drops.
+Version 2.0 initially ships while the app still costs $14.99 up front. The notes describe its features and reassure paid customers about the later free-download transition. Do not advertise the free allowance until the download actually becomes free. Copy-ready text:
 
-> • Chronoframe is moving to a free download with a single one-time unlock. Your purchase already covers it. You keep unrestricted use, you will never be asked to buy the unlock, and there is nothing to do.
-> • Settings → License shows your status at any time. On a Mac that has been offline for a long stretch, Restore Purchases re-confirms it.
-> • No subscription, ever. That is not changing.
-
-Do **not** describe the allowance here. A customer who just paid $14.99 has no allowance, and telling them about a free tier they cannot use — or a $14.99 unlock on top of the $14.99 they already paid — reads as a bait-and-switch. The free-tier notes belong to whatever version ships at or after the cutover.
+> Chronoframe 2.0 brings new ways to build and care for your photo library:
+>
+> • Import selected original photos and videos from Apple Photos without changing the Photos library.
+> • Register watched source folders, see an estimate of new items, and review each import before copying.
+> • Review similar videos with optional perceptual matching, alongside exact photo and video duplicates.
+> • Preview your library with contact sheets and timelines, compare duplicates, and choose what moves to Trash.
+> • Improved copy compatibility on external drives, visible duplicate names in Trash, interruption recovery, and clearer verification and history.
+> • Refined layouts and accessibility throughout the organizing and duplicate-review workflows.
+>
+> Dates near midnight now use the capture date’s recorded time zone. For a previously organized library, use Health → Reorganize to correct affected destination folders; originals are unchanged.
+>
+> Chronoframe is preparing to become a free download with a single lifetime unlock. If you already bought the paid app, your purchase covers unrestricted use: you will not need to buy the unlock. Settings → License shows your status, with Restore Purchases available when verification is needed.
+>
+> No subscription. Your organizing source files and Photos library remain untouched.
 
 ## What's New (release notes for version 1.3)
 
@@ -191,4 +200,4 @@ After the App Store listing is live, replace the Mac App Store button `href` in 
 
 ## October 2026 prepared submission
 
-The V2 draft was updated on October 4. Copy-ready values are in `marketing/release-2.0/metadata/fields.json` and the adjacent text files. They correct the macOS requirement to 14.0, describe Photos import and watched sources, and qualify revert against retained, unchanged Trash contents. The app remains paid during the first V2 rollout. The planned free date is October 26, subject to the release gates.
+The V2 draft was updated on October 4. Copy-ready values are in `marketing/release-2.0/metadata/fields.json` and the adjacent text files. They correct the macOS requirement to 14.0, describe Photos import and watched sources, include the recorded-time-zone folder migration note for users upgrading from public 1.1, and qualify revert against retained, unchanged Trash contents. These copy-ready values are the complete V2 listing; the version-specific notes above preserve earlier drafts. The app remains paid during the first V2 rollout. The planned free date is October 26, subject to the release gates.
