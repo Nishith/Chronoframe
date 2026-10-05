@@ -1,0 +1,16 @@
+{
+  "environment": "Isolated developer UI fixture; not TestFlight or production StoreKit",
+  "runtime_source": "6df85b4b3ef96fa5f2165c29d35627f3d92e50d3",
+  "view_sources": {
+    "ui/Sources/ChronoframeApp/Views/Purchase/UnlockSheet.swift": "45141d5753c45e4c29b45dec16815267e249cf20111bc33601980bc6b6a52616",
+    "ui/Sources/ChronoframeApp/App/DesignTokens.swift": "b272551dd157f994ee02fcc8d3d01e5c55b35c4303768680ee6b4dd7cd5006ec"
+  },
+  "product_source": "ui/Chronoframe.storekit; matches configured US App Store Connect IAP",
+  "purchase_behavior": "Stub userCancelled; no purchase or restore validation",
+  "image": "Chronoframe-Unlock-Review.png",
+  "dimensions": [
+    1440,
+    900
+  ],
+  "image_sha256": "e88334f380b4e2cd4b97ae3b0ddbfa294d4deb2defe74e3c7bd5775e66dfbc0b"
+}

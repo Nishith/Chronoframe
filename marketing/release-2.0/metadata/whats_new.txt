@@ -1,0 +1,14 @@
+Chronoframe 2.0 brings new ways to build and care for your photo library:
+
+• Import selected original photos and videos from Apple Photos without changing the Photos library.
+• Register watched source folders, see an estimate of new items, and review each import before copying.
+• Review similar videos with optional perceptual matching, alongside exact photo and video duplicates.
+• Preview your library with contact sheets and timelines, compare duplicates, and choose what moves to Trash.
+• Improved copy compatibility on external drives, visible duplicate names in Trash, interruption recovery, and clearer verification and history.
+• Refined layouts and accessibility throughout the organizing and duplicate-review workflows.
+
+Dates near midnight now use the capture date’s recorded time zone. For a previously organized library, use Health → Reorganize to correct affected destination folders; originals are unchanged.
+
+Chronoframe is preparing to become a free download with a single lifetime unlock. If you already bought the paid app, your purchase covers unrestricted use: you will not need to buy the unlock. Settings → License shows your status, with Restore Purchases available when verification is needed.
+
+No subscription. Your organizing source files and Photos library remain untouched.

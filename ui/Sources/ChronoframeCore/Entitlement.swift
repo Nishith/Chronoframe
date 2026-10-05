@@ -358,22 +358,15 @@ public enum ChronoframeUnlock {
     /// Connect — that switch is irreversible, so it is set at product creation.
     public static let productID = "com.nishith.chronoframe.unlock"
 
-    /// The moment the App Store price drops to free. Everyone who obtained the
-    /// app before this instant paid for it, and is unlocked for life.
+    /// Acquisition cutoff for the planned October 26, 2026 free-price transition.
+    /// Apple's regional schedule ends at 03:00 UTC; the four-hour margin protects
+    /// paid customers during storefront propagation. This is midnight PDT.
     ///
-    /// This is set far in the future on purpose, and that is the *correct*
-    /// value until the price actually changes — while the app is still paid,
-    /// every single customer is a paying customer, so grandfathering everyone
-    /// is right. The constant is therefore fail-safe by construction: shipping
-    /// it unedited cannot charge anyone twice. The only way it does harm is if
-    /// it is left unedited *after* the price drops, which would make the app
-    /// permanently free for everyone.
-    ///
-    /// Rollout order: submit the IAP with version 2 → release v2 while still
-    /// paid → hold 7 days and verify grandfathering against real purchaser data
-    /// → set this constant to the scheduled price-change moment, biased a few
-    /// hours late → ship → then execute the price drop.
-    public static let grandfatherCutover = Date(timeIntervalSince1970: 4_102_444_800) // 2100-01-01T00:00:00Z
+    /// Release v2 while paid, hold at least seven days, and verify grandfathering
+    /// against real purchaser data before scheduling the price change. If the
+    /// transition is postponed, ship a later cutoff before this instant; never
+    /// continue charging up front past the cutoff in the installed binary.
+    public static let grandfatherCutover = Date(timeIntervalSince1970: 1_792_998_000) // 2026-10-26T07:00:00Z
 
     public static func defaultPolicy() -> GrandfatherPolicy {
         GrandfatherPolicy(cutover: grandfatherCutover)

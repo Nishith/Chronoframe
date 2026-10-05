@@ -35,3 +35,10 @@ script/video_calibration/**/corpus/
 **/chronoframe-video-corpus/
 manifest.json
 !script/video_calibration/manifest.example.json
+
+# Local release packages, source footage, and generated marketing media.
+release-artifacts/
+marketing/app-preview/exports/
+marketing/app-preview/work/
+marketing/social-video/exports/
+marketing/social-video/work/

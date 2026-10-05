@@ -100,21 +100,32 @@ final class ChronoframeCoreEntitlementTests: XCTestCase {
         XCTAssertEqual(resolve(owned: .success([]), appTransaction: .success(revoked)), .unlocked(reason: .legacyPurchase))
     }
 
-    /// Until the price actually drops, every customer is a paying customer, so
-    /// the shipped default must grandfather everyone. This is what makes the
-    /// unedited constant safe to release.
-    func testDefaultPolicyGrandfathersEveryoneBeforeTheCutoverIsSet() {
-        let state = EntitlementResolver.resolve(
-            ownedProducts: .success([]),
-            appTransaction: .success(
-                AppTransactionInfo(originalPurchaseDate: now, originalAppVersion: "2.0", appTransactionID: nil)
-            ),
-            cachedLegacyGrant: nil,
-            unlockProductID: ChronoframeUnlock.productID,
-            policy: ChronoframeUnlock.defaultPolicy(),
-            now: now
-        )
-        XCTAssertEqual(state, .unlocked(reason: .legacyPurchase))
+    /// Pins the real release configuration: paid V2 acquisitions remain covered,
+    /// while acquisitions at and after the free-transition cutoff use the allowance.
+    func testOctober2026ReleasePolicyProtectsPaidCustomersAndLocksAfterCutover() throws {
+        let formatter = ISO8601DateFormatter()
+        let expectedCutover = try XCTUnwrap(formatter.date(from: "2026-10-26T07:00:00Z"))
+        XCTAssertEqual(ChronoframeUnlock.grandfatherCutover, expectedCutover)
+        let observations: [(String, EntitlementState)] = [
+            ("2026-10-04T12:00:00Z", .unlocked(reason: .legacyPurchase)),
+            ("2026-10-26T06:59:59Z", .unlocked(reason: .legacyPurchase)),
+            ("2026-10-26T07:00:00Z", .locked),
+            ("2026-10-26T07:00:01Z", .locked)
+        ]
+        for (date, expected) in observations {
+            let purchaseDate = try XCTUnwrap(formatter.date(from: date))
+            let state = EntitlementResolver.resolve(
+                ownedProducts: .success([]),
+                appTransaction: .success(AppTransactionInfo(
+                    originalPurchaseDate: purchaseDate, originalAppVersion: "2.0", appTransactionID: nil
+                )),
+                cachedLegacyGrant: nil,
+                unlockProductID: ChronoframeUnlock.productID,
+                policy: ChronoframeUnlock.defaultPolicy(),
+                now: expectedCutover.addingTimeInterval(60)
+            )
+            XCTAssertEqual(state, expected, date)
+        }
     }
 
     // MARK: Verification failures must not read as "did not pay"
