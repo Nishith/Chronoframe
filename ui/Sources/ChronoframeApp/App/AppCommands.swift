@@ -71,7 +71,7 @@ struct AppCommands: Commands {
             Button("Cancel Run") {
                 appState.cancelRun()
             }
-            .disabled(!runSessionStore.isRunning)
+            .disabled(!runSessionStore.isRunning || runSessionStore.isCancelling)
         }
 
         CommandGroup(replacing: .help) {

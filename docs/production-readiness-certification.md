@@ -9,7 +9,15 @@ Implementation evidence commit: `80ff492`
 The candidate coordinates above preserve the original certification evidence. Before release,
 replace them with the final version 2.0 commit, build number and archive identity.
 
+**New release hold, October 4:** signed 502 Photos import copied 8 additional resources safely, but two Live Photo pairs were split across date folders and standalone movies were filed by import date despite embedded capture timestamps. The split pairs cannot be recognized by the same-directory pair detector. Fix capture-date handling and retest a replacement signed candidate; do not submit 502. See [the 502 session](release-2.0-502-manual-session.md).
+
+## October 4 candidate update
+
+The Mac App Store candidate is **2.0 (501)**, runtime `6df85b4`, uploaded and installed through TestFlight. See [the 501 signed session](release-2.0-501-manual-session.md) for 11,034 byte-identical verified copies, unchanged sources, focused 32-file repeat/persistence and reviewed watched-import evidence. [The 500 session](release-2.0-500-manual-session.md) preserves prior Trash/restore/revert and interruption recovery for the unchanged engines. CI and CodeQL passed on `64d0d43`; evidence-only final-head checks and owner Go remain distinct gates. Cancellation and other missing manual scenarios are explicitly open in those records. No review submission or production release is claimed.
+
 ## Release decision
+
+**Build 501 is held after the October 4 owner cancellation check:** the UI showed 108 copied while the ABORTED receipt and destination agree on 844 byte-identical copies; all 10,000 originals remain unchanged. See the 501 session for preserved evidence. Signed replacement **2.0 (502)** is uploaded and installed. Its October 4 owner mid-copy cancellation retest **passes**: the terminal UI, finalized ABORTED receipt and actual destination agree at 311 byte-identical verified copies, with zero failures; all 10,000 originals match the saved SHA-256 baseline. See [the 502 signed session](release-2.0-502-manual-session.md). App Store draft selection, final hosted checks, remaining signed scenarios and owner Go still gate submission.
 
 **NOT YET GO for version 2.0.** The September 2026 release bug bash (BASH-01…08) fixes are in
 review, and the focused manual session and Go record below are not complete.

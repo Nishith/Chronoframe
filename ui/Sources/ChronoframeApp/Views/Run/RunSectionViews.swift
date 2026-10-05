@@ -156,10 +156,11 @@ struct RunHeroSection: View {
             Button(role: .destructive) {
                 appState.cancelRun()
             } label: {
-                Label("Cancel Run", systemImage: "stop.fill")
+                Label(appState.runSessionStore.isCancelling ? "Stopping…" : "Cancel Run", systemImage: "stop.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
+            .disabled(appState.runSessionStore.isCancelling)
             .accessibilityHint("Stops the current run. Already-copied files remain in place")
 
         case .openDestination:

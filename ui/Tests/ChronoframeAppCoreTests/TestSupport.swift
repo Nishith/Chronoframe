@@ -74,12 +74,13 @@ final class MockOrganizerEngine: OrganizerEngine {
     var revertRequests: [(receiptURL: URL, destinationRoot: String)] = []
     var reorganizeRequests: [(destinationRoot: String, targetStructure: FolderStructure)] = []
     var cancelCallCount = 0
+    var finishPendingStreamOnCancel = true
     var pendingContinuation: AsyncThrowingStream<RunEvent, Error>.Continuation?
     /// Optional hook invoked inside `preflight` before it returns. Tests use it
     /// to deterministically interleave a second operation (or a cancel) while a
     /// preflight is in flight, exercising the stale-completion epoch guard.
     var preflightHook: (@MainActor () async -> Void)?
-    private let lockRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+    let lockRoot = URL(fileURLWithPath: NSTemporaryDirectory())
         .appendingPathComponent("MockOrganizerEngine-\(UUID().uuidString)", isDirectory: true)
 
     init(
@@ -134,6 +135,7 @@ final class MockOrganizerEngine: OrganizerEngine {
 
     func cancelCurrentRun() {
         cancelCallCount += 1
+        guard finishPendingStreamOnCancel else { return }
         pendingContinuation?.finish()
         pendingContinuation = nil
     }

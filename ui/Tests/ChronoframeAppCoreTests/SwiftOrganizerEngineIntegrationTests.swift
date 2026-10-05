@@ -615,6 +615,111 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
     }
 
     @MainActor
+    func testCancelAfterReceiptCompletionStillReportsFinishedTransfer() async throws {
+        let source = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destination = temporaryDirectoryURL.appendingPathComponent("destination", isDirectory: true)
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        let original = source.appendingPathComponent("IMG_20240101_101010.jpg")
+        let bytes = Data("original".utf8)
+        try bytes.write(to: original)
+        let authorizer = SlowAuthorizer()
+        let engine = SwiftOrganizerEngine(authorizer: authorizer, profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")))
+        // This callback occurs after all copies and the COMPLETED receipt landed,
+        // but before the terminal event reaches the UI.
+        authorizer.whileFinalizing = { [weak engine] in await engine?.cancelCurrentRun() }
+        let stream = try engine.start(RunConfiguration(mode: .transfer, sourcePath: source.path, destinationPath: destination.path, verifyCopies: true))
+        var finalSummary: RunSummary?
+        for try await event in stream {
+            if case let .complete(summary) = event { finalSummary = summary }
+        }
+        let summary = try XCTUnwrap(finalSummary)
+        XCTAssertEqual(summary.status, .finished)
+        XCTAssertEqual(summary.metrics.copiedCount, 1)
+        XCTAssertEqual(try Data(contentsOf: original), bytes)
+        let logsPath = try XCTUnwrap(summary.artifacts.logsDirectoryPath)
+        let receipts = try FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: logsPath), includingPropertiesForKeys: nil).filter { $0.lastPathComponent.hasPrefix("audit_receipt_") && $0.pathExtension == "json" }
+        XCTAssertEqual(receipts.count, 1)
+        let receipt = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: try XCTUnwrap(receipts.first))) as? [String: Any])
+        XCTAssertEqual(receipt["status"] as? String, "COMPLETED")
+    }
+
+    @MainActor
+    func testCancelledFreshAndResumedTransferEmitReceiptBackedFinalCounts() async throws {
+        let source = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destination = temporaryDirectoryURL.appendingPathComponent("destination", isDirectory: true)
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        var originals: [URL: Data] = [:]
+        for index in 1...20 {
+            let day = String(format: "%02d", index)
+            let url = source.appendingPathComponent("IMG_202401\(day)_101010.jpg")
+            let bytes = Data("original-\(index)".utf8)
+            try bytes.write(to: url)
+            originals[url] = bytes
+        }
+        // Let one real verified copy land, then keep disk space unavailable.
+        // The remaining workers cannot race to completion before cancellation.
+        var executor = TransferExecutor()
+        executor.freeDiskSpaceProvider = { _ in
+            let copies = FileManager.default.enumerator(at: destination, includingPropertiesForKeys: nil)?
+                .compactMap { $0 as? URL }.filter { $0.pathExtension == "jpg" } ?? []
+            return copies.isEmpty ? Int64.max : 0
+        }
+        let engine = SwiftOrganizerEngine(authorizer: UnrestrictedTrialAuthorizer(), profilesRepository: TestProfilesRepository(profiles: [], profilesFileURL: temporaryDirectoryURL.appendingPathComponent("profiles.yaml")), transferExecutor: executor)
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: source.path, destinationPath: destination.path, verifyCopies: true, parallelTransferEnabled: false)
+        var seenReceipts = Set<URL>()
+        for resume in [false, true] {
+            let stream = try resume ? engine.resume(configuration) : engine.start(configuration)
+            var finalSummary: RunSummary?
+            var sawPause = false
+            for try await event in stream {
+                if case let .issue(issue) = event, issue.message.contains("Paused: Insufficient disk space"), !sawPause {
+                    sawPause = true
+                    engine.cancelCurrentRun()
+                }
+                if case let .complete(summary) = event { finalSummary = summary }
+            }
+            XCTAssertTrue(sawPause)
+            let summary = try XCTUnwrap(finalSummary, "Cancellation must emit a terminal result after receipt finalization")
+            XCTAssertEqual(summary.status, .cancelled)
+            XCTAssertEqual(summary.metrics.copiedCount, resume ? 0 : 1)
+            if resume {
+                XCTAssertGreaterThan(summary.metrics.plannedCount, 0)
+                XCTAssertLessThan(summary.metrics.plannedCount, originals.count)
+            } else {
+                XCTAssertEqual(summary.metrics.plannedCount, originals.count)
+            }
+            let logsPath = try XCTUnwrap(summary.artifacts.logsDirectoryPath)
+            let receipts = Set(try FileManager.default.contentsOfDirectory(at: URL(fileURLWithPath: logsPath), includingPropertiesForKeys: nil).filter { $0.lastPathComponent.hasPrefix("audit_receipt_") && $0.pathExtension == "json" })
+            let newReceipts = receipts.subtracting(seenReceipts)
+            XCTAssertEqual(newReceipts.count, 1)
+            let receiptURL = try XCTUnwrap(newReceipts.first)
+            seenReceipts = receipts
+            let receipt = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: receiptURL)) as? [String: Any])
+            XCTAssertEqual(receipt["status"] as? String, "ABORTED")
+            let transfers = try XCTUnwrap(receipt["transfers"] as? [[String: Any]])
+            XCTAssertEqual(transfers.count, summary.metrics.copiedCount)
+            for transfer in transfers {
+                let src = try XCTUnwrap(transfer["source"] as? String)
+                let dst = try XCTUnwrap(transfer["dest"] as? String)
+                XCTAssertEqual(try Data(contentsOf: URL(fileURLWithPath: src)), try Data(contentsOf: URL(fileURLWithPath: dst)))
+            }
+        }
+        for (url, bytes) in originals { XCTAssertEqual(try Data(contentsOf: url), bytes) }
+        var pendingCount: Int?
+        let queueReadable = await waitForCondition {
+            guard let database = try? OrganizerDatabase(url: destination.appendingPathComponent(".organize_cache.db"), readOnly: true) else { return false }
+            defer { database.close() }
+            pendingCount = try? database.pendingJobCount()
+            return pendingCount != nil
+        }
+        XCTAssertTrue(queueReadable)
+        XCTAssertGreaterThan(try XCTUnwrap(pendingCount), 0)
+        XCTAssertLessThan(try XCTUnwrap(pendingCount), originals.count)
+    }
+
+    @MainActor
     func testResumeTransferUsesPersistedRawQueueAndEmitsCopyOnlyEvents() async throws {
         let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
         let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
@@ -989,9 +1094,8 @@ final class SwiftOrganizerEngineIntegrationTests: XCTestCase {
     /// check and the first mutation, and resolving entitlement can wait on the
     /// App Store — so a cancel can land inside it.
     ///
-    /// By then `RunSessionStore.cancelCurrentRun()` has already released the
-    /// destination lease, so enqueuing or copying past this point would mutate
-    /// the destination with no lock held. The reservation is given back because
+    /// Even with the UI holding the destination lease while stopping, no work
+    /// should begin after cancellation. The reservation is given back because
     /// this is the one moment where nothing can have been mutated under it.
     @MainActor
     func testCancellingDuringAuthorizationEnqueuesNothingAndReleasesTheReservation() async throws {
@@ -1667,6 +1771,7 @@ private final class SlowAuthorizer: TrialAuthorizing, @unchecked Sendable {
 
     /// Set before the run starts and not mutated afterwards.
     var whileAuthorizing: (@Sendable () async -> Void)?
+    var whileFinalizing: (@Sendable () async -> Void)?
 
     var releasedRunIDs: [UUID] { lock.withLock { released } }
     var finalizedRunIDs: [UUID] { lock.withLock { finalized } }
@@ -1682,6 +1787,7 @@ private final class SlowAuthorizer: TrialAuthorizing, @unchecked Sendable {
     }
 
     func finalizeMeteredWork(runID: UUID, actualCount: Int) async {
+        await whileFinalizing?()
         lock.withLock { finalized.append(runID) }
     }
 

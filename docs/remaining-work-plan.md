@@ -1,6 +1,6 @@
 # Chronoframe Remaining Production-Readiness Work
 
-Status date: 2026-06-20 (release scope for version 2.0 revised 2026-09-28)
+Status date: 2026-10-04 (release scope for version 2.0 revised 2026-09-28)
 
 This is the current follow-up plan after PR #160. The earlier review-remediation
 plan described destination locking, immutable dedupe plans, quarantine,
@@ -14,6 +14,14 @@ Authoritative current references:
 - `docs/SAFETY_AND_RECOVERY.md` — product and technical safety contract.
 - `docs/TECHNICAL.md` — current modules, artifacts, and developer workflows.
 - `docs/production-readiness-certification.md` — release gates and evidence.
+
+**New release hold, October 4:** signed 502 Photos import copied 8 additional resources safely, but two Live Photo pairs were split across date folders and standalone movies were filed by import date despite embedded capture timestamps. The split pairs cannot be recognized by the same-directory pair detector. Fix capture-date handling and retest a replacement signed candidate; do not submit 502. See [the 502 session](release-2.0-502-manual-session.md).
+
+## October 4 release evidence
+
+Candidate **2.0 (501)** is uploaded, processed, selected in the App Store draft and installed through TestFlight. Runtime source is `6df85b4`. Its signed verified-copy/repeat/persistence and one-file watched-import smoke checks pass. Build 500 provides the unchanged-engine Trash/restore/hash-safe revert and crash-recovery evidence. The final checklist and honest remaining gates are in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md) and [release-2.0-501-manual-session.md](release-2.0-501-manual-session.md).
+
+Build 501 is held: the owner's October 4 mid-copy cancellation displayed 108 copied while the ABORTED receipt and destination contain 844 verified copies. All 10,000 originals are unchanged. The source fix keeps the consumer, folder access and destination lease alive while stopping, then uses the engine's receipt-backed final result; signed replacement **2.0 (502)** is now installed and its October 4 owner mid-copy cancellation retest passes. The UI, finalized ABORTED receipt and actual destination agree at 311 verified copies; all 10,000 originals match the saved baseline. See [the 502 session](release-2.0-502-manual-session.md). This closes the stale terminal-count cancellation gate. Cross-album Photos, multi-item watched partial-batch retention, fresh/unavailable-folder, pair/sidecar retention, full old-receipt upgrade, signed StoreKit and usability/external-drive checks are not all recorded. They need actual results or the owner’s explicit assessment; no Go is recorded. Production paid-purchaser grandfathering occurs during the paid rollout, before free pricing.
 
 ## Completed In PR #160
 
