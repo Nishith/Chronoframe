@@ -71,10 +71,12 @@ public struct PhotosAssetExportFailure: Equatable, Sendable {
 public struct PhotosExportReceipt: Equatable, Sendable {
     public let exportedFiles: [PhotosExportedFile]
     public let failures: [PhotosAssetExportFailure]
+    public let sourceDateHints: [String: SourceDateHint]
 
-    public init(exportedFiles: [PhotosExportedFile], failures: [PhotosAssetExportFailure]) {
+    public init(exportedFiles: [PhotosExportedFile], failures: [PhotosAssetExportFailure], sourceDateHints: [String: SourceDateHint] = [:]) {
         self.exportedFiles = exportedFiles
         self.failures = failures
+        self.sourceDateHints = sourceDateHints
     }
 
     public var stagedFileCount: Int { exportedFiles.count }
@@ -104,13 +106,16 @@ public struct PhotosExportExecutor {
     public func export(
         plan: PhotosExportPlan,
         to stagingDirectory: URL,
-        isCancelled: @Sendable () -> Bool = { false }
+        isCancelled: @escaping @Sendable () -> Bool = { false }
     ) async throws -> PhotosExportReceipt {
         try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+        // Discovery returns canonical URLs (notably /private/var for /var).
+        let stagingRoot = stagingDirectory.resolvingSymlinksInPath()
 
         var exported: [PhotosExportedFile] = []
         var failures: [PhotosAssetExportFailure] = []
         var usedFilenames = Set<String>()
+        var sourceDateHints: [String: SourceDateHint] = [:]
 
         for entry in plan.entries {
             try throwIfCancelled(isCancelled)
@@ -141,9 +146,11 @@ public struct PhotosExportExecutor {
                         resourceIndex: resource.resourceIndex,
                         used: &usedFilenames
                     )
-                    let destination = stagingDirectory.appendingPathComponent(filename)
-                    try await exporter.writeResource(resource, to: destination)
+                    let destination = stagingRoot.appendingPathComponent(filename)
+                    // Include the current resource in rollback even if the
+                    // exporter fails after creating a partial staging file.
                     writtenURLs.append(destination)
+                    try await exporter.writeResource(resource, to: destination)
                     assetFiles.append(
                         PhotosExportedFile(
                             assetID: entry.assetID,
@@ -152,7 +159,19 @@ public struct PhotosExportExecutor {
                         )
                     )
                 }
+                try throwIfCancelled(isCancelled)
+                let captureDate = resolveAssetDate(entry: entry, paths: assetFiles.map(\.path), isCancelled: { isCancelled() || Task.isCancelled })
+                var assetHints: [String: SourceDateHint] = [:]
+                for file in assetFiles {
+                    try throwIfCancelled(isCancelled)
+                    assetHints[SourceDateHint.pathKey(for: file.path)] = SourceDateHint(
+                        identity: try FileIdentityHasher().hashIdentity(at: URL(fileURLWithPath: file.path)),
+                        resolvedDate: captureDate
+                    )
+                }
+                try throwIfCancelled(isCancelled)
                 exported.append(contentsOf: assetFiles)
+                sourceDateHints.merge(assetHints) { _, new in new }
             } catch is CancellationError {
                 rollBack(writtenURLs)
                 throw CancellationError()
@@ -169,7 +188,26 @@ public struct PhotosExportExecutor {
             }
         }
 
-        return PhotosExportReceipt(exportedFiles: exported, failures: failures)
+        return PhotosExportReceipt(exportedFiles: exported, failures: failures, sourceDateHints: sourceDateHints)
+    }
+
+    /// One date per asset: still metadata wins over the paired movie (whose
+    /// recording may start before midnight), then movie metadata, filename,
+    /// and Photos' asset instant. No metadata means Unknown, never import day.
+    private func resolveAssetDate(entry: PhotosAssetExportEntry, paths: [String], isCancelled: @escaping @Sendable () -> Bool) -> ResolvedMediaDate {
+        let ordered = paths.filter { MediaLibraryRules.isPhotoFile(path: $0) }
+            + paths.filter { !MediaLibraryRules.isPhotoFile(path: $0) }
+        var dates: [ResolvedMediaDate] = []
+        for path in ordered {
+            let date = FileDateResolver().resolveCaptureDate(for: path, isCancelled: isCancelled)
+            if date.source == .photoMetadata || date.source == .videoMetadata { return date }
+            dates.append(date)
+        }
+        if let filename = dates.first(where: { $0.source == .filename }) { return filename }
+        if let date = entry.creationDate, date.timeIntervalSince1970.isFinite, !DateClassification.isUnknown(date) {
+            return ResolvedMediaDate(date: date, source: .photosAsset, confidence: .medium)
+        }
+        return .unknown
     }
 
     /// Removes a partially-exported asset's staged files so an incomplete unit
@@ -181,7 +219,7 @@ public struct PhotosExportExecutor {
     }
 
     private func throwIfCancelled(_ isCancelled: @Sendable () -> Bool) throws {
-        if isCancelled() {
+        if isCancelled() || Task.isCancelled {
             throw CancellationError()
         }
     }

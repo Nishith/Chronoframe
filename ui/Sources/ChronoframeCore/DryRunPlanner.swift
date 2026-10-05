@@ -90,6 +90,20 @@ public struct DryRunPlanner: Sendable {
     /// Low enough for responsive UI on slow volumes; high enough to avoid event flood.
     public static let planningProgressStride = 100
 
+    private func resolveSourceDate(for path: String, result: ProcessedFileIdentity, hints: [String: SourceDateHint], isCancelled: @escaping @Sendable () -> Bool) throws -> ResolvedMediaDate {
+        guard !hints.isEmpty else { return dateResolver.resolveResolvedDate(for: path, isCancelled: isCancelled) }
+        // A Photos import is a closed snapshot. New or changed staging files
+        // must be prepared again; cached size/mtime cannot authorize a hint.
+        guard let hint = hints[SourceDateHint.pathKey(for: path)], result.identity == hint.identity else {
+            throw SourceDateHintError.changed
+        }
+        if !result.wasHashed, try fileHasher.hashIdentity(at: URL(fileURLWithPath: path)) != hint.identity {
+            throw SourceDateHintError.changed
+        }
+        try Self.throwIfCancelled(isCancelled)
+        return hint.resolvedDate
+    }
+
     /// Source-compatible entry point for CLI/tests and older callers. The app
     /// uses the async overload below; this wrapper preserves the established
     /// synchronous API while the planner internals migrate to structured
@@ -102,6 +116,7 @@ public struct DryRunPlanner: Sendable {
         namingRules: PlannerNamingRules = .chronoframeDefault,
         folderStructure: FolderStructure = .yyyyMMDD,
         eventSuggestionMode: EventSuggestionMode = .off,
+        sourceDateHints: [String: SourceDateHint] = [:],
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
     ) throws -> DryRunPlanningResult {
@@ -160,7 +175,7 @@ public struct DryRunPlanner: Sendable {
         for (index, path) in sourcePaths.enumerated() {
             try Self.throwIfCancelled(isCancelled)
             let result = sourceResults[index]
-            let resolvedWithoutOverride = dateResolver.resolveResolvedDate(for: path)
+            let resolvedWithoutOverride = try resolveSourceDate(for: path, result: result, hints: sourceDateHints, isCancelled: isCancelled)
 
             guard let identity = result.identity else {
                 counts.hashErrorCount += 1
@@ -453,6 +468,7 @@ public struct DryRunPlanner: Sendable {
         namingRules: PlannerNamingRules = .chronoframeDefault,
         folderStructure: FolderStructure = .yyyyMMDD,
         eventSuggestionMode: EventSuggestionMode = .off,
+        sourceDateHints: [String: SourceDateHint] = [:],
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onEvent: (@Sendable (RunEvent) -> Void)? = nil
     ) async throws -> DryRunPlanningResult {
@@ -511,7 +527,7 @@ public struct DryRunPlanner: Sendable {
         for (index, path) in sourcePaths.enumerated() {
             try Self.throwIfCancelled(isCancelled)
             let result = sourceResults[index]
-            let resolvedWithoutOverride = dateResolver.resolveResolvedDate(for: path)
+            let resolvedWithoutOverride = try resolveSourceDate(for: path, result: result, hints: sourceDateHints, isCancelled: isCancelled)
 
             guard let identity = result.identity else {
                 counts.hashErrorCount += 1

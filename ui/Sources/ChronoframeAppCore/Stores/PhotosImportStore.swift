@@ -209,7 +209,8 @@ public final class PhotosImportStore: ObservableObject {
                 stagingDirectoryURL: stagingDirectory,
                 destinationPath: destination.path,
                 destinationBookmarkKeys: destination.bookmarkKeys,
-                assetIDs: receipt.exportedAssetIDs
+                assetIDs: receipt.exportedAssetIDs,
+                sourceDateHints: receipt.sourceDateHints
             )
         } catch {
             purgeStagingParent()
