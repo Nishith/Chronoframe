@@ -9,6 +9,10 @@ Implementation evidence commit: `80ff492`
 The candidate coordinates above preserve the original certification evidence. Before release,
 replace them with the final version 2.0 commit, build number and archive identity.
 
+## October 4 candidate update
+
+The Mac App Store candidate is **2.0 (501)**, runtime `6df85b4`, uploaded and installed through TestFlight. See [the 501 signed session](release-2.0-501-manual-session.md) for 11,034 byte-identical verified copies, unchanged sources, focused 32-file repeat/persistence and reviewed watched-import evidence. [The 500 session](release-2.0-500-manual-session.md) preserves prior Trash/restore/revert and interruption recovery for the unchanged engines. CI and CodeQL passed on `64d0d43`; evidence-only final-head checks and owner Go remain distinct gates. Cancellation and other missing manual scenarios are explicitly open in those records. No review submission or production release is claimed.
+
 ## Release decision
 
 **NOT YET GO for version 2.0.** The September 2026 release bug bash (BASH-01…08) fixes are in

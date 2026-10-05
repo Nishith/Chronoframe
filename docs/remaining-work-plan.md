@@ -1,6 +1,6 @@
 # Chronoframe Remaining Production-Readiness Work
 
-Status date: 2026-06-20 (release scope for version 2.0 revised 2026-09-28)
+Status date: 2026-10-04 (release scope for version 2.0 revised 2026-09-28)
 
 This is the current follow-up plan after PR #160. The earlier review-remediation
 plan described destination locking, immutable dedupe plans, quarantine,
@@ -14,6 +14,12 @@ Authoritative current references:
 - `docs/SAFETY_AND_RECOVERY.md` — product and technical safety contract.
 - `docs/TECHNICAL.md` — current modules, artifacts, and developer workflows.
 - `docs/production-readiness-certification.md` — release gates and evidence.
+
+## October 4 release evidence
+
+Candidate **2.0 (501)** is uploaded, processed, selected in the App Store draft and installed through TestFlight. Runtime source is `6df85b4`. Its signed verified-copy/repeat/persistence and one-file watched-import smoke checks pass. Build 500 provides the unchanged-engine Trash/restore/hash-safe revert and crash-recovery evidence. The final checklist and honest remaining gates are in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md) and [release-2.0-501-manual-session.md](release-2.0-501-manual-session.md).
+
+Mid-run cancellation is still unresolved: delayed automation on both candidates showed a Cancelled UI after the engine had already produced a COMPLETED receipt. A prompt human cancellation with receipt/file agreement remains required. Cross-album Photos, multi-item watched partial-batch retention, fresh/unavailable-folder, pair/sidecar retention, full old-receipt upgrade, signed StoreKit and usability/external-drive checks are not all recorded. They need actual results or the owner’s explicit assessment; no Go is recorded. Production paid-purchaser grandfathering occurs during the paid rollout, before free pricing.
 
 ## Completed In PR #160
 

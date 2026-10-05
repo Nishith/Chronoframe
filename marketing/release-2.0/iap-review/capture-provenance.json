@@ -7,7 +7,7 @@
   },
   "product_source": "ui/Chronoframe.storekit; matches configured US App Store Connect IAP",
   "purchase_behavior": "Stub userCancelled; no purchase or restore validation",
-  "image": "Chronoframe-Unlock-Review.png",
+  "image": "Chronoframe-Unlock-Review.jpg",
   "dimensions": [
     1440,
     900
