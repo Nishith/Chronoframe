@@ -34,9 +34,9 @@ A genuine capture of the corrected production view is prepared at `marketing/rel
 
 Media preparation in [the V2 draft](https://appstoreconnect.apple.com/apps/6771245052/distribution/macos/version/inflight) is complete: seven numbered PNGs and the processed 29.8-second preview are saved. The poster was selected near 11.5 seconds; Apple persists it at 11 seconds. The purchase-flow IAP review screenshot and provenance notes are saved. App 501 and the unlock are now together in one two-item macOS draft, with Submit for Review available; no submission was made. Complete the remaining signed scenarios and owner Go before submitting. Build 501 is selected and persisted. Use [the 501 candidate session record](release-2.0-501-manual-session.md) for the remaining checks and owner decision; the completed 500 session remains historical evidence.
 
-## Initial audit snapshot
+**Current submission hold:** the owner's October 4 cancellation test on 501 showed a stale 108-file terminal count, while 844 verified files and the ABORTED receipt agree. Originals are unchanged. Signed replacement **2.0 (502)** is prepared and package-validated locally; [the 502 session record](release-2.0-502-manual-session.md) lists upload, installation and manual retest steps. Build 502 has not been uploaded or selected. The screenshots, preview and IAP remain prepared.
 
-**Current submission hold:** the owner's October 4 cancellation test on 501 showed a stale 108-file terminal count, while 844 verified files and the ABORTED receipt agree. Originals are unchanged. Replace 501 with the cancellation-summary fix and repeat the signed check before submitting either draft item. The screenshots, preview and IAP remain prepared.
+## Initial audit snapshot
 
 The table below records the starting state, before the execution update above.
 
