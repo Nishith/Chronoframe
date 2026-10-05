@@ -1,6 +1,6 @@
 # Chronoframe 2.0 (502) — cancellation replacement
 
-Prepared October 4, 2026. **Signed archive and App Store upload package prepared and validated locally. Not uploaded or installed through TestFlight; no review submission or owner Go.**
+Prepared October 4, 2026. **Uploaded successfully October 4 at 21:55 PDT from the preserved, locally validated signed archive. App Store Connect shows 2.0 (502) Processing. Not yet installed through TestFlight; no review submission or owner Go.**
 
 ## Candidate
 
@@ -23,7 +23,8 @@ All **1,729 Swift tests** pass via `script/run_swift_test_suites.sh`; universal 
 ## Remaining release steps
 
 - [ ] PR #241 hosted checks and CodeQL green, then merge. It includes the pending release evidence from #240; a separate #240 merge is unnecessary if #241 is merged.
-- [ ] Upload 2.0 (502), confirm processing/export compliance, assign internal testers, install through TestFlight and verify the installed bundle version.
+- [x] Upload 2.0 (502). Xcode reports Upload succeeded / EXPORT SUCCEEDED, and App Store Connect displays build 502 Processing. Upload used `destination=upload`, `manageAppVersionAndBuildNumber=false` and `testFlightInternalTestingOnly=false` from the preserved archive. Xcode re-exported for upload; the saved local package checksum is not claimed to identify the uploaded re-export's signing/timestamp bytes. Upload log and options are retained under `release-artifacts/2.0-502/`.
+- [ ] Confirm processing/export compliance, assign internal testers, install through TestFlight and verify the installed bundle version.
 - [ ] Replace selected 501 in the existing macOS 2.0 draft with 502; retain Chronoframe Unlock in the same draft and the prepared screenshots/preview/IAP evidence.
 - [ ] Repeat owner cancellation on a fresh empty disposable destination. Wait for Stopping to finish, then compare final UI count/status with receipt/files and verify original source hashes. Do not mark this passed from the local unit tests.
 - [ ] Assess the remaining signed scenarios and record actual results or accepted limitations: Photos import, watched partial batch, old receipt upgrade, pair/sidecar retention, fresh/unavailable folders, signed StoreKit purchase/restore/cancel/offline, usability and real external-drive behavior where advertised.
