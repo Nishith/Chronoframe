@@ -15,6 +15,8 @@ Authoritative current references:
 - `docs/TECHNICAL.md` — current modules, artifacts, and developer workflows.
 - `docs/production-readiness-certification.md` — release gates and evidence.
 
+**New release hold, October 4:** signed 502 Photos import copied 8 additional resources safely, but two Live Photo pairs were split across date folders and standalone movies were filed by import date despite embedded capture timestamps. The split pairs cannot be recognized by the same-directory pair detector. Fix capture-date handling and retest a replacement signed candidate; do not submit 502. See [the 502 session](release-2.0-502-manual-session.md).
+
 ## October 4 release evidence
 
 Candidate **2.0 (501)** is uploaded, processed, selected in the App Store draft and installed through TestFlight. Runtime source is `6df85b4`. Its signed verified-copy/repeat/persistence and one-file watched-import smoke checks pass. Build 500 provides the unchanged-engine Trash/restore/hash-safe revert and crash-recovery evidence. The final checklist and honest remaining gates are in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md) and [release-2.0-501-manual-session.md](release-2.0-501-manual-session.md).

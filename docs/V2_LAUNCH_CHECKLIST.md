@@ -4,6 +4,8 @@ Checked October 4, 2026 (America/Los_Angeles). Distribution: Mac App Store only.
 
 Release preparation is in progress. **2.0 (501) is uploaded, processed and selected**, with seven screenshots, the preview and IAP review screenshot saved. The purchase-price layout fix and rendering regression are committed. Remaining signed checks and owner Go still gate submission. Planned free date: **October 26, 2026**.
 
+**October 4, 22:46 PDT — build 502 submission HOLD:** the owner’s Photos video/Live Photo test copied all resources correctly, but two metadata-confirmed Live Photo pairs are split across capture/import date folders and standalone videos use the import date. This defeats downstream pair detection. Preserve the test artifacts, fix Photos capture-date handling, and retest a replacement signed build. See [the 502 evidence ledger](release-2.0-502-manual-session.md).
+
 ## Execution update — October 4
 
 **Replacement candidate 501:** the original 420pt unlock sheet compressed “Chronoframe Unlock · $14.99” into “Chronoframe Unlo…”. The production purchase button now has its own line above Restore/Not Now. A bitmap/OCR regression fails on the original layout and passes on the fix; all 25 focused unlock tests pass. Runtime source is `6df85b4b3ef96fa5f2165c29d35627f3d92e50d3`. The signed universal archive/export and actual package signature/entitlements passed; preserved package SHA-256 is `c0b5972e7f4198ffc40fdb675d829278118a02a092f5e409302c56ce92482ab9`. The cutoff is unchanged. The owner approved upload and replacement. Apple processed 501; it is saved as the selected draft build. See [the 501 session record](release-2.0-501-manual-session.md).
