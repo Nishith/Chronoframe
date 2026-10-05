@@ -4,7 +4,7 @@ Prepared October 5, 2026. **Local signed archive/export validated; NOT UPLOADED,
 
 ## Candidate
 
-- Runtime source: **`6a847f14e3153dcd65abadc02e1d2965264d3a87`**. Follow-up branch: `codex/fix-photos-capture-dates`. PR #241 was squash-merged while this work was in progress; the branch includes that merged cancellation work and adds only the Photos fix and release evidence.
+- Runtime source: **`6a847f14e3153dcd65abadc02e1d2965264d3a87`**. Follow-up branch: `codex/fix-photos-capture-dates`, [PR #242](https://github.com/Nishith/Chronoframe/pull/242). PR #241 was squash-merged while this work was in progress; the branch includes that merged cancellation work and adds only the Photos fix and release evidence.
 - Actual archive and package-extracted app: **2.0 (503)**, universal arm64/x86_64, macOS 14+.
 - Build environment: `CHRONOFRAME_BUILD_NUMBER=503`, Release, `SWIFT_ACTIVE_COMPILATION_CONDITIONS=MAS_BUILD`. The stamp script overrides `CURRENT_PROJECT_VERSION`; both actual Info.plists were inspected.
 - Archive: `release-artifacts/2.0-503/Chronoframe-MAS.xcarchive`.
@@ -28,7 +28,7 @@ Actual local results:
 - Universal Release MAS_BUILD compilation, signed archive and local export succeed. Versions/architectures inspected in the actual archived and package-extracted apps; package validator and signatures pass.
 - Regressions cover generated export → real preview → execution re-plan → verified copies → COMPLETED receipt → final metadata-based pair recognition; midnight boundaries in positive/negative offsets; differing still/movie timestamps; standalone January/July videos; invalid/missing dates; filename/user precedence; legacy configuration decoding; same-size/same-mtime staged-byte replacement; and metadata timeout/cancellation. Existing cancellation/recovery regressions pass in the full suite.
 
-Logs, local export options and machine-readable identity are retained under `release-artifacts/2.0-503/`. Final-head hosted checks remain separate from these local results.
+Logs, local export options and machine-readable identity are retained under `release-artifacts/2.0-503/`. PR #242 is open and mergeable; CI and CodeQL were queued/in progress at the post-creation snapshot, not claimed green. Final-head hosted checks remain separate from these local results.
 
 ## Exact signed retest steps
 
