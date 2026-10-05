@@ -279,7 +279,8 @@ final class RunCompletionRecordTests: XCTestCase {
         XCTAssertTrue(running)
 
         store.cancelCurrentRun()
-
+        let completed = await waitForCondition { store.lastRunCompletion != nil }
+        XCTAssertTrue(completed)
         let record = try XCTUnwrap(store.lastRunCompletion)
         XCTAssertEqual(record.status, .cancelled)
         XCTAssertEqual(record.mode, .preview)

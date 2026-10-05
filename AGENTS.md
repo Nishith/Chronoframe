@@ -63,6 +63,7 @@ Do not weaken these unless the user explicitly asks for a product change.
 - Revert deletes only destination files whose current hash still matches the audit receipt.
 - Organize, dedupe, and reorganize receipts are written before mutation where possible, carry statuses (`PENDING`, `COMPLETED`, `ABORTED`, `FAILED` as applicable), and use collision-proof names.
 - Aborted runs should make it clear that source files were left untouched.
+- Run cancellation stays busy ("Stopping…") until the engine finishes and finalizes its receipt. Keep the stream consumer, security scope and destination lease alive; final counts/outcomes come from the execution result, including a successful completion already committed before the cancel click. Never publish a cancelled summary from the last progress sample or close import staging while workers are stopping.
 - Failure thresholds intentionally stop bad runs: 5 consecutive failures or 20 total failures.
 - Deduplicate moves files to the macOS Trash only. Hard delete is not available in the production UI or executor commit path.
 - The dedupe audit receipt directory (`.organize_logs/`) is preflighted before any deletion. An unwritable destination aborts the commit with `ReceiptPreflightError` and zero files touched.

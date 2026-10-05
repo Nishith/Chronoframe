@@ -36,6 +36,8 @@ Media preparation in [the V2 draft](https://appstoreconnect.apple.com/apps/67712
 
 ## Initial audit snapshot
 
+**Current submission hold:** the owner's October 4 cancellation test on 501 showed a stale 108-file terminal count, while 844 verified files and the ABORTED receipt agree. Originals are unchanged. Replace 501 with the cancellation-summary fix and repeat the signed check before submitting either draft item. The screenshots, preview and IAP remain prepared.
+
 The table below records the starting state, before the execution update above.
 
 ## What was checked

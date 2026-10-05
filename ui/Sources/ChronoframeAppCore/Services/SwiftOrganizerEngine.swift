@@ -238,11 +238,6 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     itemPaths: result.revertedPaths
                 )
 
-                if isCancelledRef.isCancelled {
-                    continuation.finish()
-                    return
-                }
-
                 continuation.yield(
                     .phaseCompleted(
                         phase: .revert,
@@ -269,8 +264,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         .path
                 )
 
-                let status: RunStatus = result.totalTransfers == 0 ? .revertEmpty : .reverted
-                let title = status == .revertEmpty ? "Nothing to revert" : "Revert complete"
+                let stoppedEarly = isCancelledRef.isCancelled
+                    && result.revertedCount + result.skippedCount + result.missingCount < result.totalTransfers
+                let status: RunStatus = stoppedEarly ? .cancelled : (result.totalTransfers == 0 ? .revertEmpty : .reverted)
+                let title = stoppedEarly ? "Cancelled" : (status == .revertEmpty ? "Nothing to revert" : "Revert complete")
 
                 continuation.yield(
                     .complete(
@@ -398,11 +395,6 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     return
                 }
 
-                if isCancelledRef.isCancelled {
-                    continuation.finish()
-                    return
-                }
-
                 continuation.yield(
                     .phaseCompleted(
                         phase: .reorganize,
@@ -424,12 +416,14 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     destinationRoot: plan.destinationRoot,
                     reportPath: result.receiptPath
                 )
+                let stoppedEarly = isCancelledRef.isCancelled
+                    && result.movedCount + result.skippedCount + result.failedCount < result.totalMoves
 
                 continuation.yield(
                     .complete(
                         RunSummary(
-                            status: .reorganized,
-                            title: "Reorganize complete",
+                            status: stoppedEarly ? .cancelled : .reorganized,
+                            title: stoppedEarly ? "Cancelled" : "Reorganize complete",
                             metrics: metrics,
                             artifacts: artifacts
                         )
@@ -883,10 +877,9 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
 
         // The gate is the only suspension point between the last cancellation
         // check and the first mutation, and it can be a slow one — resolving
-        // entitlement may wait on the App Store. A cancel landing inside it has
-        // already made `RunSessionStore` release the destination lease, so
-        // enqueuing and copying past this point would mutate the destination
-        // with no lock held.
+        // entitlement may wait on the App Store. Recheck cancellation before
+        // enqueuing or copying; the UI retains its destination lease while the
+        // engine stops, but a cancelled authorization must not begin mutation.
         //
         // Releasing is safe here, and only here: the reservation was taken
         // moments ago and provably nothing has been enqueued, copied, or
@@ -941,11 +934,6 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         // later recovery pass happened to visit this destination.
         await settleReservation(runID: runID, database: database, authorizer: authorizer)
 
-        if isCancelled() {
-            continuation.finish()
-            return
-        }
-
         continuation.yield(
             .phaseCompleted(
                 phase: .copy,
@@ -966,7 +954,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             || result.counts.hashErrorCount > 0
         let completedStatus: RunStatus
         let completedTitle: String
-        if executionResult.status != "COMPLETED" {
+        if executionResult.abortReason == "Transfer was cancelled before all queued files were processed." {
+            completedStatus = .cancelled
+            completedTitle = "Cancelled"
+        } else if executionResult.status != "COMPLETED" {
             completedStatus = .failed
             completedTitle = "Transfer stopped"
         } else if leftUnprocessed {
@@ -1074,7 +1065,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         )
 
         // Same window as the fresh path: the gate can suspend, and a cancel
-        // inside it has already released the destination lease.
+        // inside it must prevent any new mutation.
         //
         // Only a run ID minted moments ago is released. An INHERITED
         // reservation may already cover files the interrupted run copied, and
@@ -1126,11 +1117,6 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
 
         await settleReservation(runID: resumeRunID, database: database, authorizer: authorizer)
 
-        if isCancelled() {
-            continuation.finish()
-            return
-        }
-
         continuation.yield(
             .phaseCompleted(
                 phase: .copy,
@@ -1146,7 +1132,10 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         let leftUnprocessed = executionResult.failedCount > 0 || executionResult.skippedCount > 0
         let completedStatus: RunStatus
         let completedTitle: String
-        if executionResult.status != "COMPLETED" {
+        if executionResult.abortReason == "Transfer was cancelled before all queued files were processed." {
+            completedStatus = .cancelled
+            completedTitle = "Cancelled"
+        } else if executionResult.status != "COMPLETED" {
             completedStatus = .failed
             completedTitle = "Transfer stopped"
         } else if leftUnprocessed {

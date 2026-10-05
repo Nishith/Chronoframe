@@ -59,6 +59,9 @@ public struct RunCompletionRecord: Equatable, Sendable {
 @MainActor
 public final class RunSessionStore: ObservableObject {
     @Published public private(set) var status: RunStatus
+    /// Cancellation is a request, not a terminal result. Keep consuming the
+    /// engine's stream and holding folder access until it finalizes its receipt.
+    @Published public private(set) var isCancelling = false
     @Published public private(set) var currentMode: RunMode?
     @Published public private(set) var currentTaskTitle: String
     @Published public private(set) var currentPhase: RunPhase?
@@ -184,6 +187,7 @@ public final class RunSessionStore: ObservableObject {
         securityScope: SecurityScopedFolderAccess? = nil,
         batch: FreeTestBatchSelection? = nil
     ) async {
+        guard !isCancelling else { return }
         resetSessionState(mode: mode)
         // Finding #7: capture the epoch AFTER resetSessionState bumps it. If a
         // newer run starts (or the user cancels) while we await preflight, the
@@ -255,6 +259,7 @@ public final class RunSessionStore: ObservableObject {
         destinationRoot: String,
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
+        guard !isCancelling else { return }
         resetSessionState(mode: .revert)
         do {
             let root = URL(fileURLWithPath: destinationRoot, isDirectory: true)
@@ -283,6 +288,7 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            guard self.shouldStartStream(epoch: epoch) else { return }
             do {
                 let stream = try engine.revert(receiptURL: receiptURL, destinationRoot: destinationRoot)
                 for try await event in stream {
@@ -290,6 +296,7 @@ public final class RunSessionStore: ObservableObject {
                     self.consume(event)
                 }
                 guard self.currentRunEpoch == epoch else { return }
+                self.finishCancelledStreamIfNeeded()
                 self.preparedRun?.lease.release()
                 self.preparedRun = nil
                 self.directOperationLease?.release()
@@ -309,6 +316,7 @@ public final class RunSessionStore: ObservableObject {
         targetStructure: FolderStructure,
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
+        guard !isCancelling else { return }
         resetSessionState(mode: .reorganize)
         do {
             let root = URL(fileURLWithPath: destinationRoot, isDirectory: true)
@@ -331,6 +339,7 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            guard self.shouldStartStream(epoch: epoch) else { return }
             do {
                 let stream = try engine.reorganize(
                     destinationRoot: destinationRoot,
@@ -341,6 +350,7 @@ public final class RunSessionStore: ObservableObject {
                     self.consume(event)
                 }
                 guard self.currentRunEpoch == epoch else { return }
+                self.finishCancelledStreamIfNeeded()
                 self.directOperationLease?.release()
                 self.directOperationLease = nil
             } catch {
@@ -355,6 +365,7 @@ public final class RunSessionStore: ObservableObject {
         destinationRoot: String,
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
+        guard !isCancelling else { return }
         resetSessionState(mode: .reorganize)
         do {
             let root = URL(fileURLWithPath: destinationRoot, isDirectory: true)
@@ -383,6 +394,7 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            guard self.shouldStartStream(epoch: epoch) else { return }
             let executor = ReorganizeExecutor()
             let observer = ReorganizeExecutionObserver(
                 onTaskStart: { total in
@@ -491,28 +503,22 @@ public final class RunSessionStore: ObservableObject {
     }
 
     public func cancelCurrentRun() {
+        guard !isCancelling else { return }
+        if status == .running {
+            isCancelling = true
+            currentTaskTitle = "Stopping…"
+            prompt = nil
+            engine.cancelCurrentRun()
+            // Do not cancel the consumer, advance its epoch, or release access:
+            // progress may be buffered, and workers are still stopping. The
+            // engine's final summary supplies the actual committed counts.
+            return
+        }
         engine.cancelCurrentRun()
         streamTask?.cancel()
         streamTask = nil
         currentRunEpoch &+= 1
 
-        // Only an actively-running stream produces a "Cancelled" summary. A
-        // cancel during preflight is handled below by resetting to idle, so
-        // this checks `.running` explicitly rather than `isRunning` (which now
-        // also covers `.preflighting`).
-        if status == .running {
-            status = .cancelled
-            currentTaskTitle = "Cancelled"
-            metrics.speedMBps = 0
-            metrics.etaSeconds = nil
-            summary = RunSummary(
-                status: .cancelled,
-                title: "Cancelled",
-                metrics: metrics,
-                artifacts: artifacts
-            )
-            publishRunCompletion(status: .cancelled)
-        }
         // Phase 1: a pending confirm-prompt was previously left in
         // place when the user cancelled from the Run workspace, so the
         // confirm dialog would stay modal over an already-cancelled
@@ -532,6 +538,7 @@ public final class RunSessionStore: ObservableObject {
     }
 
     private func resetSessionState(mode: RunMode) {
+        isCancelling = false
         if streamTask != nil || status == .running {
             engine.cancelCurrentRun()
         }
@@ -613,6 +620,7 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
+            guard self.shouldStartStream(epoch: epoch) else { return }
 
             do {
                 let stream: AsyncThrowingStream<RunEvent, Error>
@@ -629,6 +637,7 @@ public final class RunSessionStore: ObservableObject {
                     self.consume(event)
                 }
                 guard self.currentRunEpoch == epoch else { return }
+                self.finishCancelledStreamIfNeeded()
                 self.preparedRun?.lease.release()
                 self.preparedRun = nil
             } catch {
@@ -647,6 +656,11 @@ public final class RunSessionStore: ObservableObject {
     }
 
     private func consume(_ event: RunEvent) {
+        // Buffered progress still updates counts while stopping, but must not
+        // replace the stopping title with an apparently active phase.
+        defer {
+            if isCancelling { currentTaskTitle = "Stopping…" }
+        }
         switch event {
         case .startup:
             currentTaskTitle = "Initializing..."
@@ -804,6 +818,8 @@ public final class RunSessionStore: ObservableObject {
             )
 
         case let .complete(summary):
+            isCancelling = false
+            currentFileURL = nil
             // Narrow to what the run actually retained, not the originally
             // confirmed selection — see the property doc on
             // `currentRunBatchSourcePaths`.
@@ -813,6 +829,11 @@ public final class RunSessionStore: ObservableObject {
             status = summary.status
             currentTaskTitle = summary.title
             var finalMetrics = summary.metrics
+            finalMetrics.speedMBps = 0
+            finalMetrics.etaSeconds = nil
+            if summary.status == .cancelled, finalMetrics.plannedCount > 0, currentMode == .transfer {
+                progress = Double(finalMetrics.copiedCount) / Double(finalMetrics.plannedCount)
+            }
             if finalMetrics.dateHistogram.isEmpty, !metrics.dateHistogram.isEmpty {
                 finalMetrics.dateHistogram = metrics.dateHistogram
             }
@@ -868,6 +889,30 @@ public final class RunSessionStore: ObservableObject {
             publishRunCompletion(status: finalSummary.status)
             postRunCompletionNotification(summary: finalSummary)
         }
+    }
+
+    /// Planning can stop before there is an execution result or receipt. Only
+    /// synthesize its cancellation once the engine has actually ended; a copy
+    /// run supplies an authoritative `.complete` before finishing the stream.
+    private func finishCancelledStreamIfNeeded() {
+        guard isCancelling, status == .running else { return }
+        consume(.complete(RunSummary(
+            status: .cancelled,
+            title: "Cancelled",
+            metrics: metrics,
+            artifacts: artifacts
+        )))
+    }
+
+    /// A click can arrive before the consumer task calls engine.start(), so
+    /// cancelling the engine alone would otherwise miss that not-yet-started run.
+    private func shouldStartStream(epoch: UInt64) -> Bool {
+        guard currentRunEpoch == epoch else { return false }
+        guard !isCancelling else {
+            finishCancelledStreamIfNeeded()
+            return false
+        }
+        return true
     }
 
     /// Reading `lastPreflight` here is safe (unlike external consumers
@@ -1056,6 +1101,7 @@ public final class RunSessionStore: ObservableObject {
         offeredBatch: FreeTestBatch? = nil,
         message: String
     ) {
+        isCancelling = false
         status = .idle
         currentTaskTitle = "Idle"
         metrics.speedMBps = 0
@@ -1086,6 +1132,7 @@ public final class RunSessionStore: ObservableObject {
     }
 
     private func handleFailure(message: String) {
+        isCancelling = false
         status = .failed
         currentTaskTitle = "Failed"
         metrics.speedMBps = 0

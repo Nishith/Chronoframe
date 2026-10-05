@@ -15,6 +15,8 @@ The Mac App Store candidate is **2.0 (501)**, runtime `6df85b4`, uploaded and in
 
 ## Release decision
 
+**Build 501 is held after the October 4 owner cancellation check:** the UI showed 108 copied while the ABORTED receipt and destination agree on 844 byte-identical copies; all 10,000 originals remain unchanged. See the 501 session for preserved evidence. The cancellation-summary fix requires a replacement signed build and retest before submission.
+
 **NOT YET GO for version 2.0.** The September 2026 release bug bash (BASH-01…08) fixes are in
 review, and the focused manual session and Go record below are not complete.
 

@@ -510,6 +510,75 @@ final class RunSessionStoreTests: XCTestCase {
     // MARK: - Cancellation timing variants
 
     @MainActor
+    func testCancellationWaitsForFinalCopyCountAndKeepsFolderAccess() async throws {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(configuration: configuration, resolvedSourcePath: configuration.sourcePath, resolvedDestinationPath: configuration.destinationPath)
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        engine.finishPendingStreamOnCancel = false
+        let tracker = SecurityScopeCloseTracker()
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+        await store.requestRun(mode: .transfer, configuration: configuration, securityScope: tracker.makeScope())
+        store.confirmPrompt()
+        let started = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(started)
+        let continuation = try XCTUnwrap(engine.pendingContinuation)
+        continuation.yield(.phaseStarted(phase: .copy, total: 10_000))
+        continuation.yield(.phaseProgress(phase: .copy, completed: 108, total: 10_000, bytesCopied: 108_000, bytesTotal: 10_000_000, currentFilePath: "/tmp/source/photo.jpg"))
+        let progressed = await waitForCondition { store.metrics.copiedCount == 108 }
+        XCTAssertTrue(progressed)
+
+        store.cancelCurrentRun()
+        XCTAssertTrue(store.isRunning, "The executor is still finalizing its receipt")
+        XCTAssertEqual(store.currentTaskTitle, "Stopping…")
+        XCTAssertNil(store.lastRunCompletion, "Don't publish a terminal result from stale progress")
+        XCTAssertEqual(tracker.closeCount, 0, "Keep folder access until finalization and history reload")
+        XCTAssertThrowsError(try DestinationOperationLock.acquire(destinationRoot: engine.lockRoot, surface: "test", operation: "concurrent transfer"))
+        store.cancelCurrentRun()
+        XCTAssertEqual(engine.cancelCallCount, 1, "Repeated cancel requests must be idempotent")
+        await store.requestRun(mode: .preview, configuration: configuration)
+        XCTAssertEqual(engine.startConfigurations.count, 1, "Don't replace a run while it is stopping")
+
+        let receiptPath = tempDestinationURL.appendingPathComponent(".organize_logs/cancelled.json").path
+        continuation.yield(.complete(RunSummary(status: .cancelled, title: "Cancelled", metrics: RunMetrics(discoveredCount: 10_000, plannedCount: 10_000, copiedCount: 844, bytesCopied: 844_000, bytesTotal: 10_000_000), artifacts: RunArtifactPaths(destinationRoot: tempDestinationURL.path, reportPath: receiptPath))))
+        continuation.finish()
+        let completed = await waitForCondition { store.lastRunCompletion != nil }
+        XCTAssertTrue(completed)
+        XCTAssertEqual(store.status, .cancelled)
+        XCTAssertEqual(store.metrics.copiedCount, 844)
+        XCTAssertEqual(store.summary?.metrics.copiedCount, 844)
+        XCTAssertEqual(store.metrics.bytesCopied, 844_000)
+        XCTAssertEqual(store.progress, 0.0844, accuracy: 0.00001)
+        XCTAssertEqual(store.summary?.artifacts.reportPath, receiptPath)
+        XCTAssertNil(store.currentFileURL)
+        XCTAssertFalse(store.isRunning)
+        let nextLease = try DestinationOperationLock.acquire(destinationRoot: engine.lockRoot, surface: "test", operation: "after cancellation")
+        nextLease.release()
+        let closed = await waitForCondition { tracker.closeCount == 1 }
+        XCTAssertTrue(closed)
+    }
+
+    @MainActor
+    func testCancellationAfterEngineCompletionKeepsSuccessfulOutcome() async throws {
+        let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(configuration: configuration, resolvedSourcePath: configuration.sourcePath, resolvedDestinationPath: configuration.destinationPath)
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        engine.finishPendingStreamOnCancel = false
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+        await store.requestRun(mode: .preview, configuration: configuration)
+        let started = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(started)
+        // The engine has finished, but its final result is still buffered on the main actor.
+        engine.pendingContinuation?.yield(.complete(RunSummary(status: .dryRunFinished, title: "Preview complete", metrics: RunMetrics(plannedCount: 10), artifacts: RunArtifactPaths(destinationRoot: tempDestinationURL.path))))
+        store.cancelCurrentRun()
+        engine.pendingContinuation?.finish()
+        let completed = await waitForCondition { store.lastRunCompletion != nil }
+        XCTAssertTrue(completed)
+        XCTAssertEqual(store.status, .dryRunFinished)
+        XCTAssertEqual(store.lastRunCompletion?.status, .dryRunFinished)
+        XCTAssertEqual(store.metrics.plannedCount, 10)
+    }
+
+    @MainActor
     func testCancelDuringDiscoveryPhaseRecordsPhaseBeforeCancellation() async throws {
         let configuration = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
         let preflight = RunPreflight(
