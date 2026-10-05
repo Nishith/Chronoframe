@@ -1368,10 +1368,9 @@ private final class IssueCounter: @unchecked Sendable {
     }
 }
 
-/// Sendable cancel-flag shared between the main-actor engine and the detached
-/// task driving a revert/reorganize stream. The continuation's `onTermination`
-/// callback flips it; the executor body polls `isCancelled` between items.
-private final class TaskCancellationCheck: @unchecked Sendable {
+/// Sendable cancel-flag shared between the main-actor owner and background
+/// revert/reorganize work. The executor polls `isCancelled` between items.
+final class TaskCancellationCheck: @unchecked Sendable {
     private let lock = NSLock()
     private var _cancelled = false
     var isCancelled: Bool {

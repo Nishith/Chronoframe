@@ -128,7 +128,7 @@ The **Photos** sidebar destination (`ui/Sources/ChronoframeApp/Views/Photos/Phot
 
 ## Sandbox Status
 
-Run cancellation stays busy ("Stopping…") until the engine finishes and finalizes its receipt. Keep the stream consumer, security scope and destination lease alive; final counts/outcomes come from the execution result, including a successful completion already committed before the cancel click. Never publish a cancelled summary from the last progress sample or close import staging while workers are stopping.
+Run cancellation stays busy ("Stopping…") until the engine finishes and finalizes its receipt. Keep the stream consumer, security scope and destination lease alive; final counts/outcomes come from the execution result, including a successful completion already committed before the cancel click. Undo Reorganize runs directly through `ReorganizeExecutor.revert`, so `RunSessionStore` supplies its own per-operation cancellation flag and reports cancellation only when the executor stops before processing all items. Never publish a cancelled summary from the last progress sample or close import staging while workers are stopping.
 
 `ui/Packaging/Chronoframe.entitlements` enables the App Sandbox with user-selected read/write file access and security-scoped bookmarks for Developer ID distribution. Organize and dedupe rely on stored folder bookmarks; keep scoped access lifecycle changes synchronized across both flows so one mutating path is not sandbox-ready while another is not.
 

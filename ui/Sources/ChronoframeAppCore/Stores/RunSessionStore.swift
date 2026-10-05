@@ -125,6 +125,9 @@ public final class RunSessionStore: ObservableObject {
     private var securityScope: SecurityScopedFolderAccess?
     private var preparedRun: PreparedRun?
     private var directOperationLease: DestinationOperationLease?
+    private var directOperationCancellation: TaskCancellationCheck?
+    /// Internal so tests can pause real undo moves at a deterministic boundary.
+    var reorganizeRevertExecutor = ReorganizeExecutor()
     private var copySpeedLastSampleDate = Date()
     private var copySpeedLastBytes = 0
     private var currentPhaseStartDate: Date?
@@ -391,11 +394,15 @@ public final class RunSessionStore: ObservableObject {
         )
         emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
+        // Undo Reorganize runs directly, outside the engine's active task.
+        // Give this operation its own flag before scheduling any work.
+        let cancellation = TaskCancellationCheck()
+        directOperationCancellation = cancellation
+        let executor = reorganizeRevertExecutor
         let epoch = currentRunEpoch
         streamTask = Task { @MainActor [weak self] in
             guard let self else { return }
             guard self.shouldStartStream(epoch: epoch) else { return }
-            let executor = ReorganizeExecutor()
             let observer = ReorganizeExecutionObserver(
                 onTaskStart: { total in
                     Task { @MainActor [weak self] in
@@ -428,12 +435,20 @@ public final class RunSessionStore: ObservableObject {
             // DispatchQueue work completes.
             let outcome: Result<ReorganizeExecutionResult, Error> = await withCheckedContinuation { cont in
                 DispatchQueue.global(qos: .userInitiated).async {
-                    cont.resume(returning: Result { try executor.revert(receiptURL: receiptURL, observer: observer) })
+                    cont.resume(returning: Result {
+                        try executor.revert(
+                            receiptURL: receiptURL,
+                            observer: observer,
+                            isCancelled: { cancellation.isCancelled }
+                        )
+                    })
                 }
             }
             guard self.currentRunEpoch == epoch else { return }
             switch outcome {
             case let .success(result):
+                let stoppedEarly = cancellation.isCancelled
+                    && result.movedCount + result.skippedCount + result.failedCount < result.totalMoves
                 self.consume(.phaseCompleted(
                     phase: .reorganize,
                     result: RunPhaseResult(
@@ -443,8 +458,8 @@ public final class RunSessionStore: ObservableObject {
                     )
                 ))
                 self.consume(.complete(RunSummary(
-                    status: .reorganized,
-                    title: "Reorganize undone",
+                    status: stoppedEarly ? .cancelled : .reorganized,
+                    title: stoppedEarly ? "Cancelled" : "Reorganize undone",
                     metrics: RunMetrics(
                         plannedCount: result.totalMoves,
                         failedCount: result.failedCount,
@@ -508,6 +523,7 @@ public final class RunSessionStore: ObservableObject {
             isCancelling = true
             currentTaskTitle = "Stopping…"
             prompt = nil
+            directOperationCancellation?.cancel()
             engine.cancelCurrentRun()
             // Do not cancel the consumer, advance its epoch, or release access:
             // progress may be buffered, and workers are still stopping. The
@@ -515,6 +531,8 @@ public final class RunSessionStore: ObservableObject {
             return
         }
         engine.cancelCurrentRun()
+        directOperationCancellation?.cancel()
+        directOperationCancellation = nil
         streamTask?.cancel()
         streamTask = nil
         currentRunEpoch &+= 1
@@ -539,6 +557,8 @@ public final class RunSessionStore: ObservableObject {
 
     private func resetSessionState(mode: RunMode) {
         isCancelling = false
+        directOperationCancellation?.cancel()
+        directOperationCancellation = nil
         if streamTask != nil || status == .running {
             engine.cancelCurrentRun()
         }
@@ -819,6 +839,7 @@ public final class RunSessionStore: ObservableObject {
 
         case let .complete(summary):
             isCancelling = false
+            directOperationCancellation = nil
             currentFileURL = nil
             // Narrow to what the run actually retained, not the originally
             // confirmed selection — see the property doc on
@@ -1133,6 +1154,7 @@ public final class RunSessionStore: ObservableObject {
 
     private func handleFailure(message: String) {
         isCancelling = false
+        directOperationCancellation = nil
         status = .failed
         currentTaskTitle = "Failed"
         metrics.speedMBps = 0
