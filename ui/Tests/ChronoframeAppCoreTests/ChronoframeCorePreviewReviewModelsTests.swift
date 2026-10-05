@@ -6,7 +6,7 @@ final class ChronoframeCorePreviewReviewModelsTests: XCTestCase {
     func testUserVisibleTitlesCoverAllReviewStates() {
         XCTAssertEqual(
             DateResolutionSource.allCases.map(\.title),
-            ["Photo Metadata", "Filename", "Created Date", "Modified Date", "Edited", "Unknown"]
+            ["Photo Metadata", "Video Metadata", "Photos Capture Date", "Filename", "Created Date", "Modified Date", "Edited", "Unknown"]
         )
         XCTAssertEqual(
             DateResolutionConfidence.allCases.map(\.title),

@@ -205,18 +205,22 @@ Import runs in two stages. First, the selected assets' **original** (unedited) r
 
 iCloud-only originals are downloaded on demand during export. `.limited` authorization is honored — the browser imports whatever subset the user has granted.
 
+Photos export pins a shared capture date for every resource of an asset before publishing it. Still metadata wins over a paired movie's timestamp (a movie may start before midnight), followed by movie metadata, filename and the catalog asset's creation instant. If none is valid, the asset goes to Unknown_Date; staging filesystem dates never become capture dates. Recorded offsets are retained for local-day bucketing; an asset instant with no recorded offset uses the historical UTC-day convention. `SourceDateHint` binds each staged path's date to its BLAKE2b identity, travels through the pinned import context and run configuration, and is checked in preview and execution planning. A cached size/mtime match cannot bypass content verification of a hint. Changed or extra staging files require preparing the import again. Bytes and Live Photo identifiers are unchanged, and final filenames can differ because downstream pair detection uses the embedded identifiers within the shared date folder.
+
 ## Date Resolution
 
 The native app records both the date and how confident Chronoframe is about it.
 
 Sources:
 
-1. Photo metadata.
+1. Photo metadata or video capture metadata (QuickTime capture timestamp before common creation metadata).
 2. Filename patterns.
 3. Filesystem creation date.
 4. Filesystem modification date.
 5. User override.
 6. Unknown.
+
+An explicit user override wins over the automatic sources above. Native video metadata reads do not decode frames or follow external media references; four outstanding operations and a ten-second deadline bound the read, with cancellation checked while waiting. Timestamp parsing rejects malformed calendar values and offsets. Photos staging replaces filesystem fallback with the content-bound per-asset capture-date snapshot described above.
 
 Confidence values are high, medium, low, or unknown. Unknown dates still route to `Unknown_Date/` unless the user saves an override in Review.
 

@@ -1,3 +1,6 @@
+#if canImport(ChronoframeCore)
+import ChronoframeCore
+#endif
 import Foundation
 
 /// Everything an Apple Photos "Review & Import" needs to run without touching
@@ -28,18 +31,21 @@ public struct PhotosImportContext: Equatable, Sendable {
     /// and diagnostics. Not used to re-fetch during the transfer — staging is
     /// already populated by the time the context exists.
     public let assetIDs: [String]
+    public let sourceDateHints: [String: SourceDateHint]
 
     public init(
         importID: UUID,
         stagingDirectoryURL: URL,
         destinationPath: String,
         destinationBookmarkKeys: [String],
-        assetIDs: [String]
+        assetIDs: [String],
+        sourceDateHints: [String: SourceDateHint] = [:]
     ) {
         self.importID = importID
         self.stagingDirectoryURL = stagingDirectoryURL
         self.destinationPath = destinationPath
         self.destinationBookmarkKeys = destinationBookmarkKeys
         self.assetIDs = assetIDs
+        self.sourceDateHints = sourceDateHints
     }
 }
