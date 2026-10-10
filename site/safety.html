@@ -15,31 +15,30 @@
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20260523-f" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260523-f" />
-  <link rel="stylesheet" href="styles.css?v=20260719" />
+  <link rel="stylesheet" href="styles.css?v=20260928-screens" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-nav">
     <div class="container">
-      <a class="brand" href="index.html"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+      <a class="brand" href="index.html" aria-label="Chronoframe home"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
       <nav class="nav-links" aria-label="Primary">
-        <a href="index.html">Home</a>
         <a href="features.html">How it works</a>
         <a href="safety.html" aria-current="page">Safety</a>
-        <a href="privacy.html">Privacy</a>
         <a href="faq.html">FAQ</a>
         <a href="support.html">Support</a>
       </nav>
+      <a class="nav-download" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">Try free</a>
     </div>
   </header>
 
-  <main id="main">
+  <main id="main" tabindex="-1">
     <section class="page-head">
       <div class="container">
         <p class="eyebrow">Safety &amp; recovery</p>
-        <h1>Designed so you never lose a photo</h1>
-        <p>Chronoframe copies, verifies, and records &mdash; it doesn't gamble. These are the guarantees the app is built on, from the first preview to the last receipt.</p>
+        <h1>Built to protect your originals</h1>
+        <p>Chronoframe combines previews, verified copies, and receipts to help you make careful changes. Keep an independent backup, too: organizing is not a replacement for one.</p>
       </div>
     </section>
 
@@ -47,15 +46,15 @@
       <div class="container">
         <div class="section-head">
           <p class="eyebrow">The guarantees</p>
-          <h2>Eight promises, no fine print</h2>
+          <h2>The safeguards behind every run</h2>
         </div>
         <ul class="guarantees">
-          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Read-only source</strong>Chronoframe only ever reads your source folder. It never moves, renames, edits, or deletes an original. Cleaning up the source is a manual choice you make later, yourself.</span></li>
+          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Read-only source</strong>Organize only ever reads your source folder. It never moves, renames, edits, or deletes an original. Cleaning up the source is a manual choice you make later, yourself.</span></li>
           <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Preview before any change</strong>Organize shows the full transfer plan and Deduplicate shows every group before a file is touched. Nothing is copied or trashed until you approve it.</span></li>
           <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>No overwrites</strong>If a file with the same name already exists at the destination, Chronoframe keeps both. It never replaces one of your files with another.</span></li>
-          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Verified copies</strong>Each file is written to a temporary location and only put into place once it's re-verified against the original, so a copy is never silently corrupt or truncated.</span></li>
-          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Trash, not delete</strong>Duplicates you approve move to the macOS Trash, where you can recover them. Chronoframe has no hard-delete path at all.</span></li>
-          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>One operation at a time</strong>The app, command-line tool, and system actions share a single destination lock, so two runs can never change the same library at once.</span></li>
+          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Verified copies</strong>Verification is on by default: written copies are re-hashed against the source to detect mismatches. Files are written to a temporary location and installed atomically. Verification can be disabled in advanced settings; we recommend leaving it on.</span></li>
+          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Trash, not delete</strong>Duplicates you approve move to macOS Trash. They can be recovered while the recorded files remain there with matching contents. Chronoframe cannot restore them after Trash is emptied.</span></li>
+          <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>One operation at a time</strong>The app, command-line tool, and system actions share a single destination lock, so concurrent runs on the same Mac cannot change the same destination. Concurrent use of a network destination from multiple Macs is unsupported.</span></li>
           <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Receipts for every run</strong>Transfers, dedupe commits, and reorganize runs each write a receipt. Undo works only while files still match that receipt, so it never touches anything added or changed afterward.</span></li>
           <li><span class="check" aria-hidden="true">&#10003;</span><span class="g-text"><strong>Fail-closed on ambiguity</strong>When Chronoframe can't verify the state of a file or drive, it stops and asks rather than guessing. It never treats an inaccessible path as a missing one.</span></li>
         </ul>
@@ -66,14 +65,14 @@
       <div class="container">
         <div class="section-head">
           <p class="eyebrow">If something is interrupted</p>
-          <h2>Interruptions leave evidence, not damage</h2>
-          <p>Power loss, an unplugged drive, a force-quit &mdash; Chronoframe is built to pick up exactly where it stopped, and to be honest when it can't.</p>
+          <h2>A clear path after an interruption</h2>
+          <p>Power loss, an unplugged drive, a force-quit &mdash; Chronoframe checks recorded progress on relaunch and tells you when a drive or manual action is needed.</p>
         </div>
         <ul class="steps">
-          <li><span class="num" aria-hidden="true"></span><div><strong>It records as it goes.</strong> Before mutating the destination, Chronoframe writes down what it's about to do, so an interruption always leaves a trail.</div></li>
+          <li><span class="num" aria-hidden="true"></span><div><strong>It records as it goes.</strong> Receipts and recovery journals record intended changes and progress. After an interruption, some work may still need review.</div></li>
           <li><span class="num" aria-hidden="true"></span><div><strong>It reconciles on relaunch.</strong> Reopen the app with the destination drive connected and it checks durable copies, Trash, and move evidence before starting any new work.</div></li>
           <li><span class="num" aria-hidden="true"></span><div><strong>It tells you what it needs.</strong> History surfaces states like <em>Needs Drive</em>, <em>Trash Location Unverified</em>, or <em>Manual Recovery Needed</em> when it can't safely finish on its own.</div></li>
-          <li><span class="num" aria-hidden="true"></span><div><strong>Your originals stay untouched.</strong> Through every recovery path, the source folder is never in play &mdash; the worst case is unfinished work at the destination, not lost photos.</div></li>
+          <li><span class="num" aria-hidden="true"></span><div><strong>Your originals stay untouched.</strong> Organize recovery leaves the source folder untouched. Reconnect the destination drive and follow the recovery status before starting another run.</div></li>
         </ul>
       </div>
     </section>
@@ -88,7 +87,7 @@
           <article class="card">
             <div class="icon" aria-hidden="true">&#128269;</div>
             <h3>Matched by content</h3>
-            <p>Exact duplicates are found by comparing file bytes, not names. Similar-photo and visual-video matches are review-only and never auto-accepted.</p>
+            <p>Exact duplicates are found by comparing file bytes, not names. High-confidence photo matches can receive automatic suggestions. Weaker photo matches and visually similar videos remain review-only.</p>
           </article>
           <article class="card">
             <div class="icon" aria-hidden="true">&#128737;&#65039;</div>
@@ -98,7 +97,7 @@
           <article class="card">
             <div class="icon" aria-hidden="true">&#9851;</div>
             <h3>Recoverable as a unit</h3>
-            <p>Approved files move to the macOS Trash together, with recovery metadata kept on-device, so a group can be rolled back cleanly.</p>
+            <p>Related files and recovery metadata are tracked together. Restoring from History still requires the recorded Trash items to exist and match their recorded contents.</p>
           </article>
         </div>
       </div>
@@ -113,9 +112,9 @@
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
             <span class="badge-text"><span class="badge-small">Download on the</span><span class="badge-large">Mac App Store</span></span>
           </a>
-          <a class="btn btn-secondary" href="privacy.html">Read the privacy policy</a>
+          <a class="btn btn-secondary" href="index.html#demo">Watch the demo</a>
         </div>
-        <p class="price-note">One-time purchase, no subscription, ever.</p>
+        <p class="price-note">Free to try. One-time unlock. No subscription.</p>
       </div>
     </section>
   </main>
@@ -124,31 +123,17 @@
     <div class="container">
       <div class="footer-top">
         <div class="footer-cta">
-          <h2>Get Chronoframe</h2>
-          <p>Organize and deduplicate your photo library on macOS, safely. One-time purchase.</p>
-          <a class="appstore-badge" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-            <span class="badge-text"><span class="badge-small">Download on the</span><span class="badge-large">Mac App Store</span></span>
-          </a>
+          <a class="brand" href="index.html"><img class="brand-icon" src="favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+          <p>A little order for a lifetime of memories.<br />Made for Mac by Nishith Nand.</p>
         </div>
         <nav class="footer-nav" aria-label="Footer">
-          <a href="index.html">Home</a>
-          <a href="privacy.html">Privacy</a>
-          <a href="features.html">Features</a>
-          <a href="support.html">Support</a>
-          <a href="safety.html">Safety</a>
-          <a href="mailto:support@chronoframe.app">Contact</a>
-          <a href="faq.html">FAQ</a>
+          <a href="features.html">How it works</a><a href="safety.html">Safety &amp; recovery</a>
+          <a href="index.html#demo">Watch the demo</a><a href="privacy.html">Privacy</a>
+          <a href="faq.html">FAQ</a><a href="support.html">Support</a>
+          <a href="index.html#download">Try Chronoframe free</a><a href="mailto:support@chronoframe.app">Contact the maker</a>
         </nav>
       </div>
-      <div class="footer-bottom">
-        <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
-        <div class="footer-links">
-          <a href="privacy.html">Privacy Policy</a>
-          <a href="support.html">Support</a>
-          <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>
-        </div>
-      </div>
+      <div class="footer-bottom"><span>&copy; 2026 Nishith Nand</span><span>On your Mac. Under your control.</span></div>
     </div>
   </footer>
 </body>

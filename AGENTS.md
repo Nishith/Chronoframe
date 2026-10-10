@@ -336,3 +336,15 @@ Chronoframe targets the Apple "sets the standard" bar. Treat these as expectatio
 - When adding Swift code, files under `ui/Sources/` and `ui/Tests/` need no project edits (SwiftPM and Xcode both auto-discover); only `ui/Xcode/UITests/` files must be added to `ui/Chronoframe.xcodeproj/project.pbxproj` by hand, and `script/check_uitest_membership.sh` fails CI if you forget.
 - When changing user-visible failure behavior, add tests that assert the wording a nontechnical user will see.
 - App-layer fixes (views, view-models, coordinators, stores) need a regression test, not just a code change. The `app-layer-test-check` guard enforces this on PRs. If a value is correct but renders stale, suspect observation wiring (a view reading a computed property that crosses into an `ObservableObject` it does not observe) — see `ChronoframeApp/Views/Deduplicate/DeduplicateView.swift`.
+
+
+## Marketing Website
+
+`site/` is a static GitHub Pages site (no framework/build step). `site/README.md` documents
+preview, publishing, and the offer verification checklist. Run `python3 script/check_site.py`
+for HTML/link/media checks; use `python3 script/preview_site.py` for a local preview with
+MP4 byte-range support. `Check Website` runs on site PRs; `Deploy Site` repeats validation
+before publishing main. The self-hosted one-minute demo has native controls, WebVTT and
+an HTML transcript; optional `site.js` adds chapter shortcuts. Keep playback user-initiated.
+Never publish free-trial copy until the store cutover is verified; keep visible pricing and
+JSON-LD in sync. Development requirements and features can differ from the live App Store.
