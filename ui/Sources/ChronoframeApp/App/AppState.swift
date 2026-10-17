@@ -913,6 +913,12 @@ final class AppState: ObservableObject {
         return destinationSecurityScope(destinationRoot: destination)
     }
 
+    /// Receipt inspection happens after the history scan's scope has closed.
+    /// Callers retain this separate lease for the complete read or verification.
+    func historyArtifactSecurityScope() -> SecurityScopedFolderAccess? {
+        destinationSecurityScope(destinationRoot: historyStore.destinationRoot)
+    }
+
     private func destinationSecurityScope(destinationRoot: String) -> SecurityScopedFolderAccess? {
         let keys = activeDestinationBookmarkKeys()
         let matchingKeys = keys.filter { key in

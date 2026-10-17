@@ -846,6 +846,7 @@ struct ReceiptDetailSheet: View {
     @State private var verificationResults: [String: VerificationStatus] = [:]
     @State private var isVerifying = false
     @State private var errorMessage: String? = nil
+    @State private var receiptSecurityScope: SecurityScopedFolderAccess?
     /// Finding #9: an explicit decode-completed flag. `transfers.isEmpty` was
     /// used as the loading signal, so a valid receipt with zero items showed an
     /// endless "Loading…" spinner. Tracking load completion separately lets a
@@ -992,7 +993,12 @@ struct ReceiptDetailSheet: View {
         .frame(width: 600)
         .darkroom()
         .onAppear {
+            receiptSecurityScope = appState.historyArtifactSecurityScope()
             loadReceipt()
+        }
+        .onDisappear {
+            receiptSecurityScope?.close()
+            receiptSecurityScope = nil
         }
     }
 
@@ -1101,6 +1107,8 @@ struct ReceiptDetailSheet: View {
     }
 
     private func runVerification() async {
+        let scope = appState.historyArtifactSecurityScope()
+        defer { scope?.close() }
         isVerifying = true
         let items = transfers
         await Task.detached(priority: .userInitiated) {
