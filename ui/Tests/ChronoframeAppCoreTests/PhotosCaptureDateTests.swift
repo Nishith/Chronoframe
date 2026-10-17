@@ -274,6 +274,31 @@ final class PhotosCaptureDateTests: XCTestCase {
         }
     }
 
+    func testPlanningRejectsAPreparedOriginalThatDisappearedFromStaging() async throws {
+        let staging = root.appendingPathComponent("staging")
+        let still = root.appendingPathComponent("source.jpg")
+        let movie = root.appendingPathComponent("source.mov")
+        try Data("still".utf8).write(to: still)
+        try Data("movie".utf8).write(to: movie)
+        let receipt = try await PhotosExportExecutor(exporter: FixturePhotosExporter(urls: [still, movie])).export(plan: PhotosExportPlan(entries: [
+            PhotosAssetExportEntry(assetID: "live", mediaKind: .photo, stagingStem: "live", creationDate: Date()),
+        ]), to: staging)
+        XCTAssertEqual(receipt.sourceDateHints.count, 2)
+        let destination = root.appendingPathComponent("destination")
+        // Only the surviving half is discovered after the other one vanishes.
+        try FileManager.default.removeItem(atPath: try XCTUnwrap(receipt.exportedFiles.last?.path))
+
+        XCTAssertThrowsError(try DryRunPlanner().plan(sourceRoot: staging, destinationRoot: destination, sourceDateHints: receipt.sourceDateHints)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("prepare the import again"))
+        }
+        do {
+            _ = try await DryRunPlanner().planAsync(sourceRoot: staging, destinationRoot: destination, sourceDateHints: receipt.sourceDateHints)
+            XCTFail("planAsync should reject a prepared original that is no longer in staging")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("prepare the import again"))
+        }
+    }
+
     func testUserDateOverrideStillWinsOverImportSnapshot() throws {
         let staging = root.appendingPathComponent("staging")
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)

@@ -90,6 +90,16 @@ public struct DryRunPlanner: Sendable {
     /// Low enough for responsive UI on slow volumes; high enough to avoid event flood.
     public static let planningProgressStride = 100
 
+    /// Resolution only visits discovered files, so a prepared original that has
+    /// vanished would otherwise be skipped and its Live Photo partner planned alone.
+    private static func requireEveryHintedFile(in discoveredPaths: [String], hints: [String: SourceDateHint]) throws {
+        guard !hints.isEmpty else { return }
+        let discovered = Set(discoveredPaths.map(SourceDateHint.pathKey(for:)))
+        if !Set(hints.keys).isSubset(of: discovered) {
+            throw SourceDateHintError.changed
+        }
+    }
+
     private func resolveSourceDate(for path: String, result: ProcessedFileIdentity, hints: [String: SourceDateHint], isCancelled: @escaping @Sendable () -> Bool) throws -> ResolvedMediaDate {
         guard !hints.isEmpty else { return dateResolver.resolveResolvedDate(for: path, isCancelled: isCancelled) }
         // A Photos import is a closed snapshot. New or changed staging files
@@ -134,6 +144,7 @@ public struct DryRunPlanner: Sendable {
                 onEvent?(.issue(RunIssue(severity: .warning, message: issue.message)))
             }
         )
+        try Self.requireEveryHintedFile(in: sourcePaths, hints: sourceDateHints)
         let discoveredSourceCount = sourcePaths.count
         onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
         try Self.throwIfCancelled(isCancelled)
@@ -486,6 +497,7 @@ public struct DryRunPlanner: Sendable {
                 onEvent?(.issue(RunIssue(severity: .warning, message: issue.message)))
             }
         )
+        try Self.requireEveryHintedFile(in: sourcePaths, hints: sourceDateHints)
         let discoveredSourceCount = sourcePaths.count
         onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
         try Self.throwIfCancelled(isCancelled)
