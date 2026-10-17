@@ -32,6 +32,20 @@ The tested source tree passes 1,748 Swift tests in 31 shards with zero failures.
 
 ## Next signed checks, in order
 
+### Owner testing, October 16–17: partial results and blocking finding
+
+- Owner screenshots show the initial 500/100 allowance, 20-file consumption to 480/100 and persistence after relaunch. Owner reports the 20-file revert refunded the allowance.
+- The oversized 1,000-file run offered an explicit earliest-500 free batch. The batch completed with 500 copied and zero issues; the exhausted allowance blocked the remaining 500 without another free-batch option.
+- Owner reports purchase cancellation preserved the trial state. Apple's test purchase dialog explicitly said no charge; its success dialog and the subsequent 500-file transfer demonstrate sandbox purchase and unlock. License remains Unlocked after relaunch. Repeat preview recognizes all 1,000 files with zero planned. Restore Purchases remains untested.
+- Owner reports Photos transfer completion and matching date folders/pairs in Downloads/Test 504. Repeat screenshots show six selected resources already present and zero planned. The owner used different photos from the historical set; the original eight-resource regression set, metadata identities and receipt hashes have not been independently established for this test.
+- Mid-copy cancellation in Downloads/Cancel test 504 stopped at 344 copies. After relaunch, preview recognized 344 already present and 9,656 remaining. Resumed transfer completed 9,656 with zero issues; final preview recognizes all 10,000 with zero planned.
+- Independent read-only verification rehashed all 10,000 copies against source bytes and recorded receipt identities, and all source SHA-256 values against the saved pre-test baseline. The ABORTED receipt contains 344 transfers and the COMPLETED receipt 9,656, both with verification enabled and zero failed jobs. No missing, extra or duplicate destination media entries. Local report: `.tmp/release-prep/504-cancel-resume-verification.json`.
+- **Release blocker:** opening the cancelled run's 11:37 PM receipt from History displays “Could not read the receipt file from disk.” The JSON remains readable and valid outside the sandboxed app. The receipt detail sheet reads and verifies files without reacquiring the destination security scope after the History scan closes its scope. A local fix is under validation; 504 does not contain it. Do not submit 504 as the final candidate. A replacement signed build needs focused History read/verification and recovery retests.
+
+- Local receipt-viewer fix retains destination access for the sheet lifetime and a separate lease through asynchronous verification. Four focused receipt/History tests pass, including destination-bookmark selection instead of source access. This is local validation, not a signed sandbox retest. Log: `.tmp/receipt-viewer-tests-final.log`.
+
+The checklist below records the intended gates; the observations above close only the stated portions.
+
 1. Record Settings → License on 504. With a controlled fresh test account/state, confirm the initial 500 organized files and 100 duplicates allowance; no acquisition date or old cached legacy grant should unlock it. Do not reset the owner's settings, bookmarks or usage ledger. Reinstalling is not an allowance reset.
 2. Use disposable fixtures to check consumption, relaunch persistence, oversized-run refusal/free test batch and ungated revert refunds.
 3. Test sandbox purchase cancellation, successful lifetime unlock, relaunch and Restore Purchases. Keep sandbox results separate from later production purchase evidence.

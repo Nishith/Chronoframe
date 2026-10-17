@@ -82,7 +82,8 @@ Current evidence:
 - [ ] Confirm merged-main CodeQL and follow-up evidence checks finish successfully. CI on merged main `e67bc9f` passed. Repeat runtime checks if the cutoff or code changes.
 - [x] Owner confirmed no existing customers and approved direct free download with a $14.99 US lifetime unlock. October 26 remains the target subject to review.
 - [x] Disable both acquisition-date and cached legacy grants in the shipping policy; retain the 500/100 cumulative allowance and ungated refunding revert. See [implementation and validation](release-2.0-direct-free-access.md).
-- [ ] Build and install a new signed candidate containing this policy and every final fix. Earlier 500–503 artifacts do not prove the new access policy.
+- [x] Build and install signed 504 containing the direct-free policy and merged cancellation/Photos fixes. Earlier 500–503 artifacts do not prove this policy. See [the signed-session evidence](release-2.0-504-manual-session.md).
+- [ ] Replace 504 after the October 17 History receipt-viewer permission failure, then retest receipt loading, verification and recovery in the replacement signed build.
 - [x] Choose an explicit unused build number higher than the last uploaded build. The stamping script accepts `CHRONOFRAME_BUILD_NUMBER`; do not assume Xcode's `CURRENT_PROJECT_VERSION = 2` is the actual exported build number.
 
 The October 16 owner decision removes the seven-day paid hold and acquisition cutoff. Developer ID notarization and the deferred 100,000-file/1-TB certification are outside this V2 launch scope.

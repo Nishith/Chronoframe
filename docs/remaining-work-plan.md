@@ -113,7 +113,7 @@ unbounded memory or unusable cancellation, not on modest latency.
 
 ### Go decision
 
-The owner records the exact candidate commit, version/build and archive identity; disabled legacy-unlock shipping policy; checks passed with evidence links; accepted residual risks with impact and workaround; and the decision and date. A new signed candidate is required after the October 16 direct-free policy change. There is no compiled acquisition cutoff, customer settings migration or seven-day paid window. See [the access-rule record](release-2.0-direct-free-access.md).
+The owner records the exact candidate commit, version/build and archive identity; disabled legacy-unlock shipping policy; checks passed with evidence links; accepted residual risks with impact and workaround; and the decision and date. Signed 504 with the October 16 direct-free policy was uploaded, processed and installed through TestFlight. October 17 testing exposed a History receipt-viewer permission bug; a replacement signed candidate and focused receipt/recovery retest are now required. See [the signed-session evidence](release-2.0-504-manual-session.md). There is no compiled acquisition cutoff, customer settings migration or seven-day paid window. See [the access-rule record](release-2.0-direct-free-access.md).
 
 ## Original June 2026 Release Gates (superseded for 2.0)
 
