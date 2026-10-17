@@ -258,6 +258,22 @@ final class PhotosCaptureDateTests: XCTestCase {
         }
     }
 
+    func testPlanningReportsAnUnreadablePreparedOriginalAsChangedOrUnreadable() async throws {
+        let staging = root.appendingPathComponent("staging")
+        let clip = root.appendingPathComponent("source.mov")
+        try Data("original".utf8).write(to: clip)
+        let receipt = try await PhotosExportExecutor(exporter: FixturePhotosExporter(urls: [clip])).export(plan: PhotosExportPlan(entries: [
+            PhotosAssetExportEntry(assetID: "clip", mediaKind: .video, stagingStem: "clip", creationDate: Date()),
+        ]), to: staging)
+        let path = try XCTUnwrap(receipt.exportedFiles.first?.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: path) }
+        XCTAssertThrowsError(try DryRunPlanner().plan(sourceRoot: staging, destinationRoot: root.appendingPathComponent("destination"), sourceDateHints: receipt.sourceDateHints)) { error in
+            XCTAssertTrue(error.localizedDescription.contains("changed or couldn't be read"))
+            XCTAssertTrue(error.localizedDescription.contains("Your Photos library was not changed"))
+        }
+    }
+
     func testUserDateOverrideStillWinsOverImportSnapshot() throws {
         let staging = root.appendingPathComponent("staging")
         try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)

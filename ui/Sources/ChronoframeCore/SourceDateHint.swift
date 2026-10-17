@@ -21,6 +21,6 @@ public struct SourceDateHint: Equatable, Codable, Sendable {
 enum SourceDateHintError: LocalizedError {
     case changed
     var errorDescription: String? {
-        "A prepared Photos original changed. Select the items in Photos and prepare the import again. Your Photos library was not changed."
+        "A prepared Photos original changed or couldn't be read. Select the items in Photos and prepare the import again. Your Photos library was not changed."
     }
 }
