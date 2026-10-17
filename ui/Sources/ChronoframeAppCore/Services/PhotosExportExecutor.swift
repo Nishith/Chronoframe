@@ -98,9 +98,13 @@ public struct PhotosExportReceipt: Equatable, Sendable {
 /// itself is never modified regardless of success, failure, or cancellation.
 public struct PhotosExportExecutor {
     private let exporter: any PhotosResourceExporting
+    private let timeZone: TimeZone
 
-    public init(exporter: any PhotosResourceExporting) {
+    /// `timeZone` picks the calendar day for items whose only date is Photos'
+    /// own capture instant, which carries no timezone of its own.
+    public init(exporter: any PhotosResourceExporting, timeZone: TimeZone = .current) {
         self.exporter = exporter
+        self.timeZone = timeZone
     }
 
     public func export(
@@ -193,7 +197,8 @@ public struct PhotosExportExecutor {
 
     /// One date per asset: still metadata wins over the paired movie (whose
     /// recording may start before midnight), then movie metadata, filename,
-    /// and Photos' asset instant. No metadata means Unknown, never import day.
+    /// and Photos' asset instant, filed under its day in the import timezone.
+    /// No metadata means Unknown, never import day.
     private func resolveAssetDate(entry: PhotosAssetExportEntry, paths: [String], isCancelled: @escaping @Sendable () -> Bool) -> ResolvedMediaDate {
         let ordered = paths.filter { MediaLibraryRules.isPhotoFile(path: $0) }
             + paths.filter { !MediaLibraryRules.isPhotoFile(path: $0) }
@@ -205,7 +210,12 @@ public struct PhotosExportExecutor {
         }
         if let filename = dates.first(where: { $0.source == .filename }) { return filename }
         if let date = entry.creationDate, date.timeIntervalSince1970.isFinite, !DateClassification.isUnknown(date) {
-            return ResolvedMediaDate(date: date, source: .photosAsset, confidence: .medium)
+            return ResolvedMediaDate(
+                date: date,
+                source: .photosAsset,
+                confidence: .medium,
+                bucketTimeZoneOffsetSeconds: timeZone.secondsFromGMT(for: date)
+            )
         }
         return .unknown
     }

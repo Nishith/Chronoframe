@@ -66,7 +66,7 @@ final class PhotosCaptureDateTests: XCTestCase {
             pixelWidth: 16, pixelHeight: 16, originalFilename: "IMG_0001.HEIC",
             isFavorite: false, isCloudStoredOnly: false
         )])
-        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: staging)
+        let receipt = try await PhotosExportExecutor(exporter: exporter, timeZone: TimeZone(secondsFromGMT: 0)!).export(plan: plan, to: staging)
         XCTAssertEqual(receipt.failures, [])
         XCTAssertEqual(Set(try MediaDiscovery.discoverMediaFiles(at: staging).map(SourceDateHint.pathKey(for:))), Set(receipt.sourceDateHints.keys))
         for (path, hint) in receipt.sourceDateHints {
@@ -174,6 +174,31 @@ final class PhotosCaptureDateTests: XCTestCase {
         let result = VideoMetadataDateReader.read(at: url, timeoutSeconds: 5, loader: { _ in expected })
         XCTAssertEqual(result, expected)
         occupied.wait()
+    }
+
+    func testAssetInstantFallbackIsFiledUnderItsDayInTheImportTimeZone() async throws {
+        // 2024-06-02 02:30Z is 21:30 on June 1 at UTC-5 and 12:30 on June 2 at UTC+10.
+        let instant = try XCTUnwrap(ISO8601DateFormatter().date(from: "2024-06-02T02:30:00Z"))
+        for (seconds, folder) in [(-5 * 3600, "2024/06/01"), (0, "2024/06/02"), (10 * 3600, "2024/06/02")] {
+            let source = root.appendingPathComponent("source-\(seconds)")
+            try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+            let image = source.appendingPathComponent("stripped.png")
+            try Data("synthetic".utf8).write(to: image)
+            let staging = root.appendingPathComponent("staging-\(seconds)")
+            let receipt = try await PhotosExportExecutor(
+                exporter: FixturePhotosExporter(urls: [image]),
+                timeZone: TimeZone(secondsFromGMT: seconds)!
+            ).export(plan: PhotosExportPlan(entries: [
+                PhotosAssetExportEntry(assetID: "stripped", mediaKind: .photo, stagingStem: "stripped", creationDate: instant),
+            ]), to: staging)
+            let result = try DryRunPlanner().plan(
+                sourceRoot: staging,
+                destinationRoot: root.appendingPathComponent("destination-\(seconds)"),
+                sourceDateHints: receipt.sourceDateHints
+            )
+            XCTAssertEqual(result.previewReviewItems.first?.dateSource, .photosAsset)
+            XCTAssertTrue(try XCTUnwrap(result.copyJobs.first).destinationPath.contains(folder), "UTC\(seconds / 3600)")
+        }
     }
 
     func testOrdinaryOrganizeRunUsesRecordedVideoDateOverFilesystemDate() throws {
