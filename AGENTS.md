@@ -142,7 +142,7 @@ Release packaging defaults to Developer ID signed, hardened-runtime, notarized, 
 - `docs/TECHNICAL.md` is the current developer architecture and artifact reference.
 - `docs/production-readiness-certification.md` is the release-gate evidence ledger.
 - `docs/remaining-work-plan.md` lists only unfinished certification and product-decision work.
-- `docs/free-trial-plan.md` is the plan for the paid-to-free migration: settled policy, the remaining tasks with risk markers, and the reasoning behind the choices that are easy to get wrong later. Read it before touching entitlement, trial-allowance, or App Store pricing work.
+- `docs/free-trial-plan.md` is the access-policy source of truth. On October 16, 2026 the owner confirmed no existing customers and approved a direct free V2 launch: 500 organized files and 100 duplicates trashed cumulatively per Apple Account per Mac, $14.99 US non-consumable lifetime unlock with Family Sharing, unlimited scanning/preview/review/history, and ungated revert that refunds allowance. `ChronoframeUnlock.defaultPolicy()` disables live and cached legacy grants; there is no acquisition cutoff or seven-day paid rollout. Keep the historical migration policy opt-in for tests only. Read the plan before entitlement, trial-allowance, or pricing work.
 
 The accessibility audit exercises metered IAP presentation without StoreKit: selected debug
 `UITestScenario` cases inject a locked entitlement and partial ledger balance through `AppState`.

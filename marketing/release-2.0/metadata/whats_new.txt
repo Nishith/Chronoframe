@@ -9,6 +9,6 @@ Chronoframe 2.0 brings new ways to build and care for your photo library:
 
 Dates near midnight now use the capture date’s recorded time zone. For a previously organized library, use Health → Reorganize to correct affected destination folders; originals are unchanged.
 
-Chronoframe is preparing to become a free download with a single lifetime unlock. If you already bought the paid app, your purchase covers unrestricted use: you will not need to buy the unlock. Settings → License shows your status, with Restore Purchases available when verification is needed.
+Now free to download: organize 500 files and move 100 duplicates to Trash before purchasing. These allowances are cumulative per Apple Account on each Mac. One $14.99 US lifetime unlock removes the limits, with Family Sharing. Scanning, preview, review, and history remain free; revert remains available without purchasing and returns the corresponding allowance.
 
 No subscription. Your organizing source files and Photos library remain untouched.

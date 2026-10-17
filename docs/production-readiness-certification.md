@@ -1,5 +1,7 @@
 # Chronoframe Production-Readiness Certification
 
+**October 16 access-policy update:** the owner confirmed no existing users and approved a direct free launch. The app download is Free; the lifetime non-consumable is $14.99 US with Family Sharing. The 500/100 cumulative allowance and ungated refunding revert remain. Shipping policy disables acquisition-date and cached legacy grants. Historical paid-window, October 18 deadline, October 26 compiled cutoff and production-grandfathering gates below are superseded. Final-source CI, a new signed build, signed functional/StoreKit retests, store configuration and owner Go still gate release. No upload, price change, submission or publication is claimed by this update. See [the current launch sequence](APP_STORE_RELEASE.md#direct-free-launch).
+
 Certification date: 2026-06-20
 Status refresh: 2026-09-07; release scope for version 2.0 revised 2026-09-28
 Candidate branch: `codex/production-readiness-remediation`
