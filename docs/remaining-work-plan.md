@@ -1,5 +1,7 @@
 # Chronoframe Remaining Production-Readiness Work
 
+**Current candidate — October 16:** signed **2.0 (504)** is uploaded, processed and installed through TestFlight; About confirms 504. PR #244 merged as `5f10b17` with passing CI and CodeQL, and its tree exactly matches the archived source. Signed allowance/purchase/restore, Photos date/pair and cancellation/recovery retests plus owner Go remain open. The App Store draft still selects 501 and has the older paid-transition copy; updating that draft and coordinating free pricing remain pending. See [the 504 signed-session ledger](release-2.0-504-manual-session.md). Older candidate records below are historical.
+
 **October 16 access-policy update:** the owner confirmed no existing users and approved a direct free launch. The app download is Free; the lifetime non-consumable is $14.99 US with Family Sharing. The 500/100 cumulative allowance and ungated refunding revert remain. Shipping policy disables acquisition-date and cached legacy grants. Historical paid-window, October 18 deadline, October 26 compiled cutoff and production-grandfathering gates below are superseded. Final-source CI, a new signed build, signed functional/StoreKit retests, store configuration and owner Go still gate release. No upload, price change, submission or publication is claimed by this update. See [the current launch sequence](APP_STORE_RELEASE.md#direct-free-launch).
 
 Status date: 2026-10-05 (release scope for version 2.0 revised 2026-09-28)
@@ -111,7 +113,7 @@ unbounded memory or unusable cancellation, not on modest latency.
 
 ### Go decision
 
-The owner records the exact candidate commit, version/build and archive identity; disabled legacy-unlock shipping policy; checks passed with evidence links; accepted residual risks with impact and workaround; and the decision and date. A new signed candidate is required after the October 16 direct-free policy change. There is no compiled acquisition cutoff, customer settings migration or seven-day paid window. See [the access-rule record](release-2.0-direct-free-access.md).
+The owner records the exact candidate commit, version/build and archive identity; disabled legacy-unlock shipping policy; checks passed with evidence links; accepted residual risks with impact and workaround; and the decision and date. Signed 504 with the October 16 direct-free policy was uploaded, processed and installed through TestFlight. October 17 testing exposed a History receipt-viewer permission bug; a replacement signed candidate and focused receipt/recovery retest are now required. See [the signed-session evidence](release-2.0-504-manual-session.md). There is no compiled acquisition cutoff, customer settings migration or seven-day paid window. See [the access-rule record](release-2.0-direct-free-access.md).
 
 ## Original June 2026 Release Gates (superseded for 2.0)
 

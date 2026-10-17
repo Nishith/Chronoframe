@@ -1,5 +1,7 @@
 # Chronoframe V2 — final check and launch checklist
 
+**Current candidate — October 16:** signed **2.0 (504)** is uploaded, processed and installed through TestFlight; About confirms 504. PR #244 merged as `5f10b17` with passing CI and CodeQL, and its tree exactly matches the archived source. Signed allowance/purchase/restore, Photos date/pair and cancellation/recovery retests plus owner Go remain open. The App Store draft still selects 501 and has the older paid-transition copy; updating that draft and coordinating free pricing remain pending. See [the 504 signed-session ledger](release-2.0-504-manual-session.md). Older candidate records below are historical.
+
 **October 16 access-policy update:** the owner confirmed no existing users and approved a direct free launch. The app download is Free; the lifetime non-consumable is $14.99 US with Family Sharing. The 500/100 cumulative allowance and ungated refunding revert remain. Shipping policy disables acquisition-date and cached legacy grants. Historical paid-window, October 18 deadline, October 26 compiled cutoff and production-grandfathering gates below are superseded. Final-source CI, a new signed build, signed functional/StoreKit retests, store configuration and owner Go still gate release. No upload, price change, submission or publication is claimed by this update. See [the current launch sequence](APP_STORE_RELEASE.md#direct-free-launch).
 
 Checked October 4, 2026 (America/Los_Angeles). Distribution: Mac App Store only.
@@ -80,7 +82,8 @@ Current evidence:
 - [ ] Confirm merged-main CodeQL and follow-up evidence checks finish successfully. CI on merged main `e67bc9f` passed. Repeat runtime checks if the cutoff or code changes.
 - [x] Owner confirmed no existing customers and approved direct free download with a $14.99 US lifetime unlock. October 26 remains the target subject to review.
 - [x] Disable both acquisition-date and cached legacy grants in the shipping policy; retain the 500/100 cumulative allowance and ungated refunding revert. See [implementation and validation](release-2.0-direct-free-access.md).
-- [ ] Build and install a new signed candidate containing this policy and every final fix. Earlier 500–503 artifacts do not prove the new access policy.
+- [x] Build and install signed 504 containing the direct-free policy and merged cancellation/Photos fixes. Earlier 500–503 artifacts do not prove this policy. See [the signed-session evidence](release-2.0-504-manual-session.md).
+- [ ] Replace 504 after the October 17 History receipt-viewer permission failure, then retest receipt loading, verification and recovery in the replacement signed build.
 - [x] Choose an explicit unused build number higher than the last uploaded build. The stamping script accepts `CHRONOFRAME_BUILD_NUMBER`; do not assume Xcode's `CURRENT_PROJECT_VERSION = 2` is the actual exported build number.
 
 The October 16 owner decision removes the seven-day paid hold and acquisition cutoff. Developer ID notarization and the deferred 100,000-file/1-TB certification are outside this V2 launch scope.
@@ -121,10 +124,11 @@ CHRONOFRAME_BUILD_NUMBER=<unused-build-number> ./ui/archive-mas.sh
 Open the existing [draft version](https://appstoreconnect.apple.com/apps/6771245052/distribution/macos/version/inflight).
 
 - [x] Change draft Version to **2.0** and replace expired 373. Build **2.0 (501)** now supersedes 500 and is saved.
-- [x] Replace the old description, promotional text, What's New, and review notes using [APP_STORE_METADATA.md](APP_STORE_METADATA.md). Replace the historical paid-window values with the October 16 **direct-free** variants before submission.
+- [ ] After signed assessment, replace selected 501 with the validated 504 candidate and verify the app and first IAP remain together in the unsubmitted draft.
+- [ ] Replace the old description, promotional text, What's New, and review notes using the October 16 **direct-free** values in [APP_STORE_METADATA.md](APP_STORE_METADATA.md), then verify the saved draft. These values are prepared locally; App Store Connect still has the historical paid-window copy.
 - [x] Ensure the description says **macOS 14.0 or later**. Replace “always recover” with conditional recovery: files must remain in Trash with their recorded contents. Avoid a blanket offline claim for initial purchase/restore or downloading iCloud-only originals.
-- [x] In What's New, include the actual V2 customer benefits: Photos import, watched-source review, optional similar-video review, safety/recovery and interface improvements, plus existing-purchase protection. The staged notes currently focus mostly on pricing migration.
-- [x] Paste the full review notes, including **500 organized files + 100 duplicates trashed**, cumulative per Apple Account per Mac, permanent allowance, free scanning/review/history, one non-consumable unlock, grandfathered paid access, and revert refunds. State that V2 launches free with the lifetime unlock; remove the historical paid transition and grandfathering claims.
+- [ ] In What's New, include Photos import, watched-source review, optional similar-video review, safety/recovery and interface improvements, plus the cumulative free allowance and one-time lifetime unlock. Remove the old migration and existing-purchase-protection promises.
+- [ ] Paste the direct-free review notes: **500 organized files + 100 duplicates trashed**, cumulative per Apple Account per Mac; free scanning/review/history; one non-consumable lifetime unlock; and ungated revert with corresponding allowance refunds. State that V2 launches free and remove paid-transition and grandfathering claims.
 - [x] Keep no app sign-in required; confirm review contact details, Photo & Video category, URLs, privacy declaration, and updated age-rating questionnaire. Do not advertise the disabled Library Guardian feature.
 - [x] Replace the older screenshot set with the numbered files in `marketing/release-2.0/screenshots`. Upload the actual screenshots, not `contact-sheet.png`. All seven files have accepted dimensions.
 - [x] Correct **06-run-history-app-store.png** to **“Receipts for safer undo.”** Regenerated and visually checked. 07 shows the Photos permission entry point rather than a populated library.
