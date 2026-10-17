@@ -154,6 +154,8 @@ Swift 6.1+ and retains the original-purchase-date fallback for the Swift 6.0 CI 
 
 ## User-Facing Error Handling
 
+History owns a per-load destination security scope, including recovery and indexing. Destination bookmarks are also retained persistently by archive root under `history.destination.<base64 canonical path>` in `PreferencesStore`, independently of the current manual/profile/dedupe destination, so changing Setup during a captured run does not revoke later receipt access. Receipt detail sheets hold a scope while visible and verification holds a separate lease through completion. History refresh failures preserve the same archive's loaded snapshot; permission failures show **Reconnect your archive folder → Choose Folder…**, not empty-history claims. Reconnection must select the same canonical root, preserve Setup/profile selection, save refreshed access and reload automatically. A different root is rejected with an explanation; never silently retarget a recovery action.
+
 Recent work improved error handling for nontechnical users. Preserve that tone.
 
 - `ui/Sources/ChronoframeAppCore/Support/UserFacingErrorMessage.swift` is the shared formatter for technical errors.

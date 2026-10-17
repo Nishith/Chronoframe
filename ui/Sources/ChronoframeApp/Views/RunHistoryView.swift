@@ -85,6 +85,7 @@ struct RunHistoryView: View {
     @State private var selectedReceiptEntry: RunHistoryEntry?
     @State private var selectedTimelineMonth: String? = nil
     @State private var isTimelineScrubbing = false
+    @State private var isReconnecting = false
 
     private static let fileSizeFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -112,8 +113,11 @@ struct RunHistoryView: View {
                 }
 
                 reusableSourcesSection
+                    .disabled(historyUnavailable)
                 recoveryCenterSection
+                    .disabled(historyUnavailable)
                 archiveSection
+                    .disabled(historyUnavailable)
             }
             .padding(DesignTokens.Layout.contentPadding)
             .frame(maxWidth: DesignTokens.Layout.archiveMaxWidth, alignment: .leading)
@@ -218,6 +222,11 @@ struct RunHistoryView: View {
     }
 
     private var headerMessage: String {
+        if historyUnavailable {
+            return historyStore.entries.isEmpty
+                ? "History could not be loaded."
+                : "Access unavailable. Previously loaded entries may be out of date."
+        }
         if historyStore.entries.isEmpty {
             return historyStore.destinationRoot.isEmpty
                 ? "Choose a destination in Setup, then a preview will create the first report here."
@@ -348,12 +357,38 @@ struct RunHistoryView: View {
     }
 
     private func refreshErrorStrip(_ message: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
-            Text(message)
-                .scaledFont(.body)
-                .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                Text(historyStore.needsFolderAccess ? "Reconnect your archive folder" : "History unavailable")
+                    .font(.headline)
+                Text(historyStore.needsFolderAccess
+                     ? "Chronoframe can’t currently access “\(URL(fileURLWithPath: historyStore.destinationRoot).lastPathComponent)”. Choose this same folder again to restore access and load run history. Reconnecting does not change your media files."
+                     : message)
+                Text(historyStore.destinationRoot)
+                    .font(.caption)
+                    .textSelection(.enabled)
+                if let error = historyStore.reconnectError {
+                    Text(error).foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+                }
+                if historyStore.needsFolderAccess {
+                    Button(isReconnecting ? "Reconnecting…" : "Choose Folder…") {
+                        isReconnecting = true
+                        Task { @MainActor in
+                            defer { isReconnecting = false }
+                            await appState.reconnectHistoryFolder()
+                        }
+                    }
+                    .disabled(isReconnecting)
+                } else {
+                    Button("Retry") {
+                        Task { await historyStore.loadEntries() }
+                    }
+                }
+            }
+            .scaledFont(.body)
+            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
         .padding(DesignTokens.Layout.compactPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -365,6 +400,18 @@ struct RunHistoryView: View {
 
     // MARK: - Recovery center
 
+    private var historyUnavailable: Bool { historyStore.lastRefreshError != nil }
+
+    private var unavailableHistoryState: some View {
+        EmptyStateView(
+            title: "History Unavailable",
+            message: historyStore.needsFolderAccess
+                ? "History is unavailable until folder access is restored. Use Choose Folder above to reconnect your archive."
+                : "History could not be loaded. Check the message above before trying again.",
+            systemImage: "folder.badge.questionmark"
+        )
+    }
+
     private var recoveryCenterSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             SectionHeading(
@@ -374,11 +421,15 @@ struct RunHistoryView: View {
 
             let receipts = filteredRecoveryReceipts
             if receipts.isEmpty {
-                EmptyStateView(
-                    title: "No Revertable Runs Yet",
-                    message: "Transfers, dedupe commits, and reorganize runs write receipts here when they can be undone safely.",
-                    systemImage: "arrow.uturn.backward.circle"
-                )
+                if historyUnavailable {
+                    unavailableHistoryState
+                } else {
+                    EmptyStateView(
+                        title: "No Revertable Runs Yet",
+                        message: "Transfers, dedupe commits, and reorganize runs write receipts here when they can be undone safely.",
+                        systemImage: "arrow.uturn.backward.circle"
+                    )
+                }
             } else {
                 DarkroomPanel(variant: .panel) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -465,11 +516,15 @@ struct RunHistoryView: View {
             )
 
             if historyStore.transferredSources.isEmpty {
-                EmptyStateView(
-                    title: "No Reusable Sources Yet",
-                    message: "After a completed transfer, the source folder will appear here so you can use it again without re-entering the path.",
-                    systemImage: "folder.badge.questionmark"
-                )
+                if historyUnavailable {
+                    unavailableHistoryState
+                } else {
+                    EmptyStateView(
+                        title: "No Reusable Sources Yet",
+                        message: "After a completed transfer, the source folder will appear here so you can use it again without re-entering the path.",
+                        systemImage: "folder.badge.questionmark"
+                    )
+                }
             } else {
                 DarkroomPanel(variant: .panel) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -601,13 +656,17 @@ struct RunHistoryView: View {
             }
 
             if filteredEntries.isEmpty {
-                EmptyStateView(
-                    title: historyStore.entries.isEmpty ? "No Artifacts Yet" : "No Matching Artifacts",
-                    message: historyStore.entries.isEmpty
-                        ? "Run a preview or transfer, then return here to inspect reports, receipts, and logs."
-                        : (selectedTimelineMonth != nil ? "Try a different filter, search term, or clear the timeline filter." : "Try a different filter or search term."),
-                    systemImage: "doc.text.magnifyingglass"
-                )
+                if historyUnavailable {
+                    unavailableHistoryState
+                } else {
+                    EmptyStateView(
+                        title: historyStore.entries.isEmpty ? "No Artifacts Yet" : "No Matching Artifacts",
+                        message: historyStore.entries.isEmpty
+                            ? "Run a preview or transfer, then return here to inspect reports, receipts, and logs."
+                            : (selectedTimelineMonth != nil ? "Try a different filter, search term, or clear the timeline filter." : "Try a different filter or search term."),
+                        systemImage: "doc.text.magnifyingglass"
+                    )
+                }
             } else {
                 DarkroomPanel(variant: .panel) {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -847,6 +906,9 @@ struct ReceiptDetailSheet: View {
     @State private var isVerifying = false
     @State private var errorMessage: String? = nil
     @State private var receiptSecurityScope: SecurityScopedFolderAccess?
+    private var receiptDestinationRoot: String {
+        URL(fileURLWithPath: entry.path).deletingLastPathComponent().deletingLastPathComponent().path
+    }
     /// Finding #9: an explicit decode-completed flag. `transfers.isEmpty` was
     /// used as the loading signal, so a valid receipt with zero items showed an
     /// endless "Loading…" spinner. Tracking load completion separately lets a
@@ -993,7 +1055,7 @@ struct ReceiptDetailSheet: View {
         .frame(width: 600)
         .darkroom()
         .onAppear {
-            receiptSecurityScope = appState.historyArtifactSecurityScope()
+            receiptSecurityScope = appState.historyArtifactSecurityScope(destinationRoot: receiptDestinationRoot)
             loadReceipt()
         }
         .onDisappear {
@@ -1107,7 +1169,7 @@ struct ReceiptDetailSheet: View {
     }
 
     private func runVerification() async {
-        let scope = appState.historyArtifactSecurityScope()
+        let scope = appState.historyArtifactSecurityScope(destinationRoot: receiptDestinationRoot)
         defer { scope?.close() }
         isVerifying = true
         let items = transfers

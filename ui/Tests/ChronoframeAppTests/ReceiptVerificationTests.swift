@@ -28,7 +28,71 @@ final class ReceiptVerificationTests: XCTestCase {
         defer { scope?.close() }
 
         XCTAssertNotNil(scope)
-        XCTAssertEqual(harness.folderAccessService.scopedAccessRequests, [["deduplicate.destination"]])
+        let keys = harness.folderAccessService.scopedAccessRequests.flatMap { $0 }
+        XCTAssertTrue(keys.contains(PreferencesStore.historyDestinationBookmarkKey(for: "/Volumes/Dedupe")))
+        XCTAssertFalse(keys.contains("manual.source"))
+        XCTAssertFalse(keys.contains("manual.destination"))
+    }
+
+    @MainActor
+    func testHistoryRetainsOriginalDestinationAfterSetupBookmarkReplacementAndRelaunch() {
+        let harness = AppStateHarness()
+        let original = FolderBookmark(key: "manual.destination", path: "/Volumes/Original", data: Data([1]))
+        harness.preferencesStore.storeBookmark(original)
+        harness.preferencesStore.storeBookmark(FolderBookmark(
+            key: "manual.destination", path: "/Volumes/New", data: Data([2])
+        ))
+        // Recreate the preference facade to prove this is persistent, not a
+        // lease held accidentally by an earlier app session.
+        let restored = PreferencesStore(defaults: harness.defaults)
+        let key = PreferencesStore.historyDestinationBookmarkKey(for: original.path)
+        XCTAssertEqual(restored.bookmark(for: key)?.data, original.data)
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+        harness.historyStore.setDestinationRoot(original.path)
+        harness.folderAccessService.scopedAccessRequests.removeAll()
+        let scope = appState.historyArtifactSecurityScope()
+        defer { scope?.close() }
+        XCTAssertEqual(harness.folderAccessService.scopedAccessRequests, [[key]])
+    }
+
+    @MainActor
+    func testReconnectRejectsDifferentFolderAndCancellationWithoutSwitchingArchive() async {
+        let harness = AppStateHarness()
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+        harness.historyStore.setDestinationRoot("/Volumes/Original")
+        harness.folderAccessService.nextChosenFolder = URL(fileURLWithPath: "/Volumes/Other")
+        await appState.reconnectHistoryFolder()
+        XCTAssertEqual(harness.historyStore.destinationRoot, "/Volumes/Original")
+        XCTAssertTrue(harness.historyStore.reconnectError?.contains("archive was not switched") == true)
+        XCTAssertNil(harness.preferencesStore.bookmark(for: PreferencesStore.historyDestinationBookmarkKey(for: "/Volumes/Other")))
+        harness.folderAccessService.nextChosenFolder = nil
+        await appState.reconnectHistoryFolder()
+        XCTAssertEqual(harness.historyStore.destinationRoot, "/Volumes/Original")
+        XCTAssertNil(harness.historyStore.reconnectError)
+    }
+
+    @MainActor
+    func testReconnectSavesPermissionAndReloadsHistoryWithoutRetargetingSetup() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let logs = root.appendingPathComponent(".organize_logs")
+        try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        try Data("{}".utf8).write(to: logs.appendingPathComponent("audit_receipt_test.json"))
+        let harness = AppStateHarness()
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+        harness.setupStore.destinationPath = "/Volumes/OtherSetupDestination"
+        let alias = root.deletingLastPathComponent().appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: root)
+        defer { try? FileManager.default.removeItem(at: alias) }
+        harness.historyStore.setDestinationRoot(alias.path)
+        harness.folderAccessService.nextChosenFolder = root
+        await appState.reconnectHistoryFolder()
+        XCTAssertNil(harness.historyStore.lastRefreshError)
+        XCTAssertEqual(harness.historyStore.destinationRoot, alias.path)
+        XCTAssertEqual(harness.historyStore.entries.filter { $0.kind == .auditReceipt }.count, 1)
+        XCTAssertEqual(harness.setupStore.destinationPath, "/Volumes/OtherSetupDestination")
+        XCTAssertNotNil(harness.preferencesStore.bookmark(for: PreferencesStore.historyDestinationBookmarkKey(for: root.path)))
     }
 
     func testVerifyStatusClosesDescriptorEvenWhenHashingThrows() throws {
