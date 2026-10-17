@@ -229,7 +229,8 @@ final class RunCoordinator {
             parallelTransferEnabled: preferencesStore.parallelTransferEnabled,
             workerCount: max(1, preferencesStore.workerCount),
             folderStructure: preferencesStore.folderStructure,
-            eventSuggestionMode: preferencesStore.smartEventSuggestionsEnabled ? .suggest : .off
+            eventSuggestionMode: preferencesStore.smartEventSuggestionsEnabled ? .suggest : .off,
+            sourceDateHints: context.sourceDateHints
         )
     }
 

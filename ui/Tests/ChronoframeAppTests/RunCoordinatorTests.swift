@@ -325,7 +325,10 @@ final class RunCoordinatorTests: XCTestCase {
             stagingDirectoryURL: staging,
             destinationPath: destinationPath,
             destinationBookmarkKeys: ["manual.destination"],
-            assetIDs: ["a-1"]
+            assetIDs: ["a-1"],
+            sourceDateHints: [staging.appendingPathComponent("IMG_0001.jpg").path: SourceDateHint(
+                identity: FileIdentity(size: 1, digest: "synthetic"), resolvedDate: .unknown
+            )]
         )
     }
 
@@ -348,6 +351,7 @@ final class RunCoordinatorTests: XCTestCase {
                        "Photos imports run from the staging directory")
         XCTAssertEqual(requested?.destinationPath, "/tmp/profile-dest")
         XCTAssertNil(requested?.profileName, "Photos imports never carry a profile name")
+        XCTAssertEqual(requested?.sourceDateHints, context.sourceDateHints, "Preview retains the asset date snapshot")
         XCTAssertEqual(harness.setupStore.selectedProfileName, "camera", "Setup profile untouched")
         XCTAssertNotNil(coordinator.activePhotosImportContext)
     }
@@ -393,6 +397,7 @@ final class RunCoordinatorTests: XCTestCase {
         let requested = harness.engine.preflightConfigurations.last
         XCTAssertEqual(requested?.mode, .transfer)
         XCTAssertEqual(requested?.sourcePath, context.stagingDirectoryURL.path)
+        XCTAssertEqual(requested?.sourceDateHints, context.sourceDateHints, "Confirmed execution retains the same date snapshot")
 
         let cleared = await waitForCondition { coordinator.activePhotosImportContext == nil }
         XCTAssertTrue(cleared, "A finished transfer consumes the Photos import context")

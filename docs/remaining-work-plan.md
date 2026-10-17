@@ -1,6 +1,6 @@
 # Chronoframe Remaining Production-Readiness Work
 
-Status date: 2026-10-04 (release scope for version 2.0 revised 2026-09-28)
+Status date: 2026-10-05 (release scope for version 2.0 revised 2026-09-28)
 
 This is the current follow-up plan after PR #160. The earlier review-remediation
 plan described destination locking, immutable dedupe plans, quarantine,
@@ -16,6 +16,8 @@ Authoritative current references:
 - `docs/production-readiness-certification.md` — release gates and evidence.
 
 **New release hold, October 4:** signed 502 Photos import copied 8 additional resources safely, but two Live Photo pairs were split across date folders and standalone movies were filed by import date despite embedded capture timestamps. The split pairs cannot be recognized by the same-directory pair detector. Fix capture-date handling and retest a replacement signed candidate; do not submit 502. See [the 502 session](release-2.0-502-manual-session.md).
+
+**October 5 source fix complete:** `6a847f1` adds offset-aware video capture metadata and content-bound per-asset Photos date snapshots. Generated export → preview → verified transfer → final metadata-pair regressions pass, with 1,742 Swift tests, final 95.86% meaningful coverage, guards and universal Release MAS_BUILD compilation passing. Local signed replacement **503** archive/export and package validation/signatures pass; **not uploaded**. Remaining work is final-head hosted checks and [the exact signed TestFlight retests](release-2.0-503-manual-session.md). Build 502 stays held; no upload/submission/pricing/publication is authorized by this source-fix session.
 
 ## October 4 release evidence
 

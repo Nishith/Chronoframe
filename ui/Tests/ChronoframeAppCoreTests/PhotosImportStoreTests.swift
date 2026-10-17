@@ -174,6 +174,11 @@ final class PhotosImportStoreTests: XCTestCase {
         XCTAssertEqual(Set(unwrapped.assetIDs), ["a", "b"])
         let staged = try! FileManager.default.contentsOfDirectory(atPath: unwrapped.stagingDirectoryURL.path)
         XCTAssertEqual(staged.count, 2)
+        XCTAssertEqual(unwrapped.sourceDateHints.count, 2)
+        for (path, hint) in unwrapped.sourceDateHints {
+            XCTAssertEqual(try! FileIdentityHasher().hashIdentity(at: URL(fileURLWithPath: path)), hint.identity)
+            XCTAssertEqual(hint.resolvedDate, .unknown, "Synthetic staging creation dates cannot become capture dates")
+        }
     }
 
     /// BASH-02: selecting in album A, switching to album B and selecting there

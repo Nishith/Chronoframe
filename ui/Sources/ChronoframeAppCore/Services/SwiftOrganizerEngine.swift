@@ -498,6 +498,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         workerCount: max(1, configuration.workerCount),
                         folderStructure: configuration.folderStructure,
                         eventSuggestionMode: configuration.eventSuggestionMode,
+                        sourceDateHints: configuration.sourceDateHints,
                         isCancelled: { isCancelledRef.isCancelled || Task.isCancelled },
                         onEvent: { continuation.yield($0) }
                     )
@@ -709,6 +710,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             workerCount: max(1, configuration.workerCount),
             folderStructure: configuration.folderStructure,
             eventSuggestionMode: configuration.eventSuggestionMode,
+            sourceDateHints: configuration.sourceDateHints,
             isCancelled: isCancelled,
             onEvent: { continuation.yield($0) }
         )
