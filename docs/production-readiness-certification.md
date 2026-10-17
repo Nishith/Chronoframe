@@ -1,5 +1,7 @@
 # Chronoframe Production-Readiness Certification
 
+**Current candidate — October 16:** signed **2.0 (504)** is uploaded, processed and installed through TestFlight; About confirms 504. PR #244 merged as `5f10b17` with passing CI and CodeQL, and its tree exactly matches the archived source. Signed allowance/purchase/restore, Photos date/pair and cancellation/recovery retests plus owner Go remain open. The App Store draft still selects 501 and has the older paid-transition copy; updating that draft and coordinating free pricing remain pending. See [the 504 signed-session ledger](release-2.0-504-manual-session.md). Older candidate records below are historical.
+
 **October 16 access-policy update:** the owner confirmed no existing users and approved a direct free launch. The app download is Free; the lifetime non-consumable is $14.99 US with Family Sharing. The 500/100 cumulative allowance and ungated refunding revert remain. Shipping policy disables acquisition-date and cached legacy grants. Historical paid-window, October 18 deadline, October 26 compiled cutoff and production-grandfathering gates below are superseded. Final-source CI, a new signed build, signed functional/StoreKit retests, store configuration and owner Go still gate release. No upload, price change, submission or publication is claimed by this update. See [the current launch sequence](APP_STORE_RELEASE.md#direct-free-launch).
 
 Certification date: 2026-06-20
