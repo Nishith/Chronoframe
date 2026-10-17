@@ -24,7 +24,7 @@ enum VideoMetadataDateReader {
         isCancelled: @escaping @Sendable () -> Bool = { false },
         loader: @escaping @Sendable (AVURLAsset) async -> PhotoMetadataDate? = captureDate(from:)
     ) -> PhotoMetadataDate? {
-        guard !isCancelled(), slots.wait(timeout: .now()) == .success else { return nil }
+        guard acquireSlot(timeoutSeconds: timeoutSeconds, isCancelled: isCancelled) else { return nil }
         let load = Load(url: url)
         let task = Task.detached(priority: .utility) {
             defer { slots.signal(); load.finished.signal() }
@@ -39,6 +39,17 @@ enum VideoMetadataDateReader {
         task.cancel()
         load.asset.cancelLoading()
         return nil
+    }
+
+    /// Waits for a free slot instead of failing at once, so a briefly busy
+    /// reader does not make a video fall through to a lower-confidence date.
+    private static func acquireSlot(timeoutSeconds: TimeInterval, isCancelled: @Sendable () -> Bool) -> Bool {
+        let deadline = DispatchTime.now() + max(0.001, timeoutSeconds)
+        while !isCancelled() {
+            if slots.wait(timeout: min(deadline, .now() + 0.05)) == .success { return true }
+            if DispatchTime.now() >= deadline { return false }
+        }
+        return false
     }
 
     private static func captureDate(from asset: AVURLAsset) async -> PhotoMetadataDate? {

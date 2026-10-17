@@ -155,6 +155,37 @@ final class PhotosCaptureDateTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(cancelStart), 1)
     }
 
+    func testBusyMovieReaderWaitsForAFreeSlotInsteadOfDroppingTheDate() {
+        let url = root.appendingPathComponent("queued.mov")
+        let expected = PhotoMetadataDate(date: Date(timeIntervalSince1970: 1_700_000_000))
+        let occupied = DispatchGroup()
+        for _ in 0..<4 {
+            occupied.enter()
+            DispatchQueue.global().async {
+                _ = VideoMetadataDateReader.read(at: url, loader: { _ in
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    return nil
+                })
+                occupied.leave()
+            }
+        }
+        // Let the four loads claim every slot before the fifth caller arrives.
+        Thread.sleep(forTimeInterval: 0.1)
+        let result = VideoMetadataDateReader.read(at: url, timeoutSeconds: 5, loader: { _ in expected })
+        XCTAssertEqual(result, expected)
+        occupied.wait()
+    }
+
+    func testOrdinaryOrganizeRunUsesRecordedVideoDateOverFilesystemDate() throws {
+        let source = root.appendingPathComponent("source")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        let clip = source.appendingPathComponent("clip.mov")
+        try writeMovie(at: clip, date: "2026-01-30T12:34:56-0800")
+        let result = try DryRunPlanner().plan(sourceRoot: source, destinationRoot: root.appendingPathComponent("destination"))
+        XCTAssertEqual(result.previewReviewItems.first?.dateSource, .videoMetadata)
+        XCTAssertTrue(try XCTUnwrap(result.copyJobs.first).destinationPath.contains("2026/01/30"))
+    }
+
     @MainActor
     func testStandaloneVideosRetainCaptureDaysAndOriginalBytesThroughTransfer() async throws {
         for (timestamp, folder) in [("2026-01-30T12:34:56-0800", "2026/01/30"), ("2026-07-17T08:09:10Z", "2026/07/17")] {
