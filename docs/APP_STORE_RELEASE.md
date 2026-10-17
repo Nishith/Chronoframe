@@ -17,7 +17,7 @@ Chronoframe is ready to submit only when all items below are complete:
 - Internal TestFlight passes the manual matrix below, including the free trial and unlock rows, and the focused manual session in `remaining-work-plan.md`.
 - App Store metadata, screenshots, privacy policy URL, support URL, and pricing are complete in App Store Connect.
 - The in-app purchase exists in App Store Connect with Family Sharing ON, and is attached to this version for submission.
-- `ChronoframeUnlock.grandfatherCutover` is set to the scheduled price-change moment, biased a few hours late, and `MARKETING_VERSION` is `2.0`. Shipping the far-future default after the price drops makes the app permanently free for everyone.
+- `ChronoframeUnlock.defaultPolicy()` disables both live and cached legacy unlocks. A new customer receives the allowance regardless of acquisition date; the verified non-consumable unlock removes limits. `MARKETING_VERSION` is `2.0`.
 
 ## App Store Connect Metadata
 
@@ -26,7 +26,7 @@ Recommended initial listing:
 - Name: Chronoframe
 - Subtitle: Safe photo organizer
 - Category: Photo & Video
-- Price at submission: USD 14.99, unchanged. The drop to free is a later, scheduled step — see [Pricing Cutover](#pricing-cutover).
+- App download price: **Free**. Lifetime unlock: **USD 14.99**. Coordinate the app price with V2 availability; manual version release does not itself hold a price change.
 - In-app purchase: `com.nishith.chronoframe.unlock`, non-consumable, USD 14.99, **Family Sharing ON (irreversible)**. Submitted with version 2.0.
 - Copyright: 2026 Nishith Nand
 - Privacy policy URL: https://chronoframe.app/privacy.html (live, verified 2026-05-23).
@@ -86,30 +86,13 @@ use **File → Add Files to "Chronoframe"** and leave every target unchecked.
 
 | Environment | What it is good for | What it lies about |
 |---|---|---|
-| Xcode StoreKit configuration | Purchase, restore, refund, revocation, Ask to Buy — all on demand | `AppTransaction` is synthesized, so grandfathering is whatever the local config says |
+| Xcode StoreKit configuration | Purchase, restore, refund, revocation, Ask to Buy — all on demand | App transactions are synthesized; the shipping policy never unlocks by acquisition date |
 | Sandbox (App Store Connect tester) | Real Apple accounts, real receipt signing | **`originalAppVersion` is always `1.0`** |
 | TestFlight | Closest to production | Slow to iterate; refunds and revocations are not on demand |
 
-### The sandbox grandfathering trap
+### Direct-free entitlement testing
 
-**The sandbox always reports `originalAppVersion` as `1.0`.** A fresh install by
-a brand-new sandbox tester therefore looks like an ancient purchase. Anything
-keyed to that field reads "bought long ago", and a naive test concludes
-grandfathering works when it has proved nothing.
-
-Chronoframe does not key on that field — grandfathering is anchored to the
-signed `originalPurchaseDate` against `ChronoframeUnlock.grandfatherCutover`, precisely
-because a version boundary misclassifies customers in both rollout windows. But
-the trap still catches the *test*: a sandbox account's `originalPurchaseDate` is
-the date that account first downloaded the app, which is today, so a sandbox
-tester is correctly **not** grandfathered and it is easy to misread that as a
-bug.
-
-To exercise both sides deliberately, inject `AppTransactionClient` rather than
-trusting the environment. It exists for this: supply an `AppTransactionInfo`
-with an `originalPurchaseDate` either side of the cutover and assert the
-resolver's answer. That is a unit test, it runs in CI, and it does not depend on
-which store environment happens to be attached.
+App acquisition dates and original version numbers never grant access under the shipping policy. Test the free allowance with no owned unlock, and purchase/restore using the sandbox product. Verify that an old cached legacy grant from an earlier test build cannot unlock the app offline. Use isolated test defaults and ledgers; do not reset personal settings or usage data.
 
 ## TestFlight Matrix
 
@@ -142,18 +125,9 @@ nothing, so it can only ever pass these vacuously.
   sheet and confirm the product appears with a price from App Store Connect. A
   signed build ignores the local StoreKit configuration entirely, so a missing
   product here means an App Store Connect problem — not a scheme problem.
-- **Offline legacy access, warm cache.** A grandfathered customer runs once
-  online, then launches with the network off. They stay **unlocked** —
-  `EntitlementResolver` falls back to the cached legacy grant and returns
-  `.unlocked(reason: .legacyPurchase)`. No allowance indicator, no metering,
-  nothing describing them as a trial user.
-- **Offline legacy access, cold or stale cache.** The same customer on a Mac
-  that has never resolved online, or with a cached grant older than 90 days
-  (`GrandfatherPolicy.defaultMaximumCacheAge`). There is no cache to lean on, so
-  the entitlement resolves to `verificationUnavailable`: metered, and a large
-  run **is** refused. Verify the refusal says the purchase could not be
-  confirmed and offers Restore — it must never say the free trial is used up,
-  because this customer paid.
+- **Fresh customer.** With no owned unlock, show 500 organized files and 100 duplicates available. Relaunch preserves consumption; reverting refunds the corresponding allowance.
+- **Old test-build cache.** A cached legacy grant cannot unlock the shipping app, online or offline. An unavailable StoreKit check must be described as unconfirmed rather than a spent allowance.
+- **Owned unlock offline.** A verified owned non-consumable still wins when app-transaction lookup is unavailable. Check the signed purchase/restore path separately from deterministic tests.
 - **Product-load failure.** Refuse a run with the store unreachable. The sheet
   offers Try Again and Restore, shows **no price at all** rather than a guess,
   and the free test batch stays *pressable* — it needs no price, so a stalled
@@ -193,33 +167,17 @@ nothing, so it can only ever pass these vacuously.
   running: it is skipped, and the run says how many it could not copy rather
   than quietly copying fewer.
 
-## Pricing Cutover
+## Direct Free Launch
 
-Planned free-download date: **October 26, 2026**, selected by the owner. Candidate acquisition
-cutoff: **2026-10-26T07:00:00Z** (midnight PDT), four hours after the latest regional start
-in Apple’s table for that date. The earliest regional change is October 25 at 14:00 UTC;
-finish the required seven-day paid V2 window before then. Postpone and ship a later cutoff
-before the current cutoff if approval or real-purchaser verification is delayed.
+Owner decision, October 16, 2026: there are no existing users to migrate. V2 launches free with a $14.99 US non-consumable lifetime unlock and Family Sharing. No paid rollout, seven-day wait, acquisition cutoff or customer settings migration applies. October 26 remains a target subject to review.
 
+1. Build from the final tested source with date-based legacy unlocks disabled.
+2. Complete signed TestFlight checks and record Go for the exact candidate.
+3. Configure free app pricing and submit V2 with its first IAP, retaining manual release. If the previous paid version is available, coordinate the price change with V2 availability.
+4. After approval, release and verify the public free listing, new-customer allowance, purchase and restore.
+5. Publish the prepared website and marketing only when the advertised offer is actually available. Any `site/**` push to `main` deploys immediately.
 
-Version 2.0 introduces the free tier in the binary. It does **not** make the app free. Those are two separate releases with a deliberate gap between them, and the order is the whole point: the price drop is the only step that cannot be undone, because anyone who downloads the app while it is free keeps it.
-
-1. **Submit the in-app purchase with version 2.0.** Apple requires a new app version to accompany a first non-consumable; the product cannot be approved on its own.
-2. **Release version 2.0 while the app is still USD 14.99.** Everyone who buys it in this window is a paying customer, and `grandfatherCutover` is set past this window, so all of them are grandfathered.
-3. **Hold at least 7 days.** Confirm storefront propagation, and verify grandfathering against **real** `AppTransaction` data from people who actually bought version 2.0 — not sandbox accounts, whose `originalPurchaseDate` is always the day the tester downloaded the app.
-4. **Execute the scheduled price transition to free.** Irreversible.
-5. **Publish the site and README copy at the same time**, by merging the change that switches `site/index.html`, `site/faq.html`, and `README.md` from "$14.99 introductory price" to free-to-try.
-
-Step 5 is a real step, not bookkeeping. `.github/workflows/pages.yml` deploys to chronoframe.app on **any** push to `main` touching `site/**`, so that copy goes live the moment it merges — there is no staging environment to hold it in. Merging it before step 4 advertises a free download while the App Store is still charging up front; merging it long after leaves the site quoting a price the store no longer has. Prepare the change ahead of time and merge it in the same sitting as the price transition.
-
-The in-app Settings → License copy needs no step of its own. `LicenseStatusModel` compares the
-current time against `grandfatherCutover`, so before the cutover a grandfathered customer is told
-only that Chronoframe is unlocked permanently, and after it they are told they bought before the
-move to a free download. Setting the constant in step 4 switches that sentence; there is no second
-string to remember. During the paid window every customer resolves to `legacyPurchase`, so this is
-the copy all of them see.
-
-The same asymmetry governs `grandfatherCutover`: bias it a few hours **late**. Erring late grandfathers a handful of free downloaders, which costs a little revenue. Erring early asks customers who just paid to pay a second time.
+No App Store pricing, submission, release or website changes are performed by the access-rule implementation itself.
 
 ## Launch Tasks
 

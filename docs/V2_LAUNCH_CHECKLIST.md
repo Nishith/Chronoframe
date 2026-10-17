@@ -1,5 +1,7 @@
 # Chronoframe V2 — final check and launch checklist
 
+**October 16 access-policy update:** the owner confirmed no existing users and approved a direct free launch. The app download is Free; the lifetime non-consumable is $14.99 US with Family Sharing. The 500/100 cumulative allowance and ungated refunding revert remain. Shipping policy disables acquisition-date and cached legacy grants. Historical paid-window, October 18 deadline, October 26 compiled cutoff and production-grandfathering gates below are superseded. Final-source CI, a new signed build, signed functional/StoreKit retests, store configuration and owner Go still gate release. No upload, price change, submission or publication is claimed by this update. See [the current launch sequence](APP_STORE_RELEASE.md#direct-free-launch).
+
 Checked October 4, 2026 (America/Los_Angeles). Distribution: Mac App Store only.
 
 Release preparation is in progress. **2.0 (501) is uploaded, processed and selected**, with seven screenshots, the preview and IAP review screenshot saved. The purchase-price layout fix and rendering regression are committed. Remaining signed checks and owner Go still gate submission. Planned free date: **October 26, 2026**.
@@ -71,17 +73,17 @@ Current evidence:
 - [V2 release scope and manual pass conditions](remaining-work-plan.md)
 - [Earlier local manual session](release-2.0-manual-session.md): historical integration evidence, not final signed-build evidence. F1 and F2 were subsequently fixed; do not carry its “unresolved” paragraph forward as current status.
 
-## 1. Freeze the candidate and settle the transition date
+## 1. Freeze the direct-free candidate
 
 - [x] Preserve source footage, scripts, provenance, exports, signed archive and package under `release-artifacts/2.0-500`. Screenshots and manifest are committed in PR #239. This is a second local copy; an off-device backup remains advisable.
 - [x] Release from clean tracked source containing every final fix. PR #239 is now merged; runtime source matches preserved 501.
 - [ ] Confirm merged-main CodeQL and follow-up evidence checks finish successfully. CI on merged main `e67bc9f` passed. Repeat runtime checks if the cutoff or code changes.
-- [x] Choose a conservative free-download date that allows App Review, release of paid V2, **at least seven days** of real paid-storefront use, and grandfathering verification.
-- [x] Set the compiled `grandfatherCutover` to that transition, biased late. Account for the last storefront still accepting paid purchases, not just the US date: Apple applies scheduled pricing by storefront time zone. Record the UTC instant and its Los Angeles equivalent. If approval or rollout slips beyond the cutoff, postpone the price change and ship a corrected cutoff build first.
-- [x] Set the real cutoff in the initial V2 candidate, as required. Build 500 contains October 26 at 07:00 UTC. The source comment and release documentation now agree.
+- [x] Owner confirmed no existing customers and approved direct free download with a $14.99 US lifetime unlock. October 26 remains the target subject to review.
+- [x] Disable both acquisition-date and cached legacy grants in the shipping policy; retain the 500/100 cumulative allowance and ungated refunding revert. See [implementation and validation](release-2.0-direct-free-access.md).
+- [ ] Build and install a new signed candidate containing this policy and every final fix. Earlier 500–503 artifacts do not prove the new access policy.
 - [x] Choose an explicit unused build number higher than the last uploaded build. The stamping script accepts `CHRONOFRAME_BUILD_NUMBER`; do not assume Xcode's `CURRENT_PROJECT_VERSION = 2` is the actual exported build number.
 
-The seven-day paid hold is the project's migration policy, not an Apple review requirement. Developer ID notarization and the deferred 100,000-file/1-TB certification are outside this V2 launch scope.
+The October 16 owner decision removes the seven-day paid hold and acquisition cutoff. Developer ID notarization and the deferred 100,000-file/1-TB certification are outside this V2 launch scope.
 
 ## 2. Create the lifetime unlock and upload the signed build
 
@@ -109,7 +111,7 @@ CHRONOFRAME_BUILD_NUMBER=<unused-build-number> ./ui/archive-mas.sh
 - [x] Install build 501 through TestFlight. Signed copy/repeat, persistence and watched-batch checks pass; remaining scenarios still gate Go.
 - [ ] Run the focused manual session in `remaining-work-plan.md`: fresh install/persistence; copy/repeat/revert; dedupe/Trash/restore; force quit and repeat recovery; upgrade from public 1.1; Photos import and watched batch; purchase/access; small-window/light/dark/keyboard/VoiceOver; and a real external drive if advertised.
 - [ ] Include the realistic 1,000/approximately 10,000-file checks and record dataset count/bytes, cold/warm correctness, memory, cancellation, and drive format.
-- [ ] Verify StoreKit product availability, existing paid access, restore, cancellation, offline behavior, exhausted allowance, free test batch, and ungated revert with the appropriate test environment. Before the future cutoff, a new sandbox/TestFlight account may correctly qualify for legacy access; that alone does **not** test the locked allowance or purchase prompt. Keep deterministic locked-state tests separate from signed TestFlight and real paid-purchase evidence.
+- [ ] Verify StoreKit product availability, new-customer allowance regardless of acquisition date, restore, cancellation, offline behavior, exhausted allowance, free test batch and ungated revert. Old cached test-build legacy grants must not unlock the shipping app. Keep deterministic tests, signed StoreKit checks and production purchase evidence separate.
 - [ ] Record the owner's Go decision for the exact candidate, including evidence links and any accepted residual limitations. The signed 500 session is partial historical evidence; 501 installation/smoke checks are recorded; remaining scenarios and its final Go record remain open.
 
 [PR #239](https://github.com/Nishith/Chronoframe/pull/239) is merged as `e67bc9f`. Its runtime SHA `6df85b4` matches the preserved 501 archive source; the merge adds no different runtime behavior. Final upload/manual records are in a documentation-only follow-up, which does not require rebuilding 501. Merged-main CI passed; CodeQL was still running when these records were finalized.
@@ -119,10 +121,10 @@ CHRONOFRAME_BUILD_NUMBER=<unused-build-number> ./ui/archive-mas.sh
 Open the existing [draft version](https://appstoreconnect.apple.com/apps/6771245052/distribution/macos/version/inflight).
 
 - [x] Change draft Version to **2.0** and replace expired 373. Build **2.0 (501)** now supersedes 500 and is saved.
-- [x] Replace the old description, promotional text, What's New, and review notes using [APP_STORE_METADATA.md](APP_STORE_METADATA.md). Use the **paid-window** variants for the initial release.
+- [x] Replace the old description, promotional text, What's New, and review notes using [APP_STORE_METADATA.md](APP_STORE_METADATA.md). Replace the historical paid-window values with the October 16 **direct-free** variants before submission.
 - [x] Ensure the description says **macOS 14.0 or later**. Replace “always recover” with conditional recovery: files must remain in Trash with their recorded contents. Avoid a blanket offline claim for initial purchase/restore or downloading iCloud-only originals.
 - [x] In What's New, include the actual V2 customer benefits: Photos import, watched-source review, optional similar-video review, safety/recovery and interface improvements, plus existing-purchase protection. The staged notes currently focus mostly on pricing migration.
-- [x] Paste the full review notes, including **500 organized files + 100 duplicates trashed**, cumulative per Apple Account per Mac, permanent allowance, free scanning/review/history, one non-consumable unlock, grandfathered paid access, and revert refunds. Mention that the app remains paid during the initial transition window.
+- [x] Paste the full review notes, including **500 organized files + 100 duplicates trashed**, cumulative per Apple Account per Mac, permanent allowance, free scanning/review/history, one non-consumable unlock, grandfathered paid access, and revert refunds. State that V2 launches free with the lifetime unlock; remove the historical paid transition and grandfathering claims.
 - [x] Keep no app sign-in required; confirm review contact details, Photo & Video category, URLs, privacy declaration, and updated age-rating questionnaire. Do not advertise the disabled Library Guardian feature.
 - [x] Replace the older screenshot set with the numbered files in `marketing/release-2.0/screenshots`. Upload the actual screenshots, not `contact-sheet.png`. All seven files have accepted dimensions.
 - [x] Correct **06-run-history-app-store.png** to **“Receipts for safer undo.”** Regenerated and visually checked. 07 shows the Photos permission entry point rather than a populated library.
@@ -133,16 +135,13 @@ Open the existing [draft version](https://appstoreconnect.apple.com/apps/6771245
 
 Apple references checked for this audit: [Mac screenshots](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications), [preview specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications), [IAP submission](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-in-app-purchase/), and [app submission](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-app/).
 
-## 5. Release paid V2, then transition to free
+## 5. Release free V2 with the lifetime unlock
 
-- [ ] Once app and IAP are approved, manually release V2 while the app still costs **$14.99**.
-- [ ] Verify the public listing shows V2, correct screenshots/preview and compatibility; install/update from the public store and check paid access and core workflows.
-- [ ] Hold **at least seven days after paid V2 goes live**. Verify grandfathering using actual paid purchasers' production AppTransaction data, including V2 purchasers. Sandbox and TestFlight purchases cannot substitute for that evidence.
-- [ ] Only proceed when the released binary contains the correct cutoff, grandfathering has been verified, and the IAP is approved and available. If any condition fails, keep the app paid and postpone the transition.
-- [ ] Execute the free-download schedule for all intended territories. Apple applies pricing changes by storefront time zone, and propagation may take time; inspect actual storefronts rather than assuming a single instantaneous worldwide switch. See [Apple's price scheduling instructions](https://developer.apple.com/help/app-store-connect/manage-app-pricing/schedule-price-changes-for-apps/).
-- [ ] Verify a real account whose first acquisition is **after the cutoff** receives the allowance, while prior paid customers retain unrestricted use. Test purchase and restore against the production product.
-- [ ] When the advertised storefront is free, merge **PR #226**, wait for Pages deployment, and verify the live video, trial terms, privacy/support links and App Store CTA. Planned publication date is now October 26 and sitemap last-modified date October 4; recheck dates and conflicts before merging. Every `site/**` push to `main` deploys immediately.
-- [ ] Update README and App Store promotional text to the free-to-try variants. Keep the pricing-neutral description or coordinate a reviewed follow-up version for description changes; do not assume the released description is freely editable.
+- [ ] Verify the final tested build, app Free pricing, $14.99 US non-consumable unlock with Family Sharing, territory availability and free-launch metadata. Submit app and first IAP together, retaining manual release.
+- [ ] Once app and IAP are approved, coordinate free pricing with V2 availability and manually release. If the older paid version is still listed, do not assume the version's manual release setting also holds a pricing change.
+- [ ] Verify the public listing shows free download, V2, correct screenshots/preview and compatibility. Install from the public store; verify a fresh customer's 500/100 allowance, production purchase/restore and core workflows.
+- [ ] When the advertised storefront is free and production checks pass, release the held website update (historically PR #226; recheck current state), verify Pages deployment, live video, allowance terms, privacy/support links and App Store CTA. Recheck publication dates. Every `site/**` push to `main` deploys immediately.
+- [ ] Publish README, store and marketing copy matching the actual free offer. No seven-day paid rollout or production-grandfathering check applies.
 
 ## 6. Send out the marketing assets
 

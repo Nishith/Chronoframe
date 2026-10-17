@@ -48,15 +48,9 @@ public struct LicenseStatusModel: Equatable, Sendable {
     ///   describe. Passed as a value rather than read from `#if MAS_BUILD`
     ///   here, so both branches stay compiled in every lane — the same reason
     ///   `TrialComposition.isMacAppStoreBuild` is a boolean.
-    /// - Parameter cutover: when the App Store price drops to free. A legacy
-    ///   unlock means two different things on either side of that moment, and
-    ///   only one of them is true at a time — see `unlockedDetail`.
-    /// - Parameter now: the instant to describe, compared against `cutover`.
     public static func make(
         status: TrialStatus,
-        isAppStoreChannel: Bool = true,
-        cutover: Date = ChronoframeUnlock.grandfatherCutover,
-        now: Date = Date()
+        isAppStoreChannel: Bool = true
     ) -> LicenseStatusModel {
         // Nothing to license, so nothing to sell, restore, or meter. Saying
         // "Checking your purchase…" in a channel that cannot have one — and
@@ -75,10 +69,7 @@ public struct LicenseStatusModel: Equatable, Sendable {
         if status.isUnlocked {
             return LicenseStatusModel(
                 headline: "Unlocked",
-                detail: unlockedDetail(
-                    status.entitlement,
-                    hasPriceDropped: now >= cutover
-                ),
+                detail: unlockedDetail(status.entitlement),
                 allowanceRows: [],
                 showsRestore: false
             )
@@ -138,33 +129,15 @@ public struct LicenseStatusModel: Equatable, Sendable {
         }
     }
 
-    /// - Parameter hasPriceDropped: whether the App Store price has actually
-    ///   reached free yet.
-    ///
-    /// `legacyPurchase` is granted to everyone who acquired the app before
-    /// `grandfatherCutover`, and that constant sits far in the future for the
-    /// whole paid window — so during that window EVERY paying customer resolves
-    /// to `.legacyPurchase`. Telling them they bought "before it moved to a
-    /// free download" would announce a price drop that has not happened, to
-    /// someone who has just paid full price for the app. The store listing is
-    /// already careful to make no pricing claim until the cutover; this is the
-    /// same rule applied in-app.
-    private static func unlockedDetail(
-        _ entitlement: EntitlementState,
-        hasPriceDropped: Bool
-    ) -> String {
+    private static func unlockedDetail(_ entitlement: EntitlementState) -> String {
         guard case let .unlocked(reason) = entitlement else { return "" }
         switch reason {
         case .inAppPurchase:
             return "Thank you. Every feature is available, with no limits."
         case .legacyPurchase:
-            guard hasPriceDropped else {
-                // True on both sides of the cutover, and it makes no claim
-                // about a price this customer has not seen.
-                return "Thank you. Chronoframe is unlocked permanently for this Apple Account, "
-                    + "with no limits."
-            }
-            return "You bought Chronoframe before it moved to a free download, so it is unlocked permanently."
+            // Retained for explicitly injected historical policies; the shipping
+            // direct-free policy never grants legacy access.
+            return "Thank you. Chronoframe is unlocked permanently for this Apple Account, with no limits."
         }
     }
 

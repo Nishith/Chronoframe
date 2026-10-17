@@ -1,5 +1,7 @@
 # Chronoframe Remaining Production-Readiness Work
 
+**October 16 access-policy update:** the owner confirmed no existing users and approved a direct free launch. The app download is Free; the lifetime non-consumable is $14.99 US with Family Sharing. The 500/100 cumulative allowance and ungated refunding revert remain. Shipping policy disables acquisition-date and cached legacy grants. Historical paid-window, October 18 deadline, October 26 compiled cutoff and production-grandfathering gates below are superseded. Final-source CI, a new signed build, signed functional/StoreKit retests, store configuration and owner Go still gate release. No upload, price change, submission or publication is claimed by this update. See [the current launch sequence](APP_STORE_RELEASE.md#direct-free-launch).
+
 Status date: 2026-10-05 (release scope for version 2.0 revised 2026-09-28)
 
 This is the current follow-up plan after PR #160. The earlier review-remediation
@@ -96,7 +98,7 @@ TestFlight with the real bundle identity.
 | Interrupt and recover | Force quit mid-run, relaunch and recover twice: sources untouched, honest partial result, retry is idempotent. |
 | Upgrade from 1.x | Settings, folder access and existing receipts still work after upgrading from the current public version. |
 | Photos and watched batch | Cross-album import matches the review; the Photos library is untouched; a one-file watched batch leaves the other file pending. |
-| StoreKit (sandbox) | Existing paid user keeps access; new user gets the free allowance; purchase, restore, cancellation, offline relaunch and an exhausted allowance behave; revert works without unlocking. |
+| StoreKit (sandbox) | New user gets the free allowance regardless of acquisition date; an old test-build legacy grant confers no access; purchase, restore, cancellation, offline relaunch and an exhausted allowance behave; revert works without unlocking. |
 | Usability | Small window, light and dark, keyboard and VoiceOver through preview, review, confirmation and recovery. |
 | External drive (if advertised) | One real drive: organize, disconnect and reconnect, bookmark restore. Record the drive and format tested and what was not. |
 
@@ -109,15 +111,7 @@ unbounded memory or unusable cancellation, not on modest latency.
 
 ### Go decision
 
-The owner records, for the exact candidate: commit, version/build and archive
-identity, and the `grandfatherCutover` value it contains; the checks passed, with links to evidence; accepted residual risks
-with impact and workaround; the decision and its date.
-
-`ChronoframeUnlock.grandfatherCutover` is a compile-time constant, so it must
-already be set to the scheduled price-change moment (biased a few hours late) in
-the 2.0 binary that is submitted, not after release (see `docs/free-trial-plan.md`
-T21 and `docs/APP_STORE_RELEASE.md`). The Go record confirms the value in the
-exact candidate.
+The owner records the exact candidate commit, version/build and archive identity; disabled legacy-unlock shipping policy; checks passed with evidence links; accepted residual risks with impact and workaround; and the decision and date. A new signed candidate is required after the October 16 direct-free policy change. There is no compiled acquisition cutoff, customer settings migration or seven-day paid window. See [the access-rule record](release-2.0-direct-free-access.md).
 
 ## Original June 2026 Release Gates (superseded for 2.0)
 

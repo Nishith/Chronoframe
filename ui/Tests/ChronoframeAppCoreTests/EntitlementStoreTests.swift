@@ -272,6 +272,76 @@ final class EntitlementStoreTests: XCTestCase {
     // MARK: Refresh
 
     @MainActor
+    func testShippingDefaultsGiveHistoricalAppAcquisitionTheFreeAllowance() async {
+        let client = FakeAppTransactionClient()
+        client.result = .success(legacyInfo())
+        let timestamp = now
+        let store = EntitlementStore(
+            storeKit: FakeStoreKitClient(), appTransactionClient: client,
+            defaults: defaults, clock: { timestamp }
+        )
+        await store.refresh()
+        XCTAssertEqual(store.state, .locked)
+        XCTAssertEqual(store.ledgerAccountKey, "app-txn-1")
+        XCTAssertNil(defaults.data(forKey: "entitlement.cachedLegacyGrant"))
+
+        let status = TrialStatusStore(ledger: InMemoryTrialLedger())
+        status.refresh(entitlement: store.state, accountKey: store.ledgerAccountKey)
+        XCTAssertEqual(status.status.remaining(for: .organize), 500)
+        XCTAssertEqual(status.status.remaining(for: .dedupe), 100)
+    }
+
+    @MainActor
+    func testShippingDefaultsIgnoreCachedTestGrantOfflineAndClearItWhenVerified() async {
+        let client = FakeAppTransactionClient()
+        client.result = .success(legacyInfo())
+        let storeKit = FakeStoreKitClient()
+        let oldStore = makeStore(storeKit: storeKit, appTransaction: client)
+        await oldStore.refresh()
+        XCTAssertNotNil(defaults.data(forKey: "entitlement.cachedLegacyGrant"))
+
+        client.result = .failure(.unavailable)
+        let timestamp = now
+        let store = EntitlementStore(
+            storeKit: storeKit, appTransactionClient: client,
+            defaults: defaults, clock: { timestamp }
+        )
+        await store.refresh()
+        XCTAssertEqual(store.state, .verificationUnavailable)
+        client.result = .success(legacyInfo())
+        await store.refresh()
+        XCTAssertEqual(store.state, .locked)
+        XCTAssertNil(defaults.data(forKey: "entitlement.cachedLegacyGrant"))
+    }
+
+    @MainActor
+    func testShippingDefaultsPurchaseCancelRestoreAndRelaunch() async {
+        let client = FakeAppTransactionClient()
+        client.result = .success(legacyInfo())
+        let storeKit = FakeStoreKitClient()
+        let store = EntitlementStore(
+            storeKit: storeKit, appTransactionClient: client, defaults: defaults
+        )
+        await store.refresh()
+        await store.purchase() // The fake's initial outcome is userCancelled.
+        XCTAssertEqual(store.state, .locked)
+
+        storeKit.purchaseResult = .purchased
+        storeKit.ownedResult = ownedUnlock()
+        await store.purchase()
+        XCTAssertEqual(store.state, .unlocked(reason: .inAppPurchase))
+
+        let relaunched = EntitlementStore(
+            storeKit: storeKit, appTransactionClient: client, defaults: defaults
+        )
+        await relaunched.refresh()
+        XCTAssertEqual(relaunched.state, .unlocked(reason: .inAppPurchase))
+        await relaunched.restore()
+        XCTAssertEqual(relaunched.state, .unlocked(reason: .inAppPurchase))
+        XCTAssertEqual(storeKit.syncCallCount, 1)
+    }
+
+    @MainActor
     func testRefreshUnlocksLegacyPurchaserAndCachesTheGrant() async {
         let storeKit = FakeStoreKitClient()
         let appTransaction = FakeAppTransactionClient()
