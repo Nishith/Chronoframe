@@ -1,0 +1,37 @@
+[
+  {
+    "asset": "setup-202609.jpg",
+    "source": "01-setup-raw-approved.png",
+    "source_sha256": "20d9cffd5473de5e858042b193201af8dd98fde97b509749fd40d894c4b434db",
+    "width": 1920,
+    "height": 1058
+  },
+  {
+    "asset": "preview-timeline-202609.jpg",
+    "source": "03-preview-validation.png",
+    "source_sha256": "da72e7fbdfd05c145df749bba1c7241541c35fd24f16785354a1ec381b54bfbd",
+    "width": 1920,
+    "height": 1059
+  },
+  {
+    "asset": "transfer-complete-202609.jpg",
+    "source": "03-transfer-complete-raw-approved.png",
+    "source_sha256": "81a4d14fca7152f6df69f8765cfae42349b7c54bc00251e15ecdc4b2e3ec81b4",
+    "width": 1920,
+    "height": 998
+  },
+  {
+    "asset": "run-history-202609.jpg",
+    "source": "05-run-history-raw-approved.png",
+    "source_sha256": "65f0734b67f09ee2d329088c7658df1d0cbf34429a8357fc8d139d6b20d4dd90",
+    "width": 1920,
+    "height": 1062
+  },
+  {
+    "asset": "dedupe-compare-202609.jpg",
+    "source": "02-deduplicate-raw-approved.png",
+    "source_sha256": "26395d9b02aa1bf5a0911679932bcfbfcc225e6d085cb8d2b415d94830d72b01",
+    "width": 1920,
+    "height": 1049
+  }
+]
