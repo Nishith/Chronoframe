@@ -1,0 +1,315 @@
+{
+  "date": "2026-10-18",
+  "engine": "axe-core 4.10.3 in the in-app browser",
+  "rules": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+    "best-practice"
+  ],
+  "normal": [
+    {
+      "frame_width": 320,
+      "pages": [
+        {
+          "page": "index.html",
+          "content_width": 306,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "features.html",
+          "content_width": 306,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "safety.html",
+          "content_width": 306,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "faq.html",
+          "content_width": 306,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "support.html",
+          "content_width": 306,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "privacy.html",
+          "content_width": 306,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "404.html",
+          "content_width": 306,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_width": 390,
+      "pages": [
+        {
+          "page": "index.html",
+          "content_width": 376,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "features.html",
+          "content_width": 376,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "safety.html",
+          "content_width": 376,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "faq.html",
+          "content_width": 376,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "support.html",
+          "content_width": 376,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "privacy.html",
+          "content_width": 376,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "404.html",
+          "content_width": 376,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_width": 768,
+      "pages": [
+        {
+          "page": "index.html",
+          "content_width": 754,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "features.html",
+          "content_width": 754,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "safety.html",
+          "content_width": 754,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "faq.html",
+          "content_width": 754,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "support.html",
+          "content_width": 754,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "privacy.html",
+          "content_width": 754,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "404.html",
+          "content_width": 768,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        }
+      ]
+    },
+    {
+      "frame_width": 1280,
+      "pages": [
+        {
+          "page": "index.html",
+          "content_width": 1266,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "features.html",
+          "content_width": 1266,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "safety.html",
+          "content_width": 1266,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "faq.html",
+          "content_width": 1266,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        },
+        {
+          "page": "support.html",
+          "content_width": 1266,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "privacy.html",
+          "content_width": 1266,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": []
+        },
+        {
+          "page": "404.html",
+          "content_width": 1280,
+          "violations": 0,
+          "horizontal_overflow": 0,
+          "manual_review_rules": [
+            "color-contrast"
+          ]
+        }
+      ]
+    }
+  ],
+  "text_enlargement": {
+    "frame_width": 320,
+    "font_scale": 2,
+    "pages": [
+      {
+        "page": "index.html",
+        "content_width": 306,
+        "violations": 0,
+        "horizontal_overflow": 0
+      },
+      {
+        "page": "features.html",
+        "content_width": 306,
+        "violations": 0,
+        "horizontal_overflow": 0
+      },
+      {
+        "page": "safety.html",
+        "content_width": 306,
+        "violations": 0,
+        "horizontal_overflow": 0
+      },
+      {
+        "page": "faq.html",
+        "content_width": 306,
+        "violations": 0,
+        "horizontal_overflow": 0
+      },
+      {
+        "page": "support.html",
+        "content_width": 306,
+        "violations": 0,
+        "horizontal_overflow": 0
+      },
+      {
+        "page": "privacy.html",
+        "content_width": 306,
+        "violations": 0,
+        "horizontal_overflow": 0
+      },
+      {
+        "page": "404.html",
+        "content_width": 306,
+        "violations": 0,
+        "horizontal_overflow": 0
+      }
+    ]
+  },
+  "limitations": [
+    "Frame widths include the browser scrollbar; content widths are recorded separately.",
+    "Text enlargement doubles computed font sizes; it does not emulate browser zoom.",
+    "Automated results are supplemented by documented manual review, not WCAG certification or a spoken VoiceOver session."
+  ]
+}

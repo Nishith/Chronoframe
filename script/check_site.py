@@ -3,6 +3,8 @@
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+import argparse
+import hashlib
 import json
 import re
 import struct
@@ -11,6 +13,9 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1] / 'site'
 errors = []
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--release', action='store_true', help='Require verified public-release proof; run immediately before merging the publishing PR')
+args = parser.parse_args()
 
 
 def check(condition, message):
@@ -149,6 +154,8 @@ check(proof_path.is_file(), 'Product proof needs a provenance manifest')
 if proof_path.is_file():
     proof = json.loads(proof_path.read_text())
     assets = proof.get('assets', [])
+    if args.release:
+        check(proof.get('publication_status') == 'verified_for_public_release', 'RELEASE HELD: public V2 offer and app screenshot/film verification are incomplete; do not merge the publishing PR')
     recorded_paths = {asset.get('path') for asset in assets}
     check(proof.get('publication_status') in ('held_for_public_release_verification', 'verified_for_public_release'), 'Unknown proof publication status')
     for asset in assets:
@@ -157,6 +164,11 @@ if proof_path.is_file():
                 continue
             target = (ROOT/asset[field]).resolve()
             check(target.is_relative_to(ROOT.resolve()) and target.is_file(), f'Proof manifest has missing/unsafe {field}: {asset[field]}')
+            if field == 'poster' and target.is_relative_to(ROOT.resolve()) and target.is_file():
+                check(asset.get('poster_sha256') == hashlib.sha256(target.read_bytes()).hexdigest(), f'Proof poster changed without updating its provenance: {asset[field]}')
+        target = (ROOT/asset.get('path', '')).resolve()
+        if target.is_relative_to(ROOT.resolve()) and target.is_file():
+            check(asset.get('sha256') == hashlib.sha256(target.read_bytes()).hexdigest(), f'Proof asset changed without updating its provenance: {asset.get("path")}')
         if proof.get('publication_status') == 'verified_for_public_release' and asset.get('kind') in ('app_capture', 'recorded_walkthrough'):
             for field in ('capture_date', 'app_version_build', 'app_source_commit', 'publicly_available_version_represented'):
                 check(bool(asset.get(field)), f'Publication-ready proof is missing {field}: {asset.get("path")}')

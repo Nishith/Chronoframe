@@ -25,6 +25,9 @@ on pushes to main. A branch or PR does not update the public site. The checker i
 dependency-free Python 3.9+ and covers local assets/links/fragments, basic page semantics,
 JSON-LD, sitemap, no third-party render dependencies, and demo/caption delivery constraints.
 Browser QA is still required; these checks are not a WCAG certification.
+Run `python3 script/check_site.py --release` immediately before merging. It rejects
+a held product-proof manifest; ordinary PR checks intentionally allow an explicitly
+held draft. Neither mode substitutes for checking Apple's current public offer.
 
 ## Content and offer
 
@@ -50,6 +53,10 @@ is excluded because `GuardianCapability.isEnabled` is false. Do not promote gate
 source-tree features merely because their implementation exists.
 
 The demo is development footage; `assets/video/README.md` records its provenance.
+The October 18 design pass selects the plan's recorded, captioned walkthrough
+fallback. An interactive browser simulator is cut from this delivery; the separate
+interactive dedupe extension is deferred. Captions, transcript, native controls and
+chapter shortcuts supply the walkthrough without a new runtime/test dependency.
 The film's `VideoObject.uploadDate` is deliberately omitted while publication is
 unknown; add the actual public publication date before release. Recheck the privacy
 policy's effective date at publication. Do not replace these with a projected launch
