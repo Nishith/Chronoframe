@@ -339,7 +339,10 @@ Chronoframe targets the Apple "sets the standard" bar. Treat these as expectatio
 preview, publishing, and the offer verification checklist. Run `python3 script/check_site.py`
 for HTML/link/media checks; use `python3 script/preview_site.py` for a local preview with
 MP4 byte-range support. `Check Website` runs on site PRs; `Deploy Site` repeats validation
-before publishing main. The self-hosted one-minute demo has native controls, WebVTT and
+before publishing main. Run `python3 script/check_site.py --release` immediately before
+merging the publishing PR; it rejects a held product-proof manifest. Draft PR checks
+permit held work. Asset checksums and release observations live in
+`site/assets/product-proof.json`. The self-hosted one-minute demo has native controls, WebVTT and
 an HTML transcript; optional `site.js` adds chapter shortcuts. Keep playback user-initiated.
 Never publish free-trial copy until the store cutover is verified; keep visible pricing and
 JSON-LD in sync. Development requirements and features can differ from the live App Store.

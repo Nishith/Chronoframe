@@ -57,9 +57,14 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  overflow-wrap: anywhere;
 }
 
 a { color: var(--waypoint); text-decoration: none; }
+:where(p, li, figcaption) a:not(.btn):not(.appstore-badge) {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
 a:hover { text-decoration: underline; }
 
 h1, h2, h3, h4 {
@@ -495,8 +500,9 @@ button { font: inherit; }
 .demo-play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; padding: 16px 24px; border-radius: 999px; border: 1px solid #ffae76; background: #ff8a3d; color: #161618; box-shadow: 0 4px 24px #0008; font-weight: 700; font-size: 17px; cursor: pointer; }
 .demo-play span { font-weight: 500; font-size: 13px; border-left: 1px solid #16161855; padding-left: 12px; }
 .demo-play:hover { background: #ffa566; }
+.demo-play { max-width: calc(100% - 32px); white-space: normal; }
 @media (max-width: 720px) {
-  .demo-play { font-size: 14px; padding: 12px 18px; gap: 8px; }
+  .demo-play { position: static; transform: none; margin: 12px auto; font-size: 14px; padding: 12px 18px; gap: 8px; }
   .demo-play span { font-size: 12px; padding-left: 8px; }
 }
 @media (forced-colors: active) { .demo-play { border: 2px solid ButtonText; } }
@@ -610,4 +616,12 @@ button { font: inherit; }
   .site-nav .brand { font-size: 14px; gap: 6px; }
   .site-nav .brand-icon { width: 24px; height: 24px; }
   .site-nav .nav-download { font-size: 12px; padding-inline: 10px; }
+}
+
+/* Let enlarged text shrink grid tracks and wrap rather than clip controls. */
+.site-nav .container { grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto); }
+.site-nav .container > *, .trust-layout > *, .grid-3 > * { min-width: 0; }
+.nav-download { text-align: center; }
+@media (max-width: 720px) {
+  .site-nav .container { grid-template-columns: minmax(0, 1fr) minmax(0, auto); }
 }
