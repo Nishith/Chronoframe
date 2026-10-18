@@ -743,6 +743,28 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testLargeReceiptRendersBoundedRowsAndRemainsDismissible() {
+        let app = Self.launchApp(.historyPopulated, additionalEnvironment: ["CHRONOFRAME_UI_TEST_LARGE_RECEIPT": "1"])
+        defer { app.terminate() }
+        let open = app.buttons["Open Audit Receipt"]
+        XCTAssertTrue(Self.scrollIntoView(open, in: app))
+        open.click()
+        let count = app.staticTexts["receiptFileCount"]
+        XCTAssertTrue(count.waitForExistence(timeout: 10), "A 10,000-item receipt must load without stalling the window")
+        let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "receiptRow-"))
+        XCTAssertGreaterThan(rows.count, 0)
+        XCTAssertLessThan(rows.count, 100, "Only a bounded visible portion of the receipt should be rendered")
+        let close = app.buttons["receiptCloseButton"]
+        XCTAssertTrue(close.isHittable)
+        let proof = XCTAttachment(screenshot: app.screenshot())
+        proof.name = "Large receipt renders visible rows"
+        proof.lifetime = .keepAlways
+        self.add(proof)
+        close.click()
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+    }
+
     func testTimelineSelectionUpdatesPreview() async {
         await MainActor.run {
             let app = Self.launchApp(.runPreviewReview)
@@ -1070,11 +1092,12 @@ final class ChronoframeUITests: XCTestCase {
     }
 
     @MainActor
-    private static func launchApp(_ scenario: Scenario) -> XCUIApplication {
+    private static func launchApp(_ scenario: Scenario, additionalEnvironment: [String: String] = [:]) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchEnvironment["CHRONOFRAME_UI_TEST_SCENARIO"] = scenario.rawValue
         app.launchEnvironment["CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS"] = "1"
         app.launchEnvironment["TZ"] = "UTC"
+        app.launchEnvironment.merge(additionalEnvironment) { _, new in new }
         app.launchArguments += ["--chronoframe-ui-test-scenario", scenario.rawValue, "-AppleTimeZone", "UTC", "-TZ", "UTC"]
         app.launch()
         app.activate()

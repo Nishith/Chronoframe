@@ -141,7 +141,7 @@ Release packaging defaults to Developer ID signed, hardened-runtime, notarized, 
 - `docs/SAFETY_AND_RECOVERY.md` is the shared plain-language and technical contract for locking, content verification, journals, interruption states, and artifact retention.
 - `docs/TECHNICAL.md` is the current developer architecture and artifact reference.
 - `docs/production-readiness-certification.md` is the release-gate evidence ledger.
-- `docs/release-2.0-504-manual-session.md` records the current signed direct-free candidate: 504 is uploaded, processed and installed through TestFlight; PR #244 merged with passing CI/CodeQL. Signed functional/StoreKit retests and owner Go remain open. Earlier 500–503 artifacts are historical evidence, not proof of the new access policy.
+- `docs/release-2.0-507-manual-session.md` records the current signed viewer replacement. Build 507 is uploaded; its final large-receipt signed retest and hosted PR #246 checks remain open. Build 506 verified all 344 cancelled-run files but exposed a large-receipt rendering blocker. The 504 ledger retains allowance/purchase/relaunch and cancellation/resume evidence; Restore Purchases and other unrecorded signed gates remain open. Owner Go is not recorded.
 - `docs/remaining-work-plan.md` lists only unfinished certification and product-decision work.
 - `docs/free-trial-plan.md` is the access-policy source of truth. On October 16, 2026 the owner confirmed no existing customers and approved a direct free V2 launch: 500 organized files and 100 duplicates trashed cumulatively per Apple Account per Mac, $14.99 US non-consumable lifetime unlock with Family Sharing, unlimited scanning/preview/review/history, and ungated revert that refunds allowance. `ChronoframeUnlock.defaultPolicy()` disables live and cached legacy grants; there is no acquisition cutoff or seven-day paid rollout. Keep the historical migration policy opt-in for tests only. Read the plan before entitlement, trial-allowance, or pricing work.
 
@@ -153,6 +153,10 @@ Swift 6.1+ and retains the original-purchase-date fallback for the Swift 6.0 CI 
 - `prodsec/Chronoframe/` contains historical review artifacts. Keep their findings for audit traceability, but do not treat old proposed implementations as current architecture.
 
 ## User-Facing Error Handling
+
+History owns a per-load destination security scope, including recovery and indexing. Destination bookmarks are also retained persistently by archive root under `history.destination.<base64 canonical path>` in `PreferencesStore`, independently of the current manual/profile/dedupe destination, so changing Setup during a captured run does not revoke later receipt access. Receipt detail sheets hold a scope while visible and verification holds a separate lease through completion. History refresh failures preserve the same archive's loaded snapshot; permission failures show **Reconnect your archive folder → Choose Folder…**, not empty-history claims. Reconnection must select the same canonical root, preserve Setup/profile selection, save refreshed access and reload automatically. A different root is rejected with an explanation; never silently retarget a recovery action.
+
+Receipt sheets read and decode off the main actor while holding an independent worker security scope. Large receipts render through a bounded-height `LazyVStack`; never instantiate every receipt row eagerly. The DEBUG-only `CHRONOFRAME_UI_TEST_LARGE_RECEIPT=1` history fixture and `testLargeReceiptRendersBoundedRowsAndRemainsDismissible` exercise 10,000 app-owned fixture records without touching user media.
 
 Recent work improved error handling for nontechnical users. Preserve that tone.
 

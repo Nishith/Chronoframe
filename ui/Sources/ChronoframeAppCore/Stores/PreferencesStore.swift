@@ -240,6 +240,22 @@ public final class PreferencesStore: ObservableObject {
     public func storeBookmark(_ bookmark: FolderBookmark) {
         defaults.set(bookmark.data, forKey: bookmarkDefaultsKey(for: bookmark.key))
         defaults.set(bookmark.path, forKey: bookmarkPathDefaultsKey(for: bookmark.key))
+        // Keep each archive's permission when Setup replaces its current
+        // destination or a profile is removed while a captured run finishes.
+        if bookmark.key.hasSuffix(".destination") {
+            storeHistoryDestinationBookmark(bookmark, destinationRoot: bookmark.path)
+        }
+    }
+
+    public static func historyDestinationBookmarkKey(for path: String) -> String {
+        let normalized = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        return "history.destination." + Data(normalized.utf8).base64EncodedString()
+    }
+
+    public func storeHistoryDestinationBookmark(_ bookmark: FolderBookmark, destinationRoot: String) {
+        let key = Self.historyDestinationBookmarkKey(for: destinationRoot)
+        defaults.set(bookmark.data, forKey: bookmarkDefaultsKey(for: key))
+        defaults.set(bookmark.path, forKey: bookmarkPathDefaultsKey(for: key))
     }
 
     public func removeBookmark(for key: String) {

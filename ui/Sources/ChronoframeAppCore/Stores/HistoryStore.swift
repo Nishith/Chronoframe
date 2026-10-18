@@ -10,6 +10,10 @@ public final class HistoryStore: ObservableObject {
     @Published public private(set) var transferredSources: [TransferredSourceRecord]
     @Published public private(set) var destinationRoot: String
     @Published public private(set) var lastRefreshError: String?
+    @Published public private(set) var needsFolderAccess = false
+    @Published public private(set) var reconnectError: String?
+    private var refreshGeneration = 0
+    private var destinationScopeProvider: (@MainActor (String) -> SecurityScopedFolderAccess?)?
     private let indexer: any RunHistoryIndexing
     private let transferredSourcesLog: TransferredSourcesLog
     private let trashItem: (URL) throws -> Void
@@ -38,6 +42,14 @@ public final class HistoryStore: ObservableObject {
         await loadEntries()
     }
 
+    public func setDestinationScopeProvider(_ provider: @escaping @MainActor (String) -> SecurityScopedFolderAccess?) {
+        destinationScopeProvider = provider
+    }
+
+    public func reportReconnectError(_ message: String?) {
+        reconnectError = message
+    }
+
     /// Records the active destination and clears the in-memory lists. Cheap
     /// (no disk I/O), so callers that must reflect the new root immediately
     /// can call this synchronously and offload `loadEntries()` to a Task.
@@ -48,11 +60,15 @@ public final class HistoryStore: ObservableObject {
         // downstream callers rely on as the implicit "where receipts live" handle.
         let trimmed = destinationRoot.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard trimmed != self.destinationRoot else { return }
 
+        refreshGeneration += 1
         self.destinationRoot = trimmed
         self.entries = []
         self.transferredSources = []
         self.lastRefreshError = nil
+        self.needsFolderAccess = false
+        self.reconnectError = nil
     }
 
     /// Reads run-history artifacts and the transferred-sources log for the
@@ -61,13 +77,18 @@ public final class HistoryStore: ObservableObject {
     public func loadEntries() async {
         let trimmed = destinationRoot
         guard !trimmed.isEmpty else { return }
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let scope = destinationScopeProvider?(trimmed)
+        defer { scope?.close() }
 
         let indexer = self.indexer
         let log = self.transferredSourcesLog
         let outcome = await Task.detached(priority: .userInitiated) {
-            () -> (entries: [RunHistoryEntry]?, errorMessage: String?, sources: [TransferredSourceRecord]) in
+            () -> (entries: [RunHistoryEntry]?, errorMessage: String?, needsAccess: Bool, sources: [TransferredSourceRecord]) in
             var entries: [RunHistoryEntry]?
             var errorMessage: String?
+            var needsAccess = false
             do {
                 let rootURL = URL(fileURLWithPath: trimmed, isDirectory: true)
                 let lease = try DestinationOperationLock.acquire(
@@ -80,24 +101,40 @@ public final class HistoryStore: ObservableObject {
                 entries = try indexer.index(destinationRoot: trimmed)
             } catch {
                 errorMessage = UserFacingErrorMessage.message(for: error, context: .history)
+                needsAccess = Self.isFolderAccessError(error)
             }
             let sources = log.load(destinationRoot: trimmed)
-            return (entries, errorMessage, sources)
+            return (entries, errorMessage, needsAccess, sources)
         }.value
 
-        guard destinationRoot == trimmed else { return }
+        guard destinationRoot == trimmed, generation == refreshGeneration else { return }
 
         if let entries = outcome.entries {
             self.entries = entries
             self.lastRefreshError = nil
+            self.needsFolderAccess = false
+            self.reconnectError = nil
+            self.transferredSources = outcome.sources
             #if canImport(CoreSpotlight)
             SpotlightIndexer.indexHistoryEntries(entries)
             #endif
         }
         if let errorMessage = outcome.errorMessage {
             self.lastRefreshError = errorMessage
+            self.needsFolderAccess = outcome.needsAccess
         }
-        self.transferredSources = outcome.sources
+    }
+
+    nonisolated private static func isFolderAccessError(_ error: Error, depth: Int = 0) -> Bool {
+        guard depth < 5 else { return false }
+        let ns = error as NSError
+        if ns.domain == NSPOSIXErrorDomain, [Int(EACCES), Int(EPERM)].contains(ns.code) { return true }
+        if ns.domain == NSCocoaErrorDomain,
+           [NSFileReadNoPermissionError, NSFileWriteNoPermissionError].contains(ns.code) { return true }
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? Error {
+            return isFolderAccessError(underlying, depth: depth + 1)
+        }
+        return false
     }
 
     /// Records a successful transfer in the per-destination JSON log and

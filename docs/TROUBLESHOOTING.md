@@ -37,6 +37,16 @@ If the issue persists, [report it on GitHub](https://github.com/Nishith/Chronofr
 
 ## Preview Issues
 
+### History asks to reconnect an archive folder
+
+Chronoframe could not access the selected archive. This does not mean its media or receipts were deleted.
+
+1. Connect and unlock the drive if the archive is on an external disk.
+2. In **Organize → History**, click **Choose Folder…** under **Reconnect your archive folder**.
+3. Select the same archive folder shown in the message. Chronoframe saves refreshed access and reloads History automatically.
+
+Choosing a different folder leaves the current archive unchanged and explains which folder to select. Previously loaded entries remain visible but unavailable until access returns. You do not need to rerun a transfer, reset settings or grant Full Disk Access. Keep `.organize_logs/` and its receipts intact.
+
 ### Preview is taking too long
 
 **Problem:** The preview has been running for 10+ minutes.
