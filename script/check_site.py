@@ -141,7 +141,49 @@ for element in sitemap.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}
     if path.is_dir(): path/='index.html'
     check(path.is_file(), f'Sitemap references missing page: {element.text}')
 check((ROOT/'CNAME').read_text().strip() == 'chronoframe.app', 'Incorrect CNAME')
+
+# Real app captures and decorative artwork have different provenance. A held
+# draft can have unknown build mappings; a publication-ready manifest cannot.
+proof_path = ROOT/'assets/product-proof.json'
+check(proof_path.is_file(), 'Product proof needs a provenance manifest')
+if proof_path.is_file():
+    proof = json.loads(proof_path.read_text())
+    assets = proof.get('assets', [])
+    recorded_paths = {asset.get('path') for asset in assets}
+    check(proof.get('publication_status') in ('held_for_public_release_verification', 'verified_for_public_release'), 'Unknown proof publication status')
+    for asset in assets:
+        for field in ('path', 'poster', 'provenance'):
+            if field not in asset:
+                continue
+            target = (ROOT/asset[field]).resolve()
+            check(target.is_relative_to(ROOT.resolve()) and target.is_file(), f'Proof manifest has missing/unsafe {field}: {asset[field]}')
+        if proof.get('publication_status') == 'verified_for_public_release' and asset.get('kind') in ('app_capture', 'recorded_walkthrough'):
+            for field in ('capture_date', 'app_version_build', 'app_source_commit', 'publicly_available_version_represented'):
+                check(bool(asset.get(field)), f'Publication-ready proof is missing {field}: {asset.get("path")}')
+    for page in pages.values():
+        for tag, attrs in page.tags:
+            source = attrs.get('src', '')
+            if tag == 'img' and source.startswith('assets/screenshots/'):
+                check(source in recorded_paths, f'Unrecorded app screenshot: {source}')
+    art = ROOT/'assets/artwork/photos-to-order.jpg'
+    check(art.is_file() and art.stat().st_size < 350_000, 'Hero artwork missing or over 350 KB budget')
+
+home_source = (ROOT/'index.html').read_text()
+check('product-window' in home_source and 'tabindex="0" role="region"' in home_source, 'Product screenshot needs keyboard-accessible narrow-screen inspection')
+if proof_path.is_file():
+    if proof.get('publication_status') == 'held_for_public_release_verification':
+        check('uploadDate' not in video_schema, 'Held footage must not advertise a projected publication date')
+    else:
+        film = next((asset for asset in proof.get('assets', []) if asset.get('kind') == 'recorded_walkthrough'), {})
+        check(bool(film.get('publication_date')) and str(video_schema.get('uploadDate', '')).startswith(film['publication_date']), 'Published footage needs its recorded publication date in structured data')
+for name in ('index.html', 'faq.html', 'support.html'):
+    source = (ROOT/name).read_text()
+    for required in ('500', '100', 'Apple Account per Mac', 'Family Sharing', 'History', 'Revert'):
+        check(required in source, f'{name}: missing settled offer term: {required}')
+    for retired in ('Customers who bought the paid app keep full access', 'paid app or lifetime unlock', 'introductory price'):
+        check(retired not in source, f'{name}: retired offer/purchase claim: {retired}')
+
 if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
-print(f'PASS: {len(pages)} HTML pages; local links/anchors/assets; metadata; video policy, size, fast-start and captions; sitemap.')
+print(f'PASS: {len(pages)} HTML pages; local links/anchors/assets; metadata; video policy, size, fast-start and captions; sitemap; offer terms and product-proof provenance.')

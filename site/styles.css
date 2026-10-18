@@ -518,3 +518,96 @@ button { font: inherit; }
 .screenshot-link { display: block; }
 .screenshot-link:focus-visible { outline-offset: -4px; }
 .step-row.step-row-text { display: block; max-width: 72ch; border-left: 2px solid var(--hairline-strong); padding-left: 24px; }
+
+/* Photographic introduction and product proof, October 2026.
+   Artwork is decorative; app captures remain unaltered and inspectable. */
+.home .container { max-width: 1200px; }
+.home-hero { padding: 56px 0 60px; }
+.hero-intro { display: grid; grid-template-columns: 1.12fr 1fr; gap: 28px; align-items: center; text-align: left; }
+.hero-copy { min-width: 0; }
+.hero-copy h1 { font-size: clamp(40px, 4.8vw, 62px); max-width: none; margin: 20px 0 22px; line-height: 1.09; }
+.hero-copy .lede { max-width: 43ch; margin: 0 0 26px; line-height: 1.6; }
+.hero-copy .cta-row { justify-content: flex-start; gap: 18px; }
+.home .btn-primary { background: #5c59d8; color: #fff; }
+.home .btn-primary:hover { background: #504dc4; }
+.hero-demo-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--ink-primary); font-size: 14px; }
+.hero-demo-link span { color: var(--waypoint); }
+.hero-copy .price-note { margin: 20px 0 4px; font-size: 13px; }
+.offer-scope { margin: 0; font-size: 12px; color: var(--ink-secondary); }
+.hero-compatibility { margin: 14px 0 0; font-size: 13px; color: var(--ink-secondary); }
+.hero-art { min-width: 0; }
+.hero-art img { display: block; width: 100%; height: auto; border-radius: 12px; }
+.hero-art p { margin: 12px 0 0; text-align: center; font-size: 12px; letter-spacing: .08em; color: var(--ink-secondary); }
+.product-proof { text-align: left; margin-top: 68px; }
+.proof-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+.proof-heading h2 { font-size: clamp(25px, 3vw, 34px); letter-spacing: -.03em; margin: 8px 0 0; }
+.proof-heading > p { margin: 0; text-align: right; font-size: 12px; color: var(--ink-secondary); }
+.proof-heading strong { color: var(--ink-primary); font-weight: 500; font-variant-numeric: tabular-nums; }
+.organize-proof { margin: 0; border: 1px solid var(--hairline-strong); border-radius: 16px; overflow: hidden; background: #101013; box-shadow: 0 22px 60px #0003; }
+.product-window { overflow-x: auto; overscroll-behavior-inline: contain; }
+.product-window:focus-visible { outline-offset: -4px; }
+.product-window img { display: block; width: 100%; height: auto; min-width: 740px; }
+.organize-proof figcaption { display: flex; justify-content: space-between; align-items: start; gap: 24px; padding: 16px 20px; font-size: 13px; border-top: 1px solid var(--hairline); }
+.capture-note { display: block; font-size: 12px; color: var(--ink-secondary); margin-top: 3px; }
+.organize-proof figcaption a { flex-shrink: 0; min-height: 44px; display: inline-flex; align-items: center; }
+.mobile-proof-hint { display: none; font-size: 12px; color: var(--ink-secondary); margin: 12px 0 0; }
+.preview-details { font-size: 14px; margin-top: 14px; }
+.preview-details summary { cursor: pointer; min-height: 44px; padding: 10px 0; width: fit-content; color: var(--ink-primary); }
+.preview-details dl { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; padding: 18px 0; border-block: 1px solid var(--hairline); margin: 6px 0; }
+.preview-details dt { font-size: 12px; color: var(--ink-secondary); }
+.preview-details dd { margin: 6px 0 0; color: var(--ink-primary); font-variant-numeric: tabular-nums; }
+.preview-details > p { max-width: 72ch; color: var(--ink-secondary); }
+.start-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 28px; }
+.start-steps h3 { font-size: 19px; }
+.start-steps p { font-size: 15px; }
+.film-section { background: #1b1b1e; }
+.demo-heading h2 { font-size: 23px; }
+.dedupe-story { display: grid; grid-template-columns: .85fr 1.15fr; gap: 48px; align-items: center; text-align: left; }
+.dedupe-copy h2 { font-size: clamp(28px, 3vw, 36px); letter-spacing: -.035em; margin: 16px 0 20px; }
+.dedupe-copy > p { font-size: 16px; }
+.dedupe-copy .note { font-size: 13px; }
+.review-steps { padding-left: 20px; font-size: 15px; margin: 20px 0; }
+.review-steps li { padding-left: 4px; margin: 10px 0; }
+.review-steps li::marker { color: var(--waypoint); font-variant-numeric: tabular-nums; }
+.dedupe-proof { margin: 0; }
+.dedupe-proof img { display: block; width: 100%; height: auto; border: 1px solid var(--hairline-strong); border-radius: 12px; }
+.dedupe-proof figcaption { font-size: 13px; padding: 14px 0; }
+.dedupe-proof figcaption a { display: inline-flex; min-height: 44px; align-items: center; margin-left: 8px; }
+@media (max-width: 960px) {
+  .hero-intro { grid-template-columns: 1.15fr 1fr; gap: 20px; }
+  .hero-copy .cta-row { gap: 8px 16px; }
+  .dedupe-story { grid-template-columns: 1fr; gap: 28px; }
+  .dedupe-copy { max-width: 65ch; }
+  .start-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .home-hero { padding: 36px 0 40px; }
+  .hero-intro { display: block; text-align: center; }
+  .hero-copy h1 { font-size: clamp(36px, 8.8vw, 54px); margin: 18px 0 22px; }
+  .hero-copy .lede { font-size: 17px; }
+  .hero-copy .cta-row { justify-content: center; gap: 2px; }
+  .hero-demo-link { padding: 10px 0; }
+  .hero-copy .price-note { max-width: none; margin-top: 12px; }
+  .hero-art { margin: 22px auto 0; max-width: 440px; }
+  .hero-art p { display: none; }
+  .product-proof { margin-top: 30px; }
+  .proof-heading { display: block; margin-bottom: 16px; }
+  .proof-heading > p { margin-top: 12px; text-align: left; }
+  .organize-proof { border-radius: 10px; }
+  .product-window img { min-width: 1120px; }
+  .organize-proof figcaption { display: block; padding: 14px; }
+  .organize-proof figcaption a { margin-top: 4px; }
+  .mobile-proof-hint { display: block; }
+  .preview-details dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .demo-heading h2 { font-size: 21px; }
+  .dedupe-story { gap: 20px; }
+}
+@media (max-width: 440px) {
+  .start-steps { grid-template-columns: 1fr; gap: 24px; }
+  .start-steps h3 { margin: 8px 0; }
+}
+@media (max-width: 360px) {
+  .site-nav .brand { font-size: 14px; gap: 6px; }
+  .site-nav .brand-icon { width: 24px; height: 24px; }
+  .site-nav .nav-download { font-size: 12px; padding-inline: 10px; }
+}

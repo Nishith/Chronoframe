@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-10-18",
+  "target_release": "2.0",
+  "publication_status": "held_for_public_release_verification",
+  "source_branch_base": "276bc8569384736247153511d65e41cd8ee8d9ec",
+  "release_gate": [
+    "The owner reports V2 is submitted for App Review; submission does not establish public availability.",
+    "Verify the matching build, free download, US unlock price and Family Sharing in the public storefront before merging.",
+    "Verify every displayed workflow and screenshot against the public app before merging.",
+    "These September development captures have no verified app build or public-version mapping. They remain held assets.",
+    "Set the film's actual publication date and review the privacy effective date at publication."
+  ],
+  "assets": [
+    {
+      "path": "assets/artwork/photos-to-order.jpg",
+      "kind": "decorative_generated_artwork",
+      "created_at": "2026-10-18",
+      "generator": "OpenAI built-in image_gen",
+      "source_images": [],
+      "provenance": "assets/artwork/README.md",
+      "represents_app_ui": false
+    },
+    {
+      "path": "assets/screenshots/preview-timeline-202609.jpg",
+      "kind": "app_capture",
+      "scenario": "Staged 4,000-file full-access Organize preview, 2013–2026; not the free allowance or a speed benchmark",
+      "capture_date": null,
+      "capture_month": "2026-09",
+      "app_version_build": null,
+      "app_source_commit": null,
+      "publicly_available_version_represented": null,
+      "provenance": "assets/screenshots/provenance.json",
+      "status": "verify_against_public_V2_before_publication"
+    },
+    {
+      "path": "assets/screenshots/dedupe-compare-202609.jpg",
+      "kind": "app_capture",
+      "scenario": "Full-access development duplicate comparison; staged sandboarding photo, reviewed selection and Trash action",
+      "capture_date": null,
+      "capture_month": "2026-09",
+      "app_version_build": null,
+      "app_source_commit": null,
+      "publicly_available_version_represented": null,
+      "provenance": "assets/screenshots/provenance.json",
+      "status": "verify_against_public_V2_before_publication"
+    },
+    {
+      "path": "assets/screenshots/setup-202609.jpg",
+      "kind": "app_capture",
+      "scenario": "Development Organize folder setup",
+      "capture_date": null,
+      "capture_month": "2026-09",
+      "app_version_build": null,
+      "app_source_commit": null,
+      "publicly_available_version_represented": null,
+      "provenance": "assets/screenshots/provenance.json",
+      "status": "verify_against_public_V2_before_publication"
+    },
+    {
+      "path": "assets/screenshots/transfer-complete-202609.jpg",
+      "kind": "app_capture",
+      "scenario": "Development full-access verified-transfer result",
+      "capture_date": null,
+      "capture_month": "2026-09",
+      "app_version_build": null,
+      "app_source_commit": null,
+      "publicly_available_version_represented": null,
+      "provenance": "assets/screenshots/provenance.json",
+      "status": "verify_against_public_V2_before_publication"
+    },
+    {
+      "path": "assets/screenshots/run-history-202609.jpg",
+      "kind": "app_capture",
+      "scenario": "Development Run History with staged receipts",
+      "capture_date": null,
+      "capture_month": "2026-09",
+      "app_version_build": null,
+      "app_source_commit": null,
+      "publicly_available_version_represented": null,
+      "provenance": "assets/screenshots/provenance.json",
+      "status": "verify_against_public_V2_before_publication"
+    },
+    {
+      "path": "assets/video/chronoframe-demo-1080p.mp4",
+      "poster": "assets/video/chronoframe-demo-poster.jpg",
+      "kind": "recorded_walkthrough",
+      "scenario": "Staged full-access library; Organize, duplicate review, Trash approval and receipt-based restoration",
+      "capture_date": "2026-09-21",
+      "edited_at": "2026-09-27",
+      "app_version_build": null,
+      "app_source_commit": null,
+      "publicly_available_version_represented": null,
+      "publication_date": null,
+      "provenance": "assets/video/README.md",
+      "status": "verify_against_public_V2_before_publication"
+    }
+  ]
+}
