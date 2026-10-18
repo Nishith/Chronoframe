@@ -915,14 +915,14 @@ struct ReceiptDetailSheet: View {
     /// genuinely empty receipt render its own empty state.
     @State private var hasLoaded = false
 
-    enum VerificationStatus: String {
+    enum VerificationStatus: String, Sendable {
         case pending = "Pending"
         case matching = "Match"
         case mismatch = "Modified"
         case missing = "Missing"
     }
 
-    struct ReceiptVisualItem: Identifiable {
+    struct ReceiptVisualItem: Identifiable, Sendable {
         let id = UUID()
         let source: String
         let dest: String
@@ -930,7 +930,7 @@ struct ReceiptDetailSheet: View {
         let sizeBytes: Int64?
     }
 
-    struct ReceiptMetadata {
+    struct ReceiptMetadata: Sendable {
         let title: String
         let timestamp: Date
         let status: String
@@ -952,6 +952,9 @@ struct ReceiptDetailSheet: View {
                         Text("Run: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)")
                             .font(.subheadline)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        Text("\(meta.totalFiles.formatted()) files")
+                            .font(.caption)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.receiptFileCount)
                         if let badge = RecoveryBadgeFormatter.title(for: meta.recoveryState) {
                             Text(badge)
                                 .scaledFont(.label)
@@ -969,6 +972,8 @@ struct ReceiptDetailSheet: View {
                         .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close receipt")
+                .accessibilityIdentifier(AccessibilityIdentifiers.receiptCloseButton)
             }
 
             if let error = errorMessage {
@@ -987,9 +992,10 @@ struct ReceiptDetailSheet: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // Table of transfers
+                // Build only visible rows; a 10,000-file receipt must not
+                // instantiate thousands of text/layout/context-menu trees.
                 ScrollView {
-                    VStack(spacing: 8) {
+                    LazyVStack(spacing: 8) {
                         ForEach(transfers) { item in
                             HStack(alignment: .center) {
                                 Image(systemName: isVideo(item.dest) ? "video" : "photo")
@@ -1022,6 +1028,8 @@ struct ReceiptDetailSheet: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(DesignTokens.ColorSystem.hairline.opacity(0.15))
                             )
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("receiptRow-\(item.id)")
                             .contextMenu {
                                 Button("Reveal in Finder") {
                                     NSWorkspace.shared.selectFile(item.dest, inFileViewerRootedAtPath: "")
@@ -1030,7 +1038,8 @@ struct ReceiptDetailSheet: View {
                         }
                     }
                 }
-                .frame(maxHeight: 400)
+                .frame(height: 400)
+                .accessibilityIdentifier(AccessibilityIdentifiers.receiptItemList)
 
                 // Actions Footer
                 HStack {
@@ -1039,6 +1048,7 @@ struct ReceiptDetailSheet: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isVerifying)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.receiptVerifyButton)
 
                     Spacer()
 
@@ -1054,9 +1064,9 @@ struct ReceiptDetailSheet: View {
         .padding(DesignTokens.Layout.contentPadding)
         .frame(width: 600)
         .darkroom()
-        .onAppear {
+        .task {
             receiptSecurityScope = appState.historyArtifactSecurityScope(destinationRoot: receiptDestinationRoot)
-            loadReceipt()
+            await loadReceipt()
         }
         .onDisappear {
             receiptSecurityScope?.close()
@@ -1096,76 +1106,80 @@ struct ReceiptDetailSheet: View {
         }
     }
 
-    private func loadReceipt() {
-        // Finding #9: mark the load complete on every exit so a valid zero-item
-        // receipt renders its empty state instead of an endless spinner.
-        defer { hasLoaded = true }
-        let fileURL = URL(fileURLWithPath: entry.path)
-        guard let data = try? Data(contentsOf: fileURL) else {
-            errorMessage = "Could not read the receipt file from disk."
-            return
-        }
+    struct LoadedReceipt: Sendable {
+        let metadata: ReceiptMetadata
+        let transfers: [ReceiptVisualItem]
+    }
 
+    private func loadReceipt() async {
+        // Keep a worker lease even if the sheet closes while disk I/O or JSON
+        // decoding is finishing. Never block the main actor on either step.
+        let scope = appState.historyArtifactSecurityScope(destinationRoot: receiptDestinationRoot)
+        defer { scope?.close() }
+        do {
+            let content = try await Self.readReceipt(entry: entry)
+            guard !Task.isCancelled else { return }
+            metadata = content.metadata
+            transfers = content.transfers
+            errorMessage = nil
+        } catch {
+            guard !Task.isCancelled else { return }
+            appState.runLogStore.append("Receipt read failed at \(entry.path): \(error)")
+            if error is DecodingError {
+                errorMessage = "Chronoframe couldn’t read this receipt’s format. Keep the receipt file for recovery and contact support."
+            } else {
+                errorMessage = UserFacingErrorMessage.message(for: error, context: .history)
+            }
+        }
+        hasLoaded = true
+    }
+
+    nonisolated static func readReceipt(entry: RunHistoryEntry) async throws -> LoadedReceipt {
+        try await Task.detached(priority: .userInitiated) {
+            let data = try Data(contentsOf: URL(fileURLWithPath: entry.path))
+            return try decodeReceipt(data: data, entry: entry)
+        }.value
+    }
+
+    nonisolated static func decodeReceipt(data: Data, entry: RunHistoryEntry) throws -> LoadedReceipt {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-
         if entry.kind == .dedupeAuditReceipt {
-            if let dedupeReceipt = try? decoder.decode(DeduplicateAuditReceipt.self, from: data) {
-                self.metadata = ReceiptMetadata(
-                    title: "Deduplication Run Details",
-                    timestamp: dedupeReceipt.createdAt,
-                    status: dedupeReceipt.status,
-                    schemaVersion: dedupeReceipt.schemaVersion,
-                    totalFiles: dedupeReceipt.items.count,
-                    bytesReclaimed: dedupeReceipt.bytesReclaimed,
-                    recoveryState: dedupeReceipt.recoveryState
-                )
-                self.transfers = dedupeReceipt.items.map {
+            let receipt = try decoder.decode(DeduplicateAuditReceipt.self, from: data)
+            return LoadedReceipt(
+                metadata: ReceiptMetadata(title: "Deduplication Run Details", timestamp: receipt.createdAt,
+                    status: receipt.status, schemaVersion: receipt.schemaVersion, totalFiles: receipt.items.count,
+                    bytesReclaimed: receipt.bytesReclaimed, recoveryState: receipt.recoveryState),
+                transfers: receipt.items.map {
                     ReceiptVisualItem(source: $0.originalPath, dest: $0.originalPath, hash: "", sizeBytes: $0.sizeBytes)
                 }
-            } else {
-                errorMessage = "Failed to parse the deduplication receipt."
-            }
-        } else if entry.kind == .reorganizeAuditReceipt {
-            if let reorganizeReceipt = try? decoder.decode(ReorganizeAuditReceipt.self, from: data) {
-                self.metadata = ReceiptMetadata(
-                    title: "Reorganize Run Details",
-                    timestamp: reorganizeReceipt.startedAt,
-                    status: reorganizeReceipt.status,
-                    schemaVersion: reorganizeReceipt.schemaVersion,
-                    totalFiles: reorganizeReceipt.items.count,
-                    bytesReclaimed: nil,
-                    recoveryState: nil
-                )
-                self.transfers = reorganizeReceipt.items.map {
+            )
+        }
+        if entry.kind == .reorganizeAuditReceipt {
+            let receipt = try decoder.decode(ReorganizeAuditReceipt.self, from: data)
+            return LoadedReceipt(
+                metadata: ReceiptMetadata(title: "Reorganize Run Details", timestamp: receipt.startedAt,
+                    status: receipt.status, schemaVersion: receipt.schemaVersion, totalFiles: receipt.items.count,
+                    bytesReclaimed: nil, recoveryState: nil),
+                transfers: receipt.items.map {
                     ReceiptVisualItem(source: $0.sourcePath, dest: $0.destinationPath, hash: $0.hash, sizeBytes: nil)
                 }
-            } else {
-                errorMessage = "Failed to parse the reorganize receipt."
-            }
-        } else {
-            // Standard organize audit receipt
-            if let revertReceipt = try? decoder.decode(RevertReceipt.self, from: data) {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyyMMdd_HHmmss"
-                let date = revertReceipt.timestamp.flatMap { formatter.date(from: $0) } ?? entry.createdAt
-
-                self.metadata = ReceiptMetadata(
-                    title: "Organize Run Details",
-                    timestamp: date,
-                    status: revertReceipt.status ?? "COMPLETED",
-                    schemaVersion: revertReceipt.schemaVersion ?? 1,
-                    totalFiles: revertReceipt.transfers.count,
-                    bytesReclaimed: nil,
-                    recoveryState: nil
-                )
-                self.transfers = revertReceipt.transfers.map {
-                    ReceiptVisualItem(source: $0.source, dest: $0.dest, hash: $0.hash, sizeBytes: nil)
-                }
-            } else {
-                errorMessage = "Failed to parse the organize receipt."
-            }
+            )
         }
+        let receipt = try decoder.decode(RevertReceipt.self, from: data)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        let timestamp = receipt.timestamp.flatMap { formatter.date(from: $0) }
+            ?? receipt.timestamp.flatMap { ISO8601DateFormatter().date(from: $0) }
+            ?? entry.createdAt
+        return LoadedReceipt(
+            metadata: ReceiptMetadata(title: "Organize Run Details", timestamp: timestamp,
+                status: receipt.status ?? "COMPLETED", schemaVersion: receipt.schemaVersion ?? 1,
+                totalFiles: receipt.transfers.count, bytesReclaimed: nil, recoveryState: nil),
+            transfers: receipt.transfers.map {
+                ReceiptVisualItem(source: $0.source, dest: $0.dest, hash: $0.hash, sizeBytes: nil)
+            }
+        )
     }
 
     private func runVerification() async {

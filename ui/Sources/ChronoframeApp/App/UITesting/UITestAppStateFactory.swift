@@ -8,6 +8,25 @@ import SwiftUI
 
 @MainActor
 enum UITestAppStateFactory {
+    /// App-owned temporary JSON only: never opens or changes a user's library.
+    private static func largeReceiptFixture() -> (root: URL, entry: RunHistoryEntry) {
+        do {
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("ReceiptUITest-\(UUID().uuidString)")
+            let logs = root.appendingPathComponent(".organize_logs")
+            try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+            let receipt = RevertReceipt(schemaVersion: 3, status: "COMPLETED", totalJobs: 10_000,
+                transfers: (0..<10_000).map { index in
+                    RevertReceiptTransfer(source: "fixture/source/\(index).jpg",
+                        dest: root.appendingPathComponent("media/\(index).jpg").path, hash: "fixture")
+                })
+            let url = logs.appendingPathComponent("audit_receipt_large.json")
+            try JSONEncoder().encode(receipt).write(to: url)
+            return (root, RunHistoryEntry(kind: .auditReceipt, title: "Audit Receipt", path: url.path, createdAt: .now))
+        } catch {
+            preconditionFailure("Could not create the large-receipt UI fixture: \(error)")
+        }
+    }
+
     static func make(scenario: UITestScenario) -> AppState {
         let suiteName = "Chronoframe-UITest-\(scenario.rawValue)"
         let defaults = UserDefaults(suiteName: suiteName) ?? .standard
@@ -77,11 +96,17 @@ enum UITestAppStateFactory {
 
         case .historyPopulated:
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
-            historyStore = HistoryStore(
-                entries: sampleHistoryEntries(),
-                transferredSources: sampleTransferredSources(),
-                destinationRoot: setupStore.destinationPath
-            )
+            if ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_LARGE_RECEIPT"] == "1" {
+                let fixture = largeReceiptFixture()
+                setupStore.destinationPath = fixture.root.path
+                historyStore = HistoryStore(entries: [fixture.entry], destinationRoot: fixture.root.path)
+            } else {
+                historyStore = HistoryStore(
+                    entries: sampleHistoryEntries(),
+                    transferredSources: sampleTransferredSources(),
+                    destinationRoot: setupStore.destinationPath
+                )
+            }
             engine = previewReviewEngine(sourcePath: "/Volumes/Card/April Session", destinationPath: setupStore.destinationPath)
             route = .organize(.history)
 

@@ -89,6 +89,10 @@ enum AccessibilityIdentifiers {
     static let recoveryCenterSection = "recoveryCenterSection"
     static let useHistoricalSourceButton = "useHistoricalSourceButton"
     static let revealHistoricalSourceButton = "revealHistoricalSourceButton"
+    static let receiptFileCount = "receiptFileCount"
+    static let receiptCloseButton = "receiptCloseButton"
+    static let receiptItemList = "receiptItemList"
+    static let receiptVerifyButton = "receiptVerifyButton"
 
     // MARK: - Profiles
 
@@ -145,7 +149,7 @@ enum AccessibilityIdentifiers {
         dedupeReviewActionsMenu, dedupeReviewChangeFolderButton, dedupeReviewClusterList,
         dedupeReviewDetail, dedupeReviewSettingsButton, dedupeUseHistoryFolderButton,
         historyFilterControl, recoveryCenterSection, useHistoricalSourceButton,
-        revealHistoricalSourceButton,
+        revealHistoricalSourceButton, receiptFileCount, receiptCloseButton, receiptItemList, receiptVerifyButton,
         activeProfileBadge,
         trialIndicatorOrganize, trialIndicatorDedupe,
         diagnosticsLogBufferStepper, smartEventSuggestionsToggle,
