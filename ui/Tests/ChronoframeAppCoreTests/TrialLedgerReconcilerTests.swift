@@ -432,6 +432,42 @@ final class TrialLedgerReconcilerTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: receiptURL.path))
     }
 
+    /// A journal that is now a link is not the one the commit wrote, so what it
+    /// names is not evidence. The reservation stays held rather than settling on it.
+    // AGENTS-INVARIANT: 26
+    func testDedupeJournalThatIsALinkIsUnreachableAndSettlesNothing() throws {
+        let root = try destination("dedupe-spool-link")
+        let runID = UUID()
+        let receiptURL = try writeDedupeReceipt(
+            in: root,
+            runID: runID,
+            items: [("/dest/a.jpg", "file:///Trash/a.jpg"), ("/dest/b.jpg", nil), ("/dest/c.jpg", nil)]
+        )
+        let planted = root.appendingPathComponent("planted-journal.txt")
+        try writeSpool(
+            at: planted,
+            trashed: [(path: "/dest/b.jpg", trashURL: "file:///Trash/b.jpg")]
+        )
+        try FileManager.default.createSymbolicLink(
+            at: receiptURL.appendingPathExtension("spool"),
+            withDestinationURL: planted
+        )
+
+        let ledger = InMemoryTrialLedger(caps: caps)
+        _ = try ledger.reserve(
+            runID: runID, accountKey: account, meter: .dedupe,
+            count: 3, destinationRoot: root.path
+        )
+
+        TrialLedgerReconciler(ledger: ledger).reconcile(destinationRoot: root)
+
+        XCTAssertEqual(
+            try ledger.balance(accountKey: account).usage.dedupeUsed,
+            3,
+            "The reservation must stay as taken, not shrink to what a planted journal claims"
+        )
+    }
+
     func testDedupeWithNoReceiptForTheRunStaysOpen() throws {
         let root = try destination("dedupe-none")
         try FileManager.default.createDirectory(

@@ -178,11 +178,13 @@ public protocol MediaMetadataDateReading: Sendable {
     /// calendar day. Defaulted to wrap `photoMetadataDate` (offset `nil`), so
     /// existing readers and test doubles need not implement it.
     func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate?
+    func videoMetadataResolvedDate(at url: URL, isCancelled: @escaping @Sendable () -> Bool) -> PhotoMetadataDate?
     func fileSystemCreationDate(at url: URL) -> Date?
     func fileSystemModificationDate(at url: URL) -> Date?
 }
 
 public extension MediaMetadataDateReading {
+    func videoMetadataResolvedDate(at url: URL, isCancelled: @escaping @Sendable () -> Bool) -> PhotoMetadataDate? { nil }
     func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? {
         photoMetadataDate(at: url).map { PhotoMetadataDate(date: $0, bucketTimeZoneOffsetSeconds: nil) }
     }
@@ -190,6 +192,11 @@ public extension MediaMetadataDateReading {
 
 public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
     public init() {}
+
+    public func videoMetadataResolvedDate(at url: URL, isCancelled: @escaping @Sendable () -> Bool) -> PhotoMetadataDate? {
+        guard MediaLibraryRules.isVideoFile(path: url.path) else { return nil }
+        return VideoMetadataDateReader.read(at: url, isCancelled: isCancelled)
+    }
 
     public func photoMetadataDate(at url: URL) -> Date? {
         photoMetadataResolvedDate(at: url)?.date
@@ -273,11 +280,13 @@ public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed == "Z" || trimmed == "z" { return 0 }
         guard let sign = trimmed.first, sign == "+" || sign == "-" else { return nil }
-        let digits = trimmed.dropFirst().filter(\.isNumber)
+        let tail = String(trimmed.dropFirst())
+        guard tail.range(of: #"^\d{2}:?\d{2}$"#, options: .regularExpression) != nil else { return nil }
+        let digits = tail.filter(\.isNumber)
         guard digits.count == 4,
               let hours = Int(digits.prefix(2)),
               let minutes = Int(digits.suffix(2)),
-              hours <= 14, minutes < 60 else {
+              hours <= 14, minutes < 60, hours < 14 || minutes == 0 else {
             return nil
         }
         let magnitude = hours * 3600 + minutes * 60
@@ -344,8 +353,15 @@ public struct FileDateResolver: Sendable {
         resolveResolvedDate(for: path).date
     }
 
-    public func resolveResolvedDate(for path: String) -> ResolvedMediaDate {
-        resolveResolvedDate(for: path, precomputedPhotoMetadataDate: nil, shouldReadPhotoMetadata: true)
+    public func resolveResolvedDate(for path: String, isCancelled: @escaping @Sendable () -> Bool = { false }) -> ResolvedMediaDate {
+        resolveResolvedDate(for: path, precomputedPhotoMetadataDate: nil, shouldReadPhotoMetadata: true, isCancelled: isCancelled)
+    }
+
+    /// Photos staging has synthetic filesystem dates. Its caller supplies
+    /// the asset date separately and disables filesystem fallback entirely.
+    public func resolveCaptureDate(for path: String, isCancelled: @escaping @Sendable () -> Bool = { false }) -> ResolvedMediaDate {
+        resolveResolvedDate(for: path, precomputedPhotoMetadataDate: nil, shouldReadPhotoMetadata: true,
+                            allowFileSystemDates: false, isCancelled: isCancelled)
     }
 
     func resolveDate(for path: String, precomputedPhotoMetadataDate: Date?) -> Date? {
@@ -367,7 +383,9 @@ public struct FileDateResolver: Sendable {
     private func resolveResolvedDate(
         for path: String,
         precomputedPhotoMetadataDate: Date?,
-        shouldReadPhotoMetadata: Bool
+        shouldReadPhotoMetadata: Bool,
+        allowFileSystemDates: Bool = true,
+        isCancelled: @escaping @Sendable () -> Bool = { false }
     ) -> ResolvedMediaDate {
         let url = URL(fileURLWithPath: path)
 
@@ -393,6 +411,13 @@ public struct FileDateResolver: Sendable {
             }
         }
 
+        if MediaLibraryRules.isVideoFile(path: path),
+           let metadata = metadataReader.videoMetadataResolvedDate(at: url, isCancelled: isCancelled),
+           !DateClassification.isUnknown(metadata.date) {
+            return ResolvedMediaDate(date: metadata.date, source: .videoMetadata, confidence: .high,
+                                     bucketTimeZoneOffsetSeconds: metadata.bucketTimeZoneOffsetSeconds)
+        }
+
         if let filenameDate = FilenameDateParser.parse(from: path) {
             return ResolvedMediaDate(
                 date: filenameDate,
@@ -400,6 +425,8 @@ public struct FileDateResolver: Sendable {
                 confidence: .medium
             )
         }
+
+        guard allowFileSystemDates else { return .unknown }
 
         if let creationDate = metadataReader.fileSystemCreationDate(at: url),
            !DateClassification.isUnknown(creationDate) {

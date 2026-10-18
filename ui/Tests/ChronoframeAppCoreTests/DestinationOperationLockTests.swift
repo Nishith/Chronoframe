@@ -113,6 +113,7 @@ final class DestinationOperationLockTests: XCTestCase {
     }
 
     // AGENTS-INVARIANT: 19
+    // AGENTS-INVARIANT: 26
     func testSymlinkedLockFileIsRejectedAndItsTargetIsUntouched() throws {
         let destination = try makeDestination()
         let outside = try makeDestination()
@@ -141,6 +142,7 @@ final class DestinationOperationLockTests: XCTestCase {
     }
 
     // AGENTS-INVARIANT: 19
+    // AGENTS-INVARIANT: 26
     func testHardLinkedLockFileIsRejectedAndTheSharedFileIsUntouched() throws {
         let destination = try makeDestination()
         let sentinel = try makeSentinel(in: destination)

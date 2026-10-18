@@ -264,6 +264,9 @@ final class AppState: ObservableObject {
         self.previewReviewStore.setDestinationScopeProvider { [weak self] destinationRoot in
             self?.destinationSecurityScope(destinationRoot: destinationRoot)
         }
+        self.historyStore.setDestinationScopeProvider { [weak self] destinationRoot in
+            self?.destinationSecurityScope(destinationRoot: destinationRoot)
+        }
 
         // Supply the reconciler T5 left unwired. `DestinationRecovery` pairs
         // filesystem recovery with settling any trial reservation the recovered
@@ -913,13 +916,65 @@ final class AppState: ObservableObject {
         return destinationSecurityScope(destinationRoot: destination)
     }
 
+    /// Receipt inspection happens after the history scan's scope has closed.
+    /// Callers retain this separate lease for the complete read or verification.
+    func historyArtifactSecurityScope(destinationRoot: String? = nil) -> SecurityScopedFolderAccess? {
+        destinationSecurityScope(destinationRoot: destinationRoot ?? historyStore.destinationRoot)
+    }
+
     private func destinationSecurityScope(destinationRoot: String) -> SecurityScopedFolderAccess? {
-        let keys = activeDestinationBookmarkKeys()
+        guard !destinationRoot.isEmpty else { return nil }
+        let archiveKey = PreferencesStore.historyDestinationBookmarkKey(for: destinationRoot)
+        let keys = [archiveKey] + activeDestinationBookmarkKeys()
         let matchingKeys = keys.filter { key in
             guard let bookmark = preferencesStore.bookmark(for: key) else { return false }
-            return pathsOverlap(bookmark.path, destinationRoot)
+            let bookmarked = URL(fileURLWithPath: bookmark.path).standardizedFileURL.resolvingSymlinksInPath().path
+            let requested = URL(fileURLWithPath: destinationRoot).standardizedFileURL.resolvingSymlinksInPath().path
+            return requested == bookmarked || requested.hasPrefix(bookmarked + "/")
         }
-        return scopedAccess(forKeys: matchingKeys.isEmpty ? keys : matchingKeys)
+        // Refresh stale bookmark data through the existing resolver. Never
+        // substitute access to an unrelated current Setup folder.
+        let bookmarks = matchingKeys.compactMap { key -> FolderBookmark? in
+            guard let bookmark = preferencesStore.bookmark(for: key),
+                  let resolved = folderAccessService.resolveBookmark(bookmark) else { return nil }
+            let current = resolved.refreshedBookmark ?? bookmark
+            preferencesStore.storeBookmark(current)
+            preferencesStore.storeHistoryDestinationBookmark(current, destinationRoot: destinationRoot)
+            return current
+        }
+        return bookmarks.isEmpty ? nil : folderAccessService.scopedAccess(for: bookmarks)
+    }
+
+    func reconnectHistoryFolder() async {
+        let destination = historyStore.destinationRoot
+        guard !destination.isEmpty else { return }
+        historyStore.reportReconnectError(nil)
+        guard !runSessionStore.isRunning, !deduplicateSessionStore.isWorking else {
+            historyStore.reportReconnectError("Finish the current run before reconnecting the archive folder.")
+            return
+        }
+        guard let url = folderAccessService.chooseFolder(startingAt: destination, prompt: "Reconnect Archive Folder") else { return }
+        let didAccess = url.startAccessingSecurityScopedResource()
+        defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+        let expected = URL(fileURLWithPath: destination).standardizedFileURL.resolvingSymlinksInPath()
+        guard url.standardizedFileURL.resolvingSymlinksInPath().path == expected.path else {
+            historyStore.reportReconnectError("You selected \(url.path). Choose \(destination) to reconnect this archive. The archive was not switched.")
+            return
+        }
+        do {
+            let service = folderAccessService
+            let key = PreferencesStore.historyDestinationBookmarkKey(for: destination)
+            let bookmark = try await Task.detached(priority: .userInitiated) {
+                try service.validateFolder(url, role: .destination)
+                return try service.makeBookmark(for: url, key: key)
+            }.value
+            guard historyStore.destinationRoot == destination,
+                  !runSessionStore.isRunning, !deduplicateSessionStore.isWorking else { return }
+            preferencesStore.storeBookmark(bookmark)
+            await historyStore.refresh(destinationRoot: destination)
+        } catch {
+            historyStore.reportReconnectError(UserFacingErrorMessage.message(for: error, context: .history))
+        }
     }
 
     private func activeOrganizeBookmarkKeys() -> [String] {
@@ -946,13 +1001,10 @@ final class AppState: ObservableObject {
     private func scopedAccess(forKeys keys: [String]) -> SecurityScopedFolderAccess? {
         let bookmarks = keys.compactMap { preferencesStore.bookmark(for: $0) }
         guard !bookmarks.isEmpty else { return nil }
+        for bookmark in bookmarks where bookmark.key.hasSuffix(".destination") {
+            preferencesStore.storeHistoryDestinationBookmark(bookmark, destinationRoot: bookmark.path)
+        }
         return folderAccessService.scopedAccess(for: bookmarks)
-    }
-
-    private func pathsOverlap(_ bookmarkPath: String, _ requestedPath: String) -> Bool {
-        let bookmark = URL(fileURLWithPath: bookmarkPath).standardizedFileURL.path
-        let requested = URL(fileURLWithPath: requestedPath).standardizedFileURL.path
-        return requested == bookmark || requested.hasPrefix(bookmark + "/") || bookmark.hasPrefix(requested + "/")
     }
 
     /// Repopulates the Setup view with a previously-used source path and switches to it.

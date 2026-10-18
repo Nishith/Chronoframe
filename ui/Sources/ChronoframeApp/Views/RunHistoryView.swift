@@ -85,6 +85,7 @@ struct RunHistoryView: View {
     @State private var selectedReceiptEntry: RunHistoryEntry?
     @State private var selectedTimelineMonth: String? = nil
     @State private var isTimelineScrubbing = false
+    @State private var isReconnecting = false
 
     private static let fileSizeFormatter: ByteCountFormatter = {
         let formatter = ByteCountFormatter()
@@ -112,8 +113,11 @@ struct RunHistoryView: View {
                 }
 
                 reusableSourcesSection
+                    .disabled(historyUnavailable)
                 recoveryCenterSection
+                    .disabled(historyUnavailable)
                 archiveSection
+                    .disabled(historyUnavailable)
             }
             .padding(DesignTokens.Layout.contentPadding)
             .frame(maxWidth: DesignTokens.Layout.archiveMaxWidth, alignment: .leading)
@@ -218,6 +222,11 @@ struct RunHistoryView: View {
     }
 
     private var headerMessage: String {
+        if historyUnavailable {
+            return historyStore.entries.isEmpty
+                ? "History could not be loaded."
+                : "Access unavailable. Previously loaded entries may be out of date."
+        }
         if historyStore.entries.isEmpty {
             return historyStore.destinationRoot.isEmpty
                 ? "Choose a destination in Setup, then a preview will create the first report here."
@@ -348,12 +357,38 @@ struct RunHistoryView: View {
     }
 
     private func refreshErrorStrip(_ message: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.sm) {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
-            Text(message)
-                .scaledFont(.body)
-                .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+            VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                Text(historyStore.needsFolderAccess ? "Reconnect your archive folder" : "History unavailable")
+                    .font(.headline)
+                Text(historyStore.needsFolderAccess
+                     ? "Chronoframe can’t currently access “\(URL(fileURLWithPath: historyStore.destinationRoot).lastPathComponent)”. Choose this same folder again to restore access and load run history. Reconnecting does not change your media files."
+                     : message)
+                Text(historyStore.destinationRoot)
+                    .font(.caption)
+                    .textSelection(.enabled)
+                if let error = historyStore.reconnectError {
+                    Text(error).foregroundStyle(DesignTokens.ColorSystem.statusWarning)
+                }
+                if historyStore.needsFolderAccess {
+                    Button(isReconnecting ? "Reconnecting…" : "Choose Folder…") {
+                        isReconnecting = true
+                        Task { @MainActor in
+                            defer { isReconnecting = false }
+                            await appState.reconnectHistoryFolder()
+                        }
+                    }
+                    .disabled(isReconnecting)
+                } else {
+                    Button("Retry") {
+                        Task { await historyStore.loadEntries() }
+                    }
+                }
+            }
+            .scaledFont(.body)
+            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
         .padding(DesignTokens.Layout.compactPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -365,6 +400,18 @@ struct RunHistoryView: View {
 
     // MARK: - Recovery center
 
+    private var historyUnavailable: Bool { historyStore.lastRefreshError != nil }
+
+    private var unavailableHistoryState: some View {
+        EmptyStateView(
+            title: "History Unavailable",
+            message: historyStore.needsFolderAccess
+                ? "History is unavailable until folder access is restored. Use Choose Folder above to reconnect your archive."
+                : "History could not be loaded. Check the message above before trying again.",
+            systemImage: "folder.badge.questionmark"
+        )
+    }
+
     private var recoveryCenterSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             SectionHeading(
@@ -374,11 +421,15 @@ struct RunHistoryView: View {
 
             let receipts = filteredRecoveryReceipts
             if receipts.isEmpty {
-                EmptyStateView(
-                    title: "No Revertable Runs Yet",
-                    message: "Transfers, dedupe commits, and reorganize runs write receipts here when they can be undone safely.",
-                    systemImage: "arrow.uturn.backward.circle"
-                )
+                if historyUnavailable {
+                    unavailableHistoryState
+                } else {
+                    EmptyStateView(
+                        title: "No Revertable Runs Yet",
+                        message: "Transfers, dedupe commits, and reorganize runs write receipts here when they can be undone safely.",
+                        systemImage: "arrow.uturn.backward.circle"
+                    )
+                }
             } else {
                 DarkroomPanel(variant: .panel) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -465,11 +516,15 @@ struct RunHistoryView: View {
             )
 
             if historyStore.transferredSources.isEmpty {
-                EmptyStateView(
-                    title: "No Reusable Sources Yet",
-                    message: "After a completed transfer, the source folder will appear here so you can use it again without re-entering the path.",
-                    systemImage: "folder.badge.questionmark"
-                )
+                if historyUnavailable {
+                    unavailableHistoryState
+                } else {
+                    EmptyStateView(
+                        title: "No Reusable Sources Yet",
+                        message: "After a completed transfer, the source folder will appear here so you can use it again without re-entering the path.",
+                        systemImage: "folder.badge.questionmark"
+                    )
+                }
             } else {
                 DarkroomPanel(variant: .panel) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -601,13 +656,17 @@ struct RunHistoryView: View {
             }
 
             if filteredEntries.isEmpty {
-                EmptyStateView(
-                    title: historyStore.entries.isEmpty ? "No Artifacts Yet" : "No Matching Artifacts",
-                    message: historyStore.entries.isEmpty
-                        ? "Run a preview or transfer, then return here to inspect reports, receipts, and logs."
-                        : (selectedTimelineMonth != nil ? "Try a different filter, search term, or clear the timeline filter." : "Try a different filter or search term."),
-                    systemImage: "doc.text.magnifyingglass"
-                )
+                if historyUnavailable {
+                    unavailableHistoryState
+                } else {
+                    EmptyStateView(
+                        title: historyStore.entries.isEmpty ? "No Artifacts Yet" : "No Matching Artifacts",
+                        message: historyStore.entries.isEmpty
+                            ? "Run a preview or transfer, then return here to inspect reports, receipts, and logs."
+                            : (selectedTimelineMonth != nil ? "Try a different filter, search term, or clear the timeline filter." : "Try a different filter or search term."),
+                        systemImage: "doc.text.magnifyingglass"
+                    )
+                }
             } else {
                 DarkroomPanel(variant: .panel) {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -846,20 +905,24 @@ struct ReceiptDetailSheet: View {
     @State private var verificationResults: [String: VerificationStatus] = [:]
     @State private var isVerifying = false
     @State private var errorMessage: String? = nil
+    @State private var receiptSecurityScope: SecurityScopedFolderAccess?
+    private var receiptDestinationRoot: String {
+        URL(fileURLWithPath: entry.path).deletingLastPathComponent().deletingLastPathComponent().path
+    }
     /// Finding #9: an explicit decode-completed flag. `transfers.isEmpty` was
     /// used as the loading signal, so a valid receipt with zero items showed an
     /// endless "Loading…" spinner. Tracking load completion separately lets a
     /// genuinely empty receipt render its own empty state.
     @State private var hasLoaded = false
 
-    enum VerificationStatus: String {
+    enum VerificationStatus: String, Sendable {
         case pending = "Pending"
         case matching = "Match"
         case mismatch = "Modified"
         case missing = "Missing"
     }
 
-    struct ReceiptVisualItem: Identifiable {
+    struct ReceiptVisualItem: Identifiable, Sendable {
         let id = UUID()
         let source: String
         let dest: String
@@ -867,7 +930,7 @@ struct ReceiptDetailSheet: View {
         let sizeBytes: Int64?
     }
 
-    struct ReceiptMetadata {
+    struct ReceiptMetadata: Sendable {
         let title: String
         let timestamp: Date
         let status: String
@@ -889,6 +952,9 @@ struct ReceiptDetailSheet: View {
                         Text("Run: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)")
                             .font(.subheadline)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        Text("\(meta.totalFiles.formatted()) files")
+                            .font(.caption)
+                            .accessibilityIdentifier(AccessibilityIdentifiers.receiptFileCount)
                         if let badge = RecoveryBadgeFormatter.title(for: meta.recoveryState) {
                             Text(badge)
                                 .scaledFont(.label)
@@ -906,6 +972,8 @@ struct ReceiptDetailSheet: View {
                         .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close receipt")
+                .accessibilityIdentifier(AccessibilityIdentifiers.receiptCloseButton)
             }
 
             if let error = errorMessage {
@@ -924,9 +992,10 @@ struct ReceiptDetailSheet: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                // Table of transfers
+                // Build only visible rows; a 10,000-file receipt must not
+                // instantiate thousands of text/layout/context-menu trees.
                 ScrollView {
-                    VStack(spacing: 8) {
+                    LazyVStack(spacing: 8) {
                         ForEach(transfers) { item in
                             HStack(alignment: .center) {
                                 Image(systemName: isVideo(item.dest) ? "video" : "photo")
@@ -959,6 +1028,8 @@ struct ReceiptDetailSheet: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(DesignTokens.ColorSystem.hairline.opacity(0.15))
                             )
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("receiptRow-\(item.id)")
                             .contextMenu {
                                 Button("Reveal in Finder") {
                                     NSWorkspace.shared.selectFile(item.dest, inFileViewerRootedAtPath: "")
@@ -967,7 +1038,8 @@ struct ReceiptDetailSheet: View {
                         }
                     }
                 }
-                .frame(maxHeight: 400)
+                .frame(height: 400)
+                .accessibilityIdentifier(AccessibilityIdentifiers.receiptItemList)
 
                 // Actions Footer
                 HStack {
@@ -976,6 +1048,7 @@ struct ReceiptDetailSheet: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isVerifying)
+                    .accessibilityIdentifier(AccessibilityIdentifiers.receiptVerifyButton)
 
                     Spacer()
 
@@ -991,8 +1064,13 @@ struct ReceiptDetailSheet: View {
         .padding(DesignTokens.Layout.contentPadding)
         .frame(width: 600)
         .darkroom()
-        .onAppear {
-            loadReceipt()
+        .task {
+            receiptSecurityScope = appState.historyArtifactSecurityScope(destinationRoot: receiptDestinationRoot)
+            await loadReceipt()
+        }
+        .onDisappear {
+            receiptSecurityScope?.close()
+            receiptSecurityScope = nil
         }
     }
 
@@ -1028,79 +1106,85 @@ struct ReceiptDetailSheet: View {
         }
     }
 
-    private func loadReceipt() {
-        // Finding #9: mark the load complete on every exit so a valid zero-item
-        // receipt renders its empty state instead of an endless spinner.
-        defer { hasLoaded = true }
-        let fileURL = URL(fileURLWithPath: entry.path)
-        guard let data = try? Data(contentsOf: fileURL) else {
-            errorMessage = "Could not read the receipt file from disk."
-            return
-        }
+    struct LoadedReceipt: Sendable {
+        let metadata: ReceiptMetadata
+        let transfers: [ReceiptVisualItem]
+    }
 
+    private func loadReceipt() async {
+        // Keep a worker lease even if the sheet closes while disk I/O or JSON
+        // decoding is finishing. Never block the main actor on either step.
+        let scope = appState.historyArtifactSecurityScope(destinationRoot: receiptDestinationRoot)
+        defer { scope?.close() }
+        do {
+            let content = try await Self.readReceipt(entry: entry)
+            guard !Task.isCancelled else { return }
+            metadata = content.metadata
+            transfers = content.transfers
+            errorMessage = nil
+        } catch {
+            guard !Task.isCancelled else { return }
+            appState.runLogStore.append("Receipt read failed at \(entry.path): \(error)")
+            if error is DecodingError {
+                errorMessage = "Chronoframe couldn’t read this receipt’s format. Keep the receipt file for recovery and contact support."
+            } else {
+                errorMessage = UserFacingErrorMessage.message(for: error, context: .history)
+            }
+        }
+        hasLoaded = true
+    }
+
+    nonisolated static func readReceipt(entry: RunHistoryEntry) async throws -> LoadedReceipt {
+        try await Task.detached(priority: .userInitiated) {
+            let data = try Data(contentsOf: URL(fileURLWithPath: entry.path))
+            return try decodeReceipt(data: data, entry: entry)
+        }.value
+    }
+
+    nonisolated static func decodeReceipt(data: Data, entry: RunHistoryEntry) throws -> LoadedReceipt {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-
         if entry.kind == .dedupeAuditReceipt {
-            if let dedupeReceipt = try? decoder.decode(DeduplicateAuditReceipt.self, from: data) {
-                self.metadata = ReceiptMetadata(
-                    title: "Deduplication Run Details",
-                    timestamp: dedupeReceipt.createdAt,
-                    status: dedupeReceipt.status,
-                    schemaVersion: dedupeReceipt.schemaVersion,
-                    totalFiles: dedupeReceipt.items.count,
-                    bytesReclaimed: dedupeReceipt.bytesReclaimed,
-                    recoveryState: dedupeReceipt.recoveryState
-                )
-                self.transfers = dedupeReceipt.items.map {
+            let receipt = try decoder.decode(DeduplicateAuditReceipt.self, from: data)
+            return LoadedReceipt(
+                metadata: ReceiptMetadata(title: "Deduplication Run Details", timestamp: receipt.createdAt,
+                    status: receipt.status, schemaVersion: receipt.schemaVersion, totalFiles: receipt.items.count,
+                    bytesReclaimed: receipt.bytesReclaimed, recoveryState: receipt.recoveryState),
+                transfers: receipt.items.map {
                     ReceiptVisualItem(source: $0.originalPath, dest: $0.originalPath, hash: "", sizeBytes: $0.sizeBytes)
                 }
-            } else {
-                errorMessage = "Failed to parse the deduplication receipt."
-            }
-        } else if entry.kind == .reorganizeAuditReceipt {
-            if let reorganizeReceipt = try? decoder.decode(ReorganizeAuditReceipt.self, from: data) {
-                self.metadata = ReceiptMetadata(
-                    title: "Reorganize Run Details",
-                    timestamp: reorganizeReceipt.startedAt,
-                    status: reorganizeReceipt.status,
-                    schemaVersion: reorganizeReceipt.schemaVersion,
-                    totalFiles: reorganizeReceipt.items.count,
-                    bytesReclaimed: nil,
-                    recoveryState: nil
-                )
-                self.transfers = reorganizeReceipt.items.map {
+            )
+        }
+        if entry.kind == .reorganizeAuditReceipt {
+            let receipt = try decoder.decode(ReorganizeAuditReceipt.self, from: data)
+            return LoadedReceipt(
+                metadata: ReceiptMetadata(title: "Reorganize Run Details", timestamp: receipt.startedAt,
+                    status: receipt.status, schemaVersion: receipt.schemaVersion, totalFiles: receipt.items.count,
+                    bytesReclaimed: nil, recoveryState: nil),
+                transfers: receipt.items.map {
                     ReceiptVisualItem(source: $0.sourcePath, dest: $0.destinationPath, hash: $0.hash, sizeBytes: nil)
                 }
-            } else {
-                errorMessage = "Failed to parse the reorganize receipt."
-            }
-        } else {
-            // Standard organize audit receipt
-            if let revertReceipt = try? decoder.decode(RevertReceipt.self, from: data) {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyyMMdd_HHmmss"
-                let date = revertReceipt.timestamp.flatMap { formatter.date(from: $0) } ?? entry.createdAt
-
-                self.metadata = ReceiptMetadata(
-                    title: "Organize Run Details",
-                    timestamp: date,
-                    status: revertReceipt.status ?? "COMPLETED",
-                    schemaVersion: revertReceipt.schemaVersion ?? 1,
-                    totalFiles: revertReceipt.transfers.count,
-                    bytesReclaimed: nil,
-                    recoveryState: nil
-                )
-                self.transfers = revertReceipt.transfers.map {
-                    ReceiptVisualItem(source: $0.source, dest: $0.dest, hash: $0.hash, sizeBytes: nil)
-                }
-            } else {
-                errorMessage = "Failed to parse the organize receipt."
-            }
+            )
         }
+        let receipt = try decoder.decode(RevertReceipt.self, from: data)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        let timestamp = receipt.timestamp.flatMap { formatter.date(from: $0) }
+            ?? receipt.timestamp.flatMap { ISO8601DateFormatter().date(from: $0) }
+            ?? entry.createdAt
+        return LoadedReceipt(
+            metadata: ReceiptMetadata(title: "Organize Run Details", timestamp: timestamp,
+                status: receipt.status ?? "COMPLETED", schemaVersion: receipt.schemaVersion ?? 1,
+                totalFiles: receipt.transfers.count, bytesReclaimed: nil, recoveryState: nil),
+            transfers: receipt.transfers.map {
+                ReceiptVisualItem(source: $0.source, dest: $0.dest, hash: $0.hash, sizeBytes: nil)
+            }
+        )
     }
 
     private func runVerification() async {
+        let scope = appState.historyArtifactSecurityScope(destinationRoot: receiptDestinationRoot)
+        defer { scope?.close() }
         isVerifying = true
         let items = transfers
         await Task.detached(priority: .userInitiated) {

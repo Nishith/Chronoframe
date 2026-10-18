@@ -233,7 +233,8 @@ public enum EntitlementRetryPolicy {
 
 // MARK: Policy
 
-/// The paid-to-free migration rule.
+/// Opt-in historical paid-to-free migration rule. The shipping direct-free
+/// launch uses `disabled`; acquisition dates never unlock that configuration.
 ///
 /// Grandfathering is anchored to Apple's signed `originalPurchaseDate` compared
 /// against the moment the listing price actually dropped to free. A version-only
@@ -247,6 +248,11 @@ public enum EntitlementRetryPolicy {
 /// customers twice. The asymmetry is not close.
 public struct GrandfatherPolicy: Equatable, Sendable {
     public let cutover: Date
+    public let legacyPurchasesEnabled: Bool
+
+    /// Direct free launch: neither app acquisition dates nor old cached grants
+    /// confer an unlock. Only ownership of the non-consumable does.
+    public static let disabled = GrandfatherPolicy(cutover: .distantPast, legacyPurchasesEnabled: false)
 
     /// How long a cached legacy grant is honoured without re-verification.
     ///
@@ -259,19 +265,26 @@ public struct GrandfatherPolicy: Equatable, Sendable {
 
     public static let defaultMaximumCacheAge: TimeInterval = 90 * 24 * 60 * 60
 
-    public init(cutover: Date, maximumCacheAge: TimeInterval = GrandfatherPolicy.defaultMaximumCacheAge) {
+    public init(
+        cutover: Date,
+        maximumCacheAge: TimeInterval = GrandfatherPolicy.defaultMaximumCacheAge,
+        legacyPurchasesEnabled: Bool = true
+    ) {
         self.cutover = cutover
         self.maximumCacheAge = maximumCacheAge
+        self.legacyPurchasesEnabled = legacyPurchasesEnabled
     }
 
     /// Whether a verified app transaction earns a legacy unlock.
     public func grantsLegacyUnlock(_ info: AppTransactionInfo, now: Date) -> Bool {
+        guard legacyPurchasesEnabled else { return false }
         if let revocationDate = info.revocationDate, revocationDate <= now { return false }
         return info.originalPurchaseDate < cutover
     }
 
     /// Whether a cached grant may still stand in for a live check.
     public func acceptsCachedGrant(_ grant: CachedLegacyGrant, now: Date) -> Bool {
+        guard legacyPurchasesEnabled else { return false }
         guard grant.originalPurchaseDate < cutover else { return false }
         let age = now.timeIntervalSince(grant.recordedAt)
         // A clock that has moved backwards yields a negative age. Accept it
@@ -352,30 +365,15 @@ public enum EntitlementResolver {
 
 // MARK: Product identity
 
-/// Single source of truth for the unlock product and the migration cutover.
+/// Single source of truth for the unlock product and direct-free-launch policy.
 public enum ChronoframeUnlock {
     /// The one non-consumable. Family Sharing is enabled on it in App Store
     /// Connect — that switch is irreversible, so it is set at product creation.
     public static let productID = "com.nishith.chronoframe.unlock"
 
-    /// The moment the App Store price drops to free. Everyone who obtained the
-    /// app before this instant paid for it, and is unlocked for life.
-    ///
-    /// This is set far in the future on purpose, and that is the *correct*
-    /// value until the price actually changes — while the app is still paid,
-    /// every single customer is a paying customer, so grandfathering everyone
-    /// is right. The constant is therefore fail-safe by construction: shipping
-    /// it unedited cannot charge anyone twice. The only way it does harm is if
-    /// it is left unedited *after* the price drops, which would make the app
-    /// permanently free for everyone.
-    ///
-    /// Rollout order: submit the IAP with version 2 → release v2 while still
-    /// paid → hold 7 days and verify grandfathering against real purchaser data
-    /// → set this constant to the scheduled price-change moment, biased a few
-    /// hours late → ship → then execute the price drop.
-    public static let grandfatherCutover = Date(timeIntervalSince1970: 4_102_444_800) // 2100-01-01T00:00:00Z
-
+    /// The owner confirmed there are no existing customers to migrate. New
+    /// customers use the allowance unless they own the lifetime unlock.
     public static func defaultPolicy() -> GrandfatherPolicy {
-        GrandfatherPolicy(cutover: grandfatherCutover)
+        .disabled
     }
 }

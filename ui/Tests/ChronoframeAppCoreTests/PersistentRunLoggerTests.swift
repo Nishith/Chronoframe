@@ -42,6 +42,7 @@ final class PersistentRunLoggerTests: XCTestCase {
         logger.close()
     }
 
+    // AGENTS-INVARIANT: 26
     func testSymlinkedRunLogIsRejectedAndItsTargetIsUntouched() throws {
         let destination = try makeDirectory()
         let sentinel = try makeSentinel(in: try makeDirectory())
@@ -52,6 +53,7 @@ final class PersistentRunLoggerTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: sentinel, encoding: .utf8), "SENTINEL")
     }
 
+    // AGENTS-INVARIANT: 26
     func testHardLinkedRunLogIsRejectedAndTheSharedFileIsUntouched() throws {
         let destination = try makeDirectory()
         let sentinel = try makeSentinel(in: destination)
@@ -62,6 +64,7 @@ final class PersistentRunLoggerTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: sentinel, encoding: .utf8), "SENTINEL")
     }
 
+    // AGENTS-INVARIANT: 26
     func testNonRegularRunLogIsRejectedWithoutBlocking() throws {
         let destination = try makeDirectory()
         XCTAssertEqual(mkfifo(logURL(in: destination).path, S_IRUSR | S_IWUSR), 0)

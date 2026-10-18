@@ -2,6 +2,8 @@ import Foundation
 
 public enum DateResolutionSource: String, Codable, Sendable, CaseIterable {
     case photoMetadata
+    case videoMetadata
+    case photosAsset
     case filename
     case fileSystemCreation
     case fileSystemModification
@@ -12,6 +14,10 @@ public enum DateResolutionSource: String, Codable, Sendable, CaseIterable {
         switch self {
         case .photoMetadata:
             return "Photo Metadata"
+        case .videoMetadata:
+            return "Video Metadata"
+        case .photosAsset:
+            return "Photos Capture Date"
         case .filename:
             return "Filename"
         case .fileSystemCreation:

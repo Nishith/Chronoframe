@@ -11,11 +11,14 @@ public struct PhotosAssetExportEntry: Equatable, Sendable {
     /// Sanitized, dot-safe, collision-free basename (no extension). The
     /// executor appends each original resource's real file extension.
     public let stagingStem: String
+    /// Photos' asset capture instant, used only when originals carry no date.
+    public let creationDate: Date?
 
-    public init(assetID: String, mediaKind: PhotosAssetSummary.MediaKind, stagingStem: String) {
+    public init(assetID: String, mediaKind: PhotosAssetSummary.MediaKind, stagingStem: String, creationDate: Date? = nil) {
         self.assetID = assetID
         self.mediaKind = mediaKind
         self.stagingStem = stagingStem
+        self.creationDate = creationDate
     }
 }
 
@@ -59,7 +62,8 @@ public enum PhotosExportPlanner {
                 PhotosAssetExportEntry(
                     assetID: asset.id,
                     mediaKind: asset.mediaKind,
-                    stagingStem: unique
+                    stagingStem: unique,
+                    creationDate: asset.creationDate
                 )
             )
         }

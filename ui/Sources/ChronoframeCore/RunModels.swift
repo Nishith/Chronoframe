@@ -305,6 +305,7 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
     public var workerCount: Int
     public var folderStructure: FolderStructure
     public var eventSuggestionMode: EventSuggestionMode
+    public var sourceDateHints: [String: SourceDateHint]
 
     public init(
         mode: RunMode,
@@ -315,7 +316,8 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
         parallelTransferEnabled: Bool = false,
         workerCount: Int = 8,
         folderStructure: FolderStructure = .yyyyMMDD,
-        eventSuggestionMode: EventSuggestionMode = .off
+        eventSuggestionMode: EventSuggestionMode = .off,
+        sourceDateHints: [String: SourceDateHint] = [:]
     ) {
         self.mode = mode
         self.sourcePath = sourcePath
@@ -326,10 +328,11 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
         self.workerCount = workerCount
         self.folderStructure = folderStructure
         self.eventSuggestionMode = eventSuggestionMode
+        self.sourceDateHints = sourceDateHints
     }
 
     private enum CodingKeys: String, CodingKey {
-        case mode, sourcePath, destinationPath, profileName, verifyCopies, parallelTransferEnabled, workerCount, folderStructure, eventSuggestionMode
+        case mode, sourcePath, destinationPath, profileName, verifyCopies, parallelTransferEnabled, workerCount, folderStructure, eventSuggestionMode, sourceDateHints
     }
 
     public init(from decoder: Decoder) throws {
@@ -343,6 +346,7 @@ public struct RunConfiguration: Equatable, Codable, Sendable {
         self.workerCount = try container.decodeIfPresent(Int.self, forKey: .workerCount) ?? 8
         self.folderStructure = try container.decodeIfPresent(FolderStructure.self, forKey: .folderStructure) ?? .yyyyMMDD
         self.eventSuggestionMode = try container.decodeIfPresent(EventSuggestionMode.self, forKey: .eventSuggestionMode) ?? .off
+        self.sourceDateHints = try container.decodeIfPresent([String: SourceDateHint].self, forKey: .sourceDateHints) ?? [:]
     }
 }
 

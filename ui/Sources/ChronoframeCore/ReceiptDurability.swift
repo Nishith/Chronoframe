@@ -8,20 +8,10 @@ public enum ReceiptDurability {
         // name could already hold a planted link. Create a uniquely named temp
         // file exclusively (O_EXCL never follows or reuses an existing entry)
         // and write and flush through that one descriptor.
-        let tempURL = url.appendingPathExtension("\(UUID().uuidString).tmp")
-        let fd = tempURL.path.withCString { pointer in
-            open(pointer, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
-        }
-        guard fd >= 0 else {
-            let code = errno
-            throw NSError(
-                domain: NSPOSIXErrorDomain,
-                code: Int(code),
-                userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(code))]
-            )
-        }
+        let (handle, tempURL) = try DestinationMetadataFile.createTemporary(beside: url)
+        let fd = handle.fileDescriptor
         defer {
-            close(fd)
+            try? handle.close()
         }
 
         do {

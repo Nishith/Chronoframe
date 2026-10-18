@@ -1,8 +1,6 @@
 # Free Trial Plan
 
-Chronoframe is migrating from a **paid-up-front** Mac App Store app to **free download plus one
-non-consumable lifetime unlock**, with a metered free tier. This document is the implementation
-plan for that migration and the record of the decisions behind it.
+Chronoframe V2 launches directly as a **free download plus one non-consumable lifetime unlock**, with a metered free tier. On October 16, 2026 the owner confirmed there are no existing customers and approved removing the paid migration. This decision supersedes the historical paid-window and grandfathering instructions. No customer settings or allowance ledgers need resetting.
 
 Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 
@@ -17,12 +15,10 @@ Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 | 5 | Unlock UI + free test batch | **Merged.** T13–T16 |
 | 6 | Test matrices | **Merged.** T17–T19 |
 | 7 | App Store Connect product creation | Not recorded in the repository; verify manually |
-| 8 | Version 2 candidate and price cutover | Not started |
+| 8 | Direct free V2 launch | Access policy updated; final signed build, testing and store configuration remain |
 | 9 | Release monitoring | Not started |
 
-The implementation is complete, but it has not shipped. The public app remains paid-up-front;
-`grandfatherCutover` intentionally remains at its far-future fail-safe value until the version 2
-release and free-price transition are scheduled.
+The launch target remains October 26, 2026, subject to final testing and App Review. There is no seven-day paid rollout or compiled acquisition-date cutoff. `ChronoframeUnlock.defaultPolicy()` disables both live and cached legacy grants. App transactions still supply the account identity for the allowance; verified ownership of the non-consumable unlock confers unrestricted access. Existing test-build legacy grants do not confer access, even offline. Test data and usage ledgers are not reset.
 
 ## Risk markers
 
@@ -31,7 +27,7 @@ Each task is marked with how much care it needs:
 - **Routine** — specified end to end; implement and test against the acceptance criteria.
 - **Careful review** — specified, but the failure modes are subtle. Read the diff closely.
 - **Safety-critical** — touches an audited path (executors, revert, the gates themselves, the
-  cutover constant). Diffs here are reviewed line by line; a mistake is not caught by CI.
+  entitlement policy). Diffs here are reviewed line by line; automated tests do not replace review.
 - **Manual** — App Store Connect or release execution. Not a code change.
 
 ## Settled policy
@@ -43,19 +39,16 @@ Not open for reinterpretation during implementation. Raise a question rather tha
 | Allowance | 500 files organized, 100 duplicates trashed (cumulative, lifetime) |
 | Free and unlimited | preview, plan, dry-run CSV, dedupe scan and review, Health, History |
 | Product | `com.nishith.chronoframe.unlock`, one non-consumable |
-| Price | $14.99 at launch; raise to $19.99 once conversion and reviews accumulate |
+| Price | Free download; $14.99 US one-time lifetime unlock; no subscription |
 | Family Sharing | ON — irreversible, so it is set at product creation |
 | Quota scope | per Apple Account, per Mac — `AppTransactionInfo.ledgerAccountKey` |
 | Revert refunds allowance | yes — per restored item, so partial and repeated reverts are exact |
 | Revert gating | never, all three receipt kinds |
 | Reorganize | requires unlock (a gate, not a reservation) |
 | Developer ID build | internal/testing only, explicitly unrestricted |
-| Cutover | 7 days live-and-paid on v2 before the price drops |
+| Launch | Direct free download; no paid rollout or date-based legacy unlock |
 
-Grandfathering is anchored to Apple's signed `originalPurchaseDate` against a cutover timestamp,
-**not** `originalAppVersion`. A version boundary misclassifies customers in both rollout windows:
-people who download the paid version before v2 finishes propagating would be grandfathered forever,
-and people who buy v2 before the price drops would be asked to pay twice.
+The legacy migration types remain for explicit historical-policy tests. They are disabled in the shipping default. Purchase, restore, transaction updates, account-scoped metering, refund-on-revert and unrestricted Developer ID testing retain their existing behavior. Family Sharing and the actual price must also be verified in App Store Connect; local code cannot configure them.
 
 ## Ground rules
 
@@ -530,14 +523,13 @@ audit.
 
 ## T18 — StoreKit configuration file · Routine
 
-Add an Xcode StoreKit configuration file for the unlock so `Transaction` and `AppTransaction` can
-be driven locally. **The sandbox always reports `originalAppVersion` as `1.0`**, so a naive
-fresh-install sandbox test looks grandfathered — use the injected `AppTransactionClient` or a debug
-launch override, and keep the Xcode-StoreKit, sandbox, and TestFlight matrices separate.
+The Xcode StoreKit configuration file drives local purchase and restore tests. App acquisition
+dates and original versions never confer access under the shipping policy, including synthesized
+sandbox values. Keep Xcode-StoreKit, sandbox, TestFlight and production results separate.
 
 ## T19 — Manual matrix · Routine
 
-Extend the TestFlight matrix in `docs/APP_STORE_RELEASE.md`: offline legacy access; product-load
+Extend the TestFlight matrix in `docs/APP_STORE_RELEASE.md`: cached legacy grants ignored; product-load
 failure; pending purchase; user cancellation; unverified transaction; refund; Family Sharing
 revocation; Apple Account change; restore authentication failure; allowance survives reinstall;
 refused run leaves originals untouched.
@@ -552,17 +544,9 @@ App Store Connect: non-consumable `com.nishith.chronoframe.unlock` at $14.99, **
 (irreversible)**. Apple requires the first non-consumable to be submitted **with** a new app
 version.
 
-## T21 — Set the cutover · Safety-critical
+## T21 — Direct free access policy · Safety-critical
 
-`ChronoframeUnlock.grandfatherCutover` in `ui/Sources/ChronoframeCore/Entitlement.swift` is
-far-future today, which is **correct while the app is still paid** — every customer is a paying
-customer, so grandfathering everyone is right, and shipping it unedited cannot charge anyone twice.
-
-Set it to the scheduled price-change moment, **biased a few hours late**, as part of the release.
-Erring late grandfathers a handful of free downloaders; erring early asks paying customers to buy
-twice. Also bump `MARKETING_VERSION` to `2.0`.
-
-**Leaving it unedited after the price drops makes the app permanently free for everyone.**
+The owner approved the direct-free rules on October 16. No acquisition date, including an old sandbox date or a cached legacy grant, unlocks the app under the shipping default. Only the verified non-consumable entitlement does. Do not reintroduce the October 26 cutoff. Regressions cover the shipping policy, old cached test grants, purchase cancellation, purchase, relaunch and restore. Signed StoreKit and production verification remain separate release gates.
 
 ## T22 — Marketing and metadata copy · Routine
 
@@ -575,12 +559,10 @@ true** and is worth keeping prominent. Review notes must disclose the trial limi
 
 ## T23 — Execute the release · Manual
 
-1. Submit the in-app purchase **with** version 2.
-2. Release v2 **while still paid**. Hold **7 days**: confirm storefront propagation and verify
-   grandfathering against **real** `AppTransaction` data from actual v2 purchasers.
-3. Only then execute the scheduled price transition to free.
-
-The price drop is the **only irreversible step** — anyone who downloads the app free keeps it.
+1. Archive the final source with a new build number and install through TestFlight. Complete the focused signed checks.
+2. Configure the app as Free and the non-consumable as $14.99 US with Family Sharing. Coordinate pricing with V2 availability if the older paid version is still listed.
+3. Submit the app and first non-consumable together, retaining manual release.
+4. Once approved, release V2, verify public pricing, allowance, purchase and restore, then publish website and marketing. There is no paid holding period.
 
 ---
 

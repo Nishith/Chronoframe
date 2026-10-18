@@ -100,21 +100,53 @@ final class ChronoframeCoreEntitlementTests: XCTestCase {
         XCTAssertEqual(resolve(owned: .success([]), appTransaction: .success(revoked)), .unlocked(reason: .legacyPurchase))
     }
 
-    /// Until the price actually drops, every customer is a paying customer, so
-    /// the shipped default must grandfather everyone. This is what makes the
-    /// unedited constant safe to release.
-    func testDefaultPolicyGrandfathersEveryoneBeforeTheCutoverIsSet() {
-        let state = EntitlementResolver.resolve(
-            ownedProducts: .success([]),
-            appTransaction: .success(
-                AppTransactionInfo(originalPurchaseDate: now, originalAppVersion: "2.0", appTransactionID: nil)
-            ),
-            cachedLegacyGrant: nil,
-            unlockProductID: ChronoframeUnlock.productID,
-            policy: ChronoframeUnlock.defaultPolicy(),
-            now: now
+    /// The shipping policy must not mistake an app download (including the
+    /// sandbox's historical acquisition date) for ownership of the unlock.
+    func testDirectFreeLaunchUsesAllowanceRegardlessOfAcquisitionDate() throws {
+        let formatter = ISO8601DateFormatter()
+        let observations = [
+            "2013-08-01T07:00:00Z", "2026-10-04T12:00:00Z",
+            "2026-10-26T06:59:59Z", "2026-10-26T07:00:00Z",
+            "2026-10-26T07:00:01Z", "2027-01-01T00:00:00Z"
+        ]
+        XCTAssertFalse(ChronoframeUnlock.defaultPolicy().legacyPurchasesEnabled)
+        for date in observations {
+            let purchaseDate = try XCTUnwrap(formatter.date(from: date))
+            let state = EntitlementResolver.resolve(
+                ownedProducts: .success([]),
+                appTransaction: .success(AppTransactionInfo(
+                    originalPurchaseDate: purchaseDate, originalAppVersion: "2.0", appTransactionID: nil
+                )),
+                cachedLegacyGrant: nil,
+                unlockProductID: ChronoframeUnlock.productID,
+                policy: ChronoframeUnlock.defaultPolicy(),
+                now: now
+            )
+            XCTAssertEqual(state, .locked, date)
+        }
+    }
+
+    func testDirectFreeLaunchRejectsOldCachedGrantWhenOffline() {
+        let grant = CachedLegacyGrant(
+            originalPurchaseDate: cutover.addingTimeInterval(-5000),
+            appTransactionID: "old-test-grant", recordedAt: now
         )
-        XCTAssertEqual(state, .unlocked(reason: .legacyPurchase))
+        XCTAssertEqual(resolve(
+            owned: .failure(.unavailable), appTransaction: .failure(.unavailable),
+            cached: grant, policy: ChronoframeUnlock.defaultPolicy()
+        ), .verificationUnavailable)
+        // Explicitly disabled even with a permissive cutoff: dates alone can
+        // never accidentally re-enable either the live or cached grant path.
+        let disabled = GrandfatherPolicy(cutover: .distantFuture, legacyPurchasesEnabled: false)
+        XCTAssertFalse(disabled.grantsLegacyUnlock(appTransaction(purchasedAt: -5000), now: now))
+        XCTAssertFalse(disabled.acceptsCachedGrant(grant, now: now))
+    }
+
+    func testDirectFreeLaunchStillHonorsOwnedUnlockOffline() {
+        XCTAssertEqual(resolve(
+            owned: ownedUnlock, appTransaction: .failure(.unavailable),
+            policy: ChronoframeUnlock.defaultPolicy()
+        ), .unlocked(reason: .inAppPurchase))
     }
 
     // MARK: Verification failures must not read as "did not pay"

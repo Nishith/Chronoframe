@@ -4,6 +4,43 @@ import XCTest
 
 @MainActor
 final class HistoryStoreTests: XCTestCase {
+    func testPermissionFailurePreservesSnapshotAndReconnectRefreshClearsError() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let entry = RunHistoryEntry(kind: .runLog, title: "Run Log", path: root.appendingPathComponent("old.log").path, createdAt: .now)
+        let source = TransferredSourceRecord(sourcePath: "/Card", firstTransferredAt: .now, lastTransferredAt: .now, runCount: 1, lastCopiedCount: 344, totalCopiedCount: 344)
+        let indexer = RetryingHistoryIndexer(entries: [entry])
+        let store = HistoryStore(entries: [entry], transferredSources: [source], destinationRoot: root.path, indexer: indexer)
+        let tracker = SecurityScopeCloseTracker()
+        var requestedRoots: [String] = []
+        store.setDestinationScopeProvider { path in
+            requestedRoots.append(path)
+            return tracker.makeScope()
+        }
+        await store.refresh(destinationRoot: root.path)
+        XCTAssertEqual(store.entries, [entry])
+        XCTAssertEqual(store.transferredSources, [source])
+        XCTAssertTrue(store.needsFolderAccess)
+        XCTAssertNotNil(store.lastRefreshError)
+        XCTAssertEqual(tracker.closeCount, 1)
+
+        await store.refresh(destinationRoot: root.path)
+        XCTAssertEqual(store.entries, [entry])
+        XCTAssertFalse(store.needsFolderAccess)
+        XCTAssertNil(store.lastRefreshError)
+        XCTAssertEqual(requestedRoots, [root.path, root.path])
+        XCTAssertEqual(tracker.closeCount, 2)
+    }
+
+    func testChangingArchiveClearsPreviousSnapshot() {
+        let entry = RunHistoryEntry(kind: .runLog, title: "Old", path: "/old/log", createdAt: .now)
+        let store = HistoryStore(entries: [entry], destinationRoot: "/old")
+        store.setDestinationRoot("/new")
+        XCTAssertTrue(store.entries.isEmpty)
+        XCTAssertEqual(store.destinationRoot, "/new")
+    }
+
     func testRefreshUsesIndexerResults() async {
         let entries = [
             RunHistoryEntry(
@@ -197,6 +234,20 @@ final class HistoryStoreTests: XCTestCase {
             store.lastRefreshError,
             "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again. Details: History index failed"
         )
+    }
+}
+
+private final class RetryingHistoryIndexer: RunHistoryIndexing, @unchecked Sendable {
+    private let lock = NSLock()
+    private var attempts = 0
+    let entries: [RunHistoryEntry]
+    init(entries: [RunHistoryEntry]) { self.entries = entries }
+    func index(destinationRoot: String) throws -> [RunHistoryEntry] {
+        lock.lock()
+        defer { lock.unlock() }
+        attempts += 1
+        if attempts == 1 { throw NSError(domain: NSPOSIXErrorDomain, code: Int(EACCES)) }
+        return entries
     }
 }
 

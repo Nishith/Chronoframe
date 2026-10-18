@@ -35,6 +35,9 @@ public struct PhotosAssetSummary: Equatable, Sendable, Identifiable {
     /// so a summary is only ever a browsing/selection token.
     public let id: String
     public let mediaKind: MediaKind
+    /// Photos' capture instant, retained through export as a fallback when
+    /// original resources and their filenames carry no valid capture date.
+    /// PhotoKit exposes no recorded UTC offset here; originals take priority.
     public let creationDate: Date?
     public let pixelWidth: Int
     public let pixelHeight: Int
