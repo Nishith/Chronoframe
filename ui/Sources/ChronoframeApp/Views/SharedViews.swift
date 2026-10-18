@@ -874,10 +874,14 @@ struct TrustProofModel {
             TrustProofItem(
                 id: "active_run",
                 title: isTransfer ? "Copy In Progress" : "Preview In Progress",
-                message: isTransfer ? "Writing copies to the destination. Your original files stay untouched." : "Reading and planning the copy only. No files are modified or written.",
+                message: isTransfer
+                    ? "Writing copies to the destination. Your original files stay untouched."
+                    : "Reading and planning the copy only. No photos or videos are added to the destination, and your original files stay untouched.",
                 symbol: isTransfer ? "arrow.right.circle.fill" : "eye.fill",
                 tone: isTransfer ? .success : .neutral,
-                accessibilityLabel: isTransfer ? "Active copy. Originals stay safe." : "Active preview. Read only.",
+                accessibilityLabel: isTransfer
+                    ? "Active copy. Originals stay safe."
+                    : "Active preview. Nothing is added to the destination, and originals stay untouched.",
                 actionLabel: nil
             )
         ]
