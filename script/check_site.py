@@ -55,7 +55,7 @@ class Page(HTMLParser):
             self.schema = None
 
 
-for name in ('index.html', 'features.html', 'safety.html', 'faq.html', 'support.html',
+for name in ('index.html', 'features.html', 'safety.html', 'faq.html', 'support.html', 'quick-start.html',
              'privacy.html', '404.html', 'support/index.html', 'privacy/index.html',
              'styles.css', 'site.js', 'CNAME', 'robots.txt', 'sitemap.xml'):
     check((ROOT/name).is_file() and (ROOT/name).stat().st_size > 0, f'Missing required file: {name}')
@@ -139,7 +139,7 @@ for cue in times:
 
 sitemap=ET.parse(ROOT/'sitemap.xml')
 indexed={element.text for element in sitemap.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc')}
-for route in ('/', '/features.html', '/safety.html', '/privacy.html', '/faq.html', '/support.html'):
+for route in ('/', '/features.html', '/safety.html', '/privacy.html', '/faq.html', '/support.html', '/quick-start.html'):
     check('https://chronoframe.app'+route in indexed, f'Missing sitemap route: {route}')
 for element in sitemap.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}loc'):
     path=ROOT/urlsplit(element.text).path.lstrip('/')
@@ -189,7 +189,7 @@ if proof_path.is_file():
     check(art.is_file() and art.stat().st_size < 350_000, 'Hero artwork missing or over 350 KB budget')
 
 home_source = (ROOT/'index.html').read_text()
-check('product-window' in home_source and 'tabindex="0" role="region"' in home_source, 'Product screenshot needs keyboard-accessible narrow-screen inspection')
+check(any(t == 'a' and a.get('class') == 'product-window' and a.get('href') == 'assets/screenshots/preview-timeline-202609.jpg' for t,a in home.tags), 'Product screenshot needs a keyboard-accessible full-size link')
 if proof_path.is_file():
     film = next((asset for asset in proof.get('assets', []) if asset.get('kind') == 'recorded_walkthrough'), {})
     if film.get('publication_date'):

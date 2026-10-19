@@ -70,6 +70,12 @@
     },
     {
       "path": "assets/screenshots/preview-timeline-202609.jpg",
+      "mobile_presentation": {
+        "method": "CSS viewport crop of the unchanged original; full-size image remains linked",
+        "source_dimensions": [1920, 1059],
+        "crop_rectangle_xywh": [630, 95, 850, 660],
+        "text_alternative": "Always-visible HTML summary before the image"
+      },
       "sha256": "30bf59b85e6b0fe1b0d199c70129326b0e71ede9335d14d8adfd940f596ca087",
       "kind": "app_capture",
       "scenario": "Staged 4,000-file full-access Organize preview, 2013–2026; not the free allowance or a speed benchmark",

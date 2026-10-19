@@ -9,9 +9,9 @@
   <link rel="canonical" href="https://chronoframe.app/support.html" />
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=20260523-f" />
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260523-f" />
-  <link rel="stylesheet" href="styles.css?v=20261018-qa" />
+  <link rel="stylesheet" href="styles.css?v=20261018-mobile-support" />
 </head>
-<body>
+<body class="help-page">
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-nav">
@@ -33,119 +33,65 @@
         <a class="back" href="index.html">&larr; Back to Chronoframe</a>
         <p class="eyebrow">Support</p>
         <h1>Getting started &amp; troubleshooting</h1>
-        <p>Set-up steps for Organize and Deduplicate, common questions, and how to reach us.</p>
+        <p>Find the next step for your first import, a purchase question or an interrupted run.</p>
+        <p><a class="text-link" href="quick-start.html">New here? Follow the first-run guide &rarr;</a></p>
       </div>
     </section>
 
-    <section>
+    <section class="help-content">
       <div class="container">
-        <article class="prose">
-          <h2>Getting started</h2>
-          <h3>Organize photos</h3>
-          <ul>
-            <li>Open <strong>Organize &rarr; Setup</strong> and choose the folder with your unsorted photos and videos.</li>
-            <li>Choose a separate destination folder. Chronoframe uses a <code>YYYY/MM/DD</code> layout by default; change it in <strong>Settings &rarr; Layout</strong>.</li>
-            <li>Click <strong>Preview Plan</strong>, review anything that needs attention (such as unknown dates) on the <strong>Run</strong> tab, then click <strong>Start Transfer</strong>.</li>
-            <li>Your source folder is never changed. Review the run under <strong>History</strong>, and use <strong>Revert</strong> if needed.</li>
-          </ul>
-          <h3>Deduplicate photos and videos</h3>
-          <ul>
-            <li>Open <strong>Deduplicate</strong> and choose a folder to scan, or reuse a recent one.</li>
-            <li>Pick a <strong>Detection</strong> preset (Exact copies, Balanced, or Similar shots), click <strong>Start Scan</strong>, review each group, and choose what to keep.</li>
-            <li>Exact videos are always matched by content. Enable <strong>Find visually similar videos</strong> in <strong>Settings &rarr; Deduplicate</strong> to review transcodes and re-exports (Balanced or Similar shots preset); those groups are never auto-accepted.</li>
-            <li>Click <strong>Move to Trash</strong> only after the plan looks right. Selected duplicates move to the macOS Trash.</li>
-          </ul>
-
-          <h2 id="purchases">Free allowance and purchase help</h2>
-          <p>The free allowance covers 500 files organized and 100 duplicate files moved to Trash, cumulatively per Apple Account per Mac, with no time limit. Scanning, preview, review, and History remain unlimited. Revert never requires a purchase; successfully undoing work returns the corresponding allowance.</p>
-          <p>The $14.99 US one-time lifetime unlock supports Family Sharing and includes Reorganize. Regional prices vary. If you purchased the unlock, use the same Apple Account and choose <strong>Restore Purchases</strong> in Settings. Don’t buy again to troubleshoot missing access. Store verification may need an internet connection; if restoring still fails, contact support with the message shown.</p>
+        <nav class="help-topics" aria-label="Support topics">
+          <a href="#getting-started">Getting started</a><a href="#duplicates">Duplicates</a><a href="#purchases">Purchases</a><a href="#permissions">Permissions</a><a href="#recovery">Recovery</a><a href="#contact">Contact</a>
+        </nav>
+        <article class="prose support-prose">
+          <h2 id="getting-started" tabindex="-1">Getting started</h2>
+          <p>Start with one source folder and a separate destination. Preview the dates and planned copies, then approve the transfer when you’re ready. Your source originals stay untouched.</p>
+          <p><a class="text-link" href="quick-start.html">Follow the first-run guide &rarr;</a></p>
           <h3>Import from Apple Photos</h3>
-          <p>Open <strong>Photos</strong>, authorize access, select your photos and videos, and choose <strong>Review &amp; Import</strong>. Chronoframe imports unedited originals, not your edited versions. Keep enough local disk space for temporary exports as well as the destination copies; iCloud-only originals need a network connection.</p>
-          <h3>Watch a regular source</h3>
-          <p>Add the folder under <strong>Organize &rarr; Sources</strong>. Keep Chronoframe running to monitor arrivals. The count is an estimate, and each import still needs your review and approval.</p>
+          <p>Open <strong>Photos</strong>, select your photos and videos, then choose <strong>Review &amp; Import</strong>. Chronoframe copies unedited originals; it never changes your Photos library. Allow local space for temporary exports and destination copies. iCloud-only originals need a download through Apple.</p>
+          <h3>Keep up with a regular source</h3>
+          <p>Add the folder under <strong>Organize &rarr; Sources</strong>. Keep Chronoframe running to monitor new arrivals. Counts are estimates, and every import still needs your review and approval.</p>
 
-          <h2>Frequently asked questions</h2>
+          <h2 id="duplicates" tabindex="-1">Duplicates</h2>
+          <p>Open <strong>Deduplicate</strong>, choose the folder to scan and select <strong>Start Scan</strong>. Review each group, choose what stays, then approve <strong>Move to Trash</strong>. Deduplicate works on files in folders; it does not delete from Apple Photos.</p>
+          <div class="help-questions">
+            <details><summary>Duplicates I expected are missing</summary><div class="help-answer"><p>Exact matching compares file contents, not filenames. Different compression, metadata or formats can make two versions different files. Use a broader <strong>Detection</strong> preset to review similar photos. Exact video copies are always detected; similar-video matching is an optional setting under <strong>Settings &rarr; Deduplicate</strong> and stays review-only.</p></div></details>
+            <details><summary>Move to Trash is unavailable</summary><div class="help-answer"><p>Review a group and mark the files you want to remove. The action becomes available when the reviewed plan contains selected files. Check the final selection before approving it; similar-looking files are not necessarily identical.</p></div></details>
+            <details><summary>A planned file changed after the scan</summary><div class="help-answer"><p>Close any editor or sync process changing the folder, scan again and review the updated group. Chronoframe rechecks planned mutations by content. A changed file, pair or sidecar is preserved rather than removed using a stale plan.</p></div></details>
+          </div>
+          <p class="help-note">Duplicates go to macOS Trash. Moving them there does not immediately free their storage; emptying Trash ends the receipt-based recovery option.</p>
 
-          <div class="qa">
-            <p class="q">Will Chronoframe delete or modify my original photos?</p>
-            <p class="a">Organize only reads your source folder and copies into a separate destination. Deduplicate is a separate action that moves approved files in the folder you scan to Trash. Apple Photos import only reads your Photos library.</p>
-          </div>
-          <div class="qa">
-            <p class="q">What can I undo?</p>
-            <p class="a">Open <strong>Organize &rarr; History</strong> to undo supported transfers, dedupe commits, and reorganize runs. Chronoframe acts only when each file still matches its receipt, so it won't touch files that already existed or were changed afterward. Dedupe restore also requires the recorded items to remain in Trash with matching contents; it cannot recover emptied Trash.</p>
-          </div>
-          <div class="qa">
-            <p class="q">What happens after an interrupted run?</p>
-            <p class="a">Reopen Chronoframe with the destination drive connected. It reconciles durable copy, Trash, and move evidence before new work starts. History shows <strong>Interrupted &middot; Needs Drive</strong>, <strong>Trash Location Unverified</strong>, or <strong>Manual Recovery Needed</strong> when it cannot safely finish without more evidence.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Why is another Chronoframe operation using my destination?</p>
-            <p class="a">The app, command-line tool, and system actions share one destination lock. Wait for the active run to finish, then try again. This prevents two valid plans from changing the same library at once. The lock is reliable on a single Mac &mdash; if your destination is on a network drive, Chronoframe warns that two Macs writing at once isn't supported.</p>
-          </div>
-          <div class="qa">
-            <p class="q">What are the system requirements?</p>
-            <p class="a">macOS 14.0 or later, on both Apple Silicon and Intel Macs. You'll need roughly as much free space as the size of your source folder, since Chronoframe copies files as-is.</p>
-          </div>
-          <div class="qa">
-            <p class="q">How does Chronoframe figure out photo dates?</p>
-            <p class="a">It checks photo metadata (EXIF capture time) first, then filename date patterns, then file creation and modification dates, and always defers to any date you set yourself in Review. Photos with an unknown date go to an <code>Unknown_Date</code> folder unless you provide one.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Why did a photo taken near midnight land in a different date folder than I expected?</p>
-            <p class="a">When a photo's EXIF metadata includes a timezone offset, Chronoframe files it by the photographer's local calendar day at capture time, not the UTC day. Photos without an offset-tagged timestamp keep using the source's own day boundary. This only affects which date folder a file lands in &mdash; sorting and duplicate detection still use the exact capture instant.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Why didn't Deduplicate find duplicates I know exist?</p>
-            <p class="a">Exact-duplicate detection compares file content, not filenames, so two files match only when their bytes are identical. Files saved with different compression, metadata, or formats won't be exact matches. Use similar-photo review, the optional visual-video setting, and the <strong>Detection</strong> preset (Exact copies, Balanced, or Similar shots) to surface more candidates.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Does Deduplicate permanently delete files?</p>
-            <p class="a">No. Deduplicate moves only the files you approve to the macOS Trash. It does not hard delete files, and low-confidence groups stay review-only until you choose what to remove.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Does Chronoframe work with cloud drives like iCloud or OneDrive?</p>
-            <p class="a">Yes, but more slowly. Cloud drives aren't optimized for the file operations Chronoframe performs. Make sure originals are downloaded locally, and use local or external drives for the best performance.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Where does Chronoframe store its data?</p>
-            <p class="a">Inside your destination folder, in <code>.organize_cache.db</code>, <code>.organize_logs/</code>, and <code>.organize_log.txt</code>. Keep them while a run is active or interrupted: they can contain resume, recovery, History, and Revert evidence. Completed-run caches can be rebuilt if you intentionally remove them later.</p>
-          </div>
-          <div class="qa">
-            <p class="q">How do I uninstall Chronoframe?</p>
-            <p class="a">Quit the app, then move <strong>Chronoframe</strong> from your Applications folder to the Trash. Chronoframe doesn't install anything system-wide.</p>
+          <h2 id="purchases" tabindex="-1">Free allowance and purchases</h2>
+          <p>Organize 500 files and move 100 approved duplicate files to Trash for free, cumulatively per Apple Account per Mac, with no time limit. Scanning, preview, review and History stay unlimited.</p>
+          <p>The optional <strong>$14.99 US one-time lifetime unlock</strong> removes the limits, includes Reorganize and supports Family Sharing. The app shows your local price. <strong>Revert stays free</strong>; successfully undoing work returns the corresponding allowance.</p>
+          <div class="help-questions">
+            <details><summary>Restore Purchases didn’t unlock the app</summary><div class="help-answer"><p>Check that you are using the Apple Account that purchased the lifetime unlock, or the account receiving its Family Sharing access. Connect to the internet and choose <strong>Restore Purchases</strong> in Settings. Don’t buy again to troubleshoot missing access. If restoring still fails, <a href="#contact">contact support</a> with the exact message shown.</p></div></details>
+            <details><summary>I reached my free allowance</summary><div class="help-answer"><p>You can keep scanning, previewing, reviewing and inspecting History without a purchase. The lifetime unlock lets you organize and move more duplicates to Trash. Supported Revert operations remain available without an unlock and refund the allowance for work successfully undone.</p></div></details>
           </div>
 
-          <h2>Troubleshooting</h2>
-
-          <div class="qa">
-            <p class="q">The first scan or preview is taking a long time.</p>
-            <p class="a">Large libraries (50,000+ files) can take several minutes on the first run because Chronoframe reads metadata, computes content hashes, and resolves dates. Subsequent runs are faster thanks to the on-disk cache.</p>
-          </div>
-          <div class="qa">
-            <p class="q">A transfer stopped partway through.</p>
-            <p class="a">Check that you have write access and enough free space on the destination, and that no other app is locking the files. Reconnect the destination drive, reopen Chronoframe, and check History before retrying. Chronoframe reconciles recorded copies and resumes pending work; your originals are untouched.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Chronoframe is asking for permission to access a folder.</p>
-            <p class="a">macOS requires apps to ask before reading folders outside your home directory, including external drives. Choose <strong>Allow</strong> and select the folder in the picker.</p>
-          </div>
-          <div class="qa">
-            <p class="q">My external drive isn't showing up in the picker.</p>
-            <p class="a">Make sure the drive is mounted in Finder (try unplugging and reconnecting it). If it's encrypted, unlock it first.</p>
-          </div>
-          <div class="qa">
-            <p class="q">The Move to Trash button in Deduplicate is grayed out.</p>
-            <p class="a">It activates once you've marked at least one file for removal. Select a group and choose what to keep and what to remove, or use <strong>Auto-Accept Safe</strong> to clear the obvious exact copies.</p>
-          </div>
-          <div class="qa">
-            <p class="q">Deduplicate says a planned file changed.</p>
-            <p class="a">Chronoframe rechecks every planned mutation by content before Trash. Close any editor or sync process changing the folder, start a new scan, and review the updated group. A changed file, pair, or sidecar is preserved instead of being deleted from a stale plan.</p>
+          <h2 id="permissions" tabindex="-1">Permissions and drives</h2>
+          <div class="help-questions">
+            <details><summary>Chronoframe can’t access my folder</summary><div class="help-answer"><p>Use the app’s folder picker to choose the source or destination again. If History asks you to reconnect an archive, select that same archive folder. For a destination, check that the drive is writable and has enough free space for new copies. Your source and destination must be separate folders, with neither inside the other.</p></div></details>
+            <details><summary>My external drive doesn’t appear</summary><div class="help-answer"><p>Check that the drive appears in Finder. Reconnect it and unlock it if it is encrypted, then choose the folder in Chronoframe. Reconnect the same drive before trying to resume or inspect its History.</p></div></details>
+            <details><summary>My photos are in iCloud or another cloud folder</summary><div class="help-answer"><p>Download originals locally before scanning a cloud folder. Apple Photos import can request iCloud-only originals through Apple, which needs a network connection and temporary local space. Cloud synchronization can also change files while you work; local or external drives are usually simpler destinations.</p></div></details>
           </div>
 
-          <p style="margin-top:24px;">More detail lives in the project's <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/QUICK_START.md">Quick Start</a>, <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/FAQ.md">FAQ</a>, and <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a> docs.</p>
+          <h2 id="recovery" tabindex="-1">Interrupted runs and recovery</h2>
+          <div class="help-questions">
+            <details><summary>My transfer stopped or my drive disconnected</summary><div class="help-answer"><p>Reconnect and unlock the destination drive, reopen Chronoframe and inspect <strong>Organize &rarr; History</strong> before retrying. The app reconciles recorded work and may offer to resume pending copies. A run can show <strong>Needs Drive</strong>, <strong>Trash Location Unverified</strong> or <strong>Manual Recovery Needed</strong> while more evidence or access is needed.</p><p>Keep the destination’s <code>.organize_cache.db</code>, <code>.organize_logs/</code> and <code>.organize_log.txt</code> while work is active or interrupted. They can contain History, recovery and Revert evidence. Source originals stay untouched.</p></div></details>
+            <details><summary>Another operation is using my destination</summary><div class="help-answer"><p>Let the active Chronoframe operation finish before starting another one on the same destination. The app, command-line tool and system actions share a destination lock. Concurrent use of a network destination from multiple Macs is unsupported.</p></div></details>
+            <details><summary>Can I undo this run?</summary><div class="help-answer"><p>Open <strong>Organize &rarr; History</strong> and select the run. For supported organize transfers, <strong>Revert</strong> removes only the copies recorded in that run whose contents still match; it does not remove files that were already at the destination. Dedupe restore needs the recorded items to remain in Trash with matching contents. It cannot recover an emptied Trash.</p><p>Supported reorganize runs can also offer Revert. Review the operation and its recovery conditions in History. <a href="safety.html">Read about safety and recovery</a>.</p></div></details>
+            <details><summary>The first preview is taking longer than expected</summary><div class="help-answer"><p>Large libraries and slower drives take longer because the app reads metadata and file contents to build the plan. Keep the drive connected and watch the app’s reported progress. If it reports a failure or appears stuck, <a href="#contact">contact support</a> with the message and what you were doing.</p></div></details>
+          </div>
 
-          <h2>Contact us</h2>
-          <p>Still stuck, or have a question that isn't covered here? Email <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>. When reporting a problem, it helps to include your macOS version and Mac model, what you were doing, and any error message you saw.</p>
+          <h2 id="contact" tabindex="-1">Contact support</h2>
+          <p>Still stuck? A short description and the exact message are enough to start. Include:</p>
+          <ul><li>Your Chronoframe version, from <strong>About Chronoframe</strong>.</li><li>Your macOS version and Mac model.</li><li>What you were doing: previewing, copying, scanning duplicates or reverting.</li><li>The exact error or status message you saw.</li></ul>
+          <p><a class="btn btn-primary" href="mailto:support@chronoframe.app?subject=Chronoframe%20support&amp;body=Chronoframe%20version%3A%20%0AmacOS%20version%3A%20%0AMac%20model%3A%20%0AWhat%20I%20was%20doing%3A%20%0AExact%20message%3A%20">Email support</a></p>
+          <p>Or write to <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>.</p>
+
+          <h2 id="more-help" tabindex="-1">More help</h2>
+          <p>The <a href="quick-start.html">first-run guide</a>, <a href="faq.html">website FAQ</a> and <a href="safety.html">safety page</a> cover the essentials here. Deeper reference documentation is available in the project’s <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/QUICK_START.md">Quick Start</a>, <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/FAQ.md">full FAQ</a> and <a href="https://github.com/Nishith/Chronoframe/blob/main/docs/TROUBLESHOOTING.md">Troubleshooting</a> docs.</p>
         </article>
       </div>
     </section>

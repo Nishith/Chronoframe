@@ -1,0 +1,1530 @@
+{
+  "date": "2026-10-18",
+  "engine": "axe-core 4.10.3",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+    "best-practice"
+  ],
+  "method": "Same-origin local iframe harness. All native details expanded. Frame widths include a 15px scrollbar except non-scrolling pages; actual client widths recorded per result. text200 doubles computed font sizes as a stress test, not browser zoom.",
+  "runs": [
+    {
+      "page": "index.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1265,
+      "clientWidth": 1265,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 47
+    },
+    {
+      "page": "features.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1265,
+      "clientWidth": 1265,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Try it on one folder.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Download free and organize up to 500 files. Preview, scan, and review without limits or a countdown. You can also move 100 approved duplicate files to Trash before choosing whether to unlock.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 38
+    },
+    {
+      "page": "safety.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1265,
+      "clientWidth": 1265,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                "li:nth-child(1) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(2) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(3) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(4) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(5) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(6) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(7) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(8) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Safety you can watch happen.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Run a preview on your own library. Nothing changes until you decide it should.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 36
+    },
+    {
+      "page": "faq.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1265,
+      "clientWidth": 1265,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Ready when you are.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Start with a preview on one folder. It changes nothing and answers most questions faster than reading can.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"features.html\">See how it works</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37
+    },
+    {
+      "page": "support.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1265,
+      "clientWidth": 1265,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 37
+    },
+    {
+      "page": "quick-start.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1265,
+      "clientWidth": 1265,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "privacy.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1265,
+      "clientWidth": 1265,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "404.html",
+      "mode": "normal",
+      "width": 1280,
+      "scrollWidth": 1280,
+      "clientWidth": 1280,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".eyebrow"
+              ],
+              "html": "<p class=\"eyebrow\">404</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                "h1"
+              ],
+              "html": "<h1>This page doesn't exist.</h1>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".lede"
+              ],
+              "html": "<p class=\"lede\">The link may be out of date, or the address may have a typo. Everything Chronoframe publishes is one hop away below.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-primary"
+              ],
+              "html": "<a class=\"btn btn-primary\" href=\"/index.html\">Go to the home page</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-secondary"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"/support.html\">Get support</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            }
+          ]
+        }
+      ],
+      "passes": 33
+    },
+    {
+      "page": "index.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                "figcaption > span[data-qa-font-size=\"13px\"]"
+              ],
+              "html": "<span data-qa-font-size=\"13px\" style=\"font-size: 26px;\">",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element"
+            }
+          ]
+        }
+      ],
+      "passes": 48
+    },
+    {
+      "page": "features.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2 data-qa-font-size=\"26px\" style=\"font-size: 52px;\">Try it on one folder.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p data-qa-font-size=\"16px\" style=\"font-size: 32px;\">Download free and organize up to 500 files. Preview, scan, and review without limits or a countdown. You can also move 100 approved duplicate files to Trash before choosing whether to unlock.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\" data-qa-font-size=\"16px\" style=\"font-size: 32px;\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 39
+    },
+    {
+      "page": "safety.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                "li:nth-child(1) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(2) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(3) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(4) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(5) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(6) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(7) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(8) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2 data-qa-font-size=\"26px\" style=\"font-size: 52px;\">Safety you can watch happen.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p data-qa-font-size=\"16px\" style=\"font-size: 32px;\">Run a preview on your own library. Nothing changes until you decide it should.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\" data-qa-font-size=\"16px\" style=\"font-size: 32px;\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37
+    },
+    {
+      "page": "faq.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2 data-qa-font-size=\"26px\" style=\"font-size: 52px;\">Ready when you are.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p data-qa-font-size=\"16px\" style=\"font-size: 32px;\">Start with a preview on one folder. It changes nothing and answers most questions faster than reading can.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"features.html\" data-qa-font-size=\"16px\" style=\"font-size: 32px;\">See how it works</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\" data-qa-font-size=\"14px\" style=\"font-size: 28px;\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37
+    },
+    {
+      "page": "support.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 38
+    },
+    {
+      "page": "quick-start.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 36
+    },
+    {
+      "page": "privacy.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 36
+    },
+    {
+      "page": "404.html",
+      "mode": "text200",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".eyebrow"
+              ],
+              "html": "<p class=\"eyebrow\" data-qa-font-size=\"12px\" style=\"font-size: 24px;\">404</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                "h1"
+              ],
+              "html": "<h1 data-qa-font-size=\"34px\" style=\"font-size: 68px;\">This page doesn't exist.</h1>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".lede"
+              ],
+              "html": "<p class=\"lede\" data-qa-font-size=\"17px\" style=\"font-size: 34px;\">The link may be out of date, or the address may have a typo. Everything Chronoframe publishes is one hop away below.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-primary"
+              ],
+              "html": "<a class=\"btn btn-primary\" href=\"/index.html\" data-qa-font-size=\"16px\" style=\"font-size: 32px;\">Go to the home page</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-secondary"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"/support.html\" data-qa-font-size=\"16px\" style=\"font-size: 32px;\">Get support</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            }
+          ]
+        }
+      ],
+      "passes": 34
+    },
+    {
+      "page": "index.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 47
+    },
+    {
+      "page": "features.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Try it on one folder.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Download free and organize up to 500 files. Preview, scan, and review without limits or a countdown. You can also move 100 approved duplicate files to Trash before choosing whether to unlock.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 38
+    },
+    {
+      "page": "safety.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                "li:nth-child(1) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(2) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(3) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(4) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(5) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(6) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(7) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(8) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Safety you can watch happen.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Run a preview on your own library. Nothing changes until you decide it should.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 36
+    },
+    {
+      "page": "faq.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Ready when you are.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Start with a preview on one folder. It changes nothing and answers most questions faster than reading can.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"features.html\">See how it works</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37
+    },
+    {
+      "page": "support.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 37
+    },
+    {
+      "page": "quick-start.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "privacy.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "404.html",
+      "mode": "normal",
+      "width": 320,
+      "scrollWidth": 305,
+      "clientWidth": 305,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".eyebrow"
+              ],
+              "html": "<p class=\"eyebrow\">404</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                "h1"
+              ],
+              "html": "<h1>This page doesn't exist.</h1>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".lede"
+              ],
+              "html": "<p class=\"lede\">The link may be out of date, or the address may have a typo. Everything Chronoframe publishes is one hop away below.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-primary"
+              ],
+              "html": "<a class=\"btn btn-primary\" href=\"/index.html\">Go to the home page</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-secondary"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"/support.html\">Get support</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            }
+          ]
+        }
+      ],
+      "passes": 33
+    },
+    {
+      "page": "index.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".preview-summary > .note"
+              ],
+              "html": "<p class=\"note\">This staged 4,000-file example is not the free allowance.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element"
+            },
+            {
+              "target": [
+                "figcaption > span"
+              ],
+              "html": "<span>Inspect the dates and destination before adding media to your library. <span class=\"capture-note\" id=\"preview-capture-note\">Development capture; screens vary by version. Small screens show a focused crop of the same screenshot.</span></span>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element"
+            },
+            {
+              "target": [
+                "#preview-capture-note"
+              ],
+              "html": "<span class=\"capture-note\" id=\"preview-capture-note\">Development capture; screens vary by version. Small screens show a focused crop of the same screenshot.</span>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined because it is overlapped by another element"
+            }
+          ]
+        }
+      ],
+      "passes": 47
+    },
+    {
+      "page": "features.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Try it on one folder.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Download free and organize up to 500 files. Preview, scan, and review without limits or a countdown. You can also move 100 approved duplicate files to Trash before choosing whether to unlock.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 38
+    },
+    {
+      "page": "safety.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                "li:nth-child(1) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(2) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(3) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(4) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(5) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(6) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(7) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(8) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Safety you can watch happen.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Run a preview on your own library. Nothing changes until you decide it should.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 36
+    },
+    {
+      "page": "faq.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Ready when you are.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Start with a preview on one folder. It changes nothing and answers most questions faster than reading can.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"features.html\">See how it works</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37
+    },
+    {
+      "page": "support.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 37
+    },
+    {
+      "page": "quick-start.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "privacy.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "404.html",
+      "mode": "normal",
+      "width": 390,
+      "scrollWidth": 375,
+      "clientWidth": 375,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".eyebrow"
+              ],
+              "html": "<p class=\"eyebrow\">404</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                "h1"
+              ],
+              "html": "<h1>This page doesn't exist.</h1>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".lede"
+              ],
+              "html": "<p class=\"lede\">The link may be out of date, or the address may have a typo. Everything Chronoframe publishes is one hop away below.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-primary"
+              ],
+              "html": "<a class=\"btn btn-primary\" href=\"/index.html\">Go to the home page</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-secondary"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"/support.html\">Get support</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            }
+          ]
+        }
+      ],
+      "passes": 33
+    },
+    {
+      "page": "index.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 753,
+      "clientWidth": 753,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 47
+    },
+    {
+      "page": "features.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 753,
+      "clientWidth": 753,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Try it on one folder.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Download free and organize up to 500 files. Preview, scan, and review without limits or a countdown. You can also move 100 approved duplicate files to Trash before choosing whether to unlock.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 38
+    },
+    {
+      "page": "safety.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 753,
+      "clientWidth": 753,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                "li:nth-child(1) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(2) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(3) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(4) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(5) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(6) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(7) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                "li:nth-child(8) > .check[aria-hidden=\"true\"]"
+              ],
+              "html": "<span class=\"check\" aria-hidden=\"true\">\u2713</span>",
+              "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+            },
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Safety you can watch happen.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Run a preview on your own library. Nothing changes until you decide it should.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"index.html#demo\">Watch the demo</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 36
+    },
+    {
+      "page": "faq.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 753,
+      "clientWidth": 753,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".container > h2"
+              ],
+              "html": "<h2>Ready when you are.</h2>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".container > p:nth-child(2)"
+              ],
+              "html": "<p>Start with a preview on one folder. It changes nothing and answers most questions faster than reading can.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".btn"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"features.html\">See how it works</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "target": [
+                ".price-note"
+              ],
+              "html": "<p class=\"price-note\">Free to try. One-time unlock. No subscription.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passes": 37
+    },
+    {
+      "page": "support.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 753,
+      "clientWidth": 753,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 37
+    },
+    {
+      "page": "quick-start.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 753,
+      "clientWidth": 753,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "privacy.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 753,
+      "clientWidth": 753,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [],
+      "passes": 35
+    },
+    {
+      "page": "404.html",
+      "mode": "normal",
+      "width": 768,
+      "scrollWidth": 768,
+      "clientWidth": 768,
+      "scrollBehavior": "smooth",
+      "overflowElements": [],
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "nodes": [
+            {
+              "target": [
+                ".eyebrow"
+              ],
+              "html": "<p class=\"eyebrow\">404</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                "h1"
+              ],
+              "html": "<h1>This page doesn't exist.</h1>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".lede"
+              ],
+              "html": "<p class=\"lede\">The link may be out of date, or the address may have a typo. Everything Chronoframe publishes is one hop away below.</p>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-primary"
+              ],
+              "html": "<a class=\"btn btn-primary\" href=\"/index.html\">Go to the home page</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            },
+            {
+              "target": [
+                ".btn-secondary"
+              ],
+              "html": "<a class=\"btn btn-secondary\" href=\"/support.html\">Get support</a>",
+              "summary": "Fix any of the following:\n  Element's background color could not be determined due to a pseudo element"
+            }
+          ]
+        }
+      ],
+      "passes": 33
+    }
+  ]
+}

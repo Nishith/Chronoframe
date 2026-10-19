@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://chronoframe.app/</loc>
-    <lastmod>2026-10-04</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
@@ -27,7 +27,12 @@
   </url>
   <url>
     <loc>https://chronoframe.app/support.html</loc>
-    <lastmod>2026-10-04</lastmod>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://chronoframe.app/quick-start.html</loc>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.7</priority>
   </url>
 </urlset>

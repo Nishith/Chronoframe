@@ -31,6 +31,22 @@ verified public-release proof or recorded owner approval for early website
 publication. Ordinary PR checks allow held drafts. Owner-approved early publication
 does not mean the public app or capture builds have been verified.
 
+## Mobile preview and help
+
+The homepage exposes sample counts, destination, attention items and the next app
+action as HTML before the screenshot. At widths up to 720px, CSS crops the unchanged
+1920×1059 capture to x=630, y=95, width=850, height=660. The full original is still a
+native link; changing the capture requires updating this crop and its manifest entry.
+Keep the sample-library and development-capture labels visible.
+
+`support.html` provides topic anchors and native troubleshooting disclosures.
+`quick-start.html` is the concise on-site Organize guide, sourced from the public
+Quick Start, FAQ and Troubleshooting docs. Keep it in sync with those docs and the
+released app. Support retains deeper GitHub references and the `#purchases` anchor.
+The email shortcut pre-fills blank diagnostic labels only; it sends nothing itself.
+Include both help pages, heading focus after jump links and full-size screenshot
+keyboard access when reviewing mobile or enlarged-text changes.
+
 ## Content and offer
 
 This changeset targets the upcoming **direct free V2 launch**, confirmed by the owner
