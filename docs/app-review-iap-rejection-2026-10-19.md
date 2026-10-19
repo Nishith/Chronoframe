@@ -179,6 +179,35 @@ apply to macOS. Creating an account alone is not proof that TestFlight is using 
 Verify the actual purchasing identity/environment and locked entitlement before
 recording a new transaction.
 
+## Fresh-account signed product verification — October 19
+
+The owner completed sandbox sign-in. StoreKit subsequently logged a sandbox
+account change, successful transaction synchronization and **0 transactions**.
+The installed TestFlight **2.0 (508)** then resolved to **Free trial**, with
+**500 of 500** organized files and **100 of 100** duplicate removals remaining.
+Settings → License → Unlock Chronoframe… loaded the real product as
+**Chronoframe Unlock · $14.99**, with Restore Purchases and Not Now available.
+Not Now closed the sheet; no purchase was attempted and the fresh-account state
+was preserved for recording. This establishes signed product discovery, not a
+completed purchase, Apple purchase-dialog cancellation or explicit restore.
+
+![Signed TestFlight 508 product](app-review-iap-rejection-2026-10-19/license-purchase-signed-508.png)
+
+Native recording launch was attempted through Screenshot, the standard macOS
+shortcut and QuickTime’s New Screen Recording, but the recording toolbar could
+not be controlled reliably through this computer-use session. The owner must
+start the physical-Mac recording locally before the fresh purchase is consumed.
+No recording file or completed transaction is claimed.
+
+Disposable demo folders are prepared under `/private/tmp/Chronoframe-Review-508/`:
+`Review 508 Source` contains one copy of the repository’s 128×128 PNG fixture;
+`Review 508 Destination` starts empty; `Review 508 Duplicates` holds two identical
+fixture copies for a separate dedupe demonstration if needed. The app’s manual
+source/destination were changed to the first two folders through native pickers.
+No transfer has run. The prior `bulk10k` source and `507-photos-check` destination
+and their contents/receipts are retained. A source SHA-256 manifest is saved locally
+at `.tmp/release-508/demo-source-sha256.json`.
+
 ## Resubmission preparation
 
 The exact purchase navigation is prepared in `docs/APP_STORE_METADATA.md`.
