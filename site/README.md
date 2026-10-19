@@ -20,7 +20,8 @@ enhances playback with a poster button and chapter shortcuts.
 
 ## Publishing and checks
 
-`Check Website` validates site PRs. `Deploy Site` validates again and publishes `site/`
+`Check Website` validates site PRs and tests the deployment publication gate.
+`Deploy Site` runs `check_site.py --release` before uploading and publishing `site/`
 on pushes to main. A branch or PR does not update the public site. The checker is
 dependency-free Python 3.9+ and covers local assets/links/fragments, basic page semantics,
 JSON-LD, sitemap, no third-party render dependencies, and demo/caption delivery constraints.

@@ -14,7 +14,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1] / 'site'
 errors = []
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--release', action='store_true', help='Require verified public-release proof; run immediately before merging the publishing PR')
+parser.add_argument('--release', action='store_true', help='Require verified public-release proof or recorded prelaunch approval; Pages runs this before uploading')
 args = parser.parse_args()
 
 

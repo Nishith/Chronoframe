@@ -349,8 +349,10 @@ Chronoframe targets the Apple "sets the standard" bar. Treat these as expectatio
 `site/` is a static GitHub Pages site (no framework/build step). `site/README.md` documents
 preview, publishing, and the offer verification checklist. Run `python3 script/check_site.py`
 for HTML/link/media checks; use `python3 script/preview_site.py` for a local preview with
-MP4 byte-range support. `Check Website` runs on site PRs; `Deploy Site` repeats validation
-before publishing main. Run `python3 script/check_site.py --release` immediately before
+MP4 byte-range support. `Check Website` runs on site PRs, including
+`python3 script/test_site_release_gate.py`, which exercises the actual Pages validation
+command against isolated publication states. `Deploy Site` runs `check_site.py --release`
+before artifact upload and deployment. Run that release check immediately before
 merging the publishing PR; it accepts verified proof or recorded explicit owner
 approval for early website publication. Draft PR checks permit held work.
 On October 18, 2026 the owner approved publishing ahead of public V2 and accepted

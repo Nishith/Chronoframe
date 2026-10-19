@@ -176,3 +176,20 @@ The publication check was exercised in an isolated temporary site copy: recorded
 owner-approved prelaunch passes; missing approval fails; an unapproved held state
 fails; changing the state to fully verified while capture identities are unknown
 fails. Standard nine-page validation, JavaScript/Python syntax and whitespace pass.
+
+## PR #248 review follow-up
+
+The review's deployment-gate finding was valid: Pages still invoked the ordinary
+draft checker, so a held manifest could pass and reach artifact upload. The Pages
+workflow now invokes `python3 script/check_site.py --release` before upload and
+deployment. This preserves the owner's recorded prelaunch approval while refusing
+unapproved held work.
+
+`script/test_site_release_gate.py` reads the validation command from the actual
+Pages workflow and runs it against temporary copies of the site. Its held-proof
+case failed before the workflow fix because deployment validation returned success.
+All four cases now pass: draft checking permits held proof; deployment rejects
+held proof; deployment accepts recorded owner approval; deployment rejects missing
+approval. `Check Website` runs these regressions and triggers on changes to them.
+Both nine-page checker modes, Python compilation and whitespace validation pass.
+No app code or visible website content changes in this review fix.
