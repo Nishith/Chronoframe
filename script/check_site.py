@@ -183,10 +183,13 @@ if proof_path.is_file():
 home_source = (ROOT/'index.html').read_text()
 check('product-window' in home_source and 'tabindex="0" role="region"' in home_source, 'Product screenshot needs keyboard-accessible narrow-screen inspection')
 if proof_path.is_file():
-    if proof.get('publication_status') == 'held_for_public_release_verification':
-        check('uploadDate' not in video_schema, 'Held footage must not advertise a projected publication date')
+    film = next((asset for asset in proof.get('assets', []) if asset.get('kind') == 'recorded_walkthrough'), {})
+    if film.get('publication_date'):
+        check(bool(proof.get('publication_observation', {}).get('deployment')), 'Film publication date needs recorded deployment evidence')
+        check(str(video_schema.get('uploadDate', '')).startswith(film['publication_date']), 'Film structured data must match its actual recorded publication date')
+    elif proof.get('publication_status') == 'held_for_public_release_verification':
+        check('uploadDate' not in video_schema, 'Unpublished footage must not advertise a projected publication date')
     else:
-        film = next((asset for asset in proof.get('assets', []) if asset.get('kind') == 'recorded_walkthrough'), {})
         check(bool(film.get('publication_date')) and str(video_schema.get('uploadDate', '')).startswith(film['publication_date']), 'Published footage needs its recorded publication date in structured data')
 for name in ('index.html', 'faq.html', 'support.html'):
     source = (ROOT/name).read_text()

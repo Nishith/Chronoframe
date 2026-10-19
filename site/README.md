@@ -57,10 +57,13 @@ The October 18 design pass selects the plan's recorded, captioned walkthrough
 fallback. An interactive browser simulator is cut from this delivery; the separate
 interactive dedupe extension is deferred. Captions, transcript, native controls and
 chapter shortcuts supply the walkthrough without a new runtime/test dependency.
-The film's `VideoObject.uploadDate` is deliberately omitted while publication is
-unknown; add the actual public publication date before release. Recheck the privacy
-policy's effective date at publication. Do not replace these with a projected launch
-date. `assets/product-proof.json` tracks proof assets and outstanding release checks;
+The film's actual publication date is October 18, 2026, following the owner's merge
+of PR #226 and its successful Pages deployment. A live range request verified the
+expected media size. This does not establish public V2 availability: the proof
+manifest remains held for app/offer verification. The privacy policy was reviewed;
+this pass introduces no new data practices, so its existing effective date remains.
+Do not replace these with a projected launch date.
+`assets/product-proof.json` tracks proof assets and outstanding release checks;
 `assets/artwork/README.md` records the original generated artwork and exact prompt.
 
 Keep all render assets local and preserve the no-tracking policy. Do not add behavioral

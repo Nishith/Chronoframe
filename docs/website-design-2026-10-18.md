@@ -6,6 +6,11 @@ It changes website assets, content, validation and this record only; it does not
 change the submitted app. The older divergent local `codex/website-demo` branch
 and the primary checkout's uncommitted app/marketing work are preserved.
 
+**Status update:** the owner merged PR #226 at 23:54:32 UTC during this QA pass.
+Pages deployed `54df5f9` successfully at 23:54:53 UTC. The final QA fixes continue
+as a separate unmerged follow-up based on that main commit. This records the
+deployment; it does not certify the still-unverified public app/offer.
+
 ## Delivered for review
 
 - A shorter introduction keeps “A lifetime of photos, finally in order.” Original
@@ -39,8 +44,8 @@ and the primary checkout's uncommitted app/marketing work are preserved.
 
 - `python3 script/check_site.py`: passes for all nine HTML pages, links/fragments,
   images, JSON-LD, sitemap, video policy/size/fast-start/captions, offer terms and
-  proof provenance. The new checks reject retired access claims and an invented
-  upload date while the proof is held.
+  proof provenance. The new checks reject retired access claims and a projected
+  upload date for unpublished footage.
 - `node --check site/site.js`, Python syntax compilation and `git diff --check`:
   pass. No app build or Swift tests are needed for this website-only increment.
 - Browser review at effective CSS viewports **1280×1000**, **390×843** and
@@ -75,11 +80,12 @@ Generated artwork and the exact final prompt are in
 `site/assets/artwork/README.md`; the optimized delivery image is
 `site/assets/artwork/photos-to-order.jpg` (1536×1024, under 350 KB).
 
-## Still held before publication
+## Public app proof still unverified
 
-Submission for App Review is not public availability. **Do not merge PR #226
-until the matching public V2 build, free storefront, unlock price and Family
-Sharing are verified.** Merging `site/**` to main publishes through Pages.
+Submission for App Review is not public availability. The owner merged PR #226
+while this follow-through was underway. The follow-up remains unmerged until the
+matching public V2 build, free storefront, unlock price and Family Sharing are
+verified. Merging `site/**` to main publishes through Pages.
 
 The reused September development screenshots/film are not certified captures of
 the submitted build. Their app build/source commit and public-version mapping
@@ -87,7 +93,10 @@ remain unknown in the proof manifest. Verify their visible behavior against the
 public release or replace them before merging. The uncommitted app design changes
 from the owner's primary checkout are not used as website screenshots.
 
-Set the film's real publication date in the manifest and VideoObject at release.
+The actual film publication date is now **October 18, 2026** in the manifest and
+VideoObject: the successful Pages run is recorded and a live byte-range request
+returned HTTP 206 for the expected 6,874,782-byte film. The asset did not exist in
+main before PR #226. App-release proof remains unverified despite film publication.
 The privacy policy was reviewed against the prepared site: no data collection,
 network use or storage behavior changes in this increment, so its September 29
 effective date is retained. Do not substitute a projected launch date.
@@ -154,6 +163,7 @@ Run `python3 script/check_site.py` for draft validation. Run
 `python3 script/check_site.py --release` immediately before merging; it deliberately
 fails while the manifest is held. The remaining release tasks are: public free V2
 and production unlock/Family Sharing/purchase/restore verification; replacement
-or build-identified verification of the older proof; actual film publication
-metadata; then merge/deploy and a live smoke check. They cannot be completed from
-a TestFlight-only candidate while the public storefront still offers paid 1.1.
+or build-identified verification of the older proof; then merge the follow-up and
+run a live smoke check. They cannot be completed from a TestFlight-only candidate
+while the public storefront still offers paid 1.1. No deployment was triggered
+by this agent's follow-up push.

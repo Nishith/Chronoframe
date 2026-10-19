@@ -4,6 +4,15 @@
   "target_release": "2.0",
   "publication_status": "held_for_public_release_verification",
   "source_branch_base": "276bc8569384736247153511d65e41cd8ee8d9ec",
+  "publication_observation": {
+    "website_pr": "https://github.com/Nishith/Chronoframe/pull/226",
+    "merged_by": "Nishith",
+    "merge_commit": "54df5f9cdde0feb8d88c33c16b8988b4dbf4b34a",
+    "deployment": "https://github.com/Nishith/Chronoframe/actions/runs/39178446392",
+    "deployment_completed_at": "2026-10-18T23:54:53Z",
+    "film_http_verification": "2026-10-18T23:59:50Z: HTTP 206, bytes 0-0/6874782",
+    "app_release_verification": "Still held; website deployment does not establish public V2 or its offer."
+  },
   "public_storefront_observation": {
     "checked_on": "2026-10-18",
     "source": "https://itunes.apple.com/lookup?id=6771245052&country=us",
@@ -38,7 +47,7 @@
     "Verify the matching build, free download, US unlock price and Family Sharing in the public storefront before merging.",
     "Verify every displayed workflow and screenshot against the public app before merging.",
     "These September development captures have no verified app build or public-version mapping. They remain held assets.",
-    "Set the film's actual publication date and review the privacy effective date at publication."
+    "The owner merged the website on October 18. The actual film publication date is recorded; public app/offer verification remains incomplete."
   ],
   "assets": [
     {
@@ -128,7 +137,7 @@
       "app_version_build": null,
       "app_source_commit": null,
       "publicly_available_version_represented": null,
-      "publication_date": null,
+      "publication_date": "2026-10-18",
       "provenance": "assets/video/README.md",
       "status": "verify_against_public_V2_before_publication"
     }
