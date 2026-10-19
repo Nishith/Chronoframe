@@ -2,7 +2,15 @@
   "schema_version": 1,
   "reviewed_at": "2026-10-18",
   "target_release": "2.0",
-  "publication_status": "held_for_public_release_verification",
+  "publication_status": "owner_approved_prelaunch",
+  "owner_publication_approval": {
+    "recorded_on": "2026-10-18",
+    "website_before_public_app": true,
+    "temporary_app_store_link_mismatch_accepted": true,
+    "reason": "The owner accepts the download link being temporarily unavailable or mismatched while V2 is in review because there are no active users or traffic.",
+    "evidence": "Owner instruction in this conversation, after reviewing draft PR #248.",
+    "establishes_public_app_or_capture_verification": false
+  },
   "source_branch_base": "276bc8569384736247153511d65e41cd8ee8d9ec",
   "publication_observation": {
     "website_pr": "https://github.com/Nishith/Chronoframe/pull/226",
@@ -11,7 +19,7 @@
     "deployment": "https://github.com/Nishith/Chronoframe/actions/runs/39178446392",
     "deployment_completed_at": "2026-10-18T23:54:53Z",
     "film_http_verification": "2026-10-18T23:59:50Z: HTTP 206, bytes 0-0/6874782",
-    "app_release_verification": "Still held; website deployment does not establish public V2 or its offer."
+    "app_release_verification": "Unverified; the owner approved publishing the website before public V2 availability."
   },
   "public_storefront_observation": {
     "checked_on": "2026-10-18",
@@ -42,11 +50,11 @@
     "interactive_organize_demo": "cut_from_this_delivery",
     "interactive_dedupe_extension": "deferred"
   },
-  "release_gate": [
+  "post_launch_verification": [
     "The owner reports V2 is submitted for App Review; submission does not establish public availability.",
-    "Verify the matching build, free download, US unlock price and Family Sharing in the public storefront before merging.",
-    "Verify every displayed workflow and screenshot against the public app before merging.",
-    "These September development captures have no verified app build or public-version mapping. They remain held assets.",
+    "After V2 is public, verify the matching build, free download, US unlock price, Family Sharing and production purchase/restore.",
+    "Verify every displayed workflow and screenshot against public V2; identify or replace the older captures as needed.",
+    "These September development captures have no verified app build or public-version mapping; the website labels them as development captures.",
     "The owner merged the website on October 18. The actual film publication date is recorded; public app/offer verification remains incomplete."
   ],
   "assets": [

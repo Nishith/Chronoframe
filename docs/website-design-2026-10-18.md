@@ -8,8 +8,11 @@ and the primary checkout's uncommitted app/marketing work are preserved.
 
 **Status update:** the owner merged PR #226 at 23:54:32 UTC during this QA pass.
 Pages deployed `54df5f9` successfully at 23:54:53 UTC. The final QA fixes continue
-as a separate unmerged follow-up based on that main commit. This records the
-deployment; it does not certify the still-unverified public app/offer.
+as follow-up PR #248 based on that main commit. The owner then explicitly approved
+publishing before V2 is public and accepted a temporary unavailable/mismatched
+App Store link because there are no active users or traffic. This supersedes the
+publication hold; merge proceeds after checks. It does not certify the public
+app/offer or the older capture builds.
 
 ## Delivered for review
 
@@ -83,14 +86,15 @@ Generated artwork and the exact final prompt are in
 ## Public app proof still unverified
 
 Submission for App Review is not public availability. The owner merged PR #226
-while this follow-through was underway. The follow-up remains unmerged until the
-matching public V2 build, free storefront, unlock price and Family Sharing are
-verified. Merging `site/**` to main publishes through Pages.
+while this follow-through was underway, then approved early website publication.
+The matching public V2 build, free storefront, unlock price and Family Sharing
+remain verification follow-ups after V2 becomes available. Merging `site/**` to
+main publishes through Pages.
 
 The reused September development screenshots/film are not certified captures of
 the submitted build. Their app build/source commit and public-version mapping
 remain unknown in the proof manifest. Verify their visible behavior against the
-public release or replace them before merging. The uncommitted app design changes
+public release or replace them in the post-launch proof follow-up. The uncommitted app design changes
 from the owner's primary checkout are not used as website screenshots.
 
 The actual film publication date is now **October 18, 2026** in the manifest and
@@ -160,10 +164,15 @@ The checked-in `docs/website-qa-2026-10-18.json` preserves the per-page results,
 measured content widths and limitations.
 
 Run `python3 script/check_site.py` for draft validation. Run
-`python3 script/check_site.py --release` immediately before merging; it deliberately
-fails while the manifest is held. The remaining release tasks are: public free V2
-and production unlock/Family Sharing/purchase/restore verification; replacement
-or build-identified verification of the older proof; then merge the follow-up and
-run a live smoke check. They cannot be completed from a TestFlight-only candidate
-while the public storefront still offers paid 1.1. No deployment was triggered
-by this agent's follow-up push.
+`python3 script/check_site.py --release` immediately before merging. It now accepts
+the recorded owner-approved prelaunch state while keeping the unknown proof fields
+explicit. A held manifest without approval still fails; labeling unknown captures
+as fully verified still fails. The remaining app/offer and capture-build checks
+are post-launch follow-ups, not website merge blockers under the owner's decision.
+Merge #248 after checks and verify the live website. No submitted app or storefront
+change is authorized by this website-only decision.
+
+The publication check was exercised in an isolated temporary site copy: recorded
+owner-approved prelaunch passes; missing approval fails; an unapproved held state
+fails; changing the state to fully verified while capture identities are unknown
+fails. Standard nine-page validation, JavaScript/Python syntax and whitespace pass.
