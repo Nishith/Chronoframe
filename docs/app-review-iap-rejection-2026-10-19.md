@@ -76,7 +76,8 @@ must be included with an app version in the same submission:
 - Full sharded Swift run: **1,762 tests passed**, zero failures across 31 shards.
   Meaningful coverage **95.80% (17,309/18,068 lines)**; raw coverage **71.67%**.
 - Hosted UI, accessibility, SwiftPM, MAS build and other completed PR checks passed
-  for the frozen source; Swift CodeQL was still pending when recorded.
+  for the frozen source. All hosted checks, including Swift analysis and CodeQL,
+  subsequently passed at evidence-only commit `29e8226`.
 - One subsequent combined local UI run failed the cancellation case after Not Now.
   The standalone rerun stalled during app launch and was stopped. No cause or
   additional passing result is inferred; prior local cases and hosted UI passes
@@ -133,12 +134,39 @@ claiming completion. Have the owner confirm any remaining signed release gates.
 
 ## Fresh sandbox account handoff
 
-The owner needs help preparing a fresh account; it is not yet created. Open
-App Store Connect → Users and Access → Sandbox → add test account. The owner
-chooses an email address never registered as an Apple Account (a unique plus
-alias is supported when the email provider supports it), enters a new strong
-password and completes creation personally. Use United States for the $14.99
-US recording. Do not put the account password in this repository or the recording.
+The owner reports creating the fresh sandbox tester on October 19. Its prepared
+form used a test name and the United States storefront; the owner supplied the
+email and password and completed creation personally. No credentials are recorded
+here. Build 508 was installed through TestFlight, and the installed Info.plist
+confirms 2.0 (508) with an App Store receipt present. Before switching purchase
+accounts, License showed Unlocked from earlier testing.
+
+The owner explicitly authorized signing out of **Media & Purchases** on this Mac.
+System Settings then showed “No media accounts found”; the main iCloud account
+remained signed in. No allowance records, purchases, preferences or bookmarks were
+reset. On relaunch, License showed “Checking your purchase…” and an explicit
+Restore Purchases request was started to reach Apple’s account prompt. Signing
+into the new sandbox identity and a real purchase remain unverified.
+
+A separate Apple Development-signed Debug `MAS_BUILD` was compiled from the same
+app source to initialize sandbox sign-in (no Xcode StoreKit configuration and no
+fake entitlement injected). It lives in `.tmp/SandboxSignInDerivedData/`, separate
+from the installed TestFlight app. Initial authentication stalled; the StoreKit
+helper was restarted, and the Apple `storeuid` dialog was located through native
+UI inspection. A fresh development-build Restore request logs **Sandbox
+authentication** with no active sandbox account. The generic Apple Account dialog
+prefilled the personal email; it was cleared for the owner to enter the newly
+created sandbox tester. No credential was entered by the agent. This is an
+authentication handoff, **not a completed restore or purchase**. After sign-in,
+return to `/Applications/Chronoframe.app` (TestFlight 508), confirm the actual
+identity/locked state and complete the recording.
+
+The signed-out TestFlight attempt stayed at Checking your purchase and Restore
+reported it could not reach the App Store after authentication failed. StoreKit
+logged no active account and authentication cancellation. This is observed
+negative-state evidence; it does not establish a product-availability failure or
+a successfully completed fresh-account test. Do not put the account password in
+this repository or the recording.
 Do not clear an existing account’s purchase history to manufacture a fresh purchase.
 
 Apple’s [account creation instructions](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/create-a-sandbox-apple-account/)
