@@ -364,3 +364,6 @@ an HTML transcript; optional `site.js` adds chapter shortcuts. Keep playback use
 Keep visible pricing and JSON-LD in sync. Early website publication does not authorize
 changing the submitted app or its storefront. Development requirements and features
 can differ from the live App Store.
+`site/quick-start.html` is the concise on-site Organize guide; keep its steps aligned
+with public product docs. Support topic anchors (including `#purchases`) and the
+homepage's linked full-size preview are native keyboard paths; preserve them.
