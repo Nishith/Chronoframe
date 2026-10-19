@@ -20,11 +20,16 @@ enhances playback with a poster button and chapter shortcuts.
 
 ## Publishing and checks
 
-`Check Website` validates site PRs. `Deploy Site` validates again and publishes `site/`
+`Check Website` validates site PRs and tests the deployment publication gate.
+`Deploy Site` runs `check_site.py --release` before uploading and publishing `site/`
 on pushes to main. A branch or PR does not update the public site. The checker is
 dependency-free Python 3.9+ and covers local assets/links/fragments, basic page semantics,
 JSON-LD, sitemap, no third-party render dependencies, and demo/caption delivery constraints.
 Browser QA is still required; these checks are not a WCAG certification.
+Run `python3 script/check_site.py --release` immediately before merging. It requires
+verified public-release proof or recorded owner approval for early website
+publication. Ordinary PR checks allow held drafts. Owner-approved early publication
+does not mean the public app or capture builds have been verified.
 
 ## Content and offer
 
@@ -37,10 +42,11 @@ Sharing and includes Reorganize; StoreKit shows local prices. There are no exist
 customers to migrate, no acquisition cutoff and no paid rollout. Historical paid-app
 ownership is not an access grant under this policy.
 
-**Release coordination:** the owner reports the app has been submitted for review.
-Do not merge this PR until the matching V2 build and free download are publicly
-available. Verify production unlock pricing, Family Sharing, purchase/restore and
-the screenshot/film behavior before merging. A push of `site/**` to main deploys
+**Release coordination:** on October 18, 2026 the owner approved publishing the
+website while V2 is in review and accepted the temporary unavailable/mismatched
+App Store link because there are no active users or traffic. The previous hold is
+superseded. Verify production unlock pricing, Family Sharing, purchase/restore and
+the screenshot/film behavior after public V2 is available. A push of `site/**` to main deploys
 immediately. The visible offer, FAQ, and SoftwareApplication schema must agree;
 the schema's offer price is the $0 download, not the optional unlock.
 
@@ -50,10 +56,18 @@ is excluded because `GuardianCapability.isEnabled` is false. Do not promote gate
 source-tree features merely because their implementation exists.
 
 The demo is development footage; `assets/video/README.md` records its provenance.
-The film's `VideoObject.uploadDate` is deliberately omitted while publication is
-unknown; add the actual public publication date before release. Recheck the privacy
-policy's effective date at publication. Do not replace these with a projected launch
-date. `assets/product-proof.json` tracks proof assets and outstanding release checks;
+The October 18 design pass selects the plan's recorded, captioned walkthrough
+fallback. An interactive browser simulator is cut from this delivery; the separate
+interactive dedupe extension is deferred. Captions, transcript, native controls and
+chapter shortcuts supply the walkthrough without a new runtime/test dependency.
+The film's actual publication date is October 18, 2026, following the owner's merge
+of PR #226 and its successful Pages deployment. A live range request verified the
+expected media size. This does not establish public V2 availability: the proof
+manifest records owner-approved prelaunch publication and outstanding app/offer
+verification. The privacy policy was reviewed;
+this pass introduces no new data practices, so its existing effective date remains.
+Do not replace these with a projected launch date.
+`assets/product-proof.json` tracks proof assets and outstanding release checks;
 `assets/artwork/README.md` records the original generated artwork and exact prompt.
 
 Keep all render assets local and preserve the no-tracking policy. Do not add behavioral

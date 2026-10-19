@@ -5,6 +5,7 @@ on:
     paths:
       - "site/**"
       - "script/check_site.py"
+      - "script/test_site_release_gate.py"
       - "script/preview_site.py"
       - ".github/workflows/site-check.yml"
       - ".github/workflows/pages.yml"
@@ -20,3 +21,5 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Check HTML, links, media, captions, and metadata
         run: python3 script/check_site.py
+      - name: Test deployment publication gate
+        run: python3 script/test_site_release_gate.py

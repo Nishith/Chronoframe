@@ -6,6 +6,14 @@ It changes website assets, content, validation and this record only; it does not
 change the submitted app. The older divergent local `codex/website-demo` branch
 and the primary checkout's uncommitted app/marketing work are preserved.
 
+**Status update:** the owner merged PR #226 at 23:54:32 UTC during this QA pass.
+Pages deployed `54df5f9` successfully at 23:54:53 UTC. The final QA fixes continue
+as follow-up PR #248 based on that main commit. The owner then explicitly approved
+publishing before V2 is public and accepted a temporary unavailable/mismatched
+App Store link because there are no active users or traffic. This supersedes the
+publication hold; merge proceeds after checks. It does not certify the public
+app/offer or the older capture builds.
+
 ## Delivered for review
 
 - A shorter introduction keeps “A lifetime of photos, finally in order.” Original
@@ -19,8 +27,12 @@ and the primary checkout's uncommitted app/marketing work are preserved.
 - Four steps explain choosing folders, previewing, approving copies and inspecting
   History. Deduplicate has a separate compare → review → Trash → conditional
   restore story, including the Trash/storage tradeoff.
-- The existing captioned, user-initiated recorded walkthrough is retained. No
-  browser simulation, JavaScript dependency, analytics or hosting change is added.
+- The existing captioned, user-initiated recorded walkthrough is the selected
+  delivery under Phase 5's explicit fallback. The interactive Organize simulator
+  is cut from this delivery: a new browser state machine, test dependencies and
+  CI lane would add maintenance without improving the explanation enough to
+  justify it. The optional interactive dedupe extension stays deferred. No
+  JavaScript dependency, analytics or hosting change is added.
 - The offer is aligned with the owner's October 16 direct-free policy: cumulative
   500/100 allowance per Apple Account per Mac; unlimited scanning, preview, review
   and History; $14.99 US one-time lifetime unlock with Family Sharing; ungated
@@ -35,8 +47,8 @@ and the primary checkout's uncommitted app/marketing work are preserved.
 
 - `python3 script/check_site.py`: passes for all nine HTML pages, links/fragments,
   images, JSON-LD, sitemap, video policy/size/fast-start/captions, offer terms and
-  proof provenance. The new checks reject retired access claims and an invented
-  upload date while the proof is held.
+  proof provenance. The new checks reject retired access claims and a projected
+  upload date for unpublished footage.
 - `node --check site/site.js`, Python syntax compilation and `git diff --check`:
   pass. No app build or Swift tests are needed for this website-only increment.
 - Browser review at effective CSS viewports **1280×1000**, **390×843** and
@@ -71,20 +83,113 @@ Generated artwork and the exact final prompt are in
 `site/assets/artwork/README.md`; the optimized delivery image is
 `site/assets/artwork/photos-to-order.jpg` (1536×1024, under 350 KB).
 
-## Still held before publication
+## Public app proof still unverified
 
-Submission for App Review is not public availability. **Do not merge PR #226
-until the matching public V2 build, free storefront, unlock price and Family
-Sharing are verified.** Merging `site/**` to main publishes through Pages.
+Submission for App Review is not public availability. The owner merged PR #226
+while this follow-through was underway, then approved early website publication.
+The matching public V2 build, free storefront, unlock price and Family Sharing
+remain verification follow-ups after V2 becomes available. Merging `site/**` to
+main publishes through Pages.
 
 The reused September development screenshots/film are not certified captures of
 the submitted build. Their app build/source commit and public-version mapping
 remain unknown in the proof manifest. Verify their visible behavior against the
-public release or replace them before merging. The uncommitted app design changes
+public release or replace them in the post-launch proof follow-up. The uncommitted app design changes
 from the owner's primary checkout are not used as website screenshots.
 
-Set the film's real publication date in the manifest and VideoObject, and review
-the privacy policy's effective date at publication. The live storefront and
-production purchase/restore were not exercised in this design pass. Broader
-artwork variants, owner visual selection, a complete accessibility review and any
-sample-data browser demo remain separate follow-up work.
+The actual film publication date is now **October 18, 2026** in the manifest and
+VideoObject: the successful Pages run is recorded and a live byte-range request
+returned HTTP 206 for the expected 6,874,782-byte film. The asset did not exist in
+main before PR #226. App-release proof remains unverified despite film publication.
+The privacy policy was reviewed against the prepared site: no data collection,
+network use or storage behavior changes in this increment, so its September 29
+effective date is retained. Do not substitute a projected launch date.
+
+## Follow-through — remaining website preparation
+
+On October 18 the owner asked to do the remaining website work. The photographic
+direction is retained for this implementation; additional artwork variants are
+optional exploration, not unfinished requirements. No separate owner visual
+sign-off or outside participant study is claimed.
+
+**Public release check.** Apple's US lookup endpoint
+`https://itunes.apple.com/lookup?id=6771245052&country=us` returned version **1.1**,
+download price **$14.99 USD**, minimum OS **13.0**. The installed app's bundle reports
+**2.0 (507)**, matching the submitted candidate's release record, whose source commit
+is `f54191843a7f95f0ad211c79714402e36ea7f4ea`. These are different availability
+states. The manifest records both without mapping the September captures to 507.
+All five approved original screenshot PNGs matched their recorded source SHA-256;
+the film matched its production export hash. Every delivered proof asset now has
+a checksum checked by `check_site.py`.
+
+**Accessibility and responsive checks.** Temporary local axe-core **4.10.3**,
+downloaded from the npm registry, ran WCAG 2 A/AA, 2.1 A/AA, 2.2 AA and best-practice
+rules across all seven content pages. All disclosures were expanded for the scan.
+Frame widths **320, 390, 768 and 1280** produced **zero automated violations** and
+**zero document horizontal overflow**. Frames with a scrollbar had 14 pixels less
+content width. A separate stress pass doubled every computed text size at a
+320-pixel frame width; all seven pages again had zero violations/overflow. This
+is a text enlargement stress test, not a claim that browser zoom was emulated.
+
+The checks found and fixed color-only inline links, an unsupported label on a
+generic proof container, minimum-width grid overflow, unbreakable support/email
+text, and a mobile player button that overlapped the film caption with enlarged
+text. Links in prose/captions are underlined, the proof has a named group role,
+grid tracks can shrink, long text wraps, and the mobile Play button occupies its
+own row below the video.
+
+Remaining axe contrast review items were inspected separately: decorative,
+`aria-hidden` checkmarks duplicate written safety statements; gradient/pseudo
+surfaces have bounded colors. Secondary/primary text over the brightest hero
+gradient is **8.19:1 / 12.67:1**; the lowest muted text over the closing gradient is
+**4.75:1**. Reduced-motion rules were applied in the local harness and produced
+`scroll-behavior: auto` on all seven pages; there are no animated counters,
+transitions or autoplay. Forced-color rules retain explicit control borders and
+no meaning depends on color. OS-level forced-color and spoken VoiceOver sessions
+were not performed; this is documented browser/AX verification, not certification.
+
+**Keyboard and failure states.** Skip navigation moves focus to `main` with a
+visible outline. The screenshot scroll region, native details, chapter controls
+and video are keyboard reachable. A local missing-media fixture produced the
+announced load error and an available transcript/direct link. A copy with the
+enhancement script omitted retained native video controls, one caption track,
+keyboard-openable transcript/FAQ, download links, and hidden chapter/overlay
+controls. Pressing Space requested native playback. The transcript preserves
+the staged-library caveat, media credit and conditional restoration explanation.
+
+Raw local audit reports and captures are under
+`.tmp/website-review-2026-10-18/` (not deployed). The temporary axe harness and
+download are removed from `site/`; no third-party runtime or CI dependency ships.
+The checked-in `docs/website-qa-2026-10-18.json` preserves the per-page results,
+measured content widths and limitations.
+
+Run `python3 script/check_site.py` for draft validation. Run
+`python3 script/check_site.py --release` immediately before merging. It now accepts
+the recorded owner-approved prelaunch state while keeping the unknown proof fields
+explicit. A held manifest without approval still fails; labeling unknown captures
+as fully verified still fails. The remaining app/offer and capture-build checks
+are post-launch follow-ups, not website merge blockers under the owner's decision.
+Merge #248 after checks and verify the live website. No submitted app or storefront
+change is authorized by this website-only decision.
+
+The publication check was exercised in an isolated temporary site copy: recorded
+owner-approved prelaunch passes; missing approval fails; an unapproved held state
+fails; changing the state to fully verified while capture identities are unknown
+fails. Standard nine-page validation, JavaScript/Python syntax and whitespace pass.
+
+## PR #248 review follow-up
+
+The review's deployment-gate finding was valid: Pages still invoked the ordinary
+draft checker, so a held manifest could pass and reach artifact upload. The Pages
+workflow now invokes `python3 script/check_site.py --release` before upload and
+deployment. This preserves the owner's recorded prelaunch approval while refusing
+unapproved held work.
+
+`script/test_site_release_gate.py` reads the validation command from the actual
+Pages workflow and runs it against temporary copies of the site. Its held-proof
+case failed before the workflow fix because deployment validation returned success.
+All four cases now pass: draft checking permits held proof; deployment rejects
+held proof; deployment accepts recorded owner approval; deployment rejects missing
+approval. `Check Website` runs these regressions and triggers on changes to them.
+Both nine-page checker modes, Python compilation and whitespace validation pass.
+No app code or visible website content changes in this review fix.

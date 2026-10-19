@@ -349,8 +349,18 @@ Chronoframe targets the Apple "sets the standard" bar. Treat these as expectatio
 `site/` is a static GitHub Pages site (no framework/build step). `site/README.md` documents
 preview, publishing, and the offer verification checklist. Run `python3 script/check_site.py`
 for HTML/link/media checks; use `python3 script/preview_site.py` for a local preview with
-MP4 byte-range support. `Check Website` runs on site PRs; `Deploy Site` repeats validation
-before publishing main. The self-hosted one-minute demo has native controls, WebVTT and
+MP4 byte-range support. `Check Website` runs on site PRs, including
+`python3 script/test_site_release_gate.py`, which exercises the actual Pages validation
+command against isolated publication states. `Deploy Site` runs `check_site.py --release`
+before artifact upload and deployment. Run that release check immediately before
+merging the publishing PR; it accepts verified proof or recorded explicit owner
+approval for early website publication. Draft PR checks permit held work.
+On October 18, 2026 the owner approved publishing ahead of public V2 and accepted
+a temporary unavailable/mismatched App Store link because there are no active users
+or traffic. This does not certify the public offer or capture builds.
+Asset checksums, approval and release observations live in
+`site/assets/product-proof.json`. The self-hosted one-minute demo has native controls, WebVTT and
 an HTML transcript; optional `site.js` adds chapter shortcuts. Keep playback user-initiated.
-Never publish free-trial copy until the store cutover is verified; keep visible pricing and
-JSON-LD in sync. Development requirements and features can differ from the live App Store.
+Keep visible pricing and JSON-LD in sync. Early website publication does not authorize
+changing the submitted app or its storefront. Development requirements and features
+can differ from the live App Store.

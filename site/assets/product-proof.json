@@ -2,18 +2,65 @@
   "schema_version": 1,
   "reviewed_at": "2026-10-18",
   "target_release": "2.0",
-  "publication_status": "held_for_public_release_verification",
+  "publication_status": "owner_approved_prelaunch",
+  "owner_publication_approval": {
+    "recorded_on": "2026-10-18",
+    "website_before_public_app": true,
+    "temporary_app_store_link_mismatch_accepted": true,
+    "reason": "The owner accepts the download link being temporarily unavailable or mismatched while V2 is in review because there are no active users or traffic.",
+    "evidence": "Owner instruction in this conversation, after reviewing draft PR #248.",
+    "establishes_public_app_or_capture_verification": false
+  },
   "source_branch_base": "276bc8569384736247153511d65e41cd8ee8d9ec",
-  "release_gate": [
+  "publication_observation": {
+    "website_pr": "https://github.com/Nishith/Chronoframe/pull/226",
+    "merged_by": "Nishith",
+    "merge_commit": "54df5f9cdde0feb8d88c33c16b8988b4dbf4b34a",
+    "deployment": "https://github.com/Nishith/Chronoframe/actions/runs/39178446392",
+    "deployment_completed_at": "2026-10-18T23:54:53Z",
+    "film_http_verification": "2026-10-18T23:59:50Z: HTTP 206, bytes 0-0/6874782",
+    "app_release_verification": "Unverified; the owner approved publishing the website before public V2 availability."
+  },
+  "public_storefront_observation": {
+    "checked_on": "2026-10-18",
+    "source": "https://itunes.apple.com/lookup?id=6771245052&country=us",
+    "country": "us",
+    "version": "1.1",
+    "download_price": 14.99,
+    "currency": "USD",
+    "minimum_os_version": "13.0",
+    "satisfies_target_release": false
+  },
+  "submitted_candidate_reference": {
+    "version_build": "2.0 (507)",
+    "source_commit": "f54191843a7f95f0ad211c79714402e36ea7f4ea",
+    "evidence": "docs/release-2.0-507-manual-session.md and release-artifacts/2.0-507/release-record.json",
+    "installed_bundle_version_checked_on": "2026-10-18",
+    "establishes_public_availability": false,
+    "establishes_capture_build_identity": false
+  },
+  "source_asset_audit": {
+    "checked_on": "2026-10-18",
+    "result": "All five original approved screenshot PNGs match their recorded source SHA-256 values. The delivered film matches its recorded export SHA-256. This establishes asset origin, not app build identity."
+  },
+  "walkthrough_decision": {
+    "decided_on": "2026-10-18",
+    "delivery": "recorded_captioned_walkthrough",
+    "reason": "Use the plan's recorded fallback. The existing native player, captions, descriptive transcript and chapters serve the explanation without a new browser simulator, Node dependency or CI lane.",
+    "interactive_organize_demo": "cut_from_this_delivery",
+    "interactive_dedupe_extension": "deferred"
+  },
+  "post_launch_verification": [
     "The owner reports V2 is submitted for App Review; submission does not establish public availability.",
-    "Verify the matching build, free download, US unlock price and Family Sharing in the public storefront before merging.",
-    "Verify every displayed workflow and screenshot against the public app before merging.",
-    "These September development captures have no verified app build or public-version mapping. They remain held assets.",
-    "Set the film's actual publication date and review the privacy effective date at publication."
+    "After V2 is public, verify the matching build, free download, US unlock price, Family Sharing and production purchase/restore.",
+    "Verify every displayed workflow and screenshot against public V2; identify or replace the older captures as needed.",
+    "These September development captures have no verified app build or public-version mapping; the website labels them as development captures.",
+    "The owner merged the website on October 18. The actual film publication date is recorded; public app/offer verification remains incomplete."
   ],
   "assets": [
     {
       "path": "assets/artwork/photos-to-order.jpg",
+      "sha256": "a821d6388e0560ecceffbbea3b1e164777ed4422fc4ca36aa1c9b7285b7a1ab8",
       "kind": "decorative_generated_artwork",
       "created_at": "2026-10-18",
       "generator": "OpenAI built-in image_gen",
@@ -23,6 +70,7 @@
     },
     {
       "path": "assets/screenshots/preview-timeline-202609.jpg",
+      "sha256": "30bf59b85e6b0fe1b0d199c70129326b0e71ede9335d14d8adfd940f596ca087",
       "kind": "app_capture",
       "scenario": "Staged 4,000-file full-access Organize preview, 2013–2026; not the free allowance or a speed benchmark",
       "capture_date": null,
@@ -35,6 +83,7 @@
     },
     {
       "path": "assets/screenshots/dedupe-compare-202609.jpg",
+      "sha256": "a4e1f71eaa482746a4222b50bb17636f4f87bc01b04b0b312fa0e1dc87fdc105",
       "kind": "app_capture",
       "scenario": "Full-access development duplicate comparison; staged sandboarding photo, reviewed selection and Trash action",
       "capture_date": null,
@@ -47,6 +96,7 @@
     },
     {
       "path": "assets/screenshots/setup-202609.jpg",
+      "sha256": "0791d197fca4e60dd55ece8942930e4d1fcce43a5390b44261fc71f92b82561d",
       "kind": "app_capture",
       "scenario": "Development Organize folder setup",
       "capture_date": null,
@@ -59,6 +109,7 @@
     },
     {
       "path": "assets/screenshots/transfer-complete-202609.jpg",
+      "sha256": "0699371fa79ba3206445140d50aa64ab0958ec5e0bd2bc6ab9638f0f2484af6a",
       "kind": "app_capture",
       "scenario": "Development full-access verified-transfer result",
       "capture_date": null,
@@ -71,6 +122,7 @@
     },
     {
       "path": "assets/screenshots/run-history-202609.jpg",
+      "sha256": "7aadad4156f9d0a2ea86b1993325f14dd579d54c69f91026f60eceecf6fce77b",
       "kind": "app_capture",
       "scenario": "Development Run History with staged receipts",
       "capture_date": null,
@@ -83,7 +135,9 @@
     },
     {
       "path": "assets/video/chronoframe-demo-1080p.mp4",
+      "sha256": "51001ff94ab57981c78a9528a060309856eab2fde99b02c0f57c6bc258a4ed0f",
       "poster": "assets/video/chronoframe-demo-poster.jpg",
+      "poster_sha256": "d9cd52e9ea7cbe7a8f0a4eb99a87e0f736446ac244d6adfb34a721cd6a5c8859",
       "kind": "recorded_walkthrough",
       "scenario": "Staged full-access library; Organize, duplicate review, Trash approval and receipt-based restoration",
       "capture_date": "2026-09-21",
@@ -91,7 +145,7 @@
       "app_version_build": null,
       "app_source_commit": null,
       "publicly_available_version_represented": null,
-      "publication_date": null,
+      "publication_date": "2026-10-18",
       "provenance": "assets/video/README.md",
       "status": "verify_against_public_V2_before_publication"
     }

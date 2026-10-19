@@ -3,6 +3,8 @@
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+import argparse
+import hashlib
 import json
 import re
 import struct
@@ -11,6 +13,9 @@ import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1] / 'site'
 errors = []
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--release', action='store_true', help='Require verified public-release proof or recorded prelaunch approval; Pages runs this before uploading')
+args = parser.parse_args()
 
 
 def check(condition, message):
@@ -142,21 +147,36 @@ for element in sitemap.findall('.//{http://www.sitemaps.org/schemas/sitemap/0.9}
     check(path.is_file(), f'Sitemap references missing page: {element.text}')
 check((ROOT/'CNAME').read_text().strip() == 'chronoframe.app', 'Incorrect CNAME')
 
-# Real app captures and decorative artwork have different provenance. A held
-# draft can have unknown build mappings; a publication-ready manifest cannot.
+# Real app captures and decorative artwork have different provenance. Early
+# publication can be owner-approved without claiming public-app verification.
 proof_path = ROOT/'assets/product-proof.json'
 check(proof_path.is_file(), 'Product proof needs a provenance manifest')
 if proof_path.is_file():
     proof = json.loads(proof_path.read_text())
     assets = proof.get('assets', [])
+    approval = proof.get('owner_publication_approval', {})
+    early_publication = proof.get('publication_status') == 'owner_approved_prelaunch'
+    if early_publication:
+        check(approval.get('website_before_public_app') is True and
+              approval.get('temporary_app_store_link_mismatch_accepted') is True and
+              bool(approval.get('recorded_on')) and bool(approval.get('reason')) and
+              bool(approval.get('evidence')),
+              'Prelaunch publication requires recorded owner approval of early website publication and the temporary App Store mismatch')
+    if args.release:
+        check(proof.get('publication_status') == 'verified_for_public_release' or early_publication, 'RELEASE HELD: verify public V2 proof or record explicit owner approval for prelaunch website publication')
     recorded_paths = {asset.get('path') for asset in assets}
-    check(proof.get('publication_status') in ('held_for_public_release_verification', 'verified_for_public_release'), 'Unknown proof publication status')
+    check(proof.get('publication_status') in ('held_for_public_release_verification', 'verified_for_public_release', 'owner_approved_prelaunch'), 'Unknown proof publication status')
     for asset in assets:
         for field in ('path', 'poster', 'provenance'):
             if field not in asset:
                 continue
             target = (ROOT/asset[field]).resolve()
             check(target.is_relative_to(ROOT.resolve()) and target.is_file(), f'Proof manifest has missing/unsafe {field}: {asset[field]}')
+            if field == 'poster' and target.is_relative_to(ROOT.resolve()) and target.is_file():
+                check(asset.get('poster_sha256') == hashlib.sha256(target.read_bytes()).hexdigest(), f'Proof poster changed without updating its provenance: {asset[field]}')
+        target = (ROOT/asset.get('path', '')).resolve()
+        if target.is_relative_to(ROOT.resolve()) and target.is_file():
+            check(asset.get('sha256') == hashlib.sha256(target.read_bytes()).hexdigest(), f'Proof asset changed without updating its provenance: {asset.get("path")}')
         if proof.get('publication_status') == 'verified_for_public_release' and asset.get('kind') in ('app_capture', 'recorded_walkthrough'):
             for field in ('capture_date', 'app_version_build', 'app_source_commit', 'publicly_available_version_represented'):
                 check(bool(asset.get(field)), f'Publication-ready proof is missing {field}: {asset.get("path")}')
@@ -171,10 +191,13 @@ if proof_path.is_file():
 home_source = (ROOT/'index.html').read_text()
 check('product-window' in home_source and 'tabindex="0" role="region"' in home_source, 'Product screenshot needs keyboard-accessible narrow-screen inspection')
 if proof_path.is_file():
-    if proof.get('publication_status') == 'held_for_public_release_verification':
-        check('uploadDate' not in video_schema, 'Held footage must not advertise a projected publication date')
+    film = next((asset for asset in proof.get('assets', []) if asset.get('kind') == 'recorded_walkthrough'), {})
+    if film.get('publication_date'):
+        check(bool(proof.get('publication_observation', {}).get('deployment')), 'Film publication date needs recorded deployment evidence')
+        check(str(video_schema.get('uploadDate', '')).startswith(film['publication_date']), 'Film structured data must match its actual recorded publication date')
+    elif proof.get('publication_status') != 'verified_for_public_release':
+        check('uploadDate' not in video_schema, 'Unpublished footage must not advertise a projected publication date')
     else:
-        film = next((asset for asset in proof.get('assets', []) if asset.get('kind') == 'recorded_walkthrough'), {})
         check(bool(film.get('publication_date')) and str(video_schema.get('uploadDate', '')).startswith(film['publication_date']), 'Published footage needs its recorded publication date in structured data')
 for name in ('index.html', 'faq.html', 'support.html'):
     source = (ROOT/name).read_text()
@@ -187,3 +210,5 @@ if errors:
     print('\n'.join(errors), file=sys.stderr)
     sys.exit(1)
 print(f'PASS: {len(pages)} HTML pages; local links/anchors/assets; metadata; video policy, size, fast-start and captions; sitemap; offer terms and product-proof provenance.')
+if args.release and proof.get('publication_status') == 'owner_approved_prelaunch':
+    print('Publication: owner-approved prelaunch; public app/offer and capture-build verification remain outstanding.')
