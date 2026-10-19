@@ -56,7 +56,7 @@ struct SettingsView: View {
 
             LicenseSettingsTab(
                 appState: appState,
-                entitlementStore: TrialComposition.entitlementStore
+                entitlementStore: appState.entitlementStore
             )
                 .tabItem {
                     Label("License", systemImage: "key")
@@ -82,7 +82,7 @@ struct SettingsView: View {
             // is not news on opening Settings — but a restore/purchase outcome
             // the customer just produced on the License tab must survive them
             // glancing at another tab and back.
-            TrialComposition.entitlementStore.dismissStatusMessage()
+            appState.entitlementStore.dismissStatusMessage()
         }
         .navigationTitle("Settings")
     }

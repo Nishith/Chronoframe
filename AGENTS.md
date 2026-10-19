@@ -137,6 +137,8 @@ Release packaging defaults to Developer ID signed, hardened-runtime, notarized, 
 
 ## Documentation Sources Of Truth
 
+- App Review rejected **2.0 (507)** on October 19, 2026 under 2.1(b) because the reviewer could not find Chronoframe Unlock. `docs/app-review-iap-rejection-2026-10-19.md` tracks the focused replacement, Store Connect observations, purchase navigation and physical-Mac sandbox recording checklist. The replacement adds Settings → License → Unlock Chronoframe… before any allowance is spent, reusing the real product/price/purchase/restore sheet with no automatic operation after purchase. Do not reset a user's allowance or existing purchase to prepare evidence. App/IAP approval, signed sandbox purchase/explicit restore and the requested recording must not be inferred from UI fixtures. Keep the earlier uncommitted design changes out of this fix.
+
 - `README.md`, `docs/QUICK_START.md`, `docs/FAQ.md`, and `docs/TROUBLESHOOTING.md` are the public product guidance.
 - `docs/SAFETY_AND_RECOVERY.md` is the shared plain-language and technical contract for locking, content verification, journals, interruption states, and artifact retention.
 - `docs/TECHNICAL.md` is the current developer architecture and artifact reference.

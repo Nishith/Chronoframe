@@ -17,6 +17,7 @@ struct LicenseSettingsTab: View {
     @ObservedObject var appState: AppState
     @ObservedObject var entitlementStore: EntitlementStore
     @ObservedObject private var trialStatusStore: TrialStatusStore
+    @State private var showingUnlock = false
 
     init(appState: AppState, entitlementStore: EntitlementStore) {
         self._appState = ObservedObject(wrappedValue: appState)
@@ -66,6 +67,14 @@ struct LicenseSettingsTab: View {
 
             if model.showsRestore {
                 Section {
+                    if model.showsPurchase {
+                        Button("Unlock Chronoframe…") {
+                            showingUnlock = true
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(entitlementStore.state != .locked || entitlementStore.isRestoring || entitlementStore.isPurchasing)
+                        .accessibilityIdentifier("license.unlock")
+                    }
                     HStack {
                         Button("Restore Purchases") {
                             Task {
@@ -73,6 +82,7 @@ struct LicenseSettingsTab: View {
                                 await appState.refreshTrialStatus()
                             }
                         }
+                        .buttonStyle(.bordered)
                         // Also while the unlock sheet is buying: the store
                         // refuses to overlap the two, so the button would do
                         // nothing.
@@ -96,6 +106,16 @@ struct LicenseSettingsTab: View {
         }
         .formStyle(.grouped)
         .accessibilityIdentifier("settings.license")
+        .sheet(isPresented: $showingUnlock) {
+            UnlockSheet(
+                entitlementStore: entitlementStore,
+                onUnlocked: {
+                    showingUnlock = false
+                    Task { await appState.refreshTrialStatus() }
+                },
+                onDismiss: { showingUnlock = false }
+            )
+        }
         // Dismissing a leftover message on `.onAppear` here would also fire on
         // every return trip to this tab within an already-open Settings window
         // (SwiftUI recreates a `TabView` tab's content when you switch away and
@@ -110,7 +130,10 @@ struct LicenseSettingsTab: View {
             guard appState.isAppStoreChannel else { return }
             await appState.refreshTrialStatus()
         }
-        .onChange(of: entitlementStore.state) { _, _ in
+        .onChange(of: entitlementStore.state) { _, state in
+            // A voluntary purchase must stop being offered if ownership is
+            // no longer confirmed as absent while this sheet is open.
+            if state != .locked { showingUnlock = false }
             // A refund or Family Sharing revocation arriving through the
             // transaction observer changes what this pane should say, and the
             // allowance has to be re-read to say it.

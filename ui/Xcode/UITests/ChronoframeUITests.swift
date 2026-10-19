@@ -836,6 +836,80 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    func testLicenseOffersPurchaseBeforeAllowanceRunsOut() async throws {
+        try await MainActor.run {
+            let app = Self.launchApp(.settingsLicense)
+            defer { app.terminate() }
+            XCTAssertTrue(app.staticTexts["380 of 500 left"].waitForExistence(timeout: 5))
+            let unlock = Self.button(identifier: "license.unlock", in: app)
+            XCTAssertTrue(unlock.waitForExistence(timeout: 5))
+            unlock.click()
+            let buy = Self.button(identifier: "unlockSheet.buy", in: app)
+            XCTAssertTrue(buy.waitForExistence(timeout: 5), app.debugDescription)
+            XCTAssertTrue(buy.label.contains("£14.99"), buy.label)
+            XCTAssertTrue(Self.button(identifier: "unlockSheet.restore", in: app).exists)
+            XCTAssertFalse(app.staticTexts["Reorganize is available once Chronoframe is unlocked. Nothing was changed."].exists)
+            let attachment = XCTAttachment(screenshot: app.windows[Self.settingsWindowIdentifier].screenshot())
+            attachment.name = "License voluntary purchase with localized price"
+            attachment.lifetime = .keepAlways
+            XCTContext.runActivity(named: "License voluntary purchase") { $0.add(attachment) }
+            try app.performAccessibilityAudit(for: [.contrast, .elementDetection, .sufficientElementDescription]) { issue in
+                NSLog("%@", Self.auditLogLine(for: issue, scenario: .settingsLicense))
+                // Audit the active purchase sheet. macOS also reports the
+                // dimmed License page and native hosting groups behind it;
+                // that page has its own settingsLicense scenario audit.
+                // Unidentified issues and every issue inside the sheet fail.
+                if let element = issue.element,
+                   !app.sheets.firstMatch.frame.contains(element.frame) {
+                    return true
+                }
+                // The sheet's native NSHostingView wrapper also has no label;
+                // its labeled SwiftUI container and controls are its children.
+                if issue.auditType == .sufficientElementDescription,
+                   let element = issue.element, element.elementType == .group,
+                   element.identifier.isEmpty, element.label.isEmpty,
+                   element.frame == app.sheets.firstMatch.frame {
+                    return true
+                }
+                return false
+            }
+            buy.click()
+            XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
+            XCTAssertFalse(Self.button(identifier: "license.unlock", in: app).exists)
+        }
+    }
+
+    func testLicensePurchaseCancellationAndRestore() async {
+        await MainActor.run {
+            let app = Self.launchApp(.settingsLicense, additionalEnvironment: ["CHRONOFRAME_UI_TEST_CANCEL_PURCHASE": "1"])
+            defer { app.terminate() }
+            let unlock = Self.button(identifier: "license.unlock", in: app)
+            XCTAssertTrue(unlock.waitForExistence(timeout: 5))
+            unlock.click()
+            let buy = Self.button(identifier: "unlockSheet.buy", in: app)
+            XCTAssertTrue(buy.waitForExistence(timeout: 5))
+            buy.click()
+            XCTAssertTrue(Self.button(identifier: "unlockSheet.dismiss", in: app).exists)
+            Self.button(identifier: "unlockSheet.dismiss", in: app).click()
+            XCTAssertTrue(app.staticTexts["380 of 500 left"].waitForExistence(timeout: 5))
+            Self.button(identifier: "license.restore", in: app).click()
+            XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
+        }
+    }
+
+    func testLicenseUnavailableProductOffersRetryAndRestore() async {
+        await MainActor.run {
+            let app = Self.launchApp(.settingsLicense, additionalEnvironment: ["CHRONOFRAME_UI_TEST_MISSING_PRODUCT": "1"])
+            defer { app.terminate() }
+            let unlock = Self.button(identifier: "license.unlock", in: app)
+            XCTAssertTrue(unlock.waitForExistence(timeout: 5))
+            unlock.click()
+            XCTAssertTrue(Self.button(identifier: "unlockSheet.retry", in: app).waitForExistence(timeout: 5))
+            XCTAssertTrue(Self.button(identifier: "unlockSheet.restore", in: app).exists)
+            XCTAssertFalse(Self.button(identifier: "unlockSheet.buy", in: app).exists)
+        }
+    }
+
     func testMeteredTrialScenariosExposeLicenseAndWorkspaceIndicators() async {
         await MainActor.run {
             let licenseApp = Self.launchApp(.settingsLicense)
