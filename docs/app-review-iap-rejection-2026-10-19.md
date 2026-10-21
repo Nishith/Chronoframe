@@ -230,3 +230,20 @@ Draft reply — send only after the replacement and real recording are attached:
 
 Do not send this draft with placeholders or infer a completed restore from automatic
 entitlement recovery. Record the tested build and recording filename alongside it.
+
+## PR #251 review correction — October 20, 2026
+
+The review identified a cross-window retry: an operation refusal left open in the
+main window could observe a voluntary License purchase and restart the refused
+preview or transfer. License now dismisses pending refusals before purchase or
+restore can publish ownership, including Restore directly on the License pane.
+A queued retry callback also requires a still-active refusal. An operation's own
+unlock retains its existing fresh-preflight retry and transfer confirmation.
+
+The focused run passed **60 Swift tests**, including a regression matrix exercising
+the License view's three purchase/restore actions against pending preview and
+transfer refusals, publication-time ordering, stale callbacks, normal retries and
+the rendered localized-price layout. These use deterministic StoreKit fixtures.
+This source correction is **not in signed build 508**; that build's recorded
+source and transaction evidence remain separate. A new signed build is needed to
+exercise this correction through TestFlight.

@@ -512,6 +512,11 @@ final class AppState: ObservableObject {
     /// one would be a guess. That sheet just closes and the customer re-invokes
     /// the action, which is one click and cannot be wrong.
     func retryAfterUnlock() async {
+        // The callback may already be queued when License settings or the
+        // customer dismisses the refusal. currentMode outlives that refusal
+        // and must not by itself authorize starting another operation.
+        guard unlockRefusal != nil else { return }
+
         // A dedupe refusal leaves its reviewed clusters paused and intact, so
         // there is nothing to rebuild and nothing safe to auto-run: committing
         // on the customer's behalf the moment a purchase completes would remove

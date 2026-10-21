@@ -77,10 +77,7 @@ struct LicenseSettingsTab: View {
                     }
                     HStack {
                         Button("Restore Purchases") {
-                            Task {
-                                await entitlementStore.restore()
-                                await appState.refreshTrialStatus()
-                            }
+                            Task { await restorePurchases() }
                         }
                         .buttonStyle(.bordered)
                         // Also while the unlock sheet is buying: the store
@@ -107,14 +104,7 @@ struct LicenseSettingsTab: View {
         .formStyle(.grouped)
         .accessibilityIdentifier("settings.license")
         .sheet(isPresented: $showingUnlock) {
-            UnlockSheet(
-                entitlementStore: entitlementStore,
-                onUnlocked: {
-                    showingUnlock = false
-                    Task { await appState.refreshTrialStatus() }
-                },
-                onDismiss: { showingUnlock = false }
-            )
+            purchaseSheet
         }
         // Dismissing a leftover message on `.onAppear` here would also fire on
         // every return trip to this tab within an already-open Settings window
@@ -152,5 +142,26 @@ struct LicenseSettingsTab: View {
             // publishes no run completion.
             Task { await appState.refreshTrialStatus() }
         }
+    }
+
+    var purchaseSheet: UnlockSheet {
+        UnlockSheet(
+            entitlementStore: entitlementStore,
+            // Another window may still have an operation refusal open.
+            // Clear it before the shared store publishes an unlock, not
+            // in onUnlocked where observer ordering would decide safety.
+            onBeforeUnlock: { appState.dismissUnlockSheet() },
+            onUnlocked: {
+                showingUnlock = false
+                Task { await appState.refreshTrialStatus() }
+            },
+            onDismiss: { showingUnlock = false }
+        )
+    }
+
+    func restorePurchases() async {
+        appState.dismissUnlockSheet()
+        await entitlementStore.restore()
+        await appState.refreshTrialStatus()
     }
 }

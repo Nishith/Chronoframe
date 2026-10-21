@@ -22,6 +22,9 @@ struct UnlockSheet: View {
     @ObservedObject var entitlementStore: EntitlementStore
     /// A smaller run the remaining allowance covers, when one was offered (T15).
     var offeredBatch: FreeTestBatch?
+    /// Runs synchronously before purchase/restore can publish shared ownership.
+    /// License settings uses this to cancel a refusal in another window.
+    var onBeforeUnlock: () -> Void = {}
     /// Called once the entitlement resolves to unlocked. Settings closes without
     /// running work; an operation caller re-runs its own preflight and planning.
     let onUnlocked: () -> Void
@@ -130,7 +133,7 @@ struct UnlockSheet: View {
         switch action {
         case let .buy(displayName, displayPrice):
             Button {
-                Task { await entitlementStore.purchase() }
+                Task { await purchase() }
             } label: {
                 Text("\(displayName) · \(displayPrice)")
                     .fixedSize(horizontal: false, vertical: true)
@@ -148,7 +151,7 @@ struct UnlockSheet: View {
 
         case .restore:
             Button("Restore Purchases") {
-                Task { await entitlementStore.restore() }
+                Task { await restorePurchases() }
             }
             .disabled(model.isBusy)
             .accessibilityIdentifier("unlockSheet.restore")
@@ -209,6 +212,16 @@ struct UnlockSheet: View {
                 .accessibilityIdentifier("unlockSheet.runBatch")
             }
         }
+    }
+
+    func purchase() async {
+        onBeforeUnlock()
+        await entitlementStore.purchase()
+    }
+
+    func restorePurchases() async {
+        onBeforeUnlock()
+        await entitlementStore.restore()
     }
 
     private func reloadProduct() async {
