@@ -43,6 +43,9 @@ final class AppState: ObservableObject {
     /// Channel identity is a value on the app state so UI tests can render the
     /// Mac App Store presentation without compiling or signing a store build.
     let isAppStoreChannel: Bool
+    /// Shared by Settings, the operation paywall and allowance observation.
+    /// Tests inject a StoreKit fake; production uses the composition-root store.
+    let entitlementStore: EntitlementStore
     private let trialEntitlementResolver: @MainActor () async -> TrialEntitlementSnapshot
 
     private let folderAccessService: any FolderAccessServicing
@@ -227,6 +230,7 @@ final class AppState: ObservableObject {
         restoreBookmarksDuringBootstrap: Bool = true,
         trialStatusStore: TrialStatusStore? = nil,
         isAppStoreChannel: Bool = TrialComposition.isMacAppStoreBuild,
+        entitlementStore: EntitlementStore? = nil,
         trialEntitlementResolver: (@MainActor () async -> TrialEntitlementSnapshot)? = nil,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
@@ -252,8 +256,11 @@ final class AppState: ObservableObject {
         self.guardianStore = GuardianStore(engine: SwiftGuardianEngine(), notifier: GuardianUserNotifier())
         self.trialStatusStoreOverride = trialStatusStore
         self.isAppStoreChannel = isAppStoreChannel
+        let entitlementStore = entitlementStore ?? TrialComposition.entitlementStore
+        self.entitlementStore = entitlementStore
         self.trialEntitlementResolver = trialEntitlementResolver ?? {
-            await TrialComposition.resolvedEntitlement()
+            await entitlementStore.resolveIfNeeded()
+            return TrialEntitlementSnapshot(state: entitlementStore.state, accountKey: entitlementStore.ledgerAccountKey)
         }
         self.folderAccessService = folderAccessService
         self.finderService = finderService
@@ -505,6 +512,11 @@ final class AppState: ObservableObject {
     /// one would be a guess. That sheet just closes and the customer re-invokes
     /// the action, which is one click and cannot be wrong.
     func retryAfterUnlock() async {
+        // The callback may already be queued when License settings or the
+        // customer dismisses the refusal. currentMode outlives that refusal
+        // and must not by itself authorize starting another operation.
+        guard unlockRefusal != nil else { return }
+
         // A dedupe refusal leaves its reviewed clusters paused and intact, so
         // there is nothing to rebuild and nothing safe to auto-run: committing
         // on the customer's behalf the moment a purchase completes would remove
@@ -798,16 +810,16 @@ final class AppState: ObservableObject {
     /// purchase's several intermediate publishes from each costing a StoreKit
     /// round-trip.
     private func observeEntitlementForTrialStatus() {
-        lastObservedEntitlement = TrialComposition.entitlementStore.state
+        lastObservedEntitlement = entitlementStore.state
         // The store is read inside the hop rather than captured: it is
         // `@MainActor`, and holding it in an escaping closure would drag a
         // non-Sendable value across isolation.
-        trialStatusObservation = TrialComposition.entitlementStore.objectWillChange
+        trialStatusObservation = entitlementStore.objectWillChange
             .sink { [weak self] _ in
                 // Hop first: `objectWillChange` fires before the value lands.
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    let current = TrialComposition.entitlementStore.state
+                    let current = self.entitlementStore.state
                     guard current != self.lastObservedEntitlement else { return }
                     self.lastObservedEntitlement = current
                     await self.refreshTrialStatusIfMetered()

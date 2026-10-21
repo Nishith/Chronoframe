@@ -137,6 +137,8 @@ Release packaging defaults to Developer ID signed, hardened-runtime, notarized, 
 
 ## Documentation Sources Of Truth
 
+- App Review rejected **2.0 (507)** on October 19, 2026 under 2.1(b) because the reviewer could not find Chronoframe Unlock. `docs/app-review-iap-rejection-2026-10-19.md` tracks the focused replacement, Store Connect observations, purchase navigation and physical-Mac sandbox recording checklist. The replacement adds Settings → License → Unlock Chronoframe… before any allowance is spent, reusing the real product/price/purchase/restore sheet with no automatic operation after purchase. Do not reset a user's allowance or existing purchase to prepare evidence. App/IAP approval, signed sandbox purchase/explicit restore and the requested recording must not be inferred from UI fixtures. Keep the earlier uncommitted design changes out of this fix.
+
 - `README.md`, `docs/QUICK_START.md`, `docs/FAQ.md`, and `docs/TROUBLESHOOTING.md` are the public product guidance.
 - `docs/SAFETY_AND_RECOVERY.md` is the shared plain-language and technical contract for locking, content verification, journals, interruption states, and artifact retention.
 - `docs/TECHNICAL.md` is the current developer architecture and artifact reference.
@@ -153,6 +155,8 @@ Swift 6.1+ and retains the original-purchase-date fallback for the Swift 6.0 CI 
 - `prodsec/Chronoframe/` contains historical review artifacts. Keep their findings for audit traceability, but do not treat old proposed implementations as current architecture.
 
 ## User-Facing Error Handling
+
+License settings purchases and restores must dismiss pending operation refusals before the shared entitlement store publishes ownership. `UnlockSheet.onBeforeUnlock` handles both actions in the voluntary sheet; the License pane's direct restore follows the same rule. `AppState.retryAfterUnlock` requires a still-active refusal, so a queued callback after dismissal cannot start work. `SettingsUnlockSafetyTests` covers both windows' shared state and preserves normal operation-triggered retries.
 
 History owns a per-load destination security scope, including recovery and indexing. Destination bookmarks are also retained persistently by archive root under `history.destination.<base64 canonical path>` in `PreferencesStore`, independently of the current manual/profile/dedupe destination, so changing Setup during a captured run does not revoke later receipt access. Receipt detail sheets hold a scope while visible and verification holds a separate lease through completion. History refresh failures preserve the same archive's loaded snapshot; permission failures show **Reconnect your archive folder → Choose Folder…**, not empty-history claims. Reconnection must select the same canonical root, preserve Setup/profile selection, save refreshed access and reload automatically. A different root is rejected with an explanation; never silently retarget a recovery action.
 

@@ -99,6 +99,7 @@ final class AppStateHarness {
     func makeAppState(
         performInitialBootstrap: Bool = true,
         restoreBookmarksDuringBootstrap: Bool = true,
+        entitlementStore: EntitlementStore? = nil,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {}
     ) -> AppState {
         AppState(
@@ -113,6 +114,7 @@ final class AppStateHarness {
             profilesRepository: self.repository,
             performInitialBootstrap: performInitialBootstrap,
             restoreBookmarksDuringBootstrap: restoreBookmarksDuringBootstrap,
+            entitlementStore: entitlementStore,
             showSettingsWindowAction: showSettingsWindowAction
         )
     }

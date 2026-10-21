@@ -14,8 +14,8 @@ Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 | 4 | Enforcement at the mutation surfaces | **Merged.** T7–T12 |
 | 5 | Unlock UI + free test batch | **Merged.** T13–T16 |
 | 6 | Test matrices | **Merged.** T17–T19 |
-| 7 | App Store Connect product creation | Not recorded in the repository; verify manually |
-| 8 | Direct free V2 launch | Access policy updated; final signed build, testing and store configuration remain |
+| 7 | App Store Connect product creation | Verified October 19: correct non-consumable ID, $14.99 US, Family Sharing and all regions; Ready for Review |
+| 8 | Direct free V2 launch | App 507 rejected under 2.1(b); direct License purchase correction and replacement sandbox/recording evidence required |
 | 9 | Release monitoring | Not started |
 
 The launch target remains October 26, 2026, subject to final testing and App Review. There is no seven-day paid rollout or compiled acquisition-date cutoff. `ChronoframeUnlock.defaultPolicy()` disables both live and cached legacy grants. App transactions still supply the account identity for the allowance; verified ownership of the non-consumable unlock confers unrestricted access. Existing test-build legacy grants do not confer access, even offline. Test data and usage ledgers are not reset.
@@ -478,6 +478,12 @@ Follow the Meridian language: native controls, no decorative gradients, no instr
 describing obvious mechanics.
 
 ## T14 — Settings License tab · Routine
+
+October 19 App Review correction: Settings → License now offers Unlock Chronoframe…
+to confirmed non-owners before they spend any allowance. It opens the existing
+StoreKit-priced purchase/restore sheet without inventing an operation refusal or
+starting work after purchase. See `docs/app-review-iap-rejection-2026-10-19.md` for
+the replacement’s signed sandbox and recording requirements.
 
 Add `case license` to `SettingsTab`. Shows entitlement state, remaining allowance, and Restore
 Purchases.

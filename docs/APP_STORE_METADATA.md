@@ -89,6 +89,14 @@ The owner confirmed there are no existing users. Submit the free-download offer 
 
 ## Review Notes
 
+For the replacement after the October 19 rejection, prepend this purchase path
+to the notes below. Use it only with a build containing the direct License entry:
+
+> FIND THE IN-APP PURCHASE: Launch Chronoframe, choose Chronoframe → Settings… (Command-comma), select License, then click Unlock Chronoframe…. The purchase sheet shows "Chronoframe Unlock" and the localized App Store price. Click that priced button to begin the Apple sandbox purchase. You do not need to select folders, organize 500 files, delete duplicates or use up any free allowance to reach this purchase. Restore Purchases is available in Settings → License and on the purchase sheet while locked. A successful purchase unlocks the app without starting any file operation. There is no Chronoframe sign-in or demo account. If the app already says Unlocked, that Apple Account already has access and another purchase is not offered.
+
+Attach the physical-Mac sandbox recording requested by Apple and record its tested
+version/build. The local implementation/UI-fixture tests are not that evidence.
+
 > Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders the reviewer selects through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. The optional Photos import reads the Apple Photos library only: it exports copies of selected originals with PHAssetResourceManager into the chosen destination and never calls any mutating PhotoKit API, so it cannot modify, move, favorite, or delete anything in the library (macOS has no read-only Photos permission level, so the app requests read/write access but never writes). Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Before Trash, approved mutation units may be temporarily renamed within the same selected folder for content verification and crash recovery. The app runs entirely on-device, does not upload photos, and includes no analytics, telemetry, advertising, or crash-reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, interruption recovery, history, and revert. No sign-in or demo account is required.
 >
 > FREE ALLOWANCE AND IN-APP PURCHASE. Chronoframe includes one non-consumable in-app purchase, "Chronoframe Unlock" (com.nishith.chronoframe.unlock): a one-time purchase, no subscription, with Family Sharing enabled. Without it, the app allows organizing 500 files and moving 100 duplicates to the Trash. Those counts are cumulative and permanent — not per session, per day, or per folder — and they are scoped to each Apple Account on each Mac: signing in as a different Apple Account gives that account its own allowance rather than an already-spent one, and signing back in returns to the original count. The counts are stored outside the app bundle, so deleting and reinstalling the app does not reset them. Previewing, planning, dry-run CSV export, duplicate scanning and review, Library Health, and Run History are free and unlimited, so the entire workflow can be exercised without purchasing anything. When a run would exceed the remaining allowance, the app refuses it before copying or trashing anything, states that the originals were left untouched, and offers either the purchase or a smaller batch that fits within what remains. Reverting a completed run is never restricted by purchase state, and a revert returns the allowance that run consumed. Reorganizing an existing destination requires the unlock. Restore Purchases is available in Settings → License.
@@ -126,7 +134,7 @@ App Store Connect caps the display name and description tightly — around 30 an
 
 The description in `ui/Chronoframe.storekit` is longer than what App Store Connect will accept, deliberately: nothing truncates it locally and the longer text is easier to recognize while testing. It is not the shipping copy — the table above is.
 
-Screenshot for review: the unlock sheet reached by starting a run larger than the remaining allowance. It shows the price, the purchase button, Restore Purchases, and the smaller free batch offer in one frame.
+Screenshot for review: the purchase sheet reached directly through Settings → License → Unlock Chronoframe…. It shows the StoreKit-supplied price, purchase button and Restore Purchases. The same purchase sheet is also offered when a run exceeds the remaining allowance or Reorganize requires an unlock; an over-allowance organize run may additionally offer a smaller free batch. A screenshot of a fixture is interface evidence only; attach the requested real sandbox recording separately.
 
 ## Pricing
 
@@ -148,7 +156,7 @@ Then set the Pages custom domain (`gh api -X PUT repos/Nishith/Chronoframe/pages
 
 After the App Store listing is live, replace the Mac App Store button `href` in `site/index.html` with the live App Store product URL.
 
-**Every push to `main` that touches `site/**` publishes immediately.** There is no staging step, so the site's pricing copy is live the moment it merges. `site/index.html` and `site/faq.html` currently say "$14.99 introductory price · One-time purchase", which must be replaced at the direct-free launch. Keep the prepared website update held until the public App Store offer is free and verified. See `docs/APP_STORE_RELEASE.md`.
+**Every push to `main` that touches `site/**` publishes immediately.** The owner approved early website publication on October 18, accepting the temporary old/unavailable App Store offer. Website PRs #226/#248/#249 are published with direct-free wording and development-capture labels. Public V2 offer/capture verification remains a post-approval follow-up; the previous website publication hold is superseded. See `site/assets/product-proof.json`.
 
 ## October 2026 prepared submission
 

@@ -1,5 +1,12 @@
 # Chronoframe 2.0 (507) — responsive large receipts
 
+**October 19, 2026 update:** Apple rejected app 2.0 (507) under Guideline 2.1(b):
+the reviewer could not find Chronoframe Unlock. Live App Store Connect confirms
+the combined two-item submission, with the app Rejected and the IAP Ready for
+Review. The focused replacement and required sandbox recording are tracked in
+[the rejection response record](app-review-iap-rejection-2026-10-19.md).
+The remaining text is historical build-507 validation, not approval or a replacement-build pass.
+
 October 17, 2026 (America/Los_Angeles). Replacement for the large-receipt rendering blocker observed in signed build 506. Archive and local package validation pass; upload succeeded at 17:09:04 PDT. Apple processing completed, the unchanged export-compliance answer was saved, and the existing Internal testers group (two testers) is confirmed. The owner confirms the 9,656-item receipt loads and scrolls normally and every destination verification status is Match. The owner also confirms the receipt survives an app restart. The cancelled-run Revert, preview and re-copy after Revert, a final repeat preview and an eight-file exact-duplicate Trash-and-restore smoke also pass on this build, and PR #246 is merged. Remaining signed gates, final hosted candidate checks and owner Go remain pending. No App Review submission, pricing change or public release.
 
 - Frozen source commit: `f54191843a7f95f0ad211c79714402e36ea7f4ea`; archive tree: `7fc1ca0b669ba0d982a5fbc355a191e0b7b704ff`.

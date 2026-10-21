@@ -8,6 +8,28 @@ import XCTest
 
 final class AppStateTests: XCTestCase {
     @MainActor
+    func testVoluntaryPurchaseAndRestoreRefreshLicenseWithoutStartingAnOperation() async {
+        for restore in [false, true] {
+            let state = UITestAppStateFactory.make(scenario: .settingsLicense)
+            await state.refreshTrialStatus()
+            XCTAssertTrue(LicenseStatusModel.make(status: state.trialStatusStore.status).showsPurchase)
+            XCTAssertNil(state.unlockRefusal)
+            await state.entitlementStore.loadProduct()
+            XCTAssertEqual(state.entitlementStore.product?.displayPrice, "£14.99")
+            if restore {
+                await state.entitlementStore.restore()
+            } else {
+                await state.entitlementStore.purchase()
+            }
+            await state.refreshTrialStatus()
+            XCTAssertTrue(state.trialStatusStore.status.isUnlocked)
+            XCTAssertFalse(LicenseStatusModel.make(status: state.trialStatusStore.status).showsPurchase)
+            XCTAssertNil(state.unlockRefusal)
+            XCTAssertNil(state.runSessionStore.summary)
+            XCTAssertFalse(state.deduplicateSessionStore.isWorking)
+        }
+    }
+    @MainActor
     func testUITestScenarioParsesEnvironmentAndMarksSettingsLaunches() {
         XCTAssertEqual(
             UITestScenario.current(environment: ["CHRONOFRAME_UI_TEST_SCENARIO": "historyPopulated"]),

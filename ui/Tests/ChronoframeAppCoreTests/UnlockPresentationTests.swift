@@ -36,6 +36,29 @@ final class UnlockPresentationTests: XCTestCase {
 
     // MARK: - The price is Apple's
 
+    func testVoluntaryUnlockExplainsTheProductWithoutInventingARefusedRun() {
+        let presentation = UnlockSheetModel.make(
+            product: product, isLoadingProduct: false, isPurchasing: false, isRestoring: false
+        )
+        XCTAssertEqual(presentation.title, "Unlock Chronoframe")
+        XCTAssertTrue(presentation.message.contains("lifetime"))
+        XCTAssertTrue(presentation.message.contains("Reorganize"))
+        XCTAssertFalse(presentation.message.contains("run"))
+        XCTAssertFalse(presentation.message.contains("used up"))
+        XCTAssertEqual(presentation.actions, [
+            .buy(displayName: product.displayName, displayPrice: "£14.99"), .restore, .dismiss,
+        ])
+        XCTAssertNil(presentation.batchDetail)
+    }
+
+    func testVoluntaryUnlockDoesNotInventAPriceWhileLoadingOrUnavailable() {
+        let loading = UnlockSheetModel.make(product: nil, isLoadingProduct: true, isPurchasing: false, isRestoring: false)
+        XCTAssertEqual(loading.actions, [.dismiss])
+        let failed = UnlockSheetModel.make(product: nil, isLoadingProduct: false, isPurchasing: false, isRestoring: false)
+        XCTAssertEqual(failed.actions, [.retryProductLoad, .restore, .dismiss])
+        XCTAssertTrue(failed.message.contains("check the price"))
+    }
+
     /// The only price ever shown comes from `StoreProductInfo.displayPrice`. A
     /// hardcoded one goes stale on every storefront, currency and price change,
     /// and App Review rejects it.

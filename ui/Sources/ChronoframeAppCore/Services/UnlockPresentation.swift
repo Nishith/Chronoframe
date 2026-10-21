@@ -70,8 +70,8 @@ public struct UnlockSheetModel: Equatable, Sendable {
     /// Build the sheet's contents.
     ///
     /// - Parameters:
-    ///   - refusal: why the run was refused. This decides the copy, and in one
-    ///     case the actions: a customer whose purchase could not be CONFIRMED
+    ///   - refusal: nil for a voluntary License purchase; otherwise why the run
+    ///     was refused. This decides the copy and actions: a purchase that could not be CONFIRMED
     ///     must not be invited to buy again — they may already own it — so that
     ///     case leads with Restore.
     ///   - product: nil means the product has not loaded, or could not be.
@@ -80,7 +80,7 @@ public struct UnlockSheetModel: Equatable, Sendable {
     ///   - offeredBatch: a smaller run the remaining allowance covers, when the
     ///     engine could honestly propose one.
     public static func make(
-        refusal: TrialAuthorizationRefusal,
+        refusal: TrialAuthorizationRefusal? = nil,
         product: StoreProductInfo?,
         isLoadingProduct: Bool,
         isPurchasing: Bool,
@@ -162,7 +162,7 @@ public struct UnlockSheetModel: Equatable, Sendable {
     /// a policy.
     private static func offerableBatch(
         _ batch: FreeTestBatch?,
-        refusal: TrialAuthorizationRefusal
+        refusal: TrialAuthorizationRefusal?
     ) -> FreeTestBatch? {
         guard case .allowanceSpent = refusal,
               let batch,
@@ -182,8 +182,10 @@ public struct UnlockSheetModel: Equatable, Sendable {
         return "Copies the earliest \(files), \(span), and leaves \(batch.deferredCount) for later."
     }
 
-    private static func title(for refusal: TrialAuthorizationRefusal) -> String {
+    private static func title(for refusal: TrialAuthorizationRefusal?) -> String {
         switch refusal {
+        case nil:
+            return "Unlock Chronoframe"
         case .allowanceSpent:
             return "Unlock Chronoframe"
         case .purchaseUnconfirmed:
@@ -193,8 +195,11 @@ public struct UnlockSheetModel: Equatable, Sendable {
         }
     }
 
-    private static func message(for refusal: TrialAuthorizationRefusal) -> String {
+    private static func message(for refusal: TrialAuthorizationRefusal?) -> String {
         switch refusal {
+        case nil:
+            return "A one-time lifetime unlock removes the organizing and duplicate cleanup limits "
+                + "and includes Reorganize, with Family Sharing. No subscription."
         case let .allowanceSpent(details):
             return Self.allowanceMessage(details)
         case .purchaseUnconfirmed:
