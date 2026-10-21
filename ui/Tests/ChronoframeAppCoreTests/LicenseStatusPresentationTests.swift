@@ -27,6 +27,28 @@ final class LicenseStatusPresentationTests: XCTestCase {
 
     // MARK: - Unlocked
 
+    func testDirectPurchaseDoesNotRequireSpentAllowanceOrReadableLedger() {
+        for allowance: TrialAllowance in [
+            .remaining(balance(organizeUsed: 0, dedupeUsed: 0)),
+            .remaining(balance(organizeUsed: 120, dedupeUsed: 4)),
+            .remaining(balance(organizeUsed: 500, dedupeUsed: 100)),
+            .unavailable, .unknown,
+        ] {
+            let presentation = model(entitlement: .locked, allowance: allowance)
+            XCTAssertTrue(presentation.showsPurchase)
+            XCTAssertTrue(presentation.showsRestore)
+        }
+    }
+
+    func testOwnedUnconfirmedAndNonStoreBuildsNeverOfferAnotherPurchase() {
+        for state: EntitlementState in [.loading, .unverified, .verificationUnavailable, .unlocked(reason: .inAppPurchase)] {
+            XCTAssertFalse(model(entitlement: state, allowance: .unknown).showsPurchase, "\(state)")
+        }
+        XCTAssertFalse(LicenseStatusModel.make(
+            status: TrialStatus(entitlement: .locked, allowance: .unavailable), isAppStoreChannel: false
+        ).showsPurchase)
+    }
+
     func testPurchasedCustomerSeesNoAllowanceAndNoRestore() {
         let model = model(entitlement: .unlocked(reason: .inAppPurchase), allowance: .unlimited)
 

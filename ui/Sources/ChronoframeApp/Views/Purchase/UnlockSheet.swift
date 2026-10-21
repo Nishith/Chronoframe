@@ -6,7 +6,7 @@ import ChronoframeAppCore
 import ChronoframeCore
 #endif
 
-/// Offered when a run was refused (free-trial step 5, T13).
+/// Offered from License settings or when a run was refused.
 ///
 /// Deliberately thin. Everything that decides what to show lives in
 /// `UnlockSheetModel`, which is a pure function and is unit-tested; this view
@@ -17,12 +17,16 @@ import ChronoframeCore
 /// Meridian: native controls, no gradients, no text explaining what a button
 /// obviously does.
 struct UnlockSheet: View {
-    let refusal: TrialAuthorizationRefusal
+    /// Nil for a voluntary purchase: no refused operation or automatic retry.
+    var refusal: TrialAuthorizationRefusal? = nil
     @ObservedObject var entitlementStore: EntitlementStore
     /// A smaller run the remaining allowance covers, when one was offered (T15).
     var offeredBatch: FreeTestBatch?
-    /// Called once the entitlement actually resolves to unlocked. The caller
-    /// re-runs preflight and planning from scratch — see `AppState`.
+    /// Runs synchronously before purchase/restore can publish shared ownership.
+    /// License settings uses this to cancel a refusal in another window.
+    var onBeforeUnlock: () -> Void = {}
+    /// Called once the entitlement resolves to unlocked. Settings closes without
+    /// running work; an operation caller re-runs its own preflight and planning.
     let onUnlocked: () -> Void
     /// Run the batch shown above the buttons. The caller re-runs preflight and
     /// planning, then copies only the files this sheet listed.
@@ -104,6 +108,8 @@ struct UnlockSheet: View {
         }
         .padding(20)
         .frame(width: 420)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(model.title)
         .accessibilityIdentifier("unlockSheet")
         .onAppear {
             // A message from an earlier attempt describes an attempt this
@@ -115,9 +121,7 @@ struct UnlockSheet: View {
             await reloadProduct()
         }
         .onChange(of: entitlementStore.state) { _, state in
-            // Fires for a purchase AND for a successful restore, which is the
-            // point: both end with an unlocked entitlement and both should let
-            // the run proceed.
+            // Purchase and restore both notify the caller of verified access.
             if state.isUnlocked {
                 onUnlocked()
             }
@@ -129,7 +133,7 @@ struct UnlockSheet: View {
         switch action {
         case let .buy(displayName, displayPrice):
             Button {
-                Task { await entitlementStore.purchase() }
+                Task { await purchase() }
             } label: {
                 Text("\(displayName) · \(displayPrice)")
                     .fixedSize(horizontal: false, vertical: true)
@@ -147,7 +151,7 @@ struct UnlockSheet: View {
 
         case .restore:
             Button("Restore Purchases") {
-                Task { await entitlementStore.restore() }
+                Task { await restorePurchases() }
             }
             .disabled(model.isBusy)
             .accessibilityIdentifier("unlockSheet.restore")
@@ -208,6 +212,16 @@ struct UnlockSheet: View {
                 .accessibilityIdentifier("unlockSheet.runBatch")
             }
         }
+    }
+
+    func purchase() async {
+        onBeforeUnlock()
+        await entitlementStore.purchase()
+    }
+
+    func restorePurchases() async {
+        onBeforeUnlock()
+        await entitlementStore.restore()
     }
 
     private func reloadProduct() async {

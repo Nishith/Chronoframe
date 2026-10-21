@@ -38,10 +38,16 @@ enum UITestAppStateFactory {
         let repository = MockProfilesRepository()
         let folderAccessService = MockFolderAccessService()
         let finderService = MockFinderService()
-        let trialFixture = meteredTrialFixture(for: scenario)
+        let trialFixture = meteredTrialFixture(for: scenario, defaults: defaults)
         let trialEntitlementResolver: (@MainActor () async -> TrialEntitlementSnapshot)?
         if let trialFixture {
-            trialEntitlementResolver = { trialFixture.snapshot }
+            trialEntitlementResolver = {
+                await trialFixture.entitlementStore.resolveIfNeeded()
+                return TrialEntitlementSnapshot(
+                    state: trialFixture.entitlementStore.state,
+                    accountKey: trialFixture.snapshot.accountKey
+                )
+            }
         } else {
             trialEntitlementResolver = nil
         }
@@ -170,6 +176,7 @@ enum UITestAppStateFactory {
             performInitialBootstrap: false,
             trialStatusStore: trialFixture?.store,
             isAppStoreChannel: scenario.usesMeteredTrialUI,
+            entitlementStore: trialFixture?.entitlementStore,
             trialEntitlementResolver: trialEntitlementResolver,
             showSettingsWindowAction: showSettingsWindowAction
         )
@@ -211,12 +218,13 @@ enum UITestAppStateFactory {
     private struct MeteredTrialFixture {
         let store: TrialStatusStore
         let snapshot: TrialEntitlementSnapshot
+        let entitlementStore: EntitlementStore
     }
 
     /// A stable partial balance for the App Store-only UI. The production
     /// reservation API seeds it, so the fixture exercises the same balance
     /// calculation as a real customer rather than assigning display values.
-    private static func meteredTrialFixture(for scenario: UITestScenario) -> MeteredTrialFixture? {
+    private static func meteredTrialFixture(for scenario: UITestScenario, defaults: UserDefaults) -> MeteredTrialFixture? {
         guard scenario.usesMeteredTrialUI else { return nil }
 
         let accountKey = "chronoframe-ui-test-account"
@@ -239,7 +247,15 @@ enum UITestAppStateFactory {
         let store = TrialStatusStore(ledger: ledger)
         let snapshot = TrialEntitlementSnapshot(state: .locked, accountKey: accountKey)
         store.refresh(entitlement: snapshot.state, accountKey: snapshot.accountKey)
-        return MeteredTrialFixture(store: store, snapshot: snapshot)
+        let entitlementStore = EntitlementStore(
+            storeKit: LicenseUITestStoreKit(
+                cancelsPurchase: ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_CANCEL_PURCHASE"] == "1",
+                missingProduct: ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_MISSING_PRODUCT"] == "1"
+            ),
+            appTransactionClient: LicenseUITestAppTransaction(),
+            defaults: defaults
+        )
+        return MeteredTrialFixture(store: store, snapshot: snapshot, entitlementStore: entitlementStore)
     }
 
     private static func seedCharge(
@@ -526,6 +542,8 @@ private enum UITestSettingsWindowPresenter {
                 minHeight: DesignTokens.Window.settingsMinHeight
             )
             .padding()
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Settings")
 
         let hostingController = NSHostingController(rootView: rootView)
         let window = NSWindow(contentViewController: hostingController)
@@ -546,6 +564,38 @@ private enum UITestSettingsWindowPresenter {
         for window in NSApp.windows where window !== settingsWindow && window.title == "Chronoframe" {
             window.orderOut(nil)
         }
+    }
+}
+
+/// Local UI fixtures only. No StoreKit authentication, transaction or ledger reset.
+private actor LicenseUITestStoreKit: StoreKitClient {
+    let cancelsPurchase: Bool
+    let missingProduct: Bool
+    private var ownsUnlock = false
+
+    init(cancelsPurchase: Bool, missingProduct: Bool) {
+        self.cancelsPurchase = cancelsPurchase
+        self.missingProduct = missingProduct
+    }
+
+    func product(for productID: String) async -> StoreProductInfo? {
+        missingProduct ? nil : StoreProductInfo(productID: productID, displayName: "Chronoframe Unlock", displayPrice: "£14.99")
+    }
+    func ownedProducts() async -> Result<[OwnedProduct], EntitlementLookupFailure> {
+        .success(ownsUnlock ? [OwnedProduct(productID: ChronoframeUnlock.productID, purchaseDate: .now)] : [])
+    }
+    func purchase(productID: String) async -> PurchaseOutcome {
+        if cancelsPurchase { return .userCancelled }
+        ownsUnlock = true
+        return .purchased
+    }
+    func sync() async throws { ownsUnlock = true }
+    nonisolated func transactionUpdates() -> AsyncStream<Void> { AsyncStream { $0.finish() } }
+}
+
+private struct LicenseUITestAppTransaction: AppTransactionClient {
+    func appTransaction() async -> Result<AppTransactionInfo, EntitlementLookupFailure> {
+        .success(AppTransactionInfo(originalPurchaseDate: .now, originalAppVersion: "2.0"))
     }
 }
 #endif

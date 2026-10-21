@@ -118,7 +118,7 @@ struct RootSplitView: View {
             if let refusal = appState.unlockRefusal {
                 UnlockSheet(
                     refusal: refusal,
-                    entitlementStore: TrialComposition.entitlementStore,
+                    entitlementStore: appState.entitlementStore,
                     offeredBatch: appState.offeredFreeTestBatch,
                     onUnlocked: { Task { await appState.retryAfterUnlock() } },
                     onRunFreeTestBatch: { Task { await appState.runOfferedFreeTestBatch() } },

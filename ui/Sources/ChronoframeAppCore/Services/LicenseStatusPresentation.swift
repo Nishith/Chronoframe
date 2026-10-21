@@ -25,6 +25,9 @@ public struct LicenseStatusModel: Equatable, Sendable {
     /// Restore Purchases is offered to everyone who is not already unlocked.
     /// App Review requires it to be reachable outside a purchase flow.
     public let showsRestore: Bool
+    /// A confirmed non-owner can choose to unlock before using any allowance.
+    /// Unconfirmed ownership leads to Restore rather than another purchase.
+    public let showsPurchase: Bool
 
     public struct Row: Equatable, Sendable {
         public let label: String
@@ -36,11 +39,12 @@ public struct LicenseStatusModel: Equatable, Sendable {
         }
     }
 
-    public init(headline: String, detail: String, allowanceRows: [Row], showsRestore: Bool) {
+    public init(headline: String, detail: String, allowanceRows: [Row], showsRestore: Bool, showsPurchase: Bool = false) {
         self.headline = headline
         self.detail = detail
         self.allowanceRows = allowanceRows
         self.showsRestore = showsRestore
+        self.showsPurchase = showsPurchase
     }
 
     /// - Parameter isAppStoreChannel: false for the Developer ID build, which
@@ -92,7 +96,8 @@ public struct LicenseStatusModel: Equatable, Sendable {
                 headline: "Checking your purchase…",
                 detail: "",
                 allowanceRows: [],
-                showsRestore: true
+                showsRestore: true,
+                showsPurchase: status.entitlement == .locked
             )
 
         case .unavailable:
@@ -105,7 +110,8 @@ public struct LicenseStatusModel: Equatable, Sendable {
                 detail: "Chronoframe could not read its record of how much of the free trial you have used, "
                     + "so it cannot show what is left. Unlocking Chronoframe removes the limit entirely.",
                 allowanceRows: [],
-                showsRestore: true
+                showsRestore: true,
+                showsPurchase: status.entitlement == .locked
             )
 
         case let .remaining(balance):
@@ -124,7 +130,8 @@ public struct LicenseStatusModel: Equatable, Sendable {
                         value: "\(balance.remaining(for: .dedupe)) of \(balance.caps.dedupeFiles) left"
                     ),
                 ],
-                showsRestore: true
+                showsRestore: true,
+                showsPurchase: status.entitlement == .locked
             )
         }
     }
