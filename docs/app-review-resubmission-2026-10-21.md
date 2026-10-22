@@ -1,6 +1,6 @@
 # App Review replacement 2.0 (510) — October 21, 2026
 
-**Replacement:** [2.0 (511), exact artifact identities, completed recording and prepared combined draft](app-review-replacement-511-2026-10-21.md). The 510 results below remain historical evidence; their pending steps are superseded only by explicit 511 results in that ledger. Owner Go and submission remain pending.
+**Replacement submitted:** [2.0 (511), exact artifact identities, completed recording and verified submission](app-review-replacement-511-2026-10-21.md). Following owner **Go**, **511 + Unlock** were submitted together **October 21 at 9:46 PM PDT**, submission `42e45604-bc72-4236-a1a1-8bca697a7884`; both show **Waiting for Review**. Manual release is retained. The 510 results below remain historical evidence; their pending steps are superseded only by explicit 511 results in that ledger.
 
 **510 held after recorded Deduplicate check:** a reviewed 102-file exact-duplicate cluster requested 101 removals against 100 remaining. Both attempts refused without moving files, but the expected unlock offer never appeared; the view returned to a paused review. All 102 fixture PNGs retain their baseline digests and no dedupe audit receipt exists. The fresh tester has not purchased. Preserve the saved October 21 recording as diagnostic/core-workflow evidence; it is not completed purchase proof. A UI observation regression is being checked before producing a replacement candidate.
 
