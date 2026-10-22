@@ -1,4 +1,5 @@
 import ChronoframeAppCore
+import ChronoframeCore
 import Combine
 import XCTest
 @testable import ChronoframeApp
@@ -56,6 +57,56 @@ final class SettingsUnlockSafetyTests: XCTestCase {
                 XCTAssertNil(harness.runSessionStore.summary)
                 XCTAssertFalse(harness.deduplicateSessionStore.isWorking)
             }
+        }
+    }
+
+    func testVoluntaryLicenseUnlockClearsDedupeRefusalWithoutCommittingAgain() async {
+        for action in SettingsAction.allCases {
+            let harness = AppStateHarness()
+            let entitlementStore = UITestAppStateFactory.make(scenario: .settingsLicense).entitlementStore
+            let state = harness.makeAppState(performInitialBootstrap: false, entitlementStore: entitlementStore)
+            let members = [
+                PhotoCandidate(path: "/tmp/dest/keep.jpg", size: 20, modificationTime: 0),
+                PhotoCandidate(path: "/tmp/dest/delete.jpg", size: 20, modificationTime: 0)
+            ]
+            let cluster = DuplicateCluster(kind: .exactDuplicate, members: members,
+                suggestedKeeperIDs: [members[0].id], bytesIfPruned: 20)
+            harness.deduplicateEngine.clustersToEmit = [cluster]
+            harness.deduplicateEngine.commitError = TrialAuthorizationError(
+                refusal: .allowanceSpent(TrialRefusal(meter: .dedupe, requested: 1, remaining: 0))
+            )
+            let configuration = DeduplicateConfiguration(destinationPath: "/tmp/dest")
+            harness.deduplicateSessionStore.startScan(configuration: configuration)
+            let ready = await waitForCondition { harness.deduplicateSessionStore.status == .readyToReview }
+            XCTAssertTrue(ready)
+            harness.deduplicateSessionStore.acceptSuggestionsForCluster(cluster)
+            harness.deduplicateSessionStore.commitReviewed(configuration: configuration)
+            let refused = await waitForCondition { state.unlockRefusal != nil }
+            XCTAssertTrue(refused)
+
+            var observedUnlock = false
+            let observation = entitlementStore.$state.sink { entitlement in
+                if entitlement.isUnlocked {
+                    observedUnlock = true
+                    XCTAssertNil(state.unlockRefusal)
+                }
+            }
+            let license = LicenseSettingsTab(appState: state, entitlementStore: entitlementStore)
+            await entitlementStore.loadProduct()
+            switch action {
+            case .purchase: await license.purchaseSheet.purchase()
+            case .sheetRestore: await license.purchaseSheet.restorePurchases()
+            case .licenseRestore: await license.restorePurchases()
+            }
+            XCTAssertTrue(observedUnlock)
+            observation.cancel()
+            await state.retryAfterUnlock()
+            XCTAssertNil(state.unlockRefusal)
+            XCTAssertEqual(harness.deduplicateEngine.commitCallCount, 1)
+            XCTAssertTrue(harness.deduplicateSessionStore.hasPausedReview)
+            XCTAssertEqual(harness.deduplicateSessionStore.clusters.map(\.id), [cluster.id])
+            XCTAssertTrue(harness.engine.preflightConfigurations.isEmpty)
+            XCTAssertTrue(harness.engine.startConfigurations.isEmpty)
         }
     }
 
