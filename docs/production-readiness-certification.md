@@ -1,5 +1,9 @@
 # Chronoframe Production-Readiness Certification
 
+**510 hold:** its recorded 101-removal Deduplicate request was refused safely but did not present the unlock offer. A root-view observation fix, signed replacement and completed recording are required; the fresh tester remains unpurchased. [Finding and correction](app-review-dedupe-offer-2026-10-21.md).
+
+**October 21 resubmission:** **2.0 (510)** from clean merged source `573682d` has successful CI/CodeQL and passed archive/export/signature/package validation; it uploaded, processed and is installed through TestFlight with About/receipt/signature verified. Explicit License Restore changed Free trial to Unlocked and cleared a pending Organize refusal without copying or changing fixture bytes. Fresh-account negative Restore and real $14.99 product discovery pass. Fresh purchase/pending-operation verification, Apple's complete physical-device screen recording, store preparation and owner Go remain open. 508's real sandbox purchase/cancellation and persisted unlock passed, but it predates the final PR #251 License safety correction. Live submission holds rejected 507 plus Unlock Ready for Review; older draft-501 references are historical. [Current evidence and open gates](app-review-resubmission-2026-10-21.md).
+
 **October 19 App Review update:** Apple rejected app 2.0 (507) under 2.1(b) for
 an undiscoverable Chronoframe Unlock purchase. The IAP is Ready for Review in the
 combined submission. See [the focused response record](app-review-iap-rejection-2026-10-19.md)

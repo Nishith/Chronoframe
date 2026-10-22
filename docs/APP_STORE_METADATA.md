@@ -89,6 +89,8 @@ The owner confirmed there are no existing users. Submit the free-download offer 
 
 ## Review Notes
 
+October 21 preparation uses replacement **2.0 (510)**, source `573682d`, containing the final PR #251 License safety correction absent from 508. Archive/export/validation/upload passed; processing/compliance completed and 510 is Testing with the existing internal group; installation, signed verification and the completed physical-device recording remain pending. Live app review notes still omit the direct License path, and the IAP review screenshot/notes are read-only while the product remains in the existing submission. Replace them through the supported review-edit workflow once actual signed evidence is ready, then verify app and unlock remain together. Manual release is currently selected. See [the replacement ledger](app-review-resubmission-2026-10-21.md).
+
 For the replacement after the October 19 rejection, prepend this purchase path
 to the notes below. Use it only with a build containing the direct License entry:
 

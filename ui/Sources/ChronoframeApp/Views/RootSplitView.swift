@@ -7,11 +7,20 @@ struct RootSplitView: View {
     @ObservedObject var appState: AppState
     @ObservedObject private var setupStore: SetupStore
     @ObservedObject private var runSessionStore: RunSessionStore
+    @ObservedObject private var deduplicateSessionStore: DeduplicateSessionStore
 
     init(appState: AppState) {
         self.appState = appState
         self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
         self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+        self._deduplicateSessionStore = ObservedObject(wrappedValue: appState.deduplicateSessionStore)
+    }
+
+    // AppState's computed refusal crosses into two independent stores. The
+    // presenting view must observe both, including a dedupe commit that is
+    // refused after its confirmation dialog has closed.
+    private var unlockRefusal: TrialAuthorizationRefusal? {
+        runSessionStore.lastRefusal ?? deduplicateSessionStore.lastRefusal
     }
 
     var body: some View {
@@ -107,7 +116,7 @@ struct RootSplitView: View {
         }
         .sheet(
             isPresented: Binding(
-                get: { appState.unlockRefusal != nil },
+                get: { unlockRefusal != nil },
                 set: { isPresented in
                     if !isPresented {
                         appState.dismissUnlockSheet()
@@ -115,7 +124,7 @@ struct RootSplitView: View {
                 }
             )
         ) {
-            if let refusal = appState.unlockRefusal {
+            if let refusal = unlockRefusal {
                 UnlockSheet(
                     refusal: refusal,
                     entitlementStore: appState.entitlementStore,

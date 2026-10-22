@@ -6,6 +6,10 @@ Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 
 ## Status
 
+510 is now held after a safe Deduplicate refusal failed to display the unlock offer. The UI observation fix needs a signed replacement and retest; the fresh purchase remains unconsumed. [Regression record](app-review-dedupe-offer-2026-10-21.md).
+
+October 21: PR #251 is merged, and clean candidate **2.0 (510)** passed archive/export/signature/package validation, uploaded, processed and is installed through TestFlight. Explicit License Restore changed Free trial to Unlocked with the purchased sandbox tester and cleared a pending Organize refusal without any fixture mutation. Fresh-account negative Restore and real $14.99 product discovery pass. Signed 508 already passed actual sandbox purchase/cancellation/persistence, but it predates the final License pending-operation correction. Fresh signed purchase/pending-operation verification, completed requested recording, final store preparation and owner Go remain open in [the replacement ledger](app-review-resubmission-2026-10-21.md). This does not change the settled policy below.
+
 | # | Phase | State |
 |---|---|---|
 | 1 | Settle policy | Done — see [Settled policy](#settled-policy) |

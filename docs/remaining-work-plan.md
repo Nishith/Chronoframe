@@ -1,5 +1,9 @@
 # Chronoframe Remaining Production-Readiness Work
 
+**510 hold:** its recorded 101-removal Deduplicate request was refused safely but did not present the unlock offer. The fresh tester remains unpurchased. The root view's missing observation of the dedupe store is being corrected and regression-tested; a signed replacement and recording are required. [Finding and correction](app-review-dedupe-offer-2026-10-21.md).
+
+**October 21 resubmission:** PR #251 is merged; clean source `573682d` has successful CI/CodeQL and the License safety correction absent from 508. Replacement **2.0 (510)** passed archive/export/signature/package validation, uploaded, processed and is installed through TestFlight with About/receipt/signature verified. Explicit License Restore changed Free trial to Unlocked using the existing purchased sandbox tester and cleared a pending Organize refusal without copying or changing any fixture bytes. The fresh-account negative Restore and real $14.99 product discovery also pass. Signed fresh purchase/pending-operation verification, completed recording, store preparation, owner Go and resubmission remain pending. Signed 508 did pass real purchase/cancellation and unlock persistence. Live review submission selects rejected 507 plus Unlock Ready for Review; draft-501 statements below are historical. See [the current replacement and outstanding gates](app-review-resubmission-2026-10-21.md).
+
 **October 19 App Review update:** app 2.0 (507) was rejected under 2.1(b) because
 Chronoframe Unlock could not be found. The IAP remains Ready for Review in the
 same submission. Prioritize the direct License purchase entry and the
