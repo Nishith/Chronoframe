@@ -1,10 +1,16 @@
 # Free Trial Plan
 
+**October 22 implementation status:** V2 is publicly listed and Unlock is approved. Its retained paid-download price was corrected through an immediate global change: App Store Connect's saved current prices show **zero in all 175 storefronts after reload**. Unlock remains **$14.99 US** with Family Sharing. Public free-price propagation is still unverified after the first recheck. This corrects store configuration only; access policy, app source and account records are unchanged. [Post-approval evidence](app-review-replacement-511-2026-10-21.md). Earlier submission-only summaries are historical.
+
 Chronoframe V2 launches directly as a **free download plus one non-consumable lifetime unlock**, with a metered free tier. On October 16, 2026 the owner confirmed there are no existing customers and approved removing the paid migration. This decision supersedes the historical paid-window and grandfathering instructions. No customer settings or allowance ledgers need resetting.
 
 Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 
 ## Status
+
+**Submitted candidate 511:** the Deduplicate observation correction is uploaded and installed; all 24 hosted checks on frozen source `3b38279` pass. Its signed refusal shows the actual purchase offer without mutation. Explicit negative Restore, a recorded no-charge sandbox purchase through License, stopped pending Organize operation with unchanged fixture hashes and persisted Unlocked after relaunch pass. Positive owned Restore remains a separately verified signed 510 result. The disclosed, inspected 3:21 video includes the supplemental desktop launch and is attached; direct notes and the real signed IAP screenshot are saved. After owner **Go**, **511 + Unlock** were submitted together on **October 21 at 9:46 PM PDT** and both show **Waiting for Review**; manual release remains selected. Submission `42e45604-bc72-4236-a1a1-8bca697a7884`. No public release occurred. See [the active 511 ledger](app-review-replacement-511-2026-10-21.md). The earlier 510 paragraph below is historical; both testers now own the purchase and their records are preserved.
+
+October 21: PR #251 is merged, and clean candidate **2.0 (510)** passed archive/export/signature/package validation, uploaded, processed and is installed through TestFlight. Explicit License Restore changed Free trial to Unlocked with the purchased sandbox tester and cleared a pending Organize refusal without any fixture mutation. Fresh-account negative Restore and real $14.99 product discovery pass. Signed 508 already passed actual sandbox purchase/cancellation/persistence, but it predates the final License pending-operation correction. Fresh signed purchase/pending-operation verification, completed requested recording, final store preparation and owner Go remain open in [the replacement ledger](app-review-resubmission-2026-10-21.md). This does not change the settled policy below.
 
 | # | Phase | State |
 |---|---|---|
