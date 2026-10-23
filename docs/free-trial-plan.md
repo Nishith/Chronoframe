@@ -1,5 +1,7 @@
 # Free Trial Plan
 
+**October 22 implementation status:** V2 is publicly listed and Unlock is approved. Its retained paid-download price was corrected through an immediate global change: App Store Connect's saved current prices show **zero in all 175 storefronts after reload**. Unlock remains **$14.99 US** with Family Sharing. Public free-price propagation is still unverified after the first recheck. This corrects store configuration only; access policy, app source and account records are unchanged. [Post-approval evidence](app-review-replacement-511-2026-10-21.md). Earlier submission-only summaries are historical.
+
 Chronoframe V2 launches directly as a **free download plus one non-consumable lifetime unlock**, with a metered free tier. On October 16, 2026 the owner confirmed there are no existing customers and approved removing the paid migration. This decision supersedes the historical paid-window and grandfathering instructions. No customer settings or allowance ledgers need resetting.
 
 Grounded against the tree as of the 2026-09-07 IAP engineering refresh.

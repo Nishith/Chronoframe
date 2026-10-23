@@ -27,6 +27,8 @@ Subtitle alternative (28 char): `Safe photo & video organizer`
 
 ## Direct free V2 submission — October 16, 2026
 
+**October 22 live pricing correction:** V2 is public and Unlock is approved. The app's $14.99 download price had not been changed with the resubmission. App Store Connect now confirms the saved immediate global **$0.00 download price across all 175 regions**, independently rechecked after reload; the approved **$14.99 US Unlock** and Family Sharing remain unchanged. The first public recheck still showed the previous download price, so public propagation is not yet claimed. [Evidence ledger](app-review-replacement-511-2026-10-21.md). Earlier submission-only status statements below are historical.
+
 The owner confirmed there are no existing users. Submit the free-download offer below; the earlier paid-window and grandfathering copy is superseded. These values match `marketing/release-2.0/metadata/fields.json` and its adjacent text files. They are local preparation, not a claim that App Store Connect has been updated.
 
 ## Promotional Text (170 char max)
