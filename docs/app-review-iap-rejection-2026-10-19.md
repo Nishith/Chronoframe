@@ -16,7 +16,11 @@ at 13:56:36 PDT on October 19. Apple processing completed and assigned build ID
 `8863e0c2-5e20-407b-b6d1-f7d3ca253cbd`. It is Ready to Submit and available to
 the existing **Internal testers** group (2 testers). Export compliance retains
 build 507’s unchanged “None of the algorithms mentioned above” classification.
-Physical-Mac signed sandbox purchase/restore and the requested recording remain pending.
+The fresh-account physical-Mac sandbox purchase **passed on TestFlight 508** at
+approximately 21:06 PDT. Apple displayed purchase success, License became
+**Unlocked**, and the unlock persisted after quit/relaunch. The owner retried
+without restarting; no authentication reset or shipping-code change was needed.
+Explicit Restore Purchases and the requested completed recording remain pending.
 
 ## Findings and correction
 
@@ -81,7 +85,8 @@ must be included with an app version in the same submission:
 - One subsequent combined local UI run failed the cancellation case after Not Now.
   The standalone rerun stalled during app launch and was stopped. No cause or
   additional passing result is inferred; prior local cases and hosted UI passes
-  remain separate evidence. The signed sandbox cancellation/restore retest is still required.
+  remain separate evidence. Signed sandbox cancellation is now verified; explicit
+  restore remains required.
 - Signed universal **x86_64/arm64 Release MAS_BUILD 2.0 (508)**: archive/export,
   strict/deep signature, Apple Distribution identity, hardened runtime, sealed
   resources and app-store bundle validation pass. Minimum OS is 14.0. The installer
@@ -95,8 +100,10 @@ must be included with an app version in the same submission:
   This hash identifies the locally validated package, not the upload’s re-export.
   Archive, packages and logs are in `.tmp/release-508/` and `.tmp/logs/` in the
   isolated checkout; `release-artifacts/2.0-508/release-record.json` is local evidence.
-- Actual sandbox transaction, signed cancellation/explicit restore and physical-Mac
-  recording: pending. Local fake transactions never count as sandbox/production evidence.
+- Actual fresh-account sandbox transaction, signed cancellation and unlock after
+  relaunch: **passed on TestFlight 508**. Explicit Restore Purchases and the
+  completed physical-Mac purchase recording remain pending. Local fake transactions
+  never count as sandbox/production evidence.
 
 Native Settings-window capture from a passing UI fixture (simulated product/price,
 not a sandbox transaction or Apple submission attachment):
@@ -204,9 +211,116 @@ Disposable demo folders are prepared under `/private/tmp/Chronoframe-Review-508/
 `Review 508 Destination` starts empty; `Review 508 Duplicates` holds two identical
 fixture copies for a separate dedupe demonstration if needed. The app’s manual
 source/destination were changed to the first two folders through native pickers.
-No transfer has run. The prior `bulk10k` source and `507-photos-check` destination
+At preparation time no transfer had run. The prior `bulk10k` source and `507-photos-check` destination
 and their contents/receipts are retained. A source SHA-256 manifest is saved locally
 at `.tmp/release-508/demo-source-sha256.json`.
+
+## Signed recording session — purchase confirmation blocked
+
+The owner started a physical-Mac recording. On the installed TestFlight **2.0
+(508)**, the session showed About, selected the disposable folders, previewed one
+file, approved the transfer and inspected its History receipt. The run completed
+at **17:38:50 PDT on October 19** with **1 copied, 0 failures**, verification on.
+History's explicit verification showed **Match**. The completed receipt is
+`audit_receipt_20261019_173850_E1E61E9E-89F6-4279-AC38-B8F53219A4B3.json` in the
+demo destination's `.organize_logs/`. Source and destination SHA-256 both remain
+`2d2d1cf9c3f82ece67afbcf5e0cea55d12553b20e1c144e6ffd6c4f15a6157d2`.
+License then showed **499 of 500** organize and **100 of 100** dedupe remaining.
+
+Direct License purchase reached Apple's real $14.99 sandbox sheet, including the
+explicit no-charge testing notice. Cancelling returned to the same free-trial
+balance. A changed-layout Reorganize attempt also reached the unlock sheet before
+mutation; it was dismissed and the layout preference restored to `YYYY/MM/DD`.
+The separate duplicate demo has not been executed.
+
+Apple's final purchase sheet repeatedly rendered only Cancel, with a blank footer.
+Two local development-build presentation experiments (explicit NSWindow and
+SwiftUI PurchaseAction) did not establish a correction and were removed from the
+source; neither was uploaded. The active installed candidate remains unchanged
+TestFlight 508. A locally initiated mouse attempt also produced the incomplete
+sheet in the owner's supplied screenshot. A preceding owner reply said
+Buy/Confirm appeared, but the subsequent screenshot does not show it; do not count
+that reply as a completed transaction or a proven automation-only problem.
+Native accessibility inspection briefly exposed a **Purchase** button (`footer`)
+even though it was not visibly rendered. After the owner started a new recording,
+that control was absent. Raising the sheet and checking keyboard focus did not
+restore it. A fresh cancellation/retry again exposed only Cancel, so Purchase was
+not invoked. Both sheets were cancelled and the app returned to License with
+499/500 and 100/100 remaining. The Mac reports macOS 27.0.1 (26A434).
+StoreKit-related logs also reported a biometric accessory not paired error;
+this is diagnostic context, not a proven cause. A local check with recording and
+computer control inactive is still pending; do not assert either is the cause.
+
+The owner supplied the saved Desktop recording `Screen Recording 2026-10-19 at
+5.59.08 PM.mov` (the actual filename uses a narrow no-break space before PM).
+The file is **124,387,586 bytes**, H.264, **3840×2160**, **175.992 seconds**;
+SHA-256 is `90bbf09faa239044c0229b199584b561e022796c36bed27176b09c1ba840a3df`.
+Sampled frames show the incomplete Apple sheet and a return to Free trial; this
+clip does not establish the earlier organize run or a completed purchase. It also
+includes unrelated desktop/chat/browser content, so retain it locally as
+diagnostic evidence rather than attaching it as the completed App Review demo.
+The exact local path is recorded in the ignored release ledger.
+
+At this stage no successful transaction, persisted unlock or explicit restore was
+verified. The later successful retry is recorded below. Keep account-bearing Apple
+screenshots local and distinguish the diagnostic clip from completed review proof.
+
+## Authentication loop after the confirmation button returned
+
+With recording stopped, the owner supplied a screenshot showing Apple's blue
+Purchase button and no-charge sandbox notice. At approximately **21:03 PDT**, the
+owner then reported that Buy repeatedly reopened a **Sign In to the App Store**
+dialog containing only Cancel and Buy, with no credential fields.
+
+Logs show Apple's payment sheet was authorized at 21:03:39, followed by repeated
+failures **within the same purchase correlation**: `AMSAnisette` could not generate
+type-1 authentication headers (**-45061**), and Mescal header generation reported
+`AMSErrorDomain` **204**. These observations point to an Apple authentication
+session problem; they do not establish the underlying cause or a completed sale.
+Source inspection confirms a single `Product.purchase()` call, protected against
+overlapping purchase/restore requests, with no automatic purchase retry loop.
+
+The stalled request closed and License returned to Free trial with **499/500**
+and **100/100** remaining. A redacted diagnostic extract is retained locally in
+`.tmp/release-508/auth-loop-diagnostic-redacted.log`. A Mac restart followed by a
+local TestFlight retry is pending. No account, purchase history, allowance ledger,
+bookmark, keychain or authentication cache was reset. Purchase, relaunch, explicit
+restore and the completed App Review recording remain open.
+
+## Successful sandbox purchase and relaunch — approximately 21:06 PDT
+
+The owner retried **without restarting the Mac** and supplied Apple's **“Your
+purchase was successful”** confirmation. Native UI inspection independently
+confirmed the same success message. After dismissing it, the voluntary unlock
+sheet closed and Settings → License showed **Unlocked**, with “Every feature is
+available, with no limits.” No file operation was started by purchase completion.
+
+The agent quit Chronoframe, relaunched `/Applications/Chronoframe.app`, reopened
+Settings → License and verified **Unlocked** again. The installed Info.plist still
+reports `com.nishith.chronoframe`, **2.0 (508)**, and its App Store receipt is
+present. This is the unchanged TestFlight candidate built from frozen source
+`5d1949b`, not either local presentation experiment. The previously unowned sandbox
+account now owns the unlock; do not clear its purchase history to repeat a new sale.
+
+![Signed TestFlight 508 unlock after relaunch](app-review-iap-rejection-2026-10-19/license-unlocked-signed-508.png)
+
+This passes the real sandbox purchase and persisted-unlock gates. The prior
+authentication failure was transient in this session; its underlying cause and
+the effect of screen capture are not proven by the successful retry. The proposed
+Mac restart was not performed, and no account/cache/keychain reset was needed.
+
+The owner confirmed the successful purchase **was not recorded**. Its Apple
+success screenshot and independently verified persisted unlock remain valid
+functional evidence, but the requested purchase recording is missing. The saved
+175.992-second desktop diagnostic clip does not capture the successful transaction.
+
+**Still pending:** explicit button-driven Restore Purchases (automatic recovery on
+relaunch does not satisfy that gate) and the complete recording Apple requested.
+A second fresh tester is being prepared for a recorded new purchase without
+resetting the first tester's ownership. The New Tester form has test name
+Chronoframe Recording508 and US storefront populated; the owner must supply new
+credentials and complete creation locally. This is a prepared form, not a created
+account. See [the capture checklist](app-review-iap-rejection-2026-10-19/recording-checklist.md).
 
 ## Resubmission preparation
 
