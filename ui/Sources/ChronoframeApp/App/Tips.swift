@@ -9,13 +9,13 @@ import TipKit
 enum TipCopy {
     enum TimelineScrubbing {
         static let title = "Scrub the timeline"
-        static let message = "Drag across the run timeline to peek at the frames being copied at any point in the transfer."
+        static let message = "Inspect a month in the timeline to see files planned for copying."
         static let symbol = "hand.draw"
     }
 
     enum AcceptSafeSuggestions {
-        static let title = "Accept safe matches in one step"
-        static let message = "High-confidence groups are exact, verified duplicates — accept them together and keep moving. Chronoframe never auto-selects uncertain matches."
+        static let title = "Accept strong suggestions together"
+        static let message = "High-confidence suggestions can include identical content or confirmed visual matches whose files may differ. Chronoframe never auto-selects weak visual matches or similar videos. Review the suggestions before moving files to Trash."
         static let symbol = "checkmark.seal"
     }
 

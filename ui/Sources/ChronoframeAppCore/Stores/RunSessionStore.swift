@@ -1010,7 +1010,7 @@ public final class RunSessionStore: ObservableObject {
                     "The files in that batch have moved or changed, so nothing was copied."
                 )
             }
-            return ("Already up to date", "All source files are already in the destination.")
+            return ("No files copied", "No files were copied in this run. Review the preview or Run History for details.")
         case .failed:
             return ("Transfer failed", summary.failureMessage ?? summary.title)
         case .cancelled:

@@ -147,15 +147,15 @@ final class RunCompletionNotificationTextTests: XCTestCase {
         XCTAssertTrue((text?.body ?? "").contains("moved or changed"), text?.body ?? "")
     }
 
-    /// An ordinary up-to-date run keeps saying so.
-    func testAnOrdinaryNothingToCopyRunStillReportsUpToDate() {
+    /// A zero-copy result establishes this run's outcome, not whole-library coverage.
+    func testAnOrdinaryNothingToCopyRunReportsOnlyThisRun() {
         let text = RunSessionStore.completionNotificationText(
             summary: summary(.nothingToCopy),
             usedFreeTestBatch: false
         )
 
-        XCTAssertEqual(text?.title, "Already up to date")
-        XCTAssertEqual(text?.body, "All source files are already in the destination.")
+        XCTAssertEqual(text?.title, "No files copied")
+        XCTAssertEqual(text?.body, "No files were copied in this run. Review the preview or Run History for details.")
     }
 
     func testACancelledRunIsNotAnnounced() {

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finding Duplicate Photos on Mac — Safely (What to Look For in 2026)</title>
+  <meta name="description" content="How duplicate photo finders work, why some are risky with irreplaceable photos, and a checklist for cleaning up duplicates on your Mac without losing anything." />
+  <meta name="theme-color" content="#161618" />
+  <link rel="canonical" href="https://chronoframe.app/guides/duplicate-photo-finder-mac/" />
+  <meta property="og:title" content="Finding Duplicate Photos on Mac — Safely" />
+  <meta property="og:description" content="A safety checklist for cleaning up duplicate photos and videos on your Mac without losing anything." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://chronoframe.app/guides/duplicate-photo-finder-mac/" />
+  <meta property="og:image" content="https://chronoframe.app/og-card.jpg?v=20260525" />
+  <link rel="icon" type="image/png" sizes="32x32" href="../../favicon-32x32.png?v=20260523-f" />
+  <link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png?v=20260523-f" />
+  <link rel="stylesheet" href="../../styles.css?v=20260618" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="container">
+      <a class="brand" href="../../index.html"><img class="brand-icon" src="../../apple-touch-icon.png?v=20260523-f" alt="" /> Chronoframe</a>
+      <div class="nav-links">
+        <a href="../../index.html">Home</a>
+        <a href="../">Guides</a>
+        <a href="../../support.html">Support</a>
+        <a href="../../privacy.html">Privacy</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="doc">
+    <div class="container">
+      <a class="back" href="../">&larr; All guides</a>
+      <h1>How to find and remove duplicate photos on Mac — without regrets</h1>
+      <p class="updated">Updated August 2026</p>
+
+      <p>Duplicate photos accumulate for boring reasons: the same shot backed up from two devices, an export from an old app, a burst you never culled, a RAW+JPEG pair from your camera. They waste real storage. But the tools that clean them up vary enormously in how much they protect you when something goes wrong — and with photos, "something goes wrong" means a memory is gone.</p>
+
+      <h2>Exact duplicates vs. look-alikes</h2>
+      <p>There are two different problems, and good tools treat them differently.</p>
+      <p><strong>Exact duplicates</strong> are byte-identical files with different names or locations. These can be found with certainty by comparing file content (hashing) — filename comparison is worthless, since every camera produces its own <code>IMG_0042.jpg</code>. Removing exact duplicates is low-risk <em>if</em> the match is by content.</p>
+      <p><strong>Near-duplicates</strong> are photos that look similar but aren't identical: burst sequences, RAW+JPEG pairs, a photo and its re-encoded copy, Live Photos and their stills. No algorithm should auto-delete these. The only safe workflow is side-by-side review where <em>you</em> pick the keeper.</p>
+
+      <h2>The safety checklist for any duplicate cleaner</h2>
+      <p>Before pointing a cleanup tool at your photo library, check:</p>
+      <ul>
+        <li><strong>Content-based matching.</strong> Duplicates found by file content, not name or size.</li>
+        <li><strong>Preview before removal.</strong> You see the full list of what will be removed — and what will be kept — before anything happens.</li>
+        <li><strong>Trash, not permanent delete.</strong> Removals go to the macOS Trash so you have weeks to change your mind. Tools that hard-delete for "efficiency" are optimizing the wrong thing.</li>
+        <li><strong>Keeper logic you can see.</strong> When a tool suggests which copy to keep, you should be able to see why, and override it.</li>
+        <li><strong>Pairs stay together.</strong> RAW+JPEG and Live Photo pairs should be handled as pairs, not split by an algorithm that doesn't know they're related.</li>
+        <li><strong>A record of what happened.</strong> A log or receipt of every removal, so you can audit — or undo.</li>
+      </ul>
+
+      <h2>How Chronoframe approaches it</h2>
+      <p>Chronoframe was built around that checklist. It scans a folder you choose and finds exact photo and video duplicates by content, then surfaces near-duplicates — bursts, RAW+JPEG pairs, Live Photos — for side-by-side review with three detection presets (Strict, Balanced, Loose). Nothing is removed until you approve the plan, everything you approve moves to the macOS Trash, and every commit writes a receipt that supports verified undo. There is no permanent-delete code path in the app, and it runs entirely on your Mac — no uploads, no account.</p>
+
+      <h2>Before you start: one honest warning</h2>
+      <p>Run duplicate cleanup <em>after</em> your photos are consolidated in one place, not while they're spread across five drives — otherwise today's "duplicate" is tomorrow's only surviving copy of a photo whose other instance lived on a drive that failed. Consolidate first (copy, never move — see <a href="../merge-photo-libraries-mac/">how to merge photo libraries safely</a>), then dedupe the merged library.</p>
+    </div>
+  </main>
+
+  <section class="closing">
+    <div class="container">
+      <h2>Clean up duplicates with a preview first</h2>
+      <p class="section-lede">Chronoframe finds exact and near-duplicate photos and videos, previews every removal, and only ever uses the Trash.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">Download on the Mac App Store</a>
+        <a class="btn btn-secondary" href="../../index.html">Learn more</a>
+      </div>
+      <p class="price-note">Pay once, own it forever &middot; $14.99 introductory price &middot; No subscription, ever.</p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="../">Guides</a>
+        <a href="../../privacy.html">Privacy Policy</a>
+        <a href="../../support.html">Support</a>
+        <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

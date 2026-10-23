@@ -44,12 +44,25 @@ final class RunAnnouncementPlannerTests: XCTestCase {
         )
     }
 
+    // AGENTS-INVARIANT: 10
     func testCancelledRunReassuresOriginalsAreSafe() {
         let message = RunAnnouncementPlanner.announcement(
             from: snapshot(.running, .copy, 0.3),
             to: snapshot(.cancelled, .copy, 0.3)
         )
         XCTAssertEqual(message, "Run cancelled. Your original files were left untouched.")
+    }
+
+    // AGENTS-INVARIANT: 10
+    func testStoppingYieldsToFinalizedPresentationAndDoesNotAnnounceProgress() {
+        let running = snapshot(.running, .copy, 0.4)
+        let stopping = Snapshot(status: .running, phase: .copy, progress: 0.5, isCancelling: true, presentationMessage: "Stopping… Source files stay untouched.")
+        XCTAssertEqual(RunAnnouncementPlanner.detailedAnnouncement(from: running, to: stopping), .init(message: "Stopping… Source files stay untouched.", priority: .medium))
+        var later = stopping
+        later.progress = 0.9
+        XCTAssertNil(RunAnnouncementPlanner.detailedAnnouncement(from: stopping, to: later))
+        let final = Snapshot(status: .finished, phase: nil, progress: 1, presentationMessage: "190 files copied. Source files were left untouched.")
+        XCTAssertEqual(RunAnnouncementPlanner.detailedAnnouncement(from: stopping, to: final), .init(message: final.presentationMessage!, priority: .high))
     }
 
     func testPhaseChangeIsAnnouncedDuringActiveRun() {

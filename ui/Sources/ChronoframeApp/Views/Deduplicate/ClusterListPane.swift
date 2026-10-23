@@ -9,17 +9,14 @@ enum DedupeClusterConfidenceFilter: String, CaseIterable {
     case medium
     case low
 
-    /// One vocabulary for confidence everywhere a user sees it: these tab
-    /// labels, the row badge (`MatchReasonFormatter.confidenceLabel`), and the
-    /// bulk action ("Accept All Safe") all use Safe / Check / Risky so the
-    /// user can connect them. VoiceOver speaks the underlying
+    /// Share visible recommendation wording with badges. VoiceOver retains
     /// high/medium/low confidence via `DeduplicateAccessibilityText`.
     var label: String {
         switch self {
         case .all: return "All"
-        case .high: return "Safe"
-        case .medium: return "Check"
-        case .low: return "Risky"
+        case .high: return MatchReasonFormatter.confidenceLabel(.high)
+        case .medium: return MatchReasonFormatter.confidenceLabel(.medium)
+        case .low: return MatchReasonFormatter.confidenceLabel(.low)
         }
     }
 
@@ -167,7 +164,7 @@ struct ClusterListPane: View {
                 }
             }
             .listStyle(.sidebar)
-            .accessibilityRotor(LocalizedStringKey("Safe Matches")) {
+            .accessibilityRotor(LocalizedStringKey("Strong Matches")) {
                 ForEach(filteredClusters.filter { ($0.annotation?.confidence ?? .medium) == .high }) { cluster in
                     AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
                 }

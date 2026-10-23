@@ -81,7 +81,7 @@ The **History** tab keeps every run's reports and receipts. Reuse a past source,
 
 ![Deduplicate setup — a scan folder, recent folders with files removed and space saved, and detection presets.](docs/screenshots/dedupe-setup.jpg)
 
-3. Review each group. Compare candidates side by side, choose what to **Keep**, and use **Accept & Next** to move through them. **Auto-Accept Safe** clears the obvious exact copies for you.
+3. Review each group. Compare candidates side by side, choose what to **Keep**, and use **Accept & Next** to move through them. **Accept All Strong** accepts high-confidence suggestions, which can include identical content or confirmed visual matches whose files may differ.
 4. Click **Move to Trash** to send the files you approved to the macOS Trash.
 
 ![Deduplicate review — two similar photos compared side by side, with keep and delete choices.](docs/screenshots/dedupe-compare.jpg)

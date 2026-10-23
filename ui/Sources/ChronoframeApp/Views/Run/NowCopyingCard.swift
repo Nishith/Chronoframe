@@ -11,7 +11,6 @@ import SwiftUI
 /// status icon tinted by the workspace tone.
 struct NowCopyingCard: View {
     let model: RunWorkspaceModel
-    @State private var lastAnnouncedProgressBucket: Int = -1
 
     var body: some View {
         DarkroomPanel(variant: .inset) {
@@ -43,37 +42,6 @@ struct NowCopyingCard: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Now: \(model.context.currentTaskTitle). Progress: \(model.progressAccessibilityValue)")
-        .onChange(of: model.context.progress) { _, newProgress in
-            announceProgressThrottled(progress: newProgress)
-        }
-    }
-
-    private func announceProgressThrottled(progress: Double) {
-        guard model.context.status == .running else {
-            lastAnnouncedProgressBucket = -1
-            return
-        }
-        if progress == 0.0 {
-            lastAnnouncedProgressBucket = 0
-            return
-        }
-        let bucket = Int(progress * 10) // 0 to 10
-        if bucket > lastAnnouncedProgressBucket {
-            lastAnnouncedProgressBucket = bucket
-            if bucket > 0 && bucket <= 10 {
-                let message = "\(bucket * 10) percent completed"
-                #if canImport(AppKit)
-                NSAccessibility.post(
-                    element: NSApp as Any,
-                    notification: .announcementRequested,
-                    userInfo: [
-                        .announcement: message,
-                        .priority: NSAccessibilityPriorityLevel.low.rawValue
-                    ]
-                )
-                #endif
-            }
-        }
     }
 
     private var tonePill: some View {

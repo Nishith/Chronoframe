@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Organize Photos into Date Folders on Mac (Automatically and Safely)</title>
+  <meta name="description" content="Turn DCIM dumps and scattered folders into a clean year/month/day structure on your Mac. How date detection works, what to do with missing dates, and how to keep originals safe." />
+  <meta name="theme-color" content="#161618" />
+  <link rel="canonical" href="https://chronoframe.app/guides/organize-photos-by-date-mac/" />
+  <meta property="og:title" content="Organize Photos into Date Folders on Mac — Automatically and Safely" />
+  <meta property="og:description" content="Turn DCIM dumps and scattered folders into a clean dated library without touching your originals." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://chronoframe.app/guides/organize-photos-by-date-mac/" />
+  <meta property="og:image" content="https://chronoframe.app/og-card.jpg?v=20260525" />
+  <link rel="icon" type="image/png" sizes="32x32" href="../../favicon-32x32.png?v=20260523-f" />
+  <link rel="apple-touch-icon" sizes="180x180" href="../../apple-touch-icon.png?v=20260523-f" />
+  <link rel="stylesheet" href="../../styles.css?v=20260618" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="container">
+      <a class="brand" href="../../index.html"><img class="brand-icon" src="../../apple-touch-icon.png?v=20260523-f" alt="" /> Chronoframe</a>
+      <div class="nav-links">
+        <a href="../../index.html">Home</a>
+        <a href="../">Guides</a>
+        <a href="../../support.html">Support</a>
+        <a href="../../privacy.html">Privacy</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="doc">
+    <div class="container">
+      <a class="back" href="../">&larr; All guides</a>
+      <h1>Organize photos into date folders on Mac — automatically, without touching the originals</h1>
+      <p class="updated">Updated August 2026</p>
+
+      <p><code>DCIM/103APPLE</code>, <code>New Folder</code>, <code>from old laptop</code>, <code>Untitled Export</code> — camera imports and phone dumps don't come organized, and hand-sorting thousands of files by date is nobody's weekend plan. The fix is a dated folder structure built automatically from each photo's own timestamp.</p>
+
+      <h2>Why date folders beat every other scheme</h2>
+      <p>Folders like <code>2024/06/15</code> have outlived every photo app, cloud service, and operating system since digital cameras existed. They sort chronologically in Finder, they're searchable, every backup tool understands them, and they'll still make sense in thirty years. Organizing by event or topic sounds nice but requires decisions for every file; dates are already in the files.</p>
+
+      <h2>Where the date actually comes from</h2>
+      <p>This is the part most tools get lazily wrong. A photo's date can live in several places, in decreasing order of trustworthiness:</p>
+      <ul>
+        <li><strong>EXIF capture date</strong> — written by the camera at the moment of capture. The gold standard, present in most photos and videos.</li>
+        <li><strong>Filename patterns</strong> — <code>IMG_20240615_142301.jpg</code>, WhatsApp's <code>IMG-20240615-WA0001.jpg</code>, screenshot names. Reliable when present.</li>
+        <li><strong>File-system dates</strong> — creation and modification time. Least trustworthy: copying a file often rewrites them, which is how a 2009 photo ends up "created" in 2021.</li>
+      </ul>
+      <p>A good organizer resolves dates in that order and — critically — tells you <em>which</em> source it used and how confident it is, instead of silently filing a decade of photos under the day you copied them off the old drive.</p>
+
+      <h2>The safe workflow</h2>
+      <ul>
+        <li><strong>Copy, never move.</strong> Build the organized library as verified copies in a new destination. The source (SD card, phone dump, old drive) stays read-only until you trust the result.</li>
+        <li><strong>Preview before copying.</strong> See every file's resolved date and the exact folder it will land in, before anything happens.</li>
+        <li><strong>Review the uncertain ones.</strong> Files with missing or conflicting dates should be flagged for you to confirm or fix — not guessed silently.</li>
+        <li><strong>Verify the copies.</strong> Byte-for-byte, before the run is called done.</li>
+      </ul>
+
+      <h2>Doing it with Chronoframe</h2>
+      <p>Chronoframe runs exactly this workflow: choose a source and destination, click Preview Plan, and inspect a month-by-month timeline of your library with every uncertain date flagged for review. Files already in the destination are skipped, so repeat imports from the same card just add what's new. Copies are verified, the source is never written to, and every run writes a receipt you can audit or revert from History.</p>
+      <p>For ongoing use, the pattern is: shoot &rarr; insert card &rarr; run the same source/destination pair &rarr; review anything flagged &rarr; transfer. Your library stays continuously organized with a few clicks per import. When backups from several places need combining first, start with <a href="../merge-photo-libraries-mac/">merging photo libraries safely</a>, and clean up copies afterward with the <a href="../duplicate-photo-finder-mac/">duplicate review workflow</a>.</p>
+    </div>
+  </main>
+
+  <section class="closing">
+    <div class="container">
+      <h2>From DCIM chaos to a dated library</h2>
+      <p class="section-lede">Chronoframe turns scattered photos into a clean dated library with a full preview first.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12">Download on the Mac App Store</a>
+        <a class="btn btn-secondary" href="../../index.html">Learn more</a>
+      </div>
+      <p class="price-note">Pay once, own it forever &middot; $14.99 introductory price &middot; No subscription, ever.</p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div>&copy; 2026 Nishith Nand. All rights reserved.</div>
+      <div class="footer-links">
+        <a href="../">Guides</a>
+        <a href="../../privacy.html">Privacy Policy</a>
+        <a href="../../support.html">Support</a>
+        <a href="mailto:support@chronoframe.app">support@chronoframe.app</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

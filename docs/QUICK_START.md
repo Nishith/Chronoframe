@@ -61,7 +61,7 @@ Use this when you want Chronoframe to find exact photo and video copies plus sim
 2. Click **Choose Folder…** to pick the folder to scan, or reuse a recent one
 3. Pick a **Detection** preset (Strict, Balanced, or Loose) and click **Start Scan**
 4. Review each group — compare candidates side by side and choose what to keep
-5. Use **Auto-Accept Safe** to clear the obvious exact copies, then click **Move to Trash** to remove the files you approved
+5. Review the suggestions. **Accept All Strong** accepts high-confidence suggestions, including identical content and confirmed visual matches whose files may differ. Click **Move to Trash** to move approved files to the macOS Trash
 
 Chronoframe does not permanently delete files from Deduplicate. It sends selected files to the macOS Trash. Similar-photo, burst, RAW+JPEG, and Live Photo analysis applies to photos. Exact video copies are always detected, and an off-by-default setting can surface visually similar transcodes and re-exports for review; visual video matches are never auto-accepted.
 

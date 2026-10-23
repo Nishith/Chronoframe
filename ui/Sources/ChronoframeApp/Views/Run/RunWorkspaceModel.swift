@@ -118,6 +118,9 @@ struct RunWorkspaceContext {
     /// Active source file URL during the transfer phase. Drives the
     /// NowCopyingCard's live QuickLook thumbnail; `nil` outside copy.
     var currentFileURL: URL?
+    /// Effective setting of the captured run, never the mutable Setup value.
+    var verifyCopies: Bool?
+    var isCancelling: Bool
 
     init(
         status: RunStatus,
@@ -138,7 +141,9 @@ struct RunWorkspaceContext {
         previewReviewIsStale: Bool = false,
         previewReviewSummary: PreviewReviewSummary = PreviewReviewSummary(),
         previewReviewPath: String? = nil,
-        currentFileURL: URL? = nil
+        currentFileURL: URL? = nil,
+        verifyCopies: Bool? = nil,
+        isCancelling: Bool = false
     ) {
         self.status = status
         self.currentMode = currentMode
@@ -159,6 +164,8 @@ struct RunWorkspaceContext {
         self.previewReviewSummary = previewReviewSummary
         self.previewReviewPath = previewReviewPath
         self.currentFileURL = currentFileURL
+        self.verifyCopies = verifyCopies
+        self.isCancelling = isCancelling
     }
 }
 
@@ -197,7 +204,11 @@ struct RunWorkspaceModel {
                 previewReviewIsStale: previewReviewStore?.isStale ?? false,
                 previewReviewSummary: previewReviewStore?.summary ?? PreviewReviewSummary(),
                 previewReviewPath: runSessionStore.summary?.artifacts.previewReviewPath,
-                currentFileURL: runSessionStore.currentFileURL
+                currentFileURL: runSessionStore.currentFileURL,
+                verifyCopies: (runSessionStore.status == .running || runSessionStore.status == .preflighting
+                    ? runSessionStore.lastPreflight?.configuration
+                    : runSessionStore.lastRunCompletion?.configuration)?.verifyCopies,
+                isCancelling: runSessionStore.isCancelling
             )
         )
     }
@@ -235,9 +246,11 @@ struct RunWorkspaceModel {
         case .running:
             let mode = context.currentMode ?? .transfer
             return RunHeroState(
-                title: mode == .preview ? "Preview in Progress" : "Transfer in Progress",
-                message: "This workspace updates live as Chronoframe moves through each phase, tracks issues, and keeps the destination artifacts ready to inspect.",
-                badgeTitle: mode == .preview ? "Preview Running" : "Transfer Running",
+                title: context.isCancelling ? "Stopping…" : (mode == .preview ? "Preview in Progress" : "Transfer in Progress"),
+                message: context.isCancelling
+                    ? "Waiting for the run to stop and finalize its receipt. Source files stay untouched. Completed copies remain in the destination."
+                    : (mode == .preview ? previewReassurance : "Source files stay untouched. \(verificationMessage)"),
+                badgeTitle: context.isCancelling ? "Stopping…" : (mode == .preview ? "Preview Running" : "Transfer Running"),
                 badgeSymbol: "arrow.triangle.2.circlepath",
                 heroSymbol: "bolt.horizontal.circle",
                 tone: .active,
@@ -247,7 +260,7 @@ struct RunWorkspaceModel {
         case .dryRunFinished:
             return RunHeroState(
                 title: "Preview Ready for Review",
-                message: "Nothing has been copied. Inspect the planned work, any issues, and the destination before starting the transfer.",
+                message: "\(previewReassurance) Inspect the plan before starting the transfer.",
                 badgeTitle: "Preview Complete",
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "doc.text.magnifyingglass",
@@ -257,30 +270,32 @@ struct RunWorkspaceModel {
 
         case .finished:
             return RunHeroState(
-                title: "Transfer Complete",
-                message: "Organized files, logs, and receipts are ready to inspect. Open the destination to verify the result in Finder.",
-                badgeTitle: "Finished",
+                title: copiedFilesTitle,
+                message: transferOutcomeMessage,
+                badgeTitle: hasOutcomeIssues ? "Finished with Issues" : "Finished",
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "checkmark.circle.fill",
-                tone: .success,
+                tone: hasOutcomeIssues ? .warning : .success,
                 primaryAction: .openDestination
             )
 
         case .nothingToCopy:
             return RunHeroState(
-                title: "Destination Already Up To Date",
-                message: "Chronoframe did not find any new files to copy for this configuration. The destination already contains everything it needs.",
-                badgeTitle: "Up to Date",
+                title: "No Files Copied",
+                message: "No files were copied in this run. Review the preview or Run History before starting another run.",
+                badgeTitle: "No Copies",
                 badgeSymbol: "checkmark.seal.fill",
                 heroSymbol: "checkmark.seal.fill",
-                tone: .success,
+                tone: .ready,
                 primaryAction: .openDestination
             )
 
         case .cancelled:
             return RunHeroState(
                 title: "Run Cancelled",
-                message: "The run stopped before completion. Review the current state, inspect any partial artifacts, and start again when you are ready.",
+                message: context.currentMode == .transfer
+                    ? "The run stopped before completion. \(transferOutcomeMessage)"
+                    : "The run stopped before completion. Source files were left untouched. Review Run History for any completed work.",
                 badgeTitle: "Cancelled",
                 badgeSymbol: "pause.circle.fill",
                 heroSymbol: "pause.circle.fill",
@@ -291,7 +306,9 @@ struct RunWorkspaceModel {
         case .failed:
             return RunHeroState(
                 title: "Run Needs Attention",
-                message: context.lastErrorMessage ?? "Chronoframe could not finish this run. Your source files were left untouched. Check that both folders are available, then try again.",
+                message: [context.lastErrorMessage ?? "Chronoframe could not finish this run.",
+                          context.currentMode == .transfer ? transferOutcomeMessage : "Source files were left untouched."]
+                    .joined(separator: " "),
                 badgeTitle: "Failed",
                 badgeSymbol: "exclamationmark.octagon.fill",
                 heroSymbol: "exclamationmark.triangle.fill",
@@ -380,6 +397,10 @@ struct RunWorkspaceModel {
 
     var sourceSummaryValue: String {
         sourceRoot ?? "Source will appear here once a run is configured"
+    }
+
+    var currentFocusSummaryValue: String {
+        context.status == .nothingToCopy ? "No files copied in this run" : context.currentTaskTitle
     }
 
     var issueSummaryValue: String {
@@ -511,6 +532,8 @@ struct RunWorkspaceModel {
         switch context.status {
         case .finished, .nothingToCopy, .reverted, .reorganized, .nothingToReorganize:
             return true
+        case .cancelled, .failed:
+            return context.currentMode == .transfer
         default:
             return false
         }
@@ -519,9 +542,11 @@ struct RunWorkspaceModel {
     var outcomeSummaryMessage: String {
         switch context.status {
         case .finished:
-            return "Originals were left untouched. Reports and receipts are available in Run History for inspection or recovery."
+            return transferOutcomeMessage
         case .nothingToCopy:
-            return "No new copies were needed for this configuration."
+            return "No files were copied in this run. Source files were left untouched."
+        case .cancelled, .failed:
+            return transferOutcomeMessage
         case .reverted:
             return "The receipt was applied conservatively; files modified after the original copy were preserved."
         case .reorganized:
@@ -538,11 +563,68 @@ struct RunWorkspaceModel {
             return "Corrections were saved. Rebuild the preview before transfer so the copied files match the reviewed plan."
         }
         if context.previewReviewSummary.needsAttentionCount > 0 {
-            return "\(context.previewReviewSummary.needsAttentionCount.formatted()) items need attention before this plan is at its best. Nothing has been copied."
+            return "\(context.previewReviewSummary.needsAttentionCount.formatted()) items need attention. \(previewReassurance)"
         }
         return context.metrics.plannedCount > 0
-            ? "Nothing has been copied yet. \(context.metrics.plannedCount.formatted()) files are ready to transfer once the plan looks right."
-            : "The preview found nothing new to copy. The destination already contains everything needed."
+            ? "\(context.metrics.plannedCount.formatted()) files are planned for copying. \(previewReassurance)"
+            : "The preview planned no new copies. \(previewReassurance)"
+    }
+
+    var previewReassurance: String {
+        "No media is added to the destination. Source files stay untouched."
+    }
+
+    var timelineSubtitle: String {
+        "Date distribution of files planned for this run. A resumed run may show only queued files."
+    }
+
+    var timelineEmptyMessage: String {
+        "No planned date distribution is available for this run."
+    }
+
+    /// Final summaries outrank the last progress sample, including free batches
+    /// reduced by execution revalidation. Never infer deferred or changed totals.
+    var outcomeMetrics: RunMetrics { context.summary?.metrics ?? context.metrics }
+
+    var hasOutcomeIssues: Bool {
+        outcomeMetrics.failedCount > 0 || outcomeMetrics.errorCount > 0
+            || outcomeMetrics.hashErrorCount > 0 || context.issueCount > 0
+    }
+
+    private var copiedFilesTitle: String {
+        "\(outcomeMetrics.copiedCount.formatted()) file\(outcomeMetrics.copiedCount == 1 ? "" : "s") copied"
+    }
+
+    var verificationMessage: String {
+        guard let verifyCopies = context.verifyCopies else {
+            return "Copy verification status is unavailable."
+        }
+        guard verifyCopies else {
+            return context.status == .running || context.status == .preflighting
+                ? "Copy verification is off; copies will not be hash-checked."
+                : "Copy verification was skipped."
+        }
+        if context.status == .running || context.status == .preflighting {
+            return "Copies will be hash-checked against the source. A copy that fails verification is removed."
+        }
+        guard context.summary != nil, outcomeMetrics.copiedCount > 0 else {
+            return "No verified copies are reported for this run."
+        }
+        return "Copied files were hash-verified."
+    }
+
+    private var transferOutcomeMessage: String {
+        var parts = ["\(copiedFilesTitle)."]
+        if outcomeMetrics.failedCount > 0 {
+            parts.append("\(outcomeMetrics.failedCount.formatted()) file\(outcomeMetrics.failedCount == 1 ? "" : "s") failed to copy.")
+        }
+        if outcomeMetrics.alreadyInDestinationCount > 0 {
+            parts.append("\(outcomeMetrics.alreadyInDestinationCount.formatted()) already in the destination.")
+        }
+        if hasOutcomeIssues { parts.append("Review issues and Run History for details.") }
+        parts.append(verificationMessage)
+        parts.append("Source files were left untouched.")
+        return parts.joined(separator: " ")
     }
 
     var canStartTransferFromPreview: Bool {

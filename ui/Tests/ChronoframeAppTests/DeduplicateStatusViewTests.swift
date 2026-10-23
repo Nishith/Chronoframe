@@ -235,18 +235,19 @@ final class DeduplicateStatusViewTests: XCTestCase {
     }
 
     func testBulkAcceptLabelMatchesHighConfidenceOnlyBehavior() {
-        XCTAssertEqual(CommitFooterButtonDensity.full.acceptAllTitle, "Accept All Safe")
-        XCTAssertEqual(CommitFooterButtonDensity.compact.acceptAllTitle, "Accept Safe")
+        XCTAssertEqual(CommitFooterButtonDensity.full.acceptAllTitle, "Accept All Strong")
+        XCTAssertEqual(CommitFooterButtonDensity.compact.acceptAllTitle, "Accept Strong")
     }
 
     /// One confidence vocabulary across the review surface: the filter tabs
     /// and the row badge must use the same tier words, and the bulk-accept
-    /// button's "Safe" must be the same word as the high tier — otherwise
+    /// button's "Strong" must be the same word as the high tier — otherwise
     /// the user cannot connect the button to the tab it operates on.
+    // AGENTS-INVARIANT: 6
     func testConfidenceVocabularyIsUnifiedAcrossFilterBadgeAndBulkAction() {
-        XCTAssertEqual(DedupeClusterConfidenceFilter.high.label, "Safe")
+        XCTAssertEqual(DedupeClusterConfidenceFilter.high.label, "Strong")
         XCTAssertEqual(DedupeClusterConfidenceFilter.medium.label, "Check")
-        XCTAssertEqual(DedupeClusterConfidenceFilter.low.label, "Risky")
+        XCTAssertEqual(DedupeClusterConfidenceFilter.low.label, "Careful")
 
         XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.high), DedupeClusterConfidenceFilter.high.label)
         XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.medium), DedupeClusterConfidenceFilter.medium.label)
@@ -441,18 +442,18 @@ final class DeduplicateStatusViewTests: XCTestCase {
         XCTAssertEqual(MatchReasonFormatter.summary(MatchReason(kind: .exactDuplicate)), "Identical file content")
         // No cluster context → media-neutral noun. Media-aware variants are
         // covered in DeduplicateAccessibilityTextTests.
-        XCTAssertEqual(MatchReasonFormatter.summary(MatchReason(kind: .editedVariant)), "Edited version of the same item")
-        XCTAssertEqual(MatchReasonFormatter.summary(burst), "Taken 12s apart, 92% visually similar")
-        XCTAssertEqual(MatchReasonFormatter.oneLiner(annotation), "92% similar, 12s apart")
+        XCTAssertEqual(MatchReasonFormatter.summary(MatchReason(kind: .editedVariant)), "Possible visual similarity; review required")
+        XCTAssertEqual(MatchReasonFormatter.summary(burst), "Visual match confirmed; files may differ, taken 12s apart")
+        XCTAssertEqual(MatchReasonFormatter.oneLiner(annotation), "Visual match confirmed; files may differ, 12s apart")
         XCTAssertEqual(
             MatchReasonFormatter.keeperSummary(annotation.keeperReason!),
             "Kept: better quality (+0.21), eyes open, larger file (+1 MB)"
         )
         XCTAssertEqual(MatchReasonFormatter.warningSummary(annotation.warnings[0]), "Different framing (24% crop difference)")
         XCTAssertEqual(MatchReasonFormatter.warningSummary(.largeTimeGap(seconds: 90)), "Taken 1.5 min apart")
-        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.high), "Safe")
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.high), "Strong")
         XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.medium), "Check")
-        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.low), "Risky")
+        XCTAssertEqual(MatchReasonFormatter.confidenceLabel(.low), "Careful")
     }
 
     func testDeduplicateAccessibilityTextNamesSuggestedGroupsWithStateAndWarnings() {
@@ -472,7 +473,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
             recoverableBytes: 1_048_576
         )
         XCTAssertTrue(rowValue.hasPrefix("Suggested, not reviewed. 1 MB reclaimable."))
-        XCTAssertTrue(rowValue.contains("visually similar"))
+        XCTAssertTrue(rowValue.contains("Visual match confirmed; files may differ"))
 
         XCTAssertEqual(
             DeduplicateAccessibilityText.rapidTriageLabel(

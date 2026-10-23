@@ -34,7 +34,9 @@ struct RunHeroSection: View {
         RunAnnouncementPlanner.Snapshot(
             status: model.context.status,
             phase: model.context.currentPhase,
-            progress: model.context.progress
+            progress: model.context.progress,
+            isCancelling: model.context.isCancelling,
+            presentationMessage: "\(model.heroState.title). \(model.heroState.message)"
         )
     }
 
@@ -85,7 +87,7 @@ struct RunHeroSection: View {
                 }
 
                 SummaryLine(title: "Mode", value: model.context.currentMode?.title ?? "Idle")
-                SummaryLine(title: "Current Focus", value: model.context.currentTaskTitle)
+                SummaryLine(title: "Current Focus", value: model.currentFocusSummaryValue)
                 SummaryLine(title: "Issues", value: model.issueSummaryValue, valueColor: model.issueTone.color)
                 SummaryLine(title: "Source", value: model.sourceSummaryValue)
                 SummaryLine(title: "Destination", value: model.destinationSummaryValue)
@@ -102,7 +104,7 @@ struct RunHeroSection: View {
                 .blendMode(.plusLighter)
         }
         .onChange(of: model.context.status) { _, newValue in
-            guard newValue == .finished, !reduceMotion else { return }
+            guard newValue == .finished, !model.hasOutcomeIssues, !reduceMotion else { return }
             Motion.withMotion(Motion.wash, reduceMotion: reduceMotion) {
                 washOpacity = 0.18
             }

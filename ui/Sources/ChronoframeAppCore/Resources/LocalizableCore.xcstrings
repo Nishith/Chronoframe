@@ -320,6 +320,17 @@
         }
       }
     },
+    "Accept All Strong": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept All Strong"
+          }
+        }
+      }
+    },
     "Accept All Safe": {
       "extractionState": "manual",
       "localizations": {

@@ -771,6 +771,12 @@ final class ChronoframeUITests: XCTestCase {
 
             let timeline = Self.element(identifier: "InteractiveTimeline", in: app)
             XCTAssertTrue(timeline.waitForExistence(timeout: 5), "Timeline should render in run preview")
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Planned Timeline")).firstMatch.exists)
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Date distribution of files planned for this run. A resumed run may show only queued files.")).firstMatch.exists)
+            let previewProof = XCTAttachment(screenshot: app.screenshot())
+            previewProof.name = "Presentation accuracy - Organize preview"
+            previewProof.lifetime = .keepAlways
+            XCTContext.runActivity(named: "Organize preview evidence") { $0.add(previewProof) }
 
             Self.selectTimelineBucket(timeline, atNormalizedX: 0.9)
 
@@ -990,6 +996,12 @@ final class ChronoframeUITests: XCTestCase {
                 let footer = Self.element(identifier: "dedupeCommitFooter", in: app)
                 XCTAssertTrue(footer.waitForExistence(timeout: 10), "Commit footer should render for \(scenario.rawValue)")
 
+                // AGENTS-INVARIANT: 6 — the initially focused fixture has no Vision evidence.
+                let weakEvidence = "Possible visual similarity; review required"
+                let photoDetails = app.images["Photo details"]
+                XCTAssertTrue(photoDetails.waitForExistence(timeout: 5))
+                XCTAssertTrue((photoDetails.value as? String)?.contains(weakEvidence) == true)
+
                 let acceptCluster = Self.hittableButton(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
                 let acceptAll = Self.button(identifier: "dedupeAcceptAllSuggestionsButton", in: app)
                 let commit = Self.button(identifier: "dedupeCommitButton", in: app)
@@ -1085,6 +1097,11 @@ final class ChronoframeUITests: XCTestCase {
                     160,
                     "Preview region is only \(previewRegionHeight)pt tall for \(scenario.rawValue)"
                 )
+
+                let evidenceProof = XCTAttachment(screenshot: app.screenshot())
+                evidenceProof.name = "Presentation accuracy - \(scenario.rawValue)"
+                evidenceProof.lifetime = .keepAlways
+                XCTContext.runActivity(named: "Dedupe evidence") { $0.add(evidenceProof) }
 
                 app.terminate()
             }

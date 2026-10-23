@@ -494,7 +494,7 @@ public final class DeduplicateSessionStore: ObservableObject {
         registerUndo(
             oldDecisions: oldDecisions,
             oldApproved: oldApproved,
-            actionName: String(localized: "Accept All Safe", bundle: Bundle.module)
+            actionName: String(localized: "Accept All Strong", bundle: Bundle.module)
         )
     }
 

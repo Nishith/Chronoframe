@@ -183,7 +183,7 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 
 **Solution:**
 - Make sure you've **selected keep/delete choices** for at least one group
-- Click a group on the left and choose which items to keep and which to delete (or use **Auto-Accept Safe** for the obvious exact copies)
+- Click a group on the left and choose which items to keep and which to move to Trash. **Accept All Strong** accepts high-confidence suggestions; these can include confirmed visual matches whose files may differ, so review the suggestions first.
 - The **Move to Trash** button activates once at least one file is marked for removal
 
 ### Deduplicate says a file changed after the scan

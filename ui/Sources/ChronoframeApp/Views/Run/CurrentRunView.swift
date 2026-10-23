@@ -81,7 +81,7 @@ struct CurrentRunView: View {
             previewReviewStore.undoManager = undoManager
         }
         .onChange(of: runSessionStore.status) { _, newValue in
-            if newValue == .finished {
+            if newValue == .finished, !model.hasOutcomeIssues {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
             }
         }
@@ -134,9 +134,10 @@ private struct RunOutcomeSummaryCard: View {
                 }
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
-                    summaryMetric("Copied", value: model.context.metrics.copiedCount.formatted(), tint: DesignTokens.ColorSystem.statusSuccess)
-                    summaryMetric("Planned", value: model.context.metrics.plannedCount.formatted(), tint: DesignTokens.ColorSystem.accentAction)
-                    summaryMetric("Skipped", value: model.context.metrics.alreadyInDestinationCount.formatted(), tint: DesignTokens.ColorSystem.inkSecondary)
+                    summaryMetric("Copied", value: model.outcomeMetrics.copiedCount.formatted(), tint: DesignTokens.ColorSystem.statusSuccess)
+                    summaryMetric("Planned", value: model.outcomeMetrics.plannedCount.formatted(), tint: DesignTokens.ColorSystem.accentAction)
+                    summaryMetric("Already present", value: model.outcomeMetrics.alreadyInDestinationCount.formatted(), tint: DesignTokens.ColorSystem.inkSecondary)
+                    summaryMetric("Failed", value: model.outcomeMetrics.failedCount.formatted(), tint: model.outcomeMetrics.failedCount > 0 ? DesignTokens.Color.danger : DesignTokens.ColorSystem.inkSecondary)
                     summaryMetric("Issues", value: "\(model.context.issueCount)", tint: model.issueTone.color)
                 }
 

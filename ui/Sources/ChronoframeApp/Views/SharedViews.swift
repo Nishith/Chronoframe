@@ -872,10 +872,10 @@ struct TrustProofModel {
             TrustProofItem(
                 id: "active_run",
                 title: isTransfer ? "Transfer In Progress" : "Preview In Progress",
-                message: isTransfer ? "Writing copies to destination. Source files stay untouched." : "Reading and planning copy routes only. No files are modified or written.",
+                message: isTransfer ? "Writing copies to destination. Source files stay untouched." : "No media is added to the destination. Source files stay untouched.",
                 symbol: isTransfer ? "arrow.right.circle.fill" : "eye.fill",
                 tone: isTransfer ? .success : .neutral,
-                accessibilityLabel: isTransfer ? "Active transfer. Originals stay safe." : "Active preview. Read only.",
+                accessibilityLabel: isTransfer ? "Active transfer. Source files stay untouched." : "Preview. No media is added to the destination. Source files stay untouched.",
                 actionLabel: nil
             )
         ]
@@ -889,7 +889,7 @@ struct TrustProofModel {
                 message: "Deduplication moves duplicates only to the macOS Trash, never hard-deletes them.",
                 symbol: "trash.fill",
                 tone: .success,
-                accessibilityLabel: "Safe trash-only mode is verified",
+                accessibilityLabel: "Duplicates move only to the macOS Trash, never permanently deleted by Chronoframe.",
                 actionLabel: nil
             ),
             TrustProofItem(
@@ -906,11 +906,11 @@ struct TrustProofModel {
         if willDeleteCount > 0 {
             items.append(TrustProofItem(
                 id: "receipt_write",
-                title: "Revertible Recovery",
-                message: "A revert receipt will be written to .organize_logs before trashing, allowing full restore from Run History.",
+                title: "Receipt-Based Recovery",
+                message: "A receipt is written before moving files to Trash. Run History can restore Trash items whose contents still match the receipt.",
                 symbol: "arrow.uturn.backward.circle.fill",
                 tone: .success,
-                accessibilityLabel: "Revert receipt active",
+                accessibilityLabel: "A receipt is written before moving files to Trash. Run History can restore Trash items whose contents still match the receipt.",
                 actionLabel: nil
             ))
         }

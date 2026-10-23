@@ -26,6 +26,8 @@ profiles.yaml
 ui/build/
 ui/.build/
 ui/.tmp/
+ui/.swiftpm/
+node_modules/
 
 # Perceptual video dedupe calibration (local-only corpus + generated reports).
 # The corpus and absolute-path manifests must never be committed; only redacted

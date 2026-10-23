@@ -5,6 +5,109 @@ import XCTest
 @testable import ChronoframeApp
 
 final class RunWorkspaceModelTests: XCTestCase {
+    // AGENTS-INVARIANT: 10
+    func testCancelledRunReportsActualCopiesAndUntouchedSources() {
+        var context = makeModel(status: .cancelled).context
+        context.currentMode = .transfer
+        context.metrics = RunMetrics(plannedCount: 200, copiedCount: 99)
+        context.summary = RunSummary(status: .cancelled, title: "Cancelled", metrics: RunMetrics(plannedCount: 200, copiedCount: 190), artifacts: RunArtifactPaths())
+        let model = RunWorkspaceModel(context: context)
+        XCTAssertTrue(model.heroState.message.contains("190 files copied"))
+        XCTAssertTrue(model.heroState.message.contains("Source files were left untouched."))
+        XCTAssertTrue(model.showsOutcomeSummary)
+    }
+
+    func testZeroCopyDoesNotClaimWholeDestinationIsUpToDate() {
+        let model = makeModel(status: .nothingToCopy)
+        XCTAssertEqual(model.heroState.title, "No Files Copied")
+        XCTAssertEqual(model.heroState.message, "No files were copied in this run. Review the preview or Run History before starting another run.")
+        XCTAssertFalse(model.previewReviewMessage.contains("everything needed"))
+        XCTAssertEqual(model.currentFocusSummaryValue, "No files copied in this run")
+    }
+
+    // AGENTS-INVARIANT: 3
+    // AGENTS-INVARIANT: 7
+    // AGENTS-INVARIANT: 10
+    func testVerificationClaimsRequireCapturedSettingAndFinalizedCopies() {
+        var context = makeModel(status: .running).context
+        context.currentMode = .transfer
+        context.verifyCopies = true
+        context.metrics = RunMetrics(plannedCount: 200, copiedCount: 100)
+        XCTAssertEqual(RunWorkspaceModel(context: context).verificationMessage, "Copies will be hash-checked against the source. A copy that fails verification is removed.")
+        context.verifyCopies = false
+        XCTAssertEqual(RunWorkspaceModel(context: context).verificationMessage, "Copy verification is off; copies will not be hash-checked.")
+        context.verifyCopies = true
+
+        context.status = .finished
+        context.summary = RunSummary(status: .finished, title: "Finished", metrics: RunMetrics(plannedCount: 190, copiedCount: 190), artifacts: RunArtifactPaths())
+        let finished = RunWorkspaceModel(context: context)
+        XCTAssertEqual(finished.heroState.title, "190 files copied")
+        XCTAssertEqual(finished.verificationMessage, "Copied files were hash-verified.")
+        XCTAssertTrue(finished.heroState.message.contains("Source files were left untouched."))
+
+        context.verifyCopies = false
+        XCTAssertEqual(RunWorkspaceModel(context: context).verificationMessage, "Copy verification was skipped.")
+        context.verifyCopies = nil
+        XCTAssertEqual(RunWorkspaceModel(context: context).verificationMessage, "Copy verification status is unavailable.")
+        context.verifyCopies = true
+        context.summary?.metrics.copiedCount = 0
+        XCTAssertEqual(RunWorkspaceModel(context: context).verificationMessage, "No verified copies are reported for this run.")
+        context.summary = nil
+        XCTAssertEqual(RunWorkspaceModel(context: context).verificationMessage, "No verified copies are reported for this run.")
+    }
+
+    // AGENTS-INVARIANT: 10
+    func testStoppingKeepsActiveStateUntilFinalOutcomeAndPartialIsVisible() {
+        var context = makeModel(status: .running).context
+        context.isCancelling = true
+        context.currentMode = .transfer
+        context.metrics = RunMetrics(plannedCount: 200, copiedCount: 189)
+        let stopping = RunWorkspaceModel(context: context)
+        XCTAssertEqual(stopping.heroState.title, "Stopping…")
+        XCTAssertEqual(stopping.heroState.message, "Waiting for the run to stop and finalize its receipt. Source files stay untouched. Completed copies remain in the destination.")
+        XCTAssertFalse(stopping.showsOutcomeSummary)
+
+        context.isCancelling = false
+        context.status = .finished
+        context.summary = RunSummary(status: .finished, title: "Finished", metrics: RunMetrics(plannedCount: 200, copiedCount: 190, failedCount: 10), artifacts: RunArtifactPaths())
+        let partial = RunWorkspaceModel(context: context)
+        XCTAssertEqual(partial.heroState.title, "190 files copied")
+        XCTAssertEqual(partial.heroState.tone, .warning)
+        XCTAssertEqual(partial.heroState.badgeTitle, "Finished with Issues")
+        XCTAssertTrue(partial.heroState.message.contains("10 files failed to copy."))
+        XCTAssertTrue(partial.heroState.message.contains("Source files were left untouched."))
+    }
+
+    func testTimelineScopeDoesNotClaimWholeSourceOrCompletedMonths() {
+        for status in [RunStatus.running, .dryRunFinished, .finished, .nothingToCopy, .cancelled, .failed, .reverted] {
+            let model = makeModel(status: status)
+            XCTAssertEqual(model.timelineSubtitle, "Date distribution of files planned for this run. A resumed run may show only queued files.")
+            XCTAssertEqual(model.timelineEmptyMessage, "No planned date distribution is available for this run.")
+        }
+    }
+
+    // AGENTS-INVARIANT: 3
+    // AGENTS-INVARIANT: 7
+    @MainActor
+    func testRunVerificationEvidenceSurvivesSetupEditsAndCompletion() async {
+        let harness = AppStateHarness()
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: "/tmp/destination", verifyCopies: false)
+        harness.engine.preflightResult = .success(RunPreflight(configuration: configuration, resolvedSourcePath: configuration.sourcePath, resolvedDestinationPath: configuration.destinationPath))
+        harness.engine.startMode = .events([
+            .complete(RunSummary(status: .finished, title: "Finished", metrics: RunMetrics(copiedCount: 190), artifacts: RunArtifactPaths(destinationRoot: configuration.destinationPath)))
+        ])
+        await harness.runSessionStore.requestRun(mode: .transfer, configuration: configuration)
+        harness.runSessionStore.confirmPrompt()
+        let completed = await waitForCondition { harness.runSessionStore.status == .finished }
+        XCTAssertTrue(completed)
+        harness.preferencesStore.verifyCopies = true
+        harness.setupStore.destinationPath = "/tmp/unrelated"
+        let model = RunWorkspaceModel(runSessionStore: harness.runSessionStore, runLogStore: harness.runLogStore, historyStore: harness.historyStore, canStartRun: true)
+        XCTAssertEqual(model.verificationMessage, "Copy verification was skipped.")
+        XCTAssertEqual(model.heroState.title, "190 files copied")
+        XCTAssertEqual(model.destinationRoot, configuration.destinationPath)
+    }
+
     func testPreviewReviewStateComputesTransferReadinessAndIssueSummary() {
         let model = RunWorkspaceModel(
             context: RunWorkspaceContext(
@@ -75,7 +178,8 @@ final class RunWorkspaceModelTests: XCTestCase {
         )
 
         XCTAssertEqual(model.heroState.primaryAction, .showIssues)
-        XCTAssertEqual(model.heroState.message, "Disk became unavailable")
+        XCTAssertTrue(model.heroState.message.hasPrefix("Disk became unavailable"))
+        XCTAssertTrue(model.heroState.message.contains("Source files were left untouched."))
         XCTAssertEqual(model.destinationSummaryValue, "/Volumes/Fallback")
         XCTAssertEqual(model.sourceSummaryValue, "Source will appear here once a run is configured")
         XCTAssertEqual(model.issueEntries.count, 1)

@@ -152,14 +152,14 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         let editedVariant = MatchReason(kind: .editedVariant)
         XCTAssertEqual(
             MatchReasonFormatter.summary(editedVariant, in: mediaCluster([.video, .video])),
-            "Edited version of the same video"
+            "Possible visual similarity; review required"
         )
         XCTAssertEqual(
             MatchReasonFormatter.summary(editedVariant, in: mediaCluster([.photo, .photo])),
-            "Edited version of the same photo"
+            "Possible visual similarity; review required"
         )
         // No cluster context → neutral noun.
-        XCTAssertEqual(MatchReasonFormatter.summary(editedVariant), "Edited version of the same item")
+        XCTAssertEqual(MatchReasonFormatter.summary(editedVariant), "Possible visual similarity; review required")
     }
 
     func testClusterRowLabelUsesVideoNounForVideoCluster() {
@@ -196,14 +196,14 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
 
         XCTAssertTrue(
             DeduplicateAccessibilityText.clusterRowLabel(cluster: perceptualCluster)
-                .contains("4 of 5 sampled frames match")
+                .contains("4 of 5 sample frames matched · 0.2s duration difference · review only")
         )
         XCTAssertTrue(
             DeduplicateAccessibilityText.rapidTriageLabel(
                 cluster: perceptualCluster,
                 currentIndex: 0,
                 totalCount: 1
-            ).contains("4 of 5 sampled frames match")
+            ).contains("4 of 5 sample frames matched · 0.2s duration difference · review only")
         )
     }
 
@@ -281,7 +281,7 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
         let annotated = DeduplicateAccessibilityText.clusterRowValue(
             cluster: cluster(kind: .exactDuplicate), isApproved: false, recoverableBytes: 1_048_576
         )
-        XCTAssertTrue(annotated.contains("Exact match"))
+        XCTAssertTrue(annotated.contains("Identical file content"))
 
         let bare = DeduplicateAccessibilityText.clusterRowValue(
             cluster: cluster(hasAnnotation: false), isApproved: false, recoverableBytes: 1_048_576

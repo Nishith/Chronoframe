@@ -642,7 +642,7 @@ struct DeduplicateView: View {
             .accessibilityIdentifier(AccessibilityIdentifiers.dedupeRapidTriageButton)
 
             if highCount > 0 {
-                Button("Accept All Safe (\(highCount))") {
+                Button("\(CommitFooterButtonDensity.full.acceptAllTitle) (\(highCount))") {
                     sessionStore.acceptAllHighConfidence()
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
@@ -1072,8 +1072,8 @@ enum CommitFooterButtonDensity {
 
     var acceptAllTitle: String {
         switch self {
-        case .full: return "Accept All Safe"
-        case .compact: return "Accept Safe"
+        case .full: return "Accept All Strong"
+        case .compact: return "Accept Strong"
         }
     }
 

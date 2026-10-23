@@ -19,11 +19,15 @@ enum RunAnnouncementPlanner {
         var status: RunStatus
         var phase: RunPhase?
         var progress: Double
+        var isCancelling: Bool
+        var presentationMessage: String?
 
-        init(status: RunStatus, phase: RunPhase?, progress: Double) {
+        init(status: RunStatus, phase: RunPhase?, progress: Double, isCancelling: Bool = false, presentationMessage: String? = nil) {
             self.status = status
             self.phase = phase
             self.progress = progress
+            self.isCancelling = isCancelling
+            self.presentationMessage = presentationMessage
         }
     }
 
@@ -65,7 +69,11 @@ enum RunAnnouncementPlanner {
         // 1. Terminal status changes win — they're the most important to hear,
         //    and the only ones important enough to interrupt the user.
         if new.status != old.status, let message = terminalMessage(for: new.status) {
-            return Announcement(message: message, priority: .high)
+            return Announcement(message: new.presentationMessage ?? message, priority: .high)
+        }
+
+        if new.status == .running, new.isCancelling {
+            return old.isCancelling ? nil : Announcement(message: new.presentationMessage ?? "Stopping…", priority: .medium)
         }
 
         // 2. Phase changes during an active run.

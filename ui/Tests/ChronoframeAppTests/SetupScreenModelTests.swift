@@ -102,6 +102,22 @@ final class SetupScreenModelTests: XCTestCase {
         XCTAssertEqual(itemsNoVerify[2].tone, .warning)
     }
 
+    // AGENTS-INVARIANT: 10
+    func testPreviewPromisesUntouchedSourcesAndNoDestinationMediaRatherThanNoDiskWrites() {
+        let item = TrustProofModel.runSafetySummary(isTransfer: false)[0]
+        XCTAssertEqual(item.message, "No media is added to the destination. Source files stay untouched.")
+        XCTAssertEqual(item.accessibilityLabel, "Preview. No media is added to the destination. Source files stay untouched.")
+    }
+
+    // AGENTS-INVARIANT: 12
+    // AGENTS-INVARIANT: 20
+    func testDedupeReassuranceStatesTrashAndConditionalRecovery() {
+        let items = TrustProofModel.deduplicateSafetySummary(reviewedGroups: 1, unreviewedGroups: 2, willDeleteCount: 3)
+        XCTAssertEqual(items[0].accessibilityLabel, "Duplicates move only to the macOS Trash, never permanently deleted by Chronoframe.")
+        XCTAssertEqual(items[2].message, "A receipt is written before moving files to Trash. Run History can restore Trash items whose contents still match the receipt.")
+        XCTAssertEqual(items[2].accessibilityLabel, items[2].message)
+    }
+
     func testTrustProofModelDeduplicateSummary() {
         let items = TrustProofModel.deduplicateSafetySummary(reviewedGroups: 5, unreviewedGroups: 2, willDeleteCount: 10)
         XCTAssertEqual(items.count, 3)

@@ -23,12 +23,10 @@ final class TipsTests: XCTestCase {
         XCTAssertEqual(Set(titles).count, titles.count, "Tip titles must be distinct")
     }
 
+    // AGENTS-INVARIANT: 6
     func testAcceptSafeCopyReinforcesTheSafetyInvariant() {
-        // The Accept-All-Safe affordance must not imply uncertain matches are
-        // auto-selected; the copy explicitly says they are not.
-        XCTAssertTrue(
-            TipCopy.AcceptSafeSuggestions.message.lowercased().contains("never auto-selects")
-        )
+        XCTAssertEqual(TipCopy.AcceptSafeSuggestions.title, "Accept strong suggestions together")
+        XCTAssertEqual(TipCopy.AcceptSafeSuggestions.message, "High-confidence suggestions can include identical content or confirmed visual matches whose files may differ. Chronoframe never auto-selects weak visual matches or similar videos. Review the suggestions before moving files to Trash.")
     }
 
     func testTipsAreConstructible() {

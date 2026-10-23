@@ -1,0 +1,96 @@
+{
+  "fps": 30,
+  "duration": 29.8,
+  "scenes": [
+    {
+      "name": "preview",
+      "file": "01-mas-opening-preview-raw.mov",
+      "start": 0.6,
+      "duration": 5.0,
+      "chapter": "01  /  ORGANIZE",
+      "title": "A home for\nevery memory.",
+      "copy": "Preview years of photos\nbefore you copy."
+    },
+    {
+      "name": "transfer",
+      "file": "02-mas-transfer-complete-raw.mov",
+      "start": 0.5,
+      "duration": 5.0,
+      "chapter": "01  /  ORGANIZE",
+      "title": "Copies verified.\nOriginals safe.",
+      "copy": "Organize by date.\nKeep your source untouched."
+    },
+    {
+      "name": "compare",
+      "file": "03-mas-sandboarding-choice-raw.mov",
+      "start": 1.0,
+      "duration": 3.2,
+      "chapter": "02  /  DEDUPLICATE",
+      "title": "Your photos.\nYour choice.",
+      "copy": "Compare duplicates.\nChoose what to keep."
+    },
+    {
+      "name": "keep",
+      "file": "03b-mas-sandboarding-keeper-raw.mov",
+      "start": 0.05,
+      "duration": 3.6,
+      "chapter": "02  /  DEDUPLICATE",
+      "title": "Your photos.\nYour choice.",
+      "copy": "Compare duplicates.\nChoose what to keep."
+    },
+    {
+      "name": "review",
+      "file": "04a-mas-trash-review-raw.mov",
+      "start": 0.7,
+      "duration": 1.2,
+      "chapter": "02  /  DEDUPLICATE",
+      "title": "Less clutter.\nMore control.",
+      "copy": "Only approved extras\nmove to Trash."
+    },
+    {
+      "name": "trash",
+      "file": "04b-mas-trash-confirmation-raw.mov",
+      "start": 0.3,
+      "duration": 2.0,
+      "chapter": "02  /  DEDUPLICATE",
+      "title": "Less clutter.\nMore control.",
+      "copy": "Only approved extras\nmove to Trash."
+    },
+    {
+      "name": "history",
+      "file": "05a-mas-history-before-revert-raw.mov",
+      "start": 0.2,
+      "duration": 2.4,
+      "chapter": "03  /  RESTORE",
+      "title": "Changed\nyour mind?",
+      "copy": "Restore a trashed file\nfrom Run History."
+    },
+    {
+      "name": "confirm",
+      "file": "05b-mas-revert-confirmation-raw.mov",
+      "start": 0.3,
+      "duration": 1.8,
+      "chapter": "03  /  RESTORE",
+      "title": "Changed\nyour mind?",
+      "copy": "Restore a trashed file\nfrom Run History."
+    },
+    {
+      "name": "restored",
+      "file": "05c-mas-revert-complete-raw.mov",
+      "start": 0.2,
+      "duration": 3.1,
+      "chapter": "03  /  RESTORE",
+      "title": "Back where\nit belongs.",
+      "copy": "A cleaner library.\nPeace of mind."
+    },
+    {
+      "name": "finale",
+      "file": "03-mas-sandboarding-choice-raw.mov",
+      "start": 4.5,
+      "duration": 2.5,
+      "chapter": "CHRONOFRAME FOR MAC",
+      "title": "Your library.\nYour control.",
+      "copy": "Organize. Compare. Restore.\nAll on your Mac."
+    }
+  ]
+}

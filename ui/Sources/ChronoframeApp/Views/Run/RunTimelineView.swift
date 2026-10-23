@@ -5,8 +5,7 @@ import AppKit
 import SwiftUI
 import TipKit
 
-/// The emotional centerpiece of the Run view: a chronological histogram of
-/// the photos and videos found in the source. Each bar is one year-month;
+/// A chronological histogram of files planned for copying. Each bar is one year-month;
 /// height scales with the file count for that month.
 ///
 /// Supports visual scrubbing and selection to inspect files planned for each month.
@@ -43,7 +42,7 @@ struct RunTimelineView: View {
                     }
                 }
 
-                Text(subtitle)
+                Text(model.timelineSubtitle)
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -55,7 +54,7 @@ struct RunTimelineView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
-            Text("Timeline")
+            Text("Planned Timeline")
                 .scaledFont(.cardTitle)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
@@ -137,7 +136,7 @@ struct RunTimelineView: View {
             GhostTimelineBars()
                 .padding(DesignTokens.Spacing.md)
 
-            Text(emptyStateMessage)
+            Text(model.timelineEmptyMessage)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 .multilineTextAlignment(.center)
@@ -148,17 +147,6 @@ struct RunTimelineView: View {
                 )
         }
         .frame(height: chartHeight)
-    }
-
-    private var emptyStateMessage: String {
-        switch model.context.status {
-        case .idle:
-            return "Run a preview to see the source timeline."
-        case .preflighting, .running:
-            return "Scanning source — bars will appear as files are dated."
-        default:
-            return "No dated files found in this source."
-        }
     }
 
     // MARK: - Data mapping
@@ -199,37 +187,6 @@ struct RunTimelineView: View {
         return "\(firstYear)–\(lastYear) · \(total.formatted()) files"
     }
 
-    private var subtitle: String {
-        switch model.context.status {
-        case .running:
-            if model.context.currentPhase == .copy {
-                return "Each bar fills as those frames find their place."
-            }
-            return "Reading dates from the source."
-        case .dryRunFinished:
-            return "Here's the shape of your source — every bar a month of frames waiting to land."
-        case .finished:
-            return "Every frame is home."
-        case .nothingToCopy:
-            return "The destination already has everything it needs."
-        case .failed:
-            return "The run stopped early. Review issues to continue."
-        case .cancelled:
-            return "Run cancelled. Start again when ready."
-        case .preflighting:
-            return "Preparing the run."
-        case .idle:
-            return "Run a preview to see the timeline of your source."
-        case .reverted:
-            return "Files restored to their original state."
-        case .revertEmpty:
-            return "This receipt had no transfers to undo."
-        case .reorganized:
-            return "Layout updated in place."
-        case .nothingToReorganize:
-            return "The destination already matches this layout."
-        }
-    }
 
     private var accessibilityValue: String {
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
