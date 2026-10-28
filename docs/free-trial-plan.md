@@ -18,7 +18,7 @@ Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 | 8 | Direct free V2 launch | App 507 rejected under 2.1(b); direct License purchase correction and replacement sandbox/recording evidence required |
 | 9 | Release monitoring | Not started |
 
-The launch target remains October 26, 2026, subject to final testing and App Review. There is no seven-day paid rollout or compiled acquisition-date cutoff. `ChronoframeUnlock.defaultPolicy()` disables both live and cached legacy grants. App transactions still supply the account identity for the allowance; verified ownership of the non-consumable unlock confers unrestricted access. Existing test-build legacy grants do not confer access, even offline. Test data and usage ledgers are not reset.
+The launch target remains October 29, 2026, subject to final testing and App Review. There is no seven-day paid rollout or compiled acquisition-date cutoff. `ChronoframeUnlock.defaultPolicy()` disables both live and cached legacy grants. App transactions still supply the account identity for the allowance; verified ownership of the non-consumable unlock confers unrestricted access. Existing test-build legacy grants do not confer access, even offline. Test data and usage ledgers are not reset.
 
 ## Risk markers
 
