@@ -648,3 +648,52 @@ button { font: inherit; }
   .help-page .page-head { padding-top: 28px; }
   .help-topics, .guide-topics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---- Comparison page (/compare) ----------------------------------------- */
+/* Verified figures only, so the table carries no scores or verdict columns. */
+.table-scroll {
+  margin: 0 0 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  background: var(--panel);
+}
+.cmp-table { width: 100%; min-width: 700px; border-collapse: collapse; font-size: 15px; }
+.cmp-table caption {
+  caption-side: bottom;
+  padding: 12px 18px 16px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.cmp-table th, .cmp-table td {
+  padding: 14px 18px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--hairline);
+}
+.cmp-table thead th {
+  background: var(--elevated);
+  color: var(--ink-primary);
+  font-size: var(--step-eyebrow);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.cmp-table tbody th { color: var(--ink-primary); font-weight: 600; }
+/* The global overflow-wrap would hyphenless-split product names in a narrow cell. */
+.cmp-table th, .cmp-table td { overflow-wrap: normal; word-break: normal; }
+.cmp-table tbody tr:last-child th, .cmp-table tbody tr:last-child td { border-bottom: 0; }
+.cmp-table tr.own th { box-shadow: inset 2px 0 0 var(--waypoint); }
+.cmp-table tr.own td { color: var(--ink-primary); }
+.cmp-table .muted-cell { color: var(--ink-muted); }
+.approach-heading { font-size: var(--step-h3); margin: 0 0 16px; }
+.approach-heading-others { margin-top: 44px; }
+.approach-heading-others + .section-lede { margin: 0 0 24px; }
+.trademark-note { max-width: 70ch; margin-inline: auto; }
+
+@media (max-width: 720px) {
+  .cmp-table { min-width: 660px; }
+  .cmp-table th, .cmp-table td { padding: 12px 14px; }
+}
