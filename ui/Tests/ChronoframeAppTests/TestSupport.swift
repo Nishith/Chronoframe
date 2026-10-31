@@ -127,6 +127,8 @@ final class MockDeduplicateEngine: DeduplicateEngine {
     var commitEvents: [DeduplicateCommitEvent] = []
     var revertEvents: [DeduplicateCommitEvent] = []
     var scanError: Error?
+    var commitError: Error?
+    var commitCallCount = 0
     var lastScanConfiguration: DeduplicateConfiguration?
     var lastCommitPlan: DeduplicationPlan?
     var lastCommitConfiguration: DeduplicateConfiguration?
@@ -175,8 +177,10 @@ final class MockDeduplicateEngine: DeduplicateEngine {
         plan: DeduplicationPlan,
         configuration: DeduplicateConfiguration
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
+        commitCallCount += 1
         lastCommitPlan = plan
         lastCommitConfiguration = configuration
+        if let commitError { throw commitError }
         let events = commitEvents
         return AsyncThrowingStream { continuation in
             Task { @MainActor in
