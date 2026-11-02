@@ -50,19 +50,19 @@
         <p class="help-note">You’ll need a Mac running macOS 14 or later, a destination folder for the copies, and free space for both the copies and a temporary export while the import runs.</p>
 
         <h2 id="destination" tabindex="-1">1. Set your destination first</h2>
-        <p>Open <strong>Organize &rarr; Setup</strong> and choose the folder that will hold your dated library. Photos imports land there, in the same <code>YYYY/MM/DD</code> layout as everything else.</p>
+        <p>Open <strong>Organize &rarr; Setup</strong> and choose the folder that will hold your dated library. Photos imports land there, in your chosen folder layout (<code>YYYY/MM/DD</code> by default), the same as any other import.</p>
 
         <h2 id="access" tabindex="-1">2. Allow Photos access</h2>
-        <p>Open <strong>Photos</strong> in the sidebar and choose <strong>Allow Access…</strong>. Chronoframe asks to read your library; it never writes to it. If you limit access to selected photos, only those appear.</p>
+        <p>Open <strong>Photos</strong> in the sidebar and choose <strong>Allow Access…</strong>. macOS asks you to grant Photos access; Chronoframe only reads from your library and never changes it. If you limit access to selected photos, only those appear.</p>
 
         <h2 id="select" tabindex="-1">3. Choose what to export</h2>
-        <p>Pick an album, then select the photos and videos you want. Start with one album or a small batch if this is your first time. Live Photos keep their still and movie together.</p>
+        <p>Pick <strong>All Photos</strong> or an album, then click the photos and videos you want. Start with one album or a small batch if this is your first time. Live Photos keep their still and movie together.</p>
 
         <h2 id="preview" tabindex="-1">4. Review the plan, then import</h2>
-        <p>Choose <strong>Review &amp; Import</strong>. Chronoframe exports the original, unedited files to temporary staging, then shows the same preview plan as a folder import: dates, destination folders and anything that needs attention. When it looks right, start the transfer. Each copy is verified, and existing files in the destination are never overwritten.</p>
+        <p>Choose <strong>Review &amp; Import</strong>. Chronoframe exports the original, unedited files to temporary staging, then opens the same preview plan as a folder import: dates, destination folders and anything that needs attention. Nothing reaches your destination until you choose <strong>Start Transfer</strong>. With verification on (the default), each copy is checked against its original, and existing files in the destination are never overwritten. The temporary export is removed afterward.</p>
 
         <h2 id="history" tabindex="-1">5. Check History</h2>
-        <p>Open <strong>History</strong> to see what was copied, skipped or could not copy. If something looks wrong, <strong>Revert</strong> removes the copies that run made, as long as they still match its receipt. Your Photos library is untouched either way.</p>
+        <p>Open <strong>Organize &rarr; History</strong> to see what was copied, skipped or could not copy. If something looks wrong, <strong>Revert This Run…</strong> removes the copies that run made, as long as they still match its receipt. Your Photos library is untouched either way.</p>
 
         <h2 id="limitation" tabindex="-1">What this doesn’t do</h2>
         <p>Chronoframe exports the original files, not your edits. Crops, filters and other adjustments made in Photos are not applied to the copies, and nothing is removed from Photos afterward, so the library keeps its full size. Originals stored only in iCloud are downloaded through Apple first, which needs a connection and extra temporary space.</p>
@@ -70,7 +70,7 @@
         <h2 id="what-chronoframe-does" tabindex="-1">What Chronoframe does, in plain terms</h2>
         <ul>
           <li>Read-only Apple Photos import of unedited originals into dated folders.</li>
-          <li>Preview first; copies verified; nothing in Photos changed.</li>
+          <li>Preview first; copies verified by default; nothing in Photos changed.</li>
           <li>The same Organize workflow for loose folders, camera cards and drives.</li>
           <li>No uploads, no Chronoframe account, no subscription. Processing happens on your Mac, on macOS 14 or later.</li>
           <li>Free allowance: 500 files organized plus 100 duplicates moved to Trash, per Apple Account per Mac.</li>
