@@ -32,12 +32,27 @@
   </url>
   <url>
     <loc>https://chronoframe.app/compare/</loc>
-    <lastmod>2026-10-27</lastmod>
+    <lastmod>2026-11-02</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://chronoframe.app/quick-start.html</loc>
     <lastmod>2026-10-27</lastmod>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://chronoframe.app/guides/organize-photos-into-dated-folders-mac/</loc>
+    <lastmod>2026-11-02</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://chronoframe.app/guides/export-apple-photos-originals-mac/</loc>
+    <lastmod>2026-11-02</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://chronoframe.app/guides/find-duplicate-photos-mac/</loc>
+    <lastmod>2026-11-02</lastmod>
+    <priority>0.6</priority>
   </url>
 </urlset>
