@@ -724,7 +724,13 @@ public final class RunSessionStore: ObservableObject {
             if total > 0 {
                 progress = Double(completed) / Double(total)
                 if phase == .copy {
-                    currentTaskTitle = "\(phase.runningTitle) \(completed.formatted()) of \(total.formatted()) files…"
+                    // Not `phase.runningTitle` — it already ends in "files...",
+                    // which read as "Copying files... 6 of 10 files…". And the
+                    // count is the job being worked through, not a tally of
+                    // files that landed, so this names a position in the queue
+                    // rather than claiming that many copies: the Copied card is
+                    // the one place that reports successes.
+                    currentTaskTitle = "Copying file \(completed.formatted()) of \(total.formatted())…"
                 } else if Self.usesFileCountETA(phase) {
                     let etaSeconds = estimatedFileETA(completed: completed, total: total)
                     metrics.etaSeconds = etaSeconds

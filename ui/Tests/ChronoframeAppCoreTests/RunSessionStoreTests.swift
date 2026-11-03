@@ -539,6 +539,11 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(progressed, "The Copied card must follow the executor's copied count")
         XCTAssertEqual(store.metrics.copiedCount, 4)
         XCTAssertEqual(store.progress, 0.6, accuracy: 0.0001, "The fraction still tracks attempted jobs")
+        XCTAssertEqual(
+            store.currentTaskTitle,
+            "Copying file 6 of 10…",
+            "The title names the job being worked through; it must not read as six copied files"
+        )
 
         continuation.finish()
     }
@@ -675,7 +680,7 @@ final class RunSessionStoreTests: XCTestCase {
         engine.pendingContinuation?.yield(.phaseProgress(phase: .copy, completed: 30, total: 100, copiedCount: 30, bytesCopied: 30_000, bytesTotal: 100_000, currentFilePath: "/tmp/source/photo30.jpg"))
         let progressSet = await waitForCondition { store.progress > 0 }
         XCTAssertTrue(progressSet)
-        XCTAssertEqual(store.currentTaskTitle, "Copying files... 30 of 100 files…")
+        XCTAssertEqual(store.currentTaskTitle, "Copying file 30 of 100…")
         XCTAssertEqual(store.metrics.plannedCount, 100)
         XCTAssertEqual(store.metrics.copiedCount, 30)
         XCTAssertEqual(store.metrics.bytesCopied, 30_000)
