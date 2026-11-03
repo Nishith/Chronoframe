@@ -417,6 +417,7 @@ public final class RunSessionStore: ObservableObject {
                             phase: .reorganize,
                             completed: completed,
                             total: total,
+                            copiedCount: nil,
                             bytesCopied: nil,
                             bytesTotal: nil,
                             currentFilePath: nil
@@ -712,7 +713,7 @@ public final class RunSessionStore: ObservableObject {
                 copySpeedLastSampleDate = Date()
             }
 
-        case let .phaseProgress(phase, completed, total, bytesCopied, bytesTotal, currentFilePath):
+        case let .phaseProgress(phase, completed, total, copiedCount, bytesCopied, bytesTotal, currentFilePath):
             if phase == .copy {
                 if let path = currentFilePath, !path.isEmpty {
                     currentFileURL = URL(fileURLWithPath: path)
@@ -723,7 +724,13 @@ public final class RunSessionStore: ObservableObject {
             if total > 0 {
                 progress = Double(completed) / Double(total)
                 if phase == .copy {
-                    currentTaskTitle = "\(phase.runningTitle) \(completed.formatted()) of \(total.formatted()) files…"
+                    // Not `phase.runningTitle` — it already ends in "files...",
+                    // which read as "Copying files... 6 of 10 files…". And the
+                    // count is the job being worked through, not a tally of
+                    // files that landed, so this names a position in the queue
+                    // rather than claiming that many copies: the Copied card is
+                    // the one place that reports successes.
+                    currentTaskTitle = "Copying file \(completed.formatted()) of \(total.formatted())…"
                 } else if Self.usesFileCountETA(phase) {
                     let etaSeconds = estimatedFileETA(completed: completed, total: total)
                     metrics.etaSeconds = etaSeconds
@@ -745,8 +752,11 @@ public final class RunSessionStore: ObservableObject {
 
             // Keep the Copied metric card updated live during the copy phase
             // so the user sees forward progress rather than "0" the whole time.
-            if phase == .copy {
-                metrics.copiedCount = completed
+            // `completed` counts attempted jobs, failures and skips included, so
+            // only the executor's own running copied count is shown here — the
+            // card must never credit a file that did not land.
+            if phase == .copy, let copiedCount {
+                metrics.copiedCount = copiedCount
             }
 
             guard phase == .copy, let bytesCopied, let bytesTotal, bytesTotal > 0 else { return }
