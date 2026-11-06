@@ -910,6 +910,48 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    func testDeduplicateAllowanceRefusalPresentsUnlockAndPreservesReview() async {
+        await MainActor.run {
+            let app = Self.launchApp(.deduplicateReviewWide, additionalEnvironment: [
+                "CHRONOFRAME_UI_TEST_DEDUPE_REFUSAL": "1"
+            ])
+            defer { app.terminate() }
+            let accept = Self.hittableButton(identifier: "dedupeAcceptClusterSuggestionButton", in: app)
+            XCTAssertTrue(accept.waitForExistence(timeout: 5))
+            Self.coordinateClick(accept)
+            let commit = Self.button(identifier: "dedupeCommitButton", in: app)
+            XCTAssertTrue(Self.waitUntilEnabled(commit))
+            let reviewedCommitLabel = commit.label
+            commit.click()
+            let confirmations = app.buttons.matching(identifier: "Move to Trash")
+            XCTAssertTrue(confirmations.firstMatch.waitForExistence(timeout: 5))
+            // macOS also exposes a Touch Bar copy of this button. Use the
+            // on-screen dialog control, as the owner did in the signed test.
+            guard let confirm = confirmations.allElementsBoundByIndex.first(where: {
+                $0.isHittable && app.windows.firstMatch.frame.contains($0.frame)
+            }) else {
+                XCTFail("No on-screen cleanup confirmation: \(app.debugDescription)")
+                return
+            }
+            Self.coordinateClick(confirm)
+
+            let buy = Self.button(identifier: "unlockSheet.buy", in: app)
+            XCTAssertTrue(buy.waitForExistence(timeout: 10), app.debugDescription)
+            XCTAssertTrue(Self.button(identifier: "unlockSheet.restore", in: app).exists)
+            let dismiss = Self.button(identifier: "unlockSheet.dismiss", in: app)
+            XCTAssertTrue(dismiss.exists)
+            guard dismiss.exists else { return }
+            dismiss.click()
+            XCTAssertTrue(app.buttons["Return to Scan"].waitForExistence(timeout: 5))
+            app.buttons["Return to Scan"].click()
+            let retainedCommit = Self.button(identifier: "dedupeCommitButton", in: app)
+            XCTAssertTrue(retainedCommit.waitForExistence(timeout: 5))
+            XCTAssertTrue(retainedCommit.isEnabled)
+            XCTAssertEqual(retainedCommit.label, reviewedCommitLabel)
+            XCTAssertTrue(Self.element(identifier: "trialIndicator.dedupe", in: app).label.contains("0 of 100 duplicates left"))
+        }
+    }
+
     func testMeteredTrialScenariosExposeLicenseAndWorkspaceIndicators() async {
         await MainActor.run {
             let licenseApp = Self.launchApp(.settingsLicense)
