@@ -186,6 +186,33 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         XCTAssertEqual(reviewItem.issues, [])
     }
 
+    func testPlannerFlagsConflictAndCarriesAlternativeWithoutChangingDestinationDate() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("conflict-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("conflict-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        let sourceFile = sourceRoot.appendingPathComponent("IMG_20190714_120000.jpg")
+        try writeMediaFile(at: sourceFile, contents: "metadata-wins")
+        let metadataDate = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+
+        let result = try DryRunPlanner(
+            dateResolver: FileDateResolver(
+                metadataReader: PlannerConflictMetadataReader(date: metadataDate),
+                scanDateProvider: { scanDate }
+            )
+        ).plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot)
+
+        let item = try XCTUnwrap(result.previewReviewItems.first)
+        XCTAssertEqual(item.resolvedDate, metadataDate)
+        XCTAssertEqual(item.dateSource, .photoMetadata)
+        XCTAssertTrue(item.issues.contains(.conflictingDates))
+        XCTAssertTrue(item.needsAttention)
+        XCTAssertEqual(item.alternativeDate?.date, makeDate("2019-07-14"))
+        XCTAssertEqual(item.alternativeDate?.source, .filename)
+        XCTAssertTrue(try XCTUnwrap(result.copyJobs.first?.destinationPath).contains("/2001/07/14/"))
+    }
+
     func testPlannerAddsSmartEventSuggestionsWithoutApplyingThem() throws {
         let sourceRoot = temporaryDirectoryURL.appendingPathComponent("event-source", isDirectory: true)
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("event-dest", isDirectory: true)
@@ -834,6 +861,14 @@ private final class CancellationProbe: @unchecked Sendable {
 
 private struct NoDateMetadataReader: MediaMetadataDateReading {
     func photoMetadataDate(at url: URL) -> Date? { nil }
+    func fileSystemCreationDate(at url: URL) -> Date? { nil }
+    func fileSystemModificationDate(at url: URL) -> Date? { nil }
+}
+
+private struct PlannerConflictMetadataReader: MediaMetadataDateReading {
+    let date: Date
+
+    func photoMetadataDate(at url: URL) -> Date? { date }
     func fileSystemCreationDate(at url: URL) -> Date? { nil }
     func fileSystemModificationDate(at url: URL) -> Date? { nil }
 }

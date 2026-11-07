@@ -201,7 +201,8 @@ public struct DryRunPlanner: Sendable {
                     issues: Self.reviewIssues(
                         for: resolvedWithoutOverride,
                         status: .hashError
-                    )
+                    ),
+                    alternativeDate: resolvedWithoutOverride.alternativeDate
                 )
                 continue
             }
@@ -244,7 +245,8 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .alreadyInDestination
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate
                 )
                 continue
             }
@@ -270,7 +272,8 @@ public struct DryRunPlanner: Sendable {
                             for: resolvedDate,
                             status: .duplicate
                         ),
-                        acceptedEventName: acceptedEventName
+                        acceptedEventName: acceptedEventName,
+                        alternativeDate: resolvedDate.alternativeDate
                     )
                 } catch {
                     planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
@@ -298,7 +301,8 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .ready
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate
                 )
             } catch {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
@@ -554,7 +558,8 @@ public struct DryRunPlanner: Sendable {
                     issues: Self.reviewIssues(
                         for: resolvedWithoutOverride,
                         status: .hashError
-                    )
+                    ),
+                    alternativeDate: resolvedWithoutOverride.alternativeDate
                 )
                 continue
             }
@@ -597,7 +602,8 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .alreadyInDestination
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate
                 )
                 continue
             }
@@ -623,7 +629,8 @@ public struct DryRunPlanner: Sendable {
                             for: resolvedDate,
                             status: .duplicate
                         ),
-                        acceptedEventName: acceptedEventName
+                        acceptedEventName: acceptedEventName,
+                        alternativeDate: resolvedDate.alternativeDate
                     )
                 } catch {
                     planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
@@ -651,7 +658,8 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .ready
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate
                 )
             } catch {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
@@ -845,6 +853,9 @@ public struct DryRunPlanner: Sendable {
             issues.append(.unknownDate)
         } else if resolvedDate.confidence == .low {
             issues.append(.lowConfidenceDate)
+        }
+        if let dateReviewIssue = resolvedDate.dateReviewIssue, !issues.contains(dateReviewIssue) {
+            issues.append(dateReviewIssue)
         }
 
         switch status {

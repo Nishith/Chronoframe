@@ -18,8 +18,17 @@ final class ChronoframeCorePreviewReviewModelsTests: XCTestCase {
         )
         XCTAssertEqual(
             PreviewReviewIssueKind.allCases.map(\.title),
-            ["Unknown date", "Low confidence date", "Duplicate", "Already in destination", "Could not read file"]
+            ["Unknown date", "Low confidence date", "Conflicting dates", "Duplicate", "Already in destination", "Could not read file"]
         )
+    }
+
+    func testLegacyPreviewReviewRowDecodesWithoutAlternativeDate() throws {
+        let legacyRow = #"{"sourcePath":"/source/IMG_20190714_120000.jpg","dateSource":"photoMetadata","dateConfidence":"high","status":"ready","issues":["conflictingDates"]}"#
+        let decoded = try JSONDecoder().decode(PreviewReviewItem.self, from: Data(legacyRow.utf8))
+
+        XCTAssertEqual(decoded.sourcePath, "/source/IMG_20190714_120000.jpg")
+        XCTAssertEqual(decoded.issues, [.conflictingDates])
+        XCTAssertNil(decoded.alternativeDate)
     }
 
     func testReviewOverrideNormalizesEventNamesAndAppliesDateOnlyWhenPresent() {
