@@ -50,4 +50,4 @@ One row per published post or video, with the exact link pasted into it.
 
 | Date | Channel | `ct=` | URL of the post |
 |---|---|---|---|
-| | r/macapps (launch) | reddit-macapps | TODO: existing live post, links to be edited in |
+| TODO (posted before Nov 7, 2026; links retagged Nov 7) | r/macapps (launch) | reddit-macapps | https://www.reddit.com/r/macapps/comments/1xpj7af/chronoframe_i_was_scared_to_touch_20_years_of/ |
