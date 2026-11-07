@@ -15,7 +15,7 @@
 - Xcode UI command: `xcodebuild -project ui/Chronoframe.xcodeproj -scheme Chronoframe -configuration Debug -derivedDataPath .tmp/ChronoframeDerivedData -destination 'platform=macOS,arch=arm64' -only-testing:ChronoframeUITests/ChronoframeUITests/testPreviewDateConflictRowShowsAlternativeAndSavesScreenshot CODE_SIGNING_ALLOWED=NO test`. App and UI-test targets compiled; launch hung before UI test execution because this Mac session is locked, then the run was interrupted (exit 75).
 - CI guards: `git diff --check`, `script/check_no_raw_animations.sh`, `script/check_photos_import_readonly.sh`, `script/check_agents_invariants_have_tests.sh`, and `script/check_uitest_membership.sh` all passed.
 - App-layer test guard: `script/check_app_layer_changes_have_tests.sh origin/main` passed after commits.
-- Feature commits on this branch: `eef795b`, `76e6b60`, `614d763` (all unpushed).
+- Feature commits are recorded in this branch's Git history and remain unpushed.
 
 ## Decisions logged
 
