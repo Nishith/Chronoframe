@@ -45,9 +45,15 @@ public struct DestinationLockUnsafeError: LocalizedError, Sendable, Equatable {
     }
 }
 
+public enum NASRemoteLeaseConfiguration {
+    /// Set once by the app at launch (NASStartup.configure). Nil in the CLI and in tests unless set.
+    public nonisolated(unsafe) static var leaseDirectory: URL?
+}
+
 public final class DestinationOperationLease: @unchecked Sendable {
     private let stateLock = NSLock()
     private var descriptor: Int32?
+    private var companion: DestinationOperationLease?
 
     fileprivate init(descriptor: Int32) {
         self.descriptor = descriptor
@@ -60,9 +66,18 @@ public final class DestinationOperationLease: @unchecked Sendable {
             return
         }
         self.descriptor = nil
+        let companion = self.companion
+        self.companion = nil
         stateLock.unlock()
         _ = flock(descriptor, LOCK_UN)
         _ = Darwin.close(descriptor)
+        companion?.release()
+    }
+
+    fileprivate func attach(companion: DestinationOperationLease?) {
+        stateLock.lock()
+        self.companion = companion
+        stateLock.unlock()
     }
 
     deinit { release() }
@@ -75,6 +90,10 @@ public enum DestinationOperationLock {
     /// Test seam: override remote-volume detection so tests don't need a real
     /// network mount. Production leaves this nil and queries the live volume.
     public nonisolated(unsafe) static var isRemoteVolumeProvider: (@Sendable (URL) -> Bool)?
+    /// Test seam: override the volume observation used for the share lease.
+    public nonisolated(unsafe) static var volumeClassifierProvider: (@Sendable (URL) -> NASVolumeObservation)?
+    /// Test seam: override the share root's file ID lookup (keyed by mount point).
+    public nonisolated(unsafe) static var shareRootFileIDProvider: (@Sendable (String) -> UInt64?)?
     #endif
 
     /// Whether `destinationRoot` lives on a non-local (network) volume. The
@@ -98,11 +117,69 @@ public enum DestinationOperationLock {
         operation: String
     ) throws -> DestinationOperationLease {
         let logsDirectory = destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
-        return try acquire(
-            lockFileURL: logsDirectory.appendingPathComponent(filename),
+        let companion = try acquireShareCompanion(
+            destinationRoot: destinationRoot,
             surface: surface,
             operation: operation
         )
+        do {
+            let lease = try acquire(
+                lockFileURL: logsDirectory.appendingPathComponent(filename),
+                surface: surface,
+                operation: operation
+            )
+            lease.attach(companion: companion)
+            return lease
+        } catch {
+            companion?.release()
+            throw error
+        }
+    }
+
+    /// One lease per network share, held beside the in-root lock. Nil for local
+    /// destinations, or when the app has not configured a lease directory.
+    private static func acquireShareCompanion(
+        destinationRoot: URL,
+        surface: String,
+        operation: String
+    ) throws -> DestinationOperationLease? {
+        guard let leaseDirectory = NASRemoteLeaseConfiguration.leaseDirectory else { return nil }
+        let volume: NASVolumeObservation
+        #if DEBUG
+        if let volumeClassifierProvider {
+            volume = volumeClassifierProvider(destinationRoot)
+        } else {
+            volume = NASVolumeClassifier.live.classify(destinationRoot)
+        }
+        #else
+        volume = NASVolumeClassifier.live.classify(destinationRoot)
+        #endif
+        guard volume.kind != .local else { return nil }
+
+        var shareRootFileID: UInt64 = 0
+        if !volume.mountPoint.isEmpty {
+            #if DEBUG
+            if let shareRootFileIDProvider {
+                shareRootFileID = shareRootFileIDProvider(volume.mountPoint) ?? 0
+            } else {
+                shareRootFileID = liveFileID(of: volume.mountPoint)
+            }
+            #else
+            shareRootFileID = liveFileID(of: volume.mountPoint)
+            #endif
+        }
+        let key = NASShareLeaseKey.key(volume: volume, shareRootFileID: shareRootFileID)
+        return try acquire(
+            lockFileURL: leaseDirectory.appendingPathComponent("\(key).lock"),
+            surface: surface,
+            operation: operation
+        )
+    }
+
+    private static func liveFileID(of path: String) -> UInt64 {
+        var status = stat()
+        guard lstat(path, &status) == 0 else { return 0 }
+        return UInt64(status.st_ino)
     }
 
     /// Acquire the exclusive operation lock at an explicit lock-file location,
