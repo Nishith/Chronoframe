@@ -15,7 +15,7 @@ Prefix `NASP`. Status values: todo, in-progress, review, done, blocked.
 | WP-02 | Internalize execute(queuedJobs:) | done | 0 | 37+2 pass | approve (round 1) | e6fa2e6 | safety-critical, one line |
 | WP-03 | Validate timeout, keeper save failure | done | 0 | 30+3+15 pass | approve (round 2) | abde28b | |
 | WP-04 | Comment fix, errata, docs, string lists | done | 0 | n/a (docs) | approve (round 1) | 8be8322 | |
-| G2 | Strings, suite, guards, evidence | done | xcode 0 | suite 0 | n/a | | |
+| G2 | Strings, suite, guards, evidence | done | xcode 0 | suite 0 | n/a | ca02a5a | |
 
 ## Log
 - 2026-11-08 WP-00: build 0, suite 0.
