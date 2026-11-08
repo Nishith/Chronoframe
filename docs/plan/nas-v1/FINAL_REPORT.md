@@ -75,7 +75,7 @@ Coverage for the new NAS Core files is 100% for NASLibraryIdentity, NASMeteredFi
 |---|---|---|---|---|---|
 | 0 Probe / qualification tooling | WP-09 | yes (`nas_swift.sh build` 0) | yes: 11 probe tests; local APFS smoke exit 0 with P01–P07 pass and the dir left empty | n/a (CLI tool) | H1, H2 todo |
 | 1a Read-only assessment engine | WP-01–05 | yes | yes: 12+2, 18, 13, 12, 21 tests. One scanner case-pair check was skipped because the temp volume is case-insensitive. | no | H3, H4, H8 todo |
-| 1b Review workspace | WP-10, WP-11 | yes; Xcode lane 0 | yes: 37 AppCore + 23 App tests; existing Dedupe, Setup, Sidebar, AppState and Accessibility suites pass | **no** (B-1) | H3, H5, H7 todo |
+| 1b Review workspace | WP-10, WP-11 | yes; Xcode lane 0 | yes: 37 AppCore + 25 App tests; existing Dedupe, Setup, Sidebar, AppState and Accessibility suites pass | **partly**: empty state and local-folder refusal verified by owner (54bee13); a completed assessment needs a share (H3) | H3, H5, H7 todo |
 | 1c Copy qualification (unflagged) | WP-06–08 | yes; release build of ChronoframeCore checked by the reviewer | yes: 21 + 7 + 7 + 10 new tests; existing executor, lock and DB suites pass | no | H1, H5, H6 todo |
 
 The NAS Library workspace is off in release builds (`NASCapability.isEnabled` is false). The remote copy policy, the journal policy and the CLI refusal ship unflagged (D-NAS-07). They are now enforced for every network or unclassifiable destination.
@@ -96,7 +96,7 @@ Owner reported the NAS Library window blank. Cause: a `fixedSize` banner gave th
 
 ## Open BLOCKED.md items
 
-- **B-1. G3 app smoke: partly resolved.** The workspace renders (owner verified). Still to do: the local-folder refusal check and the two screenshots.
+- **B-1. G3 app smoke: resolved.** Owner verified the workspace renders and the local-folder refusal shows the C-13 text. No open BLOCKED items remain.
   ```bash
   pkill -x Chronoframe || true
   open --env CHRONOFRAME_ENABLE_NAS=1 ui/build/Chronoframe.app
