@@ -444,7 +444,7 @@ public struct TransferExecutor: Sendable {
         return String(data: data, encoding: .utf8) ?? "\"\""
     }
 
-    public func execute(
+    func execute(
         queuedJobs: [QueuedCopyJob],
         database: OrganizerDatabase,
         destinationRoot: URL,
