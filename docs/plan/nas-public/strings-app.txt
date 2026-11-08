@@ -1,6 +1,5 @@
 Assess a photo library on your NAS
 Choose the top folder of your collection. Chronoframe reads it to find identical copies and changes nothing on the NAS.
-Choose Folder…
 Assess Library
 Assess Again
 Stop

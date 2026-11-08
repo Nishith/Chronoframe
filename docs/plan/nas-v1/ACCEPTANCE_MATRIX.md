@@ -33,5 +33,5 @@ Maps the P0 portions of `docs/NAS_REQUIREMENTS.md` section 16 (T01–T21) to aut
 | 3 Signed Synology P0 tests | H1–H8 in EVIDENCE_LEDGER.md | todo-hardware |
 | 4 No NAS writes, parity, byte limits, review/reconnect, truthful coverage | T04, T21, T09, T05, T02 rows | auto pass (ebdefd2); hardware todo-hardware |
 | 5 ADR-NAS-01–03 accepted with evidence | H1 probe JSON + T05/T06/T11/T14 rows | todo-hardware |
-| 6 No NAS cleanup action | NASLibraryViewTests/testNoDestructiveControlsExist | pass for NAS Library (ebdefd2); Deduplicate can still Trash on a mounted share — owner decision, D-NAS-135 |
+| 6 No NAS cleanup action | NASLibraryViewTests/testNoDestructiveControlsExist | pass for NAS Library (ebdefd2); Deduplicate on a mounted share: closed by NASP WP-01 (a6fc3d8) |
 | 7 Owner Go | Nishith records Go in EVIDENCE_LEDGER.md | todo-hardware |
