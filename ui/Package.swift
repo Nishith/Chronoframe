@@ -18,6 +18,7 @@ let package = Package(
         .executable(name: "ChronoframePackagingTool", targets: ["ChronoframePackagingTool"]),
         .executable(name: "ChronoframeIconTool", targets: ["ChronoframeIconTool"]),
         .executable(name: "ChronoframeVideoCalibrationTool", targets: ["ChronoframeVideoCalibrationTool"]),
+        .executable(name: "ChronoframeNASProbeTool", targets: ["ChronoframeNASProbeTool"]),
     ],
     targets: [
         .target(
@@ -65,6 +66,11 @@ let package = Package(
         // CI (no corpus in the repo); see docs/video-dedupe-calibration-rubric.md.
         .executableTarget(
             name: "ChronoframeVideoCalibrationTool",
+            dependencies: ["ChronoframeCore"]
+        ),
+        // Local only; real-share qualification evidence. Not run in CI.
+        .executableTarget(
+            name: "ChronoframeNASProbeTool",
             dependencies: ["ChronoframeCore"]
         ),
         .testTarget(
