@@ -4,7 +4,9 @@ import ChronoframeAppCore
 #if canImport(ChronoframeCore)
 import ChronoframeCore
 #endif
+import AppKit
 import Foundation
+import SwiftUI
 import XCTest
 @testable import ChronoframeApp
 
@@ -172,6 +174,38 @@ final class NASLibraryViewTests: XCTestCase {
     override func tearDown() {
         harness.tearDown()
         harness = nil
+    }
+
+    /// Regression: the empty workspace once reported a 1,692 pt minimum height (a wrapping
+    /// banner pinned with `fixedSize`), which the split view honoured by pushing the sidebar and
+    /// detail outside the window, so the whole window looked blank.
+    func testEmptyWorkspaceMinimumHeightFitsTheMainWindow() {
+        NASCapability.isEnabledOverride = true
+        defer { NASCapability.isEnabledOverride = nil }
+        let appState = AppStateHarness().makeAppState(performInitialBootstrap: false)
+        XCTAssertEqual(appState.nasWorkspaceStore.state, .noLibrary)
+        let minimum = NSHostingController(rootView: NASLibraryView(appState: appState)).sizeThatFits(in: .zero)
+        XCTAssertLessThanOrEqual(minimum.height, DesignTokens.Window.mainMinHeight, "minimum size \(minimum)")
+    }
+
+    /// Same guard for the results layout: header, summary and the group list/detail pair must
+    /// each fit the main window at their smallest, or the split view overflows the window.
+    func testResultsWorkspaceMinimumHeightsFitTheMainWindow() async {
+        await harness.loadResults(groups: [NASViewFixtures.group()])
+        XCTAssertEqual(harness.store.state, .completeAssessment)
+        guard let snapshot = harness.store.snapshot else { return XCTFail("no snapshot") }
+        harness.store.select(digest: snapshot.groups[0].digest)
+        let viewModel = NASLibraryViewModel(store: harness.store)
+        let parts: [(String, AnyView)] = [
+            ("header", AnyView(NASLibraryHeaderView(library: harness.store.library, actions: viewModel.visibleActions, startTitle: NASLibraryCopy.rescanButton, perform: { _ in }))),
+            ("summary", AnyView(NASFolderSummaryView(snapshot: snapshot))),
+            ("list", AnyView(NASExactGroupListView(store: harness.store, viewModel: viewModel))),
+            ("detail", AnyView(NASExactGroupDetailView(store: harness.store, viewModel: viewModel, previewLoader: viewModel.previewLoader))),
+        ]
+        for (name, view) in parts {
+            let minimum = NSHostingController(rootView: view).sizeThatFits(in: .zero)
+            XCTAssertLessThanOrEqual(minimum.height, DesignTokens.Window.mainMinHeight, "\(name) minimum size \(minimum)")
+        }
     }
 
     func testNavigationTitleIsNASLibrary() {

@@ -289,7 +289,6 @@ struct NASLibraryView: View {
             bannerLabel
                 .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
