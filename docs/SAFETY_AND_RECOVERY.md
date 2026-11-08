@@ -52,7 +52,70 @@ substitute for keeping a shared/NAS destination single-host: the underlying
 file lock is unreliable over SMB/AFP, so two Macs pointed at the same network
 volume could both proceed. Chronoframe detects a network destination and shows
 a one-time warning per destination so you know this configuration isn't
-supported; it does not change locking behavior.
+supported; the warning itself changes nothing; in the app a per-share lease also
+serializes changes to one share on this Mac (see Network Destinations), but two
+Macs on one share are still not coordinated.
+
+## Network Destinations
+
+When the destination is a folder on a network share, or Chronoframe cannot tell
+what kind of volume it is on, copies follow stricter rules. These rules apply to
+every network destination. They are not behind the NAS Library feature flag.
+
+- **Verification can't be turned off.** A copy run with verification off does
+  not start. Nothing is copied.
+- **Copies are flushed to the server.** Chronoframe asks for a full flush of each
+  temporary file and falls back to a plain flush only when the share reports that
+  a full flush is unsupported. If the flush fails, that copy fails.
+- **A copy never replaces an existing file.** Files are installed with the
+  operating system's no-replace rename. If the share can't do that, Chronoframe
+  stops the run before placing the file. It never uses the check-then-rename
+  fallback that it still uses on local volumes.
+- **A changed or disconnected share stops the run.** Before each copy, the
+  destination volume must still be the one the run started on.
+- **Copy records are kept more conservatively.** `.organize_cache.db` on a network
+  folder uses a rollback journal instead of write-ahead logging. If the switch
+  can't be confirmed, Chronoframe refuses to open the records and copies
+  nothing. It never deletes the database's side files.
+- **One mutation per share on this Mac.** Besides the lock inside the destination,
+  the app holds a per-share lease in Application Support. It is designed so that
+  two folders on the same share, or the same share mounted twice, can't be
+  changed at once. This is still one Mac: two Macs on the same share are not
+  coordinated. If the lease folder can't be created, the change does not start.
+- **The command-line tool refuses.** `ChronoframeCLI` will not write to a network
+  destination in this version, and says so before it creates or locks anything.
+  Use the app.
+
+Originals stay untouched in every one of these cases.
+
+## NAS Assessment
+
+NAS Library assesses a photo library on a network share to find identical
+copies. It is read-only on the library. The workspace is behind a feature flag
+and isn't available in release builds yet.
+
+- Library files are opened read-only and symlinks are not followed. Chronoframe
+  never creates, renames, or deletes anything in the assessed folder.
+- Everything it keeps (scan results, your review choices, the share lease) lives
+  on this Mac under Application Support, never in the library. Chronoframe
+  refuses to start if that location would be inside the assessed folder.
+- A file whose size is unique in the library is never read, because it can't have
+  an identical copy.
+- Chronoframe never reports a complete assessment when a folder or file couldn't
+  be read, a candidate couldn't be compared, or the scan was interrupted. It shows
+  "Assessment incomplete", "Assessment stopped", or "Waiting for your NAS" instead
+  of a complete result.
+
+Your keeper choice for a group of identical files is saved on this Mac, keyed by
+the files' content. It is a note for you, not an approval to delete anything. If
+the files change so the chosen keeper is no longer in the group, the choice is
+shown as out of date and you choose again.
+
+**NAS Library offers no cleanup.** The NAS Library workspace has no delete, move,
+or Trash control. The existing Deduplicate workspace moves files to the macOS
+Trash; if you point it at a folder on a mounted network share it shows only a
+one-time network warning, and Chronoframe has not verified that files moved to
+the Trash on a network share can be put back.
 
 ## Content-Verified Deduplicate Plans
 

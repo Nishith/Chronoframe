@@ -99,6 +99,10 @@ A: Yes. Use the **Deduplicate** workspace:
 
 Visual video matching is off by default. Enable it in **Settings → Deduplicate** with the Balanced or Similar Shots preset. These groups are always review-only and never accepted automatically.
 
+**Q: Can Chronoframe remove duplicates on my NAS?**
+
+A: Not from the NAS Library workspace in this version. NAS Library only reads your library and changes nothing on the NAS. It finds identical copies, shows how much space they take up (logical size, not space freed), and lets you pick which copy to keep. That choice is saved on this Mac as a note for you, not as a deletion approval, and the workspace has no delete, move, or Trash control. The existing Deduplicate workspace moves files to the macOS Trash. If you point it at a folder on a mounted network share it shows only a one-time network warning, and Chronoframe has not verified that files moved to the Trash on a network share can be put back. NAS Library isn't available in release builds yet.
+
 **Q: What if a file changes after a deduplicate scan?**
 
 A: Chronoframe's commit summary and executor use the same immutable plan with the expected content identity for every target. Before Trash, the app quarantines and verifies each mutation unit without following symlinks. If a file, pair partner, or owned sidecar no longer matches, Chronoframe leaves or restores the unit and reports it as stale instead of deleting it.

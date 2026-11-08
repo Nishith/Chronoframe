@@ -208,6 +208,69 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 
 ---
 
+## NAS And Network Folder Issues
+
+The NAS Library workspace isn't available in release builds yet. The copy rules, copy-records check, and command-line refusal below apply to every network destination now.
+
+### "Waiting for your NAS"
+
+**Message:** "Waiting for your NAS. Reconnect the share, then choose Reconnect. Nothing was changed."
+
+**Problem:** NAS Library couldn't reach the saved folder, or the share disappeared during an assessment.
+
+**Solution:**
+- Reconnect the share in Finder (**Go** → **Connect to Server**), then choose **Reconnect**
+- If **Reconnect** still can't find it, choose **Choose Folder…** and pick the same folder; Chronoframe keeps your saved choices when it recognizes the same library
+- Assess again to finish an interrupted scan; files that haven't changed aren't re-read
+
+### "Choose a folder on a network share"
+
+**Message:** "Choose a folder on a network share. For folders on this Mac, use Deduplicate."
+
+**Problem:** NAS Library only accepts folders on a network share. A folder on this Mac, or on a volume macOS can't identify, is refused and nothing is saved.
+
+**Solution:** Pick the top folder of your collection on the mounted share. Use **Deduplicate** for folders on this Mac.
+
+### "...can't guarantee that a copy never replaces an existing file"
+
+**Message:** "This network folder can't guarantee that a copy never replaces an existing file, so Chronoframe stopped before placing it: *path*. Your originals were untouched."
+
+**Problem:** The share doesn't support the no-replace rename Chronoframe requires for network destinations. Chronoframe stops the run instead of using a weaker method.
+
+**Solution:**
+- Copy to a folder on a local drive instead, or to a share whose server supports it
+- Files already copied and verified stay in place; nothing was overwritten
+- Running again against the same share will stop the same way
+
+### "The network folder ... disconnected or changed"
+
+**Message:** "The network folder at *mount point* disconnected or changed, so Chronoframe stopped before the next copy. Your originals were untouched."
+
+**Problem:** The share was unmounted, or a different volume is now at the destination path, partway through a copy run.
+
+**Solution:** Reconnect the share, then run the transfer again. Chronoframe resumes from its recorded queue and skips files already copied.
+
+### "...copy records on this network folder"
+
+**Message:** "Chronoframe couldn't open its copy records on this network folder safely, so it didn't copy anything. Another app or Chronoframe window may be using them. Your originals were untouched."
+
+**Problem:** Chronoframe keeps its copy records (`.organize_cache.db`) in the destination. On a network folder it must switch them to a rollback journal and confirm the switch, and that failed.
+
+**Solution:**
+- Close other Chronoframe windows, Terminal sessions, and any other app or Mac that may have the destination's `.organize_cache.db` open
+- Try again
+- Don't delete `.organize_cache.db` or its `-wal`, `-shm`, or `-journal` files to force it
+
+### Command-line tool says it can't write to a network folder
+
+**Message:** "Chronoframe's command-line tool can't write to a network folder in this version: *path*. Use the Chronoframe app for NAS destinations. Nothing was changed."
+
+**Problem:** `ChronoframeCLI` refuses network destinations before it scans, locks, or writes anything. This includes a named `--profile` whose destination is on a network share, even if `--dest` is local, and `--revert` for a receipt in a network destination. It exits with code 2.
+
+**Solution:** Run the organize or revert from the Chronoframe app. Using a NAS as the **source** with a local destination still works in the command line.
+
+---
+
 ## Performance
 
 ### App is slow or unresponsive
