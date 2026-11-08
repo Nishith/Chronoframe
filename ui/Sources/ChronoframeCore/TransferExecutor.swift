@@ -53,6 +53,13 @@ struct TransferFileCopyStrategy: Sendable {
     var clone: @Sendable (_ sourcePath: String, _ destinationPath: String) -> Int32
     var copyAll: @Sendable (_ sourcePath: String, _ destinationPath: String) -> Int32
     var copyMetadata: @Sendable (_ sourcePath: String, _ destinationPath: String) -> Int32
+    var copyData: @Sendable (_ sourcePath: String, _ destinationPath: String) -> Int32 = { sourcePath, destinationPath in
+        sourcePath.withCString { sourcePointer in
+            destinationPath.withCString { destinationPointer in
+                copyfile(sourcePointer, destinationPointer, nil, copyfile_flags_t(COPYFILE_DATA))
+            }
+        }
+    }
 
     static let system = TransferFileCopyStrategy(
         clone: { sourcePath, destinationPath in
@@ -197,6 +204,10 @@ public struct TransferExecutor: Sendable {
     public var exclusiveRename: @Sendable (String, String) -> Int32 = { source, destination in
         TransferExecutor.systemExclusiveRename(from: source, to: destination)
     }
+    public var remotePolicyProvider: @Sendable (URL) -> NASRemoteCopyPolicy = { NASRemoteCopyPolicy.resolve(destinationRoot: $0) }
+    public var fullFsync: @Sendable (Int32) -> Int32 = { fcntl($0, F_FULLFSYNC) }
+    public var plainFsync: @Sendable (Int32) -> Int32 = { fsync($0) }
+    public var volumeFileSystemID: @Sendable (String) -> UInt64? = { NASVolumeClassifier.live.statfs($0)?.fileSystemID }
     #endif
 
     public init(
@@ -516,6 +527,12 @@ public struct TransferExecutor: Sendable {
             ProcessInfo.processInfo.endActivity(activity)
         }
 
+        #if DEBUG
+        let policy = remotePolicyProvider(destinationRoot)
+        #else
+        let policy = NASRemoteCopyPolicy.resolve(destinationRoot: destinationRoot)
+        #endif
+
         if maxConcurrentCopies > 1 {
             let totalJobs = try database.queuedJobCount(status: status)
             let bytesTotal = try totalBytesForQueuedJobs(
@@ -534,9 +551,15 @@ public struct TransferExecutor: Sendable {
                 isCancelled: isCancelled,
                 totalJobs: totalJobs,
                 bytesTotal: bytesTotal,
-                runID: runID
+                runID: runID,
+                policy: policy
             )
             context.start()
+
+            if policy.isRemote && !verifyCopies {
+                context.abortRunFatally(.verificationRequired(destinationPath: destinationRoot.path))
+                return try context.finish(attemptedJobs: 0)
+            }
 
             var attemptedJobs = 0
             var lastThrottledReason: String? = nil
@@ -622,9 +645,15 @@ public struct TransferExecutor: Sendable {
             isCancelled: isCancelled,
             totalJobs: totalJobs,
             bytesTotal: bytesTotal,
-            runID: runID
+            runID: runID,
+            policy: policy
         )
         context.start()
+
+        if policy.isRemote && !verifyCopies {
+            context.abortRunFatally(.verificationRequired(destinationPath: destinationRoot.path))
+            return try context.finish(attemptedJobs: 0)
+        }
 
         var attemptedJobs = 0
 
@@ -748,6 +777,8 @@ public struct TransferExecutor: Sendable {
         let runLogger = context.runLogger
         let isCancelledRef = context.isCancelled
         let observerRef = context.observer
+        let policy = context.policy
+        let destinationRoot = context.destinationRoot
 
         let semaphore = DispatchSemaphore(value: concurrency)
         let group = DispatchGroup()
@@ -759,6 +790,8 @@ public struct TransferExecutor: Sendable {
                     self.prepareCopy(
                         job: job,
                         verifyCopies: verifyCopies,
+                        policy: policy,
+                        destinationRoot: destinationRoot,
                         runLogger: runLogger,
                         isCancelled: isCancelledRef,
                         onIssue: { issue in observerRef.onIssue(issue) }
@@ -814,6 +847,8 @@ public struct TransferExecutor: Sendable {
     fileprivate func prepareCopy(
         job: QueuedCopyJob,
         verifyCopies: Bool,
+        policy: NASRemoteCopyPolicy,
+        destinationRoot: URL,
         runLogger: PersistentRunLogger,
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
@@ -836,9 +871,21 @@ public struct TransferExecutor: Sendable {
         }
 
         do {
+            if policy.isRemote {
+                #if DEBUG
+                let currentVolumeID = volumeFileSystemID(destinationRoot.path)
+                #else
+                let currentVolumeID = NASVolumeClassifier.live.statfs(destinationRoot.path)?.fileSystemID
+                #endif
+                guard currentVolumeID == policy.volume.fileSystemID else {
+                    throw NASRemoteCopyError.destinationVolumeChanged(mountPoint: policy.volume.mountPoint)
+                }
+            }
+
             let temporaryPath = try prepareAtomicCopyWithRetry(
                 sourcePath: job.sourcePath,
                 requestedDestinationPath: job.destinationPath,
+                policy: policy,
                 isCancelled: isCancelled,
                 onIssue: onIssue
             )
@@ -865,6 +912,8 @@ public struct TransferExecutor: Sendable {
             }
 
             return .prepared(temporaryPath: temporaryPath, verifiedHash: verifiedHash)
+        } catch let error as NASRemoteCopyError {
+            return .runFatal(error)
         } catch {
             return .failed(
                 message: "Copy failed: \(job.sourcePath) -> \(job.destinationPath): \(error.localizedDescription)",
@@ -876,6 +925,7 @@ public struct TransferExecutor: Sendable {
     private func prepareAtomicCopy(
         sourcePath: String,
         requestedDestinationPath: String,
+        policy: NASRemoteCopyPolicy = .local,
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
     ) throws -> String {
@@ -892,8 +942,13 @@ public struct TransferExecutor: Sendable {
         let temporaryDestinationPath = try uniqueTemporaryCopyPath(for: requestedDestinationPath)
 
         do {
-            try copyFileContents(from: sourcePath, to: temporaryDestinationPath)
-            try fsyncFile(atPath: temporaryDestinationPath)
+            try copyFileContents(from: sourcePath, to: temporaryDestinationPath, policy: policy, onMetadataFailure: {
+                onIssue(RunIssue(
+                    severity: .warning,
+                    message: "Chronoframe copied and verified this file, but the network folder didn't accept some of its Finder metadata (tags, permissions or dates): \(requestedDestinationPath)"
+                ))
+            })
+            try fsyncFile(atPath: temporaryDestinationPath, policy: policy)
             return temporaryDestinationPath
         } catch {
             if FileManager.default.fileExists(atPath: temporaryDestinationPath) {
@@ -906,6 +961,7 @@ public struct TransferExecutor: Sendable {
     private func prepareAtomicCopyWithRetry(
         sourcePath: String,
         requestedDestinationPath: String,
+        policy: NASRemoteCopyPolicy,
         isCancelled: @escaping @Sendable () -> Bool,
         onIssue: @escaping @Sendable (RunIssue) -> Void
     ) throws -> String {
@@ -916,6 +972,7 @@ public struct TransferExecutor: Sendable {
                 return try prepareAtomicCopy(
                     sourcePath: sourcePath,
                     requestedDestinationPath: requestedDestinationPath,
+                    policy: policy,
                     isCancelled: isCancelled,
                     onIssue: onIssue
                 )
@@ -943,6 +1000,7 @@ public struct TransferExecutor: Sendable {
     fileprivate func finalizePreparedCopy(
         temporaryPath: String,
         requestedDestinationPath: String,
+        policy: NASRemoteCopyPolicy = .local,
         beforeRename: (String) throws -> Void = { _ in }
     ) throws -> (destinationPath: String, size: Int64, modificationTime: TimeInterval) {
         var lastExclusiveRenameError: Error?
@@ -954,7 +1012,7 @@ public struct TransferExecutor: Sendable {
                 // namespace mutation. Recovery can now distinguish a missing
                 // final from a finalized copy after process termination.
                 try beforeRename(finalDestinationPath)
-                try renameFile(from: temporaryPath, to: finalDestinationPath)
+                try renameFile(from: temporaryPath, to: finalDestinationPath, policy: policy)
                 let fileAttributes = try FileManager.default.attributesOfItem(atPath: finalDestinationPath)
                 return (
                     destinationPath: finalDestinationPath,
@@ -1064,7 +1122,22 @@ public struct TransferExecutor: Sendable {
         )
     }
 
-    private func copyFileContents(from sourcePath: String, to destinationPath: String) throws {
+    private func copyFileContents(
+        from sourcePath: String,
+        to destinationPath: String,
+        policy: NASRemoteCopyPolicy = .local,
+        onMetadataFailure: () -> Void = {}
+    ) throws {
+        if policy.isRemote {
+            guard fileCopyStrategy.copyData(sourcePath, destinationPath) == 0 else {
+                throw currentPOSIXError()
+            }
+            if fileCopyStrategy.copyMetadata(sourcePath, destinationPath) != 0 {
+                onMetadataFailure()
+            }
+            return
+        }
+
         let cloneResult = fileCopyStrategy.clone(sourcePath, destinationPath)
         if cloneResult == 0 {
             _ = fileCopyStrategy.copyMetadata(sourcePath, destinationPath)
@@ -1077,8 +1150,8 @@ public struct TransferExecutor: Sendable {
         }
     }
 
-    private func fsyncFile(atPath path: String) throws {
-        let fileDescriptor = open(path, O_RDWR)
+    private func fsyncFile(atPath path: String, policy: NASRemoteCopyPolicy = .local) throws {
+        let fileDescriptor = open(path, policy.isRemote ? (O_RDWR | O_CLOEXEC | O_NOFOLLOW) : O_RDWR)
         guard fileDescriptor >= 0 else {
             throw currentPOSIXError()
         }
@@ -1088,7 +1161,27 @@ public struct TransferExecutor: Sendable {
 
         // F_FULLFSYNC flushes all the way to the storage device on macOS,
         // unlike fsync() which only guarantees flush to the disk controller.
-        guard fcntl(fileDescriptor, F_FULLFSYNC) == 0 else {
+        #if DEBUG
+        let fullFsyncResult = fullFsync(fileDescriptor)
+        #else
+        let fullFsyncResult = fcntl(fileDescriptor, F_FULLFSYNC)
+        #endif
+        if policy.isRemote && fullFsyncResult != 0 {
+            let fullFsyncErrno = errno
+            guard fullFsyncErrno == ENOTSUP || fullFsyncErrno == EINVAL || fullFsyncErrno == ENOTTY else {
+                throw posixError(code: fullFsyncErrno, description: String(cString: strerror(fullFsyncErrno)))
+            }
+            #if DEBUG
+            let plainFsyncResult = plainFsync(fileDescriptor)
+            #else
+            let plainFsyncResult = fsync(fileDescriptor)
+            #endif
+            guard plainFsyncResult == 0 else {
+                throw currentPOSIXError()
+            }
+            return
+        }
+        guard fullFsyncResult == 0 else {
             throw currentPOSIXError()
         }
     }
@@ -1101,7 +1194,7 @@ public struct TransferExecutor: Sendable {
         }
     }
 
-    private func renameFile(from sourcePath: String, to destinationPath: String) throws {
+    private func renameFile(from sourcePath: String, to destinationPath: String, policy: NASRemoteCopyPolicy = .local) throws {
         #if DEBUG
         let result = exclusiveRename(sourcePath, destinationPath)
         #else
@@ -1110,6 +1203,9 @@ public struct TransferExecutor: Sendable {
         if result != 0 {
             guard errno == ENOTSUP else {
                 throw currentPOSIXError()
+            }
+            if policy.isRemote {
+                throw NASRemoteCopyError.atomicNoReplaceUnsupported(destinationPath: destinationPath)
             }
             try renameClaimingDestination(from: sourcePath, to: destinationPath)
         }
@@ -1319,6 +1415,7 @@ fileprivate enum TransferJobOutcome: Sendable {
     case copied(destinationPath: String, size: Int64, modificationTime: TimeInterval, verifiedHash: String?)
     case failed(message: String, logMessage: String)
     case skipped(message: String, logMessage: String)
+    case runFatal(NASRemoteCopyError)
 }
 
 private final class ParallelTransferOutcomes: @unchecked Sendable {
@@ -1584,6 +1681,9 @@ private final class TransferExecutionContext {
     private var destinationUpdates: [RawFileCacheRecord]
     private var finished = false
     private var abortReason: String?
+    fileprivate let policy: NASRemoteCopyPolicy
+    fileprivate let destinationRoot: URL
+    private var appleDoubleCount = 0
 
     init(
         executor: TransferExecutor,
@@ -1595,10 +1695,13 @@ private final class TransferExecutionContext {
         isCancelled: @escaping @Sendable () -> Bool,
         totalJobs: Int,
         bytesTotal: Int64,
-        runID: UUID
+        runID: UUID,
+        policy: NASRemoteCopyPolicy = .local
     ) throws {
         self.executor = executor
         self.database = database
+        self.policy = policy
+        self.destinationRoot = destinationRoot
         self.verifyCopies = verifyCopies
         self.runLogger = runLogger
         self.observer = observer
@@ -1622,6 +1725,16 @@ private final class TransferExecutionContext {
         observer.onPhaseStarted(totalJobs, bytesTotal)
     }
 
+    /// A `NASRemoteCopyError` ends the run. It is recorded through the same
+    /// `abortReason` the failure-threshold abort uses, but never counts as a
+    /// failed job, so it can't be mistaken for (or tip) the 5/20 thresholds.
+    func abortRunFatally(_ error: NASRemoteCopyError) {
+        let reason = error.errorDescription ?? "Chronoframe stopped copying to the network folder. Your originals were untouched."
+        abortReason = reason
+        runLogger.error(reason)
+        observer.onIssue(RunIssue(severity: .error, message: reason))
+    }
+
     func process(job: QueuedCopyJob, attemptedJobs: Int) throws -> Bool {
         let observerRef = self.observer
         // `prepareCopy` hashes the source right before copying and returns a
@@ -1640,6 +1753,8 @@ private final class TransferExecutionContext {
         let outcome = executor.prepareCopy(
             job: job,
             verifyCopies: verifyCopies,
+            policy: policy,
+            destinationRoot: destinationRoot,
             runLogger: runLogger,
             isCancelled: isCancelled,
             onIssue: { issue in observerRef.onIssue(issue) }
@@ -1668,6 +1783,7 @@ private final class TransferExecutionContext {
                 let finalizedCopy = try executor.finalizePreparedCopy(
                     temporaryPath: temporaryPath,
                     requestedDestinationPath: job.destinationPath,
+                    policy: policy,
                     beforeRename: { finalPath in
                         try self.database.updateJobMutation(
                             sourcePath: job.sourcePath,
@@ -1686,6 +1802,15 @@ private final class TransferExecutionContext {
                     mutationState: .finalized
                 )
                 try database.updateJobStatus(sourcePath: job.sourcePath, status: .copied)
+                if policy.isRemote {
+                    let finalURL = URL(fileURLWithPath: finalizedCopy.destinationPath)
+                    let companionPath = finalURL.deletingLastPathComponent()
+                        .appendingPathComponent("._" + finalURL.lastPathComponent).path
+                    var companionInfo = stat()
+                    if lstat(companionPath, &companionInfo) == 0 {
+                        appleDoubleCount += 1
+                    }
+                }
                 completedCopy = (
                     destinationPath: finalizedCopy.destinationPath,
                     actualSize: finalizedCopy.size,
@@ -1701,6 +1826,10 @@ private final class TransferExecutionContext {
                     actualDestinationPath: nil,
                     mutationState: .failed
                 )
+                if let remoteError = error as? NASRemoteCopyError {
+                    abortRunFatally(remoteError)
+                    return false
+                }
                 try database.updateJobStatus(sourcePath: job.sourcePath, status: .failed)
 
                 let message = "Copy failed: \(job.sourcePath) -> \(job.destinationPath): \(error.localizedDescription)"
@@ -1783,6 +1912,17 @@ private final class TransferExecutionContext {
             skippedCount += 1
             observer.onPhaseProgress(attemptedJobs, totalJobs, bytesCopied, bytesTotal, job.sourcePath)
             emittedProgress = true
+
+        case let .runFatal(error):
+            try? database.updateJobMutation(
+                sourcePath: job.sourcePath,
+                runID: runID,
+                intendedDestinationPath: job.destinationPath,
+                actualDestinationPath: nil,
+                mutationState: .failed
+            )
+            abortRunFatally(error)
+            return false
         }
 
         guard let completedCopy else {
@@ -1821,6 +1961,12 @@ private final class TransferExecutionContext {
 
     func finish(attemptedJobs: Int) throws -> TransferExecutionResult {
         try executor.flushDestinationUpdates(destinationUpdates, database: database)
+        if appleDoubleCount > 0 {
+            observer.onIssue(RunIssue(
+                severity: .info,
+                message: "macOS created \(appleDoubleCount) hidden ._ metadata files beside copies on the network folder. They aren't photos or videos and aren't counted as copies."
+            ))
+        }
         if abortReason == nil, isCancelled(), attemptedJobs < totalJobs {
             abortReason = "Transfer was cancelled before all queued files were processed."
         }
