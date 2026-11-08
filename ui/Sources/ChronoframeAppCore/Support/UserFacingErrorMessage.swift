@@ -201,6 +201,10 @@ public enum UserFacingErrorMessage {
             return error.errorDescription
         case let error as WatchedSourceDatabaseError:
             return error.errorDescription
+        case let error as NASAssessmentError:
+            return error.errorDescription
+        case let error as NASRemoteCopyError:
+            return error.errorDescription
         default:
             return nil
         }
