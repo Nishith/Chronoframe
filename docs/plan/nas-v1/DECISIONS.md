@@ -76,3 +76,9 @@ Log it under "Runtime decisions" at the bottom as `D-NAS-1NN` with the WP ID, th
 - **D-NAS-102 (WP-01) Mount-string parsing details.** C-02 rule 4 leaves edge order open. Chose: percent-decode the SMB share, then strip a trailing `/`; keep the raw string if decoding fails; drop the port at the first `:` after removing user-info (`@`) and `DOMAIN;`; IPv6 literal hosts are not handled (P1); the NFS branch applies only to `nfs` with a `:`; an empty NFS host is nil; one leading `/` is dropped from the NFS path. Any other value gives (nil, nil).
 
 - **D-NAS-103 (WP-01) Unknown observation path.** `.unknown(observedPath:)` carries the original `url.path` (C-02 rule 1); the ancestor walk stops after trying `/`.
+
+- **D-NAS-104 (WP-02) Mount-prefix match on a component boundary.** C-04 says strip the mount-point prefix. A plain string prefix would make `/Volumes/photo2/x` relative to `/Volumes/photo`. Chose: root equal to mount ⇒ ""; `hasPrefix(mount + "/")` ⇒ strip; trailing-slash mount tolerated; otherwise the full path without the leading `/` (the contract's own fallback), which can never equal a recorded relative path and so fails closed as a mismatch.
+
+- **D-NAS-105 (WP-02) Root type check.** `observe` checks symlink first, then directory, returning nil for either; `liveLstat` derives both from `st_mode & S_IFMT`; birth time is `st_birthtimespec` seconds plus fractional nanoseconds, nil when ≤ 0.
+
+- **D-NAS-106 (WP-02) Reason ordering.** `compare` collects reasons in C-04 rule order 1–9; ambiguous reasons (`missingShareName`, then `serverHostChanged`) are dropped whenever any mismatch reason exists.
