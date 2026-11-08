@@ -82,3 +82,7 @@ Log it under "Runtime decisions" at the bottom as `D-NAS-1NN` with the WP ID, th
 - **D-NAS-105 (WP-02) Root type check.** `observe` checks symlink first, then directory, returning nil for either; `liveLstat` derives both from `st_mode & S_IFMT`; birth time is `st_birthtimespec` seconds plus fractional nanoseconds, nil when ≤ 0.
 
 - **D-NAS-106 (WP-02) Reason ordering.** `compare` collects reasons in C-04 rule order 1–9; ambiguous reasons (`missingShareName`, then `serverHostChanged`) are dropped whenever any mismatch reason exists.
+
+- **D-NAS-107 (WP-03) Post-read mtime baseline.** C-05 step 5 says "mtime differs by ≥ 0.001" without a baseline. Chose post vs the pre-read descriptor mtime (detects change during the read; pre is already within 1 ms of expected).
+
+- **D-NAS-108 (WP-03) Reader seams and counters.** `SystemCalls.init(open:fstat:read:close:lastError:)` in contract property order with escaping `@Sendable` closures. A nil `fstat` (pre or post) gives `.readFailed` with errorCode nil. `readCalls` counts every call including EINTR and the failing call.
