@@ -25,7 +25,8 @@ All 13 work packages and gate G2 are committed. G3's automated checks all exit 0
 | ca0ce3a | NAS WP-11: NAS Library workspace UI |
 | 35f2c87 | NAS WP-12: Documentation |
 | ebdefd2 | NAS WP-09b: Exempt the probe tool from the Xcode source-list test |
-| (this commit) | NAS G3: final verification report |
+| 3100748 | NAS G3: final verification report |
+| 54bee13 | NAS WP-11b: Keep the NAS workspace's minimum height inside the window |
 
 ## Gate commands
 
@@ -89,9 +90,13 @@ The NAS Library workspace is off in release builds (`NASCapability.isEnabled` is
   - WP-11: tests no longer write to the real home, preview paths are confined to the library, and accessibility labels start with the visible title.
 - I reviewed the safety-critical diffs line by line for WP-06 (TransferExecutor) and WP-07 (OrganizerDatabase, DestinationOperationLock). Every changed line traces to C-08, C-09 or C-10, and the review is recorded in `PROGRESS.md`.
 
+## Post-G3
+
+Owner reported the NAS Library window blank. Cause: a `fixedSize` banner gave the workspace a 1,692 pt minimum height, pushing all content outside the window. Fixed in 54bee13 with two regression tests (D-NAS-137). Owner then verified the workspace renders in the running app.
+
 ## Open BLOCKED.md items
 
-- **B-1. G3 app smoke: launch and screen capture not permitted.** Recommendation: run it by hand (2 minutes).
+- **B-1. G3 app smoke: partly resolved.** The workspace renders (owner verified). Still to do: the local-folder refusal check and the two screenshots.
   ```bash
   pkill -x Chronoframe || true
   open --env CHRONOFRAME_ENABLE_NAS=1 ui/build/Chronoframe.app
