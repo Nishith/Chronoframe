@@ -1,0 +1,11 @@
+Chronoframe can't use this folder. Choose a regular folder on a network share, not a link. Nothing was changed.
+Choose a folder on a network share. For folders on this Mac, use Deduplicate.
+Chronoframe couldn't open its assessment data on this Mac. Nothing on the NAS was changed.
+This item stopped being a regular file, so Chronoframe didn't read it.
+Chronoframe couldn't open this file.
+This file changed while Chronoframe was checking it, so it wasn't compared.
+Chronoframe couldn't finish reading this file, so it wasn't compared.
+The NAS became unavailable while Chronoframe was reading this file.
+Chronoframe couldn't check this file, so it wasn't compared.
+Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed. For a NAS, use NAS Library.
+Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed.

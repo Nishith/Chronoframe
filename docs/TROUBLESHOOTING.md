@@ -261,6 +261,16 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 - Try again
 - Don't delete `.organize_cache.db` or its `-wal`, `-shm`, or `-journal` files to force it
 
+### "Choose a folder on this Mac or an attached drive"
+
+**Message:** "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed." Builds where NAS Library is available add: "For a NAS, use NAS Library."
+
+**Problem:** Deduplicate moves files to the macOS Trash, and Chronoframe has not verified that Trash on a network share can put files back. It refuses any folder that isn't on this Mac or an attached drive, including a folder on a volume macOS can't identify, before it scans or changes anything.
+
+**Solution:**
+- Pick a folder on this Mac or on an attached drive
+- To look for duplicates on a NAS, use NAS Library where it is available; it only reads your library and changes nothing on the NAS
+
 ### Command-line tool says it can't write to a network folder
 
 **Message:** "Chronoframe's command-line tool can't write to a network folder in this version: *path*. Use the Chronoframe app for NAS destinations. Nothing was changed."

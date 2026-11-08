@@ -99,9 +99,9 @@ A: Yes. Use the **Deduplicate** workspace:
 
 Visual video matching is off by default. Enable it in **Settings → Deduplicate** with the Balanced or Similar Shots preset. These groups are always review-only and never accepted automatically.
 
-**Q: Can Chronoframe remove duplicates on my NAS?**
+**Q: Can I deduplicate a folder on my NAS?**
 
-A: Not from the NAS Library workspace in this version. NAS Library only reads your library and changes nothing on the NAS. It finds identical copies, shows how much space they take up (logical size, not space freed), and lets you pick which copy to keep. That choice is saved on this Mac as a note for you, not as a deletion approval, and the workspace has no delete, move, or Trash control. The existing Deduplicate workspace moves files to the macOS Trash. If you point it at a folder on a mounted network share it shows only a one-time network warning, and Chronoframe has not verified that files moved to the Trash on a network share can be put back. NAS Library isn't available in release builds yet.
+A: No, not for now. Deduplicate moves files to the macOS Trash, and Chronoframe has not verified that files moved to the Trash from a network share can be put back, so Deduplicate refuses any folder that isn't on this Mac or an attached drive. It also refuses a folder when macOS can't tell what kind of volume it is on. Nothing is changed. In the released app, which doesn't include NAS Library yet, the message reads: "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed." In builds where NAS Library is available, the message adds: "For a NAS, use NAS Library." NAS Library only reads your library and changes nothing on the NAS. It finds identical copies, shows how much space they take up (logical size, not space freed), and lets you pick which copy to keep. That choice is saved on this Mac as a note for you, not as a deletion approval, and the workspace has no delete, move, or Trash control. NAS Library isn't available in release builds yet.
 
 **Q: What if a file changes after a deduplicate scan?**
 

@@ -121,7 +121,7 @@ See [Safety and Recovery](SAFETY_AND_RECOVERY.md) for the user-facing contract a
 
 ## NAS Support
 
-The NAS Library workspace is behind `NASCapability.isEnabled`: not available in release builds yet, and on in DEBUG builds with `CHRONOFRAME_ENABLE_NAS=1`. The remote copy policy, the journal policy, the share lease, and the CLI refusal are not behind the flag. They apply to every network or unclassifiable destination.
+The NAS Library workspace is behind `NASCapability.isEnabled`: not available in release builds yet, and on in DEBUG builds with `CHRONOFRAME_ENABLE_NAS=1`. The remote copy policy, the journal policy, the share lease, and the CLI refusal are not behind the flag. They apply to every network or unclassifiable destination. Deduplicate also refuses any folder that isn't on a local volume (network or unclassifiable) through `NASDeduplicateFolderRefusal`, at the folder picker, the history shortcut, the scan entry, and inside the engine; that refusal is not behind the flag either, and its message mentions NAS Library only when the flag is on.
 
 ### Application Support Layout
 

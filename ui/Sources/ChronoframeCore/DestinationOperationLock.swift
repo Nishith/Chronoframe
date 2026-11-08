@@ -99,8 +99,10 @@ public enum DestinationOperationLock {
     /// Whether `destinationRoot` lives on a non-local (network) volume. The
     /// cross-process `flock` lock only reliably guards same-machine access; on
     /// SMB/AFP mounts two machines could both proceed. Callers use this to warn
-    /// the user — it does not change locking behavior. An unreadable or unknown
-    /// volume attribute is treated as **local** so the app never warns spuriously.
+    /// the user. Since NAS v1, `acquire` also classifies the volume and takes a
+    /// per-share Application Support lease when it is not local (see
+    /// `acquireShareCompanion`). An unreadable or unknown volume attribute is
+    /// treated as **local** here so the app never warns spuriously.
     public static func isRemoteVolume(_ destinationRoot: URL) -> Bool {
         #if DEBUG
         if let isRemoteVolumeProvider {
