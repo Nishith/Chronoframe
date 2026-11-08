@@ -45,6 +45,43 @@ final class ChronoframeCoreNASVolumeClassifierTests: XCTestCase {
         XCTAssertFalse(description.contains("secret"))
     }
 
+    func testParsesSMBMountedFromWithNoUser() {
+        let value = "//DiskStation.local/photo"
+        let parsed = NASVolumeClassifier.parseMountedFrom(value, fileSystemType: "smbfs")
+        XCTAssertEqual(parsed.serverHost, "diskstation.local")
+        XCTAssertEqual(parsed.shareName, "photo")
+
+        let observation = classifier(fileSystemType: "smbfs", mountedFrom: value, flags: 0)
+            .classify(URL(fileURLWithPath: "/Volumes/Share/Photos"))
+        XCTAssertEqual(observation.serverHost, "diskstation.local")
+        XCTAssertEqual(observation.shareName, "photo")
+    }
+
+    func testParsesSMBMountedFromWithoutShareSegmentOrWithDomainAfterUser() {
+        let hostOnly = NASVolumeClassifier.parseMountedFrom("//DiskStation.local", fileSystemType: "smbfs")
+        XCTAssertEqual(hostOnly.serverHost, "diskstation.local")
+        XCTAssertNil(hostOnly.shareName)
+
+        let domainAfterUser = NASVolumeClassifier.parseMountedFrom("//nishith@WORKGROUP;DiskStation.local/photo", fileSystemType: "smbfs")
+        XCTAssertEqual(domainAfterUser.serverHost, "diskstation.local")
+        XCTAssertEqual(domainAfterUser.shareName, "photo")
+    }
+
+    func testParsesSMBMountedFromWithDomainAndUserButNoPassword() {
+        let value = "//WORKGROUP;nishith@DiskStation.local/photo"
+        let parsed = NASVolumeClassifier.parseMountedFrom(value, fileSystemType: "smbfs")
+        XCTAssertEqual(parsed.serverHost, "diskstation.local")
+        XCTAssertEqual(parsed.shareName, "photo")
+
+        let observation = classifier(fileSystemType: "smbfs", mountedFrom: value, flags: 0)
+            .classify(URL(fileURLWithPath: "/Volumes/Share/Photos"))
+        XCTAssertEqual(observation.serverHost, "diskstation.local")
+        XCTAssertEqual(observation.shareName, "photo")
+        let description = String(describing: observation)
+        XCTAssertFalse(description.contains("nishith"), "The user name must not be kept: \(description)")
+        XCTAssertFalse(description.lowercased().contains("workgroup"), "The domain must not be kept: \(description)")
+    }
+
     func testParsesSMBMountedFromWithEmptyShare() {
         let parsed = NASVolumeClassifier.parseMountedFrom("//guest@nas/", fileSystemType: "smbfs")
         XCTAssertEqual(parsed.serverHost, "nas")

@@ -579,6 +579,30 @@ final class NASWorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(shown[2], issues[2], "Other issue details are already plain and stay as they are")
     }
 
+    func testEveryUnresolvedReasonBecomesAPlainSentence() async throws {
+        let reasons = NASUnresolvedReason.allCases
+        var issues = reasons.enumerated().map { index, reason in
+            NASIssue(category: .unresolvedCandidate, relativePath: "file\(index).jpg", detail: reason.rawValue)
+        }
+        issues.append(NASIssue(category: .unresolvedCandidate, relativePath: "unknown.jpg", detail: "someFutureReason"))
+        try await readyStore(snapshot: snapshot(outcome: .completedWithGaps, issues: issues))
+
+        let shown = try XCTUnwrap(store.snapshot?.issues)
+        XCTAssertEqual(shown.count, reasons.count + 1)
+        for issue in shown {
+            XCTAssertEqual(issue.category, .unresolvedCandidate)
+            for reason in reasons {
+                XCTAssertNotEqual(issue.detail, reason.rawValue)
+            }
+            XCTAssertNotEqual(issue.detail, "someFutureReason")
+            XCTAssertFalse(issue.detail.contains("errno"), issue.detail)
+            XCTAssertFalse(issue.detail.contains("POSIX"), issue.detail)
+            XCTAssertFalse(issue.detail.contains("SQLite"), issue.detail)
+            XCTAssertTrue(issue.detail.hasSuffix("."), "Plain sentence expected: \(issue.detail)")
+        }
+        XCTAssertEqual(shown.map(\.relativePath), issues.map(\.relativePath), "Rewriting details must not reorder or drop issues")
+    }
+
     // MARK: Review
 
     func testSelectNeverRequestsPreview() async throws {

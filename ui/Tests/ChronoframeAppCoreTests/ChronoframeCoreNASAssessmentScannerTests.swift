@@ -762,4 +762,152 @@ final class ChronoframeCoreNASAssessmentScannerTests: XCTestCase {
         XCTAssertEqual(lostActivity.beginCount, 1)
         XCTAssertEqual(lostActivity.endCount, 1)
     }
+
+    // MARK: - Additional coverage
+
+    private func runWithBatches(
+        _ fixture: NASFixtureBuilder,
+        store: NASAssessmentStore,
+        directoryBatch: Int,
+        hashBatch: Int
+    ) async -> ScanResult {
+        let scanner = NASAssessmentScanner(store: store, activity: ScannerFakeActivity())
+        let configuration = NASAssessmentConfiguration(
+            rootURL: fixture.rootURL,
+            stateURL: fixture.stateURL,
+            checkpointDirectoryBatch: directoryBatch,
+            hashResultBatch: hashBatch
+        )
+        var events: [NASAssessmentEvent] = []
+        var failure: Error?
+        do {
+            for try await event in scanner.run(configuration, isCancelled: { false }) {
+                events.append(event)
+            }
+        } catch {
+            failure = error
+        }
+        return ScanResult(events: events, error: failure)
+    }
+
+    // AGENTS-INVARIANT: 27
+    func testCancellationDuringHashingFinishesCancelled() async throws {
+        let payload = bytes(4, count: 900)
+        let fixture = try makeFixture((0..<6).map { .file("f\($0).jpg", payload) })
+        let store = try makeStore(fixture)
+        let probe = ScannerReaderProbe()
+        let cancel = ScannerFlag()
+        probe.onOpen = { cancel.set() }
+        let activity = ScannerFakeActivity()
+        let result = await run(
+            fixture,
+            store: store,
+            workerCount: 1,
+            reader: probe.makeReader(),
+            activity: activity,
+            isCancelled: { cancel.isSet }
+        )
+
+        XCTAssertNil(result.error, "Cancellation during hashing must not throw.")
+        let summary = try XCTUnwrap(result.summary)
+        XCTAssertEqual(summary.outcome, .cancelled)
+        XCTAssertNotEqual(summary.outcome, .complete)
+        XCTAssertEqual(probe.openCount, 1, "No further hashes may start once the first in-flight hash has seen the cancel.")
+        XCTAssertEqual(try store.scanSummary(generation: summary.generation)?.outcome, .cancelled)
+        XCTAssertEqual(activity.beginCount, 1)
+        XCTAssertEqual(activity.endCount, 1)
+    }
+
+    // AGENTS-INVARIANT: 27
+    func testUnreadableEntryMakesAssessmentIncomplete() async throws {
+        let payload = bytes(6, count: 700)
+        let fixture = try makeFixture([
+            .file("Open/a.jpg", payload),
+            .file("Open/b.jpg", payload),
+            .file("Open/bad.jpg", payload),
+        ])
+        let store = try makeStore(fixture)
+        let fileSystem = hookedFileSystem(entry: { path, entry in
+            path.hasSuffix("/Open/bad.jpg") ? nil : entry
+        })
+        let result = await run(fixture, store: store, fileSystem: fileSystem)
+
+        XCTAssertNil(result.error)
+        let summary = try XCTUnwrap(result.summary)
+        XCTAssertEqual(summary.outcome, .completedWithGaps)
+        let issues = try store.issues(generation: summary.generation)
+        XCTAssertEqual(issues.filter { $0.category == .unreadableItem }.map(\.relativePath), ["Open/bad.jpg"])
+        XCTAssertEqual(summary.counts.mediaFiles, 2, "The unreadable entry must not be counted as assessed media.")
+        XCTAssertFalse(issues.contains { $0.detail.contains("errno") || $0.detail.contains("POSIX") })
+    }
+
+    func testRootThatIsAFileIsRefused() async throws {
+        let fixture = try makeFixture([.file("single.jpg", bytes(1, count: 100))])
+        let store = try makeStore(fixture)
+        let fileRoot = fixture.rootURL.appendingPathComponent("single.jpg")
+
+        let scanner = NASAssessmentScanner(store: store, activity: ScannerFakeActivity())
+        let configuration = NASAssessmentConfiguration(rootURL: fileRoot, stateURL: fixture.stateURL)
+        var events = 0
+        var failure: Error?
+        do {
+            for try await _ in scanner.run(configuration, isCancelled: { false }) { events += 1 }
+        } catch {
+            failure = error
+        }
+
+        XCTAssertEqual(events, 0)
+        XCTAssertEqual(failure as? NASAssessmentError, .rootUnavailable(path: fileRoot.standardizedFileURL.path))
+        XCTAssertNil(try store.latestGeneration())
+    }
+
+    func testSmallCheckpointBatchesPersistEveryRow() async throws {
+        let defaultFixture = try makeFixture(duplicateNodes)
+        let defaultStore = try makeStore(defaultFixture)
+        let defaults = await runWithBatches(defaultFixture, store: defaultStore, directoryBatch: 200, hashBatch: 200)
+
+        let smallFixture = try makeFixture(duplicateNodes)
+        let smallStore = try makeStore(smallFixture)
+        let small = await runWithBatches(smallFixture, store: smallStore, directoryBatch: 1, hashBatch: 1)
+
+        XCTAssertNil(defaults.error)
+        XCTAssertNil(small.error)
+        let defaultSummary = try XCTUnwrap(defaults.summary)
+        let smallSummary = try XCTUnwrap(small.summary)
+        XCTAssertEqual(smallSummary.outcome, .complete)
+        XCTAssertEqual(smallSummary.outcome, defaultSummary.outcome)
+        XCTAssertEqual(smallSummary.counts, defaultSummary.counts)
+        XCTAssertEqual(smallSummary.exactGroupCount, defaultSummary.exactGroupCount)
+        XCTAssertEqual(smallSummary.redundantLogicalBytes, defaultSummary.redundantLogicalBytes)
+        XCTAssertEqual(smallSummary.ledger.candidateBytesH, defaultSummary.ledger.candidateBytesH)
+        XCTAssertEqual(
+            try smallStore.exactGroups(generation: smallSummary.generation),
+            try defaultStore.exactGroups(generation: defaultSummary.generation)
+        )
+        XCTAssertEqual(
+            try smallStore.directoryRows(generation: smallSummary.generation).map(\.relativePath).sorted(),
+            try defaultStore.directoryRows(generation: defaultSummary.generation).map(\.relativePath).sorted()
+        )
+    }
+
+    func testStoreFailureDuringHashingThrowsAndNeverReportsComplete() async throws {
+        let payload = bytes(9, count: 1100)
+        let fixture = try makeFixture([
+            .file("a.jpg", payload),
+            .file("b.jpg", payload),
+            .file("c.jpg", payload),
+        ])
+        let store = try makeStore(fixture)
+        let probe = ScannerReaderProbe()
+        probe.onOpen = { store.close() }
+        let result = await run(fixture, store: store, workerCount: 1, reader: probe.makeReader())
+
+        XCTAssertNotNil(result.error, "A store that fails mid-hash must fail the stream.")
+        XCTAssertTrue(result.error is NASAssessmentError, "got \(String(describing: result.error))")
+        XCTAssertNil(result.summary, "No finished summary may be reported when progress could not be saved.")
+        XCTAssertFalse(result.events.contains { event in
+            if case let .finished(summary) = event { return summary.outcome == .complete }
+            return false
+        })
+    }
 }

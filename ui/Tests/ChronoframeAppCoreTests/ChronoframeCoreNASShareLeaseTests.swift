@@ -224,4 +224,54 @@ final class ChronoframeCoreNASShareLeaseTests: XCTestCase {
 
         lease.release() // idempotent
     }
+
+    // AGENTS-INVARIANT: 28
+    // AGENTS-INVARIANT: 19
+    func testLiveClassifierKeepsLocalTemporaryDestinationsOffTheShareLease() throws {
+        DestinationOperationLock.volumeClassifierProvider = nil
+        let destination = try makeDestination("live-local-library")
+
+        let lease = try acquire(destination)
+        defer { lease.release() }
+
+        let leaseFiles = (try? FileManager.default.contentsOfDirectory(atPath: leaseDirectory.path)) ?? []
+        XCTAssertTrue(
+            leaseFiles.filter { $0.hasSuffix(".lock") }.isEmpty,
+            "a local temp destination must not take a share lease: \(leaseFiles)"
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: inRootLockURL(destination).path))
+    }
+
+    // AGENTS-INVARIANT: 28
+    // AGENTS-INVARIANT: 19
+    func testLiveShareRootFileIDComesFromTheMountPoint() throws {
+        DestinationOperationLock.shareRootFileIDProvider = nil
+        let mountDirectory = try makeDestination("fake-mount-point")
+        var status = stat()
+        XCTAssertEqual(lstat(mountDirectory.path, &status), 0)
+        let expectedID = UInt64(status.st_ino)
+        XCTAssertNotEqual(expectedID, 0)
+
+        let volume = remoteVolume(mountPoint: mountDirectory.path)
+        DestinationOperationLock.volumeClassifierProvider = { _ in volume }
+        let destination = try makeDestination("library-on-share")
+
+        let lease = try acquire(destination)
+        let expectedKey = NASShareLeaseKey.key(volume: volume, shareRootFileID: expectedID)
+        let expectedLock = leaseDirectory.appendingPathComponent("\(expectedKey).lock")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: expectedLock.path), "expected \(expectedLock.path)")
+        lease.release()
+
+        // A mount point that does not exist falls back to file ID 0.
+        let missingMount = rootURL.appendingPathComponent("no-such-mount", isDirectory: true).path
+        let missingVolume = remoteVolume(share: "other", mountPoint: missingMount)
+        DestinationOperationLock.volumeClassifierProvider = { _ in missingVolume }
+        let secondDestination = try makeDestination("library-on-missing-mount")
+
+        let secondLease = try acquire(secondDestination)
+        let zeroKey = NASShareLeaseKey.key(volume: missingVolume, shareRootFileID: 0)
+        let zeroLock = leaseDirectory.appendingPathComponent("\(zeroKey).lock")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: zeroLock.path), "expected \(zeroLock.path)")
+        secondLease.release()
+    }
 }

@@ -480,6 +480,28 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testCancelRunOnNASLibraryStopsOnlyTheNASWorkspace() async {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.engine.startMode = .pending
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        await appState.startPreview()
+        let running = await waitForCondition { appState.runSessionStore.isRunning }
+        XCTAssertTrue(running)
+
+        appState.selection = .nasLibrary
+        appState.cancelRun()
+
+        XCTAssertTrue(appState.runSessionStore.isRunning, "cancelRun on the NAS workspace must not cancel the organize run")
+        XCTAssertEqual(appState.nasWorkspaceStore.state, .noLibrary)
+
+        appState.selection = .organize
+        appState.cancelRun()
+    }
+
+    @MainActor
     func testDeduplicateScanUsesDedicatedFolderWhenSetAndFallsBackOtherwise() {
         let harness = AppStateHarness()
         harness.setupStore.destinationPath = "/Volumes/Organize"

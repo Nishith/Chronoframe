@@ -101,6 +101,50 @@ final class NASAssessmentEngineTests: XCTestCase {
         XCTAssertEqual(try previewRequests(at: storeURL), 2)
     }
 
+    // AGENTS-INVARIANT: 27
+    func testCancelStopsTheActiveAssessmentWithCancelledSummaryAndLeavesTreeUnchanged() async throws {
+        let same = Data(repeating: 0x43, count: 4096)
+        var nodes: [NASFixtureBuilder.Node] = []
+        for folder in 0..<80 {
+            for file in 0..<5 {
+                nodes.append(.file("Folder\(folder)/IMG_\(file).jpg", same))
+            }
+        }
+        let largeFixture = try NASFixtureBuilder(nodes)
+        addTeardownBlock { largeFixture.tearDown() }
+        let storeURL = largeFixture.stateDirectoryURL.appendingPathComponent("cancel.db")
+        let cancelEngine = SwiftNASAssessmentEngine(storeURL: { _ in storeURL })
+        let cancelRecord = nasTestRecord(uuid: "LIB-CANCEL")
+        let before = try largeFixture.snapshot()
+
+        let stream = try cancelEngine.assess(cancelRecord, rootURL: largeFixture.rootURL)
+        cancelEngine.cancel()
+
+        var events: [NASAssessmentEvent] = []
+        for try await event in stream {
+            events.append(event)
+        }
+
+        guard case let .finished(summary)? = events.last else {
+            return XCTFail("A cancelled assessment must still finish with a summary, got \(String(describing: events.last))")
+        }
+        XCTAssertEqual(summary.outcome, .cancelled)
+        XCTAssertNotEqual(summary.outcome, .complete)
+        XCTAssertEqual(try cancelEngine.latestSnapshot(for: cancelRecord)?.summary.outcome, .cancelled)
+        XCTAssertEqual(try largeFixture.snapshot(), before, "Cancelling an assessment must not change anything in the library")
+    }
+
+    func testCancelWithNoActiveAssessmentIsAHarmlessNoOp() async throws {
+        engine.cancel()
+        engine.cancel()
+
+        let events = try await runAssessment()
+        guard case let .finished(summary)? = events.last else {
+            return XCTFail("The last event must be .finished")
+        }
+        XCTAssertEqual(summary.outcome, .complete, "A cancel with nothing running must not poison the next assessment")
+    }
+
     private func previewRequests(at url: URL) throws -> Int {
         var handle: OpaquePointer?
         guard sqlite3_open_v2(url.path, &handle, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
