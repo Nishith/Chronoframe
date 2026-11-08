@@ -98,6 +98,29 @@ enum AccessibilityIdentifiers {
 
     static let activeProfileBadge = "activeProfileBadge"
 
+    // MARK: - NAS Library
+
+    /// Identifiers for the NAS Library workspace. There is deliberately no
+    /// identifier for any action that changes files on a NAS.
+    enum NAS {
+        static let chooseFolder = "nas.chooseFolder"
+        static let startAssessment = "nas.startAssessment"
+        static let stop = "nas.stop"
+        static let reconnect = "nas.reconnect"
+        static let confirmIdentity = "nas.confirmIdentity"
+        static let groupList = "nas.groupList"
+        static let groupRow = "nas.groupRow"
+        static let loadPreview = "nas.loadPreview"
+        static let keeperPicker = "nas.keeperPicker"
+        static let folderSummary = "nas.folderSummary"
+        static let stateBanner = "nas.stateBanner"
+
+        static let all: [String] = [
+            chooseFolder, startAssessment, stop, reconnect, confirmIdentity,
+            groupList, groupRow, loadPreview, keeperPicker, folderSummary, stateBanner,
+        ]
+    }
+
     // MARK: - Free trial
 
     static let trialIndicatorOrganize = "trialIndicator.organize"
@@ -153,5 +176,5 @@ enum AccessibilityIdentifiers {
         activeProfileBadge,
         trialIndicatorOrganize, trialIndicatorDedupe,
         diagnosticsLogBufferStepper, smartEventSuggestionsToggle,
-    ]
+    ] + NAS.all
 }

@@ -26,6 +26,7 @@ final class AppState: ObservableObject {
     var watchedSourcesStore: WatchedSourcesStore
     var photosImportStore: PhotosImportStore
     let guardianStore: GuardianStore
+    let nasWorkspaceStore: NASWorkspaceStore
 
     /// Entitlement composed with the trial ledger.
     ///
@@ -236,6 +237,10 @@ final class AppState: ObservableObject {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
     ) {
+        // RuntimePaths ignores $HOME, so under XCTest this would create folders in the real home.
+        if NSClassFromString("XCTestCase") == nil {
+            NASStartup.configure()
+        }
         self.selection = route.sidebar
         self.organizeSubSelection = route.organizeSubSection ?? .setup
         self.settingsSelection = .general
@@ -254,6 +259,11 @@ final class AppState: ObservableObject {
         self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.photosImportStore = photosImportStore ?? AppState.makePhotosImportStore()
         self.guardianStore = GuardianStore(engine: SwiftGuardianEngine(), notifier: GuardianUserNotifier())
+        self.nasWorkspaceStore = NASWorkspaceStore(
+            engine: SwiftNASAssessmentEngine(),
+            registry: NASLibraryRegistry(),
+            folderAccess: folderAccessService
+        )
         self.trialStatusStoreOverride = trialStatusStore
         self.isAppStoreChannel = isAppStoreChannel
         let entitlementStore = entitlementStore ?? TrialComposition.entitlementStore
@@ -551,6 +561,8 @@ final class AppState: ObservableObject {
             guardianStore.cancelScan()
         case .profiles:
             runCoordinator.cancelRun()
+        case .nasLibrary:
+            nasWorkspaceStore.stop()
         }
     }
 
