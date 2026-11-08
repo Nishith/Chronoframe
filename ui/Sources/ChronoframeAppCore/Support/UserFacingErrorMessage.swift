@@ -205,6 +205,8 @@ public enum UserFacingErrorMessage {
             return error.errorDescription
         case let error as NASRemoteCopyError:
             return error.errorDescription
+        case let error as NASDeduplicateFolderRefusal:
+            return error.errorDescription
         default:
             return nil
         }

@@ -57,6 +57,9 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
     /// Surfaces a one-time warning when the dedupe destination is on a network
     /// volume. Internal so tests can inject a stub advisory + scratch defaults.
     var networkAdvisory = NetworkDestinationAdvisory()
+    /// Classifies the folder before any lock or write. Internal so tests can
+    /// stand in a remote volume.
+    var volumeClassifier: NASVolumeClassifier = .live
 
     /// - Parameter authorizer: who may do metered work. Required, never
     ///   defaulted — see `SwiftOrganizerEngine.init` for why a default here
@@ -87,6 +90,9 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
         }
         activeLease?.release()
         let destinationURL = URL(fileURLWithPath: configuration.destinationPath, isDirectory: true)
+        if let refusal = NASDeduplicateFolderRefusal.refusal(for: destinationURL, classifier: volumeClassifier) {
+            throw refusal
+        }
         let lease = try DestinationOperationLock.acquire(
             destinationRoot: destinationURL,
             surface: "app",
@@ -118,6 +124,9 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
         configuration: DeduplicateConfiguration
     ) throws -> AsyncThrowingStream<DeduplicateCommitEvent, Error> {
         let destinationURL = URL(fileURLWithPath: configuration.destinationPath, isDirectory: true)
+        if let refusal = NASDeduplicateFolderRefusal.refusal(for: destinationURL, classifier: volumeClassifier) {
+            throw refusal
+        }
         let standardizedDestination = destinationURL.standardizedFileURL.path
         if activeLease == nil || activeLeaseDestination != standardizedDestination {
             activeLease?.release()

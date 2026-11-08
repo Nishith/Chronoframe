@@ -341,4 +341,16 @@ final class UserFacingErrorMessageTests: XCTestCase {
             "Try again. Details: Disk is full"
         )
     }
+
+    func testDeduplicateNetworkRefusalPassesThroughItsOwnMessage() {
+        let refusal = NASDeduplicateFolderRefusal.notLocal(path: "/Volumes/Share/Photos", kind: .remote)
+
+        for context in [UserFacingErrorContext.generic, .setup] {
+            XCTAssertEqual(
+                UserFacingErrorMessage.message(for: refusal, context: context),
+                refusal.errorDescription
+            )
+        }
+        XCTAssertFalse(refusal.errorDescription?.contains("/Volumes") ?? true, "The message must not echo the raw path")
+    }
 }
