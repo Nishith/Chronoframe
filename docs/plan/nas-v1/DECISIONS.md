@@ -70,3 +70,9 @@ Log it under "Runtime decisions" at the bottom as `D-NAS-1NN` with the WP ID, th
 ## Runtime decisions
 
 (Append `D-NAS-1NN` entries here during implementation.)
+
+- **D-NAS-101 (WP-01) statfs name clash.** Inside `NASVolumeClassifier` the contract's `statfs` property shadows the Darwin function. Options: rename the property (breaks C-02) or call the function from a private file-scope wrapper. Chose the private `callStatfs` wrapper; no public API change.
+
+- **D-NAS-102 (WP-01) Mount-string parsing details.** C-02 rule 4 leaves edge order open. Chose: percent-decode the SMB share, then strip a trailing `/`; keep the raw string if decoding fails; drop the port at the first `:` after removing user-info (`@`) and `DOMAIN;`; IPv6 literal hosts are not handled (P1); the NFS branch applies only to `nfs` with a `:`; an empty NFS host is nil; one leading `/` is dropped from the NFS path. Any other value gives (nil, nil).
+
+- **D-NAS-103 (WP-01) Unknown observation path.** `.unknown(observedPath:)` carries the original `url.path` (C-02 rule 1); the ancestor walk stops after trying `/`.

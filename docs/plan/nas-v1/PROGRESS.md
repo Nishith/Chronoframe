@@ -36,7 +36,7 @@ Re-read this file, `NAS_AGENT_RULES.md` and `BLOCKED.md` after any context compa
 | WP | Title | Status | Compiled | Tested | Reviewer | Commit | Notes |
 |---|---|---|---|---|---|---|---|
 | WP-00 | Branch, shared models, baseline | done | exit 0 | baseline suite exit 0 | n/a | (this commit) | build 0, invariants 0, suite 0 |
-| WP-01 | Volume classifier, system containers | todo | | | | | |
+| WP-01 | Volume classifier, system containers | done | exit 0 | 12+2 pass | approve | (this commit) | classifier test 0, rules test 0, build 0 |
 | WP-02 | Library identity, lease key | todo | | | | | |
 | WP-03 | Metered file reader | todo | | | | | |
 | WP-04 | Assessment store | todo | | | | | |
@@ -56,3 +56,4 @@ Status values: todo, in-progress, review, done, blocked. "done" requires the Don
 ## Log
 (Append one line per event: date, WP, what happened, command and exit code.)
 - 2026-11-07 WP-00: verified branch, script and C-01 file; build exit 0; invariant guard exit 0; full suite exit 0.
+- 2026-11-07 WP-01: implementer compiled+tested (failing-first: compile error, missing NASSystemContainerRules); reviewer approve (round 1); orchestrator: nas_swift.sh test ChronoframeCoreNASVolumeClassifierTests exit 0 (12 tests), test ChronoframeCoreNASSystemContainerRulesTests exit 0 (2 tests), build exit 0.
