@@ -29,6 +29,8 @@ public final class NASWorkspaceStore: ObservableObject {
     @Published public private(set) var progress: (directories: Int, files: Int, hashed: Int, hashTotal: Int, currentRelativePath: String) =
         (directories: 0, files: 0, hashed: 0, hashTotal: 0, currentRelativePath: "")
     @Published public private(set) var previewRequestedDigests: Set<String> = []
+    /// Set when a keeper choice couldn't be saved; cleared by the next choice that saves.
+    @Published public private(set) var keeperSaveMessage: String?
 
     private let engine: any NASAssessmentEngine
     private let registry: NASLibraryRegistry
@@ -65,6 +67,7 @@ public final class NASWorkspaceStore: ObservableObject {
     /// Shows the first saved library (one library at a time, D-NAS-52) and checks the share.
     public func loadSavedLibrary() async {
         guard !isAssessingOrStopping else { return }
+        keeperSaveMessage = nil
         let records: [NASLibraryRecord]
         do {
             records = try registry.load()
@@ -171,6 +174,7 @@ public final class NASWorkspaceStore: ObservableObject {
 
         if library?.libraryUUID != record.libraryUUID {
             snapshot = nil
+            keeperSaveMessage = nil
             previewRequestedDigests = []
         }
         securityScope?.close()
@@ -216,6 +220,7 @@ public final class NASWorkspaceStore: ObservableObject {
         let currentEpoch = epoch
         state = .checkingConnection
         pendingObservation = nil
+        keeperSaveMessage = nil
 
         guard let resolved = folderAccess.resolveBookmark(saved.bookmark) else {
             enterWaitingForNAS()
@@ -229,9 +234,10 @@ public final class NASWorkspaceStore: ObservableObject {
         securityScope = folderAccess.scopedAccess(for: [record.bookmark])
         let url = resolved.url
 
-        let observed = await offMain { [observe] in observe(url) }
+        let observedOrTimedOut = await NASReconnectProbe.observeWithTimeout(url, observe: observe)
         guard currentEpoch == epoch else { return }
-        guard let observed else {
+        // Outer nil: the share didn't answer in time. Inner nil: it answered with nothing.
+        guard let answered = observedOrTimedOut, let observed = answered else {
             enterWaitingForNAS()
             return
         }
@@ -297,6 +303,7 @@ public final class NASWorkspaceStore: ObservableObject {
     }
 
     private func apply(_ latest: NASAssessmentSnapshot?) {
+        keeperSaveMessage = nil
         guard var latest else {
             snapshot = nil
             state = .ready
@@ -348,6 +355,7 @@ public final class NASWorkspaceStore: ObservableObject {
         guard let library, let rootURL = resolvedRootURL else { return }
 
         progress = (directories: 0, files: 0, hashed: 0, hashTotal: 0, currentRelativePath: "")
+        keeperSaveMessage = nil
         epoch &+= 1
         let runEpoch = epoch
         let stream: AsyncThrowingStream<NASAssessmentEvent, Error>
@@ -457,6 +465,9 @@ public final class NASWorkspaceStore: ObservableObject {
         try? engine.saveSelectedDigest(digest, for: library)
     }
 
+    /// Shown under the keeper controls; `NASLibraryCopy.keeperSaveFailed` carries the same words.
+    static let keeperSaveFailedMessage = "Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again."
+
     /// Saves which copy the user prefers to keep. It is a note on this Mac and changes nothing on the NAS.
     public func chooseKeeper(digest: String, relativePath: String?) {
         guard let library, showsResults, let group = snapshot?.groups.first(where: { $0.digest == digest }) else { return }
@@ -465,10 +476,9 @@ public final class NASWorkspaceStore: ObservableObject {
         do {
             try engine.saveChoice(choice, for: library)
             snapshot?.choices[digest] = choice
+            keeperSaveMessage = nil
         } catch {
-            if !isAssessingOrStopping {
-                state = .failed(Self.message(for: error))
-            }
+            keeperSaveMessage = Self.keeperSaveFailedMessage
         }
     }
 

@@ -16,6 +16,7 @@ private final class MockNASEngine: NASAssessmentEngine, @unchecked Sendable {
 
     var assessError: Error?
     var snapshotError: Error?
+    var saveChoiceError: Error?
     var finishStreamOnCancel = false
     var cancelEvent: NASAssessmentEvent?
 
@@ -67,6 +68,7 @@ private final class MockNASEngine: NASAssessmentEngine, @unchecked Sendable {
 
     func saveChoice(_ choice: NASReviewChoice, for library: NASLibraryRecord) throws {
         record("saveChoice")
+        if let saveChoiceError { throw saveChoiceError }
         lock.lock(); savedChoices.append(choice); lock.unlock()
     }
 
@@ -229,6 +231,58 @@ final class NASWorkspaceStoreTests: XCTestCase {
         XCTAssertEqual(store.library?.lastValidatedAt, now)
         XCTAssertTrue(states.contains(.checkingConnection), "States seen: \(states)")
         XCTAssertNil(store.snapshot)
+    }
+
+    func testValidateTimesOutIntoWaitingForNAS() async throws {
+        try registry.upsert(record)
+        let release = DispatchSemaphore(value: 0)
+        let box = observations!
+        let fixedNow = now
+        // Stands in for a stalled network mount: blocks for up to 5 s unless released.
+        store = NASWorkspaceStore(
+            engine: engine,
+            registry: registry,
+            folderAccess: folderAccess,
+            observe: { url in
+                _ = release.wait(timeout: .now() + 5)
+                return box.observe(url)
+            },
+            now: { fixedNow }
+        )
+        defer { release.signal() }
+
+        let started = Date()
+        let load = Task { @MainActor in await self.store.loadSavedLibrary() }
+
+        // The main actor must stay responsive while the observation is stuck.
+        var ticks = 0
+        let ticker = Task { @MainActor in
+            while !Task.isCancelled {
+                ticks += 1
+                try? await Task.sleep(nanoseconds: 20_000_000)
+            }
+        }
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let ticksWhileChecking = ticks
+        let stateWhileChecking = store.state
+        XCTAssertEqual(stateWhileChecking, .checkingConnection)
+        XCTAssertGreaterThan(ticksWhileChecking, 3, "The main actor was blocked while checking the share")
+
+        let reachedWaiting = await waitFor { self.store.state == .waitingForNAS }
+        ticker.cancel()
+        XCTAssertTrue(reachedWaiting, "State was \(store.state)")
+        XCTAssertLessThan(Date().timeIntervalSince(started), 3.0)
+        XCTAssertNil(store.snapshot)
+        await load.value
+        XCTAssertEqual(store.state, .waitingForNAS)
+    }
+
+    func testValidateCompletesNormallyUnderTimeout() async throws {
+        try saveRecordAndObserve(record.lastObservation)
+        let started = Date()
+        await store.loadSavedLibrary()
+        XCTAssertEqual(store.state, .ready)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 1.5)
     }
 
     func testLoadSavedLibraryWithNoRecordStaysNoLibrary() async {
@@ -643,6 +697,37 @@ final class NASWorkspaceStoreTests: XCTestCase {
         XCTAssertNil(store.snapshot?.choices["d1"]?.keeperRelativePath)
         store.chooseKeeper(digest: "unknown", relativePath: "x")
         XCTAssertEqual(engine.savedChoices.count, 2, "A digest that is not in the results is ignored")
+    }
+
+    func testChooseKeeperSaveFailureKeepsResultsAndSetsMessage() async throws {
+        try await readyStore(snapshot: snapshot())
+        XCTAssertEqual(store.state, .completeAssessment)
+        XCTAssertNil(store.keeperSaveMessage)
+
+        engine.saveChoiceError = NSError(domain: NSPOSIXErrorDomain, code: 28)
+        store.chooseKeeper(digest: "d1", relativePath: "b.jpg")
+
+        XCTAssertEqual(store.state, .completeAssessment, "A failed note must not discard the results")
+        XCTAssertNotNil(store.snapshot)
+        XCTAssertNil(store.snapshot?.choices["d1"], "The failed choice is not shown as saved")
+        XCTAssertEqual(
+            store.keeperSaveMessage,
+            "Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again."
+        )
+    }
+
+    func testChooseKeeperSuccessClearsMessage() async throws {
+        try await readyStore(snapshot: snapshot())
+        engine.saveChoiceError = NSError(domain: NSPOSIXErrorDomain, code: 28)
+        store.chooseKeeper(digest: "d1", relativePath: "b.jpg")
+        XCTAssertNotNil(store.keeperSaveMessage)
+
+        engine.saveChoiceError = nil
+        store.chooseKeeper(digest: "d1", relativePath: "b.jpg")
+
+        XCTAssertNil(store.keeperSaveMessage)
+        XCTAssertEqual(store.snapshot?.choices["d1"]?.keeperRelativePath, "b.jpg")
+        XCTAssertEqual(store.state, .completeAssessment)
     }
 
     func testStaleChoiceDetected() async throws {

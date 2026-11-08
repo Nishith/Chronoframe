@@ -36,6 +36,7 @@ enum NASLibraryCopy {
     static let keeperCaption = "Your choice is saved on this Mac. Chronoframe doesn't delete or move files on a NAS in this version."
     static let keeperNone = "No choice yet"
     static let keeperStale = "Your earlier choice no longer matches these files. Choose again."
+    static let keeperSaveFailed = "Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again."
     static let previewCaption = "Loading a preview may read the whole file over the network."
     static let issuesTitle = "Not checked"
 
@@ -247,6 +248,7 @@ struct NASLibraryView: View {
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     }
                     .frame(maxHeight: .infinity)
+                    NASKeeperSaveStatusView(store: store)
                 } else {
                     Spacer(minLength: 0)
                 }
@@ -355,6 +357,19 @@ struct NASLibraryView: View {
             return DesignTokens.ColorSystem.statusWarning
         case .failed: return DesignTokens.ColorSystem.statusDanger
         default: return DesignTokens.ColorSystem.inkSecondary
+        }
+    }
+}
+
+/// One line of status shown when a keeper choice couldn't be saved. Empty otherwise.
+struct NASKeeperSaveStatusView: View {
+    @ObservedObject var store: NASWorkspaceStore
+
+    var body: some View {
+        if let message = store.keeperSaveMessage {
+            Text(LocalizedStringKey(message), bundle: .module)
+                .scaledFont(.label)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
         }
     }
 }

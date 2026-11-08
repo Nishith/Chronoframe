@@ -18,6 +18,12 @@ final class NASViewTestEngine: NASAssessmentEngine, @unchecked Sendable {
     private let lock = NSLock()
     private var snapshots: [String: NASAssessmentSnapshot] = [:]
     private var recordedCalls: [String] = []
+    private var storedSaveChoiceError: Error?
+
+    var saveChoiceError: Error? {
+        get { lock.lock(); defer { lock.unlock() }; return storedSaveChoiceError }
+        set { lock.lock(); storedSaveChoiceError = newValue; lock.unlock() }
+    }
 
     var calls: [String] { lock.lock(); defer { lock.unlock() }; return recordedCalls }
 
@@ -42,7 +48,10 @@ final class NASViewTestEngine: NASAssessmentEngine, @unchecked Sendable {
         return snapshots[library.libraryUUID]
     }
 
-    func saveChoice(_ choice: NASReviewChoice, for library: NASLibraryRecord) throws { record("saveChoice") }
+    func saveChoice(_ choice: NASReviewChoice, for library: NASLibraryRecord) throws {
+        record("saveChoice")
+        if let saveChoiceError { throw saveChoiceError }
+    }
     func saveSelectedDigest(_ digest: String?, for library: NASLibraryRecord) throws { record("saveSelectedDigest") }
     func recordPreviewRequest(for library: NASLibraryRecord) throws { record("recordPreviewRequest") }
 }
@@ -332,6 +341,74 @@ final class NASLibraryViewTests: XCTestCase {
         let allowed: Set<String> = ["latestSnapshot", "saveSelectedDigest", "saveChoice"]
         XCTAssertTrue(Set(harness.engine.calls).isSubset(of: allowed), "\(harness.engine.calls)")
         XCTAssertTrue(harness.engine.calls.contains("saveChoice"))
+    }
+
+    func testKeeperSaveMessageRendersWhenPresent() async {
+        XCTAssertEqual(
+            NASLibraryCopy.keeperSaveFailed,
+            "Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again."
+        )
+        await harness.loadResults(groups: [NASViewFixtures.group()])
+        let viewModel = NASLibraryViewModel(store: harness.store, previewLoader: NASPreviewLoader(renderer: { _, _, _ in nil }))
+        let hosting = NSHostingView(rootView: NASKeeperSaveStatusView(store: harness.store))
+        // The same words set directly, as a measuring stick for what the status view draws.
+        let reference = NSHostingView(
+            rootView: Text(verbatim: NASLibraryCopy.keeperSaveFailed)
+                .scaledFont(.label)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+        )
+        XCTAssertGreaterThan(reference.fittingSize.width, 0)
+        XCTAssertEqual(hosting.fittingSize.width, 0, accuracy: 0.5, "Nothing is drawn before a failure")
+        XCTAssertFalse(Self.drawsAnything(hosting))
+
+        harness.engine.saveChoiceError = NSError(domain: NSPOSIXErrorDomain, code: 28)
+        viewModel.chooseKeeper(digest: "digest-1", relativePath: "2018/a.jpg")
+        XCTAssertEqual(harness.store.keeperSaveMessage, NASLibraryCopy.keeperSaveFailed)
+        XCTAssertEqual(harness.store.state, .completeAssessment)
+        await Self.settleRendering(hosting)
+        XCTAssertEqual(hosting.fittingSize.width, reference.fittingSize.width, accuracy: 0.5, "The status view draws the contract sentence")
+        XCTAssertEqual(hosting.fittingSize.height, reference.fittingSize.height, accuracy: 0.5)
+        XCTAssertTrue(Self.drawsAnything(hosting))
+
+        harness.engine.saveChoiceError = nil
+        viewModel.chooseKeeper(digest: "digest-1", relativePath: "2018/a.jpg")
+        XCTAssertNil(harness.store.keeperSaveMessage)
+        await Self.settleRendering(hosting)
+        XCTAssertEqual(hosting.fittingSize.width, 0, accuracy: 0.5)
+        XCTAssertFalse(Self.drawsAnything(hosting))
+    }
+
+    private static func settleRendering(_ view: NSView) async {
+        try? await Task.sleep(nanoseconds: 100_000_000)
+        view.layoutSubtreeIfNeeded()
+        view.displayIfNeeded()
+    }
+
+    /// True when the view paints at least one non-transparent pixel.
+    private static func drawsAnything(_ view: NSView) -> Bool {
+        let size = view.fittingSize
+        guard size.width > 0, size.height > 0 else { return false }
+        view.frame = NSRect(origin: .zero, size: size)
+        view.layoutSubtreeIfNeeded()
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return false }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        for x in 0..<rep.pixelsWide {
+            for y in 0..<rep.pixelsHigh where (rep.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0.05 {
+                return true
+            }
+        }
+        return false
+    }
+
+    func testKeeperSaveMessageClearsWhenLibraryChanges() async {
+        await harness.loadResults(groups: [NASViewFixtures.group()])
+        harness.engine.saveChoiceError = NSError(domain: NSPOSIXErrorDomain, code: 28)
+        harness.store.chooseKeeper(digest: "digest-1", relativePath: "2018/a.jpg")
+        XCTAssertNotNil(harness.store.keeperSaveMessage)
+
+        await harness.store.reconnect()
+
+        XCTAssertNil(harness.store.keeperSaveMessage, "A failed save must not follow the user into freshly loaded results")
     }
 
     func testPreviewURLUsesTheFirstMemberBySortedPath() async {
