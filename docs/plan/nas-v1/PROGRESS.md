@@ -39,7 +39,7 @@ Re-read this file, `NAS_AGENT_RULES.md` and `BLOCKED.md` after any context compa
 | WP-01 | Volume classifier, system containers | done | exit 0 | 12+2 pass | approve | (this commit) | classifier test 0, rules test 0, build 0 |
 | WP-02 | Library identity, lease key | done | exit 0 | 18 pass | approve | (this commit) | identity test 0, build 0 |
 | WP-03 | Metered file reader | done | exit 0 | 13 pass | approve | (this commit) | reader test 0, build 0; FileIdentityHasher.swift diff empty |
-| WP-04 | Assessment store | todo | | | | | |
+| WP-04 | Assessment store | done | exit 0 | 12 pass | approve | (this commit) | store test 0, build 0; follow-up: non-ELOOP anchor errors surface as POSIX NSError (WP-10 must map) |
 | WP-05 | Assessment scanner | todo | | | | | |
 | WP-06 | Remote copy policy (safety-critical) | todo | | | | | orchestrator diff review required |
 | WP-07 | Journal policy, share lease (safety-critical) | todo | | | | | orchestrator diff review required |
@@ -59,3 +59,4 @@ Status values: todo, in-progress, review, done, blocked. "done" requires the Don
 - 2026-11-07 WP-01: implementer compiled+tested (failing-first: compile error, missing NASSystemContainerRules); reviewer approve (round 1); orchestrator: nas_swift.sh test ChronoframeCoreNASVolumeClassifierTests exit 0 (12 tests), test ChronoframeCoreNASSystemContainerRulesTests exit 0 (2 tests), build exit 0.
 - 2026-11-07 WP-02: implementer compiled+tested (failing-first: cannot find NASLibraryIdentity); reviewer approve (round 1); orchestrator: nas_swift.sh test ChronoframeCoreNASLibraryIdentityTests exit 0 (18 tests: 17 named + testZeroShareRootFileIDIsNotCompared), build exit 0.
 - 2026-11-07 WP-03: implementer compiled+tested (failing-first: cannot find type NASMeteredFileReader); reviewer approve (round 1; non-blocking: growth test simulates via smaller fstat size rather than an injected oversized read); orchestrator: nas_swift.sh test ChronoframeCoreNASMeteredFileReaderTests exit 0 (13 tests), build exit 0.
+- 2026-11-07 WP-04: implementer compiled+tested (failing-first: cannot find type NASAssessmentStore); reviewer approve (round 1; non-blocking: raw NSError from openAnchor for e.g. EACCES, same as OrganizerDatabase; extra behaviors untested); orchestrator: nas_swift.sh test ChronoframeCoreNASAssessmentStoreTests exit 0 (12 tests), build exit 0.

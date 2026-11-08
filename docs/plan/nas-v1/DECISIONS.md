@@ -86,3 +86,7 @@ Log it under "Runtime decisions" at the bottom as `D-NAS-1NN` with the WP ID, th
 - **D-NAS-107 (WP-03) Post-read mtime baseline.** C-05 step 5 says "mtime differs by ≥ 0.001" without a baseline. Chose post vs the pre-read descriptor mtime (detects change during the read; pre is already within 1 ms of expected).
 
 - **D-NAS-108 (WP-03) Reader seams and counters.** `SystemCalls.init(open:fstat:read:close:lastError:)` in contract property order with escaping `@Sendable` closures. A nil `fstat` (pre or post) gives `.readFailed` with errorCode nil. `readCalls` counts every call including EINTR and the failing call.
+
+- **D-NAS-109 (WP-04) Store anchor errors.** A symlinked store file throws `DestinationMetadataUnsafeError` unwrapped, copying the `OrganizerDatabase` anchor sequence (C-06). SQLite failures, directory creation and use-after-`close()` throw `storeFailed`. Other POSIX errors from the anchor propagate as-is, as in `OrganizerDatabase`; the App layer (WP-10) maps them to plain text.
+
+- **D-NAS-110 (WP-04) Store details C-06 leaves open.** `markCandidates` reclassifies only `notCandidate`/`pending`/`emptyFile` rows and never reverts `hashed`/`unresolved` (the scanner calls it before filling reused digests). `pruneGenerations` clamps a negative count to 0. `latestGeneration` includes running generations (D-NAS-12 reuses whatever the outcome). An `NSLock` serializes public methods so multi-statement transactions never interleave. Summary JSON `{}` (a running scan) decodes to defaults. `init` creates the store's parent directory.
