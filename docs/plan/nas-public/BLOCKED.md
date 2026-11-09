@@ -20,4 +20,4 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Tried:** nothing — outside owned paths (AGENT_RULES hard rule).
 - **Options:** 1) Owner approves a one-sentence edit: "…if you point it at a folder on a mounted network share it refuses the folder, because Chronoframe has not verified that files moved to the Trash on a network share can be put back." 2) Leave until the release docs pass.
 - **Recommendation:** Option 1 before merging `feature/nas-v1`; it is a one-line doc fix with no code impact.
-- **Status:** open
+- **Status:** resolved (Nishith approved option 1, 2026-11-08; see commit "NASP B-1")

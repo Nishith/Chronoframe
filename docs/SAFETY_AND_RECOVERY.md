@@ -113,9 +113,9 @@ shown as out of date and you choose again.
 
 **NAS Library offers no cleanup.** The NAS Library workspace has no delete, move,
 or Trash control. The existing Deduplicate workspace moves files to the macOS
-Trash; if you point it at a folder on a mounted network share it shows only a
-one-time network warning, and Chronoframe has not verified that files moved to
-the Trash on a network share can be put back.
+Trash; if you point it at a folder on a mounted network share it refuses the
+folder, because Chronoframe has not verified that files moved to the Trash on a
+network share can be put back.
 
 ## Content-Verified Deduplicate Plans
 
