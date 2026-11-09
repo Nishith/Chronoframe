@@ -11,5 +11,5 @@ Status values: `todo`, `pass (<commit>)`, `fail`, `todo-hardware`, `pass-hardwar
 | A-NASP-05 | Keeper save failure keeps results (D-NAS-129) | NASWorkspaceStoreTests/testChooseKeeperSaveFailureKeepsResultsAndSetsMessage; NASLibraryViewTests | — | pass (abde28b) | n/a |
 | A-NASP-06 | NAS strings have catalog keys | G2 JSON validity + `grep -c` of each list line in the catalog | — | pass (G2) | n/a |
 | A-NASP-07 | v1 hardware rows H1–H8 | (owner) | H1–H8 | n/a | H1 fail-hardware (2026-11-08, Nishith); H2–H8 todo-hardware |
-| A-NASP-08 | Organize preview/transfer refuses a network destination without atomic no-replace rename, before planning (D-NASP-115) | ChronoframeCoreNASCopyDestinationQualifierTests/*; OrganizerEnginePrepareNetworkGateTests/* | H-NASP-3 | todo | todo-hardware |
-| A-NASP-09 | Refusal copy is plain and says originals were untouched | UserFacingErrorMessageTests/testCopyDestinationRefusalPassesThroughItsOwnMessage; RunSessionStoreTests/testPrepareRefusalSurfacesPlainMessage | — | todo | n/a |
+| A-NASP-08 | Organize preview/transfer refuses a network destination without atomic no-replace rename, before planning (D-NASP-115) | ChronoframeCoreNASCopyDestinationQualifierTests/*; OrganizerEnginePrepareNetworkGateTests/* | H-NASP-3 | pass (076329e) | todo-hardware |
+| A-NASP-09 | Refusal copy is plain and says originals were untouched | UserFacingErrorMessageTests/testCopyDestinationRefusalPassesThroughItsOwnMessage; RunSessionStoreTests/testPrepareRefusalSurfacesPlainMessage | — | pass (076329e) | n/a |
