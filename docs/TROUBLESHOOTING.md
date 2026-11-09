@@ -242,6 +242,17 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 - Files already copied and verified stay in place; nothing was overwritten
 - Running again against the same share will stop the same way
 
+### "This network folder can't guarantee that a copy never replaces an existing file, so Chronoframe won't organize into it"
+
+**Message:** "This network folder can't guarantee that a copy never replaces an existing file, so Chronoframe won't organize into it. Choose a folder on this Mac or an attached drive. Nothing was copied, and your originals were untouched."
+
+**Problem:** Before it plans a preview or a transfer into a network folder, Chronoframe checks that the share supports a rename that refuses to replace an existing file. This share doesn't, so Chronoframe stops before scanning or copying instead of using a weaker method. Many SMB shares, including the Synology share tested, don't support it.
+
+**Solution:**
+- Choose a destination folder on this Mac or an attached drive
+- Copying from the share to a folder on this Mac is not affected
+- Choosing the same network folder again will stop the same way; Chronoframe checks again each time, so a different share or server setup is picked up
+
 ### "The network folder ... disconnected or changed"
 
 **Message:** "The network folder at *mount point* disconnected or changed, so Chronoframe stopped before the next copy. Your originals were untouched."

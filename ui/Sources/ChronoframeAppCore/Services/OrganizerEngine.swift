@@ -71,6 +71,10 @@ public protocol OrganizerEngine: AnyObject {
     func resume(_ configuration: RunConfiguration) throws -> AsyncThrowingStream<RunEvent, Error>
     func cancelCurrentRun()
 
+    /// Proves a network destination can install a file without replacing one before an
+    /// Organize preview or transfer plans anything. Defaults to `.live`.
+    var copyDestinationQualifier: NASCopyDestinationQualifier { get }
+
     /// Revert a previous transfer using its on-disk audit receipt. Emits
     /// `RunEvent`s identical in shape to a normal run so the same UI surface
     /// can render progress and the final summary.
@@ -87,6 +91,8 @@ public protocol OrganizerEngine: AnyObject {
 }
 
 extension OrganizerEngine {
+    public var copyDestinationQualifier: NASCopyDestinationQualifier { .live }
+
     /// Refuses rather than falling back to `start(_:)`.
     ///
     /// The fallback would be a licensing hole with a friendly face: the caller
@@ -113,6 +119,16 @@ extension OrganizerEngine {
         _ = DestinationRecovery.recoverAndReconcile(
             destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true)
         )
+        if configuration.mode == .preview || configuration.mode == .transfer {
+            do {
+                try copyDestinationQualifier.check(
+                    destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true)
+                )
+            } catch {
+                lease.release()
+                throw error
+            }
+        }
         return PreparedRun(preflight: preflight, lease: lease)
     }
 

@@ -9,3 +9,4 @@ The NAS became unavailable while Chronoframe was reading this file.
 Chronoframe couldn't check this file, so it wasn't compared.
 Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed. For a NAS, use NAS Library.
 Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed.
+This network folder can't guarantee that a copy never replaces an existing file, so Chronoframe won't organize into it. Choose a folder on this Mac or an attached drive. Nothing was copied, and your originals were untouched.
