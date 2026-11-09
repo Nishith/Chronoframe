@@ -1,0 +1,55 @@
+{
+  "row": "H6",
+  "date": "2026-11-09",
+  "commit": "bfdf036",
+  "source": "/Volumes/photo/chronoframe-h6-source (110 x 96 MiB .mov, 10 GiB)",
+  "share_upload": {
+    "tool": "rsync --exclude @eaDir",
+    "real_s": 1073.85,
+    "share_hashes_equal_local": true
+  },
+  "organize_to_local": {
+    "cmd": "ChronoframeCLI --source <share> --dest ~/nas-h6-dest --yes",
+    "exit": 0,
+    "copied": 110,
+    "failed": 0,
+    "real_s": 3776.41,
+    "max_rss_bytes": 62554112,
+    "receipt": {
+      "schemaVersion": 3,
+      "runID": "94949CFE-F87C-4BDF-A304-E3BFFBD45223",
+      "operation": "organize",
+      "status": "COMPLETED",
+      "timestamp": "2026-11-09T07:57:00Z",
+      "startedAt": "2026-11-09T07:57:00Z",
+      "finishedAt": "2026-11-09T08:41:32Z",
+      "attempted_jobs": 110,
+      "failed_jobs": 0,
+      "total_jobs": 110,
+      "verification": {
+        "enabled": true
+      }
+    },
+    "dest_sha256_equal_source": "110/110",
+    "share_source_unchanged_after": true
+  },
+  "disk_full": {
+    "dest": "2 GiB APFS disk image",
+    "exit": 1,
+    "copied": 20,
+    "failed": 5,
+    "real_s": 1658.02,
+    "log_tail": [
+      "Paused: Insufficient disk space on destination (71 MB free, 106 MB needed)",
+      "Disk space check passed. Resuming run.",
+      "Copy failed: CLIP_025.mov -> .../2026-11-09_025.mov: No space left on device",
+      "Transfer complete: 20 copied, 5 failed.",
+      "The transfer did not finish: 5 failed and 0 were skipped. Originals were left untouched."
+    ],
+    "receipt_summary": "status ABORTED, abortReason 'Aborting: 5 consecutive failures (out of 25 attempted)', transfers 20",
+    "dest_sha256_equal_source": "20/20",
+    "files_not_in_receipt": 0,
+    "partial_or_temp_files": 0,
+    "share_source_unchanged_after": true
+  }
+}
