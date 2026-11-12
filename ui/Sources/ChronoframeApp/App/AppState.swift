@@ -386,6 +386,16 @@ final class AppState: ObservableObject {
         await setupCoordinator.chooseSourceFolder()
     }
 
+    func addSourceItems(_ urls: [URL]) async {
+        runCoordinator.invalidateWatchedImportContext()
+        await setupCoordinator.addSourceItems(urls)
+    }
+
+    func removeSourceItem(_ url: URL) async {
+        runCoordinator.invalidateWatchedImportContext()
+        await setupCoordinator.removeSourceItem(url)
+    }
+
     func selectSourceFolder(_ url: URL) async {
         runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.selectSourceFolder(url)

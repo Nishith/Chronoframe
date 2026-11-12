@@ -1033,6 +1033,47 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(defaulted.lastPathComponent, "photos_import_staging")
     }
     #endif
+
+    /// Editing the folder list changes what a pending watched import would
+    /// copy, so both forwarders drop it first, like their neighbours.
+    @MainActor
+    func testAddAndRemoveSourceItemsInvalidateWatchedImport() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appstate-source-items-\(UUID().uuidString)", isDirectory: true)
+        let watched = root.appendingPathComponent("watched", isDirectory: true)
+        let listed = root.appendingPathComponent("listed", isDirectory: true)
+        try FileManager.default.createDirectory(at: watched, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: listed, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let harness = AppStateHarness()
+        let store = WatchedSourcesStore()
+        let source = WatchedSource(path: watched.path, label: "watched")
+        store.insert(source)
+        store.setAvailability(id: source.id, .available)
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(
+                key: SourceWatchCoordinator.bookmarkKey(for: source.id),
+                path: watched.path,
+                data: Data(watched.path.utf8)
+            )
+        )
+        harness.setupStore.destinationPath = root.appendingPathComponent("library").path
+        let appState = harness.makeAppState(watchedSourcesStore: store, performInitialBootstrap: false)
+
+        await appState.reviewAndImportWatchedSource(id: source.id)
+        XCTAssertTrue(appState.hasActiveWatchedImport, "Setup for the test: an import is pending")
+
+        await appState.addSourceItems([listed])
+        XCTAssertFalse(appState.hasActiveWatchedImport, "Adding a folder drops the pending import")
+
+        _ = await waitForCondition { !harness.runSessionStore.isRunning }
+        await appState.reviewAndImportWatchedSource(id: source.id)
+        XCTAssertTrue(appState.hasActiveWatchedImport, "Setup for the test: an import is pending again")
+
+        await appState.removeSourceItem(listed)
+        XCTAssertFalse(appState.hasActiveWatchedImport, "Removing a folder drops the pending import")
+    }
 }
 
 private final class RecordingDedupeSnapshotStore: DeduplicateReviewSnapshotStoring, @unchecked Sendable {

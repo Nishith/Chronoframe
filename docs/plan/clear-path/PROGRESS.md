@@ -12,8 +12,8 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-01 | Core titles and tab order | done | build 0 | ChronoframeCoreOrganizeNavigationTests 0 (6); DeduplicateAccessibilityTextTests 0 (28); DeduplicateStatusViewTests 0 (30) | approved | (this commit) |  |
 | WP-02 | Staged sources checked against destination | done | build 0 | MultiItemSourceOverlapTests 0 (6); SwiftOrganizerEngineIntegrationTests 0; invariants script 0 | approved | (this commit) | safety-critical (INV-21); orchestrator diff read required |
 | WP-03 | Folder list model, store, picker | done | build 0 | SourceItemListTests 0 (12); SetupStoreTests 0 (11); PreferencesStoreTests 0 (12) | approved | (this commit) |  |
-| WP-04 | Setup coordinator, bookmarks, forwarders | in-progress | | | | | |
-| G1 | Coverage scope, suite, invariants | todo | | | n/a | | |
+| WP-04 | Setup coordinator, bookmarks, forwarders | done | build 0 | SetupCoordinatorTests 0 (25); BookmarkPathResolverTests 0 (8); AppStateTests 0; check_no_await_in_xctassert 0 | approved (round 2) | (this commit) |  |
+| G1 | Coverage scope, suite, invariants | in-progress | | | n/a | | |
 | WP-05 | Setup screen | todo | | | | | |
 | WP-06 | Folder layout in Setup | todo | | | | | |
 | WP-07 | Organize chrome, toolbar, prompts | todo | | | | | |
@@ -32,3 +32,4 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-12 WP-01: failing-first: compile error (no member displayOrder); Done-when all exit 0; reviewer approved; existing tests updated: DeduplicateAccessibilityTextTests:215, DeduplicateStatusViewTests:466 (Near duplicates → Look-alikes).
 - 2026-11-12 WP-02: failing-first: 4 tests ran, 5 failures (staged overlap let start write .organize_cache.db into the destination) — real INV-21 gap, production change made; AGENTS.md bullet extension due at G2. Orchestrator read the full diff of MediaDiscovery.swift, SourceDestinationDisjointness.swift, SwiftOrganizerEngine.swift (+31 lines, 0 deletions): every line traces to C-03. D-CLP-101 logged. Reviewer approved; all entry points (preflight/start/batch/resume) go through resolvedConfiguration.
 - 2026-11-12 WP-03: failing-first: compile errors (no member sourceItems, SourceItemList missing); conformers updated: FolderAccessService, MockFolderAccessService, NASViewTestFolderAccess, MockNASFolderAccess; D-CLP-102/103 logged; reviewer approved.
+- 2026-11-12 WP-04: failing-first: compile errors, then 3 round-1 tests and 1 follow-up test each failed before its fix. Review round 1: changes required (profile-at-launch restage; loose-file drop refused) → fixed; round 2 approved; follow-up stale-rows fix read by orchestrator. D-CLP-104/105/106 logged. TestSupport seam: watchedSourcesStore parameter on makeAppState.
