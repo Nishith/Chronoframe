@@ -40,11 +40,11 @@ final class RunHistoryViewTests: XCTestCase {
 
         XCTAssertEqual(
             RunHistoryView.confirmationTitle(for: transferEntry),
-            "Revert this transfer?"
+            "Undo this copy?"
         )
         XCTAssertEqual(
             RunHistoryView.confirmationActionLabel(for: transferEntry),
-            "Revert"
+            "Undo"
         )
         let message = RunHistoryView.confirmationMessage(for: transferEntry)
         XCTAssertTrue(message.contains("remove the files this receipt copied"))
@@ -70,7 +70,7 @@ final class RunHistoryViewTests: XCTestCase {
     func testConfirmationTitleFallsBackToTransferWhenNoEntryPending() {
         XCTAssertEqual(
             RunHistoryView.confirmationTitle(for: nil),
-            "Revert this transfer?"
+            "Undo this copy?"
         )
     }
 

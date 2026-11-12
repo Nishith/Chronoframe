@@ -232,7 +232,7 @@ final class RunSessionStoreTests: XCTestCase {
         await store.requestRun(mode: .transfer, configuration: configuration)
 
         XCTAssertEqual(store.prompt?.kind, .resumePendingJobs)
-        XCTAssertEqual(store.prompt?.title, "Resume Pending Transfer")
+        XCTAssertEqual(store.prompt?.title, "Finish the earlier copy?")
         XCTAssertEqual(engine.resumeConfigurations.count, 0)
 
         store.confirmPrompt()
@@ -780,6 +780,91 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(store.logLines.contains("ERROR: Error 1"))
         XCTAssertTrue(store.logLines.contains("⚠ Warning"))
         XCTAssertTrue(store.logLines.contains("ERROR: Error 2"))
+    }
+
+    // MARK: - Prompt copy (CLP WP-07, C-08)
+
+    @MainActor
+    func testConfirmPromptCopyMatchesContract() async {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath,
+            pendingJobCount: 0
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight))
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .transfer, configuration: configuration)
+
+        XCTAssertEqual(store.prompt?.kind, .confirmTransfer)
+        XCTAssertEqual(store.prompt?.title, "Start copying?")
+        XCTAssertEqual(
+            store.prompt?.message,
+            "Chronoframe will copy into \(tempDestinationURL.path). Your originals stay exactly where they are."
+        )
+        XCTAssertFalse(
+            "\(store.prompt?.title ?? "") \(store.prompt?.message ?? "")".localizedCaseInsensitiveContains("transfer")
+        )
+    }
+
+    @MainActor
+    func testResumePromptCopyMatchesContract() async {
+        for (count, expected) in [
+            (1, "1 file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan."),
+            (4, "4 files from an earlier copy are still waiting. Resume to finish them, or start over with the current plan."),
+        ] {
+            let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+            let preflight = RunPreflight(
+                configuration: configuration,
+                resolvedSourcePath: configuration.sourcePath,
+                resolvedDestinationPath: configuration.destinationPath,
+                pendingJobCount: count
+            )
+            let engine = MockOrganizerEngine(preflightResult: .success(preflight))
+            let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+            await store.requestRun(mode: .transfer, configuration: configuration)
+
+            XCTAssertEqual(store.prompt?.kind, .resumePendingJobs)
+            XCTAssertEqual(store.prompt?.title, "Finish the earlier copy?")
+            XCTAssertEqual(store.prompt?.message, expected)
+            XCTAssertFalse(
+                "\(store.prompt?.title ?? "") \(store.prompt?.message ?? "")".localizedCaseInsensitiveContains("transfer")
+            )
+        }
+    }
+
+    // AGENTS-INVARIANT: 10
+    @MainActor
+    func testBlockingBatchPromptSaysOriginalsNotChanged() async {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/watched-source", destinationPath: tempDestinationURL.path)
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            "/tmp/watched-source/a.jpg": FileIdentity(size: 1, digest: "a"),
+        ])
+
+        for (count, expected) in [
+            (1, "1 file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
+            (3, "3 files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
+        ] {
+            let preflight = RunPreflight(
+                configuration: configuration,
+                resolvedSourcePath: configuration.sourcePath,
+                resolvedDestinationPath: configuration.destinationPath,
+                pendingJobCount: count
+            )
+            let engine = MockOrganizerEngine(preflightResult: .success(preflight))
+            let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+            await store.requestRun(mode: .transfer, configuration: configuration, batch: batch)
+
+            XCTAssertEqual(store.prompt?.kind, .blockingError)
+            XCTAssertEqual(store.prompt?.title, "Finish the interrupted copy first")
+            XCTAssertEqual(store.prompt?.message, expected)
+            XCTAssertTrue(store.prompt?.message.contains("your originals were not changed") ?? false)
+            XCTAssertEqual(engine.startConfigurations.count, 0)
+        }
     }
 
     // MARK: - Confirm-transfer prompt path

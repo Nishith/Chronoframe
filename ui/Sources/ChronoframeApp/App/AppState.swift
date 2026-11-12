@@ -125,7 +125,7 @@ final class AppState: ObservableObject {
         let startImportPreview: @MainActor (WatchedImportContext) async -> Void = { [weak self] context in
             guard let self else { return }
             guard !self.deduplicateSessionStore.isWorking else {
-                self.transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+                self.transientErrorMessage = "Finish the duplicate cleanup before organizing."
                 return
             }
             self.previewReviewStore.reset()
@@ -451,7 +451,7 @@ final class AppState: ObservableObject {
         // they must never run concurrently. Reject an organize run while a
         // deduplicate scan/commit is in flight.
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+            transientErrorMessage = "Finish the duplicate cleanup before organizing."
             return
         }
         previewReviewStore.reset()
@@ -460,11 +460,11 @@ final class AppState: ObservableObject {
 
     func startTransfer() async {
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+            transientErrorMessage = "Finish the duplicate cleanup before organizing."
             return
         }
         if previewReviewStore.isStale {
-            transientErrorMessage = "Rebuild the preview before transferring so Chronoframe copies exactly the corrected plan."
+            transientErrorMessage = "Rebuild the preview before copying so Chronoframe copies exactly the corrected plan."
             return
         }
         await runCoordinator.startTransfer()

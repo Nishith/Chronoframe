@@ -219,11 +219,12 @@ public final class RunSessionStore: ObservableObject {
             if batch != nil, preflight.pendingJobCount > 0 {
                 prompt = RunPrompt(
                     kind: .blockingError,
-                    title: "Finish the interrupted transfer first",
-                    message: "Chronoframe found \(preflight.pendingJobCount) copy job"
-                        + "\(preflight.pendingJobCount == 1 ? "" : "s") still queued from a transfer that "
-                        + "was interrupted. Start a transfer to resume or discard them, then run the free "
-                        + "test batch. Nothing was copied and your originals were left untouched.",
+                    title: "Finish the interrupted copy first",
+                    message: "\(preflight.pendingJobCount.formatted()) file"
+                        + "\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy that was "
+                        + "interrupted \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. "
+                        + "Start copying to resume or discard them, then run the free "
+                        + "test batch. Nothing was copied and your originals were not changed.",
                     preflight: preflight
                 )
                 return
@@ -233,14 +234,14 @@ public final class RunSessionStore: ObservableObject {
                 let promptKind: RunPromptKind = preflight.pendingJobCount > 0 ? .resumePendingJobs : .confirmTransfer
                 let message: String
                 if preflight.pendingJobCount > 0 {
-                    message = "Chronoframe found \(preflight.pendingJobCount) pending copy jobs in the destination queue. Continue by resuming the persisted transfer?"
+                    message = "\(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Resume to finish them, or start over with the current plan."
                 } else {
-                    message = "Chronoframe will leave the source untouched and transfer into \(preflight.resolvedDestinationPath). Continue?"
+                    message = "Chronoframe will copy into \(preflight.resolvedDestinationPath). Your originals stay exactly where they are."
                 }
 
                 prompt = RunPrompt(
                     kind: promptKind,
-                    title: preflight.pendingJobCount > 0 ? "Resume Pending Transfer" : "Start Transfer",
+                    title: preflight.pendingJobCount > 0 ? "Finish the earlier copy?" : "Start copying?",
                     message: message,
                     preflight: preflight
                 )

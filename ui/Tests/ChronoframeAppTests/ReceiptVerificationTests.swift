@@ -46,7 +46,7 @@ final class ReceiptVerificationTests: XCTestCase {
         encoder.dateEncodingStrategy = .iso8601
         let dedupeEntry = RunHistoryEntry(kind: .dedupeAuditReceipt, title: "Receipt", path: "/unused", createdAt: date)
         let result = try ReceiptDetailSheet.decodeReceipt(data: encoder.encode(dedupe), entry: dedupeEntry)
-        XCTAssertEqual(result.metadata.title, "Deduplication Run Details")
+        XCTAssertEqual(result.metadata.title, "Duplicate Cleanup Details")
         XCTAssertEqual(result.metadata.bytesReclaimed, 123)
         XCTAssertEqual(result.transfers.first?.dest, "/archive/photo.jpg")
 
