@@ -1,0 +1,8 @@
+An import was interrupted.
+Resume Import
+Discard
+Start a new import?
+Start New Import
+Keep Interrupted Import
+Downloading from iCloud…
+This import was prepared for a different destination. Choose that destination again to resume, or discard it.
