@@ -10,6 +10,15 @@ public struct MediaDiscoveryEntry: Equatable, Sendable {
     }
 }
 
+/// Result of reading a staged source's drop manifest without enumerating it.
+/// Declared at file scope because `MediaDiscovery` already has a private
+/// nested type of this name.
+public enum DropManifestLookup: Equatable, Sendable {
+    case absent
+    case items([String])
+    case unreadable
+}
+
 public enum MediaDiscovery {
     public struct DirectoryIssue: Equatable, Sendable {
         public var path: String
@@ -253,6 +262,19 @@ public enum MediaDiscovery {
             return .present(manifest)
         } catch {
             return .corrupt(manifestURL, error)
+        }
+    }
+
+    /// Read-only: reports the item paths of a staged source's drop manifest,
+    /// using the same decoding as `enumerateMediaFiles`. Never writes.
+    public static func dropManifestLookup(inSourceRoot sourceRoot: String) -> ChronoframeCore.DropManifestLookup {
+        switch readDropManifest(at: URL(fileURLWithPath: sourceRoot, isDirectory: true)) {
+        case let .present(manifest):
+            return .items(manifest.items.map(\.path))
+        case .corrupt:
+            return .unreadable
+        case .absent:
+            return .absent
         }
     }
 

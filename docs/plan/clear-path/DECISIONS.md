@@ -38,3 +38,4 @@ When a gap appears that no contract or decision covers, choose the option that, 
 
 ## Runtime decisions
 (appended by the orchestrator as D-CLP-1NN)
+- **D-CLP-101 (WP-02) Public `DropManifestLookup` at file scope.** `MediaDiscovery` already has a private nested `DropManifestLookup { present, corrupt, absent }`. Options: (1) rename the private enum (edits lines outside C-03); (2) declare the contract's public enum at file scope in `MediaDiscovery.swift` and return `ChronoframeCore.DropManifestLookup`. Chosen: 2 (tie-break 3, fewest existing lines). Reviewer judged it sound.

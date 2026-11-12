@@ -476,6 +476,14 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             throw OrganizerEngineError.sourceOverlapsDestination(conflict)
         }
 
+        if case let .items(paths) = MediaDiscovery.dropManifestLookup(inSourceRoot: resolvedConfiguration.sourcePath),
+           let conflict = SourceDestinationDisjointness.conflict(
+               sourceItemPaths: paths,
+               destinationPath: resolvedConfiguration.destinationPath
+           ) {
+            throw OrganizerEngineError.sourceOverlapsDestination(conflict)
+        }
+
         return resolvedConfiguration
     }
 
