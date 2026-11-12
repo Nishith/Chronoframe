@@ -434,6 +434,67 @@ final class RunWorkspaceModelTests: XCTestCase {
         XCTAssertFalse(makeModel(status: .failed, discoveredCount: 0).isBlankIdle)
     }
 
+    // MARK: - Next step after a copy (C-10)
+
+    func testNextStepOnlyAfterFinishedCopyWithCopies() {
+        XCTAssertEqual(nextStepModel(status: .finished, copied: 3).nextStep, .findDuplicates(setAsideCount: 0))
+        XCTAssertNil(nextStepModel(status: .finished, copied: 0).nextStep)
+        for status in [RunStatus.dryRunFinished, .reverted, .nothingToCopy, .failed] {
+            XCTAssertNil(nextStepModel(status: status, copied: 5).nextStep, "\(status)")
+        }
+    }
+
+    func testNextStepCarriesSetAsideCount() {
+        XCTAssertEqual(
+            nextStepModel(status: .finished, copied: 10, duplicates: 4).nextStep,
+            .findDuplicates(setAsideCount: 4)
+        )
+    }
+
+    func testNextStepBodyWithAndWithoutSetAsideCopies() {
+        XCTAssertEqual(
+            nextStepModel(status: .finished, copied: 10, duplicates: 1200).nextStepBody,
+            "\((1200).formatted()) exact copies were set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. Nothing is removed until you approve it."
+        )
+        XCTAssertEqual(
+            nextStepModel(status: .finished, copied: 10, duplicates: 1).nextStepBody,
+            "1 exact copy was set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. Nothing is removed until you approve it."
+        )
+        XCTAssertEqual(
+            nextStepModel(status: .finished, copied: 10, duplicates: 0).nextStepBody,
+            "Deduplicate checks your organized library for exact copies and look-alikes. Nothing is removed until you approve it."
+        )
+    }
+
+    func testNextStepBodySaysNothingRemovedUntilApproved() {
+        for duplicates in [0, 1, 7] {
+            let body = nextStepModel(status: .finished, copied: 10, duplicates: duplicates).nextStepBody
+            XCTAssertTrue(body.hasSuffix("Nothing is removed until you approve it."), body)
+        }
+    }
+
+    private func nextStepModel(status: RunStatus, copied: Int, duplicates: Int = 0) -> RunWorkspaceModel {
+        RunWorkspaceModel(
+            context: RunWorkspaceContext(
+                status: status,
+                currentMode: nil,
+                currentTaskTitle: "",
+                currentPhase: nil,
+                progress: 0,
+                metrics: RunMetrics(duplicateCount: duplicates, copiedCount: copied),
+                summary: nil,
+                lastErrorMessage: nil,
+                warningCount: 0,
+                errorCount: 0,
+                issueCount: 0,
+                logEntries: [],
+                historyDestinationRoot: "",
+                currentSourceRoot: "",
+                canStartRun: false
+            )
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeModel(status: RunStatus, discoveredCount: Int = 0) -> RunWorkspaceModel {

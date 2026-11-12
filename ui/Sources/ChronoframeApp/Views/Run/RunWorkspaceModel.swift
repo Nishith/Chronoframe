@@ -162,6 +162,10 @@ struct RunWorkspaceContext {
     }
 }
 
+enum RunNextStep: Equatable {
+    case findDuplicates(setAsideCount: Int)
+}
+
 struct RunWorkspaceModel {
     let context: RunWorkspaceContext
 
@@ -540,6 +544,24 @@ struct RunWorkspaceModel {
         default:
             return false
         }
+    }
+
+    var nextStep: RunNextStep? {
+        context.status == .finished && context.metrics.copiedCount > 0
+            ? .findDuplicates(setAsideCount: context.metrics.duplicateCount)
+            : nil
+    }
+
+    var nextStepBody: String {
+        let setAside = context.metrics.duplicateCount
+        let closing = "Nothing is removed until you approve it."
+        if setAside > 1 {
+            return "\(setAside.formatted()) exact copies were set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)"
+        }
+        if setAside == 1 {
+            return "1 exact copy was set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)"
+        }
+        return "Deduplicate checks your organized library for exact copies and look-alikes. \(closing)"
     }
 
     var outcomeSummaryMessage: String {

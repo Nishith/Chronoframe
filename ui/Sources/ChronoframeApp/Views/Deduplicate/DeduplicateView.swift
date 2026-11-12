@@ -163,9 +163,12 @@ struct DeduplicateView: View {
                     Text("Find and remove duplicate photos and videos. Removed files go to the Trash.")
                         .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    Text("Organize already sets aside exact copies it meets while copying. Deduplicate checks the whole library, including look-alikes.")
+                        .scaledFont(.label)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Deduplicate. Find and remove duplicate photos and videos. Removed files go to the Trash.")
+                .accessibilityLabel("Deduplicate. Find and remove duplicate photos and videos. Removed files go to the Trash. Organize already sets aside exact copies it meets while copying. Deduplicate checks the whole library, including look-alikes.")
 
                 if !didOnboardDeduplicate {
                     OnboardingCard(

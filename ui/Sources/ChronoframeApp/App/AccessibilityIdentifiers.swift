@@ -42,6 +42,8 @@ enum AccessibilityIdentifiers {
     static let runIdleOnboardingCard = "runIdleOnboardingCard"
     static let runOutcomeSummaryCard = "runOutcomeSummaryCard"
     static let runPreviewSummary = "run.preview.summary"
+    static let runNextStepCard = "run.nextStep.card"
+    static let runNextStepFindDuplicates = "run.nextStep.findDuplicates"
     static let previewReviewFilter = "previewReviewFilter"
 
     // MARK: - Organize
