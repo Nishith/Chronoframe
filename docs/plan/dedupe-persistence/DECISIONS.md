@@ -19,3 +19,9 @@ Keep every invariant (INV-06, 12, 14, 17, 18, 20 and the new INV-29 above all); 
 - **D-DDP-12 New invariant INV-29** added at G1 by the orchestrator with the exact C-07 text.
 
 ## Runtime decisions
+- **D-DDP-101 Approval needs every member's own saved choice restored (orchestrator, WP-01).** `FileIdentity` is content-only, so a group key does not bind paths. A cluster is restored as approved only when key and member count match **and** every member path had a saved decision restored. Stricter than C-02 rule 4; fail closed. Covers renamed/moved members and two clusters with the same identity multiset.
+- **D-DDP-102 Empty cluster has no group key** (`groupKey(for:snapshot:)` returns nil).
+- **D-DDP-103 Fingerprint text.** Every `DeduplicateConfiguration` field except `workerCount` in declaration order, `destinationPath` included, `videoPerceptualMatchConfiguration` flattened; `additionalSources` entries joined by U+001E, their fields by U+001F; SHA-256 lowercase hex. A format change only flips `settingsChanged`.
+- **D-DDP-104 `capture` output.** `folderPath` standardized; decisions sorted by path; every decision with a scan identity is kept (not only cluster members); approvals in cluster order; focus nil when the focus cluster has no key.
+- **D-DDP-105 Counts.** `restoredGroupCount = approvedClusterIDs.count`; `changedGroupCount = max(0, approvals.count − restoredGroupCount)`; focus mapping is independent of approval.
+- **D-DDP-106 "Member of some cluster" means `members[].path`.** The session store only keys decisions by member path; paired and sidecar paths never appear in `byPath`.
