@@ -11,10 +11,13 @@ Owner decisions recorded 2026-11-07: ranks 1–5 at full depth, ranks 6–10 as 
 | 1 | [`nas-public/`](../nas-public/) | `feature/nas-v1` (existing) | — | `NASP` | 1 — take NAS v1 public |
 | 2 | [`dedupe-persistence/`](../dedupe-persistence/) | `feature/dedupe-persistence` | `main` after #1 merges | `DDP` | 2 — dedupe review survives relaunch |
 | 3 | [`photos-import-resume/`](../photos-import-resume/) | `feature/photos-import-resume` | `main` after #2 merges | `PIR` | 3 — visible, cancellable, resumable Photos import |
+| 3a | [`clear-path/`](../clear-path/) | `feature/clear-path` | `feature/photos-import-resume` (stacked, D-CLP-01) | `CLP` | UX review 2026-11-12 — plain-language Organize and Deduplicate flow, several folders at once |
 | 4 | [`find-and-account/`](../find-and-account/) | `feature/find-and-account` | `main` after #3 merges | `FAA` | 4 — item-level reconciliation and original-name lookup |
 | 5 | [`first-ten-minutes/`](../first-ten-minutes/) | `feature/first-ten-minutes` | `main` after #4 merges | `FTM` | 5 — preflight, free batch, proof |
 
 Each plan is self-contained: `CONTRACTS.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, `PROGRESS.md`, `ACCEPTANCE_MATRIX.md`, `BLOCKED.md`, `EVIDENCE_LEDGER.md`. Shared files live here: [`AGENT_RULES.md`](AGENT_RULES.md), [`bin/cf_swift.sh`](bin/cf_swift.sh), [`ORCHESTRATOR_KICKOFF.md`](ORCHESTRATOR_KICKOFF.md), [`claude-config/`](claude-config/) (install into the gitignored `.claude/`).
+
+Plan 3a (added 2026-11-12) rewrites the Setup, Run, Health and Deduplicate review screens' copy and layout and adds a folder list to Setup. Plans 4 and 5 were written before it: their line references into `Views/Setup/`, `Views/Run/`, `SetupCoordinator.swift`, `RunSessionStore.swift` prompt text and `RootSplitView.swift`, and any UI copy they specify (for example "Start Transfer"), must be refreshed against the code after 3a lands and before either runs.
 
 Plans 2–5 may be reordered by the owner; each `DECISIONS.md` D-01 names its base and must be edited if the base changes. Plan 4 reuses the receipt-mapping index that plan 3's checkpoint file does not need, so they are independent; plan 5 reads plan 3's staging estimate and plan 4's outcome index when present, and degrades to "not estimated" when absent (its contracts say how).
 

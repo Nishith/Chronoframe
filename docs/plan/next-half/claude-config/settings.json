@@ -34,6 +34,8 @@
       "Bash(git switch -c feature/photos-import-resume main)",
       "Bash(git switch -c feature/find-and-account main)",
       "Bash(git switch -c feature/first-ten-minutes main)",
+      "Bash(git switch feature/clear-path)",
+      "Bash(git switch -c feature/clear-path feature/photos-import-resume)",
       "Bash(git fetch origin main)",
       "Bash(chmod +x docs/plan/next-half/bin/cf_swift.sh)",
       "Bash(cp docs/plan/next-half/claude-config/agents/* .claude/agents/)"
