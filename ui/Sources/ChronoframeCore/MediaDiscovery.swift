@@ -19,6 +19,11 @@ public enum DropManifestLookup: Equatable, Sendable {
     case unreadable
 }
 
+/// File-scope spelling of the public lookup type, for use inside `MediaDiscovery`
+/// where the private nested type shadows the name. A module-qualified name would
+/// not compile in the single-target Xcode build.
+public typealias StagedDropManifestLookup = DropManifestLookup
+
 public enum MediaDiscovery {
     public struct DirectoryIssue: Equatable, Sendable {
         public var path: String
@@ -267,7 +272,7 @@ public enum MediaDiscovery {
 
     /// Read-only: reports the item paths of a staged source's drop manifest,
     /// using the same decoding as `enumerateMediaFiles`. Never writes.
-    public static func dropManifestLookup(inSourceRoot sourceRoot: String) -> ChronoframeCore.DropManifestLookup {
+    public static func dropManifestLookup(inSourceRoot sourceRoot: String) -> StagedDropManifestLookup {
         switch readDropManifest(at: URL(fileURLWithPath: sourceRoot, isDirectory: true)) {
         case let .present(manifest):
             return .items(manifest.items.map(\.path))

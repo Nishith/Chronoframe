@@ -5,9 +5,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "Idle",
+    "value": "Not started",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Idle"
+    "detailedDescription": "Contrast failed for Not started"
   },
   {
     "scenario": "setupReady",
@@ -25,9 +25,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "Preview is non-destructive. Transfer still requires an explicit confirmation before any files are copied.",
+    "value": "A preview copies nothing. It shows where every file would go, and you decide after that.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Preview is non-destructive. Transfer still requires an explicit confirmation before any files are copied."
+    "detailedDescription": "Contrast failed for A preview copies nothing. It shows where every file would go, and you decide after that."
   },
   {
     "scenario": "runPreviewReview",
@@ -55,9 +55,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "84, DISCOVERED",
+    "value": "84, FOUND",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 84, DISCOVERED"
+    "detailedDescription": "Contrast failed for 84, FOUND"
   },
   {
     "scenario": "runPreviewReview",
@@ -65,9 +65,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "42, PLANNED",
+    "value": "42, TO COPY",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 42, PLANNED"
+    "detailedDescription": "Contrast failed for 42, TO COPY"
   },
   {
     "scenario": "runPreviewReview",
@@ -95,9 +95,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "7, DUPLICATES",
+    "value": "7, EXACT COPIES",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 7, DUPLICATES"
+    "detailedDescription": "Contrast failed for 7, EXACT COPIES"
   },
   {
     "scenario": "runPreviewReview",
@@ -105,9 +105,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "1, ISSUES",
+    "value": "1, PROBLEMS",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for 1, ISSUES"
+    "detailedDescription": "Contrast failed for 1, PROBLEMS"
   },
   {
     "scenario": "healthDashboard",
@@ -115,9 +115,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "Review",
+    "value": "To Review",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Review"
+    "detailedDescription": "Contrast failed for To Review"
   },
   {
     "scenario": "healthDashboard",
@@ -155,9 +155,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "No files are currently parked in Unknown_Date.",
+    "value": "No files are waiting in the Unknown_Date folder.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for No files are currently parked in Unknown_Date."
+    "detailedDescription": "Contrast failed for No files are waiting in the Unknown_Date folder."
   },
   {
     "scenario": "healthDashboard",
@@ -165,9 +165,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "No exact duplicate hints are visible from the destination cache.",
+    "value": "No exact copies were set aside during past copies.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for No exact duplicate hints are visible from the destination cache."
+    "detailedDescription": "Contrast failed for No exact copies were set aside during past copies."
   },
   {
     "scenario": "healthDashboard",
@@ -175,9 +175,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "No audit receipts were found for this destination yet.",
+    "value": "Nothing has been copied here yet, so there is nothing to undo.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for No audit receipts were found for this destination yet."
+    "detailedDescription": "Contrast failed for Nothing has been copied here yet, so there is nothing to undo."
   },
   {
     "scenario": "healthDashboard",
@@ -185,9 +185,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "Recognized media filenames match Chronoframe's naming pattern.",
+    "value": "Every recognized file follows the folder layout.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Recognized media filenames match Chronoframe's naming pattern."
+    "detailedDescription": "Contrast failed for Every recognized file follows the folder layout."
   },
   {
     "scenario": "historyPopulated",
@@ -195,9 +195,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "Paths from completed transfers into this destination.",
+    "value": "Folders from completed copies into this destination.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Paths from completed transfers into this destination."
+    "detailedDescription": "Contrast failed for Folders from completed copies into this destination."
   },
   {
     "scenario": "historyPopulated",
@@ -205,9 +205,9 @@
     "role": "staticText",
     "identifier": "recoveryCenterSection",
     "label": "",
-    "value": "Recent runs that have a recovery receipt.",
+    "value": "Recent copies that have a recovery receipt.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Recent runs that have a recovery receipt."
+    "detailedDescription": "Contrast failed for Recent copies that have a recovery receipt."
   },
   {
     "scenario": "historyPopulated",
@@ -215,9 +215,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "Reports, receipts, and logs from every preview and transfer.",
+    "value": "Reports, receipts, and logs from every preview and copy.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Reports, receipts, and logs from every preview and transfer."
+    "detailedDescription": "Contrast failed for Reports, receipts, and logs from every preview and copy."
   },
   {
     "scenario": "historyPopulated",
@@ -305,9 +305,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "runs",
+    "value": "copies",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for runs"
+    "detailedDescription": "Contrast failed for copies"
   },
   {
     "scenario": "historyPopulated",

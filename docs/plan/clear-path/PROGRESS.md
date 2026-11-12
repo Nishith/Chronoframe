@@ -23,8 +23,8 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-11 | Health | done | build 0 | ChronoframeCoreLibraryHealthScannerTests 0 (11) | approved | (this commit) |  |
 | WP-11b | Glossary leftovers (added, D-CLP-117) | done | build 0 | RunSessionStoreTests 0 (34); ChronoframeCoreModelTests 0; ChronoframeCorePreviewReviewModelsTests 0; AccessibilityTests 0 (8); ChronoframeCLIKitTests 0 (46); invariants 0 | approved | (this commit) | display literals only |
 | WP-12 | UI-test scenarios and string lists | done | build 0 | no acceptance tests (scenario fixtures); implementer sweep AppTests 416/0; git diff --check 0 | approved | (this commit) |  |
-| WP-13 | XCUITest expectations and baseline | in-progress | | | n/a | | orchestrator |
-| WP-14 | Documentation | todo | | | | | |
+| WP-13 | XCUITest expectations and baseline | done | cf_swift.sh xcode 0 (after typealias fix; first run exit 65) | check_uitest_membership 0; UI lane NOT run: xcodebuild test exit 65, 'Timed out while enabling automation mode' (B-4); WP-02 classes re-run 0 after the MediaDiscovery fix | n/a | (this commit) | orchestrator |
+| WP-14 | Documentation | in-progress | | | | | |
 | G2 | Final gate | todo | | | n/a | | verified: |
 
 ## Log
@@ -44,3 +44,4 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-12 WP-11: failing-first: compile error (no member hasOrganizedHistory). Implementer sweeps: AppTests 416/0, AppCoreTests 1712/0. Reviewer confirmed dial renders only under hasOrganizedHistory and cards always render. D-CLP-116/117 logged; added card WP-11b next.
 - 2026-11-12 WP-11b: failing-first: both new tests failed on old titles. Implementer sweeps: AppTests 416/0, AppCoreTests 1714/0, CLIKit 46/0, Packaging 37/0. Reviewer: literals only; changed Core titles not printed/persisted/compared. D-CLP-118 and B-3 logged.
 - 2026-11-12 WP-12: Scenarios by cf-implementer; string lists by a Sonnet agent (every catalogue-bound line verified verbatim in ui/Sources; reviewer re-checked every line). Reviewer approved; 3 omitted literals added. D-CLP-119 logged.
+- 2026-11-12 WP-13: Steps 1–3 exit 0; step 4 logged as B-4, H-CLP-4 stays todo-hardware. D-CLP-120 logged.

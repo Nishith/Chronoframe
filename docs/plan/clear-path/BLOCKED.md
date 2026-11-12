@@ -48,3 +48,12 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Recommendation:** option 1 before H-CLP-6, so the validation session does not trip on these words.
 - **Status:** open
 
+### B-4 — The local UI-test lane cannot enable automation mode
+- **WP:** WP-13 step 4
+- **Command:** `xcodebuild -project ui/Chronoframe.xcodeproj -scheme Chronoframe -configuration Debug -derivedDataPath .tmp/ChronoframeUITestDerivedData -destination "platform=macOS" -skip-testing:ChronoframeUITests/ChronoframeUITests/testAccessibilityAuditAcrossScenarios DEVELOPMENT_TEAM= test` (exit 65)
+- **Error:** `ChronoframeUITests-Runner encountered an error (The test runner failed to initialize for UI testing. (Underlying Error: Timed out while enabling automation mode.))` — the app and the UI-test bundle built and signed; no test case ran.
+- **Tried:** one run. Enabling automation mode needs the macOS developer-tools authorization prompt (an administrator password, or `sudo DevToolsSecurity -enable`), which an agent may not answer.
+- **Options:** 1) the owner runs the H-CLP-4 command in a terminal and answers the prompt; 2) run the lane in CI on the pull request.
+- **Recommendation:** option 1; the label expectations and the baseline were edited without a run, so the first run may need small fixes.
+- **Status:** open
+
