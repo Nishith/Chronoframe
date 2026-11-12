@@ -316,6 +316,7 @@ final class AppState: ObservableObject {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
             restoreDeduplicateDestinationBookmark()
             recoverInterruptedMutationsAfterBootstrap()
+            self.photosImportStore.refreshResumableImport(destination: currentDestinationCapture())
         }
         self.menuBarManager = MenuBarStatusManager(appState: self)
     }
@@ -956,9 +957,21 @@ final class AppState: ObservableObject {
         return folderAccessService.scopedAccess(for: destinationBookmarks)
     }
 
-    private static func makePhotosImportStore() -> PhotosImportStore {
-        let staging = RuntimePaths.applicationSupportDirectory()
+    /// Staging parent for Photos imports. Debug builds honour
+    /// `CHRONOFRAME_PHOTOS_STAGING_DIR` so the low-space path can be exercised
+    /// on a small disk image; release builds always use Application Support.
+    static func photosStagingParentURL(environment: [String: String]) -> URL {
+        #if DEBUG
+        if let override = environment["CHRONOFRAME_PHOTOS_STAGING_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        #endif
+        return RuntimePaths.applicationSupportDirectory()
             .appendingPathComponent("photos_import_staging", isDirectory: true)
+    }
+
+    private static func makePhotosImportStore() -> PhotosImportStore {
+        let staging = photosStagingParentURL(environment: ProcessInfo.processInfo.environment)
         return PhotosImportStore(
             access: PhotosLibraryAccessService(),
             catalog: PhotosCatalogService(),
@@ -1315,12 +1328,34 @@ final class AppState: ObservableObject {
             transientErrorMessage = "Finish the duplicate cleanup before importing from Photos."
             return
         }
+        guard let context = await photosImportStore.prepareImport(destination: currentDestinationCapture()) else {
+            if let message = photosImportStore.statusMessage {
+                transientErrorMessage = message
+            }
+            return
+        }
+        previewReviewStore.reset()
+        await runCoordinator.startPreview(photosImportContext: context)
+    }
+
+    /// The destination active right now, pinned by Photos prepare and resume.
+    func currentDestinationCapture() -> PhotosImportStore.DestinationCapture? {
         let destinationPath = setupStore.destinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        let capture = PhotosImportStore.DestinationCapture(
+        return PhotosImportStore.DestinationCapture(
             path: destinationPath,
             bookmarkKeys: activeDestinationBookmarkKeys()
         )
-        guard let context = await photosImportStore.prepareImport(destination: capture) else {
+    }
+
+    /// Continues an interrupted Photos import from its checkpoint and hands
+    /// off to the same preview → consent → verified-transfer flow.
+    func resumeInterruptedPhotosImport() async {
+        guard !runSessionStore.isRunning else { return }
+        guard !deduplicateSessionStore.isWorking else {
+            transientErrorMessage = "Finish the duplicate cleanup before importing from Photos."
+            return
+        }
+        guard let context = await photosImportStore.resumeImport(destination: currentDestinationCapture()) else {
             if let message = photosImportStore.statusMessage {
                 transientErrorMessage = message
             }
