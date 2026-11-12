@@ -361,6 +361,14 @@ struct DeduplicateView: View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
                 restoredReviewBanner
+                DeduplicateReviewLanesBar(
+                    lanes: DeduplicateReviewLanes(
+                        clusters: sessionStore.clusters,
+                        reviewedIDs: Set(sessionStore.reviewedClusters.map(\.id))
+                    ),
+                    onAcceptSafe: { sessionStore.acceptAllSuggestions() },
+                    onQuickReview: { showingRapidTriage = true }
+                )
                 reviewBody(for: geometry.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
@@ -422,7 +430,7 @@ struct DeduplicateView: View {
                 )
                 .inspectorColumnWidth(min: 300, ideal: 400, max: 600)
             } else {
-                ContentUnavailableView("Select a cluster with at least 2 members to compare", systemImage: "rectangle.on.rectangle")
+                ContentUnavailableView("Select a group with at least two items to compare", systemImage: "rectangle.on.rectangle")
                     .inspectorColumnWidth(min: 300, ideal: 400, max: 600)
             }
         }
@@ -692,9 +700,9 @@ struct DeduplicateView: View {
                     sessionStore.acceptAllHighConfidence()
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
-                .accessibilityLabel("Accept High-Confidence Clusters")
+                .accessibilityLabel("Accept all safe groups")
                 .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptHighConfidenceButton)
-                .accessibilityHint("Accepts suggestions for all high-confidence clusters")
+                .accessibilityHint("Accepts the suggestion for every safe group")
                 .popoverTip(AcceptSafeSuggestionsTip(), arrowEdge: .bottom)
             }
 
@@ -739,9 +747,9 @@ struct DeduplicateView: View {
         .keyboardShortcut(.return, modifiers: [.command, .shift])
         .buttonStyle(.borderedMicroDelight)
         .fixedSize()
-        .accessibilityLabel("Accept High-Confidence Suggestions")
+        .accessibilityLabel("Accept all safe groups")
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptAllSuggestionsButton)
-        .accessibilityHint("Marks high-confidence clusters' suggested keepers as keep and the rest as delete")
+        .accessibilityHint("Keeps the suggested file in every safe group and marks the rest for the Trash")
 
         Spacer().frame(width: DesignTokens.Spacing.lg)
 
@@ -774,7 +782,7 @@ struct DeduplicateView: View {
             },
             secondary: {
                 HStack(spacing: DesignTokens.Spacing.sm) {
-                    Button("Open Run History") {
+                    Button("Open History") {
                         Task { await appState.openDeduplicateRunHistory() }
                     }
                     .buttonStyle(.borderedMicroDelight)
@@ -1090,7 +1098,7 @@ extension DeduplicateView {
         return DeduplicateStatusCopy(
             message: "Moved \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") to Trash · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) recoverable",
             warning: summary.failedCount > 0
-                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see Run History for details."
+                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see History for details."
                 : nil
         )
     }
@@ -1103,7 +1111,7 @@ extension DeduplicateView {
         return DeduplicateStatusCopy(
             message: "Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination",
             warning: summary.failedCount > 0
-                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see Run History for details."
+                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see History for details."
                 : nil
         )
     }

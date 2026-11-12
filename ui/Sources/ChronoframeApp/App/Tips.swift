@@ -15,7 +15,7 @@ enum TipCopy {
 
     enum AcceptSafeSuggestions {
         static let title = "Accept safe matches in one step"
-        static let message = "High-confidence groups are exact, verified duplicates — accept them together and keep moving. Chronoframe never auto-selects uncertain matches."
+        static let message = "Safe groups are matches Chronoframe has verified. Accept them together and keep moving. Chronoframe never selects uncertain matches for you."
         static let symbol = "checkmark.seal"
     }
 

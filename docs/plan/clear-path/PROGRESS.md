@@ -19,8 +19,8 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-07 | Organize chrome, toolbar, prompts | done | build 0 | OrganizeContainerViewTests 0 (4); RunSessionStoreTests 0 (33); KeyboardInteractionTests 0 (10); RunHistoryViewTests 0 (8); WatchedSourcesViewModelTests 0 (7); SidebarViewTests 0 (4); RunCoordinatorTests 0 (12); ReceiptVerificationTests 0 (9); FreeTestBatchRunTests 0 (4); navtitle guard 0; invariants 0 | changes required → fixed (1 round) | (this commit) |  |
 | WP-08 | Preview & Copy workspace | done | build 0 | RunPreviewHeadlineTests 0 (10); RunWorkspaceModelTests 0 (14); RunAnnouncementPlannerTests 0 (14); AccessibilityTests 0 (8); raw-animations guard 0; invariants 0 | changes required → fixed (1 round) | (this commit) |  |
 | WP-09 | Next step after a copy | done | build 0 | RunWorkspaceModelTests 0 (18) | approved | (this commit) |  |
-| WP-10 | Deduplicate lanes and vocabulary | in-progress | | | | | no Core/AppCore diff allowed |
-| WP-11 | Health | todo | | | | | |
+| WP-10 | Deduplicate lanes and vocabulary | done | build 0 | DeduplicateReviewLanesTests 0 (7); DeduplicateReviewViewsTests 0 (3); DeduplicateAccessibilityTextTests 0 (28); TipsTests 0 (4); DeduplicateSessionStoreTests 0 (unchanged); DeduplicateStatusViewTests 0 (30); invariants 0 | approved | (this commit) | no Core/AppCore diff allowed |
+| WP-11 | Health | in-progress | | | | | |
 | WP-12 | UI-test scenarios and string lists | todo | | | | | |
 | WP-13 | XCUITest expectations and baseline | todo | | | n/a | | orchestrator |
 | WP-14 | Documentation | todo | | | | | |
@@ -39,3 +39,4 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-12 WP-07: failing-first: compile error (OrganizeContainerView.tabs) and 3 RunSessionStore prompt tests failed on old wording. Reviewer confirmed RunSessionStore diff is literals only (+ .formatted()). Blocking finding (Undo label on non-copy receipts) fixed by orchestrator with the reviewer's suggested neutral 'Undo…'. XCUITest labels for WP-13: tab 'Run' :548-549, 'Run History' :553, 'Artifacts' :729/:741, 'Reusable Sources' :737, 'Actions for source' :518. D-CLP-110/111 logged.
 - 2026-11-12 WP-08: failing-first: compile error (RunPreviewHeadline not in scope). Implementer sweeps: AppTests 404/0 failures, AppCoreTests 1706/0 failures. Blocking finding (NowCopyingCard strip mislabelled 'Copies Waiting') fixed by orchestrator with the reviewer's text. XCUITest labels for WP-13: 'Return to Setup' :937/:939/:1189, 'Artifacts' :729/:741; A11yBaseline.json:8 'Idle'. D-CLP-112/113 logged.
 - 2026-11-12 WP-09: failing-first: compile error (no member nextStep). Implementer sweep: AppTests 408/0 failures. D-CLP-114 logged.
+- 2026-11-12 WP-10: failing-first: compile error (lane identifiers/type missing); cluster-vocabulary scan seen failing on a reintroduced literal. No Core/AppCore diff (git diff --stat empty). Reviewer: lane buttons call only acceptAllSuggestions() and the sheet flag; 'safe matches' accurate. B-1/B-2 logged (store follow-ups, not blocking). D-CLP-115 logged.

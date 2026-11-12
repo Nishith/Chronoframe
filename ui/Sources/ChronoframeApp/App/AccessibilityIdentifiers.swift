@@ -81,6 +81,9 @@ enum AccessibilityIdentifiers {
     static let dedupeCommitReviewedButton = "dedupeCommitReviewedButton"
     static let dedupeDecisionControl = "dedupeDecisionControl"
     static let dedupeFolderHistorySection = "dedupeFolderHistorySection"
+    static let dedupeLanes = "dedupe.lanes"
+    static let dedupeLanesAcceptSafe = "dedupe.lanes.acceptSafe"
+    static let dedupeLanesQuickReview = "dedupe.lanes.quickReview"
     static let dedupeMemberStrip = "dedupeMemberStrip"
     static let dedupeOpenRunHistoryButton = "dedupeOpenRunHistoryButton"
     static let dedupePausedScanSection = "dedupePausedScanSection"
@@ -186,6 +189,7 @@ enum AccessibilityIdentifiers {
         dedupeReviewActionsMenu, dedupeReviewChangeFolderButton, dedupeReviewClusterList,
         dedupeReviewDetail, dedupeReviewSettingsButton, dedupeUseHistoryFolderButton,
         dedupeRestoredBanner, dedupeRestoredBannerDismiss, dedupeSavedReviewDiscard, dedupeSavedReviewResume,
+        dedupeLanes, dedupeLanesAcceptSafe, dedupeLanesQuickReview,
         historyFilterControl, recoveryCenterSection, useHistoricalSourceButton,
         revealHistoricalSourceButton, receiptFileCount, receiptCloseButton, receiptItemList, receiptVerifyButton,
         activeProfileBadge,

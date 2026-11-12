@@ -403,7 +403,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
         ))
 
         XCTAssertEqual(copy.message, "Moved 3 files to Trash · 1 MB recoverable")
-        XCTAssertEqual(copy.warning, "1 item failed — see Run History for details.")
+        XCTAssertEqual(copy.warning, "1 item failed — see History for details.")
     }
 
     func testRevertedStatusCopyKeepsPartialFailuresVisuallySeparate() {
@@ -416,7 +416,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
         ))
 
         XCTAssertEqual(copy.message, "Restored 2 files · 1 MB returned to the destination")
-        XCTAssertEqual(copy.warning, "3 items could not be restored — see Run History for details.")
+        XCTAssertEqual(copy.warning, "3 items could not be restored — see History for details.")
     }
 
     func testMatchReasonFormatterExplainsConfidenceReasonsWarningsAndKeepers() {
