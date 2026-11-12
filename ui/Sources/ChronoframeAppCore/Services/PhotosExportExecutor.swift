@@ -40,6 +40,23 @@ public protocol PhotosResourceExporting: Sendable {
     /// against the library: implemented with `PHAssetResourceManager`, which
     /// only reads. Never calls `PHPhotoLibrary.performChanges`.
     func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws
+    /// Same as `writeResource(_:to:)`, additionally reporting 0...1 progress.
+    func writeResource(
+        _ resource: PhotosExportableResource,
+        to destinationURL: URL,
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws
+}
+
+public extension PhotosResourceExporting {
+    /// Default keeps every existing test double compiling: ignores progress.
+    func writeResource(
+        _ resource: PhotosExportableResource,
+        to destinationURL: URL,
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws {
+        try await writeResource(resource, to: destinationURL)
+    }
 }
 
 /// A single file written into the staging directory during export.
@@ -92,6 +109,21 @@ public struct PhotosExportReceipt: Equatable, Sendable {
     }
 }
 
+/// Per-asset progress of an export, in the order the executor produces it.
+public enum PhotosExportEvent: Equatable, Sendable {
+    /// `index` is 0-based within this export call.
+    case assetStarted(assetID: String, index: Int, total: Int)
+    /// 0...1 from the exporter, forwarded unchanged.
+    case resourceProgress(assetID: String, fraction: Double)
+    case assetCompleted(assetID: String, files: [PhotosExportedFile], sourceDateHints: [String: SourceDateHint])
+    case assetFailed(assetID: String, message: String)
+}
+
+/// Thrown before any write of the next asset when staging space is below the floor.
+public enum PhotosExportStop: Error, Equatable, Sendable {
+    case lowStagingSpace(freeBytes: Int64, floorBytes: Int64)
+}
+
 /// Copies selected Photos originals into a Chronoframe-owned staging
 /// directory, read-only. The staging directory is later handed to the
 /// existing verified-transfer pipeline as the run source; the Photos library
@@ -99,18 +131,39 @@ public struct PhotosExportReceipt: Equatable, Sendable {
 public struct PhotosExportExecutor {
     private let exporter: any PhotosResourceExporting
     private let timeZone: TimeZone
+    private let freeSpaceFloorBytes: Int64
+    private let freeSpaceProvider: @Sendable (URL) -> Int64?
+
+    public static let defaultFreeSpaceFloorBytes: Int64 = 2 * 1024 * 1024 * 1024
 
     /// `timeZone` picks the calendar day for items whose only date is Photos'
     /// own capture instant, which carries no timezone of its own.
-    public init(exporter: any PhotosResourceExporting, timeZone: TimeZone = .current) {
+    public init(
+        exporter: any PhotosResourceExporting,
+        timeZone: TimeZone = .current,
+        freeSpaceFloorBytes: Int64 = PhotosExportExecutor.defaultFreeSpaceFloorBytes,
+        freeSpaceProvider: @escaping @Sendable (URL) -> Int64? = PhotosExportExecutor.liveFreeSpace
+    ) {
         self.exporter = exporter
         self.timeZone = timeZone
+        self.freeSpaceFloorBytes = freeSpaceFloorBytes
+        self.freeSpaceProvider = freeSpaceProvider
+    }
+
+    /// Available capacity for important usage on `url`'s volume; nil on error.
+    public static func liveFreeSpace(at url: URL) -> Int64? {
+        guard let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) else {
+            return nil
+        }
+        return values.volumeAvailableCapacityForImportantUsage
     }
 
     public func export(
         plan: PhotosExportPlan,
         to stagingDirectory: URL,
-        isCancelled: @escaping @Sendable () -> Bool = { false }
+        reservedFilenames: Set<String> = [],
+        isCancelled: @escaping @Sendable () -> Bool = { false },
+        onEvent: @escaping @Sendable (PhotosExportEvent) -> Void = { _ in }
     ) async throws -> PhotosExportReceipt {
         try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
         // Discovery returns canonical URLs (notably /private/var for /var).
@@ -118,11 +171,19 @@ public struct PhotosExportExecutor {
 
         var exported: [PhotosExportedFile] = []
         var failures: [PhotosAssetExportFailure] = []
-        var usedFilenames = Set<String>()
+        var usedFilenames = reservedFilenames
         var sourceDateHints: [String: SourceDateHint] = [:]
 
-        for entry in plan.entries {
+        for (entryIndex, entry) in plan.entries.enumerated() {
             try throwIfCancelled(isCancelled)
+
+            // Stop before anything of this asset is written, so no rollback is
+            // needed and every completed asset's files stay in place. An
+            // unknown free-space value never stops the export.
+            if let free = freeSpaceProvider(stagingDirectory), free < freeSpaceFloorBytes {
+                throw PhotosExportStop.lowStagingSpace(freeBytes: free, floorBytes: freeSpaceFloorBytes)
+            }
+            onEvent(.assetStarted(assetID: entry.assetID, index: entryIndex, total: plan.entries.count))
 
             // Export all of an asset's resources as a unit. Files are buffered
             // and only published once every resource succeeds, so a partial
@@ -134,12 +195,9 @@ public struct PhotosExportExecutor {
             do {
                 let resources = try await exporter.originalResources(forAssetID: entry.assetID)
                 guard !resources.isEmpty else {
-                    failures.append(
-                        PhotosAssetExportFailure(
-                            assetID: entry.assetID,
-                            message: "No original photo or video was available to import for this item."
-                        )
-                    )
+                    let message = "No original photo or video was available to import for this item."
+                    failures.append(PhotosAssetExportFailure(assetID: entry.assetID, message: message))
+                    onEvent(.assetFailed(assetID: entry.assetID, message: message))
                     continue
                 }
                 for resource in resources {
@@ -154,7 +212,9 @@ public struct PhotosExportExecutor {
                     // Include the current resource in rollback even if the
                     // exporter fails after creating a partial staging file.
                     writtenURLs.append(destination)
-                    try await exporter.writeResource(resource, to: destination)
+                    try await exporter.writeResource(resource, to: destination) { fraction in
+                        onEvent(.resourceProgress(assetID: entry.assetID, fraction: fraction))
+                    }
                     assetFiles.append(
                         PhotosExportedFile(
                             assetID: entry.assetID,
@@ -176,6 +236,7 @@ public struct PhotosExportExecutor {
                 try throwIfCancelled(isCancelled)
                 exported.append(contentsOf: assetFiles)
                 sourceDateHints.merge(assetHints) { _, new in new }
+                onEvent(.assetCompleted(assetID: entry.assetID, files: assetFiles, sourceDateHints: assetHints))
             } catch is CancellationError {
                 rollBack(writtenURLs)
                 throw CancellationError()
@@ -183,12 +244,9 @@ public struct PhotosExportExecutor {
                 // A resource failed mid-asset: roll back what was written so an
                 // incomplete unit never reaches the transfer pipeline.
                 rollBack(writtenURLs)
-                failures.append(
-                    PhotosAssetExportFailure(
-                        assetID: entry.assetID,
-                        message: "Chronoframe couldn't read this item from Photos, so it was skipped. Your Photos library was not changed."
-                    )
-                )
+                let message = "Chronoframe couldn't read this item from Photos, so it was skipped. Your Photos library was not changed."
+                failures.append(PhotosAssetExportFailure(assetID: entry.assetID, message: message))
+                onEvent(.assetFailed(assetID: entry.assetID, message: message))
             }
         }
 
