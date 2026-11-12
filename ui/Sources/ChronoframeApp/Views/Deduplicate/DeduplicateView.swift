@@ -25,6 +25,11 @@ struct DeduplicateView: View {
     @State private var showingRapidTriage = false
     @AppStorage("didOnboardDeduplicate") private var didOnboardDeduplicate = false
     @State private var selectedDedupeItemURL: URL? = nil
+    /// `savedAt` of the restored review whose banner the user dismissed. The store
+    /// owns `restoredReview` (read-only here), so dismissal is local to the view.
+    @State private var dismissedRestoredReviewSavedAt: Date?
+    /// True once the saved focus has been applied for the current restore.
+    @State private var hasAppliedRestoredFocus = false
 
     init(appState: AppState) {
         self.appState = appState
@@ -84,9 +89,24 @@ struct DeduplicateView: View {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
                 #endif
             }
+            // Reset and cancel save the review just before returning to idle, so
+            // re-read the disk or the saved-review card would not appear.
+            if newValue == .idle {
+                refreshSavedReview()
+            }
+        }
+        .onChange(of: sessionStore.restoredReview) { _, newValue in
+            hasAppliedRestoredFocus = false
+            if newValue == nil {
+                dismissedRestoredReviewSavedAt = nil
+            }
+        }
+        .onChange(of: appState.deduplicateDestinationPath) { _, _ in
+            refreshSavedReview()
         }
         .onAppear {
             sessionStore.undoManager = undoManager
+            refreshSavedReview()
         }
         .onChange(of: undoManager) { _, newUndoManager in
             sessionStore.undoManager = newUndoManager
@@ -165,6 +185,8 @@ struct DeduplicateView: View {
                 destinationCard
 
                 pausedReviewSection
+
+                savedReviewSection
 
                 deduplicateRunHistorySection
 
@@ -246,6 +268,19 @@ struct DeduplicateView: View {
         }
     }
 
+    @ViewBuilder
+    private var savedReviewSection: some View {
+        if let snapshot = sessionStore.savedReviewForCurrentFolder,
+           !sessionStore.hasPausedReview,
+           !appState.deduplicateDestinationPath.isEmpty {
+            DeduplicateSavedReviewCard(
+                snapshot: snapshot,
+                resume: startScan,
+                discard: discardSavedReview
+            )
+        }
+    }
+
     // MARK: - Scanning
 
     private var scanningView: some View {
@@ -322,6 +357,7 @@ struct DeduplicateView: View {
     private var reviewView: some View {
         GeometryReader { geometry in
             VStack(spacing: 0) {
+                restoredReviewBanner
                 reviewBody(for: geometry.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
@@ -345,10 +381,17 @@ struct DeduplicateView: View {
                 .accessibilityHidden(true)
             }
         }
-        .onAppear { alignFocusWithVisibleClusters() }
+        .onAppear {
+            applyRestoredFocus()
+            alignFocusWithVisibleClusters()
+        }
         .onChange(of: sessionStore.clusters.map(\.id)) { alignFocusWithVisibleClusters() }
         .onChange(of: confidenceFilter) { alignFocusWithVisibleClusters() }
         .onChange(of: focusedClusterID) { _, newID in
+            // Plain write: it records where the user is without marking the review changed.
+            if sessionStore.reviewFocusClusterID != newID {
+                sessionStore.reviewFocusClusterID = newID
+            }
             if accessibilityFocusedClusterID != newID {
                 accessibilityFocusedClusterID = newID
             }
@@ -804,6 +847,30 @@ struct DeduplicateView: View {
         return clusters.first { $0.id == id } ?? clusters.first
     }
 
+    @ViewBuilder
+    private var restoredReviewBanner: some View {
+        if let restoration = sessionStore.restoredReview,
+           dismissedRestoredReviewSavedAt != restoration.savedAt {
+            DeduplicateRestoredReviewBanner(
+                restoration: restoration,
+                onDismiss: { dismissedRestoredReviewSavedAt = restoration.savedAt }
+            )
+        }
+    }
+
+    /// Selects the cluster the user was on when the review was saved, once per restore.
+    private func applyRestoredFocus() {
+        guard !hasAppliedRestoredFocus,
+              sessionStore.restoredReview != nil,
+              let id = sessionStore.reviewFocusClusterID,
+              let cluster = visibleReviewClusters.first(where: { $0.id == id })
+        else { return }
+        hasAppliedRestoredFocus = true
+        focusedClusterID = id
+        focusedMemberPath = cluster.members.first?.path
+        accessibilityFocusedClusterID = id
+    }
+
     private func alignFocusWithVisibleClusters() {
         let clusters = visibleReviewClusters
         guard let first = clusters.first else {
@@ -870,6 +937,16 @@ struct DeduplicateView: View {
 
     private func resetDeduplicate() {
         appState.resetDeduplicate()
+    }
+
+    private func refreshSavedReview() {
+        let path = appState.deduplicateDestinationPath
+        guard !path.isEmpty else { return }
+        sessionStore.refreshSavedReview(folderPath: path)
+    }
+
+    private func discardSavedReview() {
+        sessionStore.discardSavedReview(folderPath: appState.deduplicateDestinationPath)
     }
 
     private func abandonReview() {

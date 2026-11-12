@@ -58,6 +58,8 @@ final class AppState: ObservableObject {
     private let volumeClassifier: NASVolumeClassifier
     /// Keeps the trial status in step with the entitlement (T16).
     private var trialStatusObservation: AnyCancellable?
+    /// Writes a pending Deduplicate review save before the app quits.
+    private var terminationObserver: NSObjectProtocol?
     private var lastObservedEntitlement: EntitlementState?
     private lazy var bookmarkPathResolver = BookmarkPathResolver(
         preferencesStore: preferencesStore,
@@ -297,6 +299,18 @@ final class AppState: ObservableObject {
         TrialComposition.installReconciler()
 
         observeEntitlementForTrialStatus()
+
+        // No queue: the notification is posted on the main thread and the flush
+        // must finish before termination continues.
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.deduplicateSessionStore.flushPendingReviewSave()
+            }
+        }
 
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
