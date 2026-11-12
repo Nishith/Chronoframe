@@ -50,6 +50,7 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.transferButton, "transferButton")
         XCTAssertEqual(AccessibilityIdentifiers.startTransferFromPreviewButton, "startTransferFromPreviewButton")
         XCTAssertEqual(AccessibilityIdentifiers.openDestinationButton, "openDestinationButton")
+        XCTAssertEqual(AccessibilityIdentifiers.runPreviewSummary, "run.preview.summary")
         XCTAssertEqual(AccessibilityIdentifiers.chooseSourceButton, "chooseSourceButton")
         XCTAssertEqual(AccessibilityIdentifiers.chooseDestinationButton, "chooseDestinationButton")
         XCTAssertEqual(AccessibilityIdentifiers.dropZone, "dropZone")

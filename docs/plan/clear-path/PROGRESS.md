@@ -17,8 +17,8 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-05 | Setup screen | done | build 0 | SetupScreenModelTests 0 (18); check_no_raw_animations 0; check_detail_views_set_navigation_title 0 | approved | (this commit) |  |
 | WP-06 | Folder layout in Setup | done | build 0 | FolderLayoutPresentationTests 0 (6); SettingsUnlockSafetyTests 0 (2, file unchanged) | approved | (this commit) |  |
 | WP-07 | Organize chrome, toolbar, prompts | done | build 0 | OrganizeContainerViewTests 0 (4); RunSessionStoreTests 0 (33); KeyboardInteractionTests 0 (10); RunHistoryViewTests 0 (8); WatchedSourcesViewModelTests 0 (7); SidebarViewTests 0 (4); RunCoordinatorTests 0 (12); ReceiptVerificationTests 0 (9); FreeTestBatchRunTests 0 (4); navtitle guard 0; invariants 0 | changes required → fixed (1 round) | (this commit) |  |
-| WP-08 | Preview & Copy workspace | in-progress | | | | | |
-| WP-09 | Next step after a copy | todo | | | | | |
+| WP-08 | Preview & Copy workspace | done | build 0 | RunPreviewHeadlineTests 0 (10); RunWorkspaceModelTests 0 (14); RunAnnouncementPlannerTests 0 (14); AccessibilityTests 0 (8); raw-animations guard 0; invariants 0 | changes required → fixed (1 round) | (this commit) |  |
+| WP-09 | Next step after a copy | in-progress | | | | | |
 | WP-10 | Deduplicate lanes and vocabulary | todo | | | | | no Core/AppCore diff allowed |
 | WP-11 | Health | todo | | | | | |
 | WP-12 | UI-test scenarios and string lists | todo | | | | | |
@@ -37,3 +37,4 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-12 WP-05: failing-first: compile errors (SetupSourceItemRow missing). Existing tests updated: testPrimaryActionAndReadinessTrackManualSetupState, testProfileContextProducesPreviewReadySummary. XCUITest expects 'Setup' hero/nav title at ChronoframeUITests.swift:550,565,587,602 → WP-13. D-CLP-107/108 logged.
 - 2026-11-12 WP-06: failing-first: compile error (FolderLayoutPresentation not in scope). D-CLP-109 logged. Reviewer: binding the same preference from Setup bypasses nothing in Settings.
 - 2026-11-12 WP-07: failing-first: compile error (OrganizeContainerView.tabs) and 3 RunSessionStore prompt tests failed on old wording. Reviewer confirmed RunSessionStore diff is literals only (+ .formatted()). Blocking finding (Undo label on non-copy receipts) fixed by orchestrator with the reviewer's suggested neutral 'Undo…'. XCUITest labels for WP-13: tab 'Run' :548-549, 'Run History' :553, 'Artifacts' :729/:741, 'Reusable Sources' :737, 'Actions for source' :518. D-CLP-110/111 logged.
+- 2026-11-12 WP-08: failing-first: compile error (RunPreviewHeadline not in scope). Implementer sweeps: AppTests 404/0 failures, AppCoreTests 1706/0 failures. Blocking finding (NowCopyingCard strip mislabelled 'Copies Waiting') fixed by orchestrator with the reviewer's text. XCUITest labels for WP-13: 'Return to Setup' :937/:939/:1189, 'Artifacts' :729/:741; A11yBaseline.json:8 'Idle'. D-CLP-112/113 logged.

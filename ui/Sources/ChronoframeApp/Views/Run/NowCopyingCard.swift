@@ -180,7 +180,7 @@ struct WaypointRunway: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Copy Queue")
+            Text("Recent Copies")
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .tracking(0.6)
@@ -196,7 +196,7 @@ struct WaypointRunway: View {
                     }
 
                     if history.isEmpty {
-                        Text("Queue empty")
+                        Text("No copies yet")
                             .font(.caption)
                             .foregroundStyle(DesignTokens.ColorSystem.captionText)
                             .frame(height: 52)

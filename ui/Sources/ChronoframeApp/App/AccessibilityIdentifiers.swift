@@ -41,6 +41,7 @@ enum AccessibilityIdentifiers {
     static let runWorkspaceTabs = "runWorkspaceTabs"
     static let runIdleOnboardingCard = "runIdleOnboardingCard"
     static let runOutcomeSummaryCard = "runOutcomeSummaryCard"
+    static let runPreviewSummary = "run.preview.summary"
     static let previewReviewFilter = "previewReviewFilter"
 
     // MARK: - Organize
@@ -173,7 +174,7 @@ enum AccessibilityIdentifiers {
         setupSafetyDetailsDisclosure, setupHeroTitle, setupSourceItems,
         consoleScrollView, openDestinationButton, openReportButton, openLogsButton,
         startTransferFromPreviewButton, runWorkspaceTabs, runIdleOnboardingCard,
-        runOutcomeSummaryCard, previewReviewFilter,
+        runOutcomeSummaryCard, runPreviewSummary, previewReviewFilter,
         refreshLibraryHealthButton, reorganizeDestinationButton,
         dedupeAcceptAllSuggestionsButton, dedupeAcceptClusterSuggestionButton,
         dedupeAcceptHighConfidenceButton, dedupeCancelCommitButton, dedupeChangeFolderButton,

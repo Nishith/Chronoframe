@@ -26,14 +26,14 @@ final class RunAnnouncementPlannerTests: XCTestCase {
                 from: snapshot(.running, .copy, 0.99),
                 to: snapshot(.finished, nil, 1.0)
             ),
-            "Transfer complete."
+            "Copy complete."
         )
         XCTAssertEqual(
             RunAnnouncementPlanner.announcement(
                 from: snapshot(.running, .copy, 0.5),
                 to: snapshot(.failed, .copy, 0.5)
             ),
-            "Run failed. Your original files were left untouched."
+            "Chronoframe could not finish. Your original files were left untouched."
         )
         XCTAssertEqual(
             RunAnnouncementPlanner.announcement(
@@ -44,12 +44,13 @@ final class RunAnnouncementPlannerTests: XCTestCase {
         )
     }
 
+    // AGENTS-INVARIANT: 10
     func testCancelledRunReassuresOriginalsAreSafe() {
         let message = RunAnnouncementPlanner.announcement(
             from: snapshot(.running, .copy, 0.3),
             to: snapshot(.cancelled, .copy, 0.3)
         )
-        XCTAssertEqual(message, "Run cancelled. Your original files were left untouched.")
+        XCTAssertEqual(message, "Stopped. Your original files were left untouched.")
     }
 
     func testPhaseChangeIsAnnouncedDuringActiveRun() {
@@ -99,15 +100,15 @@ final class RunAnnouncementPlannerTests: XCTestCase {
 
     func testAllTerminalStatusesHaveDistinctReassuringMessages() {
         let cases: [(RunStatus, String)] = [
-            (.finished, "Transfer complete."),
+            (.finished, "Copy complete."),
             (.dryRunFinished, "Preview ready for review."),
             (.nothingToCopy, "Nothing new to copy."),
-            (.failed, "Run failed. Your original files were left untouched."),
-            (.cancelled, "Run cancelled. Your original files were left untouched."),
-            (.reverted, "Revert complete."),
-            (.revertEmpty, "Nothing to revert."),
-            (.reorganized, "Reorganize complete."),
-            (.nothingToReorganize, "Nothing to reorganize."),
+            (.failed, "Chronoframe could not finish. Your original files were left untouched."),
+            (.cancelled, "Stopped. Your original files were left untouched."),
+            (.reverted, "Undo complete."),
+            (.revertEmpty, "Nothing to undo."),
+            (.reorganized, "Layout updated."),
+            (.nothingToReorganize, "Layout already matches."),
         ]
         for (status, expected) in cases {
             XCTAssertEqual(
@@ -122,6 +123,25 @@ final class RunAnnouncementPlannerTests: XCTestCase {
         // Every terminal message is unique so users can tell outcomes apart.
         let messages = cases.map(\.1)
         XCTAssertEqual(Set(messages).count, messages.count)
+    }
+
+    func testSpokenTerminalMessagesAvoidEngineVocabulary() {
+        let banned = try! NSRegularExpression(pattern: "\\b(transfer|run|revert)\\b", options: [.caseInsensitive])
+        for status in [RunStatus.finished, .dryRunFinished, .nothingToCopy, .failed, .cancelled,
+                       .reverted, .revertEmpty, .reorganized, .nothingToReorganize] {
+            let message = RunAnnouncementPlanner.announcement(
+                from: snapshot(.running, .copy, 0.5),
+                to: snapshot(status, nil, 0.5)
+            ) ?? ""
+            XCTAssertNil(banned.firstMatch(in: message, range: NSRange(message.startIndex..., in: message)), message)
+        }
+        for status in [RunStatus.failed, .cancelled] {
+            let message = RunAnnouncementPlanner.announcement(
+                from: snapshot(.running, .copy, 0.5),
+                to: snapshot(status, nil, 0.5)
+            ) ?? ""
+            XCTAssertTrue(message.contains("original files were left untouched"), message)
+        }
     }
 
     func testNonTerminalStatusTransitionsAreSilent() {
