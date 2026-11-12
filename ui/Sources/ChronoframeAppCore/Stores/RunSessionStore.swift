@@ -201,7 +201,7 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         self.securityScope = securityScope
         status = .preflighting
-        currentTaskTitle = "Preparing \(mode.title)..."
+        currentTaskTitle = "Getting ready…"
 
         do {
             let preparedRun = try await engine.prepare(configuration)
@@ -279,7 +279,7 @@ public final class RunSessionStore: ObservableObject {
         }
         self.securityScope = securityScope
         status = .running
-        currentTaskTitle = "Reverting…"
+        currentTaskTitle = "Undoing…"
         artifacts = RunArtifactPaths(
             destinationRoot: destinationRoot,
             reportPath: receiptURL.path,
@@ -385,7 +385,7 @@ public final class RunSessionStore: ObservableObject {
         }
         self.securityScope = securityScope
         status = .running
-        currentTaskTitle = "Undoing Reorganize…"
+        currentTaskTitle = "Undoing the layout change…"
         artifacts = RunArtifactPaths(
             destinationRoot: destinationRoot,
             reportPath: receiptURL.path,
@@ -628,7 +628,7 @@ public final class RunSessionStore: ObservableObject {
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
-        currentTaskTitle = resumePendingJobs ? "Resuming transfer..." : "Starting \(preflight.configuration.mode.title.lowercased())..."
+        currentTaskTitle = resumePendingJobs ? "Resuming the copy…" : "Starting the \(preflight.configuration.mode.title.lowercased())…"
         artifacts = RunArtifactPaths(
             destinationRoot: preflight.resolvedDestinationPath,
             reportPath: nil,

@@ -11,9 +11,9 @@ public enum RunMode: String, Codable, Sendable {
         case .preview:
             return "Preview"
         case .transfer:
-            return "Transfer"
+            return "Copy"
         case .revert:
-            return "Revert"
+            return "Undo"
         case .reorganize:
             return "Reorganize"
         }

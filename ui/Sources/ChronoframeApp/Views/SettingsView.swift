@@ -113,7 +113,7 @@ private struct LayoutSettingsTab: View {
                 Text("Default Layout")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
-                Text("Future previews and transfers organize files into this directory layout. Smart Events suggest editable groups in Preview; they are only applied after you accept them and rebuild the preview.")
+                Text("Future previews and copies organize files into this directory layout. Smart Events suggest editable groups in Preview; they are only applied after you accept them and rebuild the preview.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
@@ -142,7 +142,7 @@ private struct LayoutSettingsTab: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Chronoframe will move every recognised file in the destination into the \(FolderLayoutPresentation.title(preferencesStore.folderStructure)) layout. Originals are not deleted, but files will appear at new paths. Open the Run workspace to track progress.")
+            Text("Chronoframe will move every recognised file in the destination into the \(FolderLayoutPresentation.title(preferencesStore.folderStructure)) layout. Originals are not deleted, but files will appear at new paths. Open Preview & Copy to track progress.")
         }
     }
 }
@@ -151,7 +151,7 @@ private struct GeneralSettingsTab: View {
     var body: some View {
         Form {
             Section {
-                Text("Tune how Chronoframe balances speed, safety, and diagnostics. These settings affect future previews and transfers without changing the organizer's core guarantees.")
+                Text("Tune how Chronoframe balances speed, safety, and diagnostics. These settings affect future previews and copies without changing the organizer's core guarantees.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
@@ -240,7 +240,7 @@ private struct PerformanceSettingsTab: View {
                 Text("Presets")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
-                Text("Presets adjust the advanced controls below without weakening Chronoframe's source-folder safety guarantees.")
+                Text("Presets adjust the advanced controls below without weakening Chronoframe's safety guarantees for your original files.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
@@ -257,14 +257,14 @@ private struct PerformanceSettingsTab: View {
                 }
 
                 Toggle(isOn: $preferencesStore.parallelTransferEnabled) {
-                    Text("Parallel Transfers")
+                    Text("Parallel Copies")
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
             } header: {
                 Text("Throughput")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
-                Text("More worker threads can improve throughput on faster storage. Parallel transfers allow concurrent file copies and only affect future transfer runs.")
+                Text("More worker threads can improve throughput on faster storage. Parallel copies let several files copy at once and only affect future copies.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
 
@@ -277,7 +277,7 @@ private struct PerformanceSettingsTab: View {
                 Text("Safety")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
-                Text("Verification re-hashes copied files after transfer. It adds work, but it provides stronger confidence that destination files match the originals.")
+                Text("Verification re-checks each copied file after it is copied. It adds work, but it provides stronger confidence that destination files match the originals.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }
@@ -427,7 +427,7 @@ private struct DiagnosticsSettingsTab: View {
                 Text("Log Buffer")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } footer: {
-                Text("A larger buffer keeps more recent console history in memory for the Run workspace. Lower values use less memory but trim older log lines sooner.")
+                Text("A larger buffer keeps more recent Activity history in memory for Preview & Copy. Lower values use less memory but trim older log lines sooner.")
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
         }

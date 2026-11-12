@@ -118,7 +118,7 @@ final class AccessibilityTests: XCTestCase {
             XCTAssertFalse(label.trimmingCharacters(in: .whitespaces).isEmpty, "Accessibility label must be non-empty")
         }
         // The hint should point keyboard users at the equivalent control.
-        XCTAssertTrue(AccessibilityLabels.dropZoneHint.localizedCaseInsensitiveContains("choose source"))
+        XCTAssertTrue(AccessibilityLabels.dropZoneHint.localizedCaseInsensitiveContains("add folders"))
     }
 
     func testAccessibleDesignStrengthensHighContrastSurfaces() {

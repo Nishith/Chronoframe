@@ -21,8 +21,8 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-09 | Next step after a copy | done | build 0 | RunWorkspaceModelTests 0 (18) | approved | (this commit) |  |
 | WP-10 | Deduplicate lanes and vocabulary | done | build 0 | DeduplicateReviewLanesTests 0 (7); DeduplicateReviewViewsTests 0 (3); DeduplicateAccessibilityTextTests 0 (28); TipsTests 0 (4); DeduplicateSessionStoreTests 0 (unchanged); DeduplicateStatusViewTests 0 (30); invariants 0 | approved | (this commit) | no Core/AppCore diff allowed |
 | WP-11 | Health | done | build 0 | ChronoframeCoreLibraryHealthScannerTests 0 (11) | approved | (this commit) |  |
-| WP-11b | Glossary leftovers (added, D-CLP-117) | in-progress | | | | | display literals only |
-| WP-12 | UI-test scenarios and string lists | todo | | | | | |
+| WP-11b | Glossary leftovers (added, D-CLP-117) | done | build 0 | RunSessionStoreTests 0 (34); ChronoframeCoreModelTests 0; ChronoframeCorePreviewReviewModelsTests 0; AccessibilityTests 0 (8); ChronoframeCLIKitTests 0 (46); invariants 0 | approved | (this commit) | display literals only |
+| WP-12 | UI-test scenarios and string lists | in-progress | | | | | |
 | WP-13 | XCUITest expectations and baseline | todo | | | n/a | | orchestrator |
 | WP-14 | Documentation | todo | | | | | |
 | G2 | Final gate | todo | | | n/a | | verified: |
@@ -42,3 +42,4 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-12 WP-09: failing-first: compile error (no member nextStep). Implementer sweep: AppTests 408/0 failures. D-CLP-114 logged.
 - 2026-11-12 WP-10: failing-first: compile error (lane identifiers/type missing); cluster-vocabulary scan seen failing on a reintroduced literal. No Core/AppCore diff (git diff --stat empty). Reviewer: lane buttons call only acceptAllSuggestions() and the sheet flag; 'safe matches' accurate. B-1/B-2 logged (store follow-ups, not blocking). D-CLP-115 logged.
 - 2026-11-12 WP-11: failing-first: compile error (no member hasOrganizedHistory). Implementer sweeps: AppTests 416/0, AppCoreTests 1712/0. Reviewer confirmed dial renders only under hasOrganizedHistory and cards always render. D-CLP-116/117 logged; added card WP-11b next.
+- 2026-11-12 WP-11b: failing-first: both new tests failed on old titles. Implementer sweeps: AppTests 416/0, AppCoreTests 1714/0, CLIKit 46/0, Packaging 37/0. Reviewer: literals only; changed Core titles not printed/persisted/compared. D-CLP-118 and B-3 logged.

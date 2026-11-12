@@ -1158,6 +1158,80 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.currentTaskTitle, "Hashing source... 42 files…")
         XCTAssertNil(store.metrics.etaSeconds)
     }
+
+    // MARK: - Plain wording (CLP WP-11b, D-CLP-113)
+
+    private static let engineVocabulary = ["transfer", "source", "revert", "reverting", "hash", "index"]
+
+    private func assertAvoidsEngineVocabulary(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        let words = title.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
+        for banned in Self.engineVocabulary {
+            XCTAssertFalse(words.contains(banned), "\"\(title)\" contains \"\(banned)\"", file: file, line: line)
+        }
+    }
+
+    @MainActor
+    func testCurrentTaskTitlesAvoidEngineVocabulary() async throws {
+        // Preflight: observed from inside the mock engine's preflight.
+        let transferConfig = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: transferConfig,
+            resolvedSourcePath: transferConfig.sourcePath,
+            resolvedDestinationPath: transferConfig.destinationPath
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+        let preflightTitle = MutableStringBox()
+        engine.preflightHook = { [weak store] in
+            preflightTitle.value = store?.currentTaskTitle ?? ""
+        }
+
+        // Starting the copy: the title set before the first engine event.
+        await store.requestRun(mode: .transfer, configuration: transferConfig)
+        XCTAssertEqual(preflightTitle.value, "Getting ready…")
+        assertAvoidsEngineVocabulary(preflightTitle.value)
+        store.confirmPrompt()
+        let started = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(started)
+        XCTAssertEqual(store.currentTaskTitle, "Starting the copy…")
+        assertAvoidsEngineVocabulary(store.currentTaskTitle)
+        store.cancelCurrentRun()
+
+        // Starting the preview.
+        let previewConfig = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let previewEngine = MockOrganizerEngine(
+            preflightResult: .success(RunPreflight(
+                configuration: previewConfig,
+                resolvedSourcePath: previewConfig.sourcePath,
+                resolvedDestinationPath: previewConfig.destinationPath
+            )),
+            startMode: .pending
+        )
+        let previewStore = RunSessionStore(engine: previewEngine, logStore: logStore, historyStore: historyStore)
+        await previewStore.requestRun(mode: .preview, configuration: previewConfig)
+        let previewStarted = await waitForCondition { previewEngine.pendingContinuation != nil }
+        XCTAssertTrue(previewStarted)
+        XCTAssertEqual(previewStore.currentTaskTitle, "Starting the preview…")
+        assertAvoidsEngineVocabulary(previewStore.currentTaskTitle)
+        previewStore.cancelCurrentRun()
+
+        // Undo and undoing a layout change.
+        let undoEngine = MockOrganizerEngine(preflightResult: .success(preflight), revertMode: .pending, reorganizeMode: .pending)
+        let undoStore = RunSessionStore(engine: undoEngine, logStore: logStore, historyStore: historyStore)
+        let receiptURL = tempDestinationURL.appendingPathComponent("receipt.json")
+        undoStore.requestRevert(receiptURL: receiptURL, destinationRoot: tempDestinationURL.path)
+        XCTAssertEqual(undoStore.currentTaskTitle, "Undoing…")
+        assertAvoidsEngineVocabulary(undoStore.currentTaskTitle)
+        undoStore.cancelCurrentRun()
+        _ = await waitForCondition { !undoStore.isRunning }
+
+        let layoutEngine = MockOrganizerEngine(preflightResult: .success(preflight), reorganizeMode: .pending)
+        let layoutStore = RunSessionStore(engine: layoutEngine, logStore: logStore, historyStore: historyStore)
+        layoutStore.requestReorganizeRevert(receiptURL: receiptURL, destinationRoot: tempDestinationURL.path)
+        XCTAssertEqual(layoutStore.currentTaskTitle, "Undoing the layout change…")
+        assertAvoidsEngineVocabulary(layoutStore.currentTaskTitle)
+        layoutStore.cancelCurrentRun()
+    }
 }
 
 /// Reference holder so a `@MainActor` preflight hook can record an observation
@@ -1165,4 +1239,8 @@ final class RunSessionStoreTests: XCTestCase {
 /// reject). All access happens on the main actor in these tests.
 private final class MutableFlagBox: @unchecked Sendable {
     var value = false
+}
+
+private final class MutableStringBox: @unchecked Sendable {
+    var value = ""
 }

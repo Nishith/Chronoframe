@@ -180,9 +180,9 @@ public enum PreviewReviewIssueKind: String, Codable, Sendable, CaseIterable {
         case .lowConfidenceDate:
             return "Low confidence date"
         case .duplicate:
-            return "Duplicate"
+            return "Exact Copy"
         case .alreadyInDestination:
-            return "Already in destination"
+            return "Already There"
         case .hashError:
             return "Could not read file"
         }
