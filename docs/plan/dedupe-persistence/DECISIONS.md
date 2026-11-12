@@ -5,7 +5,7 @@ Prefix `DDP`. Runtime decisions appended as `D-DDP-1NN`.
 ## Tie-break rule for new gaps
 Keep every invariant (INV-06, 12, 14, 17, 18, 20 and the new INV-29 above all); fewest changed lines; copy the named reference pattern; fail closed (drop a saved choice rather than apply it). Log as `D-DDP-1NN`; safety weakening goes to `BLOCKED.md`.
 
-- **D-DDP-01 Branch.** `feature/dedupe-persistence` from `main` after `feature/nas-v1` merged. Never push.
+- **D-DDP-01 Branch.** `feature/dedupe-persistence` stacked on `feature/nas-v1` at `4079fb1` (owner decision 2026-11-11: nas-v1 is unmerged and `main` lacks `docs/plan/` and INV-28). Rebase or merge after nas-v1 lands. Guards use base ref `feature/nas-v1`. Never push.
 - **D-DDP-02 Identity, not path, is the key.** A saved choice is restored only when `scanSnapshot.identitiesByPath[path] == saved.identity`. Group approvals are keyed by sorted member identities because cluster UUIDs are regenerated each scan.
 - **D-DDP-03 Decisions restore regardless of settings; the banner says when settings changed.** Content-identical files keep their Keep/Delete choice under any threshold. Approvals are protected by member identity, so a different threshold that regroups files simply yields unmatched (changed) groups.
 - **D-DDP-04 Changed content clears the choice and un-approves the group.** No "stale Delete" can survive: a changed member drops its decision, and C-02 rule 4 withholds approval for its group.
