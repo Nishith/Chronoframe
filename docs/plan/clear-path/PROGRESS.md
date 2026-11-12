@@ -25,7 +25,7 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-12 | UI-test scenarios and string lists | done | build 0 | no acceptance tests (scenario fixtures); implementer sweep AppTests 416/0; git diff --check 0 | approved | de0936c |  |
 | WP-13 | XCUITest expectations and baseline | done | cf_swift.sh xcode 0 (after typealias fix; first run exit 65) | check_uitest_membership 0; UI lane NOT run: xcodebuild test exit 65, 'Timed out while enabling automation mode' (B-4); WP-02 classes re-run 0 after the MediaDiscovery fix | n/a | c87c97b | orchestrator |
 | WP-14 | Documentation | done | n/a (docs) | git diff --check 0 | approved | daed52e |  |
-| G2 | Final gate | done | build 0; cf_swift.sh xcode 0; ui/build.sh 0 | suite 0; coverage 0; guards feature/photos-import-resume 0 (14 guards); git diff --check 0 | n/a | (this commit) | verified: |
+| G2 | Final gate | done | build 0; cf_swift.sh xcode 0; ui/build.sh 0 | suite 0; coverage 0; guards feature/photos-import-resume 0 (14 guards); git diff --check 0 | n/a | a68d3ca | verified: |
 
 ## Log
 (one line per step: date, WP, what ran, exit codes, failing-first evidence, reviewer verdict)
