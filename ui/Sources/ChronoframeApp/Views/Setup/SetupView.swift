@@ -58,6 +58,7 @@ struct SetupView: View {
 
                                     SetupDestinationStepSection(
                                         model: screenModel,
+                                        preferencesStore: preferencesStore,
                                         chooseDestination: { Task { await appState.chooseDestinationFolder() } },
                                         selectDestination: { url in Task { await appState.selectDestinationFolder(url) } }
                                     )
@@ -135,6 +136,7 @@ struct SetupView: View {
 
                                 SetupDestinationStepSection(
                                     model: screenModel,
+                                    preferencesStore: preferencesStore,
                                     chooseDestination: { Task { await appState.chooseDestinationFolder() } },
                                     selectDestination: { url in Task { await appState.selectDestinationFolder(url) } }
                                 )

@@ -399,6 +399,7 @@ private struct SetupSourceItemList: View {
 
 struct SetupDestinationStepSection: View {
     let model: SetupScreenModel
+    @ObservedObject var preferencesStore: PreferencesStore
     let chooseDestination: () -> Void
     let selectDestination: (URL) -> Void
 
@@ -457,6 +458,11 @@ struct SetupDestinationStepSection: View {
                         }
                     }
                 }
+
+                SetupLayoutBlock(
+                    preferencesStore: preferencesStore,
+                    isRunInProgress: model.context.isRunInProgress
+                )
             }
         }
         .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
@@ -489,6 +495,42 @@ struct SetupDestinationStepSection: View {
             Motion.withMotion(.spring(response: 0.25, dampingFraction: 0.7), reduceMotion: reduceMotion) {
                 isHovered = hovering
             }
+        }
+    }
+}
+
+struct SetupLayoutBlock: View {
+    @ObservedObject var preferencesStore: PreferencesStore
+    let isRunInProgress: Bool
+
+    var body: some View {
+        let structure = preferencesStore.folderStructure
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Folder layout")
+                .scaledFont(.label)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+
+            Picker("Folder layout", selection: $preferencesStore.folderStructure) {
+                ForEach(FolderStructure.allCases, id: \.self) { option in
+                    Text(FolderLayoutPresentation.title(option)).tag(option)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .disabled(isRunInProgress)
+            .accessibilityIdentifier(AccessibilityIdentifiers.setupFolderLayoutPicker)
+
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(FolderLayoutPresentation.exampleLines(structure).enumerated()), id: \.offset) { _, line in
+                    Text(line)
+                        .scaledFont(.mono)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(FolderLayoutPresentation.accessibilityExample(structure))
         }
     }
 }

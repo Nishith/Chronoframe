@@ -27,6 +27,7 @@ enum AccessibilityIdentifiers {
     static let setupSafetyDetailsDisclosure = "setupSafetyDetailsDisclosure"
     static let setupHeroTitle = "setupHeroTitle"
     static let setupSourceItems = "setup.sourceItems"
+    static let setupFolderLayoutPicker = "setup.folderLayoutPicker"
     /// Prefix for the per-row remove buttons; the row index is appended.
     static let setupSourceItemRemovePrefix = "setup.sourceItem.remove."
 

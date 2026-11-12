@@ -98,7 +98,7 @@ private struct LayoutSettingsTab: View {
             Section {
                 Picker("Folder Structure", selection: $preferencesStore.folderStructure) {
                     ForEach(FolderStructure.allCases, id: \.self) { structure in
-                        Text(structure.rawValue).tag(structure)
+                        Text(FolderLayoutPresentation.title(structure)).tag(structure)
                     }
                 }
                 .pickerStyle(.menu)
@@ -142,7 +142,7 @@ private struct LayoutSettingsTab: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Chronoframe will move every recognised file in the destination into the \(preferencesStore.folderStructure.rawValue) layout. Originals are not deleted, but files will appear at new paths. Open the Run workspace to track progress.")
+            Text("Chronoframe will move every recognised file in the destination into the \(FolderLayoutPresentation.title(preferencesStore.folderStructure)) layout. Originals are not deleted, but files will appear at new paths. Open the Run workspace to track progress.")
         }
     }
 }
