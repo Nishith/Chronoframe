@@ -212,7 +212,7 @@ final class DeduplicateAccessibilityTextTests: XCTestCase {
     func testClusterRowLabelLeadsWithKindTitleForEveryKind() {
         let expected: [(ClusterKind, String)] = [
             (.exactDuplicate, "Exact duplicates group, "),
-            (.nearDuplicate, "Near duplicates group, "),
+            (.nearDuplicate, "Look-alikes group, "),
             (.burst, "Bursts group, "),
             (.editedVariant, "Edited variants group, "),
         ]

@@ -463,7 +463,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
 
         XCTAssertEqual(
             DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster),
-            "Near duplicates group, 2 photos, low confidence, suggested keeper keeper, needs careful review"
+            "Look-alikes group, 2 photos, low confidence, suggested keeper keeper, needs careful review"
         )
 
         let rowValue = DeduplicateAccessibilityText.clusterRowValue(
