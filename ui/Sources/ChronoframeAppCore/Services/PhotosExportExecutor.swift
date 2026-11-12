@@ -43,7 +43,7 @@ public protocol PhotosResourceExporting: Sendable {
 }
 
 /// A single file written into the staging directory during export.
-public struct PhotosExportedFile: Equatable, Sendable {
+public struct PhotosExportedFile: Equatable, Codable, Sendable {
     public let assetID: String
     public let stagingStem: String
     public let path: String
@@ -57,7 +57,7 @@ public struct PhotosExportedFile: Equatable, Sendable {
 
 /// An asset that could not be exported. The library is never changed, so a
 /// failure only means that asset is absent from the import.
-public struct PhotosAssetExportFailure: Equatable, Sendable {
+public struct PhotosAssetExportFailure: Equatable, Codable, Sendable {
     public let assetID: String
     public let message: String
 

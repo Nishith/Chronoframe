@@ -24,3 +24,4 @@ When a gap appears that no contract or decision covers, choose the option that, 
 
 ## Runtime decisions
 (appended by the orchestrator as D-PIR-1NN)
+- **D-PIR-101 (WP-01) `MediaKind` gains `Codable`.** C-01 assumed `PhotosAssetSummary.MediaKind` (`ChronoframeCore/PhotosCatalog.swift:13`) was already encodable; it is `String`-raw but did not declare `Codable`, so `PhotosAssetExportEntry` could not synthesize it. Options: (A) add `Codable` to that one conformance list; (B) hand-written `init(from:)`/`encode(to:)` on the entry. Chose A by the tie-break (fewest lines, no new code); WP-01's owned paths are extended by that one line.
