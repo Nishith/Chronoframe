@@ -24,9 +24,20 @@ Plans 2–5 may be reordered by the owner; each `DECISIONS.md` D-01 names its ba
 - **NAS hardware checks H1–H8.** Owner-only; see `docs/plan/nas-v1/EVIDENCE_LEDGER.md`. Plan 1 adds the rows that depend on them to its own ledger and leaves them `todo-hardware`.
 - **Release flag flips** (`NASCapability.isEnabled` release value). Owner-only, after the ledger rows read `pass-hardware`.
 
-## Backlog cards (ranks 6–10; not planned this pass)
+## Backlog cards (ranks 6–11; not planned this pass)
 
 Each card is the seed of a future plan folder. Scope lines are the Round 3 boundaries; nothing below is approved for implementation.
+
+Order after Round 4 (2026-11-10): **B11** (rank 6), B6 (7), B7 (8), B8 (9), B9 (10), B10 (11). Card IDs are unchanged so existing references stay valid.
+
+### B11 — Already-archived view and date-range selection in Photos import (`feature/photos-archived-view`)
+- **Job:** "I offload from iCloud every few months; show me what is already in my archive and import only the rest."
+- **Evidence:** Round 4 of the product review (r/ApplePhotos thread, 2026-11-04).
+- **Builds on:** plan 3's checkpoint (`exportedAssetIDs`), plan 4's media-mapping index, the existing album and smart-album browser.
+- **Scope:** record the Photos asset identifier with each verified destination mapping; in the Photos import browser, mark an asset "In archive" only when its recorded destination still passes an identity check, otherwise "Not confirmed"; select by capture-date range in addition to albums; offer "skip items already in archive" so they are not exported or downloaded again; show counts of archived, not confirmed and new for the selection.
+- **Out:** any write to Photos (no albums, no deletion), any "safe to delete" wording, pre-export size totals (no public PhotoKit size, D-PIR-05), folder-side junk detection.
+- **Open question:** whether the asset identifier is persisted with the destination mapping today.
+- **Invariants to tag:** Photos read-only (22); source read-only.
 
 ### B6 — Batch camera-clock correction (`feature/batch-clock`)
 - **Job:** a camera's clock was wrong for a trip; shift every selected item's capture time by one offset, or assign one date, with before/after preview and one-step undo.

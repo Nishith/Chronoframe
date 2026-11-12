@@ -377,3 +377,51 @@ All ten survive. The argument against each is recorded, not dismissed.
 - Guardian's restore and mirror remain deferred until a public customer base exists and signed interruption/external-volume evidence is recorded.
 - Edited-appearance import is deferred on the strength of the native Photos export workaround, not because the need is unreal.
 - First-run work re-entered because the product has no customers yet; this reverses the revision's removal and is a judgment about the funnel, not new data.
+
+## Round 4 — challenge from external demand evidence (November 10, 2026)
+
+Status: **revised proposal**. Adds one backlog card and reorders the tail. Ranks 1–5 and their plan folders are unchanged.
+
+### Evidence
+
+An r/ApplePhotos thread, "iCloud users: How do you manage your growing Photos library?" (posted 2026-11-04, 117 comments read), plus the listings of the apps it names. This is the first demand evidence in this review that does not come from the owner. Limits: iPhone-first iCloud users, not Mac folder archivists; roughly a dozen comments are developers promoting their own apps; comment counts below are approximate hand tallies.
+
+| Job in the thread | Approx. comments | Existing coverage |
+|---|---|---|
+| Move photos out of iCloud to a drive, NAS or self-host, then delete from iCloud | 20 | Photos import (ranks 1, 3); no way to see what is already archived |
+| Shrink or remove large videos | 8 | None |
+| Pick the best of bursts and near-duplicates | 6 | Shipped in Deduplicate |
+| Remove screenshots, screen recordings, chat-app saves | 6 | System smart albums are already selectable in Photos import |
+| Review in small sessions with saved progress | 6 | Rank 2 |
+| Backup that is not iCloud; mirror that handles deletions | 5 | B9 scrub-only; mirror deferred |
+
+### Six candidates, argued against
+
+| Candidate | Strongest case against | Verdict |
+|---|---|---|
+| A. Show what is already archived in Photos import, select by date range, skip archived assets before export | Needs a durable Photos-asset-to-verified-copy mapping; a stale mapping could show "archived" for a file since moved or lost; users may read the mark as "safe to delete". | **Keep, new card B11.** Repeat offload is the top job in the thread, and today every repeat import re-exports and re-downloads assets that the copy step then skips. Mark only assets whose recorded destination still passes an identity check; otherwise "not confirmed". The app states what is verified and where; it never says a source is safe to erase (Round 2 #4 boundary stands) and never writes to Photos. |
+| B. Space report (bytes by year and type, largest first) | PhotoKit has no public pre-export size (D-PIR-05); for folders, Finder and disk tools already answer it. | **Remove.** Not buildable for Photos on the supported API; redundant for folders. |
+| C. Junk classes (screenshots, screen recordings, chat saves) | Photos import already lists the system smart albums; folder-side detection is heuristic and can misfile. | **Remove.** An exclude-by-type control folds into B11's selection if it proves cheap. |
+| D. "Reviewed through" coverage by month on top of rank 2 | Dedupe groups are not time-sliced; a coverage calendar is a second progress model. | **Remove.** The thread confirms rank 2 as scoped. |
+| E. Guardian mirror with a retention folder for deletions | Round 3's gates (signed external-volume and interruption evidence, a public customer base) are unchanged by five comments. | **Remove.** B9 stays scrub-only. Record the thread as demand evidence for when mirror re-enters. |
+| F. Video compression, JPEG-to-HEIC transcode, timestamp filename templates | Lossy output conflicts with verified bit-for-bit copies; the category is crowded with $5–10 apps; Round 3 already removed filename templates until a customer asks, and one forum comment is not that. | **Remove.** |
+
+### Revised order
+
+| Rank | Recommendation | Change |
+|---|---|---|
+| 1–5 | NAS public; dedupe persistence; resumable Photos import; find and account; first ten minutes | Unchanged |
+| 6 | **B11 — Already-archived view and date-range selection in Photos import** | New |
+| 7 | B6 batch clock correction | Down one |
+| 8 | B7 protected folders, then keeper preference | Down one |
+| 9 | B8 XMP companions | Down one |
+| 10 | B9 verify my archive (scrub-only) | Down one |
+| 11 | B10 Takeout rescue, narrow | Down one; still first to drop. The thread is not evidence against it: an Apple Photos forum would not raise Takeout. |
+
+B11 ranks above B6 because it extends the two flows the thread's largest group needs (ranks 3 and 4) and has external evidence; B6–B10 still rest on judgment alone.
+
+### DECISION_LOG additions
+
+- One forum thread is qualitative evidence for which jobs exist, not for their prevalence or willingness to pay.
+- B11 depends on plans 3 and 4. Whether the Photos asset identifier is persisted alongside the destination mapping today is unverified and is the first question for its plan.
+- No reply was posted to the thread; it is retained as launch-post evidence only.
