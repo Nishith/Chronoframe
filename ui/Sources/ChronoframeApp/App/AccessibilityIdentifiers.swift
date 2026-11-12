@@ -26,6 +26,9 @@ enum AccessibilityIdentifiers {
     static let setupPreflightChecklist = "setupPreflightChecklist"
     static let setupSafetyDetailsDisclosure = "setupSafetyDetailsDisclosure"
     static let setupHeroTitle = "setupHeroTitle"
+    static let setupSourceItems = "setup.sourceItems"
+    /// Prefix for the per-row remove buttons; the row index is appended.
+    static let setupSourceItemRemovePrefix = "setup.sourceItem.remove."
 
     // MARK: - Run
 
@@ -166,7 +169,7 @@ enum AccessibilityIdentifiers {
     static let all: [String] = [
         chooseSourceButton, chooseDestinationButton, dropZone, folderStructurePicker,
         profilePicker, previewButton, transferButton, setupPreflightChecklist,
-        setupSafetyDetailsDisclosure, setupHeroTitle,
+        setupSafetyDetailsDisclosure, setupHeroTitle, setupSourceItems,
         consoleScrollView, openDestinationButton, openReportButton, openLogsButton,
         startTransferFromPreviewButton, runWorkspaceTabs, runIdleOnboardingCard,
         runOutcomeSummaryCard, previewReviewFilter,

@@ -14,8 +14,8 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-03 | Folder list model, store, picker | done | build 0 | SourceItemListTests 0 (12); SetupStoreTests 0 (11); PreferencesStoreTests 0 (12) | approved | (this commit) |  |
 | WP-04 | Setup coordinator, bookmarks, forwarders | done | build 0 | SetupCoordinatorTests 0 (25); BookmarkPathResolverTests 0 (8); AppStateTests 0; check_no_await_in_xctassert 0 | approved (round 2) | (this commit) |  |
 | G1 | Coverage scope, suite, invariants | done | n/a | suite 0; coverage 0; invariants 0; diff --check 0 | n/a | (this commit) |  |
-| WP-05 | Setup screen | in-progress | | | | | |
-| WP-06 | Folder layout in Setup | todo | | | | | |
+| WP-05 | Setup screen | done | build 0 | SetupScreenModelTests 0 (18); check_no_raw_animations 0; check_detail_views_set_navigation_title 0 | approved | (this commit) |  |
+| WP-06 | Folder layout in Setup | in-progress | | | | | |
 | WP-07 | Organize chrome, toolbar, prompts | todo | | | | | |
 | WP-08 | Preview & Copy workspace | todo | | | | | |
 | WP-09 | Next step after a copy | todo | | | | | |
@@ -34,3 +34,4 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-12 WP-03: failing-first: compile errors (no member sourceItems, SourceItemList missing); conformers updated: FolderAccessService, MockFolderAccessService, NASViewTestFolderAccess, MockNASFolderAccess; D-CLP-102/103 logged; reviewer approved.
 - 2026-11-12 WP-04: failing-first: compile errors, then 3 round-1 tests and 1 follow-up test each failed before its fix. Review round 1: changes required (profile-at-launch restage; loose-file drop refused) → fixed; round 2 approved; follow-up stale-rows fix read by orchestrator. D-CLP-104/105/106 logged. TestSupport seam: watchedSourcesStore parameter on makeAppState.
 - 2026-11-12 G1: SourceItemList added to MEANINGFUL_BASENAMES; cf_swift.sh suite exit 0; cf_swift.sh coverage exit 0; check_agents_invariants_have_tests exit 0; git diff --check exit 0.
+- 2026-11-12 WP-05: failing-first: compile errors (SetupSourceItemRow missing). Existing tests updated: testPrimaryActionAndReadinessTrackManualSetupState, testProfileContextProducesPreviewReadySummary. XCUITest expects 'Setup' hero/nav title at ChronoframeUITests.swift:550,565,587,602 → WP-13. D-CLP-107/108 logged.
