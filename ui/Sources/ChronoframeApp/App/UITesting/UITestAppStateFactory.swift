@@ -72,11 +72,36 @@ enum UITestAppStateFactory {
             engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
             route = .organize(.setup)
 
+        case .setupMultiFolder:
+            // Three real folders under a scenario-owned temp root, listed the way
+            // `SetupCoordinator.applySourceItems` lists a staged multi-folder source
+            // (list + "3 folders" label), without running the staging copy.
+            let fixture = multiFolderFixture()
+            setupStore.sourcePath = fixture.stagingDirectory.path
+            setupStore.sourceURL = fixture.stagingDirectory
+            setupStore.droppedSourceLabel = SourceItemList.summaryLabel(count: fixture.folders.count)
+            setupStore.droppedSourceItemCount = fixture.folders.count
+            setupStore.setSourceItems(fixture.folders)
+            setupStore.destinationPath = fixture.destination.path
+            historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
+            engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
+            route = .organize(.setup)
+
         case .runPreviewReview:
             setupStore.sourcePath = "/Volumes/Card/April Session"
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
             historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
             engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
+            route = .organize(.run)
+
+        case .runCopyComplete:
+            // The destination is a scenario-owned temp folder because a finished
+            // run records its source in the destination's transferred-sources log.
+            let fixture = multiFolderFixture()
+            setupStore.sourcePath = "/Volumes/Card/April Session"
+            setupStore.destinationPath = fixture.destination.path
+            historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
+            engine = copyCompleteEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
             route = .organize(.run)
 
         case .healthDashboard:
@@ -201,7 +226,7 @@ enum UITestAppStateFactory {
             break
         }
 
-        if scenario == .runPreviewReview {
+        if scenario == .runPreviewReview || scenario == .runCopyComplete {
             Task { @MainActor in
                 await appState.startPreview()
             }
@@ -283,6 +308,56 @@ enum UITestAppStateFactory {
         } catch {
             preconditionFailure("Could not seed deterministic UI-test trial state: \(error)")
         }
+    }
+
+    /// App-owned temporary folders only: three source folders, a staging folder
+    /// and a destination. Never opens or changes a user's library.
+    private static func multiFolderFixture() -> (folders: [URL], stagingDirectory: URL, destination: URL) {
+        do {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("ChronoframeUITest-\(UUID().uuidString)", isDirectory: true)
+            let folders = ["April Session", "Weekend Trip", "Family Archive"].map {
+                root.appendingPathComponent("Sources", isDirectory: true).appendingPathComponent($0, isDirectory: true)
+            }
+            let stagingDirectory = root.appendingPathComponent("Staged", isDirectory: true)
+            let destination = root.appendingPathComponent("Chronoframe Library", isDirectory: true)
+            for url in folders + [stagingDirectory, destination] {
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            }
+            return (folders, stagingDirectory, destination)
+        } catch {
+            preconditionFailure("Could not create the multi-folder UI fixture: \(error)")
+        }
+    }
+
+    /// A finished copy: 4,200 files copied, 37 exact copies set aside.
+    private static func copyCompleteEngine(sourcePath: String, destinationPath: String) -> MockOrganizerEngine {
+        let preflight = RunPreflight(
+            configuration: RunConfiguration(mode: .preview, sourcePath: sourcePath, destinationPath: destinationPath),
+            resolvedSourcePath: sourcePath,
+            resolvedDestinationPath: destinationPath
+        )
+        let summary = RunSummary(
+            status: .finished,
+            title: "Copy complete",
+            metrics: RunMetrics(
+                discoveredCount: 4_300,
+                plannedCount: 4_200,
+                alreadyInDestinationCount: 63,
+                duplicateCount: 37,
+                copiedCount: 4_200
+            ),
+            artifacts: RunArtifactPaths(
+                destinationRoot: destinationPath,
+                reportPath: "\(destinationPath)/.organize_logs/dry_run_report.csv",
+                logFilePath: "\(destinationPath)/.organize_log.txt",
+                logsDirectoryPath: "\(destinationPath)/.organize_logs"
+            )
+        )
+        return MockOrganizerEngine(
+            preflightResult: .success(preflight),
+            startMode: .events([.startup, .complete(summary)])
+        )
     }
 
     private static func previewReviewEngine(sourcePath: String, destinationPath: String) -> MockOrganizerEngine {

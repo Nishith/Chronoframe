@@ -1,0 +1,326 @@
+1 group is a look-alike or less certain. Take a look.
+1 group is a safe match. Accept it now.
+1. Folders to organize
+3. Preview
+A few items need attention before the next copy.
+A first look
+A larger buffer keeps more recent Activity history in memory for Preview & Copy. Lower values use less memory but trim older log lines sooner.
+A preview copies nothing. It shows exactly what would happen.
+A preview copies nothing. It shows where each file would go, which are exact copies, and any problems.
+A preview copies nothing. It shows where every file would go, and you decide after that.
+A preview copies nothing. It shows where every photo and video would go, so you can check before copying.
+A receipt you can undo from History will be written to .organize_logs before trashing, allowing full restore.
+A saved profile holds one folder. Keep this list as it is (Chronoframe remembers it), or remove the extra folders to save a profile.
+Accept all safe groups
+Accepts the suggestion for every safe group
+Actions for folder
+Active copy. Originals stay safe.
+Activity
+Activity log
+Add Folders
+Add Folders…
+Add a folder
+Add a folder and choose a destination first
+Add a folder and choose a destination to see a preview.
+Add every folder that holds photos or videos. Chronoframe only reads them.
+Add the folders to organize
+Add the folders to organize and a destination, then come back here to preview and copy.
+Add the folders to organize and pick where the copies go.
+After a completed copy, the folder will appear here so you can use it again without re-entering the path.
+All groups reviewed
+Already There
+Already up to date
+Before you start
+Building the preview
+Builds the plan without copying anything
+Check skipped and exact-copy items in the Review tab before copying.
+Checked when the preview runs
+Choose Destination…
+Choose Folders
+Choose folders
+Choose the folders or the destination again so macOS refreshes access.
+Choose where the copies go
+Choose your folders
+Choose your folders first
+Chronoframe could not finish. Your original files were left untouched.
+Chronoframe could not finish. Your originals were not changed. Check that both folders are available, then try again.
+Chronoframe creates dated folders here and keeps a receipt of each copy so you can undo it from History.
+Chronoframe is checking your folders before it starts.
+Chronoframe moved the files in your organized library into the new folder layout.
+Chronoframe reads this folder and never changes what is in it.
+Chronoframe removed the copies listed in that receipt. Copies changed since then were kept.
+Chronoframe stopped before finishing. Files already copied stay in place and your originals were not changed. Preview again when you are ready.
+Chronoframe stopped early. Your originals were not changed. See Problems to continue.
+Copies changed since the original copy were kept.
+Copies files to the destination, verifies each copy against the original, and saves a receipt you can undo from History.
+Copies the planned files after you confirm
+Copies, duplicate cleanups, and reorganizes write receipts here when they can be undone safely.
+Copy Details
+Copy In Progress
+Copy Settings…
+Copy can be undone
+Copy check
+Copy complete
+Copy complete.
+Copy when it looks right
+Copying
+Copying your photos
+Deduplicate. Find and remove duplicate photos and videos. Removed files go to the Trash. Organize already sets aside exact copies it meets while copying. Deduplicate checks the whole library, including look-alikes.
+Destination folder
+Details
+Details section
+Done
+Drag folders onto the window or click Add Folders. Chronoframe only reads them — nothing is moved.
+Drag them onto this window or add them below. Nothing is copied until you say so.
+Drop folders here
+Drop photos, videos, or folders to organize
+Duplicate Cleanup Details
+Duplicate cleanup can be restored
+Each copy keeps a receipt
+Each copy saves a receipt in .organize_logs/ inside the destination so you can undo it from History.
+Every file is already in the chosen layout. Nothing was moved.
+Every group has been reviewed.
+Everything here is already in your organized library. Nothing needs copying.
+Everything in these folders is already in your organized library. Nothing was copied.
+Everything stays on this Mac
+Exact Copies
+Exact copies are set aside in a Duplicate folder, not the main archive — easy to review and discard.
+Exact copies, set aside in the Duplicate folder.
+Files copied so far.
+Files were moved into the chosen layout and a receipt was saved.
+Filter reports and logs
+Find Duplicates
+Finish the duplicate cleanup before organizing.
+Folder layout
+Folder to Organize
+Folders I Choose
+Folders added
+Folders from completed copies into this destination.
+Folders to organize
+Folders you chose
+Forget This Folder
+Found
+From
+Future previews and copies organize files into this directory layout. Smart Events suggest editable groups in Preview; they are only applied after you accept them and rebuild the preview.
+Getting ready
+Getting ready to copy
+Getting ready.
+Go to the Unknown_Date folder unless you set a date.
+Here's the shape of your folders — every bar a month of frames waiting to land.
+History
+How copying works
+Keep verification on and try again; Chronoframe removes bad copies when verification fails.
+Keeps the suggested file in every safe group and marks the rest for the Trash
+Layout already matches
+Layout already matches.
+Layout updated
+Layout updated.
+Look-alikes
+More worker threads can improve throughput on faster storage. Parallel copies let several files copy at once and only affect future copies.
+Needs attention
+Never changed
+New files in the plan.
+Next: remove extra copies
+No Date
+No Matching Reports or Logs
+No Problems
+No Reports or Logs Yet
+No Reusable Folders Yet
+No copies yet
+No date, an unsure date, or unreadable.
+No dated files found in these folders.
+No problems found.
+No problems reported
+No warnings or errors have been reported yet. If something changes, this view will pull the important problems out of the full activity log.
+Not started
+Nothing has been organized into this folder yet. Health checks become useful after your first copy.
+Nothing is removed until you approve it.
+Nothing needed copying.
+Nothing to Review Yet
+Nothing to Undo Yet
+Nothing to undo
+Nothing to undo.
+One folder
+One more step
+Open History
+Open Preview Report
+Open logs folder in Finder
+Open preview report
+Open the Review tab and set unknown or unsure dates before copying.
+Open the related file or folder from Reports and Logs, then preview again after fixing the cause.
+Opens Choose Folders
+Opens a folder picker to choose where the organized copies go
+Opens a folder picker. You can pick more than one folder.
+Opens the Problems tab below to review warnings and errors
+Opens the review list
+Or use the Add Folders button to pick folders
+Organize already sets aside exact copies it meets while copying. Deduplicate checks the whole library, including look-alikes.
+Parallel Copies
+Photos and videos in your folders.
+Photos appear here once you add a folder.
+Presets adjust the advanced controls below without weakening Chronoframe's safety guarantees for your original files.
+Preview & Copy
+Preview Plan
+Preview Plan (copies nothing)
+Preview first
+Preview plan
+Preview ready
+Preview the plan
+Preview the plan first
+Preview the plan to see the timeline of your folders.
+Preview the plan to see what would be copied.
+Previewing
+Problems
+Profile ready
+Profiles save your favorite folder and destination pairs. Switch with one click.
+Progress
+Progress and any problems show here while Chronoframe copies.
+Quick Review
+Reading and planning the copy only. No files are modified or written.
+Reading dates from your folders.
+Ready to copy.
+Ready to preview
+Rebuild the preview before copying so Chronoframe copies exactly the corrected plan.
+Recent Copies
+Recent copies that have a recovery receipt.
+Release to add
+Reorganize Details
+Reorganize can be undone
+Reports and Logs
+Reports, logs, and receipts for undo live in a hidden .organize_logs folder inside each destination you choose.
+Reports, receipts, and logs from every preview and copy.
+Reusable Folders
+Reveal this folder in Finder or forget it.
+Reveal, undo, or move this file to Trash.
+Review Before Copying
+Run a check to see files with no date, exact copies, unfinished copies and files outside the layout.
+Safe groups are matches Chronoframe has verified. Accept them together and keep moving. Chronoframe never selects uncertain matches for you.
+Scanning your folders — bars will appear as files are dated.
+Search reports and logs
+See Problems
+Select a group on the left
+Select a group with at least two items to compare
+Set Aside as a Copy
+Set aside in the Duplicate folder.
+Show in Finder
+Skipped because the same file is already in the library.
+Something needs attention
+Start Copying
+Start Copying (copies files for real)
+Start Over
+Start a preview or copy to build the first entries in this archive.
+Start a preview or copy, then return here to inspect reports, receipts, and logs.
+Start copying
+Start here
+Start with the folders that hold your photos.
+Starting…
+Status
+Stopped
+Stopped. Your original files were left untouched.
+Stopped. Your originals were not changed. Preview again when ready.
+Stops now. Files already copied stay in place
+Summary
+That receipt lists no copies.
+The app uses macOS sandboxed folder access. Choose your folders and destination with the standard folder picker; access is scoped to those choices and saved with security-scoped bookmarks.
+The first photos Chronoframe found in your folders.
+The library already matches the chosen layout.
+The library already matches this layout.
+This exact copy will be set aside in the Duplicate folder
+To
+To Copy
+To Review
+Tune how Chronoframe balances speed, safety, and diagnostics. These settings affect future previews and copies without changing the organizer's core guarantees.
+Undo
+Undo Available
+Undo complete
+Undo complete.
+Undo receipt active
+Undo this copy?
+Undone
+Undo…
+Up to date
+Updated
+Verification re-checks each copied file after it is copied. It adds work, but it provides stronger confidence that destination files match the originals.
+Warnings and errors are separated here so you can review the most important problems without scanning the entire activity log.
+Warnings and errors will be listed here.
+Warnings and files that could not be copied or checked.
+Welcome. Start with the folders that hold your photos.
+What will happen
+Where the organized copies go.
+Writing copies to the destination. Your original files stay untouched.
+Year
+Year / Month
+Year / Month / Day
+Year / Month / Event
+You can keep using your Mac. Nothing is being copied.
+You can keep using your Mac. Originals are only read, never changed.
+You changed some dates. Rebuild the preview so the copy matches your changes.
+Your changes are saved. Rebuild the preview before copying.
+Your destination will appear here once you choose one.
+Your folders will appear here once you choose them.
+Your organized library already has everything it needs.
+Your organized library already has this file
+Your original files are never modified, renamed, or deleted.
+Your original files are read-only and safe
+Your originals are not changed while you resolve these problems.
+Your originals were not changed. The report and the receipt for undoing this copy are in History.
+exact copies
+found
+problems
+to copy
+
+# not catalogued (interpolated)
+, all from \(firstLabel)
+, from \(firstLabel) to \(lastLabel)
+1 exact copy was set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)
+1 is an exact copy
+1 photo or video is
+Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? "copy" : "copies").
+Chronoframe can't find \u{201C}\(name)\u{201D} any more. Reconnect the drive or add the folder again.
+Chronoframe can’t currently access “\(URL(fileURLWithPath: historyStore.destinationRoot).lastPathComponent)”. Choose this same folder again to restore access and load History. Reconnecting does not change your media files.
+Chronoframe reads these \(count.formatted()) folders together and never changes what is in them.
+Chronoframe will copy into \(preflight.resolvedDestinationPath). Your originals stay exactly where they are.
+Chronoframe will move every recognised file in the destination into the \(FolderLayoutPresentation.title(preferencesStore.folderStructure)) layout. Originals are not deleted, but files will appear at new paths. Open Preview & Copy to track progress.
+Chronoframe will move the files that duplicate cleanup sent to the Trash back to their original locations. Files that have since been emptied from the Trash cannot be restored.\n\nReceipt: \(entry.relativePath)
+Chronoframe will move the files this reorganize changed back to their previous locations, but only if their contents still match the receipt.\n\nReceipt: \(entry.relativePath)
+Chronoframe will remove the files this receipt copied, but only if their contents still match the original copy. Files modified after the original copy will be preserved.\n\nReceipt: \(entry.relativePath)
+Date: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)
+Deduplicate checks your organized library for exact copies and look-alikes. \(closing)
+Example: \(exampleRelativePath(structure))
+Match score: %.2f
+Problems (\(count))
+Remove \(row.name) from the folders to organize
+Selected month: \(formatMonthYear(key)), \(count) \(count == 1 ? "copy" : "copies"). Timeline contains \(timelineBuckets.count) months.
+Since \(formatter.string(from: earliest)) · \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? "copy" : "copies")
+Starting the \(preflight.configuration.mode.title.lowercased())…
+Timeline containing \(total) \(total == 1 ? "copy" : "copies") across \(timelineBuckets.count) months. Unselected.
+Your originals in \(sourceName) are opened as read-only. Original files are never modified, moved, or deleted.
+\(bucket.plannedCount.formatted(.number)) files to copy
+\(checkGroupCount.formatted()) groups are look-alikes or less certain. Look at each one.
+\(copied.formatted()) files copied
+\(copied.formatted()) photos and videos are
+\(count.formatted()) folders
+\(formattedBytes(duplicateBytes)) could be freed after you review them.
+\(formattedBytes(unknownStats.bytes)) of files need a date.
+\(historyStore.entries.count) reports and logs · \(historyStore.transferredSources.count) reusable folders.
+\(issueCount) other problem\(issueCount == 1 ? "" : "s")
+\(lead) of another file here and will be set aside in the Duplicate folder.
+\(number(n)) \(n == 1 ? "has" : "have") a date Chronoframe is unsure about.
+\(number(n)) \(n == 1 ? "has" : "have") no date and will go to the Unknown_Date folder unless you set one.
+\(number(n)) \(n == 1 ? "is" : "are") already in your organized library and will be skipped.
+\(number(n)) are exact copies
+\(number(n)) could not be read and will be skipped.
+\(number(planned)) photos and videos
+\(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Resume to finish them, or start over with the current plan.
+\(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy that was interrupted \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed.
+\(queueStats.pending) waiting, \(queueStats.failed) failed. Open Preview & Copy to finish them.
+\(record.runCount) \(record.runCount == 1 ? "copy" : "copies")
+\(safeGroupCount.formatted()) groups are safe matches. Accept them together.
+\(setAside.formatted()) exact copies were set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)
+\(subject) in your organized library. Your originals were not changed.
+\(subject) will be copied\(span). Nothing has been copied yet.
+\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see History for details.
+\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see History for details.
+\u{201C}\(name)\u{201D} and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed.
+\u{201C}\(name)\u{201D} is already covered because it is inside \u{201C}\(parentName)\u{201D}.
+the folders you choose
