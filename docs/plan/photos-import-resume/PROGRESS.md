@@ -3,13 +3,15 @@
 Prefix `PIR`. Status values: todo, in-progress, review, done, blocked. "done" requires the Done-when commands with exit 0 recorded in Notes.
 
 ## Baseline
-(WP-00 records `cf_swift.sh build` and `cf_swift.sh suite` exit codes and the branch's base commit here.)
+- 2026-11-12 branch `feature/photos-import-resume` from `feature/dedupe-persistence` @ 97fc546 (D-PIR-01 revised).
+- `docs/plan/next-half/bin/cf_swift.sh build` → exit 0
+- `docs/plan/next-half/bin/cf_swift.sh suite` → exit 0
 
 ## Work packages
 | WP | Title | Status | Compiled | Tested | Reviewer | Commit | Notes |
 |---|---|---|---|---|---|---|---|
-| WP-00 | Branch and baseline | todo | | | n/a | | |
-| WP-01 | Checkpoint model and store | todo | | | | | |
+| WP-00 | Branch and baseline | done | 0 | suite 0 | n/a | | |
+| WP-01 | Checkpoint model and store | in-progress | | | | | |
 | WP-02 | Executor events, reserved names, free-space floor | todo | | | | | safety-critical: orchestrator diff review required |
 | WP-03 | Service forwards PhotoKit progress | todo | | | | | safety-critical; no unit test (PhotoKit) |
 | WP-04 | Store: checkpoint, cancel, resume, purge policy | todo | | | | | |
@@ -20,4 +22,4 @@ Prefix `PIR`. Status values: todo, in-progress, review, done, blocked. "done" re
 | G2 | Final gate | todo | | | n/a | | verified: claim only with screenshot path |
 
 ## Log
-(one line per step: date, WP, command, exit code, or decision/blocker reference)
+- 2026-11-12 WP-00: build 0, suite 0.
