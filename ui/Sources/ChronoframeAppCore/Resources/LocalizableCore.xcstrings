@@ -108,6 +108,17 @@
         }
       }
     },
+    "1 folder": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 folder"
+          }
+        }
+      }
+    },
     "A file already exists at the new location, so Chronoframe left the original in place. Destination: %@.": {
       "extractionState": "manual",
       "localizations": {
@@ -426,6 +437,28 @@
         }
       }
     },
+    "Add a folder to organize before the next preview.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a folder to organize before the next preview."
+          }
+        }
+      }
+    },
+    "Already There": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already There"
+          }
+        }
+      }
+    },
     "Approve Group": {
       "extractionState": "manual",
       "localizations": {
@@ -475,6 +508,39 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aprovar grupo"
+          }
+        }
+      }
+    },
+    "Check the plan, then copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check the plan, then copy"
+          }
+        }
+      }
+    },
+    "Checks on your organized library": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checks on your organized library"
+          }
+        }
+      }
+    },
+    "Choose Folders": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Folders"
           }
         }
       }
@@ -1797,6 +1863,28 @@
         }
       }
     },
+    "Copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        }
+      }
+    },
+    "Copy from Apple Photos": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy from Apple Photos"
+          }
+        }
+      }
+    },
     "Delete All in Group": {
       "extractionState": "manual",
       "localizations": {
@@ -1850,6 +1938,105 @@
         }
       }
     },
+    "Every recognized file follows the folder layout.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Every recognized file follows the folder layout."
+          }
+        }
+      }
+    },
+    "Exact Copies": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exact Copies"
+          }
+        }
+      }
+    },
+    "Exact Copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exact Copy"
+          }
+        }
+      }
+    },
+    "Files Outside the Layout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files Outside the Layout"
+          }
+        }
+      }
+    },
+    "Finish the earlier copy?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the earlier copy?"
+          }
+        }
+      }
+    },
+    "Finish the interrupted copy first": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finish the interrupted copy first"
+          }
+        }
+      }
+    },
+    "Folders to organize and destination are set.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folders to organize and destination are set."
+          }
+        }
+      }
+    },
+    "Get told when new photos arrive": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get told when new photos arrive"
+          }
+        }
+      }
+    },
+    "Getting ready…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Getting ready…"
+          }
+        }
+      }
+    },
     "Keep All in Group": {
       "extractionState": "manual",
       "localizations": {
@@ -1899,6 +2086,171 @@
           "stringUnit": {
             "state": "translated",
             "value": "Manter tudo no grupo"
+          }
+        }
+      }
+    },
+    "Look-alikes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look-alikes"
+          }
+        }
+      }
+    },
+    "Needs folders": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs folders"
+          }
+        }
+      }
+    },
+    "No Date": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Date"
+          }
+        }
+      }
+    },
+    "No copies are waiting or failed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No copies are waiting or failed."
+          }
+        }
+      }
+    },
+    "No exact copies were set aside during past copies.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No exact copies were set aside during past copies."
+          }
+        }
+      }
+    },
+    "No files are waiting in the Unknown_Date folder.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No files are waiting in the Unknown_Date folder."
+          }
+        }
+      }
+    },
+    "Nothing has been copied here yet, so there is nothing to undo.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing has been copied here yet, so there is nothing to undo."
+          }
+        }
+      }
+    },
+    "Past copies, reports and undo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Past copies, reports and undo"
+          }
+        }
+      }
+    },
+    "Preview & Copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview & Copy"
+          }
+        }
+      }
+    },
+    "Receipts are saved for recent copies, so they can be undone.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Receipts are saved for recent copies, so they can be undone."
+          }
+        }
+      }
+    },
+    "Remove extra copies": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove extra copies"
+          }
+        }
+      }
+    },
+    "Resuming the copy…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resuming the copy…"
+          }
+        }
+      }
+    },
+    "Some files don't follow Chronoframe's folder layout.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some files don't follow Chronoframe's folder layout."
+          }
+        }
+      }
+    },
+    "Sort into dated folders": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort into dated folders"
+          }
+        }
+      }
+    },
+    "Start copying?": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start copying?"
           }
         }
       }
@@ -2166,6 +2518,83 @@
           "stringUnit": {
             "state": "translated",
             "value": "Decisão de triagem"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo"
+          }
+        }
+      }
+    },
+    "Undo Records": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undo Records"
+          }
+        }
+      }
+    },
+    "Undoing the layout change…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undoing the layout change…"
+          }
+        }
+      }
+    },
+    "Undoing…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Undoing…"
+          }
+        }
+      }
+    },
+    "Unfinished Copies": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unfinished Copies"
+          }
+        }
+      }
+    },
+    "Watched Folders": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watched Folders"
+          }
+        }
+      }
+    },
+    "What to organize and where it goes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What to organize and where it goes"
           }
         }
       }

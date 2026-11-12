@@ -57,3 +57,12 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Recommendation:** option 1; the label expectations and the baseline were edited without a run, so the first run may need small fixes.
 - **Status:** open
 
+### B-5 — App smoke screenshots could not be taken
+- **WP:** G2 step 5
+- **Command:** `ui/build.sh` (exit 0); `open -n ui/build/Chronoframe.app --args --chronoframe-ui-test-scenario setupReady` (launched, pid seen); `screencapture -x` (exit 0, but the image shows only the desktop wallpaper: the shell has no screen-recording permission); computer-use access request for Chronoframe (declined).
+- **Error:** no way to see or capture the app window from this session.
+- **Tried:** the two capture routes above. The one instance this step launched was quit; no other instance was touched.
+- **Options:** 1) the owner launches each scenario and looks: `open -n ui/build/Chronoframe.app --args --chronoframe-ui-test-scenario <name>` for `setupReady`, `setupMultiFolder`, `runPreviewReview`, `runCopyComplete`, `healthDashboard`, `deduplicateReviewWide`; 2) grant the session access to Chronoframe and re-run G2 step 5.
+- **Recommendation:** option 1 together with H-CLP-4 and H-CLP-6; "verified" stays unclaimed for every WP until then.
+- **Status:** open
+

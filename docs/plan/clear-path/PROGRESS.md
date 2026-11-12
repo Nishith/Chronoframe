@@ -9,23 +9,23 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP | Title | Status | Compiled | Tested | Reviewer | Commit | Notes |
 |---|---|---|---|---|---|---|---|
 | WP-00 | Branch, baseline, plan commit | done | build 0 | suite 0 | n/a | c3f23b4 | |
-| WP-01 | Core titles and tab order | done | build 0 | ChronoframeCoreOrganizeNavigationTests 0 (6); DeduplicateAccessibilityTextTests 0 (28); DeduplicateStatusViewTests 0 (30) | approved | (this commit) |  |
-| WP-02 | Staged sources checked against destination | done | build 0 | MultiItemSourceOverlapTests 0 (6); SwiftOrganizerEngineIntegrationTests 0; invariants script 0 | approved | (this commit) | safety-critical (INV-21); orchestrator diff read required |
-| WP-03 | Folder list model, store, picker | done | build 0 | SourceItemListTests 0 (12); SetupStoreTests 0 (11); PreferencesStoreTests 0 (12) | approved | (this commit) |  |
-| WP-04 | Setup coordinator, bookmarks, forwarders | done | build 0 | SetupCoordinatorTests 0 (25); BookmarkPathResolverTests 0 (8); AppStateTests 0; check_no_await_in_xctassert 0 | approved (round 2) | (this commit) |  |
-| G1 | Coverage scope, suite, invariants | done | n/a | suite 0; coverage 0; invariants 0; diff --check 0 | n/a | (this commit) |  |
-| WP-05 | Setup screen | done | build 0 | SetupScreenModelTests 0 (18); check_no_raw_animations 0; check_detail_views_set_navigation_title 0 | approved | (this commit) |  |
-| WP-06 | Folder layout in Setup | done | build 0 | FolderLayoutPresentationTests 0 (6); SettingsUnlockSafetyTests 0 (2, file unchanged) | approved | (this commit) |  |
-| WP-07 | Organize chrome, toolbar, prompts | done | build 0 | OrganizeContainerViewTests 0 (4); RunSessionStoreTests 0 (33); KeyboardInteractionTests 0 (10); RunHistoryViewTests 0 (8); WatchedSourcesViewModelTests 0 (7); SidebarViewTests 0 (4); RunCoordinatorTests 0 (12); ReceiptVerificationTests 0 (9); FreeTestBatchRunTests 0 (4); navtitle guard 0; invariants 0 | changes required → fixed (1 round) | (this commit) |  |
-| WP-08 | Preview & Copy workspace | done | build 0 | RunPreviewHeadlineTests 0 (10); RunWorkspaceModelTests 0 (14); RunAnnouncementPlannerTests 0 (14); AccessibilityTests 0 (8); raw-animations guard 0; invariants 0 | changes required → fixed (1 round) | (this commit) |  |
-| WP-09 | Next step after a copy | done | build 0 | RunWorkspaceModelTests 0 (18) | approved | (this commit) |  |
-| WP-10 | Deduplicate lanes and vocabulary | done | build 0 | DeduplicateReviewLanesTests 0 (7); DeduplicateReviewViewsTests 0 (3); DeduplicateAccessibilityTextTests 0 (28); TipsTests 0 (4); DeduplicateSessionStoreTests 0 (unchanged); DeduplicateStatusViewTests 0 (30); invariants 0 | approved | (this commit) | no Core/AppCore diff allowed |
-| WP-11 | Health | done | build 0 | ChronoframeCoreLibraryHealthScannerTests 0 (11) | approved | (this commit) |  |
-| WP-11b | Glossary leftovers (added, D-CLP-117) | done | build 0 | RunSessionStoreTests 0 (34); ChronoframeCoreModelTests 0; ChronoframeCorePreviewReviewModelsTests 0; AccessibilityTests 0 (8); ChronoframeCLIKitTests 0 (46); invariants 0 | approved | (this commit) | display literals only |
-| WP-12 | UI-test scenarios and string lists | done | build 0 | no acceptance tests (scenario fixtures); implementer sweep AppTests 416/0; git diff --check 0 | approved | (this commit) |  |
-| WP-13 | XCUITest expectations and baseline | done | cf_swift.sh xcode 0 (after typealias fix; first run exit 65) | check_uitest_membership 0; UI lane NOT run: xcodebuild test exit 65, 'Timed out while enabling automation mode' (B-4); WP-02 classes re-run 0 after the MediaDiscovery fix | n/a | (this commit) | orchestrator |
-| WP-14 | Documentation | done | n/a (docs) | git diff --check 0 | approved | (this commit) |  |
-| G2 | Final gate | in-progress | | | n/a | | verified: |
+| WP-01 | Core titles and tab order | done | build 0 | ChronoframeCoreOrganizeNavigationTests 0 (6); DeduplicateAccessibilityTextTests 0 (28); DeduplicateStatusViewTests 0 (30) | approved | e960598 |  |
+| WP-02 | Staged sources checked against destination | done | build 0 | MultiItemSourceOverlapTests 0 (6); SwiftOrganizerEngineIntegrationTests 0; invariants script 0 | approved | e4b4ca7 | safety-critical (INV-21); orchestrator diff read required |
+| WP-03 | Folder list model, store, picker | done | build 0 | SourceItemListTests 0 (12); SetupStoreTests 0 (11); PreferencesStoreTests 0 (12) | approved | 2a51360 |  |
+| WP-04 | Setup coordinator, bookmarks, forwarders | done | build 0 | SetupCoordinatorTests 0 (25); BookmarkPathResolverTests 0 (8); AppStateTests 0; check_no_await_in_xctassert 0 | approved (round 2) | 49e6c5a |  |
+| G1 | Coverage scope, suite, invariants | done | n/a | suite 0; coverage 0; invariants 0; diff --check 0 | n/a | b1fc096 |  |
+| WP-05 | Setup screen | done | build 0 | SetupScreenModelTests 0 (18); check_no_raw_animations 0; check_detail_views_set_navigation_title 0 | approved | a612863 |  |
+| WP-06 | Folder layout in Setup | done | build 0 | FolderLayoutPresentationTests 0 (6); SettingsUnlockSafetyTests 0 (2, file unchanged) | approved | 5a7e92e |  |
+| WP-07 | Organize chrome, toolbar, prompts | done | build 0 | OrganizeContainerViewTests 0 (4); RunSessionStoreTests 0 (33); KeyboardInteractionTests 0 (10); RunHistoryViewTests 0 (8); WatchedSourcesViewModelTests 0 (7); SidebarViewTests 0 (4); RunCoordinatorTests 0 (12); ReceiptVerificationTests 0 (9); FreeTestBatchRunTests 0 (4); navtitle guard 0; invariants 0 | changes required → fixed (1 round) | 9e7bf13 |  |
+| WP-08 | Preview & Copy workspace | done | build 0 | RunPreviewHeadlineTests 0 (10); RunWorkspaceModelTests 0 (14); RunAnnouncementPlannerTests 0 (14); AccessibilityTests 0 (8); raw-animations guard 0; invariants 0 | changes required → fixed (1 round) | 4ba4438 |  |
+| WP-09 | Next step after a copy | done | build 0 | RunWorkspaceModelTests 0 (18) | approved | 6b62c83 |  |
+| WP-10 | Deduplicate lanes and vocabulary | done | build 0 | DeduplicateReviewLanesTests 0 (7); DeduplicateReviewViewsTests 0 (3); DeduplicateAccessibilityTextTests 0 (28); TipsTests 0 (4); DeduplicateSessionStoreTests 0 (unchanged); DeduplicateStatusViewTests 0 (30); invariants 0 | approved | f2cebb4 | no Core/AppCore diff allowed |
+| WP-11 | Health | done | build 0 | ChronoframeCoreLibraryHealthScannerTests 0 (11) | approved | c9f4b5b |  |
+| WP-11b | Glossary leftovers (added, D-CLP-117) | done | build 0 | RunSessionStoreTests 0 (34); ChronoframeCoreModelTests 0; ChronoframeCorePreviewReviewModelsTests 0; AccessibilityTests 0 (8); ChronoframeCLIKitTests 0 (46); invariants 0 | approved | 23e37e8 | display literals only |
+| WP-12 | UI-test scenarios and string lists | done | build 0 | no acceptance tests (scenario fixtures); implementer sweep AppTests 416/0; git diff --check 0 | approved | de0936c |  |
+| WP-13 | XCUITest expectations and baseline | done | cf_swift.sh xcode 0 (after typealias fix; first run exit 65) | check_uitest_membership 0; UI lane NOT run: xcodebuild test exit 65, 'Timed out while enabling automation mode' (B-4); WP-02 classes re-run 0 after the MediaDiscovery fix | n/a | c87c97b | orchestrator |
+| WP-14 | Documentation | done | n/a (docs) | git diff --check 0 | approved | daed52e |  |
+| G2 | Final gate | done | build 0; cf_swift.sh xcode 0; ui/build.sh 0 | suite 0; coverage 0; guards feature/photos-import-resume 0 (14 guards); git diff --check 0 | n/a | (this commit) | verified: |
 
 ## Log
 (one line per step: date, WP, what ran, exit codes, failing-first evidence, reviewer verdict)
@@ -46,3 +46,4 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-12 WP-12: Scenarios by cf-implementer; string lists by a Sonnet agent (every catalogue-bound line verified verbatim in ui/Sources; reviewer re-checked every line). Reviewer approved; 3 omitted literals added. D-CLP-119 logged.
 - 2026-11-12 WP-13: Steps 1–3 exit 0; step 4 logged as B-4, H-CLP-4 stays todo-hardware. D-CLP-120 logged.
 - 2026-11-12 WP-14: Reviewer grepped every quoted label and read the code behind every claim; no blocking findings; one precision note applied by orchestrator. D-CLP-121 logged.
+- 2026-11-12 G2: First run: suite 1 and coverage 1 (string-symbol collisions from the catalog step), fixed (D-CLP-122), re-run all exit 0. Banned-word sweep: 11 hits, all the Swift parameter name 'cluster' inside interpolation in DeduplicateAccessibilityText.swift (10) and ClusterListPane.swift:252 (1) — no visible text. App smoke not done: B-5 (no screen access). verified: not claimed.
