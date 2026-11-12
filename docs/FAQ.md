@@ -115,6 +115,10 @@ A: Chronoframe's commit summary and executor use the same immutable plan with th
 
 A: Deduplicate writes a pending receipt and append-only recovery journal before and during the commit. On relaunch, Chronoframe checks the original path, quarantine path, and recorded Trash candidates by content. It restores or finalizes only when the evidence is unambiguous; otherwise History preserves the record and asks for a drive or manual action.
 
+**Q: I quit halfway through reviewing duplicates. Is my work gone?**
+
+A: No. Chronoframe saves your Keep and Delete choices and the groups you marked as reviewed on this Mac, outside your photo folder. Scan the same folder again and your review comes back: any scan of that folder restores it, so **Scan and Restore Review** on the "Pick up where you left off" card and the normal **Start Scan** do the same thing. A choice returns only for files that haven't changed. A changed file loses its choice, its group needs another look, and the "Your earlier review was restored." banner tells you how many. Groups you had reviewed stay reviewed, and nothing moves to the Trash until you prepare the commit and confirm. To start fresh, choose **Discard Saved Review** before you scan. Your photos aren't touched either way.
+
 **Q: Can I organize into a folder that already has photos?**
 
 A: Yes. Chronoframe detects existing files and won't overwrite them. If a destination collision happens, it gives the new file a distinct name (e.g., `photo_2.jpg`).
