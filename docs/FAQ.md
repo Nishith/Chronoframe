@@ -4,11 +4,11 @@
 
 **Q: Will Chronoframe delete or modify my original photos?**
 
-A: No. Chronoframe only *reads* your source folder. Your originals are never moved, modified, or deleted. You control when (and whether) to delete the source folder.
+A: No. Chronoframe only *reads* the folders you add to organize. Your originals are never moved, modified, or deleted. You control when (and whether) to delete them.
 
-**Q: What if something goes wrong during the transfer?**
+**Q: What if something goes wrong while Chronoframe is copying?**
 
-A: Chronoframe writes files atomically (to a temporary location, then renames them into place), records mutation state durably, and reconciles interrupted work on the next launch. A completed copy is re-hashed by default; an incomplete temporary copy is never presented as a finished media file. Use **History** to review what was recovered, resume pending work, or **Revert** supported copies.
+A: Chronoframe writes files atomically (to a temporary location, then renames them into place), records mutation state durably, and reconciles interrupted work on the next launch. A completed copy is re-hashed by default; an incomplete temporary copy is never presented as a finished media file. Use **History** to review what was recovered, resume pending work, or **Undo** supported copies.
 
 **Q: What if an external drive disconnects during a run?**
 
@@ -16,15 +16,15 @@ A: Chronoframe does not treat a disconnected or permission-denied drive as proof
 
 **Q: Why does Chronoframe say another operation is using the destination?**
 
-A: Only one organize, deduplicate, reorganize, revert, CLI, or system-integrated mutation can use a destination at a time. Wait for the active operation to finish, then try again. This cross-process lock prevents two valid plans from racing each other.
+A: Only one organize, deduplicate, reorganize, undo, CLI, or system-integrated mutation can use a destination at a time. Wait for the active operation to finish, then try again. This cross-process lock prevents two valid plans from racing each other.
 
 **Q: Can I undo an organize operation?**
 
-A: Yes. Open **Organize** → **History** and select the transfer you want to undo. Click **Revert** and Chronoframe will delete only the files it copied (not anything that was already in the destination). Revert verifies content hashes, so it won't delete files if they've been modified since the transfer.
+A: Yes. Open **Organize** → **History** and click **Undo** next to the copy you want to undo in the **Undo Center**. You can also open the ⋯ menu on a receipt in **Reports and Logs** and choose **Undo…**. Chronoframe will delete only the files it copied (not anything that was already in the destination). Undo verifies content hashes, so it won't delete files if they've been modified since the copy.
 
 **Q: How do I know what Chronoframe will copy?**
 
-A: Preview shows the exact plan before transfer. You can review the plan, edit uncertain dates, and even skip items in the Review tab. The actual transfer uses the same plan you approved.
+A: **Preview Plan** shows the exact plan before anything is copied. You can review the plan and edit uncertain dates in the **Review** tab on the **Preview & Copy** screen. **Start Copying** uses the same plan you approved.
 
 ---
 
@@ -36,7 +36,7 @@ A: macOS 14.0 or later. Chronoframe works on Intel and Apple Silicon Macs.
 
 **Q: How much disk space do I need?**
 
-A: Enough for your destination folder to hold copies of your source files. Chronoframe doesn't compress; it copies files as-is. You'll need roughly the same amount of free space as the size of your source folder.
+A: Enough for your destination folder to hold copies of your original files. Chronoframe doesn't compress; it copies files as-is. You'll need roughly the same amount of free space as the size of the folders you are organizing.
 
 **Q: Why is the first scan taking so long?**
 
@@ -45,8 +45,8 @@ A: Scanning reads metadata, computes content hashes, and resolves dates. Large l
 **Q: Can I speed things up?**
 
 A: Yes—
-- Open **Settings → Performance** and raise the worker-thread count, or turn on parallel transfers (the **Standard** preset turns them on and sets 8 workers)
-- Pre-filter your source folder into smaller batches
+- Open **Settings → Performance** and raise **Worker Threads**, or turn on **Parallel Copies** (the **Standard** preset turns them on and sets 8 workers)
+- Pre-filter your folders into smaller batches
 - Keep your library on a local SSD rather than a network drive
 
 ---
@@ -70,7 +70,7 @@ A: When a photo's EXIF metadata includes a timezone offset, Chronoframe files it
 
 **Q: Can I edit dates before organizing?**
 
-A: Yes. In the **Review** tab during the Preview, you can click on an item's date and edit it. Chronoframe saves your correction and rebuilds the preview with your changes.
+A: Yes. In the **Review** tab on the **Preview & Copy** screen, change an item's date with its date picker and click **Save**. Chronoframe saves your correction; click **Rebuild Preview** to see the plan with your changes.
 
 **Q: What does "Low Confidence Date" mean?**
 
@@ -87,6 +87,14 @@ A: If your folder layout is `YYYY/Mon/Event`, Chronoframe suggests event names b
 **Q: What formats does Chronoframe support?**
 
 A: Photos (JPG, PNG, HEIF, RAW, etc.) and videos (MP4, MOV, etc.). If your OS can read it, Chronoframe can organize it.
+
+**Q: Can I organize several folders at once?**
+
+A: Yes. In **Organize → Choose Folders**, **Add Folders…** lets you select several folders, and dragging folders onto the window adds them to the **Folders to organize** list. A folder inside a listed folder is refused, a folder that contains listed folders replaces them, and none of them may overlap the destination. Chronoframe remembers the list, and a saved profile holds one folder. See [Organizing several folders at once](./QUICK_START.md#organizing-several-folders-at-once).
+
+**Q: What happens after a copy finishes?**
+
+A: The **Preview & Copy** screen shows **Copy complete** and says your originals were not changed. The report and the receipt for undoing the copy are in **History**. If files were copied, a **Next: remove extra copies** card offers **Find Duplicates**, which only opens **Deduplicate**: it doesn't start a scan or change the folder to scan, and Deduplicate removes nothing until you approve it. See [What happens after a copy](./QUICK_START.md#what-happens-after-a-copy).
 
 **Q: Can Chronoframe find duplicate photos?**
 
@@ -105,7 +113,7 @@ A: No, not for now. Deduplicate moves files to the macOS Trash, and Chronoframe 
 
 **Q: Can I organize into a folder on my NAS?**
 
-A: Only when the share supports a rename that refuses to replace an existing file. Chronoframe checks this before it plans anything: when you start a preview or a transfer into a network folder, it creates and removes a small empty test file in the destination's `.organize_logs` folder. If the share can't make that guarantee, Chronoframe says so and stops. Nothing is copied, and your originals are untouched. Many SMB shares, including the Synology share tested, do not support it. Choose a folder on this Mac or an attached drive instead. NAS Library, where it is available, can still assess the share, and copying from a share to a folder on this Mac is not affected.
+A: Only when the share supports a rename that refuses to replace an existing file. Chronoframe checks this before it plans anything: when you start a preview or a copy into a network folder, it creates and removes a small empty test file in the destination's `.organize_logs` folder. If the share can't make that guarantee, Chronoframe says so and stops. Nothing is copied, and your originals are untouched. Many SMB shares, including the Synology share tested, do not support it. Choose a folder on this Mac or an attached drive instead. NAS Library, where it is available, can still assess the share, and copying from a share to a folder on this Mac is not affected.
 
 **Q: What if a file changes after a deduplicate scan?**
 
@@ -153,7 +161,7 @@ A: macOS requires apps to ask permission before reading folders outside your hom
 
 **Q: The app says "Permission Denied" for some files.**
 
-A: Chronoframe can't read every file in your source folder. This might be because:
+A: Chronoframe can't read every file in your folders. This might be because:
 - The file is locked (right-click → Get Info → check "Locked")
 - Another app is using the file
 - The file system is read-only
@@ -168,11 +176,11 @@ A: Exact matching uses **content hashing** (not filename matching). Two files ar
 - Different metadata but same image data
 - Very similar but not identical
 
-…they won't be exact matches. Photo similarity and the optional visual-video lane can still surface them for review. You can adjust similarity thresholds in Deduplicate settings (Strict, Balanced, or Loose).
+…they won't be exact matches. Photo similarity and the optional visual-video lane can still surface them for review. You can adjust similarity with the **Detection** preset (**Exact copies**, **Balanced**, or **Similar shots**).
 
-**Q: Can I organize to the same folder as source?**
+**Q: Can I organize into one of the folders I am organizing?**
 
-A: Not recommended. It's confusing and risky. Always use a different destination folder.
+A: Not recommended. It's confusing and risky. Always use a different destination folder. Chronoframe refuses a destination that is the same as a folder you are organizing or sits inside or around one; see [Organizing several folders at once](./QUICK_START.md#organizing-several-folders-at-once).
 
 ---
 
@@ -197,15 +205,15 @@ See the [Technical Documentation](./TECHNICAL.md#command-line) for all flags.
 
 **Q: Can I automate repeated runs?**
 
-A: Yes. Save a **Profile** in **Settings → Profiles** with your source and destination folders, then switch between saved pairs with one click. The Swift CLI can load the same profiles with `--profile NAME`.
+A: Yes. Save a **Profile** in **Settings → Profiles** with a folder and a destination, then switch between saved pairs with one click. A profile holds one folder. The Swift CLI can load the same profiles with `--profile NAME`.
 
 **Q: Where does Chronoframe store its data?**
 
 A: Inside your destination folder:
 - `.organize_cache.db` — metadata cache, review edits, dedupe cache
-- `.organize_logs/` — transfer logs, receipts, recovery journals, and reports
+- `.organize_logs/` — copy logs, receipts, recovery journals, and reports
 
-Do not delete these while an operation is active or History shows interrupted work. Removing them can discard resume, recovery, history, or revert evidence. If every run is complete and you intentionally accept losing that history, Chronoframe can recreate performance caches later.
+Do not delete these while an operation is active or History shows interrupted work. Removing them can discard resume, recovery, history, or undo evidence. If every copy is complete and you intentionally accept losing that history, Chronoframe can recreate performance caches later.
 
 ---
 

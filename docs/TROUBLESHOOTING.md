@@ -45,7 +45,7 @@ Chronoframe could not access the selected archive. This does not mean its media 
 2. In **Organize → History**, click **Choose Folder…** under **Reconnect your archive folder**.
 3. Select the same archive folder shown in the message. Chronoframe saves refreshed access and reloads History automatically.
 
-Choosing a different folder leaves the current archive unchanged and explains which folder to select. Previously loaded entries remain visible but unavailable until access returns. You do not need to rerun a transfer, reset settings or grant Full Disk Access. Keep `.organize_logs/` and its receipts intact.
+Choosing a different folder leaves the current archive unchanged and explains which folder to select. Previously loaded entries remain visible but unavailable until access returns. You do not need to copy again, reset settings or grant Full Disk Access. Keep `.organize_logs/` and its receipts intact.
 
 ### Preview is taking too long
 
@@ -53,11 +53,11 @@ Choosing a different folder leaves the current archive unchanged and explains wh
 
 **Solution:**
 - **Large libraries** (50K+ files) naturally take longer. Give it time (5–15 min is normal).
-- Check the **Console** tab in the Run workspace to see progress.
+- Check the **Activity** tab under **Details** on the **Preview & Copy** screen to see progress.
 - If it's frozen (no progress for several minutes), force-quit and try again.
 - **To speed up future previews:**
-  - Open **Settings → Performance** and raise the worker-thread count (the presets only switch parallel copying and reset workers to 8, so they don't speed up a preview)
-  - Filter your source folder to smaller batches
+  - Open **Settings → Performance** and raise **Worker Threads** (the presets only switch parallel copying and reset workers to 8, so they don't speed up a preview)
+  - Split your folders into smaller batches
   - Keep your library on a local SSD rather than a network drive
 
 ### Preview failed with a read error
@@ -66,46 +66,46 @@ Choosing a different folder leaves the current archive unchanged and explains wh
 
 **Solution:**
 - Those files are likely corrupted or locked by another app
-- In Review, scroll to **Errors** to see which files failed
+- In **Review**, choose the **Needs Attention** filter to see which files could not be read. The **Problems** tab lists warnings and errors
 - You have three options:
   1. Leave it skipped and inspect it with another media app
-  2. Make a separate backup, then move it out of the selected source yourself if you do not want it included
+  2. Make a separate backup, then move it out of the folders you are organizing yourself if you do not want it included
   3. Check if the file is locked (right-click → Get Info → Locked) and unlock it
 
 ### Preview shows "Unknown Date" for many files
 
-**Problem:** Many photos are routing to `Unknown_Date/` folder.
+**Problem:** Many photos are going to the `Unknown_Date/` folder.
 
 **Solution:**
-- Click the **Unknown Dates** filter in Review to see them
+- Click the **Unknown Date** filter in Review to see them
 - For each item, you can:
-  1. **Edit the date** directly in Review (your edit is saved)
-  2. **Check the source filename** for date patterns
-  3. **Accept Unknown** if you're okay with putting it in `Unknown_Date/`
-- Rebuild Preview after edits (button is at top of Review tab)
+  1. **Edit the date** directly in Review and click **Save**
+  2. **Check the filename** for date patterns
+  3. Leave it as it is if you're okay with putting it in `Unknown_Date/`
+- Click **Rebuild Preview** after edits (button is at top of Review tab)
 
 ---
 
-## Transfer Issues
+## Copy Issues
 
-### Transfer failed partway through
+### Copying failed partway through
 
-**Problem:** Transfer stopped with errors.
+**Problem:** Copying stopped with errors.
 
 **Solution:**
-- Check the **Console** tab in the Run workspace to see what went wrong
+- Check the **Activity** tab under **Details** on the **Preview & Copy** screen to see what went wrong, and the **Problems** tab for warnings and errors
 - **Permission errors?** Check that you have write access to destination folder
 - **Disk full?** Free up space and try again
 - **File locked?** Close other apps using destination files and retry
-- **Network drive slow?** Transfer to a local drive instead
+- **Network drive slow?** Copy to a local drive instead
 
-You can safely retry the transfer—Chronoframe will skip files already in destination and copy the rest.
+You can safely retry the copy—Chronoframe will skip files already in destination and copy the rest.
 
-If the app or Mac stopped unexpectedly, reconnect the destination drive before reopening Chronoframe. The app reconciles recorded copy state on launch. Check **History** for the recovered or pending run before removing `.organize_cache.db` or anything in `.organize_logs/`.
+If the app or Mac stopped unexpectedly, reconnect the destination drive before reopening Chronoframe. The app reconciles recorded copy state on launch. Check **History** for the recovered or pending copy before removing `.organize_cache.db` or anything in `.organize_logs/`.
 
 ### "Another Chronoframe operation is already using this destination"
 
-**Problem:** A preview, transfer, deduplicate commit, revert, reorganize run, CLI command, or system action refuses to start.
+**Problem:** A preview, copy, deduplicate commit, undo, reorganize, CLI command, or system action refuses to start.
 
 **Solution:**
 - Let the active Chronoframe operation finish, then try again
@@ -124,26 +124,26 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 3. Make sure your user account has **Read & Write** access
 4. Close the info window and try again in Chronoframe
 
-### Transfer completed but some files are missing
+### Copy finished but some files are missing
 
 **Problem:** Fewer files copied than expected.
 
 **Solution:**
-- Check the **History** tab → transfer report to see what was skipped
-- Common reasons:
-  - **Already in destination** — file was found in destination before copy
-  - **Duplicate** — exact copy already exists in destination
-  - **Error** — file couldn't be read (corrupted or locked)
+- Check **History** → **Reports and Logs** for the report to see what was skipped
+- In the **Review** tab, these labels explain why a file was not copied:
+  - **Already There** — file was found in your organized library before the copy
+  - **Exact Copy** — an exact copy of another file, set aside in the `Duplicate` folder
+  - **Needs Attention** — file couldn't be read (corrupted or locked)
 - Review the detailed report to see which files were affected
 
-### Revert failed or left files behind
+### Undo failed or left files behind
 
-**Problem:** Revert didn't undo the transfer completely.
+**Problem:** Undo didn't remove the copy completely.
 
 **Solution:**
-- Revert is **hash-verified** — it only deletes files whose content still matches what was copied
-- If a file has been modified or deleted since transfer, revert won't touch it
-- Check **History** to see which files were reverted
+- Undo is **hash-verified** — it only deletes files whose content still matches what was copied
+- If a file has been modified or deleted since the copy, undo won't touch it
+- Check **History** to see which files were undone
 - You can manually delete the remaining files if needed
 
 ---
@@ -163,7 +163,7 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
   - Format (one JPG, one PNG of the same image)
   - …they won't match
 - **Try adjusting detection:**
-  1. On the Deduplicate setup screen, switch the **Detection** preset from **Balanced** to **Loose** (more options live in **Settings → Deduplicate**)
+  1. On the Deduplicate setup screen, switch the **Detection** preset from **Balanced** to **Similar shots** (more options live in **Settings → Deduplicate**)
   2. Start a new scan
 
 ### Similarity detection isn't working
@@ -175,7 +175,7 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 - Make sure you have a GPU (Apple Silicon or Intel with dedicated GPU recommended)
 - Adjust the similarity preset:
   1. Open **Settings → Deduplicate** (or use the Detection presets on the setup screen)
-  2. Try **Balanced** or **Loose** for more matches (but more false positives)
+  2. Try **Balanced** or **Similar shots** for more matches (but more false positives)
 
 ### "Move to Trash" button is grayed out
 
@@ -183,7 +183,7 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 
 **Solution:**
 - Make sure you've **selected keep/delete choices** for at least one group
-- Click a group on the left and choose which items to keep and which to delete (or use **Auto-Accept Safe** for the obvious exact copies)
+- Click a group on the left and choose which items to keep and which to delete (or use **Accept All Safe** for the groups marked as safe matches)
 - The **Move to Trash** button activates once at least one file is marked for removal
 
 ### Deduplicate says a file changed after the scan
@@ -198,7 +198,7 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 
 ### History shows an interrupted recovery badge
 
-**Problem:** A run shows **Interrupted · Needs Drive**, **Trash Location Unverified**, or **Manual Recovery Needed**.
+**Problem:** An entry shows **Interrupted · Needs Drive**, **Trash Location Unverified**, or **Manual Recovery Needed**.
 
 **Solution:**
 - **Needs Drive:** reconnect and unlock the named external volume, then reopen Chronoframe or refresh History
@@ -273,7 +273,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 
 **Message:** "This network folder can't guarantee that a copy never replaces an existing file, so Chronoframe won't organize into it. Choose a folder on this Mac or an attached drive. Nothing was copied, and your originals were untouched."
 
-**Problem:** Before it plans a preview or a transfer into a network folder, Chronoframe checks that the share supports a rename that refuses to replace an existing file. This share doesn't, so Chronoframe stops before scanning or copying instead of using a weaker method. Many SMB shares, including the Synology share tested, don't support it.
+**Problem:** Before it plans a preview or a copy into a network folder, Chronoframe checks that the share supports a rename that refuses to replace an existing file. This share doesn't, so Chronoframe stops before scanning or copying instead of using a weaker method. Many SMB shares, including the Synology share tested, don't support it.
 
 **Solution:**
 - Choose a destination folder on this Mac or an attached drive
@@ -286,7 +286,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 
 **Problem:** The share was unmounted, or a different volume is now at the destination path, partway through a copy run.
 
-**Solution:** Reconnect the share, then run the transfer again. Chronoframe resumes from its recorded queue and skips files already copied.
+**Solution:** Reconnect the share, then copy again. Chronoframe resumes from its recorded queue and skips files already copied.
 
 ### "...copy records on this network folder"
 
@@ -334,7 +334,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 
 ### Hashing is slow
 
-**Problem:** Preview is waiting on "Hashing files..." step.
+**Problem:** The **Now** line on the **Preview & Copy** screen stays on "Hashing source...".
 
 **Solution:**
 - BLAKE2b hashing can be slow on large files (videos, RAW photos)
@@ -348,7 +348,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 
 ### "Permission denied" for some files
 
-**Problem:** Chronoframe can't read certain files in source.
+**Problem:** Chronoframe can't read certain files in your folders.
 
 **Solution:**
 - The file might be **locked** by another app or macOS
@@ -356,7 +356,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 - Unlock it and try again
 - Or simply skip those files (Chronoframe skips read errors gracefully)
 
-### Can't select source or destination folder
+### Can't add a folder or choose the destination
 
 **Problem:** The folder picker is disabled or doesn't open.
 
@@ -365,6 +365,28 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 2. Check **System Settings → Privacy & Security → Files and Folders** if macOS previously denied access
 3. If the folder is on an external drive, make sure it's mounted and unlocked
 4. Try closing and reopening the app
+
+### "…is already covered because it is inside…"
+
+**Message:** "“*name*” is already covered because it is inside “*parent*”."
+
+**Problem:** You tried to add a folder that sits inside a folder already in the **Folders to organize** list on **Choose Folders**. Chronoframe doesn't add that folder, and it stops adding the rest of that selection.
+
+**Solution:**
+- Nothing is needed if you want the whole listed folder: it already covers the inner one
+- To organize only the inner folder, remove the larger folder with the minus button on its row, then add the inner folder
+- Adding a folder that contains folders you already listed replaces them with the larger folder, and adding the same folder twice does nothing
+
+### "…and the destination overlap…"
+
+**Message:** "“*name*” and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed."
+
+**Problem:** A folder you are organizing and the destination are the same folder, or one sits inside the other. Chronoframe checks this when you add the folder (once a destination is chosen) and when you choose the destination, for every folder in the list. The engine checks again before a preview or a copy; if it finds an overlap then, it stops with "The source folder is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a source outside the destination. No files were changed." or "The destination folder is inside the source folder, so copies would land back inside the folder being organized. Choose a destination outside the source. No files were changed."
+
+**Solution:**
+- Choose a destination folder that is not inside any folder you are organizing, and that does not contain one
+- Or remove the overlapping folder from the **Folders to organize** list
+- Your original folders were not changed
 
 ### External drive isn't showing up
 
@@ -383,10 +405,10 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 ### Where is my data stored?
 
 **Answer:**
-- Source data is **never stored** — Chronoframe reads and copies it
+- Your original folders stay where they are — Chronoframe reads and copies them
 - Destination data is **your files** in the folder you selected
 - Chronoframe metadata is in `.organize_cache.db`, `.organize_logs/`, and `.organize_log.txt` inside your destination folder
-- Keep those files while a run is active, resumable, interrupted, or still needed for History/Revert
+- Keep those files while a run is active, resumable, interrupted, or still needed for History and Undo
 - If all work is complete and you intentionally accept losing history and recovery evidence, Chronoframe can rebuild performance caches later
 
 ### How can I delete Chronoframe?
@@ -406,11 +428,11 @@ That's it—Chronoframe doesn't install anything system-wide.
 If your issue isn't covered here:
 1. Check the [FAQ](./FAQ.md) for general questions
 2. Review the [Technical Documentation](./TECHNICAL.md) for command-line and architecture details
-3. Read [Safety and Recovery](./SAFETY_AND_RECOVERY.md) before manually changing interrupted-run artifacts
+3. Read [Safety and Recovery](./SAFETY_AND_RECOVERY.md) before manually changing files from an interrupted copy
 4. Check the [Releases page](https://github.com/Nishith/Chronoframe/releases) for known issues
 5. [Open a GitHub issue](https://github.com/Nishith/Chronoframe/issues) with details about what's happening
 
 **When reporting a bug, include:**
 - Your macOS version and hardware (Intel vs. Apple Silicon)
 - The error message or steps to reproduce
-- The **Console** tab in the Run workspace, or relevant `.organize_logs/` files
+- The **Activity** tab on the **Preview & Copy** screen, or relevant `.organize_logs/` files
