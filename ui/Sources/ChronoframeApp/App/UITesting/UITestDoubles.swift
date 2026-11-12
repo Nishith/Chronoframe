@@ -190,6 +190,13 @@ final class MockFolderAccessService: FolderAccessServicing {
         return nextChosenFolder
     }
 
+    var nextChosenFolders: [URL] = []
+
+    func chooseFolders(startingAt path: String?, prompt: String) -> [URL] {
+        chooseFolderCalls.append((startingAt: path, prompt: prompt))
+        return nextChosenFolders
+    }
+
     nonisolated func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
         if let error = bookmarkCreationFailures[key] {
             throw error

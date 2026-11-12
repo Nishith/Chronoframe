@@ -96,6 +96,8 @@ private final class MockNASFolderAccess: FolderAccessServicing, @unchecked Senda
         return chosen
     }
 
+    @MainActor func chooseFolders(startingAt path: String?, prompt: String) -> [URL] { [] }
+
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
         FolderBookmark(key: key, path: url.path, data: Data("bm:\(url.path)".utf8))
     }

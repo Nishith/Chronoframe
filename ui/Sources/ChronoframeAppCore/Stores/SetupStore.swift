@@ -20,6 +20,10 @@ public final class SetupStore: ObservableObject {
     @Published public var droppedSourceLabel: String?
     @Published public var droppedSourceItemCount: Int
 
+    /// The folders the user has listed to organize. Independent of the selected
+    /// profile, which stays single-folder (D-CLP-21).
+    @Published public private(set) var sourceItems: [URL] = []
+
     public init(
         sourcePath: String = "",
         destinationPath: String = "",
@@ -38,6 +42,10 @@ public final class SetupStore: ObservableObject {
         self.profiles = profiles
         self.droppedSourceLabel = droppedSourceLabel
         self.droppedSourceItemCount = droppedSourceItemCount
+    }
+
+    public func setSourceItems(_ items: [URL]) {
+        sourceItems = items
     }
 
     public var usingDroppedSource: Bool {
