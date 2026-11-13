@@ -111,6 +111,14 @@ extension OrganizerEngine {
 
     public func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
         let preflight = try await preflight(configuration)
+        // Before the lock or any destination file exists: a network transfer with verification
+        // off can never run (INV-28), so refuse it here instead of leaving an ABORTED receipt.
+        if configuration.mode == .transfer {
+            try copyDestinationQualifier.checkVerification(
+                destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true),
+                verifyCopies: preflight.configuration.verifyCopies
+            )
+        }
         let lease = try DestinationOperationLock.acquire(
             destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true),
             surface: "app",
