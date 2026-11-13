@@ -238,7 +238,8 @@ public final class PhotosImportStore: ObservableObject {
         statusMessage = nil
 
         // A new prepare supersedes whatever an earlier import left behind.
-        preparedStagingPaths.removeAll()
+        // `preparedStagingPaths` is deliberately not cleared: a run may still
+        // be reading an earlier prepared import until its `cleanupStaging`.
         refreshResumableImport(destination: destination)
         if let superseded = resumable {
             try? FileManager.default.removeItem(at: superseded.stagingDirectoryURL)

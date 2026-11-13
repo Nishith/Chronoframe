@@ -102,6 +102,34 @@ private final class SpyCheckpointStore: PhotosImportCheckpointStoring, @unchecke
     func remove(in stagingDirectory: URL) { inner.remove(in: stagingDirectory) }
 }
 
+/// Wraps the real file store; from the `failFromSave`-th save on (1-based) every
+/// save throws, like a full disk. `onSave` runs before each save with its index.
+private final class ScriptedCheckpointStore: PhotosImportCheckpointStoring, @unchecked Sendable {
+    struct SaveFailure: Error {}
+
+    private let inner = PhotosImportFileCheckpointStore()
+    private let lock = NSLock()
+    private var count = 0
+    private let failFromSave: Int?
+    private let onSave: (@Sendable (Int) -> Void)?
+
+    init(failFromSave: Int? = nil, onSave: (@Sendable (Int) -> Void)? = nil) {
+        self.failFromSave = failFromSave
+        self.onSave = onSave
+    }
+
+    var saveCount: Int { lock.withLock { count } }
+
+    func load(in stagingDirectory: URL) -> PhotosImportCheckpoint? { inner.load(in: stagingDirectory) }
+    func save(_ checkpoint: PhotosImportCheckpoint, in stagingDirectory: URL) throws {
+        let index = lock.withLock { () -> Int in count += 1; return count }
+        onSave?(index)
+        if let failFromSave, index >= failFromSave { throw SaveFailure() }
+        try inner.save(checkpoint, in: stagingDirectory)
+    }
+    func remove(in stagingDirectory: URL) { inner.remove(in: stagingDirectory) }
+}
+
 private final class CallCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var count = 0
@@ -187,7 +215,9 @@ final class PhotosImportResumeTests: XCTestCase {
         assetIDs: [String],
         planAssetIDs: [String]? = nil,
         updatedAt: Date,
-        destinationPath: String = "/tmp/pir-dest-a"
+        destinationPath: String = "/tmp/pir-dest-a",
+        omitHintFor: Set<String> = [],
+        recordedPathOverride: [String: String] = [:]
     ) throws -> URL {
         let dir = parent.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -202,12 +232,13 @@ final class PhotosImportResumeTests: XCTestCase {
             let data = Data("bytes-\(id)".utf8)
             let fileURL = dir.appendingPathComponent("\(id).jpg")
             try data.write(to: fileURL)
+            let recordedPath = recordedPathOverride[id] ?? fileURL.path
             checkpoint.recordCompleted(
                 PhotosCompletedAssetRecord(
                     assetID: id,
-                    files: [PhotosExportedFile(assetID: id, stagingStem: id, path: fileURL.path)],
-                    sourceDateHints: [
-                        SourceDateHint.pathKey(for: fileURL.path): SourceDateHint(
+                    files: [PhotosExportedFile(assetID: id, stagingStem: id, path: recordedPath)],
+                    sourceDateHints: omitHintFor.contains(id) ? [:] : [
+                        SourceDateHint.pathKey(for: recordedPath): SourceDateHint(
                             identity: FileIdentity(size: Int64(data.count), digest: "digest-\(id)"),
                             resolvedDate: .unknown
                         )
@@ -729,4 +760,32 @@ final class PhotosImportResumeTests: XCTestCase {
         store.refreshResumableImport(destination: destinationA)
         XCTAssertNil(store.resumable)
     }
+
+    // MARK: PR #268 review fixes
+
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testNewPrepareKeepsPriorPreparedStagingUntilItsRunReleasesIt() async throws {
+        let staging = makeTempParent()
+        let store = makeStore(ids: ["a"], exporter: ScriptedExporter(), staging: staging)
+        let firstRaw = await store.prepareImport(destination: destinationA)
+        let first = try XCTUnwrap(firstRaw)
+
+        let secondRaw = await store.prepareImport(destination: destinationA)
+        let second = try XCTUnwrap(secondRaw)
+
+        XCTAssertTrue(exists(first.stagingDirectoryURL.path), "A run may still be reading the earlier prepared staging")
+        XCTAssertTrue(exists(second.stagingDirectoryURL.path))
+        store.cleanupStaging(for: first)
+        XCTAssertFalse(exists(first.stagingDirectoryURL.path))
+        XCTAssertTrue(exists(second.stagingDirectoryURL.path))
+    }
+
+}
+
+private final class LockedValues: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [Int: Bool] = [:]
+    func append(_ key: Int, _ value: Bool) { lock.withLock { values[key] = value } }
+    func value(for key: Int) -> Bool? { lock.withLock { values[key] } }
 }
