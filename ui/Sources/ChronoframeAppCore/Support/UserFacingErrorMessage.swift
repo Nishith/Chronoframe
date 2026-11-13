@@ -209,6 +209,8 @@ public enum UserFacingErrorMessage {
             return error.errorDescription
         case let error as NASCopyDestinationRefusal:
             return error.errorDescription
+        case let error as NASShareLeaseError:
+            return error.errorDescription
         default:
             return nil
         }

@@ -72,9 +72,15 @@ final class OrganizerEnginePrepareNetworkGateTests: XCTestCase {
 
     private func configuration(
         mode: RunMode,
-        destination: URL
+        destination: URL,
+        verifyCopies: Bool = true
     ) -> RunConfiguration {
-        RunConfiguration(mode: mode, sourcePath: sourceURL.path, destinationPath: destination.path)
+        RunConfiguration(
+            mode: mode,
+            sourcePath: sourceURL.path,
+            destinationPath: destination.path,
+            verifyCopies: verifyCopies
+        )
     }
 
     private func assertSecondLockAcquisitionSucceeds(_ destination: URL, file: StaticString = #filePath, line: UInt = #line) {
@@ -130,6 +136,49 @@ final class OrganizerEnginePrepareNetworkGateTests: XCTestCase {
             FileManager.default.fileExists(atPath: destination.appendingPathComponent(".organize_cache.db").path),
             "A refused transfer must not create the queue database"
         )
+    }
+
+    // AGENTS-INVARIANT: 28
+    // AGENTS-INVARIANT: 3
+    func testTransferPrepareOnNetworkFolderWithVerificationOffIsRefusedBeforeAnythingIsWritten() async throws {
+        let destination = try makeDestination("transfer-remote-unverified")
+        let engine = makeEngine(classifier: Self.remoteClassifier) { _, _ in
+            XCTFail("The verification refusal comes before the rename probe")
+            return 0
+        }
+
+        do {
+            _ = try await engine.prepare(configuration(mode: .transfer, destination: destination, verifyCopies: false))
+            XCTFail("Expected prepare to refuse a network transfer with verification off")
+        } catch let refusal as NASRemoteCopyError {
+            XCTAssertEqual(refusal, .verificationRequired(destinationPath: destination.path))
+        }
+
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: destination.path),
+            [],
+            "Nothing at all may be written into the destination: no lock, no logs, no receipt, no queue"
+        )
+        assertSecondLockAcquisitionSucceeds(destination)
+    }
+
+    func testPreviewPrepareOnNetworkFolderWithVerificationOffIsNotRefused() async throws {
+        let destination = try makeDestination("preview-remote-unverified")
+        let engine = makeEngine(classifier: Self.remoteClassifier) { _, _ in 0 }
+
+        let prepared = try await engine.prepare(configuration(mode: .preview, destination: destination, verifyCopies: false))
+        prepared.lease.release()
+    }
+
+    func testTransferPrepareOnLocalDestinationWithVerificationOffIsAllowed() async throws {
+        let destination = try makeDestination("transfer-local-unverified")
+        let engine = makeEngine(classifier: Self.localClassifier) { _, _ in
+            XCTFail("A local destination must not be probed")
+            return 0
+        }
+
+        let prepared = try await engine.prepare(configuration(mode: .transfer, destination: destination, verifyCopies: false))
+        prepared.lease.release()
     }
 
     func testRecoveryRunsBeforeTheGate() async throws {

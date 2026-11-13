@@ -20,6 +20,17 @@ public struct NASCopyDestinationQualifier: Sendable {
         }
     )
 
+    /// Copies into a network folder are always verified (INV-28, INV-03). Throws
+    /// `NASRemoteCopyError.verificationRequired` when the destination is remote and verification is
+    /// off. Classifies only: it writes nothing, so a caller can refuse before taking the lock or
+    /// creating any destination file. `TransferExecutor` repeats the check as a backstop.
+    public func checkVerification(destinationRoot: URL, verifyCopies: Bool) throws {
+        guard !verifyCopies,
+              NASRemoteCopyPolicy.resolve(destinationRoot: destinationRoot, classifier: classifier).isRemote
+        else { return }
+        throw NASRemoteCopyError.verificationRequired(destinationPath: destinationRoot.path)
+    }
+
     /// Same set as `NASProbe.renameUnsupportedCodes`.
     private static let unsupportedCodes: [Int32] = [ENOTSUP, EINVAL, ENOSYS]
 

@@ -159,15 +159,23 @@ public final class NASAssessmentStore: @unchecked Sendable {
         }
     }
 
+    /// Keeps the latest `count` generations plus the latest generation that finished
+    /// (`complete` or `completedWithGaps`), so cancelled, interrupted or failed scans can never
+    /// age out the only usable results (D-NAS-139). The extra generation is a subquery with no
+    /// NULL row, so `NOT IN` never degenerates when no scan has finished.
     public func pruneGenerations(keepingLatest count: Int) throws {
         try locked {
             try inTransaction {
                 let keep = Int64(max(count, 0))
-                let cutoffSQL = "SELECT generation FROM Scans ORDER BY generation DESC LIMIT ?"
+                let keptSQL = """
+                    SELECT generation FROM (SELECT generation FROM Scans ORDER BY generation DESC LIMIT ?)
+                    UNION
+                    SELECT generation FROM (SELECT generation FROM Scans WHERE outcome IN ('complete', 'completedWithGaps') ORDER BY generation DESC LIMIT 1)
+                    """
                 for table in ["Items", "Directories", "Issues"] {
-                    try run("DELETE FROM \(table) WHERE generation NOT IN (\(cutoffSQL));", [.int(keep)])
+                    try run("DELETE FROM \(table) WHERE generation NOT IN (\(keptSQL));", [.int(keep)])
                 }
-                try run("DELETE FROM Scans WHERE generation NOT IN (\(cutoffSQL));", [.int(keep)])
+                try run("DELETE FROM Scans WHERE generation NOT IN (\(keptSQL));", [.int(keep)])
             }
         }
     }
