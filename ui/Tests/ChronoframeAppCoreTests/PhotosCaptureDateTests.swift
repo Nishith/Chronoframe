@@ -397,6 +397,8 @@ private struct FixturePhotosExporter: PhotosResourceExporting {
         }
     }
     func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
+        // The executor claims the name with an empty placeholder (D-PIR-129); replace it like the real exporter does.
+        try? FileManager.default.removeItem(at: destinationURL)
         try FileManager.default.copyItem(at: urls[resource.resourceIndex], to: destinationURL)
     }
 }
