@@ -40,4 +40,20 @@ final class RunPhaseDisplayTests: XCTestCase {
         XCTAssertEqual(RunPhase.sourceHashing.runningTitle, "Hashing source...")
         XCTAssertEqual(RunPhase.destinationIndexing.title, "Index Destination")
     }
+
+    func testModeDisplayTitlesAvoidEngineVocabulary() {
+        let titles = [RunMode.preview, .transfer, .revert, .reorganize].map(\.displayTitle)
+        XCTAssertEqual(titles, ["Preview", "Copy", "Undo", "Reorganize"])
+        for title in titles {
+            let words = title.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
+            for banned in ["transfer", "source", "revert", "hash", "index"] {
+                XCTAssertFalse(words.contains(banned), "\(title) contains \(banned)")
+            }
+        }
+    }
+
+    func testCoreModeTitlesAreUnchangedForTheCLI() {
+        XCTAssertEqual(RunMode.transfer.title, "Transfer")
+        XCTAssertEqual(RunMode.revert.title, "Revert")
+    }
 }

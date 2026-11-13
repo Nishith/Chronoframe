@@ -628,7 +628,7 @@ public final class RunSessionStore: ObservableObject {
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
-        currentTaskTitle = resumePendingJobs ? "Resuming the copy…" : "Starting the \(preflight.configuration.mode.title.lowercased())…"
+        currentTaskTitle = resumePendingJobs ? "Resuming the copy…" : "Starting the \(preflight.configuration.mode.displayTitle.lowercased())…"
         artifacts = RunArtifactPaths(
             destinationRoot: preflight.resolvedDestinationPath,
             reportPath: nil,
