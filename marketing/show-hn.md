@@ -44,7 +44,7 @@ runs entirely on-device — no account, no uploads, no analytics. One-time
 purchase on the Mac App Store, no subscription.
 
 Site: https://chronoframe.app
-App Store: https://apps.apple.com/us/app/chronoframe/id6771245052
+App Store: https://apps.apple.com/us/app/chronoframe/id6771245052?pt=117867077&ct=hn-show&mt=12
 
 Happy to answer anything about the recovery model, the near-duplicate
 detection, or what it took to get a file-mutating app through App Review.

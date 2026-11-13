@@ -47,7 +47,7 @@ $14.99 one-time (intro price), no subscription. macOS 14+, Apple Silicon
 and Intel.
 
 Site: https://chronoframe.app
-App Store: https://apps.apple.com/us/app/chronoframe/id6771245052
+App Store: https://apps.apple.com/us/app/chronoframe/id6771245052?pt=117867077&ct=reddit-macapps&mt=12
 
 I'm the developer and happy to answer anything — including "why not just
 use X", which I asked myself a lot before building this.
