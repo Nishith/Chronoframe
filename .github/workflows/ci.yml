@@ -348,6 +348,14 @@ jobs:
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
           echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
+      # Experiment, safe to drop: the audit's contrast failures cluster in the
+      # bottom ~60pt of the window, about the height of the runner's Dock. With the
+      # Dock hidden the window gets that strip of screen to itself.
+      - name: Hide the Dock
+        run: |
+          defaults write com.apple.dock autohide -bool true
+          killall Dock
+          sleep 3
       - name: Run Chronoframe accessibility audit
         run: |
           xcodebuild \
