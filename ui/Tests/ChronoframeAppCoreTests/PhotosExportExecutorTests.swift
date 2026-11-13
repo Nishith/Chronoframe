@@ -467,6 +467,63 @@ final class PhotosExportExecutorTests: XCTestCase {
     }
 
     // AGENTS-INVARIANT: 22
+    func testFallbackNameNeverLandsOnAnotherAssetsFile() async throws {
+        // "IMG_0001" with two JPEG resources falls back to "IMG_0001-2.jpg" for
+        // the second one, which is exactly the first asset's published name.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "p": [resource("p", index: 0, ext: "jpg")],
+            "q": [resource("q", index: 0, ext: "jpg"), resource("q", index: 2, ext: "jpg")],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("p", stem: "IMG_0001-2"), entry("q", stem: "IMG_0001")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+
+        let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(names.count, 3)
+        XCTAssertEqual(Set(names).count, 3, "every staged file needs its own name: \(names)")
+        XCTAssertEqual(try stagedNames().count, 3, "three files must exist in staging")
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testNamesDifferingOnlyByCaseDoNotShareAFile() async throws {
+        // Staging is usually a case-insensitive volume, where these two stems
+        // would be one file.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "upper": [resource("upper", index: 0, ext: "jpg")],
+            "lower": [resource("lower", index: 0, ext: "jpg")],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("upper", stem: "IMG_0001"), entry("lower", stem: "img_0001")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+
+        let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(names.count, 2)
+        XCTAssertEqual(Set(names.map { $0.lowercased() }).count, 2, "names must differ by more than case: \(names)")
+        XCTAssertEqual(try stagedNames().count, 2, "two files must exist in staging")
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testReservedFilenameIsMatchedIgnoringCase() async throws {
+        try FileManager.default.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
+        let publishedURL = stagingRoot.appendingPathComponent("img_0001.jpg")
+        try Data("published".utf8).write(to: publishedURL)
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "new": [resource("new", index: 0, ext: "jpg")],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("new", stem: "IMG_0001")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: plan,
+            to: stagingRoot,
+            reservedFilenames: ["img_0001.jpg"]
+        )
+
+        let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(names, ["IMG_0001-0.jpg"])
+        XCTAssertEqual(try Data(contentsOf: publishedURL), Data("published".utf8), "The reserved file is untouched")
+    }
+
+    // AGENTS-INVARIANT: 22
     func testLowSpaceStopsBeforeFirstWriteOfNextAsset() async throws {
         let exporter = RecordingExporter(resourcesByAsset: [
             "a": [resource("a", index: 0, ext: "jpg")],

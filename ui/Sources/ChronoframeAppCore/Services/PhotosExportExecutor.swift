@@ -171,7 +171,8 @@ public struct PhotosExportExecutor {
 
         var exported: [PhotosExportedFile] = []
         var failures: [PhotosAssetExportFailure] = []
-        var usedFilenames = reservedFilenames
+        // Compared without case: staging is usually a case-insensitive volume.
+        var usedFilenames = Set(reservedFilenames.map { $0.lowercased() })
         var sourceDateHints: [String: SourceDateHint] = [:]
 
         for (entryIndex, entry) in plan.entries.enumerated() {
@@ -302,14 +303,18 @@ public struct PhotosExportExecutor {
     ) -> String {
         let ext = Self.normalizedExtension(fileExtension)
         let base = ext.isEmpty ? stem : "\(stem).\(ext)"
-        if used.insert(base).inserted { return base }
-        // The only way `base` collides is two resources of one asset sharing
-        // an extension. The plan's stems are globally unique and
-        // `resourceIndex` is unique per asset, so folding the index in always
-        // yields a fresh, unique name.
-        let folded = ext.isEmpty ? "\(stem)-\(resourceIndex)" : "\(stem)-\(resourceIndex).\(ext)"
-        used.insert(folded)
-        return folded
+        if used.insert(base.lowercased()).inserted { return base }
+        // `base` is taken: two resources of one asset share an extension, the
+        // name is reserved, or another stem differs only by case. Fold the
+        // resource index in, and keep going until the name is free, because
+        // the folded name can itself be another asset's name.
+        var attempt = 1
+        while true {
+            let suffix = attempt == 1 ? "\(resourceIndex)" : "\(resourceIndex)-\(attempt)"
+            let folded = ext.isEmpty ? "\(stem)-\(suffix)" : "\(stem)-\(suffix).\(ext)"
+            if used.insert(folded.lowercased()).inserted { return folded }
+            attempt += 1
+        }
     }
 
     static func normalizedExtension(_ raw: String) -> String {
