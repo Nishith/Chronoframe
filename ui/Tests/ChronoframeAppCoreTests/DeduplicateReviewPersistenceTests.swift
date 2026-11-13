@@ -311,6 +311,25 @@ final class DeduplicateReviewPersistenceTests: XCTestCase {
     }
 
     @MainActor
+    func testCommitFlushesPendingSave() async throws {
+        // A commit that fails must not cost the choices made just before it.
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let store = makeStore(
+            engine: MockDeduplicateEngine(clusters: [cluster]),
+            snapshotStore: snapshotStore,
+            debounce: longDebounce
+        )
+        await scanToReview(store)
+        store.setDecision(.keep, forPath: file2.path)
+        XCTAssertEqual(snapshotStore.saves.count, 0)
+
+        store.commitReviewed(configuration: configuration)
+
+        XCTAssertEqual(snapshotStore.saves.count, 1, "A change inside the debounce window must be saved before the commit starts.")
+        XCTAssertEqual(snapshotStore.saves.first?.decisions.first { $0.path == file2.path }?.decision, .keep)
+    }
+
+    @MainActor
     func testUndoRedoTriggersSave() {
         // Synchronous on purpose: UndoManager inside an async XCTest method
         // crashes the Swift task allocator. The run loop is pumped instead.
