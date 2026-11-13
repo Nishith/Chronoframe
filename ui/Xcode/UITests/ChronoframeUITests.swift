@@ -942,8 +942,9 @@ final class ChronoframeUITests: XCTestCase {
             XCTAssertTrue(dismiss.exists)
             guard dismiss.exists else { return }
             dismiss.click()
-            XCTAssertTrue(app.buttons["Return to Scan"].waitForExistence(timeout: 5))
-            app.buttons["Return to Scan"].click()
+            let returnToScan = Self.hittableButton(identifier: "dedupeResumePausedScanButton", in: app)
+            XCTAssertTrue(returnToScan.exists, app.debugDescription)
+            returnToScan.click()
             let retainedCommit = Self.button(identifier: "dedupeCommitButton", in: app)
             XCTAssertTrue(retainedCommit.waitForExistence(timeout: 5))
             XCTAssertTrue(retainedCommit.isEnabled)
