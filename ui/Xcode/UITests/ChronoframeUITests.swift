@@ -757,9 +757,6 @@ final class ChronoframeUITests: XCTestCase {
         attachment.name = "Preview row with conflicting capture dates"
         attachment.lifetime = .keepAlways
         add(attachment)
-        try? screenshot.pngRepresentation.write(
-            to: URL(fileURLWithPath: "/private/tmp/Chronoframe-conflicting-date-review.png")
-        )
     }
 
     func testHistoryScenarioShowsArchiveSearchAndArtifactActions() async {
@@ -1226,7 +1223,14 @@ final class ChronoframeUITests: XCTestCase {
         case .runPreviewReview:
             return button(identifier: "startTransferFromPreviewButton", in: app).waitForExistence(timeout: 5)
         case .previewDateConflict:
-            return element(identifier: "previewReviewUseAlternativeDate", in: app).waitForExistence(timeout: 10)
+            // The run workspace opens on Overview; the review panel only exists on the Review tab.
+            let reviewTab = app.radioButtons["Review (1)"]
+            guard reviewTab.waitForExistence(timeout: 10) else { return false }
+            reviewTab.click()
+            let alternative = element(identifier: "previewReviewUseAlternativeDate", in: app)
+            if alternative.waitForExistence(timeout: 5) { return true }
+            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -700)
+            return alternative.waitForExistence(timeout: 10)
         case .healthDashboard:
             return app.staticTexts["Library Health"].waitForExistence(timeout: 5)
                 && button(identifier: "refreshLibraryHealthButton", in: app).waitForExistence(timeout: 5)
