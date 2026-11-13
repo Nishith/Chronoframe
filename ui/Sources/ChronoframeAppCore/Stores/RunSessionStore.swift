@@ -729,8 +729,11 @@ public final class RunSessionStore: ObservableObject {
                     // count is the job being worked through, not a tally of
                     // files that landed, so this names a position in the queue
                     // rather than claiming that many copies: the Copied card is
-                    // the one place that reports successes.
-                    currentTaskTitle = "Copying file \(completed.formatted()) of \(total.formatted())…"
+                    // the one place that reports successes. Progress is emitted
+                    // after a job finishes, so `completed` names the last
+                    // finished file; the one in flight is the next, capped at
+                    // `total` once everything has been attempted.
+                    currentTaskTitle = "Copying file \(min(completed + 1, total).formatted()) of \(total.formatted())…"
                 } else if Self.usesFileCountETA(phase) {
                     let etaSeconds = estimatedFileETA(completed: completed, total: total)
                     metrics.etaSeconds = etaSeconds

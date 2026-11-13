@@ -541,9 +541,24 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.progress, 0.6, accuracy: 0.0001, "The fraction still tracks attempted jobs")
         XCTAssertEqual(
             store.currentTaskTitle,
-            "Copying file 6 of 10…",
-            "The title names the job being worked through; it must not read as six copied files"
+            "Copying file 7 of 10…",
+            "Six jobs are finished, so the title names the seventh in flight; it must not read as copied files"
         )
+
+        // Once every job has been attempted the position stays at the total
+        // rather than running past it.
+        continuation.yield(.phaseProgress(
+            phase: .copy,
+            completed: 10,
+            total: 10,
+            copiedCount: 8,
+            bytesCopied: 8_000,
+            bytesTotal: 10_000,
+            currentFilePath: nil
+        ))
+        let finishedAttempts = await waitForCondition { store.metrics.copiedCount == 8 }
+        XCTAssertTrue(finishedAttempts)
+        XCTAssertEqual(store.currentTaskTitle, "Copying file 10 of 10…")
 
         continuation.finish()
     }
@@ -680,7 +695,7 @@ final class RunSessionStoreTests: XCTestCase {
         engine.pendingContinuation?.yield(.phaseProgress(phase: .copy, completed: 30, total: 100, copiedCount: 30, bytesCopied: 30_000, bytesTotal: 100_000, currentFilePath: "/tmp/source/photo30.jpg"))
         let progressSet = await waitForCondition { store.progress > 0 }
         XCTAssertTrue(progressSet)
-        XCTAssertEqual(store.currentTaskTitle, "Copying file 30 of 100…")
+        XCTAssertEqual(store.currentTaskTitle, "Copying file 31 of 100…")
         XCTAssertEqual(store.metrics.plannedCount, 100)
         XCTAssertEqual(store.metrics.copiedCount, 30)
         XCTAssertEqual(store.metrics.bytesCopied, 30_000)
