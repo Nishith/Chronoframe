@@ -157,4 +157,26 @@ final class DeduplicateReviewCopyTests: XCTestCase {
             )
         )
     }
+
+    func testSavedBodyCountsOnlyReviewedChoices() {
+        let snapshot = DeduplicateReviewSnapshot(
+            folderPath: "/dest",
+            savedAt: savedAt,
+            configurationFingerprint: "fp",
+            decisions: (0..<6).map {
+                DeduplicateSavedDecision(
+                    path: "/dest/\($0).jpg",
+                    identity: FileIdentity(size: 1, digest: "d\($0)"),
+                    decision: .keep,
+                    inReviewedGroup: $0 < 2
+                )
+            },
+            approvals: [DeduplicateSavedGroupApproval(groupKey: "k", memberCount: 2)],
+            focusGroupKey: nil
+        )
+
+        let body = DeduplicateReviewCopy.savedBody(snapshot, locale: locale, timeZone: timeZone)
+
+        XCTAssertTrue(body.hasPrefix("2 choices and 1 reviewed group saved "), body)
+    }
 }

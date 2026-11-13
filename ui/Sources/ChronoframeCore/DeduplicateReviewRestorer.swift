@@ -41,9 +41,9 @@ public enum DeduplicateReviewRestorer {
                memberPaths.contains(savedDecision.path) {
                 byPath[savedDecision.path] = savedDecision.decision
                 restoredPaths.insert(savedDecision.path)
-                restoredDecisionCount += 1
+                if savedDecision.inReviewedGroup { restoredDecisionCount += 1 }
             } else {
-                droppedDecisionCount += 1
+                if savedDecision.inReviewedGroup { droppedDecisionCount += 1 }
                 droppedPaths.insert(savedDecision.path)
             }
         }
@@ -92,11 +92,19 @@ public enum DeduplicateReviewRestorer {
         scanSnapshot: DeduplicateScanSnapshot,
         focusClusterID: UUID?
     ) -> DeduplicateReviewSnapshot {
+        let reviewedPaths = Set(
+            clusters.filter { approvedClusterIDs.contains($0.id) }.flatMap { $0.members.map(\.path) }
+        )
         let savedDecisions: [DeduplicateSavedDecision] = decisions.byPath
             .sorted { $0.key < $1.key }
             .compactMap { path, decision in
                 guard let identity = scanSnapshot.identitiesByPath[path] else { return nil }
-                return DeduplicateSavedDecision(path: path, identity: identity, decision: decision)
+                return DeduplicateSavedDecision(
+                    path: path,
+                    identity: identity,
+                    decision: decision,
+                    inReviewedGroup: reviewedPaths.contains(path)
+                )
             }
 
         var approvals: [DeduplicateSavedGroupApproval] = []

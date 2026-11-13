@@ -357,7 +357,7 @@ final class ChronoframeCoreDeduplicateReviewRestorerTests: XCTestCase {
         XCTAssertEqual(result.decisions, live)
         XCTAssertEqual(result.approvedClusterIDs, [rescanA.id])
         XCTAssertEqual(result.focusClusterID, rescanA.id)
-        XCTAssertEqual(result.restoredDecisionCount, 4)
+        XCTAssertEqual(result.restoredDecisionCount, 2, "counts cover the reviewed group only (C-10)")
         XCTAssertEqual(result.droppedDecisionCount, 0)
         XCTAssertEqual(result.restoredGroupCount, 1)
         XCTAssertEqual(result.changedGroupCount, 0)
@@ -378,5 +378,79 @@ final class ChronoframeCoreDeduplicateReviewRestorerTests: XCTestCase {
         XCTAssertFalse(result.decisions.hardDelete)
         XCTAssertEqual(result.decisions.pairKeepOverrides, ["/lib/partner.mov"])
         XCTAssertFalse(String(decoding: (try? JSONEncoder().encode(saved)) ?? Data(), as: UTF8.self).contains("hardDelete"))
+    }
+
+    private func captureWithClusterAReviewed(_ fixture: Fixture) -> DeduplicateReviewSnapshot {
+        DeduplicateReviewRestorer.capture(
+            folderPath: "/lib",
+            savedAt: savedAt,
+            configuration: configuration,
+            decisions: fixture.suggested,
+            approvedClusterIDs: [fixture.clusterA.id],
+            clusters: fixture.clusters,
+            scanSnapshot: fixture.scan,
+            focusClusterID: nil
+        )
+    }
+
+    func testCaptureMarksOnlyDecisionsInReviewedGroups() {
+        let fixture = makeFixture()
+
+        let captured = captureWithClusterAReviewed(fixture)
+
+        XCTAssertEqual(captured.decisions.count, 4, "every decision is still saved")
+        let reviewedByPath = Dictionary(uniqueKeysWithValues: captured.decisions.map { ($0.path, $0.inReviewedGroup) })
+        XCTAssertEqual(reviewedByPath, [
+            "/lib/a1.jpg": true, "/lib/a2.jpg": true,
+            "/lib/b1.jpg": false, "/lib/b2.jpg": false,
+        ])
+        XCTAssertEqual(captured.reviewedDecisionCount, 2)
+    }
+
+    func testRestoredAndDroppedCountsIgnoreUnreviewedGroups() {
+        var fixture = makeFixture()
+        var saved = captureWithClusterAReviewed(fixture)
+        // Change one file in each group since the save.
+        var identities = fixture.scan.identitiesByPath
+        identities["/lib/a2.jpg"] = identity("a2-edited")
+        identities["/lib/b2.jpg"] = identity("b2-edited")
+        fixture.scan = DeduplicateScanSnapshot(identitiesByPath: identities)
+        saved = DeduplicateReviewSnapshot(
+            folderPath: saved.folderPath, savedAt: saved.savedAt,
+            configurationFingerprint: saved.configurationFingerprint,
+            decisions: saved.decisions.map {
+                DeduplicateSavedDecision(path: $0.path, identity: $0.identity, decision: .keep, inReviewedGroup: $0.inReviewedGroup)
+            },
+            approvals: saved.approvals, focusGroupKey: nil
+        )
+
+        let result = restore(saved, fixture)
+
+        XCTAssertEqual(result.restoredDecisionCount, 1, "only a1 of the reviewed group")
+        XCTAssertEqual(result.droppedDecisionCount, 1, "only a2 of the reviewed group")
+        XCTAssertEqual(result.decisions.byPath["/lib/a1.jpg"], .keep)
+        XCTAssertEqual(result.decisions.byPath["/lib/b1.jpg"], .keep)
+        XCTAssertEqual(result.decisions.byPath["/lib/a2.jpg"], fixture.suggested.byPath["/lib/a2.jpg"])
+        XCTAssertEqual(result.decisions.byPath["/lib/b2.jpg"], fixture.suggested.byPath["/lib/b2.jpg"])
+    }
+
+    func testUnreviewedDecisionsAreStillRestored() {
+        let fixture = makeFixture()
+        let saved = snapshot(decisions: [
+            DeduplicateSavedDecision(path: "/lib/a1.jpg", identity: identity("a1"), decision: .delete, inReviewedGroup: false),
+            DeduplicateSavedDecision(path: "/lib/a2.jpg", identity: identity("a2"), decision: .keep, inReviewedGroup: false),
+            DeduplicateSavedDecision(path: "/lib/b1.jpg", identity: identity("b1"), decision: .delete, inReviewedGroup: false),
+            DeduplicateSavedDecision(path: "/lib/b2.jpg", identity: identity("b2"), decision: .keep, inReviewedGroup: false),
+        ])
+
+        let result = restore(saved, fixture)
+
+        XCTAssertEqual(result.decisions.byPath, [
+            "/lib/a1.jpg": .delete, "/lib/a2.jpg": .keep,
+            "/lib/b1.jpg": .delete, "/lib/b2.jpg": .keep,
+        ])
+        XCTAssertEqual(result.restoredDecisionCount, 0)
+        XCTAssertEqual(result.droppedDecisionCount, 0)
+        XCTAssertTrue(result.approvedClusterIDs.isEmpty)
     }
 }
