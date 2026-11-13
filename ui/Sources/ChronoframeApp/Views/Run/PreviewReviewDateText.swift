@@ -1,4 +1,6 @@
+#if canImport(ChronoframeCore)
 import ChronoframeCore
+#endif
 import Foundation
 
 /// Formats review-row dates on the calendar day Chronoframe will actually use.
