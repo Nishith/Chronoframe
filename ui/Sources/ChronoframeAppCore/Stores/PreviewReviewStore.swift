@@ -185,6 +185,7 @@ public final class PreviewReviewStore: ObservableObject {
                     $0 == .unknownDate || $0 == .lowConfidenceDate || $0 == .conflictingDates
                 }
                 current.alternativeDate = nil
+                current.bucketTimeZoneOffsetSeconds = nil
             }
             current.acceptedEventName = ReviewOverride.normalizedEventName(eventName)
         }

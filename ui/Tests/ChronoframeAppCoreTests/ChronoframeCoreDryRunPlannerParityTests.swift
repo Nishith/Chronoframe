@@ -213,6 +213,25 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(result.copyJobs.first?.destinationPath).contains("/2001/07/14/"))
     }
 
+    func testPlannerCarriesMetadataOffsetIntoReviewItem() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("offset-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("offset-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        try writeMediaFile(at: sourceRoot.appendingPathComponent("IMG_20190714_120000.jpg"), contents: "offset")
+        let metadataDate = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+
+        let result = try DryRunPlanner(
+            dateResolver: FileDateResolver(
+                metadataReader: PlannerOffsetMetadataReader(date: metadataDate, offsetSeconds: 5 * 3600),
+                scanDateProvider: { scanDate }
+            )
+        ).plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot)
+
+        XCTAssertEqual(result.previewReviewItems.first?.bucketTimeZoneOffsetSeconds, 5 * 3600)
+    }
+
     func testPlannerAddsSmartEventSuggestionsWithoutApplyingThem() throws {
         let sourceRoot = temporaryDirectoryURL.appendingPathComponent("event-source", isDirectory: true)
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("event-dest", isDirectory: true)
@@ -869,6 +888,18 @@ private struct PlannerConflictMetadataReader: MediaMetadataDateReading {
     let date: Date
 
     func photoMetadataDate(at url: URL) -> Date? { date }
+    func fileSystemCreationDate(at url: URL) -> Date? { nil }
+    func fileSystemModificationDate(at url: URL) -> Date? { nil }
+}
+
+private struct PlannerOffsetMetadataReader: MediaMetadataDateReading {
+    let date: Date
+    let offsetSeconds: Int
+
+    func photoMetadataDate(at url: URL) -> Date? { date }
+    func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? {
+        PhotoMetadataDate(date: date, bucketTimeZoneOffsetSeconds: offsetSeconds)
+    }
     func fileSystemCreationDate(at url: URL) -> Date? { nil }
     func fileSystemModificationDate(at url: URL) -> Date? { nil }
 }

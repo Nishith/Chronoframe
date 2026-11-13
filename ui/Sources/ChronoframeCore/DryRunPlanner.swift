@@ -202,7 +202,8 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedWithoutOverride,
                         status: .hashError
                     ),
-                    alternativeDate: resolvedWithoutOverride.alternativeDate
+                    alternativeDate: resolvedWithoutOverride.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedWithoutOverride.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -246,7 +247,8 @@ public struct DryRunPlanner: Sendable {
                         status: .alreadyInDestination
                     ),
                     acceptedEventName: acceptedEventName,
-                    alternativeDate: resolvedDate.alternativeDate
+                    alternativeDate: resolvedDate.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -273,7 +275,8 @@ public struct DryRunPlanner: Sendable {
                             status: .duplicate
                         ),
                         acceptedEventName: acceptedEventName,
-                        alternativeDate: resolvedDate.alternativeDate
+                        alternativeDate: resolvedDate.alternativeDate,
+                        bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                     )
                 } catch {
                     planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
@@ -302,7 +305,8 @@ public struct DryRunPlanner: Sendable {
                         status: .ready
                     ),
                     acceptedEventName: acceptedEventName,
-                    alternativeDate: resolvedDate.alternativeDate
+                    alternativeDate: resolvedDate.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
             } catch {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
@@ -559,7 +563,8 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedWithoutOverride,
                         status: .hashError
                     ),
-                    alternativeDate: resolvedWithoutOverride.alternativeDate
+                    alternativeDate: resolvedWithoutOverride.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedWithoutOverride.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -603,7 +608,8 @@ public struct DryRunPlanner: Sendable {
                         status: .alreadyInDestination
                     ),
                     acceptedEventName: acceptedEventName,
-                    alternativeDate: resolvedDate.alternativeDate
+                    alternativeDate: resolvedDate.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -630,7 +636,8 @@ public struct DryRunPlanner: Sendable {
                             status: .duplicate
                         ),
                         acceptedEventName: acceptedEventName,
-                        alternativeDate: resolvedDate.alternativeDate
+                        alternativeDate: resolvedDate.alternativeDate,
+                        bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                     )
                 } catch {
                     planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
@@ -659,7 +666,8 @@ public struct DryRunPlanner: Sendable {
                         status: .ready
                     ),
                     acceptedEventName: acceptedEventName,
-                    alternativeDate: resolvedDate.alternativeDate
+                    alternativeDate: resolvedDate.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
             } catch {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")

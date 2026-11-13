@@ -222,6 +222,11 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
     public var eventSuggestion: EventSuggestion?
     public var acceptedEventName: String?
     public var alternativeDate: DateReviewAlternative?
+    /// UTC offset (seconds) of the EXIF timestamp behind `resolvedDate`, when it
+    /// carried one. Lets the review UI show the calendar day the file buckets
+    /// into rather than the viewer's local day. `nil` when unknown or for rows
+    /// persisted by older versions.
+    public var bucketTimeZoneOffsetSeconds: Int?
 
     public var id: String { sourcePath }
 
@@ -236,7 +241,8 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         issues: [PreviewReviewIssueKind],
         eventSuggestion: EventSuggestion? = nil,
         acceptedEventName: String? = nil,
-        alternativeDate: DateReviewAlternative? = nil
+        alternativeDate: DateReviewAlternative? = nil,
+        bucketTimeZoneOffsetSeconds: Int? = nil
     ) {
         self.sourcePath = sourcePath
         self.identityRawValue = identityRawValue
@@ -249,6 +255,7 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         self.eventSuggestion = eventSuggestion
         self.acceptedEventName = acceptedEventName
         self.alternativeDate = alternativeDate
+        self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
     }
 
     public var needsAttention: Bool {
