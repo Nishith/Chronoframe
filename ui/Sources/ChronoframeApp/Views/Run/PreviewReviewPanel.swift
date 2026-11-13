@@ -175,10 +175,16 @@ private struct PreviewReviewRow: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
                         if let alternative = item.alternativeDate, let selected = item.resolvedDate {
-                            Text("\(item.dateSource.title): \(selected.formatted(date: .abbreviated, time: .omitted)) · \(alternative.source.title): \(alternative.date.formatted(date: .abbreviated, time: .omitted))")
+                            let selectedText = PreviewReviewDateText.string(
+                                for: selected,
+                                source: item.dateSource,
+                                bucketTimeZoneOffsetSeconds: item.bucketTimeZoneOffsetSeconds
+                            )
+                            let alternativeText = PreviewReviewDateText.string(for: alternative.date, source: alternative.source)
+                            Text("\(item.dateSource.title): \(selectedText) · \(alternative.source.title): \(alternativeText)")
                                 .scaledFont(.label)
                                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                                .accessibilityLabel("Chosen date \(item.dateSource.title), \(selected.formatted(date: .abbreviated, time: .omitted)). Alternative date \(alternative.source.title), \(alternative.date.formatted(date: .abbreviated, time: .omitted))")
+                                .accessibilityLabel("Chosen date \(item.dateSource.title), \(selectedText). Alternative date \(alternative.source.title), \(alternativeText)")
                         }
 
                     }
@@ -307,7 +313,7 @@ private struct PreviewReviewRow: View {
             } label: {
                 Label("Use \(alternative.source.title) Date", systemImage: "calendar.badge.checkmark")
             }
-            .accessibilityLabel("Use \(alternative.source.title) date, \(alternative.date.formatted(date: .abbreviated, time: .omitted))")
+            .accessibilityLabel("Use \(alternative.source.title) date, \(PreviewReviewDateText.string(for: alternative.date, source: alternative.source))")
             .accessibilityIdentifier("previewReviewUseAlternativeDate")
         }
 
