@@ -65,17 +65,25 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
     /// dates — all of which bucket by their UTC day as before. Absent in
     /// legacy persisted review rows (decodes to `nil`).
     public var bucketTimeZoneOffsetSeconds: Int?
+    /// Review-only warning and candidate. Neither affects date selection or bucketing.
+    /// Optional for rows and hints persisted by older app versions.
+    public var dateReviewIssue: PreviewReviewIssueKind?
+    public var alternativeDate: DateReviewAlternative?
 
     public init(
         date: Date?,
         source: DateResolutionSource,
         confidence: DateResolutionConfidence,
-        bucketTimeZoneOffsetSeconds: Int? = nil
+        bucketTimeZoneOffsetSeconds: Int? = nil,
+        dateReviewIssue: PreviewReviewIssueKind? = nil,
+        alternativeDate: DateReviewAlternative? = nil
     ) {
         self.date = date
         self.source = source
         self.confidence = confidence
         self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
+        self.dateReviewIssue = dateReviewIssue
+        self.alternativeDate = alternativeDate
     }
 
     public static let unknown = ResolvedMediaDate(
@@ -94,6 +102,16 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
             source: .userOverride,
             confidence: .high
         )
+    }
+}
+
+public struct DateReviewAlternative: Equatable, Codable, Sendable {
+    public var date: Date
+    public var source: DateResolutionSource
+
+    public init(date: Date, source: DateResolutionSource) {
+        self.date = date
+        self.source = source
     }
 }
 
@@ -169,6 +187,7 @@ public enum PreviewReviewStatus: String, Codable, Sendable, CaseIterable {
 public enum PreviewReviewIssueKind: String, Codable, Sendable, CaseIterable {
     case unknownDate
     case lowConfidenceDate
+    case conflictingDates
     case duplicate
     case alreadyInDestination
     case hashError
@@ -179,6 +198,8 @@ public enum PreviewReviewIssueKind: String, Codable, Sendable, CaseIterable {
             return "Unknown date"
         case .lowConfidenceDate:
             return "Low confidence date"
+        case .conflictingDates:
+            return "Conflicting dates"
         case .duplicate:
             return "Duplicate"
         case .alreadyInDestination:
@@ -200,6 +221,12 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
     public var issues: [PreviewReviewIssueKind]
     public var eventSuggestion: EventSuggestion?
     public var acceptedEventName: String?
+    public var alternativeDate: DateReviewAlternative?
+    /// UTC offset (seconds) of the EXIF timestamp behind `resolvedDate`, when it
+    /// carried one. Lets the review UI show the calendar day the file buckets
+    /// into rather than the viewer's local day. `nil` when unknown or for rows
+    /// persisted by older versions.
+    public var bucketTimeZoneOffsetSeconds: Int?
 
     public var id: String { sourcePath }
 
@@ -213,7 +240,9 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         status: PreviewReviewStatus,
         issues: [PreviewReviewIssueKind],
         eventSuggestion: EventSuggestion? = nil,
-        acceptedEventName: String? = nil
+        acceptedEventName: String? = nil,
+        alternativeDate: DateReviewAlternative? = nil,
+        bucketTimeZoneOffsetSeconds: Int? = nil
     ) {
         self.sourcePath = sourcePath
         self.identityRawValue = identityRawValue
@@ -225,11 +254,14 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         self.issues = issues
         self.eventSuggestion = eventSuggestion
         self.acceptedEventName = acceptedEventName
+        self.alternativeDate = alternativeDate
+        self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
     }
 
     public var needsAttention: Bool {
         issues.contains(.unknownDate)
             || issues.contains(.lowConfidenceDate)
+            || issues.contains(.conflictingDates)
             || issues.contains(.hashError)
     }
 }

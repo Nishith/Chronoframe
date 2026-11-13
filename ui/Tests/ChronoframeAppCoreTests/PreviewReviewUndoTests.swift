@@ -132,6 +132,38 @@ final class PreviewReviewUndoTests: XCTestCase {
         runAsync { await store.drainPendingPersists() }
     }
 
+    func testChoosingAlternativeDateAppliesUserOverrideAndClearsConflict() throws {
+        var conflict = makeItem()
+        let metadataDate = Date(timeIntervalSince1970: 1_000_000)
+        let filenameDate = Date(timeIntervalSince1970: 2_000_000)
+        conflict.resolvedDate = metadataDate
+        conflict.dateSource = .photoMetadata
+        conflict.dateConfidence = .high
+        conflict.issues = [.conflictingDates]
+        conflict.alternativeDate = DateReviewAlternative(date: filenameDate, source: .filename)
+        let store = try makeLoadedStore(conflict)
+        XCTAssertTrue(store.filteredItems.contains(where: { $0.sourcePath == conflict.sourcePath }))
+        store.filter = .conflictingDates
+        XCTAssertEqual(store.filteredItems.map(\.sourcePath), [conflict.sourcePath])
+
+        runAsync {
+            await store.saveOverride(
+                for: store.items[0],
+                captureDate: try! XCTUnwrap(store.items[0].alternativeDate?.date),
+                eventName: nil,
+                actionName: "Use Alternative Date"
+            )
+        }
+
+        XCTAssertEqual(store.items[0].resolvedDate, filenameDate)
+        XCTAssertEqual(store.items[0].dateSource, .userOverride)
+        XCTAssertEqual(store.items[0].dateConfidence, .high)
+        XCTAssertFalse(store.items[0].issues.contains(.conflictingDates))
+        XCTAssertNil(store.items[0].alternativeDate)
+        XCTAssertFalse(store.items[0].needsAttention)
+        runAsync { await store.drainPendingPersists() }
+    }
+
     func testAcceptSuggestionWithNoSuggestionIsANoOp() throws {
         let store = try makeLoadedStore(makeItem())
         let before = store.items[0]

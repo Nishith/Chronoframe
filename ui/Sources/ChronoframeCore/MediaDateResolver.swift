@@ -344,9 +344,14 @@ public struct NativeMediaMetadataDateReader: MediaMetadataDateReading {
 
 public struct FileDateResolver: Sendable {
     public var metadataReader: any MediaMetadataDateReading
+    public var scanDateProvider: @Sendable () -> Date
 
-    public init(metadataReader: any MediaMetadataDateReading = NativeMediaMetadataDateReader()) {
+    public init(
+        metadataReader: any MediaMetadataDateReading = NativeMediaMetadataDateReader(),
+        scanDateProvider: @escaping @Sendable () -> Date = { Date() }
+    ) {
         self.metadataReader = metadataReader
+        self.scanDateProvider = scanDateProvider
     }
 
     public func resolveDate(for path: String) -> Date? {
@@ -388,25 +393,34 @@ public struct FileDateResolver: Sendable {
         isCancelled: @escaping @Sendable () -> Bool = { false }
     ) -> ResolvedMediaDate {
         let url = URL(fileURLWithPath: path)
+        let filenameDate = FilenameDateParser.parse(from: path)
 
         if MediaLibraryRules.isPhotoFile(path: path) {
             if let precomputedPhotoMetadataDate,
                !DateClassification.isUnknown(precomputedPhotoMetadataDate) {
-                return ResolvedMediaDate(
-                    date: precomputedPhotoMetadataDate,
-                    source: .photoMetadata,
-                    confidence: .high
+                return Self.addingDateReview(
+                    to: ResolvedMediaDate(
+                        date: precomputedPhotoMetadataDate,
+                        source: .photoMetadata,
+                        confidence: .high
+                    ),
+                    filenameDate: filenameDate,
+                    scanDate: scanDateProvider()
                 )
             }
 
             if shouldReadPhotoMetadata,
                let metadata = metadataReader.photoMetadataResolvedDate(at: url),
                !DateClassification.isUnknown(metadata.date) {
-                return ResolvedMediaDate(
-                    date: metadata.date,
-                    source: .photoMetadata,
-                    confidence: .high,
-                    bucketTimeZoneOffsetSeconds: metadata.bucketTimeZoneOffsetSeconds
+                return Self.addingDateReview(
+                    to: ResolvedMediaDate(
+                        date: metadata.date,
+                        source: .photoMetadata,
+                        confidence: .high,
+                        bucketTimeZoneOffsetSeconds: metadata.bucketTimeZoneOffsetSeconds
+                    ),
+                    filenameDate: filenameDate,
+                    scanDate: scanDateProvider()
                 )
             }
         }
@@ -414,11 +428,14 @@ public struct FileDateResolver: Sendable {
         if MediaLibraryRules.isVideoFile(path: path),
            let metadata = metadataReader.videoMetadataResolvedDate(at: url, isCancelled: isCancelled),
            !DateClassification.isUnknown(metadata.date) {
-            return ResolvedMediaDate(date: metadata.date, source: .videoMetadata, confidence: .high,
-                                     bucketTimeZoneOffsetSeconds: metadata.bucketTimeZoneOffsetSeconds)
+            return Self.addingDateReview(
+                to: ResolvedMediaDate(date: metadata.date, source: .videoMetadata, confidence: .high,
+                                      bucketTimeZoneOffsetSeconds: metadata.bucketTimeZoneOffsetSeconds),
+                filenameDate: filenameDate, scanDate: scanDateProvider()
+            )
         }
 
-        if let filenameDate = FilenameDateParser.parse(from: path) {
+        if let filenameDate {
             return ResolvedMediaDate(
                 date: filenameDate,
                 source: .filename,
@@ -447,5 +464,48 @@ public struct FileDateResolver: Sendable {
         }
 
         return .unknown
+    }
+
+    private static func addingDateReview(
+        to resolved: ResolvedMediaDate,
+        filenameDate: Date?,
+        scanDate: Date
+    ) -> ResolvedMediaDate {
+        guard let metadataDate = resolved.date else { return resolved }
+        let localWallClock = metadataDate.addingTimeInterval(TimeInterval(resolved.bucketTimeZoneOffsetSeconds ?? 0))
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let components = utcCalendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: localWallClock)
+        // Documented reset/default timestamp: Nikon Coolpix 990 manual (photos
+        // before clock setup: 2000/01/01 0:00),
+        // https://cdn-10.nikon-cdn.com/pdf/manuals/coolpix/cp990rm.pdf;
+        // Ricoh RDC-6000 manual (initial date/time: 2000/01/01 00:00),
+        // https://www.ricoh-imaging.co.jp/english/r_dc/support/manual/pdf/rdc-6000/RDC-6000.pdf.
+        let isKnownDefault = components.year == 2000 && components.month == 1 && components.day == 1
+            && components.hour == 0 && components.minute == 0 && components.second == 0
+        let isFuture = metadataDate.timeIntervalSince(scanDate) > 86_400
+        let hasFilenameConflict: Bool
+        let filenameHasDifferentDay: Bool
+        if let filenameDate {
+            var filenameCalendar = Calendar(identifier: .gregorian)
+            filenameCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+            let metadataDay = utcCalendar.startOfDay(for: localWallClock)
+            let filenameDay = filenameCalendar.startOfDay(for: filenameDate)
+            let dayDifference = abs(utcCalendar.dateComponents([.day], from: metadataDay, to: filenameDay).day ?? 0)
+            hasFilenameConflict = dayDifference > 1
+            filenameHasDifferentDay = dayDifference > 0
+        } else {
+            hasFilenameConflict = false
+            filenameHasDifferentDay = false
+        }
+        guard isKnownDefault || isFuture || hasFilenameConflict else { return resolved }
+
+        var reviewed = resolved
+        reviewed.dateReviewIssue = .conflictingDates
+        if let filenameDate, filenameHasDifferentDay {
+            // The filename parser has day precision; preserve that exact candidate and source.
+            reviewed.alternativeDate = DateReviewAlternative(date: filenameDate, source: .filename)
+        }
+        return reviewed
     }
 }

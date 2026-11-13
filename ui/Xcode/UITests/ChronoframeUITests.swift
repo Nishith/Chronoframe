@@ -7,6 +7,7 @@ final class ChronoframeUITests: XCTestCase {
         case setupIncompleteRun
         case setupReady
         case runPreviewReview
+        case previewDateConflict
         case healthDashboard
         case watchedSources
         case historyPopulated
@@ -730,6 +731,34 @@ final class ChronoframeUITests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testPreviewDateConflictRowShowsAlternativeAndSavesScreenshot() {
+        let app = Self.launchApp(.previewDateConflict)
+        let reviewTab = app.radioButtons["Review (1)"]
+        XCTAssertTrue(reviewTab.waitForExistence(timeout: 10))
+        reviewTab.click()
+        let runScrollView = app.scrollViews.firstMatch
+        XCTAssertTrue(runScrollView.exists)
+        runScrollView.scroll(byDeltaX: 0, deltaY: -700)
+        let alternative = Self.element(identifier: "previewReviewUseAlternativeDate", in: app)
+        XCTAssertTrue(alternative.waitForExistence(timeout: 10), app.debugDescription)
+        let dateComparison = app.staticTexts.containing(
+            NSPredicate(format: "value CONTAINS %@", "Chosen date Photo Metadata")
+        ).firstMatch
+        XCTAssertTrue(dateComparison.exists, app.debugDescription)
+        let dateComparisonValue = dateComparison.value as? String ?? ""
+        XCTAssertTrue(dateComparisonValue.contains("Jan 1, 2000"), "Date comparison value: \(dateComparisonValue)")
+        XCTAssertTrue(dateComparisonValue.contains("Alternative date Filename, Jul 14, 2019"))
+        XCTAssertTrue(alternative.label.contains("Filename"))
+        XCTAssertTrue(alternative.label.contains("Jul 14, 2019"))
+
+        let screenshot = app.windows.firstMatch.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "Preview row with conflicting capture dates"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testHistoryScenarioShowsArchiveSearchAndArtifactActions() async {
         await MainActor.run {
             let app = Self.launchApp(.historyPopulated)
@@ -1193,6 +1222,15 @@ final class ChronoframeUITests: XCTestCase {
                 && button(identifier: "chooseDestinationButton", in: app).waitForExistence(timeout: 5)
         case .runPreviewReview:
             return button(identifier: "startTransferFromPreviewButton", in: app).waitForExistence(timeout: 5)
+        case .previewDateConflict:
+            // The run workspace opens on Overview; the review panel only exists on the Review tab.
+            let reviewTab = app.radioButtons["Review (1)"]
+            guard reviewTab.waitForExistence(timeout: 10) else { return false }
+            reviewTab.click()
+            let alternative = element(identifier: "previewReviewUseAlternativeDate", in: app)
+            if alternative.waitForExistence(timeout: 5) { return true }
+            app.scrollViews.firstMatch.scroll(byDeltaX: 0, deltaY: -700)
+            return alternative.waitForExistence(timeout: 10)
         case .healthDashboard:
             return app.staticTexts["Library Health"].waitForExistence(timeout: 5)
                 && button(identifier: "refreshLibraryHealthButton", in: app).waitForExistence(timeout: 5)
@@ -1760,7 +1798,7 @@ final class ChronoframeUITests: XCTestCase {
             return nil
         case .setupReady:
             return "Privacy"
-        case .runPreviewReview:
+        case .runPreviewReview, .previewDateConflict:
             return nil
         case .healthDashboard:
             return "Library Health"
@@ -1785,7 +1823,7 @@ final class ChronoframeUITests: XCTestCase {
         switch scenario {
         case .setupReady:
             return "organizeTab.setup"
-        case .setupIncompleteRun, .runPreviewReview:
+        case .setupIncompleteRun, .runPreviewReview, .previewDateConflict:
             return "organizeTab.run"
         case .healthDashboard:
             return "organizeTab.health"

@@ -191,6 +191,105 @@ final class ChronoframeCoreMediaDateTests: XCTestCase {
         )
     }
 
+    func testMetadataFilenameConflictCarriesFilenameAlternativeWithoutChangingResolution() {
+        let metadata = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+        let reader = OffsetStubMetadataReader(resolved: PhotoMetadataDate(date: metadata))
+        let resolver = FileDateResolver(
+            metadataReader: reader,
+            scanDateProvider: { scanDate }
+        )
+        let resolved = resolver.resolveResolvedDate(for: "/photos/IMG_20190714_120000.jpg")
+
+        XCTAssertEqual(resolved.date, metadata)
+        XCTAssertEqual(resolved.source, .photoMetadata)
+        XCTAssertEqual(resolved.dateReviewIssue, .conflictingDates)
+        XCTAssertEqual(resolved.alternativeDate?.date, makeDate("2019-07-14"))
+        XCTAssertEqual(resolved.alternativeDate?.source, .filename)
+        XCTAssertEqual(reader.photoMetadataResolvedDateCallCount, 1)
+    }
+
+    func testMetadataFilenameAgreementAndOneDayDifferenceAreNotFlagged() {
+        let scanDate = makeDate("2024-01-01")
+        let agreement = FileDateResolver(
+            metadataReader: OffsetStubMetadataReader(resolved: PhotoMetadataDate(date: makeDate("2019-07-14"))),
+            scanDateProvider: { scanDate }
+        ).resolveResolvedDate(for: "/photos/IMG_20190714_120000.jpg")
+        let oneDayApart = FileDateResolver(
+            metadataReader: OffsetStubMetadataReader(resolved: PhotoMetadataDate(date: makeDate("2019-07-13"))),
+            scanDateProvider: { scanDate }
+        ).resolveResolvedDate(for: "/photos/IMG_20190714_120000.jpg")
+
+        XCTAssertNil(agreement.dateReviewIssue)
+        XCTAssertNil(oneDayApart.dateReviewIssue)
+        XCTAssertNil(oneDayApart.alternativeDate)
+    }
+
+    func testExifOffsetNormalizationAvoidsCalendarDayConflict() {
+        let instant = makeDateTimeUTC("2019-07-13T23:30:00Z") // July 14 at +02:00
+        let scanDate = makeDate("2024-01-01")
+        let resolved = FileDateResolver(
+            metadataReader: OffsetStubMetadataReader(
+                resolved: PhotoMetadataDate(date: instant, bucketTimeZoneOffsetSeconds: 2 * 3600)
+            ),
+            scanDateProvider: { scanDate }
+        ).resolveResolvedDate(for: "/photos/IMG_20190714_120000.jpg")
+
+        XCTAssertNil(resolved.dateReviewIssue)
+        XCTAssertNil(resolved.alternativeDate)
+    }
+
+    func testKnownCameraDefaultAndFutureMetadataAreFlagged() {
+        let scanDate = makeDate("2024-01-01")
+        let cameraDefault = FileDateResolver(
+            metadataReader: OffsetStubMetadataReader(resolved: PhotoMetadataDate(date: makeDateTimeUTC("2000-01-01T00:00:00Z"))),
+            scanDateProvider: { scanDate }
+        ).resolveResolvedDate(for: "/photos/DSC_4321.jpg")
+        let future = FileDateResolver(
+            metadataReader: OffsetStubMetadataReader(resolved: PhotoMetadataDate(date: makeDateTimeUTC("2024-01-03T00:00:00Z"))),
+            scanDateProvider: { scanDate }
+        ).resolveResolvedDate(for: "/photos/DSC_4321.jpg")
+
+        XCTAssertEqual(cameraDefault.dateReviewIssue, .conflictingDates)
+        XCTAssertEqual(future.dateReviewIssue, .conflictingDates)
+        XCTAssertNil(cameraDefault.alternativeDate)
+        XCTAssertNil(future.alternativeDate)
+    }
+
+    func testVideoMetadataConflictingWithFilenameIsFlagged() {
+        let metadataDate = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+        let reader = StubMetadataReader(
+            photoDate: nil,
+            creationDate: nil,
+            modificationDate: nil,
+            videoDate: PhotoMetadataDate(date: metadataDate)
+        )
+        let resolved = FileDateResolver(metadataReader: reader, scanDateProvider: { scanDate })
+            .resolveResolvedDate(for: "/videos/VID_20190714_120000.mp4")
+
+        XCTAssertEqual(resolved.date, metadataDate)
+        XCTAssertEqual(resolved.source, .videoMetadata)
+        XCTAssertEqual(resolved.dateReviewIssue, .conflictingDates)
+        XCTAssertEqual(resolved.alternativeDate?.date, makeDate("2019-07-14"))
+        XCTAssertEqual(resolved.alternativeDate?.source, .filename)
+        XCTAssertEqual(reader.videoMetadataCallCount, 1)
+    }
+
+    func testMetadataWithoutFilenameAndFilesystemDatesDoesNotCreateConflict() {
+        let reader = StubMetadataReader(photoDate: makeDate("2019-07-14"), creationDate: makeDate("2000-01-01"), modificationDate: makeDate("2030-01-01"))
+        let scanDate = makeDate("2024-01-01")
+        let resolved = FileDateResolver(
+            metadataReader: reader,
+            scanDateProvider: { scanDate }
+        ).resolveResolvedDate(for: "/photos/DSC_4321.jpg")
+
+        XCTAssertNil(resolved.dateReviewIssue)
+        XCTAssertNil(resolved.alternativeDate)
+        XCTAssertEqual(reader.creationDateCallCount, 0)
+        XCTAssertEqual(reader.modificationDateCallCount, 0)
+    }
+
     func testFileDateResolverUsesPhotoMetadataForPhotosBeforeFilenameFallback() {
         let reader = StubMetadataReader(
             photoDate: makeDate("2023-06-15"),
@@ -379,19 +478,27 @@ private final class StubMetadataReader: MediaMetadataDateReading, @unchecked Sen
     var photoDate: Date?
     var creationDate: Date?
     var modificationDate: Date?
+    var videoDate: PhotoMetadataDate?
+    private(set) var videoMetadataCallCount = 0
     private(set) var photoMetadataCallCount = 0
     private(set) var creationDateCallCount = 0
     private(set) var modificationDateCallCount = 0
 
-    init(photoDate: Date?, creationDate: Date?, modificationDate: Date?) {
+    init(photoDate: Date?, creationDate: Date?, modificationDate: Date?, videoDate: PhotoMetadataDate? = nil) {
         self.photoDate = photoDate
         self.creationDate = creationDate
         self.modificationDate = modificationDate
+        self.videoDate = videoDate
     }
 
     func photoMetadataDate(at url: URL) -> Date? {
         photoMetadataCallCount += 1
         return photoDate
+    }
+
+    func videoMetadataResolvedDate(at url: URL, isCancelled: @escaping @Sendable () -> Bool) -> PhotoMetadataDate? {
+        videoMetadataCallCount += 1
+        return videoDate
     }
 
     func fileSystemCreationDate(at url: URL) -> Date? {
@@ -409,13 +516,17 @@ private final class StubMetadataReader: MediaMetadataDateReading, @unchecked Sen
 /// resolver-plumbing tests don't need a real on-disk image with EXIF.
 private final class OffsetStubMetadataReader: MediaMetadataDateReading, @unchecked Sendable {
     let resolved: PhotoMetadataDate?
+    private(set) var photoMetadataResolvedDateCallCount = 0
 
     init(resolved: PhotoMetadataDate?) {
         self.resolved = resolved
     }
 
     func photoMetadataDate(at url: URL) -> Date? { resolved?.date }
-    func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? { resolved }
+    func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? {
+        photoMetadataResolvedDateCallCount += 1
+        return resolved
+    }
     func fileSystemCreationDate(at url: URL) -> Date? { nil }
     func fileSystemModificationDate(at url: URL) -> Date? { nil }
 }
