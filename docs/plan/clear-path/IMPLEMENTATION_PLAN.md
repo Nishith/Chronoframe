@@ -173,5 +173,29 @@ If a WP is blocked, continue with the next WP whose dependencies are done (WP-10
 6. Commit catalogs, `AGENTS.md` (if changed), coverage script (if changed), evidence: `CLP G2: strings, guards, evidence`.
 - **Pass when:** every command in step 3 exits 0, step 4's remaining hits are all explained, and `EVIDENCE_LEDGER.md` lists the owner rows as `todo-hardware`.
 
+## WP-15 — Bulk accept skips reviewed groups (added 2026-11-12, D-CLP-123; BLOCKED B-1, B-2)
+- **Model:** cf-implementer.
+- **Owned paths:** `ui/Sources/ChronoframeAppCore/Stores/DeduplicateSessionStore.swift` (only the two filter lines in `acceptAllSuggestions` and `acceptAllHighConfidence`), `ui/Sources/ChronoframeApp/Views/Deduplicate/DeduplicateView.swift` (only the `reviewClusters` filter in the Quick Review sheet), `ui/Tests/ChronoframeAppCoreTests/DeduplicateSessionStoreTests.swift`, `ui/Tests/ChronoframeAppTests/DeduplicateReviewLanesTests.swift`.
+- **Read for reference:** `DeduplicateSessionStore.swift:390–408, :470–535`; `DeduplicateView.swift:715–740`; `DeduplicationPlanner.isAutomaticCommitEligible`; `DeduplicateSessionStoreTests.swift:590–640` (fixture and test pattern).
+- **Contracts:** C-15. **Decisions:** D-CLP-123.
+- **Safety:** the store is safety-critical. The diff in it must be exactly the two filter conditions. No refactor, no shared helper, no comment rewrites beyond one line explaining the new condition.
+- **Acceptance:**
+  - `DeduplicateSessionStoreTests`: `testAcceptAllSuggestionsKeepsChoicesInReviewedGroups` (two eligible groups; in the first, flip the suggested keeper with `setDecision` so it is reviewed with custom choices; call `acceptAllSuggestions()`; the first group's custom choices are unchanged, the second group is approved with its suggestions); `testAcceptAllHighConfidenceKeepsChoicesInReviewedGroups` (same for the other function); `testAcceptAllSuggestionsDoesNothingWhenEveryEligibleGroupIsReviewed` (decisions and approvals unchanged).
+  - `DeduplicateReviewLanesTests`: `testQuickReviewFilterMatchesCheckLane` only if the filter can be tested without rendering the view; if it cannot, say so in the report and do not add a view-rendering test.
+  - Existing tests in both classes pass unchanged.
+- **Done when:** `cf_swift.sh test DeduplicateSessionStoreTests`, `DeduplicateReviewLanesTests`, `DeduplicateReviewPersistenceTests`, `DeduplicateStatusViewTests` exit 0; `script/check_agents_invariants_have_tests.sh` exit 0; `cf_swift.sh build` exit 0; `git diff --check` exit 0.
+
+## WP-16 — Leftover engine words (added 2026-11-12, D-CLP-124; BLOCKED B-3)
+- **Model:** cf-implementer.
+- **Owned paths:** `ui/Sources/ChronoframeAppCore/Support/RunPhaseDisplay.swift` (new); `ui/Sources/ChronoframeAppCore/Stores/RunSessionStore.swift` (the lines C-16 items 2 and 3 name, nothing else); `ui/Sources/ChronoframeAppCore/Services/OrganizerEngine.swift` (the four error texts); `ui/Sources/ChronoframeCore/PreviewReviewModels.swift` (one title); `ui/Sources/ChronoframeApp/App/AppState.swift` (`:1464` only), `App/AppCommands.swift`; `ui/Sources/ChronoframeApp/Views/Run/RunAnnouncementPlanner.swift`, `Views/Run/RunWorkspaceModel.swift`, `Views/SettingsView.swift`, `Views/Help/HelpView.swift`, `Views/Deduplicate/DeduplicateView.swift` (two sentences), `Views/Setup/SetupSectionViews.swift`, `Views/ProfilesView.swift`; `docs/TROUBLESHOOTING.md`, `docs/FAQ.md`; `docs/plan/clear-path/strings-app.txt`, `strings-core.txt`; `ui/Tests/ChronoframeAppCoreTests/RunPhaseDisplayTests.swift` (new); any existing file under `ui/Tests/` whose assertion pins a string C-16 changes; `ui/Xcode/UITests/ChronoframeUITests.swift` and `A11yBaseline.json` only where they contain a string C-16 changes.
+- **Read for reference:** C-01 glossary; `ui/Sources/ChronoframeCore/RunModels.swift:25–70`; `ui/Sources/ChronoframeCLIKit/EventEmitters.swift:155–195` (read only; it must keep using `title`/`runningTitle`).
+- **Contracts:** C-16, C-01. **Decisions:** D-CLP-124, D-CLP-03.
+- **Safety:** `RunSessionStore` and `OrganizerEngine` edits are display literals and property names only. No control-flow change.
+- **Acceptance:**
+  - `RunPhaseDisplayTests`: `testEveryPhaseHasDisplayTitlesFromContract` (the exact table in C-16 item 1, over `RunPhase.allCases` or every case by hand); `testDisplayTitlesContainNoBannedWord` (no display title contains "hash", "index", "transfer", "revert", "classif", "source", case-insensitively); `testCoreTitlesAreUnchangedForTheCLI` (pins `RunPhase.sourceHashing.title == "Hash Source"` and `RunPhase.copy.title == "Transfer"`).
+  - `RunSessionStoreTests`: `testNotificationCopyMatchesContract` (the three notification literals of C-16 item 3).
+  - Existing tests: update only assertions that pin a string C-16 changes, and list each edit (file:line, old → new) in the report.
+- **Done when:** `cf_swift.sh test RunPhaseDisplayTests`, `RunSessionStoreTests`, `RunWorkspaceModelTests`, `RunAnnouncementPlannerTests`, `FreeTestBatchRunTests`, `AppStateTests`, `RunCoordinatorTests`, `SourceWatchCoordinatorTests`, `ChronoframeCLIKitTests`, `DeduplicateStatusViewTests`, `AccessibilityTests` exit 0; `script/check_uitest_membership.sh` exit 0; `cf_swift.sh build` exit 0; `git diff --stat -- ui/Sources/ChronoframeCLIKit ui/Sources/ChronoframeCore/RunModels.swift` is empty; `git diff --check` exit 0.
+
 ## Owner handoff (todo-hardware)
 Rows and commands are in `EVIDENCE_LEDGER.md`: H-CLP-1 sandboxed build, three folders, quit and relaunch, preview; H-CLP-2 the real 65,000-file library through preview; H-CLP-3 VoiceOver through Setup list, preview summary, lanes; H-CLP-4 UI-test lane and accessibility audit; H-CLP-5 recapture `docs/screenshots/`; H-CLP-6 a non-technical person does the whole job unaided (the validation gate for the full stepper); H-CLP-7 App Store metadata and site wording against the new labels.

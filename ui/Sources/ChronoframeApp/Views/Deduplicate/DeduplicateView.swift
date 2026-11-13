@@ -724,10 +724,7 @@ struct DeduplicateView: View {
             hint: "Change folder, adjust settings, quick review, or commit reviewed duplicate groups."
         )
         .sheet(isPresented: $showingRapidTriage) {
-            let reviewClusters = sessionStore.clusters.filter {
-                let level = $0.annotation?.confidence ?? .medium
-                return level == .medium || level == .low
-            }
+            let reviewClusters = sessionStore.clusters.filter { !DeduplicationPlanner.isAutomaticCommitEligible($0) }
             RapidTriageView(
                 sessionStore: sessionStore,
                 thumbnailLoader: thumbnailLoader,

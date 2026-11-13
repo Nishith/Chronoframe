@@ -289,3 +289,36 @@ New computed property (not stored, not coded): `public var hasOrganizedHistory: 
 - WP-12 writes `docs/plan/clear-path/strings-app.txt` and `strings-core.txt`: one line per new or changed English literal that is rendered through `LocalizedStringKey`/`String(localized:)` (App target → app list; `ChronoframeCore`/`ChronoframeAppCore` → core list), produced from `git diff feature/photos-import-resume -- ui/Sources`. Count- or date-bearing strings rendered with `Text(verbatim:)` or interpolation are listed in a third section of `strings-app.txt` headed `# not catalogued (interpolated)`.
 - WP-14: `docs/QUICK_START.md`, `docs/FAQ.md`, `docs/TROUBLESHOOTING.md` — replace quoted old labels with the new ones, add "Organizing several folders at once" (list, nested-folder rule, destination-overlap refusal, that the list is remembered) and "What happens after a copy" (the Find Duplicates step). `docs/SAFETY_AND_RECOVERY.md` — one sentence: a staged list of folders is checked against the destination item by item (INV-21). Every sentence must be checkable against the code as committed.
 - G2 (orchestrator): catalog keys (D-CLP-25); `AGENTS.md` INV-21 bullet gains "including each folder of a multi-folder source" only if WP-02 changed production code.
+
+## C-15 Bulk accept skips reviewed groups — AppCore store and App sheet filter (WP-15, D-CLP-123)
+1. `DeduplicateSessionStore.acceptAllSuggestions()`: `eligibleClusters` = clusters that pass `DeduplicationPlanner.isAutomaticCommitEligible` and whose id is not in `approvedClusterIDs`. Everything after that line is unchanged, including the early return when the list is empty (so no undo entry and no save when there is nothing to accept).
+2. `DeduplicateSessionStore.acceptAllHighConfidence()`: `highClusters` gets the same extra condition. Nothing else changes.
+3. `DeduplicateView` Quick Review sheet: `reviewClusters` = `sessionStore.clusters.filter { !DeduplicationPlanner.isAutomaticCommitEligible($0) }`. Reviewed groups are not filtered out here (unchanged behaviour).
+4. No string changes. No change to `DeduplicationPlanner`, `DeduplicateExecutor`, undo registration or `scheduleSave`.
+
+## C-16 Leftover engine words (WP-16, D-CLP-124)
+1. New file `ui/Sources/ChronoframeAppCore/Support/RunPhaseDisplay.swift`: `public extension RunPhase { var displayTitle: String; var displayRunningTitle: String }`, using the same `#if canImport(ChronoframeCore)` import guard the neighbouring AppCore files use.
+
+   | Phase | `displayTitle` | `displayRunningTitle` |
+   |---|---|---|
+   | `.discovery` | Find Files | Finding files… |
+   | `.sourceHashing` | Read Originals | Reading your originals… |
+   | `.destinationIndexing` | Check Destination | Checking the destination… |
+   | `.classification` | Sort by Date | Sorting by date… |
+   | `.copy` | Copy | Copying files… |
+   | `.revert` | Undo | Undoing… |
+   | `.reorganize` | Reorganize | Reorganizing files… |
+
+   `RunPhase.title` and `RunPhase.runningTitle` in Core are not edited.
+2. Every UI read of a run phase title uses the display property: `RunSessionStore.swift` (`phase.runningTitle` at about `:701, :727, :741, :1207, :1209`), `AppState.swift:1464`, `RunAnnouncementPlanner.swift:73`, `RunWorkspaceModel.swift:519–521, :720–729`. Only the property name changes on those lines; the surrounding string composition stays. `DeduplicateView.swift:292` reads a Deduplicate phase and is not touched. Nothing under `ChronoframeCLIKit` changes.
+3. `RunSessionStore.swift` literals: "Chronoframe could not complete this run. Originals were left untouched." → "Chronoframe could not finish. Originals were left untouched."; notification "Transfer complete" → "Copy complete"; "All source files are already in the destination." → "Everything in your folders is already in the destination."; "Transfer failed" → "Copy failed".
+4. `PreviewReviewModels.swift`: `PreviewReviewStatus.duplicate.title` "Duplicate" → "Exact Copy". First confirm with grep that this title is not written to a report, receipt, CSV, JSONL or log and is not compared anywhere; if it is, leave it and report.
+5. `OrganizerEngine.swift` error texts:
+   - `sourceDoesNotExist`: "A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: \(path)."
+   - `destinationMissing`: "Choose a destination folder before you start."
+   - `sourceInsideDestination`: "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed."
+   - `destinationInsideSource`: "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed."
+6. App literals: `SettingsView.swift` "Worker Threads" → "Files at Once"; `AppCommands.swift` `CommandMenu("Run")` → `CommandMenu("Organize")`; `Help/HelpView.swift` panel title "Run" → "Organize"; `DeduplicateView.swift` "…can be restored from Run History." → "…can be restored from History." and "…and Run History cannot restore files after that." → "…and History cannot restore files after that."; `SetupSectionViews.swift` "Use a saved source and destination pair." → "Use a saved pair of folders." and `SummaryLine(title: "Source"` → "Folder to organize"; `ProfilesView.swift` `currentPathRow(label: "Source"` → "Folder to organize".
+7. Docs that quote a changed label are updated to the new text: `docs/TROUBLESHOOTING.md` ("Hashing source...", "Worker Threads", the overlap refusal quotes), `docs/FAQ.md` ("Worker Threads").
+8. Every new user-visible literal is appended to `docs/plan/clear-path/strings-app.txt` (App target) or `strings-core.txt` (AppCore and Core), one per line, in the form the existing lines use. The orchestrator adds the catalog keys.
+9. No behaviour change: no control flow, no identifiers, no accessibility identifiers, no raw values.
