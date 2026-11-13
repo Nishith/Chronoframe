@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import XCTest
 @testable import ChronoframeCore
 
@@ -44,6 +45,16 @@ final class ChronoframeCoreDeduplicateReviewSnapshotTests: XCTestCase {
         XCTAssertNil(DeduplicateReviewKeys.groupKey(for: cluster, snapshot: partial))
     }
 
+    func testFolderKeyStaysWithinTheFilenameLimitForDeepFolders() {
+        let deep = "/Volumes/Archive/" + String(repeating: "nested-folder/", count: 40)
+        XCTAssertGreaterThan(deep.utf8.count, 255)
+
+        let key = DeduplicateReviewKeys.folderKey(for: deep)
+
+        XCTAssertEqual(key.count, 64, "the key becomes a filename, so its length must not grow with the path")
+        XCTAssertNotEqual(key, DeduplicateReviewKeys.folderKey(for: deep + "other"))
+    }
+
     func testFolderKeyIsStableAcrossTrailingSlashAndDotSegments() {
         let canonical = DeduplicateReviewKeys.folderKey(for: "/Users/example/Photos")
 
@@ -52,11 +63,10 @@ final class ChronoframeCoreDeduplicateReviewSnapshotTests: XCTestCase {
         XCTAssertEqual(canonical, DeduplicateReviewKeys.folderKey(for: "/Users/example/Other/../Photos"))
         XCTAssertNotEqual(canonical, DeduplicateReviewKeys.folderKey(for: "/Users/example/Photos2"))
 
-        // base64url of the standardized path, no padding, filename-safe.
-        let expected = Data("/Users/example/Photos".utf8).base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+        // SHA-256 hex of the standardized path: fixed length and filename-safe.
+        let expected = SHA256.hash(data: Data("/Users/example/Photos".utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
         XCTAssertEqual(canonical, expected)
         XCTAssertFalse(canonical.contains("/"))
         XCTAssertFalse(canonical.contains("+"))
