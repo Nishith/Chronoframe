@@ -29,7 +29,7 @@
         <a href="../../faq.html">FAQ</a>
         <a href="../../support.html">Support</a>
       </nav>
-      <a class="nav-download" href="https://apps.apple.com/us/app/chronoframe/id6771245052?pt=117867077&amp;ct=site&amp;mt=12">Download free</a>
+      <a class="nav-download" href="https://apps.apple.com/us/app/chronoframe/id6771245052?pt=117867077&amp;ct=guide-find-duplicate-photos-mac&amp;mt=12">Download free</a>
     </div>
   </header>
 
@@ -112,5 +112,21 @@
       <div class="footer-bottom"><span>&copy; 2026 Nishith Nand</span><span>On your Mac. Under your control.</span></div>
     </div>
   </footer>
+  <script>
+    // Campaign attribution: a utm_campaign (or utm_source) on the landing URL replaces the default ct=.
+    (function () {
+      try {
+        var q = new URLSearchParams(window.location.search);
+        var clean = function (s) { return (s || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40); };
+        var v = clean(q.get("utm_campaign")) || clean(q.get("utm_source"));
+        if (!v) return;
+        var links = document.querySelectorAll('a[href*="apps.apple.com"]');
+        for (var i = 0; i < links.length; i++) {
+          var h = links[i].getAttribute("href");
+          if (h && h.indexOf("ct=") > -1) links[i].setAttribute("href", h.replace(/([?&])ct=[^&]*/, "$1ct=" + v));
+        }
+      } catch (e) {}
+    })();
+  </script>
 </body>
 </html>

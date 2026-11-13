@@ -39,6 +39,8 @@ Black Friday: replace `<venue>` with the posting venue's `utm_source` from this 
 
 ## Notes
 
+- The site's download buttons default to `ct=site`. If the visitor arrived with `utm_campaign` (else `utm_source`) in the URL, a small inline script on each page rewrites `ct=` on App Store links to that value (sanitized to `[A-Za-z0-9_-]`, max 40 chars), so tagged site links keep their channel.
+- Guide pages default to `ct=guide-<folder-name>` (cut to 40 chars) instead of `ct=site`, with the same utm override.
 - The site's three SEO guides already link back to the homepage with their own
   `utm_source=guide_*&utm_medium=seo_guide&utm_campaign=launch30` tags; those are unchanged.
 - `ct=` values are case-sensitive in App Store Connect reports. Copy them exactly.
