@@ -19,7 +19,7 @@ permissions:
 jobs:
   package:
     name: Build and upload release package
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     environment: production
     steps:
@@ -47,6 +47,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Build release archive
         env:
