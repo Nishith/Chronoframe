@@ -9,6 +9,7 @@ final class EventEmitterTests: XCTestCase {
                 phase: .copy,
                 completed: 2,
                 total: 5,
+                copiedCount: 2,
                 bytesCopied: 128,
                 bytesTotal: 512,
                 currentFilePath: nil
@@ -24,6 +25,25 @@ final class EventEmitterTests: XCTestCase {
         XCTAssertEqual(payload["total"] as? Int, 5)
         XCTAssertEqual(payload["bytes_copied"] as? Int, 128)
         XCTAssertEqual(payload["bytes_total"] as? Int, 512)
+        XCTAssertEqual(payload["copied"] as? Int, 2)
+    }
+
+    func testJSONEmitterOmitsCopiedWhenProgressHasNoCopiedCount() throws {
+        let line = try JSONLineEmitter.line(
+            for: .phaseProgress(
+                phase: .sourceHashing,
+                completed: 2,
+                total: 5,
+                copiedCount: nil,
+                bytesCopied: nil,
+                bytesTotal: nil,
+                currentFilePath: nil
+            )
+        )
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+        )
+        XCTAssertNil(payload["copied"])
     }
 
     func testJSONEmitterStampsEventVersionOnEveryEvent() throws {
@@ -34,7 +54,7 @@ final class EventEmitterTests: XCTestCase {
         let events: [RunEvent] = [
             .startup,
             .phaseStarted(phase: .discovery, total: 10),
-            .phaseProgress(phase: .copy, completed: 1, total: 1, bytesCopied: 0, bytesTotal: 0, currentFilePath: nil),
+            .phaseProgress(phase: .copy, completed: 1, total: 1, copiedCount: 1, bytesCopied: 0, bytesTotal: 0, currentFilePath: nil),
             .copyPlanReady(count: 5),
             .issue(RunIssue(severity: .warning, message: "test")),
         ]
@@ -71,6 +91,26 @@ final class EventEmitterTests: XCTestCase {
         let artifacts = try XCTUnwrap(payload["artifacts"] as? [String: Any])
         XCTAssertEqual(artifacts["destination"] as? String, "/out")
         XCTAssertEqual(artifacts["report"] as? String, "/out/report.csv")
+    }
+
+    func testHumanEmitterShowsCopiedAlongsideAttemptedForCopyPhase() {
+        let copyLine = HumanLineEmitter.line(for: .phaseProgress(
+            phase: .copy, completed: 6, total: 10, copiedCount: 3,
+            bytesCopied: nil, bytesTotal: nil, currentFilePath: nil
+        ))
+        XCTAssertEqual(copyLine, "\(RunPhase.copy.title): 6/10 (3 copied)")
+
+        let noCountLine = HumanLineEmitter.line(for: .phaseProgress(
+            phase: .copy, completed: 6, total: 10, copiedCount: nil,
+            bytesCopied: nil, bytesTotal: nil, currentFilePath: nil
+        ))
+        XCTAssertEqual(noCountLine, "\(RunPhase.copy.title): 6/10")
+
+        let otherPhaseLine = HumanLineEmitter.line(for: .phaseProgress(
+            phase: .sourceHashing, completed: 6, total: 10, copiedCount: 3,
+            bytesCopied: nil, bytesTotal: nil, currentFilePath: nil
+        ))
+        XCTAssertEqual(otherPhaseLine, "\(RunPhase.sourceHashing.title): 6/10")
     }
 
     func testHumanEmitterSuppressesHistogramNoise() {
