@@ -330,6 +330,10 @@ public final class RunSessionStore: ObservableObject {
                 operation: "reorganize"
             )
             _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
+            // Reorganize moves files inside the destination, so a network folder must prove it
+            // can install without replacing before anything moves (INV-28). The lease is held
+            // (INV-19); a refusal releases it through handleFailure.
+            try engine.copyDestinationQualifier.check(destinationRoot: root)
         } catch {
             handleFailure(error: error)
             return
@@ -379,6 +383,10 @@ public final class RunSessionStore: ObservableObject {
                 operation: "reorganize revert"
             )
             _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
+            // Reorganize moves files inside the destination, so a network folder must prove it
+            // can install without replacing before anything moves (INV-28). The lease is held
+            // (INV-19); a refusal releases it through handleFailure.
+            try engine.copyDestinationQualifier.check(destinationRoot: root)
         } catch {
             handleFailure(error: error)
             return
@@ -628,7 +636,7 @@ public final class RunSessionStore: ObservableObject {
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
-        currentTaskTitle = resumePendingJobs ? "Resuming the copy…" : "Starting the \(preflight.configuration.mode.title.lowercased())…"
+        currentTaskTitle = resumePendingJobs ? "Resuming the copy…" : "Starting the \(preflight.configuration.mode.displayTitle.lowercased())…"
         artifacts = RunArtifactPaths(
             destinationRoot: preflight.resolvedDestinationPath,
             reportPath: nil,

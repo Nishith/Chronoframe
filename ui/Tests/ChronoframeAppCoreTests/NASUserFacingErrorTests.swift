@@ -26,5 +26,8 @@ final class NASUserFacingErrorTests: XCTestCase {
         for error in copyErrors {
             XCTAssertEqual(UserFacingErrorMessage.message(for: error), error.errorDescription)
         }
+
+        let leaseError = NASShareLeaseError.leaseDirectoryNotConfigured(destinationPath: "/Volumes/photo/Dest")
+        XCTAssertEqual(UserFacingErrorMessage.message(for: leaseError), leaseError.errorDescription)
     }
 }

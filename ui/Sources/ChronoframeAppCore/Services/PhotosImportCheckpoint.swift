@@ -97,9 +97,20 @@ public struct PhotosImportCheckpoint: Equatable, Codable, Sendable {
         updatedAt = date
     }
 
+    /// Forgets the completed records of `assetIDs` so those assets count as
+    /// remaining and are exported again.
+    public mutating func discardCompleted(assetIDs: Set<String>) {
+        completed.removeAll { assetIDs.contains($0.assetID) }
+    }
+
     public mutating func recordFailure(_ failure: PhotosAssetExportFailure, at date: Date) {
         failures.append(failure)
         updatedAt = date
+    }
+
+    /// Forgets recorded failures so those assets count as remaining again.
+    public mutating func clearFailures() {
+        failures.removeAll()
     }
 
     public mutating func setState(_ state: PhotosImportCheckpointState, at date: Date) {

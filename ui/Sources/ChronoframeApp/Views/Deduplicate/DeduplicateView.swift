@@ -89,11 +89,6 @@ struct DeduplicateView: View {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
                 #endif
             }
-            // Reset and cancel save the review just before returning to idle, so
-            // re-read the disk or the saved-review card would not appear.
-            if newValue == .idle {
-                refreshSavedReview()
-            }
         }
         .onChange(of: sessionStore.restoredReview) { _, newValue in
             hasAppliedRestoredFocus = false
@@ -359,13 +354,15 @@ struct DeduplicateView: View {
 
     private var reviewView: some View {
         GeometryReader { geometry in
+            let lanes = DeduplicateReviewLanes(
+                clusters: sessionStore.clusters,
+                reviewedIDs: Set(sessionStore.reviewedClusters.map(\.id))
+            )
             VStack(spacing: 0) {
                 restoredReviewBanner
                 DeduplicateReviewLanesBar(
-                    lanes: DeduplicateReviewLanes(
-                        clusters: sessionStore.clusters,
-                        reviewedIDs: Set(sessionStore.reviewedClusters.map(\.id))
-                    ),
+                    lanes: lanes,
+                    isCompact: DeduplicateReviewLayout.mode(forWidth: geometry.size.width) == .compact,
                     onAcceptSafe: { sessionStore.acceptAllSuggestions() },
                     onQuickReview: { showingRapidTriage = true }
                 )
@@ -456,14 +453,20 @@ struct DeduplicateView: View {
             // metadata card and Accept & Next).
             .frame(width: availableSize.width)
         case .compact:
-            VStack(spacing: 0) {
-                reviewClusterList
-                    .frame(height: DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: availableSize.height))
-                Divider()
-                reviewClusterDetail
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(minHeight: DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
+            // Sized from the body's own height, so the banner and the lanes bar
+            // above it (whatever their height) are already out of the budget.
+            GeometryReader { body in
+                VStack(spacing: 0) {
+                    reviewClusterList
+                        .frame(height: DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: body.size.height))
+                    Divider()
+                    reviewClusterDetail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(minHeight: DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
+                }
             }
+            .frame(minHeight: DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+                + DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
         }
     }
 
@@ -1131,12 +1134,22 @@ enum DeduplicateReviewLayout {
         width >= DesignTokens.DeduplicateLayout.reviewWideBreakpoint ? .wide : .compact
     }
 
-    static func compactClusterListHeight(forAvailableHeight height: CGFloat) -> CGFloat {
-        min(
-            max(height * 0.32, DesignTokens.DeduplicateLayout.compactClusterListMinHeight),
-            DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
-        )
+    /// Height of the group list in the stacked layout, from the height the
+    /// review body really has: what is left below the restored-review banner and
+    /// the lanes bar and above the commit footer. The result is clamped last, so
+    /// it always stays within `compactClusterListMinHeight...MaxHeight`. It
+    /// leaves the preview `compactPreviewMinHeight` wherever the body is tall
+    /// enough for both minimums.
+    static func compactClusterListHeight(forBodyHeight height: CGFloat) -> CGFloat {
+        let minimum = DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+        let maximum = DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
+        let preferred = min(max(height * 0.32, minimum), maximum)
+        let leavingPreviewItsFloor = height - dividerHeight - DesignTokens.DeduplicateLayout.compactPreviewMinHeight
+        return max(minimum, min(preferred, leavingPreviewItsFloor))
     }
+
+    /// The one-point `Divider` between the list and the preview.
+    private static let dividerHeight: CGFloat = 1
 
     /// Whether the commit footer shows its safeguards as one line rather than
     /// cards. The cards take about 200pt, which at the minimum window height

@@ -8,6 +8,7 @@ public enum OrganizerEngineError: LocalizedError {
     case sourceDoesNotExist(String)
     case destinationMissing
     case sourceOverlapsDestination(SourceDestinationDisjointness.Conflict)
+    case sourceListUnreadable
     case failedToLaunch(String)
     case invalidPreflight(String)
     case invalidOutput(String)
@@ -24,6 +25,8 @@ public enum OrganizerEngineError: LocalizedError {
             return "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed."
         case .sourceOverlapsDestination(.destinationInsideSource):
             return "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed."
+        case .sourceListUnreadable:
+            return "Chronoframe can't read the list of folders you chose to organize, so it can't check them against the destination. Add the folders again. No files were changed."
         case let .failedToLaunch(message):
             return UserFacingErrorMessage.withDetails(
                 "Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe.",
@@ -111,6 +114,14 @@ extension OrganizerEngine {
 
     public func prepare(_ configuration: RunConfiguration) async throws -> PreparedRun {
         let preflight = try await preflight(configuration)
+        // Before the lock or any destination file exists: a network transfer with verification
+        // off can never run (INV-28), so refuse it here instead of leaving an ABORTED receipt.
+        if configuration.mode == .transfer {
+            try copyDestinationQualifier.checkVerification(
+                destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true),
+                verifyCopies: preflight.configuration.verifyCopies
+            )
+        }
         let lease = try DestinationOperationLock.acquire(
             destinationRoot: URL(fileURLWithPath: preflight.resolvedDestinationPath, isDirectory: true),
             surface: "app",

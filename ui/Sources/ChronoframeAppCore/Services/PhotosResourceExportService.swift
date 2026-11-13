@@ -29,7 +29,8 @@ public final class PhotosResourceExportService: PhotosResourceExporting {
                 assetID: id,
                 resourceIndex: index,
                 fileExtension: ext,
-                originalFilename: resource.originalFilename
+                originalFilename: resource.originalFilename,
+                fileSize: nil // PhotoKit has no public resource size; see D-PIR-128
             )
         }
     }

@@ -45,3 +45,20 @@ public extension RunPhase {
         }
     }
 }
+
+/// Plain-language mode names for the app. `RunMode.title` keeps the engine
+/// wording because engine and command-line error text print it.
+public extension RunMode {
+    var displayTitle: String {
+        switch self {
+        case .preview:
+            return "Preview"
+        case .transfer:
+            return "Copy"
+        case .revert:
+            return "Undo"
+        case .reorganize:
+            return "Reorganize"
+        }
+    }
+}

@@ -81,6 +81,10 @@ public final class PhotosImportStore: ObservableObject {
     /// handler it drives touch these.
     private var activeCheckpoint: PhotosImportCheckpoint?
     private var activeStagingDirectory: URL?
+    /// Set when a progress checkpoint could not be written (most likely a full
+    /// disk). The export is then stopped rather than carried on with progress
+    /// the disk does not reflect.
+    private var checkpointSaveFailed = false
     /// Staging directories handed out in a context whose run has not yet
     /// called `cleanupStaging(for:)`. A refresh must never treat these as
     /// consumed.
@@ -238,12 +242,13 @@ public final class PhotosImportStore: ObservableObject {
         statusMessage = nil
 
         // A new prepare supersedes whatever an earlier import left behind.
-        preparedStagingPaths.removeAll()
+        // `preparedStagingPaths` is deliberately not cleared: a run may still
+        // be reading an earlier prepared import until its `cleanupStaging`.
+        // The superseded import's files are removed only once the new import
+        // has saved its first checkpoint (see `runExport`), so a prepare that
+        // fails early does not cost the earlier downloads.
         refreshResumableImport(destination: destination)
-        if let superseded = resumable {
-            try? FileManager.default.removeItem(at: superseded.stagingDirectoryURL)
-            resumable = nil
-        }
+        let superseded = resumable?.stagingDirectoryURL
 
         let importID = UUID()
         let stagingDirectory = stagingParentURL.appendingPathComponent(importID.uuidString, isDirectory: true)
@@ -254,20 +259,28 @@ public final class PhotosImportStore: ObservableObject {
             destinationBookmarkKeys: destination.bookmarkKeys,
             plan: plan
         )
-        return await runExport(checkpoint: checkpoint, stagingDirectory: stagingDirectory, destination: destination)
+        return await runExport(
+            checkpoint: checkpoint,
+            stagingDirectory: stagingDirectory,
+            destination: destination,
+            supersedes: superseded
+        )
     }
 
     /// Continues the interrupted import from its checkpoint, exporting only
     /// the assets that are not yet completed or failed.
     public func resumeImport(destination: DestinationCapture?) async -> PhotosImportContext? {
-        guard resumable != nil, !isPreparingImport else { return nil }
-        // Judge the destination and the staged files as they are now, not as
-        // they were at the last refresh.
-        refreshResumableImport(destination: destination)
-        guard let resumable else {
-            statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+        guard let shown = resumable, !isPreparingImport else { return nil }
+        // Resume the import the card showed, judged as it is now (destination
+        // and staged files), never whichever import is newest at this moment.
+        guard Self.isPlainDirectory(shown.stagingDirectoryURL),
+              let resumable = resumableCandidate(at: shown.stagingDirectoryURL, destination: destination)
+        else {
+            refreshResumableImport(destination: destination)
+            statusMessage = "That interrupted import is no longer available. Your Photos library was not changed."
             return nil
         }
+        self.resumable = resumable
         guard authorization.allowsReading else {
             statusMessage = "Chronoframe needs access to Photos to continue this import."
             return nil
@@ -282,8 +295,12 @@ public final class PhotosImportStore: ObservableObject {
             statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
             return nil
         }
+        // Earlier failures are tried again: a cloud hiccup or a full disk is
+        // usually gone by the time the user resumes.
+        var checkpoint = resumable.checkpoint
+        checkpoint.clearFailures()
         return await runExport(
-            checkpoint: resumable.checkpoint,
+            checkpoint: checkpoint,
             stagingDirectory: resumable.stagingDirectoryURL,
             destination: destination
         )
@@ -305,8 +322,8 @@ public final class PhotosImportStore: ObservableObject {
     /// Finds the interrupted import to offer, if any. Looks at the staging
     /// parent's immediate subdirectories: the newest resumable checkpoint
     /// whose completed files are still present at their recorded size wins;
-    /// every other subdirectory (no checkpoint, consumed, damaged, or older)
-    /// is removed. Sizes are compared, not hashes: the planner re-hashes every
+    /// every other subdirectory Chronoframe created (no checkpoint, consumed,
+    /// damaged, or older) is removed. Anything else in the parent is left alone. Sizes are compared, not hashes: the planner re-hashes every
     /// prepared file at preview and aborts on any change.
     public func refreshResumableImport(destination: DestinationCapture?) {
         // The export in flight owns its directory; never judge it mid-run.
@@ -324,27 +341,17 @@ public final class PhotosImportStore: ObservableObject {
 
         var candidates: [PhotosResumableImport] = []
         for child in children {
-            let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-            guard values?.isDirectory == true, values?.isSymbolicLink != true else { continue }
+            guard Self.isPlainDirectory(child) else { continue }
             if preparedStagingPaths.contains(child.standardizedFileURL.path) { continue }
+            // Only ever delete what Chronoframe created: the staging parent can
+            // be pointed at a folder that holds other things.
+            guard Self.isChronoframeStagingDirectory(child) else { continue }
 
-            guard let checkpoint = checkpointStore.load(in: child),
-                  checkpoint.isResumable,
-                  Self.completedFilesAreIntact(in: checkpoint)
-            else {
+            guard let candidate = resumableCandidate(at: child, destination: destination) else {
                 try? fileManager.removeItem(at: child)
                 continue
             }
-            candidates.append(
-                PhotosResumableImport(
-                    stagingDirectoryURL: child,
-                    checkpoint: checkpoint,
-                    readyCount: checkpoint.completed.count,
-                    totalCount: checkpoint.plan.entries.count,
-                    interruptedAt: checkpoint.updatedAt,
-                    destinationMatches: Self.pathsMatch(checkpoint.destinationPath, destination?.path)
-                )
-            )
+            candidates.append(candidate)
         }
 
         // Newest wins; createdAt then importID make a tie deterministic.
@@ -359,6 +366,23 @@ public final class PhotosImportStore: ObservableObject {
         resumable = candidates.first
     }
 
+    /// The resumable import in `directory`, or nil when it has no usable
+    /// checkpoint (missing, consumed, damaged or untrusted). Reads only.
+    private func resumableCandidate(at directory: URL, destination: DestinationCapture?) -> PhotosResumableImport? {
+        guard let loaded = checkpointStore.load(in: directory),
+              loaded.isResumable,
+              let checkpoint = Self.validatedCheckpoint(loaded, stagingDirectory: directory)
+        else { return nil }
+        return PhotosResumableImport(
+            stagingDirectoryURL: directory,
+            checkpoint: checkpoint,
+            readyCount: checkpoint.completed.count,
+            totalCount: checkpoint.plan.entries.count,
+            interruptedAt: checkpoint.updatedAt,
+            destinationMatches: Self.pathsMatch(checkpoint.destinationPath, destination?.path)
+        )
+    }
+
     /// Deletes a finished import's staging directory. Safe to call more than
     /// once; a missing directory is not an error.
     public func cleanupStaging(for context: PhotosImportContext) {
@@ -371,9 +395,11 @@ public final class PhotosImportStore: ObservableObject {
     private func runExport(
         checkpoint initial: PhotosImportCheckpoint,
         stagingDirectory: URL,
-        destination: DestinationCapture?
+        destination: DestinationCapture?,
+        supersedes: URL? = nil
     ) async -> PhotosImportContext? {
         cancellation.reset()
+        checkpointSaveFailed = false
         var checkpoint = initial
         checkpoint.setState(.inProgress, at: now())
         activeCheckpoint = checkpoint
@@ -385,7 +411,18 @@ public final class PhotosImportStore: ObservableObject {
             currentAssetLabel: nil,
             isWaitingForCloud: false
         )
-        try? checkpointStore.save(checkpoint, in: stagingDirectory)
+        guard saveProgress(checkpoint, in: stagingDirectory) else {
+            // Nothing was exported yet, so there is nothing to keep or resume.
+            finishExport()
+            removeEmptyImportDirectory(stagingDirectory)
+            refreshResumableImport(destination: destination)
+            statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+            return nil
+        }
+        if let supersedes {
+            try? FileManager.default.removeItem(at: supersedes)
+            resumable = nil
+        }
 
         // Events are delivered in order through one stream and applied on the
         // main actor; the stream is drained before the outcome is judged.
@@ -407,6 +444,9 @@ public final class PhotosImportStore: ObservableObject {
             )
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
 
             var finished = activeCheckpoint ?? checkpoint
             finished.setState(.ready, at: now())
@@ -434,6 +474,9 @@ public final class PhotosImportStore: ObservableObject {
         } catch is CancellationError {
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
             let kept = pauseExport(.stopped, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
             statusMessage = "Import stopped. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Resume whenever you like. Your Photos library was not changed."
@@ -441,6 +484,9 @@ public final class PhotosImportStore: ObservableObject {
         } catch is PhotosExportStop {
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
             let kept = pauseExport(.lowSpace, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
             statusMessage = "Chronoframe paused the import because the drive holding its staging folder is almost full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
@@ -448,6 +494,9 @@ public final class PhotosImportStore: ObservableObject {
         } catch {
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
             let current = activeCheckpoint ?? checkpoint
             if current.completed.isEmpty {
                 finishExport()
@@ -459,6 +508,31 @@ public final class PhotosImportStore: ObservableObject {
             statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
             return nil
         }
+    }
+
+    /// Saves a progress checkpoint, remembering a failure so the export stops.
+    private func saveProgress(_ checkpoint: PhotosImportCheckpoint, in stagingDirectory: URL) -> Bool {
+        do {
+            try checkpointStore.save(checkpoint, in: stagingDirectory)
+            return true
+        } catch {
+            checkpointSaveFailed = true
+            return false
+        }
+    }
+
+    /// Ends an export whose progress could not be saved, as the low-space pause
+    /// does. What the disk accepted is kept and offered for resume; a file the
+    /// checkpoint never recorded is removed by the resume before it exports.
+    private func stopForCheckpointFailure(
+        fallback: PhotosImportCheckpoint,
+        in stagingDirectory: URL,
+        destination: DestinationCapture?
+    ) -> PhotosImportContext? {
+        let kept = pauseExport(.lowSpace, fallback: fallback, in: stagingDirectory)
+        refreshResumableImport(destination: destination)
+        statusMessage = "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+        return nil
     }
 
     /// Marks the in-flight checkpoint `state`, saves it and ends the export.
@@ -483,7 +557,9 @@ public final class PhotosImportStore: ObservableObject {
     /// Applies one executor event: progress, and the checkpoint write that
     /// follows every completed or failed asset.
     private func handle(_ event: PhotosExportEvent) {
-        guard var checkpoint = activeCheckpoint,
+        // After a failed save nothing more is recorded: the disk is the truth.
+        guard !checkpointSaveFailed,
+              var checkpoint = activeCheckpoint,
               let stagingDirectory = activeStagingDirectory,
               let progress = preparation
         else { return }
@@ -516,13 +592,19 @@ public final class PhotosImportStore: ObservableObject {
                 PhotosCompletedAssetRecord(assetID: assetID, files: files, sourceDateHints: hints),
                 at: now()
             )
+            guard saveProgress(checkpoint, in: stagingDirectory) else {
+                cancellation.cancel()
+                return
+            }
             activeCheckpoint = checkpoint
-            try? checkpointStore.save(checkpoint, in: stagingDirectory)
             preparation = updated(completed: progress.completed + 1, label: nil, waiting: false)
         case .assetFailed(let assetID, let message):
             checkpoint.recordFailure(PhotosAssetExportFailure(assetID: assetID, message: message), at: now())
+            guard saveProgress(checkpoint, in: stagingDirectory) else {
+                cancellation.cancel()
+                return
+            }
             activeCheckpoint = checkpoint
-            try? checkpointStore.save(checkpoint, in: stagingDirectory)
             preparation = updated(failed: progress.failed + 1, label: nil, waiting: false)
         }
     }
@@ -579,19 +661,51 @@ public final class PhotosImportStore: ObservableObject {
         return URL(fileURLWithPath: a).standardizedFileURL.path == URL(fileURLWithPath: b).standardizedFileURL.path
     }
 
-    /// Every completed file is a regular file at its recorded size. A file
-    /// without a recorded size cannot be checked and counts as damaged.
-    private static func completedFilesAreIntact(in checkpoint: PhotosImportCheckpoint) -> Bool {
+    private static func isPlainDirectory(_ url: URL) -> Bool {
+        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        return values?.isDirectory == true && values?.isSymbolicLink != true
+    }
+
+    /// A directory Chronoframe created: named by an import UUID (how
+    /// `prepareImport` names it) or holding the checkpoint file.
+    private static func isChronoframeStagingDirectory(_ directory: URL) -> Bool {
+        if UUID(uuidString: directory.lastPathComponent) != nil { return true }
+        return FileManager.default.fileExists(
+            atPath: directory.appendingPathComponent(PhotosImportCheckpoint.filename).path
+        )
+    }
+
+    /// The checkpoint to resume from, or nil when it cannot be trusted. Every
+    /// recorded file must lie inside the staging directory (symlinks resolved)
+    /// and be a regular file at its recorded size. An asset with no recorded
+    /// source-date hint cannot be checked, so only that asset is dropped from
+    /// the checkpoint and exported again; the rest are kept.
+    private static func validatedCheckpoint(
+        _ checkpoint: PhotosImportCheckpoint,
+        stagingDirectory: URL
+    ) -> PhotosImportCheckpoint? {
+        let root = stagingDirectory.resolvingSymlinksInPath().standardizedFileURL.path
+        var reexport: Set<String> = []
         for record in checkpoint.completed {
+            var missingHint = false
             for file in record.files {
+                let resolved = URL(fileURLWithPath: file.path).resolvingSymlinksInPath().standardizedFileURL.path
+                guard resolved.hasPrefix(root + "/") else { return nil }
+                guard let hint = record.sourceDateHints[SourceDateHint.pathKey(for: file.path)] else {
+                    missingHint = true
+                    continue
+                }
                 guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
                       attributes[.type] as? FileAttributeType == .typeRegular,
                       let size = (attributes[.size] as? NSNumber)?.int64Value,
-                      let hint = record.sourceDateHints[SourceDateHint.pathKey(for: file.path)],
                       hint.identity.size == size
-                else { return false }
+                else { return nil }
             }
+            if missingHint { reexport.insert(record.assetID) }
         }
-        return true
+        guard !reexport.isEmpty else { return checkpoint }
+        var pruned = checkpoint
+        pruned.discardCompleted(assetIDs: reexport)
+        return pruned
     }
 }

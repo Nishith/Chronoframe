@@ -39,6 +39,9 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
     public var message: String
     public var severity: LibraryHealthSeverity
     public var action: LibraryHealthAction?
+    /// The number `value` shows, for cards that count something, so logic
+    /// never has to parse a formatted display string.
+    public var count: Int?
 
     public init(
         id: String,
@@ -46,7 +49,8 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
         value: String,
         message: String,
         severity: LibraryHealthSeverity,
-        action: LibraryHealthAction? = nil
+        action: LibraryHealthAction? = nil,
+        count: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -54,6 +58,7 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
         self.message = message
         self.severity = severity
         self.action = action
+        self.count = count
     }
 }
 
@@ -78,7 +83,7 @@ public struct LibraryHealthSummary: Equatable, Codable, Sendable {
     /// True once the destination has at least one saved receipt. Computed, so it is not part of the coded form.
     public var hasOrganizedHistory: Bool {
         guard let history = cards.first(where: { $0.id == "history" }) else { return false }
-        return history.value != 0.formatted()
+        return (history.count ?? 0) > 0
     }
 }
 
@@ -182,7 +187,8 @@ public struct LibraryHealthScanner: @unchecked Sendable {
                     ? "Nothing has been copied here yet, so there is nothing to undo."
                     : "Receipts are saved for recent copies, so they can be undone.",
                 severity: .good,
-                action: .openHistory
+                action: .openHistory,
+                count: receiptCount
             )
         )
 

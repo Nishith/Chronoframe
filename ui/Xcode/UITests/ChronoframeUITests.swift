@@ -728,6 +728,10 @@ final class ChronoframeUITests: XCTestCase {
 
             XCTAssertTrue(Self.button(identifier: "startTransferFromPreviewButton", in: app).waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["startTransferFromPreviewButton"].exists)
+            // D-CLP-10/11: the hero carries the one action; the toolbar and Setup no longer start a copy.
+            XCTAssertFalse(app.buttons["transferButton"].exists)
+            XCTAssertFalse(app.toolbars.buttons["Transfer"].exists)
+            XCTAssertFalse(app.toolbars.buttons["Preview"].exists)
             XCTAssertTrue(app.buttons["openDestinationButton"].exists)
             XCTAssertTrue(app.descendants(matching: .any)["runWorkspaceTabs"].exists)
             XCTAssertTrue(app.staticTexts["Reports and Logs"].exists)
