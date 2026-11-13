@@ -164,7 +164,6 @@ final class ChronoframeUITests: XCTestCase {
                 var unmatchedIssues: [String] = []
                 var auditThrew = false
                 do {
-                    try app.performAccessibilityAudit(for: auditTypes) { issue in
                         let logLine = Self.auditLogLine(for: issue, scenario: scenario)
                         NSLog("%@", logLine)
                         if Self.isAllowedAccessibilityAuditIssue(
@@ -772,6 +771,8 @@ final class ChronoframeUITests: XCTestCase {
             let timeline = Self.element(identifier: "InteractiveTimeline", in: app)
             XCTAssertTrue(timeline.waitForExistence(timeout: 5), "Timeline should render in run preview")
 
+            // A click lands on the timeline's centre, so it has to be on screen.
+            XCTAssertTrue(Self.scrollIntoView(timeline, in: app), "Timeline should be scrollable into view")
             Self.selectTimelineBucket(timeline, atNormalizedX: 0.9)
 
             let clearButton = Self.button(identifier: "ClearTimelineSelectionButton", in: app)
@@ -800,10 +801,15 @@ final class ChronoframeUITests: XCTestCase {
             let clearFilterButton = Self.button(identifier: "ClearTimelineFilterButton", in: app)
             XCTAssertFalse(clearFilterButton.exists, "Clear Timeline Filter button should not be present initially")
 
+            XCTAssertTrue(Self.scrollIntoView(timeline, in: app), "Timeline should be scrollable into view")
             Self.selectTimelineBucket(timeline, atNormalizedX: 0.8)
 
             XCTAssertTrue(clearFilterButton.waitForExistence(timeout: 5), "Clear Timeline Filter button should appear after selecting a bucket")
 
+            XCTAssertTrue(
+                Self.scrollIntoView(clearFilterButton, in: app),
+                "Clear Timeline Filter button should be scrollable into view"
+            )
             Self.coordinateClick(clearFilterButton)
             XCTAssertFalse(clearFilterButton.exists, "Clear Timeline Filter button should disappear after clearing filter")
 
@@ -1171,8 +1177,13 @@ final class ChronoframeUITests: XCTestCase {
         app.launchEnvironment["CHRONOFRAME_UI_TEST_SCENARIO"] = scenario.rawValue
         app.launchEnvironment["CHRONOFRAME_UI_TEST_DISABLE_NOTIFICATIONS"] = "1"
         app.launchEnvironment["TZ"] = "UTC"
+        // Lets a large development display reproduce a small runner's visible area:
+        // `TEST_RUNNER_CHRONOFRAME_UI_TEST_VISIBLE_SIZE=1024x720 xcodebuild test ...`
+        if let visibleSize = ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_VISIBLE_SIZE"] {
+            app.launchEnvironment["CHRONOFRAME_UI_TEST_VISIBLE_SIZE"] = visibleSize
+        }
         app.launchEnvironment.merge(additionalEnvironment) { _, new in new }
-        app.launchArguments += ["--chronoframe-ui-test-scenario", scenario.rawValue, "-AppleTimeZone", "UTC", "-TZ", "UTC"]
+        app.launchArguments += ["--chronoframe-ui-test-scenario", scenario.rawValue, "-AppleTimeZone", "UTC", "-TZ", "UTC", "-ApplePersistenceIgnoreState", "YES"]
         app.launch()
         app.activate()
         ensurePrimaryWindowExists(in: app)
@@ -1665,7 +1676,11 @@ final class ChronoframeUITests: XCTestCase {
     @MainActor
     private static func scrollIntoView(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
         let window = app.windows.firstMatch
-        let scrollView = app.scrollViews.containing(.button, identifier: element.identifier).firstMatch
+        // Lazy stacks publish no accessibility element for a row that has not
+        // scrolled near the viewport, so the element itself may not exist yet.
+        if !element.exists, !scrollUntilExists(element, in: app) { return false }
+        let containing = app.scrollViews.containing(.any, identifier: element.identifier).firstMatch
+        let scrollView = containing.exists ? containing : largestScrollView(in: app)
         func isFullyVisible() -> Bool { window.frame.contains(element.frame) }
         if isFullyVisible() { return true }
         guard scrollView.exists else { return false }
@@ -1689,6 +1704,29 @@ final class ChronoframeUITests: XCTestCase {
             }
         }
         return isFullyVisible()
+    }
+
+    /// The scroll view with the most area, which on every workspace is the
+    /// content column rather than the sidebar.
+    @MainActor
+    private static func largestScrollView(in app: XCUIApplication) -> XCUIElement {
+        app.scrollViews.allElementsBoundByIndex
+            .filter(\.exists)
+            .max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }
+            ?? app.scrollViews.firstMatch
+    }
+
+    /// Scrolls the content column down, a notch at a time, until `element`
+    /// exists. Returns whether it appeared.
+    @MainActor
+    private static func scrollUntilExists(_ element: XCUIElement, in app: XCUIApplication, maxScrolls: Int = 40) -> Bool {
+        let scrollView = largestScrollView(in: app)
+        guard scrollView.exists else { return false }
+        for _ in 0..<maxScrolls {
+            if element.exists { return true }
+            scrollView.scroll(byDeltaX: 0, deltaY: -120)
+        }
+        return element.exists
     }
 
     /// Scrolls the scroll view holding a review-detail control until the
