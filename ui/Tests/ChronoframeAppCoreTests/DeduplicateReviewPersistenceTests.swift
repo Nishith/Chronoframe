@@ -366,6 +366,32 @@ final class DeduplicateReviewPersistenceTests: XCTestCase {
         XCTAssertEqual(snapshotStore.saves.last?.approvals.count, 1)
     }
 
+    @MainActor
+    func testUndoAfterTheReviewIsGoneDoesNotSave() {
+        // A stale undo closure firing after reset must not count as a user change (D-DDP-127).
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let store = makeStore(
+            engine: MockDeduplicateEngine(clusters: [cluster]),
+            snapshotStore: snapshotStore,
+            debounce: shortDebounce
+        )
+        let undoManager = UndoManager()
+        undoManager.groupsByEvent = false
+        store.undoManager = undoManager
+        store.startScan(configuration: configuration)
+        XCTAssertTrue(pump { store.status == .readyToReview })
+        undoManager.beginUndoGrouping()
+        store.setDecision(.keep, forPath: file2.path)
+        undoManager.endUndoGrouping()
+        XCTAssertTrue(pump { snapshotStore.saves.count == 1 })
+
+        store.reset()
+        XCTAssertEqual(snapshotStore.saves.count, 2, "Reset saves the touched review once.")
+        undoManager.undo()
+        _ = pump(timeout: 0.3) { false }
+        XCTAssertEqual(snapshotStore.saves.count, 2, "Nothing is under review, so undo has nothing to save.")
+    }
+
     // MARK: - Restoring
 
     // AGENTS-INVARIANT: 29

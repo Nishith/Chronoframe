@@ -617,7 +617,14 @@ public final class DeduplicateSessionStore: ObservableObject {
         securityScope = nil
     }
 
+    /// A review is open or paused; the only states a save may be written from.
+    private var isReviewable: Bool {
+        status == .readyToReview || (status == .idle && hasPausedReview)
+    }
+
     private func scheduleSave() {
+        // Undo and redo closures can fire after the review is gone (D-DDP-127).
+        guard isReviewable else { return }
         reviewHasUserChanges = true
         saveTask?.cancel()
         let delay = saveDebounceNanoseconds
@@ -634,7 +641,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     /// Best-effort and silent (D-DDP-07): a failed save is not surfaced.
     private func saveNow() {
         guard reviewHasUserChanges,
-              status == .readyToReview || (status == .idle && hasPausedReview),
+              isReviewable,
               let summary,
               let configuration = lastScanConfiguration
         else { return }
