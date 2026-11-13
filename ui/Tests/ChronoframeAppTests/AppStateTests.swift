@@ -905,6 +905,134 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(snapshotStore.saveCount, 1)
         withExtendedLifetime(appState) {}
     }
+
+    // MARK: - Photos import resume (C-07)
+
+    /// Writes a stopped checkpoint whose completed files are intact.
+    @discardableResult
+    private func seedStoppedCheckpoint(
+        in parent: URL,
+        assetIDs: [String],
+        destinationPath: String
+    ) throws -> URL {
+        let dir = parent.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        var checkpoint = PhotosImportCheckpoint(
+            importID: UUID(),
+            createdAt: date,
+            destinationPath: destinationPath,
+            destinationBookmarkKeys: ["manual.destination"],
+            plan: PhotosExportPlan(entries: assetIDs.map {
+                PhotosAssetExportEntry(assetID: $0, mediaKind: .photo, stagingStem: $0)
+            })
+        )
+        for id in assetIDs {
+            let data = Data("bytes-\(id)".utf8)
+            let fileURL = dir.appendingPathComponent("\(id).jpg")
+            try data.write(to: fileURL)
+            checkpoint.recordCompleted(
+                PhotosCompletedAssetRecord(
+                    assetID: id,
+                    files: [PhotosExportedFile(assetID: id, stagingStem: id, path: fileURL.path)],
+                    sourceDateHints: [
+                        SourceDateHint.pathKey(for: fileURL.path): SourceDateHint(
+                            identity: FileIdentity(size: Int64(data.count), digest: "digest-\(id)"),
+                            resolvedDate: .unknown
+                        )
+                    ]
+                ),
+                at: date
+            )
+        }
+        checkpoint.setState(.stopped, at: date)
+        try PhotosImportFileCheckpointStore().save(checkpoint, in: dir)
+        return dir
+    }
+
+    @MainActor
+    func testResumeInterruptedPhotosImportStartsPreviewWithRestoredContext() async throws {
+        let harness = AppStateHarness()
+        let staging = harness.photosStagingParent
+        let destination = "/tmp/appstate-photos-dest"
+        harness.setupStore.destinationPath = destination
+        let seeded = try seedStoppedCheckpoint(in: staging, assetIDs: ["a", "b"], destinationPath: destination)
+        let appState = harness.makeAppState(performInitialBootstrap: false, restoreBookmarksDuringBootstrap: false)
+        appState.photosImportStore.refreshResumableImport(
+            destination: appState.currentDestinationCapture()
+        )
+        XCTAssertNotNil(appState.photosImportStore.resumable)
+
+        await appState.resumeInterruptedPhotosImport()
+
+        // `runCoordinator` is private, so the restored context is observed
+        // through the preview run it pinned: the staging directory it resumed
+        // and the date hints of exactly the checkpoint's exported assets.
+        XCTAssertTrue(appState.hasActivePhotosImport)
+        XCTAssertNil(appState.transientErrorMessage)
+        let requested = try XCTUnwrap(harness.engine.preflightConfigurations.last)
+        XCTAssertEqual(requested.mode, .preview)
+        XCTAssertEqual(
+            URL(fileURLWithPath: requested.sourcePath).resolvingSymlinksInPath().path,
+            seeded.resolvingSymlinksInPath().path
+        )
+        XCTAssertEqual(requested.destinationPath, destination)
+        XCTAssertEqual(
+            Set(requested.sourceDateHints.keys),
+            Set(["a", "b"].map { SourceDateHint.pathKey(for: seeded.appendingPathComponent("\($0).jpg").path) })
+        )
+    }
+
+    @MainActor
+    func testResumeRefusedCopiesStatusToTransientError() async throws {
+        let harness = AppStateHarness()
+        let staging = harness.photosStagingParent
+        harness.setupStore.destinationPath = "/tmp/appstate-photos-other-dest"
+        try seedStoppedCheckpoint(in: staging, assetIDs: ["a"], destinationPath: "/tmp/appstate-photos-dest")
+        let appState = harness.makeAppState(performInitialBootstrap: false, restoreBookmarksDuringBootstrap: false)
+        // Offered with no destination known, as before the user chose one.
+        appState.photosImportStore.refreshResumableImport(destination: nil)
+        XCTAssertNotNil(appState.photosImportStore.resumable)
+
+        await appState.resumeInterruptedPhotosImport()
+
+        let status = try XCTUnwrap(appState.photosImportStore.statusMessage)
+        XCTAssertEqual(appState.transientErrorMessage, status)
+        XCTAssertFalse(appState.hasActivePhotosImport)
+        XCTAssertTrue(harness.engine.preflightConfigurations.isEmpty, "A refused resume starts no run")
+    }
+
+    @MainActor
+    func testLaunchRefreshesResumableImport() throws {
+        let harness = AppStateHarness()
+        let staging = harness.photosStagingParent
+        let destination = "/tmp/appstate-photos-dest"
+        harness.setupStore.destinationPath = destination
+        try seedStoppedCheckpoint(in: staging, assetIDs: ["a", "b"], destinationPath: destination)
+
+        let appState = harness.makeAppState(performInitialBootstrap: true, restoreBookmarksDuringBootstrap: false)
+
+        let resumable = try XCTUnwrap(appState.photosImportStore.resumable)
+        XCTAssertEqual(resumable.readyCount, 2)
+        XCTAssertEqual(resumable.totalCount, 2)
+    }
+
+    #if DEBUG
+    @MainActor
+    func testDebugStagingOverrideIsHonoured() {
+        let override = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appstate-photos-override-\(UUID().uuidString)", isDirectory: true)
+
+        let overridden = AppState.photosStagingParentURL(
+            environment: ["CHRONOFRAME_PHOTOS_STAGING_DIR": override.path]
+        )
+        let defaulted = AppState.photosStagingParentURL(environment: [:])
+
+        XCTAssertEqual(overridden.standardizedFileURL.path, override.standardizedFileURL.path)
+        XCTAssertNotEqual(defaulted.standardizedFileURL.path, override.standardizedFileURL.path)
+        XCTAssertEqual(defaulted.lastPathComponent, "photos_import_staging")
+    }
+    #endif
 }
 
 private final class RecordingDedupeSnapshotStore: DeduplicateReviewSnapshotStoring, @unchecked Sendable {

@@ -57,8 +57,13 @@ final class AppStateHarness {
     let deduplicateEngine: MockDeduplicateEngine
     let runSessionStore: RunSessionStore
     let deduplicateSessionStore: DeduplicateSessionStore
+    /// Staging parent of the Photos store `makeAppState` hands to AppState by
+    /// default, so a launch refresh never reaches the real Application Support.
+    let photosStagingParent: URL
 
     init() {
+        photosStagingParent = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appstate-harness-photos-\(UUID().uuidString)", isDirectory: true)
         suiteName = "AppStateTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -97,7 +102,12 @@ final class AppStateHarness {
         )
     }
 
+    deinit {
+        try? FileManager.default.removeItem(at: photosStagingParent)
+    }
+
     func makeAppState(
+        photosImportStore: PhotosImportStore? = nil,
         performInitialBootstrap: Bool = true,
         restoreBookmarksDuringBootstrap: Bool = true,
         entitlementStore: EntitlementStore? = nil,
@@ -111,6 +121,12 @@ final class AppStateHarness {
             historyStore: self.historyStore,
             runSessionStore: self.runSessionStore,
             deduplicateSessionStore: self.deduplicateSessionStore,
+            photosImportStore: photosImportStore ?? PhotosImportStore(
+                access: AppStatePhotosAccessStub(),
+                catalog: AppStatePhotosCatalogStub(),
+                exporter: AppStatePhotosExporterStub(),
+                stagingParentURL: photosStagingParent
+            ),
             folderAccessService: self.folderAccessService,
             finderService: self.finderService,
             profilesRepository: self.repository,
@@ -144,6 +160,24 @@ final class AppStateHarness {
             fileSystemID: 2
         )
     }
+}
+
+struct AppStatePhotosAccessStub: PhotosLibraryAccessing {
+    func currentAuthorization() -> PhotosAuthorizationStatus { .authorized }
+    func requestReadAccess() async -> PhotosAuthorizationStatus { .authorized }
+}
+
+struct AppStatePhotosCatalogStub: PhotosCatalogReading {
+    func albums() -> [PhotosAlbumSummary] { [] }
+    func assetPage(in album: PhotosAlbumSummary, pageIndex: Int, pageSize: Int) -> PhotosCatalogPage {
+        PhotosCatalogPage(assets: [], pageIndex: pageIndex, pageSize: pageSize, totalCount: 0)
+    }
+}
+
+/// Every asset in these tests is already completed, so nothing is exported.
+struct AppStatePhotosExporterStub: PhotosResourceExporting {
+    func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource] { [] }
+    func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {}
 }
 
 @MainActor

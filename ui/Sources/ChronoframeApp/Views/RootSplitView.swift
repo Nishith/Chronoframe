@@ -145,7 +145,10 @@ struct RootSplitView: View {
         case .organize:
             OrganizeContainerView(appState: appState)
         case .photos:
-            PhotosImportView(appState: appState)
+            PhotosImportView(appState: appState,
+                onResume: { Task { await appState.resumeInterruptedPhotosImport() } },
+                currentDestination: { appState.currentDestinationCapture() }
+            )
         case .deduplicate:
             DeduplicateView(appState: appState)
         case .guardian:

@@ -208,6 +208,33 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 
 ---
 
+## Photos Import Issues
+
+### The import stopped. Do I have to start over?
+
+**Problem:** A Photos import stopped because you pressed **Stop**, the app quit, or it crashed while items were still being prepared, and you are not sure what was kept.
+
+**Solution:**
+- No. Chronoframe keeps every item that finished preparing, in a staging folder under its Application Support folder, and says, for example, "Import stopped. 12 of 480 items are ready and were kept. Resume whenever you like. Your Photos library was not changed."
+- Choose **Resume Import** to prepare only the remaining items
+- Resume needs Photos access; without it Chronoframe says "Chronoframe needs access to Photos to continue this import."
+- Resume stays unavailable while the destination differs from the one the import started with. Choose that destination again, or choose **Discard**
+- Resume removes any leftover of the item that was in flight when the app stopped, so a half-copied item is never imported
+- If a prepared file is missing or has a different size, Chronoframe discards that interrupted import and you need to start a new one
+- An item that could not be read or written is recorded as failed and skipped; it is not retried automatically. Select it again in a new import
+- Only the newest interrupted import is kept; starting a new one replaces it
+
+### Chronoframe says the drive is almost full
+
+**Problem:** A Photos import paused with "Chronoframe paused the import because the drive holding its staging folder is almost full."
+
+**Solution:**
+- Chronoframe checks before preparing each item and pauses when the drive holding the staging folder has less than 2 GiB free. That drive is the one holding Chronoframe's Application Support folder, not necessarily your destination
+- The message states how many items "are ready and were kept". Free up space on that drive, then choose **Resume Import**
+- Your Photos library was not changed
+
+---
+
 ## NAS And Network Folder Issues
 
 The NAS Library workspace isn't available in release builds yet. The copy rules, copy-records check, and command-line refusal below apply to every network destination now.

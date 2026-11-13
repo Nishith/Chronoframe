@@ -294,6 +294,63 @@ A permission denial is never treated as proof that a file is missing. Recovery
 is idempotent: retrying it after reconnecting a drive or restoring permission
 does not repeat a completed mutation.
 
+### Photos import checkpoints
+
+An Apple Photos import first copies the originals you picked into a staging
+folder, then sends that folder through the normal preview and verified copy.
+If that first stage is interrupted, Chronoframe keeps the items it had finished
+so the import can resume.
+
+**Where it lives.** Not in the destination. Each import has its own staging
+folder under Application Support (`photos_import_staging/<id>/`), and the
+checkpoint, `.chronoframe_photos_checkpoint.json`, sits inside it. It records
+the picked items, each completed item's files, the items that failed, and the
+destination path chosen when the import started.
+
+**What is kept.** The checkpoint is rewritten after every item completes or
+fails. If you press Stop, the drive holding the staging folder runs low on
+space, or the app stops unexpectedly, every completely exported item stays in
+staging. The item in flight is not kept: Stop rolls it back, and after a crash
+resume removes any leftover of it. If a checkpoint write fails, the export
+carries on and a resume may offer fewer items than were prepared; the Photos
+originals are unaffected.
+
+**Low space.** Before each item, Chronoframe checks the available space on the
+drive holding the staging folder and pauses the import below 2 GiB. The check runs
+before an item is written, so a single large item can still use more than the
+space that was available.
+
+**What resume checks.** Before offering Resume, Chronoframe checks that every
+completed file is present, is a regular file, and has the size recorded. An
+interrupted import that fails this check is discarded, not resumed. Pressing
+Resume repeats the check and also requires that Photos access allows reading and
+that the destination path matches the one recorded. If you chose a different
+destination, Resume stays unavailable until you choose the original one again,
+or you discard the import. Resume does not re-hash the files. The planner
+re-hashes every prepared file at preview, and any change to a file, or an extra
+or missing file, stops the preview and requires preparing the import again.
+
+**Nothing partial reaches the copy step.** Before exporting anything, resume
+removes every file in the staging folder that the checkpoint does not record,
+such as half of a Live Photo or a temporary file left by a crash. If one of them
+cannot be removed, the resume does not start.
+
+**Failed items are skipped.** An item that could not be read or written is
+recorded as failed and skipped; it is not retried automatically. Select it again in a new import.
+
+**One interrupted import.** Only the newest interrupted import is kept. When
+Chronoframe next looks (at launch, when you open Photos, or when you start an
+import), it removes older staging folders, folders with no valid checkpoint, and
+folders whose files failed the check above. It also removes the folder of an
+import that had finished preparing but had not been copied yet. If the app quits
+or crashes after preparing finished and before the copy completes, that import
+is not offered again and you prepare it again; your Photos library is not
+affected. Starting a new import, or choosing Discard, deletes the interrupted
+import's staging folder.
+
+**What never happens.** Stop never deletes prepared files, and your Photos
+library is never modified: the export only reads from it.
+
 ## On-Disk Evidence
 
 Chronoframe stores support artifacts inside the selected destination:

@@ -135,6 +135,14 @@ A: Yes. Open the **Photos** tab, grant read access, pick photos and videos, and 
 
 A: No. The Photos import is strictly one-directional and read-only. Chronoframe never writes back to your Photos library — it only exports copies out of it.
 
+**Q: The import stopped. Do I have to start over?**
+
+A: No. When you press **Stop**, Chronoframe says, for example, "Import stopped. 12 of 480 items are ready and were kept. Resume whenever you like. Your Photos library was not changed." Every item that finished preparing stays in Chronoframe's staging folder, and **Resume Import** carries on with the rest. The same goes if the app quit or crashed while items were still being prepared. Once every item has finished preparing, the import moves on to preview; quitting after that point means preparing again. Resume needs Photos access and the same destination you chose when the import started; if you pick a different destination, Resume stays unavailable until you choose the original one again, or you can discard the import. An item that could not be read or written is recorded as failed and skipped; it is not retried automatically, so select it again in a new import. Only the newest interrupted import is kept, and starting a new one replaces it.
+
+**Q: Chronoframe says the drive is almost full**
+
+A: Chronoframe paused the import because the drive holding its staging folder is almost full. It pauses when that drive has less than 2 GiB free, and says, for example, "12 of 480 items are ready and were kept. Free up space, then resume. Your Photos library was not changed." Free up space on that drive, then choose **Resume Import**. The staging folder is inside Chronoframe's Application Support folder, not in your destination.
+
 ---
 
 ## Common Issues

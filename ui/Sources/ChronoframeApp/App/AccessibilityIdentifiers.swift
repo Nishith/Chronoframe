@@ -57,6 +57,9 @@ enum AccessibilityIdentifiers {
     static let photosOpenSettingsButton = "photosOpenSettingsButton"
     static let photosImportButton = "photosImportButton"
     static let photosAlbumPicker = "photosAlbumPicker"
+    static let photosImportStopButton = "photos.import.stop"
+    static let photosImportResumeButton = "photos.import.resume"
+    static let photosImportDiscardButton = "photos.import.discard"
     static func photosAssetCell(_ id: some CustomStringConvertible) -> String { "photosAssetCell-\(id)" }
 
     // MARK: - Deduplicate

@@ -1468,6 +1468,17 @@
         }
       }
     },
+    "Chronoframe needs access to Photos to continue this import.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe needs access to Photos to continue this import."
+          }
+        }
+      }
+    },
     "Chronoframe needs attention before it can continue. Review the message below, then try again.": {
       "extractionState": "manual",
       "localizations": {
@@ -2069,6 +2080,17 @@
           "stringUnit": {
             "state": "translated",
             "value": "This file changed while Chronoframe was checking it, so it wasn't compared."
+          }
+        }
+      }
+    },
+    "This import was prepared for a different destination. Choose that destination again to resume, or discard it.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This import was prepared for a different destination. Choose that destination again to resume, or discard it."
           }
         }
       }
