@@ -81,6 +81,10 @@ public final class PhotosImportStore: ObservableObject {
     /// handler it drives touch these.
     private var activeCheckpoint: PhotosImportCheckpoint?
     private var activeStagingDirectory: URL?
+    /// Set when a progress checkpoint could not be written (most likely a full
+    /// disk). The export is then stopped rather than carried on with progress
+    /// the disk does not reflect.
+    private var checkpointSaveFailed = false
     /// Staging directories handed out in a context whose run has not yet
     /// called `cleanupStaging(for:)`. A refresh must never treat these as
     /// consumed.
@@ -378,6 +382,7 @@ public final class PhotosImportStore: ObservableObject {
         destination: DestinationCapture?
     ) async -> PhotosImportContext? {
         cancellation.reset()
+        checkpointSaveFailed = false
         var checkpoint = initial
         checkpoint.setState(.inProgress, at: now())
         activeCheckpoint = checkpoint
@@ -389,7 +394,14 @@ public final class PhotosImportStore: ObservableObject {
             currentAssetLabel: nil,
             isWaitingForCloud: false
         )
-        try? checkpointStore.save(checkpoint, in: stagingDirectory)
+        guard saveProgress(checkpoint, in: stagingDirectory) else {
+            // Nothing was exported yet, so there is nothing to keep or resume.
+            finishExport()
+            removeEmptyImportDirectory(stagingDirectory)
+            refreshResumableImport(destination: destination)
+            statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+            return nil
+        }
 
         // Events are delivered in order through one stream and applied on the
         // main actor; the stream is drained before the outcome is judged.
@@ -411,6 +423,9 @@ public final class PhotosImportStore: ObservableObject {
             )
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
 
             var finished = activeCheckpoint ?? checkpoint
             finished.setState(.ready, at: now())
@@ -438,6 +453,9 @@ public final class PhotosImportStore: ObservableObject {
         } catch is CancellationError {
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
             let kept = pauseExport(.stopped, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
             statusMessage = "Import stopped. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Resume whenever you like. Your Photos library was not changed."
@@ -445,6 +463,9 @@ public final class PhotosImportStore: ObservableObject {
         } catch is PhotosExportStop {
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
             let kept = pauseExport(.lowSpace, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
             statusMessage = "Chronoframe paused the import because the drive holding its staging folder is almost full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
@@ -452,6 +473,9 @@ public final class PhotosImportStore: ObservableObject {
         } catch {
             continuation.finish()
             await consumer.value
+            if checkpointSaveFailed {
+                return stopForCheckpointFailure(fallback: checkpoint, in: stagingDirectory, destination: destination)
+            }
             let current = activeCheckpoint ?? checkpoint
             if current.completed.isEmpty {
                 finishExport()
@@ -463,6 +487,31 @@ public final class PhotosImportStore: ObservableObject {
             statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
             return nil
         }
+    }
+
+    /// Saves a progress checkpoint, remembering a failure so the export stops.
+    private func saveProgress(_ checkpoint: PhotosImportCheckpoint, in stagingDirectory: URL) -> Bool {
+        do {
+            try checkpointStore.save(checkpoint, in: stagingDirectory)
+            return true
+        } catch {
+            checkpointSaveFailed = true
+            return false
+        }
+    }
+
+    /// Ends an export whose progress could not be saved, as the low-space pause
+    /// does. What the disk accepted is kept and offered for resume; a file the
+    /// checkpoint never recorded is removed by the resume before it exports.
+    private func stopForCheckpointFailure(
+        fallback: PhotosImportCheckpoint,
+        in stagingDirectory: URL,
+        destination: DestinationCapture?
+    ) -> PhotosImportContext? {
+        let kept = pauseExport(.lowSpace, fallback: fallback, in: stagingDirectory)
+        refreshResumableImport(destination: destination)
+        statusMessage = "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+        return nil
     }
 
     /// Marks the in-flight checkpoint `state`, saves it and ends the export.
@@ -487,7 +536,9 @@ public final class PhotosImportStore: ObservableObject {
     /// Applies one executor event: progress, and the checkpoint write that
     /// follows every completed or failed asset.
     private func handle(_ event: PhotosExportEvent) {
-        guard var checkpoint = activeCheckpoint,
+        // After a failed save nothing more is recorded: the disk is the truth.
+        guard !checkpointSaveFailed,
+              var checkpoint = activeCheckpoint,
               let stagingDirectory = activeStagingDirectory,
               let progress = preparation
         else { return }
@@ -520,13 +571,19 @@ public final class PhotosImportStore: ObservableObject {
                 PhotosCompletedAssetRecord(assetID: assetID, files: files, sourceDateHints: hints),
                 at: now()
             )
+            guard saveProgress(checkpoint, in: stagingDirectory) else {
+                cancellation.cancel()
+                return
+            }
             activeCheckpoint = checkpoint
-            try? checkpointStore.save(checkpoint, in: stagingDirectory)
             preparation = updated(completed: progress.completed + 1, label: nil, waiting: false)
         case .assetFailed(let assetID, let message):
             checkpoint.recordFailure(PhotosAssetExportFailure(assetID: assetID, message: message), at: now())
+            guard saveProgress(checkpoint, in: stagingDirectory) else {
+                cancellation.cancel()
+                return
+            }
             activeCheckpoint = checkpoint
-            try? checkpointStore.save(checkpoint, in: stagingDirectory)
             preparation = updated(failed: progress.failed + 1, label: nil, waiting: false)
         }
     }

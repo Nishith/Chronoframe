@@ -806,6 +806,45 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertNil(store.resumable)
     }
 
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testCheckpointSaveFailureStopsTheExportInsteadOfContinuing() async throws {
+        let staging = makeTempParent()
+        let exporter = ScriptedExporter()
+        // Save 1 is the initial checkpoint, 2 records "a"; the disk is full from save 3.
+        let checkpoints = ScriptedCheckpointStore(failFromSave: 3)
+        let store = makeStore(ids: ["a", "b", "c"], exporter: exporter, staging: staging, checkpointStore: checkpoints)
+
+        let context = await store.prepareImport(destination: destinationA)
+
+        XCTAssertNil(context, "An import whose progress cannot be saved is not handed to a run")
+        XCTAssertNil(store.preparation)
+        XCTAssertEqual(
+            store.statusMessage,
+            "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. 1 of 3 items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+        )
+        let dir = onlyImportDirectory(in: staging)
+        let onDisk = try XCTUnwrap(fileStore.load(in: dir))
+        XCTAssertEqual(onDisk.completed.map(\.assetID), ["a"], "The checkpoint holds only what the disk accepted")
+        XCTAssertNotEqual(onDisk.state, .ready)
+        let resumable = try XCTUnwrap(store.resumable)
+        XCTAssertEqual(resumable.readyCount, 1)
+    }
+
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testCheckpointSaveFailureOnTheLastAssetStillStops() async throws {
+        let staging = makeTempParent()
+        let checkpoints = ScriptedCheckpointStore(failFromSave: 3)
+        let store = makeStore(ids: ["a", "b"], exporter: ScriptedExporter(), staging: staging, checkpointStore: checkpoints)
+
+        let context = await store.prepareImport(destination: destinationA)
+
+        XCTAssertNil(context)
+        XCTAssertTrue(try XCTUnwrap(store.statusMessage).hasPrefix("Chronoframe stopped the import because it couldn't save its progress."))
+        XCTAssertEqual(try XCTUnwrap(store.resumable).readyCount, 1)
+    }
+
 }
 
 private final class LockedValues: @unchecked Sendable {
