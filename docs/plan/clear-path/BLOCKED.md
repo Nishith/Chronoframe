@@ -55,7 +55,7 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Tried:** one run. Enabling automation mode needs the macOS developer-tools authorization prompt (an administrator password, or `sudo DevToolsSecurity -enable`), which an agent may not answer.
 - **Options:** 1) the owner runs the H-CLP-4 command in a terminal and answers the prompt; 2) run the lane in CI on the pull request.
 - **Recommendation:** option 1; the label expectations and the baseline were edited without a run, so the first run may need small fixes.
-- **Status:** open
+- **Status:** resolved (2026-11-13: the owner ran the lane; two failures, one fixed in 655bfa5 and one a launch flake; the agent then ran the lane 28/28 and the strict audit, D-CLP-125, D-CLP-126)
 
 ### B-5 — App smoke screenshots could not be taken
 - **WP:** G2 step 5

@@ -113,6 +113,17 @@ final class HistoryCoordinator {
             setupStore.sourceURL = URL(fileURLWithPath: record.sourcePath)
         }
 
+        // The chosen folder replaces any earlier folder list, so Setup lists
+        // just this folder and a later "add folder" starts from it.
+        setupStore.clearDroppedSource()
+        if let sourceURL = setupStore.sourceURL {
+            setupStore.setSourceItems([sourceURL])
+        }
+        preferencesStore.manualSourceItemPaths = [record.sourcePath]
+        for key in preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.") {
+            preferencesStore.removeBookmark(for: key)
+        }
+
         navigate(.organize(.setup))
     }
 
