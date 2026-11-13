@@ -96,6 +96,10 @@ enum UITestScenario: String, CaseIterable {
     /// large development display can reproduce a small CI runner's geometry.
     static let visibleSizeOverrideKey = "CHRONOFRAME_UI_TEST_VISIBLE_SIZE"
 
+    /// Forces the app to `light` or `dark` regardless of the machine's appearance, so a
+    /// development Mac in dark mode can reproduce a runner's light-mode audit.
+    static let appearanceOverrideKey = "CHRONOFRAME_UI_TEST_APPEARANCE"
+
     /// The content size to ask the window for: the scenario's preferred size,
     /// reduced to whatever fits inside `visible` once the window chrome is
     /// counted. Never below `minimum`, because the hosted view cannot lay out
@@ -130,11 +134,24 @@ enum UITestScenario: String, CaseIterable {
         return NSSize(width: parts[0], height: parts[1])
     }
 
+    static func appearanceOverride(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> NSAppearance.Name? {
+        switch environment[appearanceOverrideKey]?.lowercased() {
+        case "light": return .aqua
+        case "dark": return .darkAqua
+        default: return nil
+        }
+    }
+
     @MainActor
     static func configureCurrentWindow(for scenario: UITestScenario?, isSettings: Bool = false) {
         guard let scenario else { return }
 
         DispatchQueue.main.async {
+            if let name = appearanceOverride() {
+                NSApp.appearance = NSAppearance(named: name)
+            }
             guard let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.last else { return }
             let preferred = isSettings ? scenario.preferredSettingsWindowSize : scenario.preferredMainWindowSize
 

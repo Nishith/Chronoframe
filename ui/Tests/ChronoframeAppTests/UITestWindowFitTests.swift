@@ -58,4 +58,12 @@ final class UITestWindowFitTests: XCTestCase {
         XCTAssertNil(UITestScenario.visibleSizeOverride(environment: [key: "0x720"]))
         XCTAssertNil(UITestScenario.visibleSizeOverride(environment: [:]))
     }
+
+    func testAppearanceOverrideAcceptsLightAndDarkOnly() {
+        let key = UITestScenario.appearanceOverrideKey
+        XCTAssertEqual(UITestScenario.appearanceOverride(environment: [key: "light"]), .aqua)
+        XCTAssertEqual(UITestScenario.appearanceOverride(environment: [key: "Dark"]), .darkAqua)
+        XCTAssertNil(UITestScenario.appearanceOverride(environment: [key: "sepia"]))
+        XCTAssertNil(UITestScenario.appearanceOverride(environment: [:]))
+    }
 }
