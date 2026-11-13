@@ -5,11 +5,27 @@ public struct DeduplicateSavedDecision: Equatable, Codable, Sendable {
     public let path: String
     public let identity: FileIdentity        // content at the time of the decision
     public let decision: DedupeDecision
+    /// The path belonged to a group marked reviewed when the save was captured. Only these count as the user's choices.
+    public let inReviewedGroup: Bool
 
-    public init(path: String, identity: FileIdentity, decision: DedupeDecision) {
+    public init(path: String, identity: FileIdentity, decision: DedupeDecision, inReviewedGroup: Bool = true) {
         self.path = path
         self.identity = identity
         self.decision = decision
+        self.inReviewedGroup = inReviewedGroup
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case path, identity, decision, inReviewedGroup
+    }
+
+    /// A value saved before the flag existed decodes as reviewed (the earlier counting behaviour).
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        path = try container.decode(String.self, forKey: .path)
+        identity = try container.decode(FileIdentity.self, forKey: .identity)
+        decision = try container.decode(DedupeDecision.self, forKey: .decision)
+        inReviewedGroup = try container.decodeIfPresent(Bool.self, forKey: .inReviewedGroup) ?? true
     }
 }
 
@@ -53,6 +69,9 @@ public struct DeduplicateReviewSnapshot: Equatable, Codable, Sendable {
     }
 
     public var isEmpty: Bool { decisions.isEmpty && approvals.isEmpty }
+
+    /// Saved decisions whose group was marked reviewed; the count shown to the user.
+    public var reviewedDecisionCount: Int { decisions.filter(\.inReviewedGroup).count }
 }
 
 public enum DeduplicateReviewKeys {
