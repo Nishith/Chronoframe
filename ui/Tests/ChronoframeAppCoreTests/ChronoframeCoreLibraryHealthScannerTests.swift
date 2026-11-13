@@ -177,6 +177,29 @@ final class ChronoframeCoreLibraryHealthScannerTests: XCTestCase {
         XCTAssertNil(object["hasOrganizedHistory"])
     }
 
+    /// The answer comes from the receipt count, not from how the count is
+    /// formatted for display (locale digits, wording).
+    func testHasOrganizedHistoryIgnoresTheDisplayString() {
+        func summary(value: String, count: Int?) -> LibraryHealthSummary {
+            LibraryHealthSummary(
+                destinationRoot: "/dest",
+                overallSeverity: .good,
+                cards: [LibraryHealthCard(id: "history", title: "Undo Records", value: value, message: "", severity: .good, count: count)]
+            )
+        }
+
+        XCTAssertFalse(summary(value: "none", count: 0).hasOrganizedHistory)
+        XCTAssertFalse(summary(value: "٠", count: 0).hasOrganizedHistory)
+        XCTAssertTrue(summary(value: "0", count: 2).hasOrganizedHistory)
+        XCTAssertFalse(summary(value: "5", count: nil).hasOrganizedHistory)
+    }
+
+    func testHistoryCardCarriesTheReceiptCount() throws {
+        let summary = try scanUntouchedDestination()
+        let history = try XCTUnwrap(summary.cards.first { $0.id == "history" })
+        XCTAssertEqual(history.count, 0)
+    }
+
     func testHasOrganizedHistoryTrueWithOneReceipt() throws {
         let sourceRoot = temporaryDirectoryURL.appendingPathComponent("one-receipt-source", isDirectory: true)
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("one-receipt-dest", isDirectory: true)
