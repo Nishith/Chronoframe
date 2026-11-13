@@ -719,7 +719,7 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertFalse(exists(dirB.path), "Refresh removes the damaged directory")
         XCTAssertEqual(
             storeB.statusMessage,
-            "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+            "That interrupted import is no longer available. Your Photos library was not changed."
         )
     }
 
@@ -956,6 +956,49 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(fileStore.load(in: dir)).failures.isEmpty)
     }
 
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testResumeUsesTheImportTheCardShowed() async throws {
+        let staging = makeTempParent()
+        let shown = try seedCheckpoint(parent: staging, name: "shown", state: .stopped, assetIDs: ["a"], planAssetIDs: ["a", "b"], updatedAt: fixedDate(10))
+        let exporter = ScriptedExporter()
+        let store = makeStore(ids: ["a", "b"], exporter: exporter, staging: staging)
+        store.refreshResumableImport(destination: destinationA)
+        XCTAssertEqual(try XCTUnwrap(store.resumable).stagingDirectoryURL.lastPathComponent, "shown")
+        // A newer interrupted import appears after the card was drawn.
+        let newer = try seedCheckpoint(parent: staging, name: "newer", state: .stopped, assetIDs: ["a"], planAssetIDs: ["a", "b"], updatedAt: fixedDate(500))
+
+        let contextRaw = await store.resumeImport(destination: destinationA)
+
+        let context = try XCTUnwrap(contextRaw)
+
+        XCTAssertEqual(context.stagingDirectoryURL.lastPathComponent, "shown")
+        XCTAssertTrue(exists(newer.path), "Resuming one import does not delete another")
+        XCTAssertTrue(exists(shown.path))
+    }
+
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testResumeExplainsWhenTheShownImportIsGone() async throws {
+        let staging = makeTempParent()
+        let shown = try seedCheckpoint(parent: staging, name: "shown", state: .stopped, assetIDs: ["a"], planAssetIDs: ["a", "b"], updatedAt: fixedDate(10))
+        let exporter = ScriptedExporter()
+        let store = makeStore(ids: ["a", "b"], exporter: exporter, staging: staging)
+        store.refreshResumableImport(destination: destinationA)
+        try FileManager.default.removeItem(at: shown)
+        let other = try seedCheckpoint(parent: staging, name: "other", state: .stopped, assetIDs: ["a"], planAssetIDs: ["a", "b"], updatedAt: fixedDate(20))
+
+        let context = await store.resumeImport(destination: destinationA)
+
+        XCTAssertNil(context)
+        XCTAssertTrue(exporter.writes.isEmpty, "A different import is not resumed in its place")
+        XCTAssertEqual(
+            store.statusMessage,
+            "That interrupted import is no longer available. Your Photos library was not changed."
+        )
+        XCTAssertTrue(exists(other.path))
+        XCTAssertEqual(try XCTUnwrap(store.resumable).stagingDirectoryURL.lastPathComponent, "other", "The card now shows what is really there")
+    }
 }
 
 private final class LockedValues: @unchecked Sendable {

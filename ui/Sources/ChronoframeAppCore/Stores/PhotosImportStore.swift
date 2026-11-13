@@ -270,14 +270,17 @@ public final class PhotosImportStore: ObservableObject {
     /// Continues the interrupted import from its checkpoint, exporting only
     /// the assets that are not yet completed or failed.
     public func resumeImport(destination: DestinationCapture?) async -> PhotosImportContext? {
-        guard resumable != nil, !isPreparingImport else { return nil }
-        // Judge the destination and the staged files as they are now, not as
-        // they were at the last refresh.
-        refreshResumableImport(destination: destination)
-        guard let resumable else {
-            statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+        guard let shown = resumable, !isPreparingImport else { return nil }
+        // Resume the import the card showed, judged as it is now (destination
+        // and staged files), never whichever import is newest at this moment.
+        guard Self.isPlainDirectory(shown.stagingDirectoryURL),
+              let resumable = resumableCandidate(at: shown.stagingDirectoryURL, destination: destination)
+        else {
+            refreshResumableImport(destination: destination)
+            statusMessage = "That interrupted import is no longer available. Your Photos library was not changed."
             return nil
         }
+        self.resumable = resumable
         guard authorization.allowsReading else {
             statusMessage = "Chronoframe needs access to Photos to continue this import."
             return nil
@@ -338,30 +341,17 @@ public final class PhotosImportStore: ObservableObject {
 
         var candidates: [PhotosResumableImport] = []
         for child in children {
-            let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
-            guard values?.isDirectory == true, values?.isSymbolicLink != true else { continue }
+            guard Self.isPlainDirectory(child) else { continue }
             if preparedStagingPaths.contains(child.standardizedFileURL.path) { continue }
             // Only ever delete what Chronoframe created: the staging parent can
             // be pointed at a folder that holds other things.
             guard Self.isChronoframeStagingDirectory(child) else { continue }
 
-            guard let loaded = checkpointStore.load(in: child),
-                  loaded.isResumable,
-                  let checkpoint = Self.validatedCheckpoint(loaded, stagingDirectory: child)
-            else {
+            guard let candidate = resumableCandidate(at: child, destination: destination) else {
                 try? fileManager.removeItem(at: child)
                 continue
             }
-            candidates.append(
-                PhotosResumableImport(
-                    stagingDirectoryURL: child,
-                    checkpoint: checkpoint,
-                    readyCount: checkpoint.completed.count,
-                    totalCount: checkpoint.plan.entries.count,
-                    interruptedAt: checkpoint.updatedAt,
-                    destinationMatches: Self.pathsMatch(checkpoint.destinationPath, destination?.path)
-                )
-            )
+            candidates.append(candidate)
         }
 
         // Newest wins; createdAt then importID make a tie deterministic.
@@ -374,6 +364,23 @@ public final class PhotosImportStore: ObservableObject {
             try? fileManager.removeItem(at: older.stagingDirectoryURL)
         }
         resumable = candidates.first
+    }
+
+    /// The resumable import in `directory`, or nil when it has no usable
+    /// checkpoint (missing, consumed, damaged or untrusted). Reads only.
+    private func resumableCandidate(at directory: URL, destination: DestinationCapture?) -> PhotosResumableImport? {
+        guard let loaded = checkpointStore.load(in: directory),
+              loaded.isResumable,
+              let checkpoint = Self.validatedCheckpoint(loaded, stagingDirectory: directory)
+        else { return nil }
+        return PhotosResumableImport(
+            stagingDirectoryURL: directory,
+            checkpoint: checkpoint,
+            readyCount: checkpoint.completed.count,
+            totalCount: checkpoint.plan.entries.count,
+            interruptedAt: checkpoint.updatedAt,
+            destinationMatches: Self.pathsMatch(checkpoint.destinationPath, destination?.path)
+        )
     }
 
     /// Deletes a finished import's staging directory. Safe to call more than
@@ -652,6 +659,11 @@ public final class PhotosImportStore: ObservableObject {
     private static func pathsMatch(_ a: String, _ b: String?) -> Bool {
         guard let b else { return false }
         return URL(fileURLWithPath: a).standardizedFileURL.path == URL(fileURLWithPath: b).standardizedFileURL.path
+    }
+
+    private static func isPlainDirectory(_ url: URL) -> Bool {
+        let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        return values?.isDirectory == true && values?.isSymbolicLink != true
     }
 
     /// A directory Chronoframe created: named by an import UUID (how
