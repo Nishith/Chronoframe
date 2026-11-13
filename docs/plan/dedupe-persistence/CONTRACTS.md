@@ -45,7 +45,7 @@ public enum DeduplicateReviewKeys {
     /// nil when any member lacks an identity in the snapshot (such a group can never be approved from a save).
     public static func groupKey(for cluster: DuplicateCluster, snapshot: DeduplicateScanSnapshot) -> String?
     /// Standardized dedupe root path, the key for the on-disk file (see C-03).
-    public static func folderKey(for folderPath: String) -> String   // base64url of URL(fileURLWithPath:).standardizedFileURL.path, no padding
+    public static func folderKey(for folderPath: String) -> String   // SHA-256 hex of URL(fileURLWithPath:).standardizedFileURL.path (D-DDP-120; was base64url, which could exceed the filename limit)
 }
 
 public extension DeduplicateConfiguration {

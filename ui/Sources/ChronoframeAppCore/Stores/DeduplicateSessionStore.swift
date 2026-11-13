@@ -189,6 +189,9 @@ public final class DeduplicateSessionStore: ObservableObject {
         configuration: DeduplicateConfiguration,
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
+        // Save while the review is still open: once the status changes, a
+        // pending save is refused, and a failed commit would lose it.
+        flushPendingReviewSave()
         cancelStream()
         self.securityScope = securityScope
         commitSummary = nil

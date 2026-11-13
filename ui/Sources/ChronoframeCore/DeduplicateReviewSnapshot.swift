@@ -92,13 +92,11 @@ public enum DeduplicateReviewKeys {
         return groupKey(memberIdentities: identities)
     }
 
-    /// Standardized dedupe root path, the key for the on-disk file (see C-03).
+    /// SHA-256 hex of the standardized dedupe root path, the key for the on-disk file (see C-03).
+    /// Fixed length, so a deeply nested folder never exceeds the filename limit.
     public static func folderKey(for folderPath: String) -> String {
         let standardized = URL(fileURLWithPath: folderPath).standardizedFileURL.path
-        return Data(standardized.utf8).base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "=", with: "")
+        return SHA256.hash(data: Data(standardized.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 }
 
