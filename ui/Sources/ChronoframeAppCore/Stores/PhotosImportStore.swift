@@ -306,8 +306,8 @@ public final class PhotosImportStore: ObservableObject {
     /// Finds the interrupted import to offer, if any. Looks at the staging
     /// parent's immediate subdirectories: the newest resumable checkpoint
     /// whose completed files are still present at their recorded size wins;
-    /// every other subdirectory (no checkpoint, consumed, damaged, or older)
-    /// is removed. Sizes are compared, not hashes: the planner re-hashes every
+    /// every other subdirectory Chronoframe created (no checkpoint, consumed,
+    /// damaged, or older) is removed. Anything else in the parent is left alone. Sizes are compared, not hashes: the planner re-hashes every
     /// prepared file at preview and aborts on any change.
     public func refreshResumableImport(destination: DestinationCapture?) {
         // The export in flight owns its directory; never judge it mid-run.
@@ -328,6 +328,9 @@ public final class PhotosImportStore: ObservableObject {
             let values = try? child.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
             guard values?.isDirectory == true, values?.isSymbolicLink != true else { continue }
             if preparedStagingPaths.contains(child.standardizedFileURL.path) { continue }
+            // Only ever delete what Chronoframe created: the staging parent can
+            // be pointed at a folder that holds other things.
+            guard Self.isChronoframeStagingDirectory(child) else { continue }
 
             guard let checkpoint = checkpointStore.load(in: child),
                   checkpoint.isResumable,
@@ -578,6 +581,15 @@ public final class PhotosImportStore: ObservableObject {
     private static func pathsMatch(_ a: String, _ b: String?) -> Bool {
         guard let b else { return false }
         return URL(fileURLWithPath: a).standardizedFileURL.path == URL(fileURLWithPath: b).standardizedFileURL.path
+    }
+
+    /// A directory Chronoframe created: named by an import UUID (how
+    /// `prepareImport` names it) or holding the checkpoint file.
+    private static func isChronoframeStagingDirectory(_ directory: URL) -> Bool {
+        if UUID(uuidString: directory.lastPathComponent) != nil { return true }
+        return FileManager.default.fileExists(
+            atPath: directory.appendingPathComponent(PhotosImportCheckpoint.filename).path
+        )
     }
 
     /// Every completed file is a regular file at its recorded size. A file

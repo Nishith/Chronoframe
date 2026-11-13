@@ -442,7 +442,7 @@ final class PhotosImportResumeTests: XCTestCase {
     @MainActor
     func testRefreshRemovesInvalidAndConsumedStaging() throws {
         let staging = makeTempParent()
-        let noCheckpoint = staging.appendingPathComponent("no-checkpoint", isDirectory: true)
+        let noCheckpoint = staging.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: noCheckpoint, withIntermediateDirectories: true)
         try Data("x".utf8).write(to: noCheckpoint.appendingPathComponent("stray.jpg"))
         let consumed = try seedCheckpoint(parent: staging, name: "consumed", state: .ready, assetIDs: ["a"], updatedAt: fixedDate(10))
@@ -779,6 +779,31 @@ final class PhotosImportResumeTests: XCTestCase {
         store.cleanupStaging(for: first)
         XCTAssertFalse(exists(first.stagingDirectoryURL.path))
         XCTAssertTrue(exists(second.stagingDirectoryURL.path))
+    }
+
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testRefreshOnlyDeletesDirectoriesChronoframeCreated() throws {
+        let staging = makeTempParent()
+        // Not Chronoframe's: neither a UUID name nor a checkpoint inside.
+        let foreign = staging.appendingPathComponent("Family Photos", isDirectory: true)
+        try FileManager.default.createDirectory(at: foreign, withIntermediateDirectories: true)
+        let foreignFile = foreign.appendingPathComponent("IMG_0001.jpg")
+        try Data("mine".utf8).write(to: foreignFile)
+        // Chronoframe's: a UUID name with no checkpoint (a crash before the first save).
+        let orphan = staging.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: orphan, withIntermediateDirectories: true)
+        // Chronoframe's: a consumed checkpoint under any name.
+        let consumed = try seedCheckpoint(parent: staging, name: "consumed", state: .ready, assetIDs: ["a"], updatedAt: fixedDate(10))
+
+        let store = makeStore(ids: ["a"], exporter: ScriptedExporter(), staging: staging)
+        store.refreshResumableImport(destination: destinationA)
+
+        XCTAssertTrue(exists(foreignFile.path), "A folder Chronoframe did not create is never touched")
+        XCTAssertFalse(exists(orphan.path))
+        XCTAssertFalse(exists(consumed.path))
+        XCTAssertTrue(exists(staging.path), "The staging parent is never removed")
+        XCTAssertNil(store.resumable)
     }
 
 }
