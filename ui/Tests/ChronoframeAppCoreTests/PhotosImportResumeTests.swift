@@ -883,6 +883,53 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertEqual(oldStillThereAtSave.value(for: 2), false, "Gone once that checkpoint was saved")
     }
 
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testMissingHintReExportsThatAssetOnlyAndRejectsPathsOutsideStaging() async throws {
+        // A missing hint for one asset: the others survive, that one is re-exported.
+        let staging = makeTempParent()
+        let dir = try seedCheckpoint(
+            parent: staging, name: "hintless", state: .stopped,
+            assetIDs: ["a", "b", "c"], updatedAt: fixedDate(50), omitHintFor: ["b"]
+        )
+        let exporter = ScriptedExporter()
+        let store = makeStore(ids: ["a", "b", "c"], exporter: exporter, staging: staging)
+        store.refreshResumableImport(destination: destinationA)
+
+        let resumable = try XCTUnwrap(store.resumable)
+        XCTAssertEqual(resumable.readyCount, 2)
+        XCTAssertEqual(resumable.checkpoint.completed.map(\.assetID), ["a", "c"])
+        let contextRaw = await store.resumeImport(destination: destinationA)
+        let context = try XCTUnwrap(contextRaw)
+        XCTAssertEqual(exporter.writes, ["b"])
+        XCTAssertEqual(context.assetIDs, ["a", "b", "c"])
+        XCTAssertEqual(context.sourceDateHints.count, 3)
+        XCTAssertTrue(exists(dir.appendingPathComponent("a.jpg").path))
+
+        // A recorded path outside the staging directory is never trusted.
+        let stagingB = makeTempParent()
+        let outsideDir = makeTempParent()
+        try FileManager.default.createDirectory(at: outsideDir, withIntermediateDirectories: true)
+        let outside = outsideDir.appendingPathComponent("a.jpg")
+        try Data("bytes-a".utf8).write(to: outside)
+        let escaped = try seedCheckpoint(
+            parent: stagingB, name: "escaped", state: .stopped, assetIDs: ["a"],
+            planAssetIDs: ["a", "b"], updatedAt: fixedDate(60), recordedPathOverride: ["a": outside.path]
+        )
+        let traversal = try seedCheckpoint(
+            parent: stagingB, name: "traversal", state: .stopped, assetIDs: ["a"],
+            planAssetIDs: ["a", "b"], updatedAt: fixedDate(70),
+            recordedPathOverride: ["a": stagingB.appendingPathComponent("traversal/../escaped/a.jpg").path]
+        )
+        let storeB = makeStore(ids: ["a", "b"], exporter: ScriptedExporter(), staging: stagingB)
+        storeB.refreshResumableImport(destination: destinationA)
+
+        XCTAssertNil(storeB.resumable)
+        XCTAssertTrue(exists(outside.path), "Only the import's own directory is ever removed")
+        XCTAssertFalse(exists(escaped.path))
+        XCTAssertFalse(exists(traversal.path))
+    }
+
 }
 
 private final class LockedValues: @unchecked Sendable {

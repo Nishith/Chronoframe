@@ -341,9 +341,9 @@ public final class PhotosImportStore: ObservableObject {
             // be pointed at a folder that holds other things.
             guard Self.isChronoframeStagingDirectory(child) else { continue }
 
-            guard let checkpoint = checkpointStore.load(in: child),
-                  checkpoint.isResumable,
-                  Self.completedFilesAreIntact(in: checkpoint)
+            guard let loaded = checkpointStore.load(in: child),
+                  loaded.isResumable,
+                  let checkpoint = Self.validatedCheckpoint(loaded, stagingDirectory: child)
             else {
                 try? fileManager.removeItem(at: child)
                 continue
@@ -659,19 +659,37 @@ public final class PhotosImportStore: ObservableObject {
         )
     }
 
-    /// Every completed file is a regular file at its recorded size. A file
-    /// without a recorded size cannot be checked and counts as damaged.
-    private static func completedFilesAreIntact(in checkpoint: PhotosImportCheckpoint) -> Bool {
+    /// The checkpoint to resume from, or nil when it cannot be trusted. Every
+    /// recorded file must lie inside the staging directory (symlinks resolved)
+    /// and be a regular file at its recorded size. An asset with no recorded
+    /// source-date hint cannot be checked, so only that asset is dropped from
+    /// the checkpoint and exported again; the rest are kept.
+    private static func validatedCheckpoint(
+        _ checkpoint: PhotosImportCheckpoint,
+        stagingDirectory: URL
+    ) -> PhotosImportCheckpoint? {
+        let root = stagingDirectory.resolvingSymlinksInPath().standardizedFileURL.path
+        var reexport: Set<String> = []
         for record in checkpoint.completed {
+            var missingHint = false
             for file in record.files {
+                let resolved = URL(fileURLWithPath: file.path).resolvingSymlinksInPath().standardizedFileURL.path
+                guard resolved.hasPrefix(root + "/") else { return nil }
+                guard let hint = record.sourceDateHints[SourceDateHint.pathKey(for: file.path)] else {
+                    missingHint = true
+                    continue
+                }
                 guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
                       attributes[.type] as? FileAttributeType == .typeRegular,
                       let size = (attributes[.size] as? NSNumber)?.int64Value,
-                      let hint = record.sourceDateHints[SourceDateHint.pathKey(for: file.path)],
                       hint.identity.size == size
-                else { return false }
+                else { return nil }
             }
+            if missingHint { reexport.insert(record.assetID) }
         }
-        return true
+        guard !reexport.isEmpty else { return checkpoint }
+        var pruned = checkpoint
+        pruned.discardCompleted(assetIDs: reexport)
+        return pruned
     }
 }
