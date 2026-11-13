@@ -108,12 +108,10 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
 public struct DateReviewAlternative: Equatable, Codable, Sendable {
     public var date: Date
     public var source: DateResolutionSource
-    public var bucketTimeZoneOffsetSeconds: Int?
 
-    public init(date: Date, source: DateResolutionSource, bucketTimeZoneOffsetSeconds: Int? = nil) {
+    public init(date: Date, source: DateResolutionSource) {
         self.date = date
         self.source = source
-        self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
     }
 }
 
