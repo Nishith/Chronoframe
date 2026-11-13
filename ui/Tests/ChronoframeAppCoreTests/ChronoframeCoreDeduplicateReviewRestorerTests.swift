@@ -407,6 +407,20 @@ final class ChronoframeCoreDeduplicateReviewRestorerTests: XCTestCase {
         XCTAssertEqual(captured.reviewedDecisionCount, 2)
     }
 
+    func testCaptureOfAnUntouchedReviewIsEmpty() {
+        let fixture = makeFixture()
+
+        let untouched = DeduplicateReviewRestorer.capture(
+            folderPath: "/lib", savedAt: savedAt, configuration: configuration,
+            decisions: fixture.suggested, approvedClusterIDs: [],
+            clusters: fixture.clusters, scanSnapshot: fixture.scan, focusClusterID: fixture.clusterA.id
+        )
+
+        XCTAssertEqual(untouched.decisions.count, 4, "every decision is still captured")
+        XCTAssertTrue(untouched.isEmpty, "no approvals and no reviewed decisions: nothing to keep")
+        XCTAssertFalse(captureWithClusterAReviewed(fixture).isEmpty)
+    }
+
     func testRestoredAndDroppedCountsIgnoreUnreviewedGroups() {
         var fixture = makeFixture()
         var saved = captureWithClusterAReviewed(fixture)
