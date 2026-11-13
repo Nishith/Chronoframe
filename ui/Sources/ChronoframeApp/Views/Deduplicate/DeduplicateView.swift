@@ -371,7 +371,7 @@ struct DeduplicateView: View {
                     onAcceptSafe: { sessionStore.acceptAllSuggestions() },
                     onQuickReview: { showingRapidTriage = true }
                 )
-                reviewBody(for: geometry.size, compactLanesBarShown: lanes.compactText != nil)
+                reviewBody(for: geometry.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
                 commitFooter(
@@ -439,7 +439,7 @@ struct DeduplicateView: View {
     }
 
     @ViewBuilder
-    private func reviewBody(for availableSize: CGSize, compactLanesBarShown: Bool) -> some View {
+    private func reviewBody(for availableSize: CGSize) -> some View {
         switch DeduplicateReviewLayout.mode(forWidth: availableSize.width) {
         case .wide:
             HSplitView {
@@ -458,17 +458,20 @@ struct DeduplicateView: View {
             // metadata card and Accept & Next).
             .frame(width: availableSize.width)
         case .compact:
-            VStack(spacing: 0) {
-                reviewClusterList
-                    .frame(height: DeduplicateReviewLayout.compactClusterListHeight(
-                        forAvailableHeight: availableSize.height,
-                        lanesBarShown: compactLanesBarShown
-                    ))
-                Divider()
-                reviewClusterDetail
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(minHeight: DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
+            // Sized from the body's own height, so the banner and the lanes bar
+            // above it (whatever their height) are already out of the budget.
+            GeometryReader { body in
+                VStack(spacing: 0) {
+                    reviewClusterList
+                        .frame(height: DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: body.size.height))
+                    Divider()
+                    reviewClusterDetail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(minHeight: DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
+                }
             }
+            .frame(minHeight: DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+                + DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
         }
     }
 
@@ -1136,15 +1139,22 @@ enum DeduplicateReviewLayout {
         width >= DesignTokens.DeduplicateLayout.reviewWideBreakpoint ? .wide : .compact
     }
 
-    /// The one-line lanes bar sits above the list in the stacked layout; the
-    /// list gives up the bar's height so the photo preview below keeps its room.
-    static func compactClusterListHeight(forAvailableHeight height: CGFloat, lanesBarShown: Bool = false) -> CGFloat {
-        let base = min(
-            max(height * 0.32, DesignTokens.DeduplicateLayout.compactClusterListMinHeight),
-            DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
-        )
-        return lanesBarShown ? base - DesignTokens.DeduplicateLayout.compactLanesBarHeight : base
+    /// Height of the group list in the stacked layout, from the height the
+    /// review body really has: what is left below the restored-review banner and
+    /// the lanes bar and above the commit footer. The result is clamped last, so
+    /// it always stays within `compactClusterListMinHeight...MaxHeight`. It
+    /// leaves the preview `compactPreviewMinHeight` wherever the body is tall
+    /// enough for both minimums.
+    static func compactClusterListHeight(forBodyHeight height: CGFloat) -> CGFloat {
+        let minimum = DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+        let maximum = DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
+        let preferred = min(max(height * 0.32, minimum), maximum)
+        let leavingPreviewItsFloor = height - dividerHeight - DesignTokens.DeduplicateLayout.compactPreviewMinHeight
+        return max(minimum, min(preferred, leavingPreviewItsFloor))
     }
+
+    /// The one-point `Divider` between the list and the preview.
+    private static let dividerHeight: CGFloat = 1
 
     /// Whether the commit footer shows its safeguards as one line rather than
     /// cards. The cards take about 200pt, which at the minimum window height

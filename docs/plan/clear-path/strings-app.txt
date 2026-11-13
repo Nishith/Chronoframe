@@ -1,5 +1,7 @@
 1 group is a look-alike or less certain. Take a look.
 1 group is a safe match. Accept it now.
+1 group to check
+1 safe match
 1. Folders to organize
 3. Preview
 A few items need attention before the next copy.
@@ -79,6 +81,7 @@ Duplicate cleanup can be restored
 Each copy keeps a receipt
 Each copy saves a receipt in .organize_logs/ inside the destination so you can undo it from History.
 Every file is already in the chosen layout. Nothing was moved.
+Every group has been reviewed
 Every group has been reviewed.
 Everything here is already in your organized library. Nothing needs copying.
 Everything in these folders is already in your organized library. Nothing was copied.
@@ -302,6 +305,7 @@ Your originals in \(sourceName) are opened as read-only. Original files are neve
 \(count.formatted()) folders
 \(formattedBytes(duplicateBytes)) could be freed after you review them.
 \(formattedBytes(unknownStats.bytes)) of files need a date.
+\(checkGroupCount.formatted()) groups to check
 \(historyStore.entries.count) reports and logs · \(historyStore.transferredSources.count) reusable folders.
 \(issueCount) other problem\(issueCount == 1 ? "" : "s")
 \(lead) of another file here and will be set aside in the Duplicate folder.
@@ -316,6 +320,7 @@ Your originals in \(sourceName) are opened as read-only. Original files are neve
 \(queueStats.pending) waiting, \(queueStats.failed) failed. Open Preview & Copy to finish them.
 \(record.runCount) \(record.runCount == 1 ? "copy" : "copies")
 \(safeGroupCount.formatted()) groups are safe matches. Accept them together.
+\(safeGroupCount.formatted()) safe matches
 \(setAside.formatted()) exact copies were set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)
 \(subject) in your organized library. Your originals were not changed.
 \(subject) will be copied\(span). Nothing has been copied yet.

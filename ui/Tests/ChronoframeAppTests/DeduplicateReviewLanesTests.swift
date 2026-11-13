@@ -152,18 +152,59 @@ final class DeduplicateReviewLanesTests: XCTestCase {
         XCTAssertEqual(lanes(safe: 3, check: 0, reviewed: 0).compactText, "3 safe matches")
         XCTAssertEqual(lanes(safe: 0, check: 1, reviewed: 0).compactText, "1 group to check")
         XCTAssertEqual(lanes(safe: 2, check: 4, reviewed: 1).compactText, "2 safe matches · 4 groups to check")
-        XCTAssertEqual(lanes(safe: 0, check: 0, reviewed: 2).compactText, "Every group has been reviewed.")
+        XCTAssertEqual(lanes(safe: 0, check: 0, reviewed: 2).compactText, "Every group has been reviewed")
         XCTAssertNil(lanes(safe: 0, check: 0, reviewed: 0).compactText)
     }
 
-    func testCompactListGivesUpExactlyTheLanesBarHeight() {
-        // The bar must cost the group list, never the photo preview.
-        for height in [300.0, 700.0, 2_000.0] {
-            XCTAssertEqual(
-                DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: height, lanesBarShown: true),
-                DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: height)
-                    - DesignTokens.DeduplicateLayout.compactLanesBarHeight
+    /// Heights the group list can be given, for a review area of `reviewHeight`
+    /// once the restored-review banner, the lanes bar and the commit footer have
+    /// taken their share.
+    private func bodyHeights() -> [(body: CGFloat, hasBar: Bool, hasBanner: Bool)] {
+        let footer: CGFloat = 150
+        let bar = DesignTokens.DeduplicateLayout.compactLanesBarMinHeight
+        let banner: CGFloat = 44
+        var rows: [(CGFloat, Bool, Bool)] = []
+        for review in stride(from: 300.0, through: 2_000.0, by: 7.0) {
+            for hasBar in [false, true] {
+                for hasBanner in [false, true] {
+                    let body = max(0, review - footer - (hasBar ? bar : 0) - (hasBanner ? banner : 0))
+                    rows.append((body, hasBar, hasBanner))
+                }
+            }
+        }
+        return rows
+    }
+
+    func testCompactListStaysWithinItsRangeWithAndWithoutBarAndBanner() {
+        let minimum = DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+        let maximum = DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
+        for row in bodyHeights() {
+            let list = DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: row.body)
+            let context = "body \(row.body), bar \(row.hasBar), banner \(row.hasBanner)"
+            XCTAssertGreaterThanOrEqual(list, minimum, context)
+            XCTAssertLessThanOrEqual(list, maximum, context)
+        }
+    }
+
+    func testCompactListLeavesThePreviewItsFloorWhereSpaceAllows() {
+        let minimum = DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+        let floor = DesignTokens.DeduplicateLayout.compactPreviewMinHeight
+        for row in bodyHeights() where row.body >= minimum + floor + 1 {
+            let list = DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: row.body)
+            XCTAssertGreaterThanOrEqual(
+                row.body - list - 1,
+                floor,
+                "body \(row.body), bar \(row.hasBar), banner \(row.hasBanner)"
             )
+        }
+    }
+
+    func testCompactListNeverShrinksAsTheBodyGrows() {
+        var previous: CGFloat = 0
+        for body in stride(from: 0.0, through: 2_000.0, by: 3.0) {
+            let list = DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: body)
+            XCTAssertGreaterThanOrEqual(list, previous, "body \(body)")
+            previous = list
         }
     }
 

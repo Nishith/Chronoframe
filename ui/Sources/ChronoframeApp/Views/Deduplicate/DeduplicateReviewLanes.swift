@@ -74,7 +74,11 @@ struct DeduplicateReviewLanes: Equatable {
         } else if checkGroupCount > 1 {
             parts.append("\(checkGroupCount.formatted()) groups to check")
         }
-        return parts.isEmpty ? doneText : parts.joined(separator: " · ")
+        // No trailing full stop: the counts above have none either.
+        if parts.isEmpty {
+            return doneText == nil ? nil : "Every group has been reviewed"
+        }
+        return parts.joined(separator: " · ")
     }
 }
 
@@ -100,10 +104,16 @@ struct DeduplicateReviewLanesBar: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                         .padding(.horizontal, DesignTokens.Spacing.md)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        // A minimum, not a fixed height: the label grows with
+                        // Dynamic Type and the row grows with it. The divider
+                        // below takes the last point.
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: DesignTokens.DeduplicateLayout.compactLanesBarMinHeight - 1,
+                            alignment: .leading
+                        )
                     Divider()
                 }
-                .frame(height: DesignTokens.DeduplicateLayout.compactLanesBarHeight)
                 .background(DesignTokens.ColorSystem.panel)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier(AccessibilityIdentifiers.dedupeLanes)
