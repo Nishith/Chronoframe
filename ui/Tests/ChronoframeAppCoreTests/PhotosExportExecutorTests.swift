@@ -42,6 +42,12 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
         try await writeResource(resource, to: destinationURL)
     }
 
+    /// Content that names its own asset and resource, so a test can tell whose
+    /// bytes ended up in a staged file.
+    static func bytes(for resource: PhotosExportableResource) -> String {
+        "bytes:\(resource.assetID):\(resource.resourceIndex):\(resource.fileExtension)"
+    }
+
     func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource] {
         calls.append(Call(kind: .list, assetID: id))
         if listFailures.contains(id) { throw ExporterTestError.boom }
@@ -53,7 +59,7 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
         if writeFailures.contains(resource.assetID) || writeFailureExtensions.contains(resource.fileExtension) {
             throw ExporterTestError.boom
         }
-        try Data("bytes:\(resource.fileExtension)".utf8).write(to: destinationURL)
+        try Data(Self.bytes(for: resource).utf8).write(to: destinationURL)
         afterWrite?(resource)
     }
 }
@@ -133,6 +139,24 @@ final class PhotosExportExecutorTests: XCTestCase {
 
     private func entry(_ assetID: String, stem: String, kind: PhotosAssetSummary.MediaKind = .photo) -> PhotosAssetExportEntry {
         PhotosAssetExportEntry(assetID: assetID, mediaKind: kind, stagingStem: stem)
+    }
+
+    /// Every staged file must hold the bytes its own asset's resource wrote,
+    /// not another asset's that landed on the same on-disk name.
+    private func assertStagedBytesBelongToOwnAssets(
+        _ receipt: PhotosExportReceipt,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        for staged in receipt.exportedFiles {
+            let text = String(decoding: try Data(contentsOf: URL(fileURLWithPath: staged.path)), as: UTF8.self)
+            XCTAssertTrue(
+                text.hasPrefix("bytes:\(staged.assetID):"),
+                "\(staged.path) holds \(text), which is not asset \(staged.assetID)'s content",
+                file: file,
+                line: line
+            )
+        }
     }
 
     private func stagedNames() throws -> [String] {
@@ -482,6 +506,7 @@ final class PhotosExportExecutorTests: XCTestCase {
         XCTAssertEqual(names.count, 3)
         XCTAssertEqual(Set(names).count, 3, "every staged file needs its own name: \(names)")
         XCTAssertEqual(try stagedNames().count, 3, "three files must exist in staging")
+        try assertStagedBytesBelongToOwnAssets(receipt)
     }
 
     // AGENTS-INVARIANT: 22
@@ -500,6 +525,7 @@ final class PhotosExportExecutorTests: XCTestCase {
         XCTAssertEqual(names.count, 2)
         XCTAssertEqual(Set(names.map { $0.lowercased() }).count, 2, "names must differ by more than case: \(names)")
         XCTAssertEqual(try stagedNames().count, 2, "two files must exist in staging")
+        try assertStagedBytesBelongToOwnAssets(receipt)
     }
 
     // AGENTS-INVARIANT: 22
@@ -521,6 +547,158 @@ final class PhotosExportExecutorTests: XCTestCase {
         let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
         XCTAssertEqual(names, ["IMG_0001-0.jpg"])
         XCTAssertEqual(try Data(contentsOf: publishedURL), Data("published".utf8), "The reserved file is untouched")
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testStemsDifferingOnlyByUnicodeNormalizationDoNotShareAFile() async throws {
+        // APFS and HFS+ treat precomposed and decomposed "é" as the same name.
+        let composed = "Caf\u{E9}"
+        let decomposed = "Cafe\u{301}"
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "composed": [resource("composed", index: 0, ext: "jpg")],
+            "decomposed": [resource("decomposed", index: 0, ext: "jpg")],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("composed", stem: composed), entry("decomposed", stem: decomposed)])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+
+        XCTAssertEqual(receipt.failures, [])
+        XCTAssertEqual(try stagedNames().count, 2, "two files must exist in staging")
+        let fold: (String) -> String = {
+            $0.decomposedStringWithCanonicalMapping.folding(options: [.caseInsensitive], locale: nil)
+        }
+        let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(Set(names.map(fold)).count, 2, "names must differ by more than normalization: \(names)")
+        try assertStagedBytesBelongToOwnAssets(receipt)
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testStemsThatFoldTogetherButDoNotLowercaseTogetherDoNotShareAFile() async throws {
+        // Greek small sigma and final sigma are one name on a case-insensitive
+        // APFS volume (case folding), yet lowercased() leaves them different.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "sigma": [resource("sigma", index: 0, ext: "jpg")],
+            "final": [resource("final", index: 0, ext: "jpg")],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("sigma", stem: "\u{3C3}"), entry("final", stem: "\u{3C2}")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+
+        XCTAssertEqual(receipt.failures, [])
+        XCTAssertEqual(try stagedNames().count, 2, "two files must exist in staging")
+        let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(
+            Set(names.map { $0.folding(options: [.caseInsensitive], locale: nil) }).count,
+            2,
+            "names must differ by more than case folding: \(names)"
+        )
+        try assertStagedBytesBelongToOwnAssets(receipt)
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testReservedFilenameIsMatchedAcrossUnicodeNormalization() async throws {
+        try FileManager.default.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
+        let publishedURL = stagingRoot.appendingPathComponent("Caf\u{E9}.jpg")
+        try Data("published".utf8).write(to: publishedURL)
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "new": [resource("new", index: 0, ext: "jpg")],
+        ])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: PhotosExportPlan(entries: [entry("new", stem: "Cafe\u{301}")]),
+            to: stagingRoot,
+            reservedFilenames: ["Caf\u{E9}.jpg"]
+        )
+
+        let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(names, ["Cafe\u{301}-0.jpg"])
+        XCTAssertEqual(try Data(contentsOf: publishedURL), Data("published".utf8), "The reserved file is untouched")
+    }
+
+    func testDiacriticsAreNotFoldedAway() async throws {
+        // "Cafe" and "Café" are different files on APFS, so neither is renamed.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "plain": [resource("plain", index: 0, ext: "jpg")],
+            "accent": [resource("accent", index: 0, ext: "jpg")],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("plain", stem: "Cafe"), entry("accent", stem: "Caf\u{E9}")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+
+        let names = receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(names, ["Cafe.jpg", "Caf\u{E9}.jpg"])
+        XCTAssertEqual(try stagedNames().count, 2)
+        try assertStagedBytesBelongToOwnAssets(receipt)
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testUnreservedStagedFileOfCaseVariantNameSurvivesByteForByte() async throws {
+        // Not in reservedFilenames, so the executor can't know about it from
+        // the caller; the write itself must refuse to replace it.
+        try FileManager.default.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
+        let lowerURL = stagingRoot.appendingPathComponent("img_0001.jpg")
+        let exactURL = stagingRoot.appendingPathComponent("IMG_0002.jpg")
+        let lowerBytes = Data("precious-lower".utf8)
+        let exactBytes = Data("precious-exact".utf8)
+        try lowerBytes.write(to: lowerURL)
+        try exactBytes.write(to: exactURL)
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "one": [resource("one", index: 0, ext: "jpg")],
+            "two": [resource("two", index: 0, ext: "jpg")],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("one", stem: "IMG_0001"), entry("two", stem: "IMG_0002")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+
+        XCTAssertEqual(receipt.failures, [])
+        XCTAssertEqual(try Data(contentsOf: lowerURL), lowerBytes, "the case-variant staged file is untouched")
+        XCTAssertEqual(try Data(contentsOf: exactURL), exactBytes, "the same-name staged file is untouched")
+        XCTAssertEqual(receipt.stagedFileCount, 2)
+        XCTAssertEqual(try stagedNames().count, 4, "both new files sit beside the two existing ones")
+        try assertStagedBytesBelongToOwnAssets(receipt)
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testRollbackNeverRemovesAFileTheExecutorDidNotCreate() async throws {
+        try FileManager.default.createDirectory(at: stagingRoot, withIntermediateDirectories: true)
+        let existingURL = stagingRoot.appendingPathComponent("IMG_0001.jpg")
+        try Data("precious".utf8).write(to: existingURL)
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "bad": [resource("bad", index: 0, ext: "jpg")],
+        ])
+        exporter.writeFailures = ["bad"]
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: PhotosExportPlan(entries: [entry("bad", stem: "IMG_0001")]),
+            to: stagingRoot
+        )
+
+        XCTAssertEqual(receipt.failures.map(\.assetID), ["bad"])
+        XCTAssertEqual(try Data(contentsOf: existingURL), Data("precious".utf8))
+        XCTAssertEqual(try stagedNames(), ["IMG_0001.jpg"], "the failed asset's claimed name is rolled back")
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testExhaustedNameAttemptsFailOnlyThatAsset() async throws {
+        // With every candidate name taken the search must stop, not spin.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "stuck": [resource("stuck", index: 0, ext: "jpg")],
+            "fine": [resource("fine", index: 0, ext: "jpg")],
+        ])
+        var executor = PhotosExportExecutor(exporter: exporter)
+        executor.maxNameAttempts = 3
+        let plan = PhotosExportPlan(entries: [entry("stuck", stem: "A"), entry("fine", stem: "B")])
+
+        let receipt = try await executor.export(
+            plan: plan,
+            to: stagingRoot,
+            reservedFilenames: ["A.jpg", "A-0.jpg", "A-0-2.jpg"]
+        )
+
+        XCTAssertEqual(receipt.failures.map(\.assetID), ["stuck"])
+        XCTAssertEqual(receipt.exportedAssetIDs, ["fine"])
+        XCTAssertEqual(try stagedNames(), ["B.jpg"])
+        XCTAssertEqual(exporter.calls.filter { $0.kind == .write && $0.assetID == "stuck" }, [], "nothing is written for the stuck asset")
     }
 
     // AGENTS-INVARIANT: 22

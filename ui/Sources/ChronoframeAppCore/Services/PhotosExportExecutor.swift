@@ -133,6 +133,9 @@ public struct PhotosExportExecutor {
     private let timeZone: TimeZone
     private let freeSpaceFloorBytes: Int64
     private let freeSpaceProvider: @Sendable (URL) -> Int64?
+    /// Upper bound on candidate names tried per resource. Internal so a test
+    /// can exhaust it without ten thousand files.
+    var maxNameAttempts = 10_000
 
     public static let defaultFreeSpaceFloorBytes: Int64 = 2 * 1024 * 1024 * 1024
 
