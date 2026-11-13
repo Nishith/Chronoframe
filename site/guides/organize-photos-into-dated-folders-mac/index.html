@@ -112,12 +112,12 @@
     </div>
   </footer>
   <script>
-    // Campaign attribution: a utm_campaign (or utm_source) on the landing URL replaces the default ct=.
+    // Channel attribution: a utm_source (or utm_campaign) on the landing URL replaces the default ct=.
     (function () {
       try {
         var q = new URLSearchParams(window.location.search);
         var clean = function (s) { return (s || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40); };
-        var v = clean(q.get("utm_campaign")) || clean(q.get("utm_source"));
+        var v = clean(q.get("utm_source")) || clean(q.get("utm_campaign"));
         if (!v) return;
         var links = document.querySelectorAll('a[href*="apps.apple.com"]');
         for (var i = 0; i < links.length; i++) {
