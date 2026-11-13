@@ -517,16 +517,24 @@ final class AppState: ObservableObject {
         // and must not by itself authorize starting another operation.
         guard unlockRefusal != nil else { return }
 
+        // The sheet shows the Organize refusal ahead of the Deduplicate one
+        // (see `unlockRefusal`), so that is the one the customer just unlocked.
+        // Act on it first.
+        //
         // A dedupe refusal leaves its reviewed clusters paused and intact, so
         // there is nothing to rebuild and nothing safe to auto-run: committing
         // on the customer's behalf the moment a purchase completes would remove
         // files without them asking twice. Closing the sheet returns them to
         // their paused review, one click from Clean Up.
-        if deduplicateSessionStore.lastRefusal != nil {
+        if runSessionStore.lastRefusal == nil {
             deduplicateSessionStore.dismissRefusal()
             return
         }
 
+        // Unlocking covers both operations, so a Deduplicate refusal sitting
+        // behind the Organize one is stale. Clear it or the sheet reopens for
+        // an unlocked customer once the Organize refusal is gone.
+        deduplicateSessionStore.dismissRefusal()
         let refusedMode = runSessionStore.currentMode
         runSessionStore.dismissRefusal()
         switch refusedMode {
