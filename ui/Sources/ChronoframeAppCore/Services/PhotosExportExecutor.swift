@@ -39,6 +39,8 @@ public protocol PhotosResourceExporting: Sendable {
     /// Copies one resource's original bytes to `destinationURL`. Read-only
     /// against the library: implemented with `PHAssetResourceManager`, which
     /// only reads. Never calls `PHPhotoLibrary.performChanges`.
+    /// `destinationURL` is an empty file the executor just created exclusively
+    /// to claim the name; the implementation replaces it.
     func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws
     /// Same as `writeResource(_:to:)`, additionally reporting 0...1 progress.
     func writeResource(
@@ -174,8 +176,9 @@ public struct PhotosExportExecutor {
 
         var exported: [PhotosExportedFile] = []
         var failures: [PhotosAssetExportFailure] = []
-        // Compared without case: staging is usually a case-insensitive volume.
-        var usedFilenames = Set(reservedFilenames.map { $0.lowercased() })
+        // Compared by filesystem-style key (see `nameKey`): staging is usually
+        // a case-insensitive, normalization-insensitive APFS volume.
+        var usedFilenames = Set(reservedFilenames.map(Self.nameKey))
         var sourceDateHints: [String: SourceDateHint] = [:]
 
         for (entryIndex, entry) in plan.entries.enumerated() {
@@ -206,13 +209,16 @@ public struct PhotosExportExecutor {
                 }
                 for resource in resources {
                     try throwIfCancelled(isCancelled)
-                    let filename = uniqueFilename(
+                    // The name is claimed with an exclusive create, so nothing
+                    // already in staging is ever replaced. Only a file this
+                    // call created reaches the rollback list.
+                    let destination = try claimDestination(
+                        in: stagingRoot,
                         stem: entry.stagingStem,
                         fileExtension: resource.fileExtension,
                         resourceIndex: resource.resourceIndex,
                         used: &usedFilenames
                     )
-                    let destination = stagingRoot.appendingPathComponent(filename)
                     // Include the current resource in rollback even if the
                     // exporter fails after creating a partial staging file.
                     writtenURLs.append(destination)
@@ -244,6 +250,11 @@ public struct PhotosExportExecutor {
             } catch is CancellationError {
                 rollBack(writtenURLs)
                 throw CancellationError()
+            } catch is PhotosExportNameExhausted {
+                rollBack(writtenURLs)
+                let message = "Chronoframe couldn't find a free file name for this item, so it was skipped. Your Photos library was not changed."
+                failures.append(PhotosAssetExportFailure(assetID: entry.assetID, message: message))
+                onEvent(.assetFailed(assetID: entry.assetID, message: message))
             } catch {
                 // A resource failed mid-asset: roll back what was written so an
                 // incomplete unit never reaches the transfer pipeline.
@@ -296,28 +307,70 @@ public struct PhotosExportExecutor {
         }
     }
 
-    /// Builds `<stem>.<ext>`, disambiguating within a single export the rare
-    /// case of two resources on one asset resolving to the same filename.
-    private func uniqueFilename(
+    /// Picks a free staging name for one resource and claims it by creating
+    /// the file exclusively (`O_CREAT | O_EXCL`), returning its URL. The file
+    /// is left empty for the exporter to replace with the resource's bytes.
+    ///
+    /// Candidates are `<stem>.<ext>`, then `<stem>-<resourceIndex>.<ext>`, then
+    /// `<stem>-<resourceIndex>-<n>.<ext>` for n = 2, 3, ... A candidate is
+    /// skipped when:
+    /// - its name key is already in `used`: a reserved name (a file an
+    ///   earlier, resumed export published), another asset's name in this
+    ///   export, or an earlier resource of the same asset. The key folds case
+    ///   and Unicode normalization (`nameKey`), so names APFS would treat as
+    ///   one file collide here. A fallback name can itself equal another
+    ///   asset's name, hence a loop rather than a single fallback.
+    /// - the exclusive create finds the name already on disk (an unrecorded
+    ///   leftover, or a variant the key does not foresee). The existing file
+    ///   is never touched; the next candidate is tried.
+    ///
+    /// The search stops after `maxNameAttempts` candidates and throws
+    /// `PhotosExportNameExhausted`, which fails only this asset.
+    private func claimDestination(
+        in directory: URL,
         stem: String,
         fileExtension: String,
         resourceIndex: Int,
         used: inout Set<String>
-    ) -> String {
+    ) throws -> URL {
         let ext = Self.normalizedExtension(fileExtension)
-        let base = ext.isEmpty ? stem : "\(stem).\(ext)"
-        if used.insert(base.lowercased()).inserted { return base }
-        // `base` is taken: two resources of one asset share an extension, the
-        // name is reserved, or another stem differs only by case. Fold the
-        // resource index in, and keep going until the name is free, because
-        // the folded name can itself be another asset's name.
-        var attempt = 1
-        while true {
-            let suffix = attempt == 1 ? "\(resourceIndex)" : "\(resourceIndex)-\(attempt)"
-            let folded = ext.isEmpty ? "\(stem)-\(suffix)" : "\(stem)-\(suffix).\(ext)"
-            if used.insert(folded.lowercased()).inserted { return folded }
-            attempt += 1
+        for attempt in 0..<maxNameAttempts {
+            let name = Self.candidateFilename(stem: stem, ext: ext, resourceIndex: resourceIndex, attempt: attempt)
+            guard used.insert(Self.nameKey(name)).inserted else { continue }
+            let url = directory.appendingPathComponent(name)
+            if try Self.createExclusively(at: url) { return url }
         }
+        throw PhotosExportNameExhausted()
+    }
+
+    private static func candidateFilename(stem: String, ext: String, resourceIndex: Int, attempt: Int) -> String {
+        let base: String
+        switch attempt {
+        case 0: base = stem
+        case 1: base = "\(stem)-\(resourceIndex)"
+        default: base = "\(stem)-\(resourceIndex)-\(attempt)"
+        }
+        return ext.isEmpty ? base : "\(base).\(ext)"
+    }
+
+    /// Canonically decomposed, case-folded form of a filename. Diacritics are
+    /// kept: "Cafe" and "Caf\u{E9}" are distinct files on APFS. Full case
+    /// folding can merge a few names APFS keeps apart (ß and SS); the cost is
+    /// a harmless extra rename, never an overwrite.
+    static func nameKey(_ name: String) -> String {
+        name.decomposedStringWithCanonicalMapping.folding(options: [.caseInsensitive], locale: nil)
+    }
+
+    /// Creates an empty file at `url` without replacing or following anything.
+    /// Returns false when the name is already taken.
+    private static func createExclusively(at url: URL) throws -> Bool {
+        let descriptor = open(url.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o644)
+        if descriptor >= 0 {
+            close(descriptor)
+            return true
+        }
+        if errno == EEXIST { return false }
+        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
     }
 
     static func normalizedExtension(_ raw: String) -> String {
@@ -326,3 +379,6 @@ public struct PhotosExportExecutor {
         return ext.filter { $0.isLetter || $0.isNumber }
     }
 }
+
+/// No free staging name was found for a resource within the attempt limit.
+struct PhotosExportNameExhausted: Error {}
