@@ -1171,6 +1171,132 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         XCTAssertEqual(temporaryFilesUnder(env.destinationRoot), [], "No orphaned .tmp files after cancel")
     }
 
+    /// Two workers must not both pass the free-space check on room for one
+    /// file. The check used to compare each file against the volume's free
+    /// space on its own, so parallel workers all passed on the same bytes and
+    /// the later copies ran out of space mid-write (seen as "Disk space check
+    /// passed. Resuming run." followed by "No space left on device").
+    ///
+    /// The fake volume has room for either file plus the safety buffer, but
+    /// not both. The first copy is held open until the second worker has asked
+    /// for free space, so the two checks always overlap.
+    func testParallelWorkersDoNotPassTheSpaceCheckOnTheSameFreeBytes() throws {
+        let env = try makeEnvironment(jobCount: 2)
+        defer { env.logger.close() }
+
+        let sizes = try env.jobs.map { job -> Int64 in
+            let attributes = try FileManager.default.attributesOfItem(atPath: job.sourcePath)
+            return try XCTUnwrap((attributes[.size] as? NSNumber)?.int64Value)
+        }
+        let largest = try XCTUnwrap(sizes.max())
+        let total = sizes.reduce(0, +)
+        let volume = FakeVolume(initialFree: TransferExecutor.safetyBufferBytes + total - 1)
+        XCTAssertGreaterThanOrEqual(volume.initialFree, TransferExecutor.safetyBufferBytes + largest)
+
+        let observer = TransferExecutionObserver(onIssue: { issue in
+            if issue.message.contains("Paused: Insufficient disk space") { volume.notePause() }
+            if issue.message.contains("Disk space check passed") { volume.noteResume() }
+        })
+
+        let strategy = TransferFileCopyStrategy(
+            clone: { _, _ in
+                errno = ENOTSUP
+                return -1
+            },
+            copyAll: { sourcePath, destinationPath in
+                volume.holdFirstCopyUntilSecondCheck()
+                do {
+                    try FileManager.default.copyItem(atPath: sourcePath, toPath: destinationPath)
+                    let attributes = try FileManager.default.attributesOfItem(atPath: sourcePath)
+                    volume.noteWritten((attributes[.size] as? NSNumber)?.int64Value ?? 0)
+                    return 0
+                } catch {
+                    errno = EIO
+                    return -1
+                }
+            },
+            copyMetadata: { _, _ in 0 }
+        )
+
+        var executor = TransferExecutor(fileCopyStrategy: strategy)
+        executor.freeDiskSpaceProvider = { _ in volume.freeBytes() }
+        executor.isLowPowerModeEnabledProvider = { false }
+        executor.thermalStateProvider = { .nominal }
+
+        let deadline = Date().addingTimeInterval(30)
+        let result = try executor.executeQueuedJobs(
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: false,
+            runLogger: env.logger,
+            status: .pending,
+            maxConcurrentCopies: 2,
+            observer: observer,
+            isCancelled: { Date() > deadline },
+            runID: UUID()
+        )
+
+        XCTAssertTrue(volume.sawPause, "The second worker must wait while the first copy holds the only free room")
+        XCTAssertTrue(volume.sawResume, "The waiting worker must resume once space is freed")
+        XCTAssertEqual(result.copiedCount, 2, "Both files copy once there is room for each in turn")
+        XCTAssertEqual(temporaryFilesUnder(env.destinationRoot), [], "No orphaned .tmp files")
+    }
+
+    /// Free space as a real volume reports it: it drops when a copy finishes
+    /// writing, and grows once after a pause (the user freeing space).
+    private final class FakeVolume: @unchecked Sendable {
+        let initialFree: Int64
+        private let condition = NSCondition()
+        private var written: Int64 = 0
+        private var freed: Int64 = 0
+        private var checks = 0
+        private var firstCopyClaimed = false
+        private var paused = false
+        private var resumed = false
+
+        init(initialFree: Int64) { self.initialFree = initialFree }
+
+        var sawPause: Bool { condition.lock(); defer { condition.unlock() }; return paused }
+        var sawResume: Bool { condition.lock(); defer { condition.unlock() }; return resumed }
+
+        func freeBytes() -> Int64 {
+            condition.lock()
+            defer { condition.unlock() }
+            checks += 1
+            condition.broadcast()
+            return initialFree - written + freed
+        }
+
+        func holdFirstCopyUntilSecondCheck() {
+            condition.lock()
+            defer { condition.unlock() }
+            guard !firstCopyClaimed else { return }
+            firstCopyClaimed = true
+            let limit = Date().addingTimeInterval(5)
+            while checks < 2, condition.wait(until: limit) {}
+        }
+
+        func noteWritten(_ bytes: Int64) {
+            condition.lock()
+            defer { condition.unlock() }
+            written += bytes
+            if paused { freed = written }
+        }
+
+        func notePause() {
+            condition.lock()
+            defer { condition.unlock() }
+            paused = true
+            if written > 0 { freed = written }
+        }
+
+        func noteResume() {
+            condition.lock()
+            defer { condition.unlock() }
+            resumed = true
+        }
+    }
+
     private final class CancelBox: @unchecked Sendable {
         private let lock = NSLock()
         private var cancelled = false
