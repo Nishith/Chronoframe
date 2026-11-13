@@ -36,16 +36,35 @@ public enum DeduplicateReviewRestorer {
         var droppedDecisionCount = 0
         var droppedPaths: Set<String> = []
         var restoredPaths: Set<String> = []
+        var unreviewedMatches: [String: DedupeDecision] = [:]
         for savedDecision in saved.decisions {
             if scanSnapshot.identitiesByPath[savedDecision.path] == savedDecision.identity,
                memberPaths.contains(savedDecision.path) {
-                byPath[savedDecision.path] = savedDecision.decision
-                restoredPaths.insert(savedDecision.path)
-                if savedDecision.inReviewedGroup { restoredDecisionCount += 1 }
+                if savedDecision.inReviewedGroup {
+                    byPath[savedDecision.path] = savedDecision.decision
+                    restoredPaths.insert(savedDecision.path)
+                    restoredDecisionCount += 1
+                } else {
+                    unreviewedMatches[savedDecision.path] = savedDecision.decision
+                }
             } else {
                 if savedDecision.inReviewedGroup { droppedDecisionCount += 1 }
                 droppedPaths.insert(savedDecision.path)
             }
+        }
+
+        // D-DDP-124: a decision from a never-approved group carries no cluster, so restore it
+        // only when every member of its cluster has a matching saved decision and the result
+        // still keeps a file. Otherwise the cluster keeps its fresh suggestion.
+        for cluster in clusters {
+            let paths = cluster.members.map(\.path)
+            guard paths.contains(where: { unreviewedMatches[$0] != nil }),
+                  paths.allSatisfy({ restoredPaths.contains($0) || unreviewedMatches[$0] != nil })
+            else { continue }
+            var overlaid = byPath
+            for path in paths { if let decision = unreviewedMatches[path] { overlaid[path] = decision } }
+            guard paths.contains(where: { overlaid[$0] == .keep }) else { continue }
+            byPath = overlaid
         }
 
         var approvalCountsByKey: [String: Set<Int>] = [:]

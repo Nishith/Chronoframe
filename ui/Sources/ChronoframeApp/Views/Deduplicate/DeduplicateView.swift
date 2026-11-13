@@ -89,11 +89,6 @@ struct DeduplicateView: View {
                 NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
                 #endif
             }
-            // Reset and cancel save the review just before returning to idle, so
-            // re-read the disk or the saved-review card would not appear.
-            if newValue == .idle {
-                refreshSavedReview()
-            }
         }
         .onChange(of: sessionStore.restoredReview) { _, newValue in
             hasAppliedRestoredFocus = false

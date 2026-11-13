@@ -300,6 +300,48 @@ final class ChronoframeCoreNASAssessmentStoreTests: XCTestCase {
         XCTAssertEqual(try store.choices()["def"], none)
     }
 
+    // AGENTS-INVARIANT: 27
+    func testPruneKeepsLatestCompletedGenerationWhenNewerScansArePartial() throws {
+        let store = try makeStore()
+        defer { store.close() }
+        let outcomes: [NASScanOutcome] = [.complete, .cancelled, .failed, .interruptedVolumeUnavailable]
+        var generations: [Int64] = []
+        for (index, outcome) in outcomes.enumerated() {
+            let generation = try store.beginScan(mode: .exactOnly, startedAt: Date(timeIntervalSince1970: Double(index)))
+            try store.recordItems([item("f\(index).jpg", size: 10)], generation: generation)
+            try store.recordDirectories([NASDirectoryRow(relativePath: "d\(index)", status: .assessed)], generation: generation)
+            try store.recordIssues([NASIssue(category: .skippedLink, relativePath: "l\(index)", detail: "link")], generation: generation)
+            try store.finishScan(
+                generation: generation, outcome: outcome, counts: NASScanCounts(), ledger: NASByteLedger(),
+                finishedAt: Date(timeIntervalSince1970: Double(index) + 0.5)
+            )
+            generations.append(generation)
+        }
+
+        try store.pruneGenerations(keepingLatest: 2)
+
+        // The two newest (failed, interrupted) plus the only generation that finished: gen 1.
+        XCTAssertNotNil(try store.scanSummary(generation: generations[0]), "The only complete generation must survive")
+        XCTAssertNil(try store.scanSummary(generation: generations[1]))
+        XCTAssertNotNil(try store.scanSummary(generation: generations[2]))
+        XCTAssertNotNil(try store.scanSummary(generation: generations[3]))
+        XCTAssertEqual(rawStrings("SELECT DISTINCT generation FROM Items ORDER BY generation;"), ["1", "3", "4"])
+        XCTAssertEqual(rawStrings("SELECT DISTINCT generation FROM Directories ORDER BY generation;"), ["1", "3", "4"])
+        XCTAssertEqual(rawStrings("SELECT DISTINCT generation FROM Issues ORDER BY generation;"), ["1", "3", "4"])
+
+        // A newer complete scan supersedes it: the old complete generation ages out normally.
+        let fifth = try store.beginScan(mode: .exactOnly, startedAt: Date(timeIntervalSince1970: 10))
+        try store.finishScan(
+            generation: fifth, outcome: .completedWithGaps, counts: NASScanCounts(), ledger: NASByteLedger(),
+            finishedAt: Date(timeIntervalSince1970: 11)
+        )
+        try store.pruneGenerations(keepingLatest: 2)
+        XCTAssertNil(try store.scanSummary(generation: generations[0]))
+        XCTAssertNotNil(try store.scanSummary(generation: generations[3]))
+        XCTAssertNotNil(try store.scanSummary(generation: fifth))
+        XCTAssertNil(try store.scanSummary(generation: generations[2]))
+    }
+
     func testFileIDRoundTripsAboveInt64Max() throws {
         let store = try makeStore()
         defer { store.close() }

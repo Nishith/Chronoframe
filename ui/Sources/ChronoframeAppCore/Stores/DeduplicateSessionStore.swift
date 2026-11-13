@@ -101,6 +101,8 @@ public final class DeduplicateSessionStore: ObservableObject {
     /// True once the user has acted on (or restored) the current review. Untouched
     /// suggestions are never saved (D-DDP-107).
     private var reviewHasUserChanges = false
+    /// The folder the view asked about; `savedReviewForCurrentFolder` follows saves to it.
+    private var savedReviewFolderPath: String?
 
     public init(
         engine: any DeduplicateEngine,
@@ -588,6 +590,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func refreshSavedReview(folderPath: String) {
+        savedReviewFolderPath = folderPath
         savedReviewForCurrentFolder = reviewSnapshotStore.load(folderPath: folderPath)
     }
 
@@ -614,7 +617,14 @@ public final class DeduplicateSessionStore: ObservableObject {
         securityScope = nil
     }
 
+    /// A review is open or paused; the only states a save may be written from.
+    private var isReviewable: Bool {
+        status == .readyToReview || (status == .idle && hasPausedReview)
+    }
+
     private func scheduleSave() {
+        // Undo and redo closures can fire after the review is gone (D-DDP-127).
+        guard isReviewable else { return }
         reviewHasUserChanges = true
         saveTask?.cancel()
         let delay = saveDebounceNanoseconds
@@ -631,7 +641,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     /// Best-effort and silent (D-DDP-07): a failed save is not surfaced.
     private func saveNow() {
         guard reviewHasUserChanges,
-              status == .readyToReview || (status == .idle && hasPausedReview),
+              isReviewable,
               let summary,
               let configuration = lastScanConfiguration
         else { return }
@@ -646,6 +656,11 @@ public final class DeduplicateSessionStore: ObservableObject {
             focusClusterID: reviewFocusClusterID
         )
         try? reviewSnapshotStore.save(snapshot)
+        // Publish the result so the idle card needs no view-side refresh (D-DDP-126).
+        if let tracked = savedReviewFolderPath,
+           URL(fileURLWithPath: tracked).standardizedFileURL.path == snapshot.folderPath {
+            savedReviewForCurrentFolder = reviewSnapshotStore.load(folderPath: tracked)
+        }
     }
 
     private func consume(_ event: DeduplicateEvent) {
@@ -691,7 +706,9 @@ public final class DeduplicateSessionStore: ObservableObject {
                 approvedClusterIDs = restoration.approvedClusterIDs
                 reviewFocusClusterID = restoration.focusClusterID
                 restoredReview = restoration
-                reviewHasUserChanges = true
+                // Only a restore that brought something back counts as work to save; an
+                // empty one must not let a reset or pause overwrite the saved review.
+                reviewHasUserChanges = restoration.restoredDecisionCount > 0 || !restoration.approvedClusterIDs.isEmpty
             }
         }
     }

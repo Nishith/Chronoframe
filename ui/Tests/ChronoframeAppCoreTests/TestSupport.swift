@@ -74,6 +74,8 @@ final class MockOrganizerEngine: OrganizerEngine {
     var revertRequests: [(receiptURL: URL, destinationRoot: String)] = []
     var reorganizeRequests: [(destinationRoot: String, targetStructure: FolderStructure)] = []
     var cancelCallCount = 0
+    /// Overridden by tests that exercise the network-destination gates.
+    var copyDestinationQualifier: NASCopyDestinationQualifier = .live
     var finishPendingStreamOnCancel = true
     var pendingContinuation: AsyncThrowingStream<RunEvent, Error>.Continuation?
     /// Optional hook invoked inside `preflight` before it returns. Tests use it
