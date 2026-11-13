@@ -32,7 +32,7 @@ concurrency:
 jobs:
   analyze-swift:
     name: Analyze (Swift)
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
     permissions:
       actions: read
