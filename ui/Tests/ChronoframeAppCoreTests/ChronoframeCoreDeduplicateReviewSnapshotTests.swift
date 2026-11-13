@@ -129,4 +129,48 @@ final class ChronoframeCoreDeduplicateReviewSnapshotTests: XCTestCase {
             decisions: [], approvals: [DeduplicateSavedGroupApproval(groupKey: "k", memberCount: 2)], focus: nil
         ).isEmpty)
     }
+
+    func testDecisionWithoutReviewedFlagDecodesAsReviewed() throws {
+        // A file saved before the flag existed: encode, then remove the key.
+        let current = DeduplicateSavedDecision(
+            path: "/lib/a.jpg", identity: identity("a"), decision: .keep, inReviewedGroup: false
+        )
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any]
+        )
+        XCTAssertNotNil(object.removeValue(forKey: "inReviewedGroup"))
+        let json = try JSONSerialization.data(withJSONObject: object)
+
+        let decoded = try JSONDecoder().decode(DeduplicateSavedDecision.self, from: json)
+
+        XCTAssertTrue(decoded.inReviewedGroup)
+        XCTAssertEqual(decoded, DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .keep))
+
+        let unreviewed = DeduplicateSavedDecision(
+            path: "/lib/b.jpg", identity: identity("b"), decision: .delete, inReviewedGroup: false
+        )
+        let encoded = try JSONEncoder().encode(unreviewed)
+        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("inReviewedGroup"))
+        XCTAssertEqual(try JSONDecoder().decode(DeduplicateSavedDecision.self, from: encoded), unreviewed)
+        XCTAssertEqual(DeduplicateReviewSnapshot.version, 1)
+    }
+
+    func testReviewedDecisionCountIgnoresUnreviewedGroups() {
+        let snapshot = DeduplicateReviewSnapshot(
+            folderPath: "/lib",
+            savedAt: Date(timeIntervalSince1970: 0),
+            configurationFingerprint: "f",
+            decisions: [
+                DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .keep),
+                DeduplicateSavedDecision(path: "/lib/b.jpg", identity: identity("b"), decision: .delete),
+                DeduplicateSavedDecision(path: "/lib/c.jpg", identity: identity("c"), decision: .keep, inReviewedGroup: false),
+                DeduplicateSavedDecision(path: "/lib/d.jpg", identity: identity("d"), decision: .delete, inReviewedGroup: false),
+            ],
+            approvals: [],
+            focusGroupKey: nil
+        )
+
+        XCTAssertEqual(snapshot.decisions.count, 4)
+        XCTAssertEqual(snapshot.reviewedDecisionCount, 2)
+    }
 }

@@ -57,7 +57,7 @@ enum DeduplicateReviewCopy {
     ) -> String {
         formatted(
             savedFormat,
-            countPhrase(snapshot.decisions.count, one: "1 choice", many: "%lld choices"),
+            countPhrase(snapshot.reviewedDecisionCount, one: "1 choice", many: "%lld choices"),
             countPhrase(snapshot.approvals.count, one: "1 reviewed group", many: "%lld reviewed groups"),
             dateText(snapshot.savedAt, locale: locale, timeZone: timeZone)
         )
