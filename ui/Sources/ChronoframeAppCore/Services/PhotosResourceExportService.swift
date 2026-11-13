@@ -29,9 +29,18 @@ public final class PhotosResourceExportService: PhotosResourceExporting {
                 assetID: id,
                 resourceIndex: index,
                 fileExtension: ext,
-                originalFilename: resource.originalFilename
+                originalFilename: resource.originalFilename,
+                fileSize: Self.fileSize(of: resource)
             )
         }
+    }
+
+    /// PhotoKit has no public size property on a resource. `fileSize` is a
+    /// long-standing key-value-coding key on `PHAssetResource`; it is read only
+    /// when the object responds to it, and nil (size unknown) otherwise.
+    private static func fileSize(of resource: PHAssetResource) -> Int64? {
+        guard resource.responds(to: NSSelectorFromString("fileSize")) else { return nil }
+        return (resource.value(forKey: "fileSize") as? NSNumber)?.int64Value
     }
 
     public func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
