@@ -70,7 +70,7 @@ enum RunAnnouncementPlanner {
 
         // 2. Phase changes during an active run.
         if new.phase != old.phase, let phase = new.phase, new.status == .running {
-            return Announcement(message: phase.title, priority: .medium)
+            return Announcement(message: phase.displayTitle, priority: .medium)
         }
 
         // 3. Coarse copy-progress buckets, only while copying. Lowest priority:

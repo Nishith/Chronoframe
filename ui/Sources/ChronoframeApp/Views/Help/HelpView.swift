@@ -133,7 +133,7 @@ private struct HelpShortcutsSection: View {
                 ShortcutRow(keys: "⇧⌘P",  label: "Refresh Profiles")
             }
 
-            HelpListPanel(title: "Run") {
+            HelpListPanel(title: "Organize") {
                 ShortcutRow(keys: "⌘R",   label: "Preview Plan (copies nothing)")
                 ShortcutRow(keys: "⌘↩",   label: "Start Copying (copies files for real)")
             }

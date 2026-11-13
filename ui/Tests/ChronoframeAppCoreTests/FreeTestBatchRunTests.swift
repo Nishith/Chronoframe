@@ -155,7 +155,7 @@ final class RunCompletionNotificationTextTests: XCTestCase {
         )
 
         XCTAssertEqual(text?.title, "Already up to date")
-        XCTAssertEqual(text?.body, "All source files are already in the destination.")
+        XCTAssertEqual(text?.body, "Everything in your folders is already in the destination.")
     }
 
     func testACancelledRunIsNotAnnounced() {

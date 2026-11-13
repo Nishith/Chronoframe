@@ -59,7 +59,7 @@ final class RunAnnouncementPlannerTests: XCTestCase {
                 from: snapshot(.running, .discovery, 0),
                 to: snapshot(.running, .sourceHashing, 0)
             ),
-            RunPhase.sourceHashing.title
+            RunPhase.sourceHashing.displayTitle
         )
     }
 

@@ -143,7 +143,7 @@ struct SetupSavedSetupSection: View {
                     SectionHeading(
                         eyebrow: "Saved Setup",
                         title: "Profiles",
-                        message: "Use a saved source and destination pair."
+                        message: "Use a saved pair of folders."
                     )
 
                     Spacer(minLength: 12)
@@ -172,7 +172,7 @@ struct SetupSavedSetupSection: View {
                     MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.sky) {
                         VStack(alignment: .leading, spacing: 12) {
                             SummaryLine(title: "Selected", value: profile.name)
-                            SummaryLine(title: "Source", value: profile.sourcePath)
+                            SummaryLine(title: "Folder to organize", value: profile.sourcePath)
                             SummaryLine(title: "Destination", value: profile.destinationPath)
                         }
                     }

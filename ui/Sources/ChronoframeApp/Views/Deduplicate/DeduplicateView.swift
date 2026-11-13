@@ -178,7 +178,7 @@ struct DeduplicateView: View {
                         bullets: [
                             "We group similar photos and duplicate videos.",
                             "We pick one likely keeper using sharpness, faces, file size, and resolution.",
-                            "You approve; others go to the Trash and can be restored from Run History."
+                            "You approve; others go to the Trash and can be restored from History."
                         ],
                         accessibilitySummary: "How Deduplicate works. We group similar photos and duplicate videos, suggest a keeper, and you approve.",
                         onDismiss: { didOnboardDeduplicate = true }
@@ -1035,7 +1035,7 @@ struct DeduplicateView: View {
         formatter.countStyle = .file
         var parts = [
             "Files will move to the macOS Trash.",
-            "Storage is not reclaimed until Trash is emptied, and Run History cannot restore files after that."
+            "Storage is not reclaimed until Trash is emptied, and History cannot restore files after that."
         ]
         let largeSelectionThreshold: Int64 = 10 * 1_000_000_000
         if byteCount >= largeSelectionThreshold {

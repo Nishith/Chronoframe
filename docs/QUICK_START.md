@@ -41,7 +41,7 @@ Use this when you want Chronoframe to copy messy folders into a cleaner date-bas
 ### Step 4: Copy
 
 10. Review the plan one more time
-11. Click **Start Copying** on the **Preview & Copy** screen (or choose **Start Copying** from the **Run** menu), then confirm in the **Start copying?** prompt
+11. Click **Start Copying** on the **Preview & Copy** screen (or choose **Start Copying** from the **Organize** menu), then confirm in the **Start copying?** prompt
     - Files are copied to destination, written safely, and verified
     - You'll see live progress and a summary when done
     - If another Chronoframe window, CLI run, or system action is already changing this destination, wait for it to finish and try again

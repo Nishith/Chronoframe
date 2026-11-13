@@ -516,9 +516,9 @@ struct RunWorkspaceModel {
 
     var phaseStripTooltip: String {
         let entries = phaseEntries
-        let complete = entries.filter { $0.state == .complete }.map { $0.phase.title }
-        let current = entries.filter { $0.state == .current }.map { $0.phase.title }
-        let pending = entries.filter { $0.state == .pending }.map { $0.phase.title }
+        let complete = entries.filter { $0.state == .complete }.map { $0.phase.displayTitle }
+        let current = entries.filter { $0.state == .current }.map { $0.phase.displayTitle }
+        let pending = entries.filter { $0.state == .pending }.map { $0.phase.displayTitle }
 
         func line(color: String, label: String, names: [String]) -> String {
             let joined = names.isEmpty ? "none" : names.joined(separator: ", ")
@@ -717,16 +717,16 @@ struct RunWorkspaceModel {
 
     func phaseAccessibilityLabel(for phase: RunPhase) -> String {
         guard let currentPhase = context.currentPhase else {
-            return "Phase \(phase.title): not started"
+            return "Phase \(phase.displayTitle): not started"
         }
         let currentIndex = RunPhase.allCases.firstIndex(of: currentPhase) ?? 0
         let phaseIndex = RunPhase.allCases.firstIndex(of: phase) ?? 0
         if phaseIndex < currentIndex {
-            return "Phase \(phase.title): complete"
+            return "Phase \(phase.displayTitle): complete"
         } else if phase == currentPhase {
-            return "Phase \(phase.title): in progress"
+            return "Phase \(phase.displayTitle): in progress"
         } else {
-            return "Phase \(phase.title): pending"
+            return "Phase \(phase.displayTitle): pending"
         }
     }
 

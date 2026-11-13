@@ -324,3 +324,9 @@ Your originals in \(sourceName) are opened as read-only. Original files are neve
 \u{201C}\(name)\u{201D} and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed.
 \u{201C}\(name)\u{201D} is already covered because it is inside \u{201C}\(parentName)\u{201D}.
 the folders you choose
+Files at Once
+Organize
+You approve; others go to the Trash and can be restored from History.
+Storage is not reclaimed until Trash is emptied, and History cannot restore files after that.
+Use a saved pair of folders.
+Folder to organize

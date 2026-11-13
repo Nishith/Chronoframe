@@ -657,7 +657,7 @@ final class RunSessionStoreTests: XCTestCase {
         engine.pendingContinuation?.yield(.phaseProgress(phase: .copy, completed: 30, total: 100, bytesCopied: 30_000, bytesTotal: 100_000, currentFilePath: "/tmp/source/photo30.jpg"))
         let progressSet = await waitForCondition { store.progress > 0 }
         XCTAssertTrue(progressSet)
-        XCTAssertEqual(store.currentTaskTitle, "Copying files... 30 of 100 files…")
+        XCTAssertEqual(store.currentTaskTitle, "Copying files… 30 of 100 files…")
         XCTAssertEqual(store.metrics.plannedCount, 100)
         XCTAssertEqual(store.metrics.copiedCount, 30)
         XCTAssertEqual(store.metrics.bytesCopied, 30_000)
@@ -1130,7 +1130,7 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(updated)
 
         XCTAssertEqual(store.progress, 0.42, accuracy: 0.000_1)
-        XCTAssertTrue(store.currentTaskTitle.hasPrefix("Hashing source... 42 of 100 files"))
+        XCTAssertTrue(store.currentTaskTitle.hasPrefix("Reading your originals… 42 of 100 files"))
         XCTAssertTrue(store.currentTaskTitle.contains("remaining"))
         XCTAssertNotNil(store.metrics.etaSeconds)
     }
@@ -1155,7 +1155,7 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(updated)
 
         XCTAssertEqual(store.progress, 0)
-        XCTAssertEqual(store.currentTaskTitle, "Hashing source... 42 files…")
+        XCTAssertEqual(store.currentTaskTitle, "Reading your originals… 42 files…")
         XCTAssertNil(store.metrics.etaSeconds)
     }
 
@@ -1231,6 +1231,32 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertEqual(layoutStore.currentTaskTitle, "Undoing the layout change…")
         assertAvoidsEngineVocabulary(layoutStore.currentTaskTitle)
         layoutStore.cancelCurrentRun()
+    }
+
+    /// C-16 item 3: the completion notification says "copy", not "transfer", and
+    /// calls the folders "your folders", not "source".
+    func testNotificationCopyMatchesContract() {
+        func summary(_ status: RunStatus) -> RunSummary {
+            RunSummary(
+                status: status,
+                title: "Title",
+                metrics: RunMetrics(discoveredCount: 4, plannedCount: 0, copiedCount: 2),
+                artifacts: RunArtifactPaths()
+            )
+        }
+
+        XCTAssertEqual(
+            RunSessionStore.completionNotificationText(summary: summary(.finished), usedFreeTestBatch: false)?.title,
+            "Copy complete"
+        )
+        XCTAssertEqual(
+            RunSessionStore.completionNotificationText(summary: summary(.nothingToCopy), usedFreeTestBatch: false)?.body,
+            "Everything in your folders is already in the destination."
+        )
+        XCTAssertEqual(
+            RunSessionStore.completionNotificationText(summary: summary(.failed), usedFreeTestBatch: false)?.title,
+            "Copy failed"
+        )
     }
 }
 

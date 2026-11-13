@@ -45,7 +45,7 @@ A: Scanning reads metadata, computes content hashes, and resolves dates. Large l
 **Q: Can I speed things up?**
 
 A: Yes—
-- Open **Settings → Performance** and raise **Worker Threads**, or turn on **Parallel Copies** (the **Standard** preset turns them on and sets 8 workers)
+- Open **Settings → Performance** and raise **Files at Once**, or turn on **Parallel Copies** (the **Standard** preset turns them on and sets 8 workers)
 - Pre-filter your folders into smaller batches
 - Keep your library on a local SSD rather than a network drive
 

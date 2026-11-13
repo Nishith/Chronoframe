@@ -56,7 +56,7 @@ Choosing a different folder leaves the current archive unchanged and explains wh
 - Check the **Activity** tab under **Details** on the **Preview & Copy** screen to see progress.
 - If it's frozen (no progress for several minutes), force-quit and try again.
 - **To speed up future previews:**
-  - Open **Settings → Performance** and raise **Worker Threads** (the presets only switch parallel copying and reset workers to 8, so they don't speed up a preview)
+  - Open **Settings → Performance** and raise **Files at Once** (the presets only switch parallel copying and reset workers to 8, so they don't speed up a preview)
   - Split your folders into smaller batches
   - Keep your library on a local SSD rather than a network drive
 
@@ -334,7 +334,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 
 ### Hashing is slow
 
-**Problem:** The **Now** line on the **Preview & Copy** screen stays on "Hashing source...".
+**Problem:** The **Now** line on the **Preview & Copy** screen stays on "Reading your originals…".
 
 **Solution:**
 - BLAKE2b hashing can be slow on large files (videos, RAW photos)
@@ -381,7 +381,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 
 **Message:** "“*name*” and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed."
 
-**Problem:** A folder you are organizing and the destination are the same folder, or one sits inside the other. Chronoframe checks this when you add the folder (once a destination is chosen) and when you choose the destination, for every folder in the list. The engine checks again before a preview or a copy; if it finds an overlap then, it stops with "The source folder is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a source outside the destination. No files were changed." or "The destination folder is inside the source folder, so copies would land back inside the folder being organized. Choose a destination outside the source. No files were changed."
+**Problem:** A folder you are organizing and the destination are the same folder, or one sits inside the other. Chronoframe checks this when you add the folder (once a destination is chosen) and when you choose the destination, for every folder in the list. The engine checks again before a preview or a copy; if it finds an overlap then, it stops with "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed." or "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed."
 
 **Solution:**
 - Choose a destination folder that is not inside any folder you are organizing, and that does not contain one

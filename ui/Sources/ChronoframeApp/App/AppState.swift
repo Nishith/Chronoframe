@@ -1461,7 +1461,7 @@ final class MenuBarStatusManager: NSObject {
             item.isEnabled = false
             menu.addItem(item)
 
-            let phaseTitle = appState.runSessionStore.currentPhase?.title ?? "Processing"
+            let phaseTitle = appState.runSessionStore.currentPhase?.displayTitle ?? "Processing"
             let detailItem = NSMenuItem(title: "Phase: \(phaseTitle)", action: nil, keyEquivalent: "")
             detailItem.isEnabled = false
             menu.addItem(detailItem)

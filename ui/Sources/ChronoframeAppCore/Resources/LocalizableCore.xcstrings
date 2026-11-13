@@ -2704,6 +2704,196 @@
           }
         }
       }
+    },
+    "Find Files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find Files"
+          }
+        }
+      }
+    },
+    "Read Originals": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read Originals"
+          }
+        }
+      }
+    },
+    "Check Destination": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check Destination"
+          }
+        }
+      }
+    },
+    "Sort by Date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort by Date"
+          }
+        }
+      }
+    },
+    "Reorganize": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorganize"
+          }
+        }
+      }
+    },
+    "Finding files…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding files…"
+          }
+        }
+      }
+    },
+    "Reading your originals…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading your originals…"
+          }
+        }
+      }
+    },
+    "Checking the destination…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking the destination…"
+          }
+        }
+      }
+    },
+    "Sorting by date…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sorting by date…"
+          }
+        }
+      }
+    },
+    "Copying files…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copying files…"
+          }
+        }
+      }
+    },
+    "Reorganizing files…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorganizing files…"
+          }
+        }
+      }
+    },
+    "Chronoframe could not finish. Originals were left untouched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not finish. Originals were left untouched."
+          }
+        }
+      }
+    },
+    "Copy complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy complete"
+          }
+        }
+      }
+    },
+    "Everything in your folders is already in the destination.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everything in your folders is already in the destination."
+          }
+        }
+      }
+    },
+    "Copy failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy failed"
+          }
+        }
+      }
+    },
+    "A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: %@."
+          }
+        }
+      }
+    },
+    "Choose a destination folder before you start.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a destination folder before you start."
+          }
+        }
+      }
+    },
+    "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed."
+          }
+        }
+      }
+    },
+    "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed."
+          }
+        }
+      }
     }
   }
 }

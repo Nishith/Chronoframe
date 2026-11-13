@@ -28,7 +28,7 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Tried:** looked for an App-only mitigation inside WP-10's paths; any one decides which groups are accepted, which D-CLP-16 forbids.
 - **Options:** 1) make `acceptAllSuggestions` skip clusters in `approvedClusterIDs`, with a tagged test (store edit, owner approval needed); 2) reword the lane sentence to say reviewed safe groups are reset too; 3) leave as is.
 - **Recommendation:** option 1; it is a small store change and makes the button do what the sentence says.
-- **Status:** open
+- **Status:** resolved (owner chose option 1, 2026-11-12; WP-15, commit 1e4928d, D-CLP-123)
 
 ### B-2 — Quick Review sheet filter and the check lane can disagree
 - **WP:** WP-10 (found; not blocking)
@@ -37,7 +37,7 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Tried:** nothing; changing the sheet filter is logic outside C-11.
 - **Options:** 1) filter the sheet with `!isAutomaticCommitEligible`; 2) leave as is.
 - **Recommendation:** option 1 in the same follow-up as B-1.
-- **Status:** open
+- **Status:** resolved (owner chose option 1, 2026-11-12; WP-15, commit 1e4928d, D-CLP-123). No unit test covers the sheet filter: it is an inline closure in the view.
 
 ### B-3 — Engine words that still reach the screen (follow-up card, needs new UI logic or wider scope)
 - **WP:** WP-11b (found; not blocking)
@@ -46,7 +46,7 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Tried:** WP-11b changed every display literal it could without logic or CLI changes.
 - **Options:** 1) a follow-up card: UI-side display mapping for `RunPhase` (App target), plus literal edits for (b)–(d) with their pinned tests; owner picks wording for (e); 2) leave as is.
 - **Recommendation:** option 1 before H-CLP-6, so the validation session does not trip on these words.
-- **Status:** open
+- **Status:** resolved for (a), (b), (d), (e), (f) (owner chose "fix before H-CLP-6", 2026-11-12; WP-16, D-CLP-124). The new wording is a proposal until the owner reads it on screen. Left: (c), "Refresh Profiles", "then run the free test batch", and "Run History" in engine-side messages (`UserFacingErrorMessage.swift:30`, `SwiftOrganizerEngine.swift:628, :641`, `DeduplicateExecutor.swift:295`).
 
 ### B-4 — The local UI-test lane cannot enable automation mode
 - **WP:** WP-13 step 4

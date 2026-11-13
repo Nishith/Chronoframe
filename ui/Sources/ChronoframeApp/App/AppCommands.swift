@@ -52,7 +52,7 @@ struct AppCommands: Commands {
             .keyboardShortcut("p", modifiers: [.command, .shift])
         }
 
-        CommandMenu("Run") {
+        CommandMenu("Organize") {
             // Preview/Transfer act on the Organize flow only. Gate them to the
             // Organize section so their shortcuts (⌘R, ⌘↩) don't shadow the
             // primary buttons on the Deduplicate screen — ⌘↩ in particular is

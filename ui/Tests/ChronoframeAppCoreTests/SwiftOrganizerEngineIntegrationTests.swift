@@ -1756,7 +1756,7 @@ extension SwiftOrganizerEngineIntegrationTests {
 
         XCTAssertTrue(sourceText.contains("inside the destination folder"))
         XCTAssertTrue(sourceText.contains("No files were changed."))
-        XCTAssertTrue(destinationText.contains("inside the source folder"))
+        XCTAssertTrue(destinationText.contains("inside a folder you chose to organize"))
         XCTAssertTrue(destinationText.contains("No files were changed."))
     }
 }

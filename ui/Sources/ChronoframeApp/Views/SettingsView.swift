@@ -251,7 +251,7 @@ private struct PerformanceSettingsTab: View {
                             .monospacedDigit()
                             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     } label: {
-                        Text("Worker Threads")
+                        Text("Files at Once")
                             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     }
                 }
