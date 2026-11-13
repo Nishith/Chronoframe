@@ -108,6 +108,11 @@ public struct PhotosImportCheckpoint: Equatable, Codable, Sendable {
         updatedAt = date
     }
 
+    /// Forgets recorded failures so those assets count as remaining again.
+    public mutating func clearFailures() {
+        failures.removeAll()
+    }
+
     public mutating func setState(_ state: PhotosImportCheckpointState, at date: Date) {
         self.state = state
         updatedAt = date

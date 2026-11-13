@@ -292,8 +292,12 @@ public final class PhotosImportStore: ObservableObject {
             statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
             return nil
         }
+        // Earlier failures are tried again: a cloud hiccup or a full disk is
+        // usually gone by the time the user resumes.
+        var checkpoint = resumable.checkpoint
+        checkpoint.clearFailures()
         return await runExport(
-            checkpoint: resumable.checkpoint,
+            checkpoint: checkpoint,
             stagingDirectory: resumable.stagingDirectoryURL,
             destination: destination
         )

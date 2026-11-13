@@ -930,6 +930,32 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertFalse(exists(traversal.path))
     }
 
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testResumeRetriesAssetsThatFailedBefore() async throws {
+        let staging = makeTempParent()
+        let exporter = ScriptedExporter()
+        exporter.failingWrites = ["b"]
+        let store = makeStore(ids: ["a", "b", "c"], exporter: exporter, staging: staging)
+        exporter.beforeWrite = { id in
+            if id == "c" { await MainActor.run { store.cancelPreparation() } }
+        }
+        _ = await store.prepareImport(destination: destinationA)
+        let dir = onlyImportDirectory(in: staging)
+        XCTAssertEqual(try XCTUnwrap(fileStore.load(in: dir)).failures.map(\.assetID), ["b"])
+        exporter.beforeWrite = nil
+        exporter.failingWrites = []
+        exporter.resetRecording()
+
+        let contextRaw = await store.resumeImport(destination: destinationA)
+
+        let context = try XCTUnwrap(contextRaw)
+
+        XCTAssertEqual(exporter.writes, ["b", "c"], "The earlier failure is tried again, then the unfinished asset")
+        XCTAssertEqual(context.assetIDs, ["a", "b", "c"])
+        XCTAssertTrue(try XCTUnwrap(fileStore.load(in: dir)).failures.isEmpty)
+    }
+
 }
 
 private final class LockedValues: @unchecked Sendable {
