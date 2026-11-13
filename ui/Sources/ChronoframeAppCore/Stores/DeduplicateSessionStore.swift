@@ -691,7 +691,9 @@ public final class DeduplicateSessionStore: ObservableObject {
                 approvedClusterIDs = restoration.approvedClusterIDs
                 reviewFocusClusterID = restoration.focusClusterID
                 restoredReview = restoration
-                reviewHasUserChanges = true
+                // Only a restore that brought something back counts as work to save; an
+                // empty one must not let a reset or pause overwrite the saved review.
+                reviewHasUserChanges = restoration.restoredDecisionCount > 0 || !restoration.approvedClusterIDs.isEmpty
             }
         }
     }

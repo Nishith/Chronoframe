@@ -441,6 +441,40 @@ final class DeduplicateReviewPersistenceTests: XCTestCase {
         XCTAssertTrue(store.reviewedDeletionPlan().items.isEmpty)
     }
 
+    @MainActor
+    func testNothingRestoredLeavesSavedReviewUntouchedOnReset() async throws {
+        // Both files changed since the save, so the rescan restores nothing. The saved
+        // approvals must survive a reset that follows without any user action (D-DDP-107).
+        let original = MockDeduplicateEngine(clusters: [cluster])
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let saved = savedReview(
+            decisions: [file1.path: .keep, file2.path: .keep],
+            approved: true,
+            scanSnapshot: original.summary.scanSnapshot
+        )
+        snapshotStore.preload(saved)
+        var changedSummary = DeduplicateSummary()
+        changedSummary.scanSnapshot = testScanSnapshot(
+            for: [cluster],
+            additionalIdentities: [
+                file1.path: FileIdentity(size: 100, digest: "edited-1"),
+                file2.path: FileIdentity(size: 100, digest: "edited-2"),
+            ]
+        )
+        let engine = MockDeduplicateEngine(clusters: [cluster], summary: changedSummary)
+        let store = makeStore(engine: engine, snapshotStore: snapshotStore, debounce: longDebounce)
+
+        await scanToReview(store)
+        let restoration = try XCTUnwrap(store.restoredReview)
+        XCTAssertEqual(restoration.restoredDecisionCount, 0)
+        XCTAssertTrue(restoration.approvedClusterIDs.isEmpty)
+
+        store.reset()
+
+        XCTAssertEqual(snapshotStore.saves.count, 0, "Untouched suggestions must not overwrite the saved review.")
+        XCTAssertEqual(snapshotStore.load(folderPath: "/dest"), saved)
+    }
+
     // AGENTS-INVARIANT: 17
     @MainActor
     func testRestoredApprovalStillRequiresPrepareAndCommit() async throws {
