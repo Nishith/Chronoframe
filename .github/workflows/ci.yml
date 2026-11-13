@@ -144,6 +144,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run SwiftPM tests
         run: |
@@ -182,6 +183,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run meaningful coverage gate
         run: |
@@ -222,6 +224,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Build Chronoframe app
         run: |
@@ -257,6 +260,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       # Compiles the branches only the Mac App Store binary ever takes.
       # `MAS_BUILD` is otherwise defined solely by ui/archive-mas.sh, so before
@@ -305,6 +309,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run Chronoframe UI tests
         run: |
@@ -341,6 +346,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run Chronoframe accessibility audit
         run: |
@@ -377,6 +383,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Build release archive
         run: |

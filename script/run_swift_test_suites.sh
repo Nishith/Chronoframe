@@ -37,11 +37,12 @@ if [[ -n "$COVERAGE_FLAG" ]]; then
     find ui/.build -type f -ipath '*/debug/codecov/*.profraw' -delete 2>/dev/null || true
 fi
 
-# Swift 6.0.3, which GitHub's retired macos-14-arm64 image selected, has an
-# XCTest process that can stop advancing after several seconds in Chronoframe's full suite even though
-# every test reached so far has passed. Small five-suite processes avoid that
-# runtime bug without paying one SwiftPM startup per XCTestCase; discovery,
-# execution, and (when requested) aggregate profraw coverage remain complete.
+# Swift 6.0.3, which GitHub's macos-14-arm64 image selected, has an XCTest
+# process that can stop advancing after several seconds in Chronoframe's full
+# suite even though every test reached so far has passed. Small five-suite
+# processes avoid that runtime bug without paying one SwiftPM startup per
+# XCTestCase; discovery, execution, and (when requested) aggregate profraw
+# coverage remain complete.
 SKIP_BUILD_FLAG=""
 SHARD_INDEX=0
 MAX_SUITES_PER_SHARD=5
