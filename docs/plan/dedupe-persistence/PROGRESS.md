@@ -3,17 +3,27 @@
 Prefix `DDP`. Status values: todo, in-progress, review, done, blocked.
 
 ## Baseline
-(WP-00)
+- 2026-11-11 branch `feature/dedupe-persistence` from `feature/nas-v1` @ 4079fb1 (D-DDP-01 revised).
+- `docs/plan/next-half/bin/cf_swift.sh build` → exit 0
+- `docs/plan/next-half/bin/cf_swift.sh suite` → exit 0
 
 ## Work packages
 | WP | Title | Status | Compiled | Tested | Reviewer | Commit | Notes |
 |---|---|---|---|---|---|---|---|
-| WP-00 | Branch and baseline | todo | | | n/a | | |
-| WP-01 | Core model, keys, fingerprint, restorer | todo | | | | | INV-29/17/12 tags |
-| WP-02 | Snapshot store and session-store integration | todo | | | | | |
-| G1 | INV-29, coverage scope | todo | | | n/a | | |
-| WP-03 | UI and termination flush | todo | | | | | |
-| WP-04 | Docs and string list | todo | | | | | |
-| G2 | Final gate | todo | | | n/a | | |
+| WP-00 | Branch and baseline | done | 0 | suite 0 | n/a | | |
+| WP-01 | Core model, keys, fingerprint, restorer | done | 0 | 6+14 pass | approve (round 1) + orchestrator fix D-DDP-101 | | INV-29/17/12 tags |
+| WP-02 | Snapshot store and session-store integration | done | 0 | 4+15+29 pass | approve (round 1) | | |
+| G1 | INV-29, coverage scope | done | 0 | suite 0, coverage 96.00% | n/a | | |
+| WP-03 | UI and termination flush | done | 0 | 5+2+34+30 pass | approve (round 1) | | |
+| WP-04 | Docs and string list | done | n/a | n/a (docs) | approve (round 1), accuracy nits applied | | |
+| G2 | Final gate | done (app smoke not run) | xcode 0 | suite 0, coverage 96.00% | n/a | | verified: no |
 
 ## Log
+- 2026-11-11 WP-00: build 0, suite 0.
+- 2026-11-11 WP-01: implementer compiled + tested (failing-first: `cannot find 'DeduplicateReviewKeys' in scope`). Reviewer approve round 1 (nits: memberCount redundant with key; duplicate identity multisets). Orchestrator read of the restorer found content-only identity lets a renamed member restore an approval with a never-made choice → D-DDP-101 fix by the same implementer (failing-first: 8 failures in 14 tests, e.g. `choices the user never made must not be approved`). Done-when: `cf_swift.sh test ChronoframeCoreDeduplicateReviewSnapshotTests` 0 (6); `… ChronoframeCoreDeduplicateReviewRestorerTests` 0 (14); `cf_swift.sh build` 0; `git diff --check` 0. Runtime decisions D-DDP-101…106.
+- 2026-11-11 WP-02: implementer compiled + tested (failing-first: `cannot find 'DeduplicateReviewFileSnapshotStore' in scope`; `no member 'restoredReview'`). Orchestrator follow-ups D-DDP-107/108 from implementer observations (failing-first: `Untouched suggestions are not a review worth saving`, `A change inside the debounce window must survive a rescan`). Reviewer approve round 1 (nits: leaked XCTest temp dirs; wall-clock debounce tests; no pending-debounce-plus-commit regression test). Orchestrator safety read of `DeduplicateSessionStore.swift` diff (+~110/−1): every hunk traces to C-04 items 1–8 or D-DDP-107/108; restore assigns only decisions, approvals, focus and `restoredReview`; `preparedCommitPlan`, planner and executor untouched. Done-when: `cf_swift.sh test DeduplicateReviewSnapshotStoreTests` 0 (4); `… DeduplicateReviewPersistenceTests` 0 (15); `… DeduplicateSessionStoreTests` 0 (29); `cf_swift.sh build` 0; `script/check_no_await_in_xctassert.sh` 0; `git diff --check` 0. Runtime decisions D-DDP-107…111.
+- 2026-11-11 G1: INV-29 appended after INV-28 in `AGENTS.md` (C-07 text) plus one Deduplicate Workspace sentence; `DeduplicateReviewSnapshot`, `DeduplicateReviewRestorer` added to MEANINGFUL_BASENAMES. `script/check_agents_invariants_have_tests.sh` 0 (29 invariants tagged); `cf_swift.sh suite` 0; `cf_swift.sh coverage` 0 (meaningful 96.00%; snapshot 98.6% 69/70, restorer 100% 91/91); `git diff --check` 0.
+- 2026-11-12 WP-03: implementer compiled + tested (failing-first: `cannot find 'DeduplicateReviewCopy' in scope`; `AppStateTests.swift:905: ("0") is not equal to ("1")` before the observer). Orchestrator follow-up D-DDP-112 singular wording (failing-first: 8 failures in the two new singular tests). Reviewer approve round 1 (nits: views tests assert identifiers and closures without rendering or clicking; banner dismissal is view-local state; no observer removal in deinit). Orchestrator read of `AppState.swift` diff: one stored token and one observer block, nothing else. Done-when: `cf_swift.sh test DeduplicateReviewCopyTests` 0 (5); `… DeduplicateReviewViewsTests` 0 (2); `… AppStateTests` 0 (34); `… DeduplicateStatusViewTests` 0 (30); `script/check_no_raw_animations.sh` 0; `script/check_no_await_in_xctassert.sh` 0; `cf_swift.sh build` 0; `git diff --check` 0. Runtime decisions D-DDP-112…116.
+- 2026-11-12 WP-04: docs written in parallel with G1 (no build). Reviewer approve round 1 with seven accuracy nits (still-in-group condition, no suggestion for vanished files, cancel-during-scan, counts include untouched suggestions, any scan restores, card visibility, TECHNICAL placement) — all applied by the same implementer. `strings-app.txt` rewritten by the orchestrator to the 18 final keys (reviewer confirmed exact match with the Swift literals, none pre-existing, no symbol collisions). `git diff --check` 0.
+- 2026-11-12 G2: `python3 docs/plan/next-half/bin/add_xcstrings_keys.py ui/Sources/ChronoframeApp/Resources/Localizable.xcstrings docs/plan/dedupe-persistence/strings-app.txt` 0 (added 18); the script rewrote the whole catalog in a different JSON style (5,412 changed lines), so the orchestrator re-serialized it in the existing `"key" : value` style and key order — final diff +198/−0 (D-DDP-117); JSON load 0. `cf_swift.sh build` 0; `cf_swift.sh suite` 0; `cf_swift.sh coverage` 0 (meaningful 96.00%, 19740/20562); `cf_swift.sh guards feature/nas-v1` 0 (14/14 guards 0); `cf_swift.sh xcode` 0 (BUILD SUCCEEDED); `git diff --check` 0. `ui/build.sh` 0. App smoke (step 3) not run: the owner declined the computer-use access prompt for Chronoframe, so no screenshots exist and nothing is verified in the running app (D-DDP-118). Fixture left at `.tmp/ddp-smoke/` (gitignored).
+- 2026-11-12 WP-05 (added, D-DDP-119, owner decision "fix before merge"): counts cover reviewed groups only. Implementer compiled + tested (failing-first: `value of type 'DeduplicateSavedDecision' has no member 'inReviewedGroup'`). One existing expectation changed: `testCaptureThenRestoreIsIdentityOnUnchangedScan` restoredDecisionCount 4 → 2 (one of two groups reviewed). Orchestrator read of the restorer diff: two guarded counter increments and the capture flag only; apply/drop/approval logic untouched. No reviewer subagent. `cf_swift.sh test` Snapshot 0 (8), Restorer 0 (17), Copy 0 (6), Persistence 0 (15); `cf_swift.sh suite` 0; `coverage` 0 (meaningful 96.00%, 19766/20589); `guards feature/nas-v1` 0 (14/14); `xcode` 0; `git diff --check` 0. Not verified in the running app.

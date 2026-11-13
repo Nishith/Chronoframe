@@ -134,6 +134,8 @@ MEANINGFUL_BASENAMES=(
     NASAssessmentScanner
     NASRemoteCopyPolicy
     NASDeduplicateFolderRefusal
+    DeduplicateReviewSnapshot
+    DeduplicateReviewRestorer
     NASCopyDestinationQualifier
     NASCopyDestinationRefusal
 )

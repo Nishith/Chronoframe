@@ -139,6 +139,73 @@ RAW+JPEG pairs, Live Photo pairs, and owned metadata sidecars are validated as a
 unit. If one member changes or a journal update fails, Chronoframe restores the
 unit where it safely can and stops before touching more files.
 
+### Saved Deduplicate reviews
+
+Reviewing a large library can take longer than one sitting, so Chronoframe
+remembers your review of a folder. This is review state only: your Keep and
+Delete choices, which groups you marked as reviewed, and where you were in the
+list. It is not permission to move anything to the Trash.
+
+**Where it lives.** One small file per folder, at
+`Application Support/Chronoframe/dedupe_reviews/<key>.json`, where `<key>` is
+an encoded form of the folder's path. It is stored on this Mac, outside the
+folder you are deduplicating, so Chronoframe writes nothing extra into your
+photo folder. The file holds file paths, content fingerprints, and your
+choices; it holds no photo data.
+
+**What is saved.** Once you change anything, the save records the current
+choice for every file in a group, including suggestions you left as they were,
+so the counts on the card and banner include those. It also records which
+groups you marked as reviewed and where you were in the list.
+
+**When it is saved.** Shortly after you change a choice or mark a group
+reviewed, and again when you pause, cancel, reset, scan again, or quit. A review
+you have not touched is not saved, so opening a scan and leaving never creates
+a saved review. Cancelling while a scan is still running saves nothing, because
+there is no review yet. A normal quit writes any pending changes; a crash or
+force-quit can lose the last half second of changes. Saving is best-effort: if
+it fails (for example, the disk is full), Chronoframe doesn't interrupt your
+review, and the next launch simply finds an older save.
+
+**What comes back.** Saved reviews are applied when you scan the same folder
+again; nothing is applied until that scan finishes.
+
+- A Keep or Delete choice returns only when that file is at the same path, its
+  content is unchanged since you chose, and it is still part of a duplicate
+  group in the new scan.
+- A group returns as reviewed only when every file in it is unchanged and had
+  its own choice restored.
+- Your place in the list returns when that group still exists.
+- Choices come back even if you changed Deduplicate settings in between;
+  Chronoframe tells you the settings changed because the groups may differ.
+
+**What is dropped.** A file that was edited, replaced, moved, renamed, or
+deleted loses its saved choice, and any group it belonged to comes back
+unreviewed. A dropped file that still sits in a group gets the scan's own
+suggestion; a file that was deleted or is no longer a duplicate simply has
+nothing to restore. Chronoframe says so in the banner "Your earlier review was
+restored.", which reports how many groups changed and need another look and how
+many files had their choices cleared; that count includes files that left their
+group. After a restore, the
+next save replaces the file with what you see now, so cleared choices are not
+kept on disk. A saved file that is missing, damaged, or written by a different
+version of Chronoframe is ignored.
+
+**Moving to Trash is unchanged.** Restoring a review never builds a plan, never
+approves a commit, and never skips the reviewed-plan confirmation. You still
+review, prepare the commit, and confirm, and the commit re-checks every file's
+expected content before anything moves to the Trash, exactly as described
+above. A restored choice is only a starting point.
+
+**When it is removed.** After a Deduplicate commit finishes for that folder,
+its saved review is removed. Reverting a commit does not remove it, and
+choosing a different folder leaves each folder's save alone. To discard one
+yourself, open the Deduplicate start screen for that folder and choose
+**Discard Saved Review** on the "Pick up where you left off" card. The card
+appears when no paused review is open in the current session, and it also offers
+**Scan and Restore Review**. Discarding deletes only Chronoframe's saved review file; your photos
+are not touched.
+
 ## Library Guardian: Scrub, Mirror, Restore
 
 Library Guardian protects an already-organized library from silent bit rot. It
@@ -246,6 +313,10 @@ shows interrupted work. Removing them can discard resume, recovery, history, or
 revert information. Completed-run artifacts may be removed if you intentionally
 accept losing those capabilities; Chronoframe will rebuild performance caches as
 needed.
+
+Saved Deduplicate reviews are not stored in the destination. They live under
+Application Support (see Saved Deduplicate reviews above), and removing one
+only discards your saved choices.
 
 ## Reporting A Safety Problem
 

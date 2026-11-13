@@ -1,0 +1,18 @@
+Your earlier review was restored.
+Deduplicate settings changed since that review; groups may differ.
+Pick up where you left off
+Scan and Restore Review
+Discard Saved Review
+Dismiss
+%@ across %@ from %@.
+%@ and %@ saved %@. Scanning again restores them for files that haven't changed. Nothing is moved to the Trash until you review and confirm.
+1 choice
+%lld choices
+1 group
+%lld groups
+1 reviewed group
+%lld reviewed groups
+1 group changed since then and needs another look.
+%lld groups changed since then and need another look.
+1 file changed, so its choice was cleared.
+%lld files changed, so their choices were cleared.
