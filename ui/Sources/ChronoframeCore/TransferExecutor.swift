@@ -1085,13 +1085,17 @@ public struct TransferExecutor: Sendable {
                 return sourceSize
             }
 
-            warnedLowSpace = true
-            let mbFree = freeBytes / (1024 * 1024)
-            let mbNeeded = (sourceSize + Self.safetyBufferBytes + inFlightReservations.heldBytes) / (1024 * 1024)
-            onIssue(RunIssue(
-                severity: .warning,
-                message: "Paused: Insufficient disk space on destination (\(mbFree) MB free, \(mbNeeded) MB needed). Free up space to resume automatically."
-            ))
+            // When free space alone would be enough, only other copies' claims
+            // are in the way and they release on their own: wait quietly.
+            if freeBytes < sourceSize + Self.safetyBufferBytes {
+                warnedLowSpace = true
+                let mbFree = freeBytes / (1024 * 1024)
+                let mbNeeded = (sourceSize + Self.safetyBufferBytes + inFlightReservations.heldBytes) / (1024 * 1024)
+                onIssue(RunIssue(
+                    severity: .warning,
+                    message: "Paused: Insufficient disk space on destination (\(mbFree) MB free, \(mbNeeded) MB needed). Free up space to resume automatically."
+                ))
+            }
 
             Thread.sleep(forTimeInterval: 2.0)
         }

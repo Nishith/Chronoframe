@@ -1178,9 +1178,39 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
     /// passed. Resuming run." followed by "No space left on device").
     ///
     /// The fake volume has room for either file plus the safety buffer, but
-    /// not both. The first copy is held open until the second worker has asked
-    /// for free space, so the two checks always overlap.
-    func testParallelWorkersDoNotPassTheSpaceCheckOnTheSameFreeBytes() throws {
+    /// not both at once, and reports the same free bytes throughout. The first
+    /// copy is held open until the second worker has proved it was turned away
+    /// (it checks free space again after its poll), so only the reservation
+    /// can keep the copies from overlapping.
+    func testReservationKeepsParallelCopiesFromOverlappingOnTheSameFreeBytes() throws {
+        let run = try runTwoParallelCopiesOnRoomForOne()
+
+        XCTAssertEqual(run.copiedCount, 2, "Both files copy once there is room for each in turn")
+        XCTAssertEqual(run.maxCopiesInFlight, 1, "The second copy must wait for the first one's reserved bytes")
+        XCTAssertGreaterThanOrEqual(run.freeSpaceChecks, 3, "The turned-away worker checks free space again after its poll")
+    }
+
+    /// A worker waiting only on other workers' reservations is not stuck on
+    /// anything the user can fix, so it must not tell them to free up space.
+    func testWaitingOnlyOnOtherCopiesReservationsDoesNotWarnAboutLowSpace() throws {
+        let run = try runTwoParallelCopiesOnRoomForOne()
+
+        XCTAssertEqual(run.copiedCount, 2)
+        XCTAssertEqual(
+            run.issueMessages.filter { $0.contains("Insufficient disk space") || $0.contains("Disk space check passed") },
+            [],
+            "Free space alone was enough, so there is nothing to free up and nothing to resume"
+        )
+    }
+
+    private struct ParallelCopyRun {
+        var copiedCount: Int
+        var maxCopiesInFlight: Int
+        var freeSpaceChecks: Int
+        var issueMessages: [String]
+    }
+
+    private func runTwoParallelCopiesOnRoomForOne() throws -> ParallelCopyRun {
         let env = try makeEnvironment(jobCount: 2)
         defer { env.logger.close() }
 
@@ -1190,13 +1220,12 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         }
         let largest = try XCTUnwrap(sizes.max())
         let total = sizes.reduce(0, +)
-        let volume = FakeVolume(initialFree: TransferExecutor.safetyBufferBytes + total - 1)
-        XCTAssertGreaterThanOrEqual(volume.initialFree, TransferExecutor.safetyBufferBytes + largest)
+        let freeBytes = TransferExecutor.safetyBufferBytes + total - 1
+        XCTAssertGreaterThanOrEqual(freeBytes, TransferExecutor.safetyBufferBytes + largest, "Room for either file alone")
+        let volume = OverlapProbeVolume(freeBytes: freeBytes)
+        let issues = IssueLog()
 
-        let observer = TransferExecutionObserver(onIssue: { issue in
-            if issue.message.contains("Paused: Insufficient disk space") { volume.notePause() }
-            if issue.message.contains("Disk space check passed") { volume.noteResume() }
-        })
+        let observer = TransferExecutionObserver(onIssue: { issue in issues.append(issue.message) })
 
         let strategy = TransferFileCopyStrategy(
             clone: { _, _ in
@@ -1204,11 +1233,10 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
                 return -1
             },
             copyAll: { sourcePath, destinationPath in
-                volume.holdFirstCopyUntilSecondCheck()
+                volume.copyBegan()
+                defer { volume.copyEnded() }
                 do {
                     try FileManager.default.copyItem(atPath: sourcePath, toPath: destinationPath)
-                    let attributes = try FileManager.default.attributesOfItem(atPath: sourcePath)
-                    volume.noteWritten((attributes[.size] as? NSNumber)?.int64Value ?? 0)
                     return 0
                 } catch {
                     errno = EIO
@@ -1219,11 +1247,12 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         )
 
         var executor = TransferExecutor(fileCopyStrategy: strategy)
-        executor.freeDiskSpaceProvider = { _ in volume.freeBytes() }
+        executor.freeDiskSpaceProvider = { _ in volume.reportFreeBytes() }
         executor.isLowPowerModeEnabledProvider = { false }
         executor.thermalStateProvider = { .nominal }
 
-        let deadline = Date().addingTimeInterval(30)
+        // The deadline is only a backstop so a regression fails instead of hanging.
+        let deadline = Date().addingTimeInterval(60)
         let result = try executor.executeQueuedJobs(
             database: env.database,
             destinationRoot: env.destinationRoot,
@@ -1236,65 +1265,68 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             runID: UUID()
         )
 
-        XCTAssertTrue(volume.sawPause, "The second worker must wait while the first copy holds the only free room")
-        XCTAssertTrue(volume.sawResume, "The waiting worker must resume once space is freed")
-        XCTAssertEqual(result.copiedCount, 2, "Both files copy once there is room for each in turn")
         XCTAssertEqual(temporaryFilesUnder(env.destinationRoot), [], "No orphaned .tmp files")
+        return ParallelCopyRun(
+            copiedCount: result.copiedCount,
+            maxCopiesInFlight: volume.maxCopiesInFlight,
+            freeSpaceChecks: volume.checks,
+            issueMessages: issues.messages
+        )
     }
 
-    /// Free space as a real volume reports it: it drops when a copy finishes
-    /// writing, and grows once after a pause (the user freeing space).
-    private final class FakeVolume: @unchecked Sendable {
-        let initialFree: Int64
+    /// A volume with a fixed amount of free space that records how many copies
+    /// run at once. The first copy to start is held open until either another
+    /// copy overlaps it (what a missing reservation allows) or free space has
+    /// been checked three times: the first copy's check, the second worker's
+    /// check that was turned away, and that worker's re-check after its poll.
+    private final class OverlapProbeVolume: @unchecked Sendable {
+        private let free: Int64
         private let condition = NSCondition()
-        private var written: Int64 = 0
-        private var freed: Int64 = 0
-        private var checks = 0
-        private var firstCopyClaimed = false
-        private var paused = false
-        private var resumed = false
+        private var checkCount = 0
+        private var inFlight = 0
+        private var maxInFlight = 0
+        private var holdTaken = false
 
-        init(initialFree: Int64) { self.initialFree = initialFree }
+        init(freeBytes: Int64) { free = freeBytes }
 
-        var sawPause: Bool { condition.lock(); defer { condition.unlock() }; return paused }
-        var sawResume: Bool { condition.lock(); defer { condition.unlock() }; return resumed }
+        var checks: Int { condition.lock(); defer { condition.unlock() }; return checkCount }
+        var maxCopiesInFlight: Int { condition.lock(); defer { condition.unlock() }; return maxInFlight }
 
-        func freeBytes() -> Int64 {
+        func reportFreeBytes() -> Int64 {
             condition.lock()
             defer { condition.unlock() }
-            checks += 1
+            checkCount += 1
             condition.broadcast()
-            return initialFree - written + freed
+            return free
         }
 
-        func holdFirstCopyUntilSecondCheck() {
+        func copyBegan() {
             condition.lock()
             defer { condition.unlock() }
-            guard !firstCopyClaimed else { return }
-            firstCopyClaimed = true
-            let limit = Date().addingTimeInterval(5)
-            while checks < 2, condition.wait(until: limit) {}
+            inFlight += 1
+            maxInFlight = max(maxInFlight, inFlight)
+            condition.broadcast()
+            guard !holdTaken else { return }
+            holdTaken = true
+            // The timeout is only a backstop against hanging on a regression.
+            let backstop = Date().addingTimeInterval(60)
+            while checkCount < 3, inFlight < 2, condition.wait(until: backstop) {}
         }
 
-        func noteWritten(_ bytes: Int64) {
+        func copyEnded() {
             condition.lock()
             defer { condition.unlock() }
-            written += bytes
-            if paused { freed = written }
+            inFlight -= 1
+            condition.broadcast()
         }
+    }
 
-        func notePause() {
-            condition.lock()
-            defer { condition.unlock() }
-            paused = true
-            if written > 0 { freed = written }
-        }
+    private final class IssueLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: [String] = []
 
-        func noteResume() {
-            condition.lock()
-            defer { condition.unlock() }
-            resumed = true
-        }
+        func append(_ message: String) { lock.lock(); stored.append(message); lock.unlock() }
+        var messages: [String] { lock.lock(); defer { lock.unlock() }; return stored }
     }
 
     private final class CancelBox: @unchecked Sendable {
