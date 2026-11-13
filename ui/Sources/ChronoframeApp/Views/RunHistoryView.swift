@@ -124,8 +124,8 @@ struct RunHistoryView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .darkroom()
-        .navigationTitle("Run History")
-        .searchable(text: $searchText, prompt: "Search artifacts")
+        .navigationTitle("History")
+        .searchable(text: $searchText, prompt: "Search reports and logs")
         .confirmationDialog(
             Self.confirmationTitle(for: pendingRevertEntry),
             isPresented: Binding(
@@ -162,7 +162,7 @@ struct RunHistoryView: View {
         switch entry?.kind {
         case .dedupeAuditReceipt: return "Restore deduplicated files?"
         case .reorganizeAuditReceipt: return "Undo this reorganize?"
-        default: return "Revert this transfer?"
+        default: return "Undo this copy?"
         }
     }
 
@@ -170,7 +170,7 @@ struct RunHistoryView: View {
         switch entry.kind {
         case .dedupeAuditReceipt: return "Restore"
         case .reorganizeAuditReceipt: return "Undo"
-        default: return "Revert"
+        default: return "Undo"
         }
     }
 
@@ -184,11 +184,11 @@ struct RunHistoryView: View {
     static func confirmationMessage(for entry: RunHistoryEntry) -> String {
         switch entry.kind {
         case .dedupeAuditReceipt:
-            return "Chronoframe will move the files this dedupe run sent to the Trash back to their original locations. Files that have since been emptied from the Trash cannot be restored.\n\nReceipt: \(entry.relativePath)"
+            return "Chronoframe will move the files that duplicate cleanup sent to the Trash back to their original locations. Files that have since been emptied from the Trash cannot be restored.\n\nReceipt: \(entry.relativePath)"
         case .reorganizeAuditReceipt:
-            return "Chronoframe will move the files this reorganize run changed back to their previous locations, but only if their contents still match the receipt.\n\nReceipt: \(entry.relativePath)"
+            return "Chronoframe will move the files this reorganize changed back to their previous locations, but only if their contents still match the receipt.\n\nReceipt: \(entry.relativePath)"
         default:
-            return "Chronoframe will remove the files this receipt copied, but only if their contents still match the original transfer. Files modified after the original copy will be preserved.\n\nReceipt: \(entry.relativePath)"
+            return "Chronoframe will remove the files this receipt copied, but only if their contents still match the original copy. Files modified after the original copy will be preserved.\n\nReceipt: \(entry.relativePath)"
         }
     }
 
@@ -230,9 +230,9 @@ struct RunHistoryView: View {
         if historyStore.entries.isEmpty {
             return historyStore.destinationRoot.isEmpty
                 ? "Choose a destination in Setup, then a preview will create the first report here."
-                : "Run a preview or transfer to build the first entries in this archive."
+                : "Start a preview or copy to build the first entries in this archive."
         }
-        return "\(historyStore.entries.count) artifacts · \(historyStore.transferredSources.count) reusable sources."
+        return "\(historyStore.entries.count) reports and logs · \(historyStore.transferredSources.count) reusable folders."
     }
 
     // MARK: - Hero strip (P1.3)
@@ -266,7 +266,7 @@ struct RunHistoryView: View {
                 }
                 .frame(maxWidth: 220, alignment: .leading)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) runs.")
+                .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? "copy" : "copies").")
 
                 Divider()
                     .frame(height: 120)
@@ -293,7 +293,7 @@ struct RunHistoryView: View {
         }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
-        return "Since \(formatter.string(from: earliest)) · \(archiveOverviewReceiptEntries.count) run\(archiveOverviewReceiptEntries.count == 1 ? "" : "s")"
+        return "Since \(formatter.string(from: earliest)) · \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? "copy" : "copies")"
     }
 
     private var archiveOverviewReceiptEntries: [RunHistoryEntry] {
@@ -337,10 +337,10 @@ struct RunHistoryView: View {
         if let key = selectedTimelineMonth {
             let matchingBucket = timelineBuckets.first { $0.key == key }
             let count = matchingBucket?.plannedCount ?? 0
-            return "Selected month: \(formatMonthYear(key)), \(count) runs. Timeline contains \(timelineBuckets.count) months."
+            return "Selected month: \(formatMonthYear(key)), \(count) \(count == 1 ? "copy" : "copies"). Timeline contains \(timelineBuckets.count) months."
         }
         let total = timelineBuckets.reduce(0) { $0 + $1.plannedCount }
-        return "Timeline containing \(total) runs across \(timelineBuckets.count) months. Unselected."
+        return "Timeline containing \(total) \(total == 1 ? "copy" : "copies") across \(timelineBuckets.count) months. Unselected."
     }
 
     private func formatMonthYear(_ key: String) -> String {
@@ -364,7 +364,7 @@ struct RunHistoryView: View {
                 Text(historyStore.needsFolderAccess ? "Reconnect your archive folder" : "History unavailable")
                     .font(.headline)
                 Text(historyStore.needsFolderAccess
-                     ? "Chronoframe can’t currently access “\(URL(fileURLWithPath: historyStore.destinationRoot).lastPathComponent)”. Choose this same folder again to restore access and load run history. Reconnecting does not change your media files."
+                     ? "Chronoframe can’t currently access “\(URL(fileURLWithPath: historyStore.destinationRoot).lastPathComponent)”. Choose this same folder again to restore access and load History. Reconnecting does not change your media files."
                      : message)
                 Text(historyStore.destinationRoot)
                     .font(.caption)
@@ -416,7 +416,7 @@ struct RunHistoryView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             SectionHeading(
                 title: "Undo Center",
-                message: "Recent runs that have a recovery receipt."
+                message: "Recent copies that have a recovery receipt."
             )
 
             let receipts = filteredRecoveryReceipts
@@ -425,8 +425,8 @@ struct RunHistoryView: View {
                     unavailableHistoryState
                 } else {
                     EmptyStateView(
-                        title: "No Revertable Runs Yet",
-                        message: "Transfers, dedupe commits, and reorganize runs write receipts here when they can be undone safely.",
+                        title: "Nothing to Undo Yet",
+                        message: "Copies, duplicate cleanups, and reorganizes write receipts here when they can be undone safely.",
                         systemImage: "arrow.uturn.backward.circle"
                     )
                 }
@@ -498,11 +498,11 @@ struct RunHistoryView: View {
     private func recoveryTitle(for entry: RunHistoryEntry) -> String {
         switch entry.kind {
         case .dedupeAuditReceipt:
-            return "Deduplicate run can be restored"
+            return "Duplicate cleanup can be restored"
         case .reorganizeAuditReceipt:
-            return "Reorganize run can be undone"
+            return "Reorganize can be undone"
         default:
-            return "Transfer can be reverted"
+            return "Copy can be undone"
         }
     }
 
@@ -511,8 +511,8 @@ struct RunHistoryView: View {
     private var reusableSourcesSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             SectionHeading(
-                title: "Reusable Sources",
-                message: "Paths from completed transfers into this destination."
+                title: "Reusable Folders",
+                message: "Folders from completed copies into this destination."
             )
 
             if historyStore.transferredSources.isEmpty {
@@ -520,8 +520,8 @@ struct RunHistoryView: View {
                     unavailableHistoryState
                 } else {
                     EmptyStateView(
-                        title: "No Reusable Sources Yet",
-                        message: "After a completed transfer, the source folder will appear here so you can use it again without re-entering the path.",
+                        title: "No Reusable Folders Yet",
+                        message: "After a completed copy, the folder will appear here so you can use it again without re-entering the path.",
                         systemImage: "folder.badge.questionmark"
                     )
                 }
@@ -565,7 +565,7 @@ struct RunHistoryView: View {
                         .fill(DesignTokens.ColorSystem.separatorText)
                         .frame(width: 3, height: 3)
                         .accessibilityHidden(true)
-                    Text("\(record.runCount) run\(record.runCount == 1 ? "" : "s")")
+                    Text("\(record.runCount) \(record.runCount == 1 ? "copy" : "copies")")
                     Circle()
                         .fill(DesignTokens.ColorSystem.separatorText)
                         .frame(width: 3, height: 3)
@@ -591,7 +591,7 @@ struct RunHistoryView: View {
                 }
                 .accessibilityIdentifier(AccessibilityIdentifiers.revealHistoricalSourceButton)
                 Divider()
-                Button("Forget This Source", role: .destructive) {
+                Button("Forget This Folder", role: .destructive) {
                     appState.forgetTransferredSource(record)
                 }
             } label: {
@@ -604,8 +604,8 @@ struct RunHistoryView: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityActionsMenu(
-                label: "Actions for source",
-                hint: "Reveal this source in Finder or forget it."
+                label: "Actions for folder",
+                hint: "Reveal this folder in Finder or forget it."
             )
         }
         .padding(.horizontal, 2)
@@ -619,8 +619,8 @@ struct RunHistoryView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
             HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
                 SectionHeading(
-                    title: "Artifacts",
-                    message: "Reports, receipts, and logs from every preview and transfer."
+                    title: "Reports and Logs",
+                    message: "Reports, receipts, and logs from every preview and copy."
                 )
 
                 Spacer(minLength: DesignTokens.Spacing.md)
@@ -651,7 +651,7 @@ struct RunHistoryView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(maxWidth: 320)
-                .accessibilityLabel("Filter artifacts")
+                .accessibilityLabel("Filter reports and logs")
                 .accessibilityIdentifier(AccessibilityIdentifiers.historyFilterControl)
             }
 
@@ -660,9 +660,9 @@ struct RunHistoryView: View {
                     unavailableHistoryState
                 } else {
                     EmptyStateView(
-                        title: historyStore.entries.isEmpty ? "No Artifacts Yet" : "No Matching Artifacts",
+                        title: historyStore.entries.isEmpty ? "No Reports or Logs Yet" : "No Matching Reports or Logs",
                         message: historyStore.entries.isEmpty
-                            ? "Run a preview or transfer, then return here to inspect reports, receipts, and logs."
+                            ? "Start a preview or copy, then return here to inspect reports, receipts, and logs."
                             : (selectedTimelineMonth != nil ? "Try a different filter, search term, or clear the timeline filter." : "Try a different filter or search term."),
                         systemImage: "doc.text.magnifyingglass"
                     )
@@ -787,7 +787,7 @@ struct RunHistoryView: View {
                 }
                 if entry.kind == .auditReceipt || entry.kind == .dedupeAuditReceipt || entry.kind == .reorganizeAuditReceipt {
                     Divider()
-                    Button("Revert this run…") {
+                    Button("Undo…") {
                         pendingRevertEntry = entry
                     }
                     .accessibilityIdentifier(AccessibilityIdentifiers.revertArtifact(entry.id))
@@ -807,7 +807,7 @@ struct RunHistoryView: View {
             .fixedSize()
             .accessibilityActionsMenu(
                 label: "Actions for \(entry.title)",
-                hint: "Reveal, revert, or move this artifact to Trash."
+                hint: "Reveal, undo, or move this file to Trash."
             )
         }
         .padding(.vertical, DesignTokens.Spacing.sm)
@@ -949,7 +949,7 @@ struct ReceiptDetailSheet: View {
                         .font(.title2.weight(.bold))
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     if let meta = metadata {
-                        Text("Run: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)")
+                        Text("Date: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)")
                             .font(.subheadline)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         Text("\(meta.totalFiles.formatted()) files")
@@ -1052,7 +1052,7 @@ struct ReceiptDetailSheet: View {
 
                     Spacer()
 
-                    Button("Revert This Run…") {
+                    Button("Undo…") {
                         dismiss()
                         appState.revertHistoryEntry(entry)
                     }
@@ -1147,7 +1147,7 @@ struct ReceiptDetailSheet: View {
         if entry.kind == .dedupeAuditReceipt {
             let receipt = try decoder.decode(DeduplicateAuditReceipt.self, from: data)
             return LoadedReceipt(
-                metadata: ReceiptMetadata(title: "Deduplication Run Details", timestamp: receipt.createdAt,
+                metadata: ReceiptMetadata(title: "Duplicate Cleanup Details", timestamp: receipt.createdAt,
                     status: receipt.status, schemaVersion: receipt.schemaVersion, totalFiles: receipt.items.count,
                     bytesReclaimed: receipt.bytesReclaimed, recoveryState: receipt.recoveryState),
                 transfers: receipt.items.map {
@@ -1158,7 +1158,7 @@ struct ReceiptDetailSheet: View {
         if entry.kind == .reorganizeAuditReceipt {
             let receipt = try decoder.decode(ReorganizeAuditReceipt.self, from: data)
             return LoadedReceipt(
-                metadata: ReceiptMetadata(title: "Reorganize Run Details", timestamp: receipt.startedAt,
+                metadata: ReceiptMetadata(title: "Reorganize Details", timestamp: receipt.startedAt,
                     status: receipt.status, schemaVersion: receipt.schemaVersion, totalFiles: receipt.items.count,
                     bytesReclaimed: nil, recoveryState: nil),
                 transfers: receipt.items.map {
@@ -1173,7 +1173,7 @@ struct ReceiptDetailSheet: View {
             ?? receipt.timestamp.flatMap { ISO8601DateFormatter().date(from: $0) }
             ?? entry.createdAt
         return LoadedReceipt(
-            metadata: ReceiptMetadata(title: "Organize Run Details", timestamp: timestamp,
+            metadata: ReceiptMetadata(title: "Copy Details", timestamp: timestamp,
                 status: receipt.status ?? "COMPLETED", schemaVersion: receipt.schemaVersion ?? 1,
                 totalFiles: receipt.transfers.count, bytesReclaimed: nil, recoveryState: nil),
             transfers: receipt.transfers.map {

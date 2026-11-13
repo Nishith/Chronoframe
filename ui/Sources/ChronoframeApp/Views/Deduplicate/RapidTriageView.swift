@@ -262,7 +262,7 @@ struct RapidTriageView: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(DesignTokens.ColorSystem.statusSuccess)
-            Text("All clusters reviewed")
+            Text("All groups reviewed")
                 .font(.title3.weight(.semibold))
             Text("Return to the main review to commit your decisions.")
                 .font(.caption)

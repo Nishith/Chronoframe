@@ -162,6 +162,10 @@ struct RunWorkspaceContext {
     }
 }
 
+enum RunNextStep: Equatable {
+    case findDuplicates(setAsideCount: Int)
+}
+
 struct RunWorkspaceModel {
     let context: RunWorkspaceContext
 
@@ -206,15 +210,23 @@ struct RunWorkspaceModel {
         self.context = context
     }
 
+    var previewHeadline: RunPreviewHeadline {
+        RunPreviewHeadline(
+            metrics: context.metrics,
+            review: context.previewReviewSummary,
+            isStale: context.previewReviewIsStale
+        )
+    }
+
     var heroState: RunHeroState {
         switch context.status {
         case .idle:
             return RunHeroState(
-                title: context.canStartRun ? "Preview Before You Commit" : "This Workspace Activates After Setup",
+                title: context.canStartRun ? "Preview the plan first" : "Choose your folders first",
                 message: context.canStartRun
-                    ? "Run a non-destructive preview to inspect what will be copied, what will be skipped, and where the destination will be updated."
-                    : "Choose a source and destination first, then use this workspace to review progress, issues, and artifacts through the entire run.",
-                badgeTitle: "Idle",
+                    ? "A preview copies nothing. It shows where every photo and video would go, so you can check before copying."
+                    : "Add the folders to organize and a destination, then come back here to preview and copy.",
+                badgeTitle: "Not started",
                 badgeSymbol: "circle.dashed",
                 heroSymbol: "eye",
                 tone: context.canStartRun ? .ready : .idle,
@@ -223,8 +235,8 @@ struct RunWorkspaceModel {
 
         case .preflighting:
             return RunHeroState(
-                title: "Checking the Next Run",
-                message: "Chronoframe is checking your folders and preparing a safe next step before the run starts.",
+                title: "Getting ready",
+                message: "Chronoframe is checking your folders before it starts.",
                 badgeTitle: "Preparing",
                 badgeSymbol: "clock.arrow.circlepath",
                 heroSymbol: "clock.arrow.circlepath",
@@ -235,9 +247,11 @@ struct RunWorkspaceModel {
         case .running:
             let mode = context.currentMode ?? .transfer
             return RunHeroState(
-                title: mode == .preview ? "Preview in Progress" : "Transfer in Progress",
-                message: "This workspace updates live as Chronoframe moves through each phase, tracks issues, and keeps the destination artifacts ready to inspect.",
-                badgeTitle: mode == .preview ? "Preview Running" : "Transfer Running",
+                title: mode == .preview ? "Building the preview" : "Copying your photos",
+                message: mode == .preview
+                    ? "You can keep using your Mac. Nothing is being copied."
+                    : "You can keep using your Mac. Originals are only read, never changed.",
+                badgeTitle: mode == .preview ? "Previewing" : "Copying",
                 badgeSymbol: "arrow.triangle.2.circlepath",
                 heroSymbol: "bolt.horizontal.circle",
                 tone: .active,
@@ -246,9 +260,9 @@ struct RunWorkspaceModel {
 
         case .dryRunFinished:
             return RunHeroState(
-                title: "Preview Ready for Review",
-                message: "Nothing has been copied. Inspect the planned work, any issues, and the destination before starting the transfer.",
-                badgeTitle: "Preview Complete",
+                title: "Preview ready",
+                message: previewHeadline.sentence,
+                badgeTitle: "Preview ready",
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "doc.text.magnifyingglass",
                 tone: .ready,
@@ -256,10 +270,12 @@ struct RunWorkspaceModel {
             )
 
         case .finished:
+            let copied = context.metrics.copiedCount
+            let subject = copied == 1 ? "1 photo or video is" : "\(copied.formatted()) photos and videos are"
             return RunHeroState(
-                title: "Transfer Complete",
-                message: "Organized files, logs, and receipts are ready to inspect. Open the destination to verify the result in Finder.",
-                badgeTitle: "Finished",
+                title: "Copy complete",
+                message: "\(subject) in your organized library. Your originals were not changed.",
+                badgeTitle: "Done",
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "checkmark.circle.fill",
                 tone: .success,
@@ -268,9 +284,9 @@ struct RunWorkspaceModel {
 
         case .nothingToCopy:
             return RunHeroState(
-                title: "Destination Already Up To Date",
-                message: "Chronoframe did not find any new files to copy for this configuration. The destination already contains everything it needs.",
-                badgeTitle: "Up to Date",
+                title: "Already up to date",
+                message: "Everything in these folders is already in your organized library. Nothing was copied.",
+                badgeTitle: "Up to date",
                 badgeSymbol: "checkmark.seal.fill",
                 heroSymbol: "checkmark.seal.fill",
                 tone: .success,
@@ -279,9 +295,9 @@ struct RunWorkspaceModel {
 
         case .cancelled:
             return RunHeroState(
-                title: "Run Cancelled",
-                message: "The run stopped before completion. Review the current state, inspect any partial artifacts, and start again when you are ready.",
-                badgeTitle: "Cancelled",
+                title: "Stopped",
+                message: "Chronoframe stopped before finishing. Files already copied stay in place and your originals were not changed. Preview again when you are ready.",
+                badgeTitle: "Stopped",
                 badgeSymbol: "pause.circle.fill",
                 heroSymbol: "pause.circle.fill",
                 tone: .warning,
@@ -290,9 +306,9 @@ struct RunWorkspaceModel {
 
         case .failed:
             return RunHeroState(
-                title: "Run Needs Attention",
-                message: context.lastErrorMessage ?? "Chronoframe could not finish this run. Your source files were left untouched. Check that both folders are available, then try again.",
-                badgeTitle: "Failed",
+                title: "Something needs attention",
+                message: context.lastErrorMessage ?? "Chronoframe could not finish. Your originals were not changed. Check that both folders are available, then try again.",
+                badgeTitle: "Needs attention",
                 badgeSymbol: "exclamationmark.octagon.fill",
                 heroSymbol: "exclamationmark.triangle.fill",
                 tone: .danger,
@@ -301,9 +317,9 @@ struct RunWorkspaceModel {
 
         case .reverted:
             return RunHeroState(
-                title: "Revert Complete",
-                message: "Chronoframe removed the files restored by this audit receipt. Files modified after the original copy were preserved.",
-                badgeTitle: "Reverted",
+                title: "Undo complete",
+                message: "Chronoframe removed the copies listed in that receipt. Copies changed since then were kept.",
+                badgeTitle: "Undone",
                 badgeSymbol: "arrow.uturn.backward.circle.fill",
                 heroSymbol: "arrow.uturn.backward.circle.fill",
                 tone: .success,
@@ -312,8 +328,8 @@ struct RunWorkspaceModel {
 
         case .revertEmpty:
             return RunHeroState(
-                title: "Nothing to Revert",
-                message: "This audit receipt has no transfers to undo.",
+                title: "Nothing to undo",
+                message: "That receipt lists no copies.",
                 badgeTitle: "Empty",
                 badgeSymbol: "tray",
                 heroSymbol: "tray",
@@ -323,9 +339,9 @@ struct RunWorkspaceModel {
 
         case .reorganized:
             return RunHeroState(
-                title: "Reorganize Complete",
-                message: "Chronoframe restructured the destination to match the new folder layout. Open Finder to verify the result.",
-                badgeTitle: "Reorganized",
+                title: "Layout updated",
+                message: "Chronoframe moved the files in your organized library into the new folder layout.",
+                badgeTitle: "Updated",
                 badgeSymbol: "rectangle.3.offgrid.fill",
                 heroSymbol: "rectangle.3.offgrid.fill",
                 tone: .success,
@@ -334,9 +350,9 @@ struct RunWorkspaceModel {
 
         case .nothingToReorganize:
             return RunHeroState(
-                title: "Layout Already Correct",
-                message: "Every file in the destination is already in the requested layout — no moves required.",
-                badgeTitle: "Up to Date",
+                title: "Layout already matches",
+                message: "Every file is already in the chosen layout. Nothing was moved.",
+                badgeTitle: "Up to date",
                 badgeSymbol: "checkmark.seal.fill",
                 heroSymbol: "checkmark.seal.fill",
                 tone: .success,
@@ -371,7 +387,7 @@ struct RunWorkspaceModel {
     }
 
     var destinationSummaryValue: String {
-        destinationRoot ?? "Destination will appear here once a run is configured"
+        destinationRoot ?? "Your destination will appear here once you choose one."
     }
 
     var sourceRoot: String? {
@@ -379,7 +395,7 @@ struct RunWorkspaceModel {
     }
 
     var sourceSummaryValue: String {
-        sourceRoot ?? "Source will appear here once a run is configured"
+        sourceRoot ?? "Your folders will appear here once you choose them."
     }
 
     var issueSummaryValue: String {
@@ -387,7 +403,7 @@ struct RunWorkspaceModel {
         let errorCount = context.errorCount
         let issueCount = context.issueCount
         if warningCount == 0 && errorCount == 0 && issueCount == 0 {
-            return "No issues reported"
+            return "No problems reported"
         }
         var parts: [String] = []
         if warningCount > 0 {
@@ -397,9 +413,18 @@ struct RunWorkspaceModel {
             parts.append("\(errorCount) error\(errorCount == 1 ? "" : "s")")
         }
         if issueCount > 0 {
-            parts.append("\(issueCount) engine issue\(issueCount == 1 ? "" : "s")")
+            parts.append("\(issueCount) other problem\(issueCount == 1 ? "" : "s")")
         }
         return parts.joined(separator: ", ")
+    }
+
+    /// Value of the hero's "Now" line. An empty or idle task reads as "Not started".
+    var nowSummaryValue: String {
+        let task = context.currentTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if task.isEmpty || task.caseInsensitiveCompare("Idle") == .orderedSame {
+            return "Not started"
+        }
+        return task
     }
 
     var issueTone: RunWorkspaceTone {
@@ -436,7 +461,7 @@ struct RunWorkspaceModel {
         let total = max(context.metrics.plannedCount, 0)
         let copied = max(context.metrics.copiedCount, 0)
         guard total > 0 else {
-            return copied > 0 ? "\(copied.formatted()) files copied" : "Preparing copy queue"
+            return copied > 0 ? "\(copied.formatted()) files copied" : "Getting ready to copy"
         }
 
         let percent = min(100, max(0, Int((Double(copied) / Double(total) * 100).rounded())))
@@ -455,7 +480,12 @@ struct RunWorkspaceModel {
         let speed = speedSummaryValue
         let eta = etaSummaryValue
         if speed == "—", eta == "—" {
-            return "Waiting for next file"
+            switch context.status {
+            case .finished, .nothingToCopy, .reverted, .reorganized:
+                return "Done"
+            default:
+                return "Starting…"
+            }
         }
         if eta == "—" {
             return speed
@@ -486,9 +516,9 @@ struct RunWorkspaceModel {
 
     var phaseStripTooltip: String {
         let entries = phaseEntries
-        let complete = entries.filter { $0.state == .complete }.map { $0.phase.title }
-        let current = entries.filter { $0.state == .current }.map { $0.phase.title }
-        let pending = entries.filter { $0.state == .pending }.map { $0.phase.title }
+        let complete = entries.filter { $0.state == .complete }.map { $0.phase.displayTitle }
+        let current = entries.filter { $0.state == .current }.map { $0.phase.displayTitle }
+        let pending = entries.filter { $0.state == .pending }.map { $0.phase.displayTitle }
 
         func line(color: String, label: String, names: [String]) -> String {
             let joined = names.isEmpty ? "none" : names.joined(separator: ", ")
@@ -516,33 +546,39 @@ struct RunWorkspaceModel {
         }
     }
 
+    var nextStep: RunNextStep? {
+        context.status == .finished && context.metrics.copiedCount > 0
+            ? .findDuplicates(setAsideCount: context.metrics.duplicateCount)
+            : nil
+    }
+
+    var nextStepBody: String {
+        let setAside = context.metrics.duplicateCount
+        let closing = "Nothing is removed until you approve it."
+        if setAside > 1 {
+            return "\(setAside.formatted()) exact copies were set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)"
+        }
+        if setAside == 1 {
+            return "1 exact copy was set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)"
+        }
+        return "Deduplicate checks your organized library for exact copies and look-alikes. \(closing)"
+    }
+
     var outcomeSummaryMessage: String {
         switch context.status {
         case .finished:
-            return "Originals were left untouched. Reports and receipts are available in Run History for inspection or recovery."
+            return "Your originals were not changed. The report and the receipt for undoing this copy are in History."
         case .nothingToCopy:
-            return "No new copies were needed for this configuration."
+            return "Nothing needed copying."
         case .reverted:
-            return "The receipt was applied conservatively; files modified after the original copy were preserved."
+            return "Copies changed since the original copy were kept."
         case .reorganized:
-            return "Destination files were moved into the selected layout and a reorganize receipt was written."
+            return "Files were moved into the chosen layout and a receipt was saved."
         case .nothingToReorganize:
-            return "The destination already matches the selected folder layout."
+            return "The library already matches the chosen layout."
         default:
             return ""
         }
-    }
-
-    var previewReviewMessage: String {
-        if context.previewReviewIsStale {
-            return "Corrections were saved. Rebuild the preview before transfer so the copied files match the reviewed plan."
-        }
-        if context.previewReviewSummary.needsAttentionCount > 0 {
-            return "\(context.previewReviewSummary.needsAttentionCount.formatted()) items need attention before this plan is at its best. Nothing has been copied."
-        }
-        return context.metrics.plannedCount > 0
-            ? "Nothing has been copied yet. \(context.metrics.plannedCount.formatted()) files are ready to transfer once the plan looks right."
-            : "The preview found nothing new to copy. The destination already contains everything needed."
     }
 
     var canStartTransferFromPreview: Bool {
@@ -560,28 +596,28 @@ struct RunWorkspaceModel {
                 id: "ready-review",
                 title: "Ready",
                 value: abbreviated(summary.readyCount),
-                caption: "Planned main copies.",
+                caption: "Ready to copy.",
                 tone: .ready
             ),
             RunMetricTileModel(
                 id: "attention-review",
                 title: "Needs Attention",
                 value: abbreviated(summary.needsAttentionCount),
-                caption: "Unknown, low-confidence, or unreadable items.",
+                caption: "No date, an unsure date, or unreadable.",
                 tone: summary.needsAttentionCount > 0 ? .warning : .success
             ),
             RunMetricTileModel(
                 id: "unknown-review",
-                title: "Unknown Dates",
+                title: "No Date",
                 value: abbreviated(summary.unknownDateCount),
-                caption: "Files routed to Unknown_Date unless corrected.",
+                caption: "Go to the Unknown_Date folder unless you set a date.",
                 tone: summary.unknownDateCount > 0 ? .warning : .success
             ),
             RunMetricTileModel(
                 id: "dupe-review",
-                title: "Duplicates",
+                title: "Exact Copies",
                 value: abbreviated(summary.duplicateCount),
-                caption: "Exact source duplicates routed separately.",
+                caption: "Exact copies, set aside in the Duplicate folder.",
                 tone: summary.duplicateCount > 0 ? .warning : .muted
             ),
         ]
@@ -591,44 +627,44 @@ struct RunWorkspaceModel {
         [
             RunMetricTileModel(
                 id: "discovered",
-                title: "Discovered",
+                title: "Found",
                 value: abbreviated(context.metrics.discoveredCount),
-                caption: "Items found in the source library.",
+                caption: "Photos and videos in your folders.",
                 tone: .accent
             ),
             RunMetricTileModel(
                 id: "planned",
-                title: "Planned",
+                title: "To Copy",
                 value: abbreviated(context.metrics.plannedCount),
-                caption: "Files queued for review or transfer.",
+                caption: "New files in the plan.",
                 tone: .ready
             ),
             RunMetricTileModel(
                 id: "already",
                 title: "Already There",
                 value: abbreviated(context.metrics.alreadyInDestinationCount),
-                caption: "Skipped because matching copies already exist.",
+                caption: "Skipped because the same file is already in the library.",
                 tone: .success
             ),
             RunMetricTileModel(
                 id: "duplicates",
-                title: "Duplicates",
+                title: "Exact Copies",
                 value: abbreviated(context.metrics.duplicateCount),
-                caption: "Exact duplicates routed away from the main transfer.",
+                caption: "Set aside in the Duplicate folder.",
                 tone: .warning
             ),
             RunMetricTileModel(
                 id: "issues",
-                title: "Issues",
+                title: "Problems",
                 value: abbreviated(context.issueCount),
-                caption: "Warnings, failed copies, or verification problems to review.",
+                caption: "Warnings and files that could not be copied or checked.",
                 tone: issueTone
             ),
             RunMetricTileModel(
                 id: "copied",
                 title: "Copied",
                 value: abbreviated(context.metrics.copiedCount),
-                caption: "Files successfully copied during transfer.",
+                caption: "Files copied so far.",
                 tone: .success
             ),
         ]
@@ -644,8 +680,8 @@ struct RunWorkspaceModel {
 
     var issueWorkspaceSummary: String {
         issueEntries.isEmpty
-            ? "No warnings or errors have been reported yet. If something changes, this view will pull the high-signal items out of the full activity log."
-            : "Warnings and errors are separated here so you can review the highest-signal problems without scanning the entire activity log."
+            ? "No warnings or errors have been reported yet. If something changes, this view will pull the important problems out of the full activity log."
+            : "Warnings and errors are separated here so you can review the most important problems without scanning the entire activity log."
     }
 
     var reportPath: String? {
@@ -669,9 +705,9 @@ struct RunWorkspaceModel {
             return count > 0 ? "Review (\(count))" : "Review"
         case .issues:
             let count = max(context.warningCount + context.errorCount, context.issueCount)
-            return count > 0 ? "Issues (\(count))" : "Issues"
+            return count > 0 ? "Problems (\(count))" : "Problems"
         case .console:
-            return "Console"
+            return "Activity"
         }
     }
 
@@ -681,16 +717,16 @@ struct RunWorkspaceModel {
 
     func phaseAccessibilityLabel(for phase: RunPhase) -> String {
         guard let currentPhase = context.currentPhase else {
-            return "Phase \(phase.title): not started"
+            return "Phase \(phase.displayTitle): not started"
         }
         let currentIndex = RunPhase.allCases.firstIndex(of: currentPhase) ?? 0
         let phaseIndex = RunPhase.allCases.firstIndex(of: phase) ?? 0
         if phaseIndex < currentIndex {
-            return "Phase \(phase.title): complete"
+            return "Phase \(phase.displayTitle): complete"
         } else if phase == currentPhase {
-            return "Phase \(phase.title): in progress"
+            return "Phase \(phase.displayTitle): in progress"
         } else {
-            return "Phase \(phase.title): pending"
+            return "Phase \(phase.displayTitle): pending"
         }
     }
 

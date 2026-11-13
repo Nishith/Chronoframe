@@ -8,6 +8,7 @@ public enum OrganizerEngineError: LocalizedError {
     case sourceDoesNotExist(String)
     case destinationMissing
     case sourceOverlapsDestination(SourceDestinationDisjointness.Conflict)
+    case sourceListUnreadable
     case failedToLaunch(String)
     case invalidPreflight(String)
     case invalidOutput(String)
@@ -17,13 +18,15 @@ public enum OrganizerEngineError: LocalizedError {
         case let .profileNotFound(name):
             return "The saved profile \"\(name)\" no longer exists. Choose another profile or save it again."
         case let .sourceDoesNotExist(path):
-            return "The source folder is no longer available. Reconnect the drive or choose the source folder again. Path: \(path)."
+            return "A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: \(path)."
         case .destinationMissing:
-            return "Choose a destination folder before starting this run."
+            return "Choose a destination folder before you start."
         case .sourceOverlapsDestination(.sourceInsideDestination):
-            return "The source folder is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a source outside the destination. No files were changed."
+            return "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed."
         case .sourceOverlapsDestination(.destinationInsideSource):
-            return "The destination folder is inside the source folder, so copies would land back inside the folder being organized. Choose a destination outside the source. No files were changed."
+            return "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed."
+        case .sourceListUnreadable:
+            return "Chronoframe can't read the list of folders you chose to organize, so it can't check them against the destination. Add the folders again. No files were changed."
         case let .failedToLaunch(message):
             return UserFacingErrorMessage.withDetails(
                 "Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe.",

@@ -60,7 +60,7 @@ enum SetupPrimaryAction: Equatable {
     var title: String {
         switch self {
         case .chooseSource:
-            return "Choose Source"
+            return "Add Folders"
         case .chooseDestination:
             return "Choose Destination"
         case .preview:
@@ -80,6 +80,13 @@ enum SetupPrimaryAction: Equatable {
     }
 }
 
+struct SetupSourceItemRow: Identifiable, Equatable {
+    let id: String
+    let name: String
+    let parent: String
+    let isFolder: Bool
+}
+
 struct SetupScreenContext {
     var sourcePath: String
     var destinationPath: String
@@ -93,6 +100,7 @@ struct SetupScreenContext {
     var verifyCopies: Bool
     var isRunInProgress: Bool
     var availableProfileCount: Int
+    var sourceItems: [SetupSourceItemRow]
 
     init(
         sourcePath: String,
@@ -106,7 +114,8 @@ struct SetupScreenContext {
         workerCount: Int = 4,
         verifyCopies: Bool = true,
         isRunInProgress: Bool = false,
-        availableProfileCount: Int = 0
+        availableProfileCount: Int = 0,
+        sourceItems: [SetupSourceItemRow] = []
     ) {
         self.sourcePath = sourcePath
         self.destinationPath = destinationPath
@@ -120,6 +129,7 @@ struct SetupScreenContext {
         self.verifyCopies = verifyCopies
         self.isRunInProgress = isRunInProgress
         self.availableProfileCount = availableProfileCount
+        self.sourceItems = sourceItems
     }
 }
 
@@ -149,8 +159,37 @@ struct SetupScreenModel {
                 workerCount: preferencesStore.workerCount,
                 verifyCopies: preferencesStore.verifyCopies,
                 isRunInProgress: isRunInProgress,
-                availableProfileCount: setupStore.profiles.count
+                availableProfileCount: setupStore.profiles.count,
+                sourceItems: Self.sourceItemRows(for: setupStore)
             )
+        )
+    }
+
+    /// The listed folders, or the single plain source path (profile and
+    /// legacy single-folder cases). A selected profile hides the manual list
+    /// without deleting it (D-CLP-21), so its folder is the one row. A staging
+    /// path alone is not a folder the user chose and yields no row.
+    @MainActor
+    private static func sourceItemRows(for setupStore: SetupStore) -> [SetupSourceItemRow] {
+        if setupStore.activeProfile == nil, !setupStore.sourceItems.isEmpty {
+            return setupStore.sourceItems.map(row(for:))
+        }
+        let sourcePath = setupStore.sourcePath
+        if !sourcePath.isEmpty, !DroppedItemStager.isStagingPath(sourcePath) {
+            return [row(for: URL(fileURLWithPath: sourcePath))]
+        }
+        return []
+    }
+
+    private static func row(for url: URL) -> SetupSourceItemRow {
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        let name = url.lastPathComponent
+        return SetupSourceItemRow(
+            id: url.path,
+            name: name.isEmpty ? url.path : name,
+            parent: (url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath,
+            isFolder: exists ? isDirectory.boolValue : true
         )
     }
 
@@ -172,19 +211,16 @@ struct SetupScreenModel {
 
     var sourceStepState: SetupStepState {
         if context.usingDroppedSource || !context.sourcePath.isEmpty {
-            return .ready(
-                context.usingDroppedSource ? "Dropped Source Ready" : "Source Ready",
-                .success
-            )
+            return .ready("", .success)
         }
-        return .needed("Source Needed", .warning)
+        return .needed("Add a folder", .warning)
     }
 
     var destinationStepState: SetupStepState {
         if !context.destinationPath.isEmpty {
-            return .ready("Destination Ready", .success)
+            return .ready("", .success)
         }
-        return .needed("Destination Needed", .warning)
+        return .needed("Choose a destination", .warning)
     }
 
     var heroTone: SetupScreenTone {
@@ -199,15 +235,15 @@ struct SetupScreenModel {
 
     var heroBadgeTitle: String {
         if context.activeProfile != nil {
-            return "Profile Ready"
+            return "Profile ready"
         }
         if canStartRun {
-            return "Ready to Preview"
+            return "Ready to preview"
         }
         if context.usingDroppedSource || !context.sourcePath.isEmpty || !context.destinationPath.isEmpty {
-            return "Continue Setup"
+            return "One more step"
         }
-        return "Start Here"
+        return "Start here"
     }
 
     var heroBadgeSymbol: String {
@@ -221,16 +257,14 @@ struct SetupScreenModel {
     }
 
     var sourceSummaryValue: String {
-        if context.usingDroppedSource {
-            if context.droppedSourceItemCount > 0 {
-                return "\(context.droppedSourceItemCount) dragged item\(context.droppedSourceItemCount == 1 ? "" : "s")"
-            }
-            return "Dragged items ready"
-        }
         if let profile = context.activeProfile {
             return profile.sourcePath
         }
-        return context.sourcePath.isEmpty ? "Needed" : "Ready"
+        switch context.sourceItems.count {
+        case 0: return "Needed"
+        case 1: return "Ready"
+        case let count: return SourceItemList.summaryLabel(count: count)
+        }
     }
 
     var destinationSummaryValue: String {
@@ -244,18 +278,15 @@ struct SetupScreenModel {
         if context.activeProfile != nil {
             return "Saved profile: \(context.selectedProfileName)"
         }
-        if context.usingDroppedSource {
-            return "One-off dragged source"
-        }
-        return "Manual source and destination"
+        return "Folders you chose"
     }
 
     var nextStepSummary: String {
         if context.sourcePath.isEmpty {
-            return "Choose or drop a source"
+            return "Add the folders to organize"
         }
         if context.destinationPath.isEmpty {
-            return "Choose a destination"
+            return "Choose where the copies go"
         }
         return "Preview the plan"
     }
@@ -264,7 +295,7 @@ struct SetupScreenModel {
         if context.activeProfile != nil {
             return "Using the saved profile \(context.selectedProfileName)"
         }
-        return context.usingDroppedSource ? "Manual destination with dragged source" : "Manual source and destination"
+        return "Folders you chose"
     }
 
     var performanceSummary: String {
@@ -277,22 +308,10 @@ struct SetupScreenModel {
             : "Verification is disabled for faster throughput"
     }
 
-    var readinessBadgeTitle: String {
-        canStartRun ? "Ready to Preview" : "Needs Setup"
-    }
-
-    var readinessBadgeSymbol: String {
-        canStartRun ? "eye.fill" : "exclamationmark.circle"
-    }
-
-    var readinessTone: SetupScreenTone {
-        canStartRun ? .ready : .warning
-    }
-
     var readinessMessage: String {
         canStartRun
-            ? "Preview is non-destructive. Transfer still requires an explicit confirmation before any files are copied."
-            : "Complete the source and destination, or pick a saved profile, and Chronoframe will guide you into a safe preview."
+            ? "A preview copies nothing. It shows where every file would go, and you decide after that."
+            : "Add a folder and choose a destination to see a preview."
     }
 
     /// Profiles are earned complexity: a first-time user has none and should
@@ -317,13 +336,16 @@ struct SetupScreenModel {
     }
 
     var sourcePathHelper: String {
-        context.usingDroppedSource
-            ? "Dragged items are staged safely as links. Choose a folder here if you want to switch back to a normal source."
-            : "Chronoframe reads from this library and never mutates the originals."
+        switch context.sourceItems.count {
+        case 0: return ""
+        case 1: return "Chronoframe reads this folder and never changes what is in it."
+        case let count:
+            return "Chronoframe reads these \(count.formatted()) folders together and never changes what is in them."
+        }
     }
 
     var destinationPathHelper: String {
-        "Chronoframe writes organized files and supporting artifacts here."
+        "Chronoframe creates dated folders here and keeps a receipt of each copy so you can undo it from History."
     }
 
     var primaryAction: SetupPrimaryAction {

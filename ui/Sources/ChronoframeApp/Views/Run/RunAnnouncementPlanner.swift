@@ -70,7 +70,7 @@ enum RunAnnouncementPlanner {
 
         // 2. Phase changes during an active run.
         if new.phase != old.phase, let phase = new.phase, new.status == .running {
-            return Announcement(message: phase.title, priority: .medium)
+            return Announcement(message: phase.displayTitle, priority: .medium)
         }
 
         // 3. Coarse copy-progress buckets, only while copying. Lowest priority:
@@ -98,23 +98,23 @@ enum RunAnnouncementPlanner {
     private static func terminalMessage(for status: RunStatus) -> String? {
         switch status {
         case .finished:
-            return "Transfer complete."
+            return "Copy complete."
         case .dryRunFinished:
             return "Preview ready for review."
         case .nothingToCopy:
             return "Nothing new to copy."
         case .failed:
-            return "Run failed. Your original files were left untouched."
+            return "Chronoframe could not finish. Your original files were left untouched."
         case .cancelled:
-            return "Run cancelled. Your original files were left untouched."
+            return "Stopped. Your original files were left untouched."
         case .reverted:
-            return "Revert complete."
+            return "Undo complete."
         case .revertEmpty:
-            return "Nothing to revert."
+            return "Nothing to undo."
         case .reorganized:
-            return "Reorganize complete."
+            return "Layout updated."
         case .nothingToReorganize:
-            return "Nothing to reorganize."
+            return "Layout already matches."
         case .idle, .preflighting, .running:
             return nil
         }

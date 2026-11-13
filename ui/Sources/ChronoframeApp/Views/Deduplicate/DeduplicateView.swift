@@ -158,9 +158,12 @@ struct DeduplicateView: View {
                     Text("Find and remove duplicate photos and videos. Removed files go to the Trash.")
                         .scaledFont(.subtitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    Text("Organize already sets aside exact copies it meets while copying. Deduplicate checks the whole library, including look-alikes.")
+                        .scaledFont(.label)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Deduplicate. Find and remove duplicate photos and videos. Removed files go to the Trash.")
+                .accessibilityLabel("Deduplicate. Find and remove duplicate photos and videos. Removed files go to the Trash. Organize already sets aside exact copies it meets while copying. Deduplicate checks the whole library, including look-alikes.")
 
                 if !didOnboardDeduplicate {
                     OnboardingCard(
@@ -170,7 +173,7 @@ struct DeduplicateView: View {
                         bullets: [
                             "We group similar photos and duplicate videos.",
                             "We pick one likely keeper using sharpness, faces, file size, and resolution.",
-                            "You approve; others go to the Trash and can be restored from Run History."
+                            "You approve; others go to the Trash and can be restored from History."
                         ],
                         accessibilitySummary: "How Deduplicate works. We group similar photos and duplicate videos, suggest a keeper, and you approve.",
                         onDismiss: { didOnboardDeduplicate = true }
@@ -351,8 +354,18 @@ struct DeduplicateView: View {
 
     private var reviewView: some View {
         GeometryReader { geometry in
+            let lanes = DeduplicateReviewLanes(
+                clusters: sessionStore.clusters,
+                reviewedIDs: Set(sessionStore.reviewedClusters.map(\.id))
+            )
             VStack(spacing: 0) {
                 restoredReviewBanner
+                DeduplicateReviewLanesBar(
+                    lanes: lanes,
+                    isCompact: DeduplicateReviewLayout.mode(forWidth: geometry.size.width) == .compact,
+                    onAcceptSafe: { sessionStore.acceptAllSuggestions() },
+                    onQuickReview: { showingRapidTriage = true }
+                )
                 reviewBody(for: geometry.size)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
@@ -414,7 +427,7 @@ struct DeduplicateView: View {
                 )
                 .inspectorColumnWidth(min: 300, ideal: 400, max: 600)
             } else {
-                ContentUnavailableView("Select a cluster with at least 2 members to compare", systemImage: "rectangle.on.rectangle")
+                ContentUnavailableView("Select a group with at least two items to compare", systemImage: "rectangle.on.rectangle")
                     .inspectorColumnWidth(min: 300, ideal: 400, max: 600)
             }
         }
@@ -440,14 +453,20 @@ struct DeduplicateView: View {
             // metadata card and Accept & Next).
             .frame(width: availableSize.width)
         case .compact:
-            VStack(spacing: 0) {
-                reviewClusterList
-                    .frame(height: DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: availableSize.height))
-                Divider()
-                reviewClusterDetail
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(minHeight: DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
+            // Sized from the body's own height, so the banner and the lanes bar
+            // above it (whatever their height) are already out of the budget.
+            GeometryReader { body in
+                VStack(spacing: 0) {
+                    reviewClusterList
+                        .frame(height: DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: body.size.height))
+                    Divider()
+                    reviewClusterDetail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .frame(minHeight: DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
+                }
             }
+            .frame(minHeight: DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+                + DesignTokens.DeduplicateLayout.compactPreviewMinHeight)
         }
     }
 
@@ -684,9 +703,9 @@ struct DeduplicateView: View {
                     sessionStore.acceptAllHighConfidence()
                 }
                 .keyboardShortcut("h", modifiers: [.command, .shift])
-                .accessibilityLabel("Accept High-Confidence Clusters")
+                .accessibilityLabel("Accept all safe groups")
                 .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptHighConfidenceButton)
-                .accessibilityHint("Accepts suggestions for all high-confidence clusters")
+                .accessibilityHint("Accepts the suggestion for every safe group")
                 .popoverTip(AcceptSafeSuggestionsTip(), arrowEdge: .bottom)
             }
 
@@ -708,10 +727,7 @@ struct DeduplicateView: View {
             hint: "Change folder, adjust settings, quick review, or commit reviewed duplicate groups."
         )
         .sheet(isPresented: $showingRapidTriage) {
-            let reviewClusters = sessionStore.clusters.filter {
-                let level = $0.annotation?.confidence ?? .medium
-                return level == .medium || level == .low
-            }
+            let reviewClusters = sessionStore.clusters.filter { !DeduplicationPlanner.isAutomaticCommitEligible($0) }
             RapidTriageView(
                 sessionStore: sessionStore,
                 thumbnailLoader: thumbnailLoader,
@@ -731,9 +747,9 @@ struct DeduplicateView: View {
         .keyboardShortcut(.return, modifiers: [.command, .shift])
         .buttonStyle(.borderedMicroDelight)
         .fixedSize()
-        .accessibilityLabel("Accept High-Confidence Suggestions")
+        .accessibilityLabel("Accept all safe groups")
         .accessibilityIdentifier(AccessibilityIdentifiers.dedupeAcceptAllSuggestionsButton)
-        .accessibilityHint("Marks high-confidence clusters' suggested keepers as keep and the rest as delete")
+        .accessibilityHint("Keeps the suggested file in every safe group and marks the rest for the Trash")
 
         Spacer().frame(width: DesignTokens.Spacing.lg)
 
@@ -766,7 +782,7 @@ struct DeduplicateView: View {
             },
             secondary: {
                 HStack(spacing: DesignTokens.Spacing.sm) {
-                    Button("Open Run History") {
+                    Button("Open History") {
                         Task { await appState.openDeduplicateRunHistory() }
                     }
                     .buttonStyle(.borderedMicroDelight)
@@ -1022,7 +1038,7 @@ struct DeduplicateView: View {
         formatter.countStyle = .file
         var parts = [
             "Files will move to the macOS Trash.",
-            "Storage is not reclaimed until Trash is emptied, and Run History cannot restore files after that."
+            "Storage is not reclaimed until Trash is emptied, and History cannot restore files after that."
         ]
         let largeSelectionThreshold: Int64 = 10 * 1_000_000_000
         if byteCount >= largeSelectionThreshold {
@@ -1082,7 +1098,7 @@ extension DeduplicateView {
         return DeduplicateStatusCopy(
             message: "Moved \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") to Trash · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) recoverable",
             warning: summary.failedCount > 0
-                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see Run History for details."
+                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see History for details."
                 : nil
         )
     }
@@ -1095,7 +1111,7 @@ extension DeduplicateView {
         return DeduplicateStatusCopy(
             message: "Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination",
             warning: summary.failedCount > 0
-                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see Run History for details."
+                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see History for details."
                 : nil
         )
     }
@@ -1118,12 +1134,22 @@ enum DeduplicateReviewLayout {
         width >= DesignTokens.DeduplicateLayout.reviewWideBreakpoint ? .wide : .compact
     }
 
-    static func compactClusterListHeight(forAvailableHeight height: CGFloat) -> CGFloat {
-        min(
-            max(height * 0.32, DesignTokens.DeduplicateLayout.compactClusterListMinHeight),
-            DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
-        )
+    /// Height of the group list in the stacked layout, from the height the
+    /// review body really has: what is left below the restored-review banner and
+    /// the lanes bar and above the commit footer. The result is clamped last, so
+    /// it always stays within `compactClusterListMinHeight...MaxHeight`. It
+    /// leaves the preview `compactPreviewMinHeight` wherever the body is tall
+    /// enough for both minimums.
+    static func compactClusterListHeight(forBodyHeight height: CGFloat) -> CGFloat {
+        let minimum = DesignTokens.DeduplicateLayout.compactClusterListMinHeight
+        let maximum = DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
+        let preferred = min(max(height * 0.32, minimum), maximum)
+        let leavingPreviewItsFloor = height - dividerHeight - DesignTokens.DeduplicateLayout.compactPreviewMinHeight
+        return max(minimum, min(preferred, leavingPreviewItsFloor))
     }
+
+    /// The one-point `Divider` between the list and the preview.
+    private static let dividerHeight: CGFloat = 1
 
     /// Whether the commit footer shows its safeguards as one line rather than
     /// cards. The cards take about 200pt, which at the minimum window height

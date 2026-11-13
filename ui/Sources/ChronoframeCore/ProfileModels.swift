@@ -158,11 +158,11 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
     public var subtitle: String {
         switch self {
         case .organize:
-            return "Setup, run, and run history"
+            return "Sort into dated folders"
         case .photos:
-            return "Import from your Photos library"
+            return "Copy from Apple Photos"
         case .deduplicate:
-            return "Find and remove duplicate photos"
+            return "Remove extra copies"
         case .guardian:
             return "Detect bit rot, mirror, and restore"
         case .profiles:
@@ -234,14 +234,18 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
 
     public var id: String { rawValue }
 
+    public static let primaryFlow: [OrganizeSubSection] = [.setup, .run, .history]
+    public static let secondary: [OrganizeSubSection] = [.sources, .health]
+    public static var displayOrder: [OrganizeSubSection] { primaryFlow + secondary }
+
     public var title: String {
         switch self {
         case .sources:
-            return "Sources"
+            return "Watched Folders"
         case .setup:
-            return "Setup"
+            return "Choose Folders"
         case .run:
-            return "Run"
+            return "Preview & Copy"
         case .health:
             return "Health"
         case .history:
@@ -252,15 +256,15 @@ public enum OrganizeSubSection: String, CaseIterable, Identifiable, Hashable, Se
     public var subtitle: String {
         switch self {
         case .sources:
-            return "Watched folders, new arrivals"
+            return "Get told when new photos arrive"
         case .setup:
-            return "Source, destination, readiness"
+            return "What to organize and where it goes"
         case .run:
-            return "Preview, transfer, inspect"
+            return "Check the plan, then copy"
         case .health:
-            return "Library readiness"
+            return "Checks on your organized library"
         case .history:
-            return "Reports, receipts, logs"
+            return "Past copies, reports and undo"
         }
     }
 

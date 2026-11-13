@@ -16,6 +16,10 @@ struct AppCommands: Commands {
     @ObservedObject private var runSessionStore: RunSessionStore
     @Environment(\.openWindow) private var openWindow
 
+    static let addFoldersCommandTitle = "Add Folders…"
+    static let previewCommandTitle = "Preview Plan"
+    static let startCopyingCommandTitle = "Start Copying"
+
     init(appState: AppState) {
         self._appState = ObservedObject(wrappedValue: appState)
         self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
@@ -30,7 +34,7 @@ struct AppCommands: Commands {
         }
 
         CommandMenu("Library") {
-            Button("Choose Source…") {
+            Button(LocalizedStringKey(Self.addFoldersCommandTitle)) {
                 Task { await appState.chooseSourceFolder() }
             }
             .keyboardShortcut("o", modifiers: [.command])
@@ -48,19 +52,19 @@ struct AppCommands: Commands {
             .keyboardShortcut("p", modifiers: [.command, .shift])
         }
 
-        CommandMenu("Run") {
+        CommandMenu("Organize") {
             // Preview/Transfer act on the Organize flow only. Gate them to the
             // Organize section so their shortcuts (⌘R, ⌘↩) don't shadow the
             // primary buttons on the Deduplicate screen — ⌘↩ in particular is
             // also the Deduplicate scan/commit shortcut, and a main-menu key
             // equivalent would otherwise win and launch an organize Transfer.
-            Button("Preview") {
+            Button(LocalizedStringKey(Self.previewCommandTitle)) {
                 Task { await appState.startPreview() }
             }
             .keyboardShortcut("r", modifiers: [.command])
             .disabled(!isOrganizeSelected || !canStartRun || runSessionStore.isRunning)
 
-            Button("Transfer") {
+            Button(LocalizedStringKey(Self.startCopyingCommandTitle)) {
                 Task { await appState.startTransfer() }
             }
             .keyboardShortcut(.return, modifiers: [.command])
@@ -68,7 +72,7 @@ struct AppCommands: Commands {
 
             Divider()
 
-            Button("Cancel Run") {
+            Button("Stop") {
                 appState.cancelRun()
             }
             .disabled(!runSessionStore.isRunning || runSessionStore.isCancelling)

@@ -483,7 +483,10 @@ public final class DeduplicateSessionStore: ObservableObject {
         // confidence, so a user clicking "Accept all suggestions"
         // would silently commit low/medium-confidence preselects on
         // commit.
-        let eligibleClusters = clusters.filter(DeduplicationPlanner.isAutomaticCommitEligible)
+        // Groups the user already reviewed keep their own choices (D-CLP-123).
+        let eligibleClusters = clusters.filter {
+            DeduplicationPlanner.isAutomaticCommitEligible($0) && !approvedClusterIDs.contains($0.id)
+        }
         guard !eligibleClusters.isEmpty else { return }
         let oldDecisions = decisions
         let oldApproved = approvedClusterIDs
@@ -518,7 +521,10 @@ public final class DeduplicateSessionStore: ObservableObject {
         // Filter through the same eligibility gate as the auto-accept path so a
         // non-exact video cluster (which must stay review-only) can never be
         // bulk-accepted into explicit delete decisions the planner can't undo.
-        let highClusters = (triageBuckets[.high] ?? []).filter(DeduplicationPlanner.isAutomaticCommitEligible)
+        // Groups the user already reviewed keep their own choices (D-CLP-123).
+        let highClusters = (triageBuckets[.high] ?? []).filter {
+            DeduplicationPlanner.isAutomaticCommitEligible($0) && !approvedClusterIDs.contains($0.id)
+        }
         guard !highClusters.isEmpty else { return }
         let oldDecisions = decisions
         let oldApproved = approvedClusterIDs

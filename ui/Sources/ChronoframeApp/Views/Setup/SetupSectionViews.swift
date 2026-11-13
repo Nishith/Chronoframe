@@ -68,7 +68,7 @@ struct SetupHeroSection: View {
 
     var body: some View {
         DetailHeroCard(
-            title: "Setup",
+            title: "Choose Folders",
             titleAccessibilityIdentifier: AccessibilityIdentifiers.setupHeroTitle,
             message: "",
             badgeTitle: model.heroBadgeTitle,
@@ -82,17 +82,7 @@ struct SetupHeroSection: View {
             // lives at the end of the steps it depends on (the Start
             // section) — the hero orients, it does not act.
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("Privacy")
-                        .scaledFont(.body)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                    Spacer()
-                    LocalSafetyIndicator(
-                        sourcePath: model.context.sourcePath,
-                        destinationPath: model.context.destinationPath,
-                        deduplicatePath: model.context.deduplicateDestinationPath
-                    )
-                }
+                SummaryLine(title: "Privacy", value: "Everything stays on this Mac")
 
                 SummaryLine(
                     title: "Next",
@@ -126,10 +116,10 @@ struct SetupContactSheetSection: View {
         MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                 SectionHeading(
-                    title: "Source Contact Sheet",
+                    title: "A first look",
                     message: sourcePath.isEmpty
-                        ? "A contact sheet of the first frames will appear here once you choose a source."
-                        : "A quick visual read of the frames Chronoframe will organize."
+                        ? "Photos appear here once you add a folder."
+                        : "The first photos Chronoframe found in your folders."
                 )
 
                 ContactSheetView(sourcePath: sourcePath, sourceURL: sourceURL)
@@ -153,7 +143,7 @@ struct SetupSavedSetupSection: View {
                     SectionHeading(
                         eyebrow: "Saved Setup",
                         title: "Profiles",
-                        message: "Use a saved source and destination pair."
+                        message: "Use a saved pair of folders."
                     )
 
                     Spacer(minLength: 12)
@@ -182,7 +172,7 @@ struct SetupSavedSetupSection: View {
                     MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.sky) {
                         VStack(alignment: .leading, spacing: 12) {
                             SummaryLine(title: "Selected", value: profile.name)
-                            SummaryLine(title: "Source", value: profile.sourcePath)
+                            SummaryLine(title: "Folder to organize", value: profile.sourcePath)
                             SummaryLine(title: "Destination", value: profile.destinationPath)
                         }
                     }
@@ -205,7 +195,7 @@ struct SetupSavedSetupSection: View {
                     }
                 )
             ) {
-                Text("Manual Paths").tag("")
+                Text("Folders I Choose").tag("")
                 ForEach(setupStore.profiles) { profile in
                     Text(profile.name).tag(profile.name)
                 }
@@ -244,7 +234,8 @@ struct SetupSourceStepSection: View {
     let model: SetupScreenModel
     let dropZone: SetupDropZone
     let chooseSource: () -> Void
-    let selectSource: (URL) -> Void
+    let addSource: ([URL]) -> Void
+    let removeSource: (URL) -> Void
 
     @State private var isTargeted = false
     @State private var isHovered = false
@@ -255,10 +246,15 @@ struct SetupSourceStepSection: View {
         return false
     }
 
+    /// Folders can't be removed mid-copy, and a selected profile owns its single folder.
+    private var canRemoveItems: Bool {
+        !model.context.isRunInProgress && model.context.activeProfile == nil
+    }
+
     var body: some View {
         setupStepCard(
-            stepTitle: "1. Source",
-            message: "The library Chronoframe should organize.",
+            stepTitle: "1. Folders to organize",
+            message: "Add every folder that holds photos or videos. Chronoframe only reads them.",
             stepState: model.sourceStepState
         ) {
             VStack(alignment: .leading, spacing: 12) {
@@ -269,40 +265,29 @@ struct SetupSourceStepSection: View {
                 }
 
                 MeridianSurfaceCard(style: .inner, tint: model.sourceStepState.tone.color) {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .top, spacing: 12) {
-                            PathValueView(
-                                title: "Manual Folder Source",
-                                value: model.displayedSourcePath,
-                                helper: model.sourcePathHelper
+                    VStack(alignment: .leading, spacing: 12) {
+                        if !model.context.sourceItems.isEmpty {
+                            SetupSourceItemList(
+                                rows: model.context.sourceItems,
+                                canRemove: canRemoveItems,
+                                remove: removeSource
                             )
-
-                            Spacer(minLength: 12)
-
-                            SetupFolderChooserButton(
-                                title: "Choose Source...",
-                                accessibilityIdentifier: "chooseSourceButton",
-                                action: chooseSource
-                            )
-                                .accessibilityIdentifier(AccessibilityIdentifiers.chooseSourceButton)
-                                .accessibilityHint("Opens a folder picker to choose the source library")
                         }
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            PathValueView(
-                                title: "Manual Folder Source",
-                                value: model.displayedSourcePath,
-                                helper: model.sourcePathHelper
-                            )
-
-                            SetupFolderChooserButton(
-                                title: "Choose Source...",
-                                accessibilityIdentifier: "chooseSourceButton",
-                                action: chooseSource
-                            )
-                                .accessibilityIdentifier(AccessibilityIdentifiers.chooseSourceButton)
-                                .accessibilityHint("Opens a folder picker to choose the source library")
+                        if !model.sourcePathHelper.isEmpty {
+                            Text(model.sourcePathHelper)
+                                .scaledFont(.label)
+                                .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
+
+                        SetupFolderChooserButton(
+                            title: "Add Folders…",
+                            accessibilityIdentifier: "chooseSourceButton",
+                            action: chooseSource
+                        )
+                            .accessibilityIdentifier(AccessibilityIdentifiers.chooseSourceButton)
+                            .accessibilityHint("Opens a folder picker. You can pick more than one folder.")
                     }
                 }
             }
@@ -311,14 +296,17 @@ struct SetupSourceStepSection: View {
             let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier("public.file-url") }
             guard !fileProviders.isEmpty else { return false }
             Task {
-                if let provider = fileProviders.first {
+                var urls: [URL] = []
+                for provider in fileProviders {
                     if let url = await loadFileURL(from: provider) {
-                        selectSource(url)
-                        #if canImport(AppKit)
-                        NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
-                        #endif
+                        urls.append(url)
                     }
                 }
+                guard !urls.isEmpty else { return }
+                addSource(urls)
+                #if canImport(AppKit)
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+                #endif
             }
             return true
         }
@@ -351,7 +339,9 @@ struct SetupSourceStepSection: View {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(title: stepTitle, message: message)
                     Spacer(minLength: 12)
-                    MeridianStatusBadge(title: stepState.title, tint: stepState.tone.color)
+                    if case .needed = stepState {
+                        MeridianStatusBadge(title: stepState.title, tint: stepState.tone.color)
+                    }
                 }
 
                 content()
@@ -360,8 +350,56 @@ struct SetupSourceStepSection: View {
     }
 }
 
+private struct SetupSourceItemList: View {
+    let rows: [SetupSourceItemRow]
+    let canRemove: Bool
+    let remove: (URL) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
+                HStack(alignment: .center, spacing: 10) {
+                    Image(systemName: row.isFolder ? "folder" : "doc")
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .frame(width: 18)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(row.name)
+                            .scaledFont(.body)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text(row.parent)
+                            .scaledFont(.label)
+                            .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .help(row.id)
+
+                    Spacer(minLength: 8)
+
+                    Button {
+                        remove(URL(fileURLWithPath: row.id))
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(!canRemove)
+                    .accessibilityLabel("Remove \(row.name) from the folders to organize")
+                    .accessibilityIdentifier(AccessibilityIdentifiers.setupSourceItemRemovePrefix + String(index))
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(AccessibilityIdentifiers.setupSourceItems)
+    }
+}
+
 struct SetupDestinationStepSection: View {
     let model: SetupScreenModel
+    @ObservedObject var preferencesStore: PreferencesStore
     let chooseDestination: () -> Void
     let selectDestination: (URL) -> Void
 
@@ -375,17 +413,19 @@ struct SetupDestinationStepSection: View {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(
                         title: "2. Destination",
-                        message: "Where organized copies and receipts are written."
+                        message: "Where the organized copies go."
                     )
                     Spacer(minLength: 12)
-                    MeridianStatusBadge(title: model.destinationStepState.title, tint: model.destinationStepState.tone.color)
+                    if case .needed = model.destinationStepState {
+                        MeridianStatusBadge(title: model.destinationStepState.title, tint: model.destinationStepState.tone.color)
+                    }
                 }
 
                 MeridianSurfaceCard(style: .inner, tint: model.destinationStepState.tone.color) {
                     ViewThatFits(in: .horizontal) {
                         HStack(alignment: .top, spacing: 12) {
                             PathValueView(
-                                title: "Destination Folder",
+                                title: "Destination folder",
                                 value: model.context.destinationPath,
                                 helper: model.destinationPathHelper
                             )
@@ -393,31 +433,36 @@ struct SetupDestinationStepSection: View {
                             Spacer(minLength: 12)
 
                             SetupFolderChooserButton(
-                                title: "Choose Destination...",
+                                title: "Choose Destination…",
                                 accessibilityIdentifier: "chooseDestinationButton",
                                 action: chooseDestination
                             )
                                 .accessibilityIdentifier(AccessibilityIdentifiers.chooseDestinationButton)
-                                .accessibilityHint("Opens a folder picker to choose where organized copies will be written")
+                                .accessibilityHint("Opens a folder picker to choose where the organized copies go")
                         }
 
                         VStack(alignment: .leading, spacing: 12) {
                             PathValueView(
-                                title: "Destination Folder",
+                                title: "Destination folder",
                                 value: model.context.destinationPath,
                                 helper: model.destinationPathHelper
                             )
 
                             SetupFolderChooserButton(
-                                title: "Choose Destination...",
+                                title: "Choose Destination…",
                                 accessibilityIdentifier: "chooseDestinationButton",
                                 action: chooseDestination
                             )
                                 .accessibilityIdentifier(AccessibilityIdentifiers.chooseDestinationButton)
-                                .accessibilityHint("Opens a folder picker to choose where organized copies will be written")
+                                .accessibilityHint("Opens a folder picker to choose where the organized copies go")
                         }
                     }
                 }
+
+                SetupLayoutBlock(
+                    preferencesStore: preferencesStore,
+                    isRunInProgress: model.context.isRunInProgress
+                )
             }
         }
         .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
@@ -454,10 +499,45 @@ struct SetupDestinationStepSection: View {
     }
 }
 
+struct SetupLayoutBlock: View {
+    @ObservedObject var preferencesStore: PreferencesStore
+    let isRunInProgress: Bool
+
+    var body: some View {
+        let structure = preferencesStore.folderStructure
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Folder layout")
+                .scaledFont(.label)
+                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+
+            Picker("Folder layout", selection: $preferencesStore.folderStructure) {
+                ForEach(FolderStructure.allCases, id: \.self) { option in
+                    Text(FolderLayoutPresentation.title(option)).tag(option)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .disabled(isRunInProgress)
+            .accessibilityIdentifier(AccessibilityIdentifiers.setupFolderLayoutPicker)
+
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(FolderLayoutPresentation.exampleLines(structure).enumerated()), id: \.offset) { _, line in
+                    Text(line)
+                        .scaledFont(.mono)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(FolderLayoutPresentation.accessibilityExample(structure))
+        }
+    }
+}
+
 struct SetupReadinessSection: View {
     let model: SetupScreenModel
     let preview: () -> Void
-    let transfer: () -> Void
     let openSettings: () -> Void
     let isRunInProgress: Bool
 
@@ -466,34 +546,22 @@ struct SetupReadinessSection: View {
     var body: some View {
         MeridianSurfaceCard(style: .standard) {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
-                HStack(alignment: .top, spacing: 12) {
-                    SectionHeading(
-                        title: "Start",
-                        message: model.readinessMessage
-                    )
-
-                    Spacer(minLength: 12)
-
-                    MeridianStatusBadge(
-                        title: model.readinessBadgeTitle,
-                        systemImage: model.readinessBadgeSymbol,
-                        tint: model.readinessTone.color
-                    )
-                }
+                SectionHeading(
+                    title: "3. Preview",
+                    message: model.readinessMessage
+                )
 
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 12) {
                         previewButton
-                        transferButton
-                        Button("Adjust Settings…", action: openSettings)
+                        copySettingsButton
                     }
                     .padding(8)
                     .background(DesignTokens.ColorSystem.utilityBand, in: RoundedRectangle(cornerRadius: 10))
 
                     VStack(alignment: .leading, spacing: 10) {
                         previewButton
-                        transferButton
-                        Button("Adjust Settings…", action: openSettings)
+                        copySettingsButton
                     }
                     .padding(8)
                     .background(DesignTokens.ColorSystem.utilityBand, in: RoundedRectangle(cornerRadius: 10))
@@ -501,8 +569,8 @@ struct SetupReadinessSection: View {
 
                 // The safe-path promise in one line; the full evidence
                 // (trust items + readiness checklist) stays one click away.
-                // The heavy proof belongs at the transfer confirmation, not
-                // in front of a non-destructive preview.
+                // The heavy proof belongs at the copy confirmation, not
+                // in front of a preview that copies nothing.
                 DisclosureGroup(isExpanded: $showsSafetyDetails) {
                     VStack(alignment: .leading, spacing: DesignTokens.Layout.cardSpacing) {
                         TrustProofSurface(items: TrustProofModel.setupSafetySummary(
@@ -529,26 +597,19 @@ struct SetupReadinessSection: View {
 
     private var previewButton: some View {
         Button(action: preview) {
-            Label("Preview", systemImage: "eye")
+            Label("Preview Plan", systemImage: "eye")
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent)
         .disabled(!model.canStartRun || isRunInProgress)
         .accessibilityIdentifier(AccessibilityIdentifiers.previewButton)
-        .accessibilityLabel("Preview")
-        .accessibilityHint(model.canStartRun ? "Generates a copy plan without moving any files" : "Choose both folders or a saved profile first")
+        .accessibilityLabel("Preview plan")
+        .accessibilityHint(model.canStartRun ? "Builds the plan without copying anything" : "Add a folder and choose a destination first")
     }
 
-    private var transferButton: some View {
-        Button(action: transfer) {
-            Label("Transfer", systemImage: "arrow.right.circle.fill")
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.bordered)
-        .disabled(!model.canStartRun || isRunInProgress)
-        .accessibilityIdentifier(AccessibilityIdentifiers.transferButton)
-        .accessibilityLabel("Transfer")
-        .accessibilityHint(model.canStartRun ? "Copies files from the source to the destination after confirmation" : "Choose both folders or a saved profile first")
+    private var copySettingsButton: some View {
+        Button("Copy Settings…", action: openSettings)
+            .buttonStyle(.link)
     }
 }
 
@@ -557,35 +618,35 @@ private struct SetupPreflightChecklist: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Readiness check")
+            Text("Before you start")
                 .font(.subheadline.weight(.semibold))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 8)], spacing: 8) {
                 preflightItem(
-                    title: "Source access",
+                    title: "Folders to organize",
                     value: model.context.sourcePath.isEmpty ? "Needed" : "Ready",
                     isReady: !model.context.sourcePath.isEmpty,
                     systemImage: "folder"
                 )
                 preflightItem(
                     title: "Destination",
-                    value: model.context.destinationPath.isEmpty ? "Needed" : "Writable check during preview",
+                    value: model.context.destinationPath.isEmpty ? "Needed" : "Checked when the preview runs",
                     isReady: !model.context.destinationPath.isEmpty,
                     systemImage: "externaldrive"
                 )
                 preflightItem(
                     title: "Originals",
-                    value: "Read-only",
+                    value: "Never changed",
                     isReady: true,
                     systemImage: "lock.shield"
                 )
                 preflightItem(
-                    title: "Recovery",
-                    value: "Receipt after transfer",
+                    title: "Undo",
+                    value: "Each copy keeps a receipt",
                     isReady: true,
                     systemImage: "arrow.uturn.backward.circle"
                 )
                 preflightItem(
-                    title: "Copy verification",
+                    title: "Copy check",
                     value: model.context.verifyCopies ? "On" : "Off",
                     isReady: model.context.verifyCopies,
                     systemImage: model.context.verifyCopies ? "checkmark.shield" : "speedometer"
@@ -644,13 +705,13 @@ struct SetupDropZone: View {
                     )
 
                     if isActive {
-                        Text(droppedSourceLabel ?? "Dropped items ready")
+                        Text(droppedSourceLabel ?? "Folders added")
                             .font(.headline)
                             .foregroundStyle(DesignTokens.Color.inkPrimary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     } else {
-                        Text(isTargeted ? "Release to use as source" : "Drop a folder to begin")
+                        Text(isTargeted ? "Release to add" : "Drop folders here")
                             .font(.headline)
                             .foregroundStyle(isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkPrimary)
                     }

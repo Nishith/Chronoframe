@@ -14,11 +14,11 @@ final class ChronoframeCorePreviewReviewModelsTests: XCTestCase {
         )
         XCTAssertEqual(
             PreviewReviewStatus.allCases.map(\.title),
-            ["Ready", "Already There", "Duplicate", "Needs Attention"]
+            ["Ready", "Already There", "Exact Copy", "Needs Attention"]
         )
         XCTAssertEqual(
             PreviewReviewIssueKind.allCases.map(\.title),
-            ["Unknown date", "Low confidence date", "Duplicate", "Already in destination", "Could not read file"]
+            ["Unknown date", "Low confidence date", "Exact Copy", "Already There", "Could not read file"]
         )
     }
 

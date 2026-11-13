@@ -139,6 +139,7 @@ MEANINGFUL_BASENAMES=(
     PhotosImportCheckpoint
     NASCopyDestinationQualifier
     NASCopyDestinationRefusal
+    SourceItemList
 )
 
 missing_basenames=()

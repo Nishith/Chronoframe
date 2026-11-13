@@ -103,18 +103,18 @@ private struct HelpOverviewSection: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HelpListPanel(title: "How a run works") {
-                HelpStep(number: "1", title: "Choose a source", detail: "Drag a folder onto the window or click Choose Source. Read-only — nothing is moved.")
+            HelpListPanel(title: "How copying works") {
+                HelpStep(number: "1", title: "Choose folders", detail: "Drag folders onto the window or click Add Folders. Chronoframe only reads them — nothing is moved.")
                 HelpStep(number: "2", title: "Choose a destination", detail: "Where the organized copy lives. Files are arranged into year/month/day folders by default.")
-                HelpStep(number: "3", title: "Preview", detail: "A non-destructive dry run. Shows the planned file moves, dedupes, and any issues. No files are copied.")
-                HelpStep(number: "4", title: "Transfer", detail: "Copies files to the destination, verifies hashes, and writes a receipt for revert if you ever need it.")
+                HelpStep(number: "3", title: "Preview", detail: "A preview copies nothing. It shows where each file would go, which are exact copies, and any problems.")
+                HelpStep(number: "4", title: "Start Copying", detail: "Copies files to the destination, verifies each copy against the original, and saves a receipt you can undo from History.")
             }
 
             HelpListPanel(title: "Good to know") {
-                HelpBullet("Source files are never modified, renamed, or deleted.")
-                HelpBullet("Duplicates land in a Duplicates folder, not the main archive — easy to review and discard.")
-                HelpBullet("Each transfer writes a receipt to .organize_logs/ inside the destination so the run can be reverted.")
-                HelpBullet("Profiles save your favorite source/destination pairs. Switch with one click.")
+                HelpBullet("Your original files are never modified, renamed, or deleted.")
+                HelpBullet("Exact copies are set aside in a Duplicate folder, not the main archive — easy to review and discard.")
+                HelpBullet("Each copy saves a receipt in .organize_logs/ inside the destination so you can undo it from History.")
+                HelpBullet("Profiles save your favorite folder and destination pairs. Switch with one click.")
             }
         }
     }
@@ -128,14 +128,14 @@ private struct HelpShortcutsSection: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
 
             HelpListPanel(title: "Library") {
-                ShortcutRow(keys: "⌘O",   label: "Choose Source…")
+                ShortcutRow(keys: "⌘O",   label: "Add Folders…")
                 ShortcutRow(keys: "⇧⌘O",  label: "Choose Destination…")
                 ShortcutRow(keys: "⇧⌘P",  label: "Refresh Profiles")
             }
 
-            HelpListPanel(title: "Run") {
-                ShortcutRow(keys: "⌘R",   label: "Preview (non-destructive dry run)")
-                ShortcutRow(keys: "⌘↩",   label: "Transfer (copies files for real)")
+            HelpListPanel(title: "Organize") {
+                ShortcutRow(keys: "⌘R",   label: "Preview Plan (copies nothing)")
+                ShortcutRow(keys: "⌘↩",   label: "Start Copying (copies files for real)")
             }
 
             HelpListPanel(title: "Review") {
@@ -161,13 +161,13 @@ private struct HelpPrivacySection: View {
             HelpListPanel(title: "Your files stay on your Mac") {
                 HelpBullet("Chronoframe runs entirely on-device. No photos, paths, or filenames are sent over the network.")
                 HelpBullet("There is no telemetry, no analytics, no crash reporting service. Nothing phones home.")
-                HelpBullet("The app uses macOS sandboxed folder access. Choose a source and destination with the standard folder picker; access is scoped to those choices and saved with security-scoped bookmarks.")
+                HelpBullet("The app uses macOS sandboxed folder access. Choose your folders and destination with the standard folder picker; access is scoped to those choices and saved with security-scoped bookmarks.")
             }
 
             HelpListPanel(title: "What lives where") {
                 PathRow(label: "Profiles file", url: RuntimePaths.profilesFileURL())
                 PathRow(label: "App support folder", url: RuntimePaths.applicationSupportDirectory())
-                Text("Run logs and revert receipts live in a hidden .organize_logs folder inside each destination you choose.")
+                Text("Reports, logs, and receipts for undo live in a hidden .organize_logs folder inside each destination you choose.")
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .padding(.top, DesignTokens.Spacing.xs)

@@ -14,6 +14,7 @@ struct WorkspaceTabStrip<Tab: Hashable & Identifiable>: View {
     let title: (Tab) -> String
     let systemImage: (Tab) -> String
     var accessibilityIdentifier: (Tab) -> String? = { _ in nil }
+    var showsDividerBefore: (Tab) -> Bool = { _ in false }
 
     @Namespace private var underlineNamespace
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -21,6 +22,13 @@ struct WorkspaceTabStrip<Tab: Hashable & Identifiable>: View {
     var body: some View {
         HStack(spacing: 0) {
             ForEach(tabs) { tab in
+                if showsDividerBefore(tab) {
+                    Rectangle()
+                        .fill(DesignTokens.ColorSystem.hairline)
+                        .frame(width: 1, height: 16)
+                        .padding(.horizontal, 6)
+                        .accessibilityHidden(true)
+                }
                 tabButton(for: tab)
             }
         }

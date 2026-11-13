@@ -62,7 +62,7 @@ struct ClusterDetailPane: View {
                         .font(.system(size: 48))
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         .accessibilityHidden(true)
-                    Text("Select a cluster on the left")
+                    Text("Select a group on the left")
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -510,7 +510,7 @@ struct ClusterDetailPane: View {
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
-        .help(String(format: "Raw score: %.2f", score))
+        .help(String(format: "Match score: %.2f", score))
     }
 
     private func sharpnessRow(_ label: String, score: Double) -> some View {
@@ -524,7 +524,7 @@ struct ClusterDetailPane: View {
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
-        .help(String(format: "Raw score: %.2f", score))
+        .help(String(format: "Match score: %.2f", score))
     }
 
     private func faceRow(_ label: String, detected: Bool) -> some View {

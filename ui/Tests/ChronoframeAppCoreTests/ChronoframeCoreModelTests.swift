@@ -15,6 +15,15 @@ final class ChronoframeCoreModelTests: XCTestCase {
         XCTAssertEqual(RunIssue(severity: .error, message: "Copy failed").renderedLine, "ERROR: Copy failed")
     }
 
+    /// `RunMode.title` appears in engine and CLI error text, so Core keeps the
+    /// engine wording; the app's plain wording lives in `RunMode.displayTitle`.
+    func testCoreModeTitlesKeepTheEngineWording() {
+        XCTAssertEqual(
+            [RunMode.preview, .transfer, .revert, .reorganize].map(\.title),
+            ["Preview", "Transfer", "Revert", "Reorganize"]
+        )
+    }
+
     func testSidebarAndHistoryMetadataRemainStable() {
         XCTAssertEqual(Profile(name: "travel", sourcePath: "/src", destinationPath: "/dst").id, "travel")
         XCTAssertEqual(SidebarDestination.primaryNavigationCases, [.organize, .photos, .deduplicate])

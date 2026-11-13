@@ -89,6 +89,8 @@ public protocol FolderAccessServicing: AnyObject, Sendable {
     /// start path (the NAS reconnect probe) can ask for the panel to open on a network
     /// volume instead of falling back to home.
     @MainActor func chooseFolder(startingAt path: String?, prompt: String, allowNetworkStart: Bool) -> URL?
+    /// One panel, several folders. Returns an empty array when the user cancels.
+    @MainActor func chooseFolders(startingAt path: String?, prompt: String) -> [URL]
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark
     @MainActor func resolveBookmark(_ bookmark: FolderBookmark) -> ResolvedFolderBookmark?
     @MainActor func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess
@@ -123,6 +125,17 @@ public final class FolderAccessService: FolderAccessServicing {
         panel.directoryURL = Self.initialPanelDirectoryURL(startingAt: path, allowNetworkStart: allowNetworkStart)
 
         return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    public func chooseFolders(startingAt path: String?, prompt: String) -> [URL] {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = prompt
+        panel.directoryURL = Self.initialPanelDirectoryURL(startingAt: path, allowNetworkStart: false)
+
+        return panel.runModal() == .OK ? panel.urls : []
     }
 
     public static func initialPanelDirectoryURL(startingAt path: String?, allowNetworkStart: Bool = false) -> URL {

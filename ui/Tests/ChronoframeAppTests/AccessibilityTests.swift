@@ -50,6 +50,7 @@ final class AccessibilityTests: XCTestCase {
         XCTAssertEqual(AccessibilityIdentifiers.transferButton, "transferButton")
         XCTAssertEqual(AccessibilityIdentifiers.startTransferFromPreviewButton, "startTransferFromPreviewButton")
         XCTAssertEqual(AccessibilityIdentifiers.openDestinationButton, "openDestinationButton")
+        XCTAssertEqual(AccessibilityIdentifiers.runPreviewSummary, "run.preview.summary")
         XCTAssertEqual(AccessibilityIdentifiers.chooseSourceButton, "chooseSourceButton")
         XCTAssertEqual(AccessibilityIdentifiers.chooseDestinationButton, "chooseDestinationButton")
         XCTAssertEqual(AccessibilityIdentifiers.dropZone, "dropZone")
@@ -117,7 +118,7 @@ final class AccessibilityTests: XCTestCase {
             XCTAssertFalse(label.trimmingCharacters(in: .whitespaces).isEmpty, "Accessibility label must be non-empty")
         }
         // The hint should point keyboard users at the equivalent control.
-        XCTAssertTrue(AccessibilityLabels.dropZoneHint.localizedCaseInsensitiveContains("choose source"))
+        XCTAssertTrue(AccessibilityLabels.dropZoneHint.localizedCaseInsensitiveContains("add folders"))
     }
 
     func testAccessibleDesignStrengthensHighContrastSurfaces() {

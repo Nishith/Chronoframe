@@ -73,7 +73,7 @@ struct RunHeroSection: View {
                 }
 
                 HStack {
-                    Text("Security")
+                    Text("Privacy")
                         .scaledFont(.body)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     Spacer()
@@ -84,11 +84,10 @@ struct RunHeroSection: View {
                     )
                 }
 
-                SummaryLine(title: "Mode", value: model.context.currentMode?.title ?? "Idle")
-                SummaryLine(title: "Current Focus", value: model.context.currentTaskTitle)
-                SummaryLine(title: "Issues", value: model.issueSummaryValue, valueColor: model.issueTone.color)
-                SummaryLine(title: "Source", value: model.sourceSummaryValue)
-                SummaryLine(title: "Destination", value: model.destinationSummaryValue)
+                SummaryLine(title: "Now", value: model.nowSummaryValue)
+                SummaryLine(title: "Problems", value: model.issueSummaryValue, valueColor: model.issueTone.color)
+                SummaryLine(title: "From", value: model.sourceSummaryValue)
+                SummaryLine(title: "To", value: model.destinationSummaryValue)
             }
         } actions: {
             if let action = model.heroState.primaryAction {
@@ -124,11 +123,11 @@ struct RunHeroSection: View {
             Button {
                 appState.navigate(to: .organize(.setup))
             } label: {
-                Label("Return to Setup", systemImage: "slider.horizontal.3")
+                Label("Choose Folders", systemImage: "slider.horizontal.3")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .accessibilityHint("Opens the Setup workspace to adjust source, destination, or profile")
+            .accessibilityHint("Opens Choose Folders")
 
         case .preview:
             Button {
@@ -139,35 +138,37 @@ struct RunHeroSection: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(!appState.canStartRun)
-            .accessibilityHint(appState.canStartRun ? "Generates a copy plan without moving any files" : "Choose both folders or a saved profile in Setup first")
+            .accessibilityHint(appState.canStartRun ? "Builds the plan without copying anything" : "Choose your folders first")
 
         case .transfer:
             Button {
                 Task { await appState.startTransfer() }
             } label: {
-                Label("Start Transfer", systemImage: "arrow.right.circle.fill")
+                Label("Start Copying", systemImage: "arrow.right.circle.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .disabled(!model.canStartTransferFromPreview)
-            .accessibilityHint(model.canStartTransferFromPreview ? "Copies files from the source to the destination" : "Run a preview first")
+            .accessibilityLabel("Start copying")
+            .accessibilityIdentifier(AccessibilityIdentifiers.startTransferFromPreviewButton)
+            .accessibilityHint(model.canStartTransferFromPreview ? "Copies the planned files after you confirm" : "Preview first")
 
         case .cancel:
             Button(role: .destructive) {
                 appState.cancelRun()
             } label: {
-                Label(appState.runSessionStore.isCancelling ? "Stopping…" : "Cancel Run", systemImage: "stop.fill")
+                Label(appState.runSessionStore.isCancelling ? "Stopping…" : "Stop", systemImage: "stop.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .disabled(appState.runSessionStore.isCancelling)
-            .accessibilityHint("Stops the current run. Already-copied files remain in place")
+            .accessibilityHint("Stops now. Files already copied stay in place")
 
         case .openDestination:
             Button {
                 appState.openDestination()
             } label: {
-                Label("Open Destination", systemImage: "folder")
+                Label("Show in Finder", systemImage: "folder")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -178,11 +179,11 @@ struct RunHeroSection: View {
             Button {
                 workspaceTab = .issues
             } label: {
-                Label("Review Issues", systemImage: "exclamationmark.triangle.fill")
+                Label("See Problems", systemImage: "exclamationmark.triangle.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
-            .accessibilityHint("Opens the issues tab below to review warnings and errors")
+            .accessibilityHint("Opens the Problems tab below to review warnings and errors")
         }
     }
 }
@@ -212,7 +213,7 @@ struct RunProgressSurface: View {
                 }
 
                 progressView
-                    .accessibilityLabel("Run progress")
+                    .accessibilityLabel("Progress")
                     .accessibilityValue(model.progressAccessibilityValue)
 
                 if model.showsCopyProgressDetails {
@@ -254,66 +255,52 @@ struct RunProgressSurface: View {
     }
 }
 
-struct RunPreviewReviewSection: View {
+struct RunPreviewSummarySection: View {
     let model: RunWorkspaceModel
-    let startTransfer: () -> Void
+    let openReview: () -> Void
 
     var body: some View {
         MeridianSurfaceCard(style: .section, tint: DesignTokens.Color.sky) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 16) {
-                    reviewSummary
-                    Spacer(minLength: 12)
-                    transferButton
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                Text("What will happen")
+                    .scaledFont(.cardTitle)
+                    .foregroundStyle(DesignTokens.Color.inkPrimary)
 
-                VStack(alignment: .leading, spacing: 12) {
-                    reviewSummary
-                    transferButton
-                }
-            }
-        }
-    }
-
-    private var reviewSummary: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Preview Review")
-                .scaledFont(.cardTitle)
-                .foregroundStyle(DesignTokens.Color.inkPrimary)
-
-            Text(model.previewReviewMessage)
-                .font(.body.weight(.medium))
-                .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if model.previewReviewPath != nil {
-                HStack(spacing: 8) {
-                    ForEach(model.previewReviewSummaryTiles) { tile in
-                        Label(tile.value, systemImage: tile.tone == .warning ? "exclamationmark.triangle" : "checkmark.circle")
-                            .font(.caption)
-                            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                            .help(tile.title)
+                let exceptions = model.previewHeadline.exceptions
+                if exceptions.isEmpty {
+                    Text("No problems found.")
+                        .scaledFont(.body)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                } else {
+                    ForEach(exceptions) { exception in
+                        exceptionRow(exception)
                     }
                 }
             }
         }
+        .accessibilityIdentifier(AccessibilityIdentifiers.runPreviewSummary)
     }
 
-    /// `.bordered`, not `.borderedProminent`: whenever this section is visible
-    /// the hero directly above already carries the prominent Start Transfer
-    /// (`heroState.primaryAction == .transfer` for `.dryRunFinished`), and two
-    /// prominent buttons for the same action in one viewport blur which one is
-    /// "the" safe path. This button stays as the convenience affordance next to
-    /// the review evidence.
-    private var transferButton: some View {
-        Button(action: startTransfer) {
-            Label("Start Transfer", systemImage: "arrow.right.circle.fill")
+    @ViewBuilder
+    private func exceptionRow(_ exception: RunPreviewHeadline.Exception) -> some View {
+        if exception.opensReview {
+            Button(action: openReview) {
+                rowLabel(exception)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens the review list")
+        } else {
+            rowLabel(exception)
         }
-        .buttonStyle(.bordered)
-        .controlSize(.large)
-        .disabled(!model.canStartTransferFromPreview)
-        .accessibilityLabel("Start transfer now")
-        .accessibilityIdentifier(AccessibilityIdentifiers.startTransferFromPreviewButton)
+    }
+
+    private func rowLabel(_ exception: RunPreviewHeadline.Exception) -> some View {
+        Label(exception.text, systemImage: exception.systemImage)
+            .scaledFont(.body)
+            .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .contentShape(Rectangle())
     }
 }
 
@@ -331,13 +318,13 @@ struct RunTickerSection: View {
             TickerRow.Entry(
                 id: "discovered",
                 value: metrics.discoveredCount.formatted(),
-                label: "discovered",
+                label: "found",
                 tone: .neutral
             ),
             TickerRow.Entry(
                 id: "planned",
                 value: metrics.plannedCount.formatted(),
-                label: "planned",
+                label: "to copy",
                 tone: .neutral
             ),
             TickerRow.Entry(
@@ -355,13 +342,13 @@ struct RunTickerSection: View {
             TickerRow.Entry(
                 id: "duplicates",
                 value: metrics.duplicateCount.formatted(),
-                label: "duplicates",
+                label: "exact copies",
                 tone: metrics.duplicateCount > 0 ? .warning : .neutral
             ),
             TickerRow.Entry(
                 id: "issues",
                 value: "\(model.context.issueCount)",
-                label: "issues",
+                label: "problems",
                 tone: model.context.issueCount > 0 ? .danger : .neutral
             ),
         ]
@@ -380,8 +367,8 @@ struct RunWorkspaceShell: View {
                 HStack(alignment: .top, spacing: 12) {
                     SectionHeading(
                         eyebrow: "Inspect",
-                        title: "Progress, Issues, and Artifacts",
-                        message: "Use the workspace to understand what happened, where the run stands now, and what to inspect next."
+                        title: "Details",
+                        message: ""
                     )
 
                     Spacer(minLength: 12)
@@ -394,7 +381,7 @@ struct RunWorkspaceShell: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(maxWidth: 340)
-                    .accessibilityLabel("Run workspace section")
+                    .accessibilityLabel("Details section")
                     .accessibilityIdentifier(AccessibilityIdentifiers.runWorkspaceTabs)
                 }
 
@@ -440,7 +427,7 @@ struct RunSnapshotPanel: View {
     var body: some View {
         MeridianSurfaceCard(style: .inner, tint: model.heroState.tone.color) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Run Snapshot")
+                Text("Status")
                     .scaledFont(.cardTitle)
 
                 SummaryLine(title: "Status", value: model.heroState.badgeTitle)
@@ -448,7 +435,7 @@ struct RunSnapshotPanel: View {
                 SummaryLine(title: "ETA", value: model.etaSummaryValue)
                 SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                 SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
-                SummaryLine(title: "Issues", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
+                SummaryLine(title: "Problems", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
             }
         }
     }
@@ -461,7 +448,7 @@ struct RunArtifactsPanel: View {
     var body: some View {
         MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.amber) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Artifacts")
+                Text("Reports and Logs")
                     .scaledFont(.cardTitle)
 
                 Text(model.destinationSummaryValue)
@@ -492,18 +479,18 @@ struct RunArtifactsPanel: View {
         .accessibilityLabel("Open destination folder in Finder")
         .accessibilityIdentifier(AccessibilityIdentifiers.openDestinationButton)
 
-        Button("Open Report") {
+        Button("Open Preview Report") {
             appState.openReport()
         }
         .disabled(model.reportPath == nil)
-        .accessibilityLabel("Open dry-run report")
+        .accessibilityLabel("Open preview report")
         .accessibilityIdentifier(AccessibilityIdentifiers.openReportButton)
 
         Button("Open Logs") {
             appState.openLogsDirectory()
         }
         .disabled(model.logsDirectoryPath == nil)
-        .accessibilityLabel("Open logs directory in Finder")
+        .accessibilityLabel("Open logs folder in Finder")
         .accessibilityIdentifier(AccessibilityIdentifiers.openLogsButton)
     }
 }
@@ -526,19 +513,19 @@ struct RunIssuesPanel: View {
         VStack(alignment: .leading, spacing: 16) {
             MeridianSurfaceCard(style: .inner, tint: model.issueTone.color) {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Issues")
+                    Text("Problems")
                         .scaledFont(.cardTitle)
 
                     SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                     SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
-                    SummaryLine(title: "Engine Issues", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
+                    SummaryLine(title: "Problems", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
                 }
             }
 
             if model.issueEntries.isEmpty {
                 EmptyStateView(
-                    title: "No Issues Reported",
-                    message: "Warnings and errors will be collected here.",
+                    title: "No Problems",
+                    message: "Warnings and errors will be listed here.",
                     systemImage: "checkmark.shield"
                 )
             } else {
@@ -557,7 +544,7 @@ struct RunIssuesPanel: View {
                         .accessibilityLabel("\(accessibilityPrefix(for: entry.tone)): \(entry.text)")
                     }
                 }
-                .accessibilityRotor("Issues") {
+                .accessibilityRotor("Problems") {
                     ForEach(model.issueEntries) { entry in
                         AccessibilityRotorEntry(entry.text, id: entry.id)
                     }
@@ -584,24 +571,24 @@ struct RunIssuesPanel: View {
         let text = entries.map(\.text).joined(separator: "\n").lowercased()
         var fixes: [String] = []
         if text.contains("permission") || text.contains("access") || text.contains("bookmark") {
-            fixes.append("Choose the source or destination folder again so macOS refreshes access.")
+            fixes.append("Choose the folders or the destination again so macOS refreshes access.")
         }
         if text.contains("space") || text.contains("disk") || text.contains("volume") {
             fixes.append("Free space on the destination volume, then rebuild the preview.")
         }
         if text.contains("hash") || text.contains("verify") {
-            fixes.append("Keep verification on and retry the run; Chronoframe removes bad copies when verification fails.")
+            fixes.append("Keep verification on and try again; Chronoframe removes bad copies when verification fails.")
         }
         if text.contains("date") || text.contains("unknown") {
-            fixes.append("Open the Review tab and correct unknown or low-confidence dates before transfer.")
+            fixes.append("Open the Review tab and set unknown or unsure dates before copying.")
         }
         if text.contains("exist") || text.contains("collision") || text.contains("duplicate") {
-            fixes.append("Inspect skipped and duplicate items in Preview Review before starting transfer.")
+            fixes.append("Check skipped and exact-copy items in the Review tab before copying.")
         }
         if fixes.isEmpty {
-            fixes.append("Open the related file or folder from the artifact panel, then run Preview again after fixing the cause.")
+            fixes.append("Open the related file or folder from Reports and Logs, then preview again after fixing the cause.")
         }
-        fixes.append("Original source files are left untouched while you resolve these issues.")
+        fixes.append("Your originals are not changed while you resolve these problems.")
         return fixes
     }
 }
@@ -612,7 +599,7 @@ struct RunConsolePanel: View {
     var body: some View {
         MeridianSurfaceCard(style: .inner, tint: DesignTokens.Color.inkMuted) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Console")
+                Text("Activity")
                     .scaledFont(.cardTitle)
 
                 ScrollView {
@@ -632,7 +619,7 @@ struct RunConsolePanel: View {
                     }
                 }
                 .frame(minHeight: DesignTokens.Layout.consoleMinHeight, idealHeight: DesignTokens.Layout.consoleIdealHeight)
-                .accessibilityLabel("Run log")
+                .accessibilityLabel("Activity log")
                 .accessibilityIdentifier(AccessibilityIdentifiers.consoleScrollView)
             }
         }
@@ -649,9 +636,9 @@ struct RunIdleOnboardingCard: View {
                     message: ""
                 )
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
-                    onboardingStep(number: "1", title: "Set up source and destination", message: "Go to Setup and choose the folder to organize and where organized copies should go.")
-                    onboardingStep(number: "2", title: "Preview to validate the plan", message: "A preview copies nothing — it shows exactly what will happen and flags any issues.")
-                    onboardingStep(number: "3", title: "Transfer when you're confident", message: "Start the transfer. This workspace updates live with progress, issues, and artifacts.")
+                    onboardingStep(number: "1", title: "Choose your folders", message: "Add the folders to organize and pick where the copies go.")
+                    onboardingStep(number: "2", title: "Preview the plan", message: "A preview copies nothing. It shows exactly what would happen.")
+                    onboardingStep(number: "3", title: "Copy when it looks right", message: "Progress and any problems show here while Chronoframe copies.")
                 }
             }
         }

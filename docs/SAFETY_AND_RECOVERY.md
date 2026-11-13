@@ -6,7 +6,9 @@ records, and what happens after an interruption.
 
 ## The Short Version
 
-- Organize treats the selected source folder as read-only.
+- Organize treats the selected source folder as read-only. A staged list of
+  folders is checked against the destination item by item, so none of them can
+  overlap it.
 - Every organize plan is previewed before copying starts.
 - Copies are written to temporary files, flushed, atomically renamed, and
   re-hashed by default.

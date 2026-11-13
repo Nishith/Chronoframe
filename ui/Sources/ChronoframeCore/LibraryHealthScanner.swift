@@ -39,6 +39,9 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
     public var message: String
     public var severity: LibraryHealthSeverity
     public var action: LibraryHealthAction?
+    /// The number `value` shows, for cards that count something, so logic
+    /// never has to parse a formatted display string.
+    public var count: Int?
 
     public init(
         id: String,
@@ -46,7 +49,8 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
         value: String,
         message: String,
         severity: LibraryHealthSeverity,
-        action: LibraryHealthAction? = nil
+        action: LibraryHealthAction? = nil,
+        count: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -54,6 +58,7 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
         self.message = message
         self.severity = severity
         self.action = action
+        self.count = count
     }
 }
 
@@ -73,6 +78,12 @@ public struct LibraryHealthSummary: Equatable, Codable, Sendable {
         self.destinationRoot = destinationRoot
         self.overallSeverity = overallSeverity
         self.cards = cards
+    }
+
+    /// True once the destination has at least one saved receipt. Computed, so it is not part of the coded form.
+    public var hasOrganizedHistory: Bool {
+        guard let history = cards.first(where: { $0.id == "history" }) else { return false }
+        return (history.count ?? 0) > 0
     }
 }
 
@@ -125,11 +136,11 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         cards.append(
             LibraryHealthCard(
                 id: "unknown-dates",
-                title: "Unknown Dates",
+                title: "No Date",
                 value: unknownStats.count.formatted(),
                 message: unknownStats.count == 0
-                    ? "No files are currently parked in Unknown_Date."
-                    : "\(formattedBytes(unknownStats.bytes)) need a date decision.",
+                    ? "No files are waiting in the Unknown_Date folder."
+                    : "\(formattedBytes(unknownStats.bytes)) of files need a date.",
                 severity: unknownStats.count == 0 ? .good : .attention,
                 action: unknownStats.count == 0 ? nil : .reviewUnknownDates
             )
@@ -142,11 +153,11 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         cards.append(
             LibraryHealthCard(
                 id: "duplicates",
-                title: "Duplicates",
+                title: "Exact Copies",
                 value: duplicateCount.formatted(),
                 message: duplicateCount == 0
-                    ? "No exact duplicate hints are visible from the destination cache."
-                    : "\(formattedBytes(duplicateBytes)) may be recoverable after review.",
+                    ? "No exact copies were set aside during past copies."
+                    : "\(formattedBytes(duplicateBytes)) could be freed after you review them.",
                 severity: duplicateCount == 0 ? .good : .attention,
                 action: duplicateCount == 0 ? nil : .runDeduplicate
             )
@@ -156,11 +167,11 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         cards.append(
             LibraryHealthCard(
                 id: "interrupted-work",
-                title: "Interrupted Work",
+                title: "Unfinished Copies",
                 value: "\(queueStats.pending + queueStats.failed)",
                 message: queueStats.pending + queueStats.failed == 0
-                    ? "There are no pending or failed copy jobs in the queue."
-                    : "\(queueStats.pending) pending, \(queueStats.failed) failed jobs need attention.",
+                    ? "No copies are waiting or failed."
+                    : "\(queueStats.pending) waiting, \(queueStats.failed) failed. Open Preview & Copy to finish them.",
                 severity: queueStats.failed > 0 ? .critical : (queueStats.pending > 0 ? .attention : .good),
                 action: queueStats.pending + queueStats.failed == 0 ? nil : .runPreview
             )
@@ -170,13 +181,14 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         cards.append(
             LibraryHealthCard(
                 id: "history",
-                title: "History & Revert Safety",
+                title: "Undo Records",
                 value: receiptCount.formatted(),
                 message: receiptCount == 0
-                    ? "No audit receipts were found for this destination yet."
-                    : "Audit receipts are available for recent organized runs.",
-                severity: receiptCount == 0 ? .attention : .good,
-                action: .openHistory
+                    ? "Nothing has been copied here yet, so there is nothing to undo."
+                    : "Receipts are saved for recent copies, so they can be undone.",
+                severity: .good,
+                action: .openHistory,
+                count: receiptCount
             )
         )
 
@@ -184,11 +196,11 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         cards.append(
             LibraryHealthCard(
                 id: "structure-drift",
-                title: "Structure Drift",
+                title: "Files Outside the Layout",
                 value: driftCount.formatted(),
                 message: driftCount == 0
-                    ? "Recognized media filenames match Chronoframe's naming pattern."
-                    : "Some media files do not look like Chronoframe-planned destinations.",
+                    ? "Every recognized file follows the folder layout."
+                    : "Some files don't follow Chronoframe's folder layout.",
                 severity: driftCount == 0 ? .good : .attention,
                 action: driftCount == 0 ? nil : .reorganizeDestination
             )
@@ -221,7 +233,7 @@ public struct LibraryHealthScanner: @unchecked Sendable {
                 id: "ready",
                 title: "Ready to Organize",
                 value: "Ready",
-                message: "Source and destination are configured.",
+                message: "Folders to organize and destination are set.",
                 severity: .good,
                 action: .runPreview
             )
@@ -230,9 +242,9 @@ public struct LibraryHealthScanner: @unchecked Sendable {
         return LibraryHealthCard(
             id: "ready",
             title: "Ready to Organize",
-            value: destinationExists ? "Needs source" : "Needs destination",
+            value: destinationExists ? "Needs folders" : "Needs destination",
             message: destinationExists
-                ? "Choose a source folder before the next preview."
+                ? "Add a folder to organize before the next preview."
                 : "The destination folder is missing or unavailable.",
             severity: .attention,
             action: .runPreview
