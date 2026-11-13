@@ -161,11 +161,24 @@ final class ChronoframeUITests: XCTestCase {
                     app.terminate()
                     continue
                 }
+                Self.parkPointerOnTitlebar(for: scenario, in: app)
                 var unmatchedIssues: [String] = []
                 var auditThrew = false
                 do {
+                    let auditWindowFrame = Self.auditWindow(for: scenario, in: app).frame
+                    try app.performAccessibilityAudit(for: auditTypes) { issue in
                         let logLine = Self.auditLogLine(for: issue, scenario: scenario)
                         NSLog("%@", logLine)
+                        // Pixels outside the window are never drawn, so the contrast
+                        // audit has nothing to sample and reports a failure for
+                        // text that has scrolled below the fold of a short window.
+                        if issue.auditType.contains(.contrast),
+                           let elementFrame = issue.element?.frame,
+                           Self.isClippedByWindow(elementFrame: elementFrame, windowFrame: auditWindowFrame) {
+                            NSLog("A11y audit skipped (element clipped by window %@): %@",
+                                  NSStringFromRect(auditWindowFrame), logLine)
+                            return true
+                        }
                         if Self.isAllowedAccessibilityAuditIssue(
                             issue,
                             scenario: scenario,
@@ -202,6 +215,39 @@ final class ChronoframeUITests: XCTestCase {
                 app.terminate()
             }
         }
+    }
+
+    /// Moves the pointer onto the empty titlebar so no card is hovered while the
+    /// audit samples pixels. Setup's folder cards scale to 1.015x under the
+    /// pointer, which resamples their text and makes the contrast check fail on
+    /// whichever card the idle pointer happens to rest on: the Source card in a
+    /// tall window, the Destination card in a short one.
+    @MainActor
+    private static func parkPointerOnTitlebar(for scenario: Scenario, in app: XCUIApplication) {
+        let window = auditWindow(for: scenario, in: app)
+        guard window.exists else { return }
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0))
+            .withOffset(CGVector(dx: 0, dy: 10))
+            .hover()
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+    }
+
+    @MainActor
+    private static func auditWindow(for scenario: Scenario, in app: XCUIApplication) -> XCUIElement {
+        scenario.opensSettingsOnLaunch ? app.windows[settingsWindowIdentifier] : app.windows.firstMatch
+    }
+
+    /// True when any part of the element lies outside the window, where nothing
+    /// is rendered.
+    private static func isClippedByWindow(elementFrame: CGRect, windowFrame: CGRect) -> Bool {
+        !windowFrame.insetBy(dx: -1, dy: -1).contains(elementFrame)
+    }
+
+    func testClippedElementDetectionComparesAgainstTheWindowFrame() {
+        let window = CGRect(x: 0, y: 30, width: 1024, height: 690)
+        XCTAssertFalse(Self.isClippedByWindow(elementFrame: CGRect(x: 305, y: 600, width: 78, height: 24), windowFrame: window))
+        XCTAssertTrue(Self.isClippedByWindow(elementFrame: CGRect(x: 305, y: 717, width: 78, height: 24), windowFrame: window))
+        XCTAssertTrue(Self.isClippedByWindow(elementFrame: CGRect(x: -20, y: 100, width: 78, height: 24), windowFrame: window))
     }
 
     private static var requestedAuditScenarios: [Scenario] {
