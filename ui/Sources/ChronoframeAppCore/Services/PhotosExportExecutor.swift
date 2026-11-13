@@ -15,12 +15,15 @@ public struct PhotosExportableResource: Equatable, Sendable {
     /// Lower-cased file extension without a leading dot (e.g. `heic`, `mov`).
     public let fileExtension: String
     public let originalFilename: String
+    /// Size in bytes of the original resource when Photos reports it; nil when unknown.
+    public let fileSize: Int64?
 
-    public init(assetID: String, resourceIndex: Int, fileExtension: String, originalFilename: String) {
+    public init(assetID: String, resourceIndex: Int, fileExtension: String, originalFilename: String, fileSize: Int64? = nil) {
         self.assetID = assetID
         self.resourceIndex = resourceIndex
         self.fileExtension = fileExtension
         self.originalFilename = originalFilename
+        self.fileSize = fileSize
     }
 }
 
@@ -200,6 +203,18 @@ public struct PhotosExportExecutor {
                     onEvent(.assetFailed(assetID: entry.assetID, message: message))
                     continue
                 }
+                // Now the asset's size is known: a large original must fit
+                // above the floor too, or it would fail with a disk-full error
+                // instead of pausing. Unknown sizes and an unknown free-space
+                // value never stop the export.
+                let knownSize = resources.reduce(Int64(0)) { $0 &+ max(0, $1.fileSize ?? 0) }
+                if knownSize > 0, let free = freeSpaceProvider(stagingDirectory) {
+                    let (needed, overflow) = freeSpaceFloorBytes.addingReportingOverflow(knownSize)
+                    let threshold = overflow ? Int64.max : needed
+                    if free < threshold {
+                        throw PhotosExportStop.lowStagingSpace(freeBytes: free, floorBytes: threshold)
+                    }
+                }
                 for resource in resources {
                     try throwIfCancelled(isCancelled)
                     let filename = uniqueFilename(
@@ -240,6 +255,9 @@ public struct PhotosExportExecutor {
             } catch is CancellationError {
                 rollBack(writtenURLs)
                 throw CancellationError()
+            } catch let stop as PhotosExportStop {
+                // Nothing of this asset was written; stop without recording a failure.
+                throw stop
             } catch {
                 // A resource failed mid-asset: roll back what was written so an
                 // incomplete unit never reaches the transfer pipeline.
