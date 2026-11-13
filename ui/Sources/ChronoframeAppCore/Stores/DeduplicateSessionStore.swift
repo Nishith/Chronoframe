@@ -101,6 +101,8 @@ public final class DeduplicateSessionStore: ObservableObject {
     /// True once the user has acted on (or restored) the current review. Untouched
     /// suggestions are never saved (D-DDP-107).
     private var reviewHasUserChanges = false
+    /// The folder the view asked about; `savedReviewForCurrentFolder` follows saves to it.
+    private var savedReviewFolderPath: String?
 
     public init(
         engine: any DeduplicateEngine,
@@ -588,6 +590,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func refreshSavedReview(folderPath: String) {
+        savedReviewFolderPath = folderPath
         savedReviewForCurrentFolder = reviewSnapshotStore.load(folderPath: folderPath)
     }
 
@@ -646,6 +649,11 @@ public final class DeduplicateSessionStore: ObservableObject {
             focusClusterID: reviewFocusClusterID
         )
         try? reviewSnapshotStore.save(snapshot)
+        // Publish the result so the idle card needs no view-side refresh (D-DDP-126).
+        if let tracked = savedReviewFolderPath,
+           URL(fileURLWithPath: tracked).standardizedFileURL.path == snapshot.folderPath {
+            savedReviewForCurrentFolder = reviewSnapshotStore.load(folderPath: tracked)
+        }
     }
 
     private func consume(_ event: DeduplicateEvent) {

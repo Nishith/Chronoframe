@@ -585,6 +585,49 @@ final class DeduplicateReviewPersistenceTests: XCTestCase {
     }
 
     @MainActor
+    func testSavingRefreshesTheSavedReviewCardWithoutAViewCall() async throws {
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let store = makeStore(
+            engine: MockDeduplicateEngine(clusters: [cluster]),
+            snapshotStore: snapshotStore,
+            debounce: longDebounce
+        )
+        store.refreshSavedReview(folderPath: "/dest")
+        XCTAssertNil(store.savedReviewForCurrentFolder)
+        await scanToReview(store)
+        store.setDecision(.keep, forPath: file2.path)
+
+        store.pauseReview()
+        XCTAssertNotNil(store.savedReviewForCurrentFolder, "Pausing saves, so the card must follow.")
+
+        // Reset on an already-idle paused review saves again; the card must follow that too.
+        store.discardSavedReview(folderPath: "/dest")
+        XCTAssertNil(store.savedReviewForCurrentFolder)
+        store.reset()
+        XCTAssertEqual(snapshotStore.saves.count, 2)
+        XCTAssertEqual(store.savedReviewForCurrentFolder, snapshotStore.load(folderPath: "/dest"))
+        XCTAssertNotNil(store.savedReviewForCurrentFolder)
+    }
+
+    @MainActor
+    func testSavingDoesNotRefreshTheCardForAnotherFolder() async throws {
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let store = makeStore(
+            engine: MockDeduplicateEngine(clusters: [cluster]),
+            snapshotStore: snapshotStore,
+            debounce: longDebounce
+        )
+        store.refreshSavedReview(folderPath: "/elsewhere")
+        await scanToReview(store)
+        store.setDecision(.keep, forPath: file2.path)
+
+        store.pauseReview()
+
+        XCTAssertEqual(snapshotStore.saves.count, 1)
+        XCTAssertNil(store.savedReviewForCurrentFolder, "The card follows the folder the view shows, not the scanned one.")
+    }
+
+    @MainActor
     func testRefreshSavedReviewLoadsForFolder() async throws {
         let engine = MockDeduplicateEngine(clusters: [cluster])
         let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
