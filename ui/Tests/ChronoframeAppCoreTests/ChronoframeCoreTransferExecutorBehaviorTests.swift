@@ -1171,6 +1171,164 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         XCTAssertEqual(temporaryFilesUnder(env.destinationRoot), [], "No orphaned .tmp files after cancel")
     }
 
+    /// Two workers must not both pass the free-space check on room for one
+    /// file. The check used to compare each file against the volume's free
+    /// space on its own, so parallel workers all passed on the same bytes and
+    /// the later copies ran out of space mid-write (seen as "Disk space check
+    /// passed. Resuming run." followed by "No space left on device").
+    ///
+    /// The fake volume has room for either file plus the safety buffer, but
+    /// not both at once, and reports the same free bytes throughout. The first
+    /// copy is held open until the second worker has proved it was turned away
+    /// (it checks free space again after its poll), so only the reservation
+    /// can keep the copies from overlapping.
+    func testReservationKeepsParallelCopiesFromOverlappingOnTheSameFreeBytes() throws {
+        let run = try runTwoParallelCopiesOnRoomForOne()
+
+        XCTAssertEqual(run.copiedCount, 2, "Both files copy once there is room for each in turn")
+        XCTAssertEqual(run.maxCopiesInFlight, 1, "The second copy must wait for the first one's reserved bytes")
+        XCTAssertGreaterThanOrEqual(run.freeSpaceChecks, 3, "The turned-away worker checks free space again after its poll")
+    }
+
+    /// A worker waiting only on other workers' reservations is not stuck on
+    /// anything the user can fix, so it must not tell them to free up space.
+    func testWaitingOnlyOnOtherCopiesReservationsDoesNotWarnAboutLowSpace() throws {
+        let run = try runTwoParallelCopiesOnRoomForOne()
+
+        XCTAssertEqual(run.copiedCount, 2)
+        XCTAssertEqual(
+            run.issueMessages.filter { $0.contains("Insufficient disk space") || $0.contains("Disk space check passed") },
+            [],
+            "Free space alone was enough, so there is nothing to free up and nothing to resume"
+        )
+    }
+
+    private struct ParallelCopyRun {
+        var copiedCount: Int
+        var maxCopiesInFlight: Int
+        var freeSpaceChecks: Int
+        var issueMessages: [String]
+    }
+
+    private func runTwoParallelCopiesOnRoomForOne() throws -> ParallelCopyRun {
+        let env = try makeEnvironment(jobCount: 2)
+        defer { env.logger.close() }
+
+        let sizes = try env.jobs.map { job -> Int64 in
+            let attributes = try FileManager.default.attributesOfItem(atPath: job.sourcePath)
+            return try XCTUnwrap((attributes[.size] as? NSNumber)?.int64Value)
+        }
+        let largest = try XCTUnwrap(sizes.max())
+        let total = sizes.reduce(0, +)
+        let freeBytes = TransferExecutor.safetyBufferBytes + total - 1
+        XCTAssertGreaterThanOrEqual(freeBytes, TransferExecutor.safetyBufferBytes + largest, "Room for either file alone")
+        let volume = OverlapProbeVolume(freeBytes: freeBytes)
+        let issues = IssueLog()
+
+        let observer = TransferExecutionObserver(onIssue: { issue in issues.append(issue.message) })
+
+        let strategy = TransferFileCopyStrategy(
+            clone: { _, _ in
+                errno = ENOTSUP
+                return -1
+            },
+            copyAll: { sourcePath, destinationPath in
+                volume.copyBegan()
+                defer { volume.copyEnded() }
+                do {
+                    try FileManager.default.copyItem(atPath: sourcePath, toPath: destinationPath)
+                    return 0
+                } catch {
+                    errno = EIO
+                    return -1
+                }
+            },
+            copyMetadata: { _, _ in 0 }
+        )
+
+        var executor = TransferExecutor(fileCopyStrategy: strategy)
+        executor.freeDiskSpaceProvider = { _ in volume.reportFreeBytes() }
+        executor.isLowPowerModeEnabledProvider = { false }
+        executor.thermalStateProvider = { .nominal }
+
+        // The deadline is only a backstop so a regression fails instead of hanging.
+        let deadline = Date().addingTimeInterval(60)
+        let result = try executor.executeQueuedJobs(
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: false,
+            runLogger: env.logger,
+            status: .pending,
+            maxConcurrentCopies: 2,
+            observer: observer,
+            isCancelled: { Date() > deadline },
+            runID: UUID()
+        )
+
+        XCTAssertEqual(temporaryFilesUnder(env.destinationRoot), [], "No orphaned .tmp files")
+        return ParallelCopyRun(
+            copiedCount: result.copiedCount,
+            maxCopiesInFlight: volume.maxCopiesInFlight,
+            freeSpaceChecks: volume.checks,
+            issueMessages: issues.messages
+        )
+    }
+
+    /// A volume with a fixed amount of free space that records how many copies
+    /// run at once. The first copy to start is held open until either another
+    /// copy overlaps it (what a missing reservation allows) or free space has
+    /// been checked three times: the first copy's check, the second worker's
+    /// check that was turned away, and that worker's re-check after its poll.
+    private final class OverlapProbeVolume: @unchecked Sendable {
+        private let free: Int64
+        private let condition = NSCondition()
+        private var checkCount = 0
+        private var inFlight = 0
+        private var maxInFlight = 0
+        private var holdTaken = false
+
+        init(freeBytes: Int64) { free = freeBytes }
+
+        var checks: Int { condition.lock(); defer { condition.unlock() }; return checkCount }
+        var maxCopiesInFlight: Int { condition.lock(); defer { condition.unlock() }; return maxInFlight }
+
+        func reportFreeBytes() -> Int64 {
+            condition.lock()
+            defer { condition.unlock() }
+            checkCount += 1
+            condition.broadcast()
+            return free
+        }
+
+        func copyBegan() {
+            condition.lock()
+            defer { condition.unlock() }
+            inFlight += 1
+            maxInFlight = max(maxInFlight, inFlight)
+            condition.broadcast()
+            guard !holdTaken else { return }
+            holdTaken = true
+            // The timeout is only a backstop against hanging on a regression.
+            let backstop = Date().addingTimeInterval(60)
+            while checkCount < 3, inFlight < 2, condition.wait(until: backstop) {}
+        }
+
+        func copyEnded() {
+            condition.lock()
+            defer { condition.unlock() }
+            inFlight -= 1
+            condition.broadcast()
+        }
+    }
+
+    private final class IssueLog: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: [String] = []
+
+        func append(_ message: String) { lock.lock(); stored.append(message); lock.unlock() }
+        var messages: [String] { lock.lock(); defer { lock.unlock() }; return stored }
+    }
+
     private final class CancelBox: @unchecked Sendable {
         private let lock = NSLock()
         private var cancelled = false

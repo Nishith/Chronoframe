@@ -162,6 +162,36 @@ public final class PersistentRunLogger: @unchecked Sendable {
     }()
 }
 
+/// Bytes that copies in flight have claimed on the destination volume.
+/// Parallel workers each check free space before copying; without a shared
+/// claim they all pass on the same free bytes and run out of space mid-copy.
+final class InFlightCopyReservations: @unchecked Sendable {
+    private let lock = NSLock()
+    private var reservedBytes: Int64 = 0
+
+    /// Claims `bytes` when the volume has room for them, the safety buffer and
+    /// every claim already held. Returns whether the claim was made.
+    func reserve(_ bytes: Int64, freeBytes: Int64, safetyBufferBytes: Int64) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard freeBytes >= bytes + safetyBufferBytes + reservedBytes else { return false }
+        reservedBytes += bytes
+        return true
+    }
+
+    func release(_ bytes: Int64) {
+        lock.lock()
+        defer { lock.unlock() }
+        reservedBytes = max(0, reservedBytes - bytes)
+    }
+
+    var heldBytes: Int64 {
+        lock.lock()
+        defer { lock.unlock() }
+        return reservedBytes
+    }
+}
+
 public struct TransferExecutor: Sendable {
     public static let orphanedTemporarySuffix = ".tmp"
     public static let safetyBufferBytes: Int64 = 10 * 1024 * 1024
@@ -179,6 +209,7 @@ public struct TransferExecutor: Sendable {
     public var failureThresholds: FailureThresholds
     public var namingRules: PlannerNamingRules
     var fileCopyStrategy: TransferFileCopyStrategy
+    private let inFlightReservations = InFlightCopyReservations()
 
     #if DEBUG
     public var isLowPowerModeEnabledProvider: @Sendable () -> Bool = { ProcessInfo.processInfo.isLowPowerModeEnabled }
@@ -882,12 +913,15 @@ public struct TransferExecutor: Sendable {
         let destinationURL = URL(fileURLWithPath: requestedDestinationPath)
         let destinationDirectoryURL = destinationURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: destinationDirectoryURL, withIntermediateDirectories: true)
-        try checkDiskSpace(
+        let reservedBytes = try checkDiskSpace(
             sourcePath: sourcePath,
             destinationDirectoryPath: destinationDirectoryURL.path,
             isCancelled: isCancelled,
             onIssue: onIssue
         )
+        // Once the copy has finished or failed, the volume's own free space
+        // tells the next check what is left.
+        defer { inFlightReservations.release(reservedBytes) }
 
         let temporaryDestinationPath = try uniqueTemporaryCopyPath(for: requestedDestinationPath)
 
@@ -1018,9 +1052,9 @@ public struct TransferExecutor: Sendable {
         destinationDirectoryPath: String,
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onIssue: @escaping @Sendable (RunIssue) -> Void = { _ in }
-    ) throws {
+    ) throws -> Int64 {
         guard let sourceSize = safeFileSize(atPath: sourcePath) else {
-            return
+            return 0
         }
 
         var warnedLowSpace = false
@@ -1037,23 +1071,31 @@ public struct TransferExecutor: Sendable {
             #endif
 
             guard let freeBytes = freeBytesOpt else {
-                return
+                return 0
             }
 
-            if freeBytes >= sourceSize + Self.safetyBufferBytes {
+            if inFlightReservations.reserve(
+                sourceSize,
+                freeBytes: freeBytes,
+                safetyBufferBytes: Self.safetyBufferBytes
+            ) {
                 if warnedLowSpace {
                     onIssue(RunIssue(severity: .warning, message: "Disk space check passed. Resuming run."))
                 }
-                return
+                return sourceSize
             }
 
-            warnedLowSpace = true
-            let mbFree = freeBytes / (1024 * 1024)
-            let mbNeeded = (sourceSize + Self.safetyBufferBytes) / (1024 * 1024)
-            onIssue(RunIssue(
-                severity: .warning,
-                message: "Paused: Insufficient disk space on destination (\(mbFree) MB free, \(mbNeeded) MB needed). Free up space to resume automatically."
-            ))
+            // When free space alone would be enough, only other copies' claims
+            // are in the way and they release on their own: wait quietly.
+            if freeBytes < sourceSize + Self.safetyBufferBytes {
+                warnedLowSpace = true
+                let mbFree = freeBytes / (1024 * 1024)
+                let mbNeeded = (sourceSize + Self.safetyBufferBytes + inFlightReservations.heldBytes) / (1024 * 1024)
+                onIssue(RunIssue(
+                    severity: .warning,
+                    message: "Paused: Insufficient disk space on destination (\(mbFree) MB free, \(mbNeeded) MB needed). Free up space to resume automatically."
+                ))
+            }
 
             Thread.sleep(forTimeInterval: 2.0)
         }
