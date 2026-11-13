@@ -6,6 +6,7 @@ public enum CLIError: LocalizedError, Equatable {
     case usage(String)
     case help(String)
     case cancelled
+    case remoteDestinationUnsupported(path: String)
 
     public var errorDescription: String? {
         switch self {
@@ -15,6 +16,9 @@ public enum CLIError: LocalizedError, Equatable {
             return message
         case .cancelled:
             return "Cancelled."
+        case let .remoteDestinationUnsupported(path):
+            return "Chronoframe's command-line tool can't write to a network folder in this version: \(path). "
+                + "Use the Chronoframe app for NAS destinations. Nothing was changed."
         }
     }
 }
@@ -308,6 +312,12 @@ public struct ChronoframeCLI {
     /// whoever adds the next command.
     private static let authorizer: any TrialAuthorizing = UnrestrictedTrialAuthorizer()
 
+    #if DEBUG
+    nonisolated(unsafe) static var volumeClassifier: NASVolumeClassifier = .live
+    #else
+    static let volumeClassifier: NASVolumeClassifier = .live
+    #endif
+
     @MainActor
     public static func run(
         arguments: [String],
@@ -375,11 +385,15 @@ public struct ChronoframeCLI {
         output: Output = { print($0) },
         input: Input = { readLine() }
     ) async throws -> RunStatus? {
+        let profilesRepository = ProfilesRepository()
+        if let refusal = try remoteDestinationRefusal(options: options, profilesRepository: profilesRepository) {
+            throw refusal
+        }
+
         if let receiptPath = options.revertReceiptPath {
             return try await runRevert(options: options, receiptPath: receiptPath, output: output)
         }
 
-        let profilesRepository = ProfilesRepository()
         if options.rebuildCache {
             let destination = try destinationForCacheRebuild(options: options, profilesRepository: profilesRepository)
             try clearHashCache(destinationRoot: destination)
@@ -515,6 +529,43 @@ public struct ChronoframeCLI {
             }
         }
         return terminalStatus
+    }
+
+    /// The CLI never writes to a network or unclassifiable destination in this
+    /// version; the app owns the remote copy policy and the share lease.
+    static func remoteDestinationRefusal(destinationPath: String, classifier: NASVolumeClassifier) -> CLIError? {
+        let observation = classifier.classify(URL(fileURLWithPath: destinationPath))
+        return observation.kind != .local ? .remoteDestinationUnsupported(path: destinationPath) : nil
+    }
+
+    /// Resolves every destination the run could write to, without creating
+    /// anything. With a named profile the engine uses the profile's own
+    /// destination and ignores `--dest`, while `--rebuild-cache` clears the
+    /// `--dest` cache, so both are classified. `nil` means nothing to refuse,
+    /// so the normal validation errors still apply.
+    private static func remoteDestinationRefusal(
+        options: CLIOptions,
+        profilesRepository: ProfilesRepository
+    ) throws -> CLIError? {
+        if let receiptPath = options.revertReceiptPath {
+            let destination = options.destinationPath ?? destinationBoundary(for: URL(fileURLWithPath: receiptPath))
+            return remoteDestinationRefusal(destinationPath: destination, classifier: volumeClassifier)
+        }
+
+        var destinations: [String] = []
+        if let profileName = options.profileName, !profileName.isEmpty,
+           let profile = try profilesRepository.loadProfiles().first(where: { $0.name == profileName }) {
+            destinations.append(profile.destinationPath)
+        }
+        if let explicit = options.destinationPath, !explicit.isEmpty {
+            destinations.append(explicit)
+        }
+        for destination in destinations {
+            if let refusal = remoteDestinationRefusal(destinationPath: destination, classifier: volumeClassifier) {
+                return refusal
+            }
+        }
+        return nil
     }
 
     private static func destinationForCacheRebuild(

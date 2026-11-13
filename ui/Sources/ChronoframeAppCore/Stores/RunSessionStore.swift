@@ -329,6 +329,10 @@ public final class RunSessionStore: ObservableObject {
                 operation: "reorganize"
             )
             _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
+            // Reorganize moves files inside the destination, so a network folder must prove it
+            // can install without replacing before anything moves (INV-28). The lease is held
+            // (INV-19); a refusal releases it through handleFailure.
+            try engine.copyDestinationQualifier.check(destinationRoot: root)
         } catch {
             handleFailure(error: error)
             return
@@ -378,6 +382,10 @@ public final class RunSessionStore: ObservableObject {
                 operation: "reorganize revert"
             )
             _ = DestinationRecovery.recoverAndReconcile(destinationRoot: root)
+            // Reorganize moves files inside the destination, so a network folder must prove it
+            // can install without replacing before anything moves (INV-28). The lease is held
+            // (INV-19); a refusal releases it through handleFailure.
+            try engine.copyDestinationQualifier.check(destinationRoot: root)
         } catch {
             handleFailure(error: error)
             return

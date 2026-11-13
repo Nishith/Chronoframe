@@ -210,6 +210,82 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(harness.preferencesStore.bookmark(for: "deduplicate.destination")?.path, "/Volumes/Dedupe")
     }
 
+    @MainActor
+    func testChooseDeduplicateFolderRefusesNetworkVolumeAndStoresNothing() async {
+        #if DEBUG
+        NASCapability.isEnabledOverride = false
+        defer { NASCapability.isEnabledOverride = nil }
+        #endif
+        let harness = AppStateHarness()
+        harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Existing"
+        harness.folderAccessService.nextChosenFolder = URL(fileURLWithPath: "/Volumes/Share/Photos")
+        let appState = harness.makeAppState(performInitialBootstrap: false, volumeClassifier: AppStateHarness.remoteClassifier)
+
+        await appState.chooseDeduplicateDestinationFolder()
+
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed."
+        )
+        XCTAssertTrue(harness.folderAccessService.bookmarkURLs.isEmpty, "A refused folder must not be bookmarked")
+        XCTAssertNil(harness.preferencesStore.bookmark(for: "deduplicate.destination"))
+        XCTAssertEqual(harness.preferencesStore.lastDeduplicateDestinationPath, "/Volumes/Existing")
+    }
+
+    @MainActor
+    func testUseDeduplicateHistoryFolderRefusesNetworkVolume() {
+        #if DEBUG
+        NASCapability.isEnabledOverride = false
+        defer { NASCapability.isEnabledOverride = nil }
+        #endif
+        let harness = AppStateHarness()
+        harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Existing"
+        let appState = harness.makeAppState(performInitialBootstrap: false, volumeClassifier: AppStateHarness.remoteClassifier)
+
+        appState.useDeduplicateHistoryFolder(DeduplicateFolderHistoryRecord(
+            folderPath: "/Volumes/Share/Photos",
+            lastRunAt: Date(),
+            runCount: 1,
+            lastDeletedCount: 2,
+            lastFailedCount: 0,
+            lastBytesReclaimed: 1_024,
+            totalDeletedCount: 2,
+            totalFailedCount: 0,
+            totalBytesReclaimed: 1_024,
+            lastReceiptPath: nil,
+            lastHardDelete: false
+        ))
+
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed."
+        )
+        XCTAssertTrue(harness.folderAccessService.bookmarkURLs.isEmpty)
+        XCTAssertNil(harness.preferencesStore.bookmark(for: "deduplicate.destination"))
+        XCTAssertEqual(harness.preferencesStore.lastDeduplicateDestinationPath, "/Volumes/Existing")
+    }
+
+    @MainActor
+    func testStartDeduplicateScanRefusesNetworkFallbackDestination() {
+        #if DEBUG
+        NASCapability.isEnabledOverride = false
+        defer { NASCapability.isEnabledOverride = nil }
+        #endif
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/Volumes/Share/Organized"
+        let appState = harness.makeAppState(performInitialBootstrap: false, volumeClassifier: AppStateHarness.remoteClassifier)
+        XCTAssertFalse(appState.hasDedicatedDeduplicateDestinationPath)
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/Share/Organized")
+
+        appState.startDeduplicateScan()
+
+        XCTAssertNil(harness.deduplicateEngine.lastScanConfiguration, "A refused folder must never reach the engine")
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed."
+        )
+    }
+
     /// Regression for review rec #2: bookmark-creation failure used to be
     /// swallowed via `try?`, leaving the path persisted with no bookmark.
     /// The picker must now leave the path unchanged and surface a
@@ -476,6 +552,28 @@ final class AppStateTests: XCTestCase {
         XCTAssertNil(harness.deduplicateEngine.lastScanConfiguration, "Dedupe must not scan while an organize run is active")
         XCTAssertNotNil(appState.transientErrorMessage)
 
+        appState.cancelRun()
+    }
+
+    @MainActor
+    func testCancelRunOnNASLibraryStopsOnlyTheNASWorkspace() async {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.engine.startMode = .pending
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        await appState.startPreview()
+        let running = await waitForCondition { appState.runSessionStore.isRunning }
+        XCTAssertTrue(running)
+
+        appState.selection = .nasLibrary
+        appState.cancelRun()
+
+        XCTAssertTrue(appState.runSessionStore.isRunning, "cancelRun on the NAS workspace must not cancel the organize run")
+        XCTAssertEqual(appState.nasWorkspaceStore.state, .noLibrary)
+
+        appState.selection = .organize
         appState.cancelRun()
     }
 

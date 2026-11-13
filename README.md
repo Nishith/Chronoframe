@@ -36,7 +36,7 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 - **Copies are checked.** Transfers are written safely and verified by default.
 - **Trash, not hard delete.** Deduplicate sends selected files to the macOS Trash.
 - **The preview and commit agree.** Deduplicate executes the same immutable, content-verified plan shown in the commit summary.
-- **One operation at a time.** The app, CLI, and system integrations cannot mutate the same destination concurrently. This guard works per-machine; running Chronoframe from two Macs against the same network/NAS folder at once is not supported, and the app warns you when a destination is on a network drive.
+- **One operation at a time.** The app, CLI, and system integrations cannot mutate the same destination concurrently. This guard works per-machine; running Chronoframe from two Macs against the same network/NAS folder at once is not supported, and the app warns you when a destination is on a network drive. Deduplicate works on folders on this Mac or an attached drive; it refuses folders on a network share because recoverable Trash there is unverified.
 - **Receipts are kept.** History records what happened so you can inspect, recover, or revert supported runs.
 - **Ambiguity stops the run.** Changed files, missing recovery evidence, and unavailable drives fail closed instead of being guessed away.
 

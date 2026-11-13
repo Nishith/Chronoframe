@@ -1,0 +1,44 @@
+{
+  "budgetBytes" : 142695560,
+  "differences" : [
+
+  ],
+  "exhaustiveGroupCount" : 1783,
+  "ledger" : {
+    "bytesReadClean" : 134306952,
+    "bytesReadUnresolved" : 0,
+    "cacheHits" : 0,
+    "candidateBytesH" : 134306952
+  },
+  "parity" : true,
+  "ruMaxrss" : 38305792,
+  "scannerGroupCount" : 1783,
+  "summary" : {
+    "counts" : {
+      "candidateFiles" : 4502,
+      "directoriesAssessed" : 293,
+      "emptyFiles" : 2,
+      "hashedFiles" : 4502,
+      "issueCount" : 2,
+      "mediaBytes" : 307717943,
+      "mediaFiles" : 9995,
+      "unresolvedFiles" : 0,
+      "unsupportedFiles" : 0
+    },
+    "exactGroupCount" : 1783,
+    "finishedAt" : "2026-11-09T06:58:47Z",
+    "generation" : 1,
+    "ledger" : {
+      "bytesReadClean" : 134306952,
+      "bytesReadUnresolved" : 0,
+      "cacheHits" : 0,
+      "candidateBytesH" : 134306952
+    },
+    "mode" : "exactOnly",
+    "outcome" : "complete",
+    "redundantLogicalBytes" : 59621308,
+    "startedAt" : "2026-11-09T06:57:49Z"
+  },
+  "wallSeconds" : 183.8638535833452,
+  "withinBudget" : true
+}

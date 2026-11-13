@@ -1,6 +1,8 @@
 import Foundation
 import SQLite3
 
+public enum OrganizerJournalPolicy: Sendable, Equatable { case automatic, writeAheadLog, rollbackDelete }
+
 public enum OrganizerDatabaseError: LocalizedError, Sendable {
     case openFailed(String)
     case executionFailed(String)
@@ -8,6 +10,7 @@ public enum OrganizerDatabaseError: LocalizedError, Sendable {
     case stepFailed(String)
     case invalidIdentity(String)
     case databaseClosed
+    case journalModeUnavailable(String)
 
     public var errorDescription: String? {
         switch self {
@@ -23,6 +26,8 @@ public enum OrganizerDatabaseError: LocalizedError, Sendable {
             return "Chronoframe found damaged transfer-queue data. Start a fresh preview or transfer for this destination. Details: \(value)"
         case .databaseClosed:
             return "Chronoframe lost access to its transfer queue. Try the run again."
+        case .journalModeUnavailable:
+            return "Chronoframe couldn't open its copy records on this network folder safely, so it didn't copy anything. Another app or Chronoframe window may be using them. Your originals were untouched."
         }
     }
 }
@@ -122,7 +127,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
     private let url: URL
     private var database: OpaquePointer?
 
-    public init(url: URL, readOnly: Bool = false) throws {
+    public init(url: URL, readOnly: Bool = false, journalPolicy: OrganizerJournalPolicy = .automatic) throws {
         self.url = url
 
         var anchor: DestinationMetadataFile.Anchor?
@@ -160,6 +165,13 @@ public final class OrganizerDatabase: @unchecked Sendable {
 
         database = handle
 
+        if !readOnly, Self.usesRollbackJournal(for: journalPolicy, databaseURL: url) {
+            try applyRollbackDeleteJournal()
+            try initializeSchema()
+            try runPendingMigrations()
+            return
+        }
+
         if !readOnly {
             // Wait up to 30 s before returning SQLITE_BUSY, instead of failing
             // immediately when another connection holds a write lock.
@@ -174,6 +186,43 @@ public final class OrganizerDatabase: @unchecked Sendable {
             try execute("PRAGMA wal_autocheckpoint=1000;")
             try initializeSchema()
             try runPendingMigrations()
+        }
+    }
+
+    private static func usesRollbackJournal(for policy: OrganizerJournalPolicy, databaseURL: URL) -> Bool {
+        switch policy {
+        case .writeAheadLog:
+            return false
+        case .rollbackDelete:
+            return true
+        case .automatic:
+            return NASVolumeClassifier.live.classify(databaseURL.deletingLastPathComponent()).kind != .local
+        }
+    }
+
+    /// Rollback journaling for network folders: never leaves `-wal`/`-shm`
+    /// files, and a switch that SQLite does not confirm refuses the open.
+    private func applyRollbackDeleteJournal() throws {
+        try execute("PRAGMA busy_timeout=30000;")
+        let journalMode: String
+        do {
+            journalMode = try scalarString(statement: "PRAGMA journal_mode=DELETE;")
+        } catch {
+            // SQLite reports SQLITE_BUSY, not a mode string, when another
+            // connection still holds the WAL. Report the mode it is still in.
+            let reported = (try? scalarString(statement: "PRAGMA journal_mode;")) ?? "unknown"
+            close()
+            throw OrganizerDatabaseError.journalModeUnavailable(reported)
+        }
+        guard journalMode.lowercased() == "delete" else {
+            close()
+            throw OrganizerDatabaseError.journalModeUnavailable(journalMode)
+        }
+        try execute("PRAGMA synchronous=FULL;")
+        let synchronous = try scalarInt(statement: "PRAGMA synchronous;")
+        guard synchronous == 2 else {
+            close()
+            throw OrganizerDatabaseError.journalModeUnavailable("synchronous=\(synchronous)")
         }
     }
 

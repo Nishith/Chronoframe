@@ -1,6 +1,7 @@
 #if canImport(ChronoframeAppCore)
 import ChronoframeAppCore
 #endif
+import Darwin
 import Dispatch
 import Foundation
 @testable import ChronoframeApp
@@ -100,6 +101,7 @@ final class AppStateHarness {
         performInitialBootstrap: Bool = true,
         restoreBookmarksDuringBootstrap: Bool = true,
         entitlementStore: EntitlementStore? = nil,
+        volumeClassifier: NASVolumeClassifier = AppStateHarness.localClassifier,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {}
     ) -> AppState {
         AppState(
@@ -115,7 +117,31 @@ final class AppStateHarness {
             performInitialBootstrap: performInitialBootstrap,
             restoreBookmarksDuringBootstrap: restoreBookmarksDuringBootstrap,
             entitlementStore: entitlementStore,
+            volumeClassifier: volumeClassifier,
             showSettingsWindowAction: showSettingsWindowAction
+        )
+    }
+
+    /// Every path classifies as a local APFS volume, so tests that pick real or
+    /// fictional folders are never refused by Deduplicate's network check.
+    nonisolated static let localClassifier = NASVolumeClassifier { _ in
+        NASStatfsSnapshot(
+            fileSystemType: "apfs",
+            mountedOn: "/",
+            mountedFrom: "/dev/disk3s1",
+            flags: UInt32(MNT_LOCAL),
+            fileSystemID: 1
+        )
+    }
+
+    /// Every path classifies as an SMB share.
+    nonisolated static let remoteClassifier = NASVolumeClassifier { _ in
+        NASStatfsSnapshot(
+            fileSystemType: "smbfs",
+            mountedOn: "/Volumes/Share",
+            mountedFrom: "//user@nas.local/Share",
+            flags: 0,
+            fileSystemID: 2
         )
     }
 }

@@ -45,9 +45,25 @@ public struct DestinationLockUnsafeError: LocalizedError, Sendable, Equatable {
     }
 }
 
+public enum NASRemoteLeaseConfiguration {
+    /// Set once by the app at launch (NASStartup.configureForApp). Nil in the CLI and in tests unless set.
+    public nonisolated(unsafe) static var leaseDirectory: URL?
+}
+
+/// A network destination can't be locked per share because the app never configured where the
+/// share leases live. The lock refuses (INV-28) rather than run without the lease.
+public enum NASShareLeaseError: LocalizedError, Equatable, Sendable {
+    case leaseDirectoryNotConfigured(destinationPath: String)
+
+    public var errorDescription: String? {
+        "Chronoframe couldn't set up its safeguards for network folders, so it didn't start. Restart Chronoframe and try again. Nothing was changed."
+    }
+}
+
 public final class DestinationOperationLease: @unchecked Sendable {
     private let stateLock = NSLock()
     private var descriptor: Int32?
+    private var companion: DestinationOperationLease?
 
     fileprivate init(descriptor: Int32) {
         self.descriptor = descriptor
@@ -60,9 +76,18 @@ public final class DestinationOperationLease: @unchecked Sendable {
             return
         }
         self.descriptor = nil
+        let companion = self.companion
+        self.companion = nil
         stateLock.unlock()
         _ = flock(descriptor, LOCK_UN)
         _ = Darwin.close(descriptor)
+        companion?.release()
+    }
+
+    fileprivate func attach(companion: DestinationOperationLease?) {
+        stateLock.lock()
+        self.companion = companion
+        stateLock.unlock()
     }
 
     deinit { release() }
@@ -75,13 +100,19 @@ public enum DestinationOperationLock {
     /// Test seam: override remote-volume detection so tests don't need a real
     /// network mount. Production leaves this nil and queries the live volume.
     public nonisolated(unsafe) static var isRemoteVolumeProvider: (@Sendable (URL) -> Bool)?
+    /// Test seam: override the volume observation used for the share lease.
+    public nonisolated(unsafe) static var volumeClassifierProvider: (@Sendable (URL) -> NASVolumeObservation)?
+    /// Test seam: override the share root's file ID lookup (keyed by mount point).
+    public nonisolated(unsafe) static var shareRootFileIDProvider: (@Sendable (String) -> UInt64?)?
     #endif
 
     /// Whether `destinationRoot` lives on a non-local (network) volume. The
     /// cross-process `flock` lock only reliably guards same-machine access; on
     /// SMB/AFP mounts two machines could both proceed. Callers use this to warn
-    /// the user — it does not change locking behavior. An unreadable or unknown
-    /// volume attribute is treated as **local** so the app never warns spuriously.
+    /// the user. Since NAS v1, `acquire` also classifies the volume and takes a
+    /// per-share Application Support lease when it is not local (see
+    /// `acquireShareCompanion`). An unreadable or unknown volume attribute is
+    /// treated as **local** here so the app never warns spuriously.
     public static func isRemoteVolume(_ destinationRoot: URL) -> Bool {
         #if DEBUG
         if let isRemoteVolumeProvider {
@@ -98,11 +129,73 @@ public enum DestinationOperationLock {
         operation: String
     ) throws -> DestinationOperationLease {
         let logsDirectory = destinationRoot.appendingPathComponent(".organize_logs", isDirectory: true)
-        return try acquire(
-            lockFileURL: logsDirectory.appendingPathComponent(filename),
+        let companion = try acquireShareCompanion(
+            destinationRoot: destinationRoot,
             surface: surface,
             operation: operation
         )
+        do {
+            let lease = try acquire(
+                lockFileURL: logsDirectory.appendingPathComponent(filename),
+                surface: surface,
+                operation: operation
+            )
+            lease.attach(companion: companion)
+            return lease
+        } catch {
+            companion?.release()
+            throw error
+        }
+    }
+
+    /// One lease per network share, held beside the in-root lock. Nil for local
+    /// destinations. A network destination with no lease directory configured is refused with
+    /// `NASShareLeaseError` before anything is created (INV-28): running without the share
+    /// lease would let two Chronoframe processes mutate one share.
+    private static func acquireShareCompanion(
+        destinationRoot: URL,
+        surface: String,
+        operation: String
+    ) throws -> DestinationOperationLease? {
+        let volume: NASVolumeObservation
+        #if DEBUG
+        if let volumeClassifierProvider {
+            volume = volumeClassifierProvider(destinationRoot)
+        } else {
+            volume = NASVolumeClassifier.live.classify(destinationRoot)
+        }
+        #else
+        volume = NASVolumeClassifier.live.classify(destinationRoot)
+        #endif
+        guard volume.kind != .local else { return nil }
+        guard let leaseDirectory = NASRemoteLeaseConfiguration.leaseDirectory else {
+            throw NASShareLeaseError.leaseDirectoryNotConfigured(destinationPath: destinationRoot.path)
+        }
+
+        var shareRootFileID: UInt64 = 0
+        if !volume.mountPoint.isEmpty {
+            #if DEBUG
+            if let shareRootFileIDProvider {
+                shareRootFileID = shareRootFileIDProvider(volume.mountPoint) ?? 0
+            } else {
+                shareRootFileID = liveFileID(of: volume.mountPoint)
+            }
+            #else
+            shareRootFileID = liveFileID(of: volume.mountPoint)
+            #endif
+        }
+        let key = NASShareLeaseKey.key(volume: volume, shareRootFileID: shareRootFileID)
+        return try acquire(
+            lockFileURL: leaseDirectory.appendingPathComponent("\(key).lock"),
+            surface: surface,
+            operation: operation
+        )
+    }
+
+    private static func liveFileID(of path: String) -> UInt64 {
+        var status = stat()
+        guard lstat(path, &status) == 0 else { return 0 }
+        return UInt64(status.st_ino)
     }
 
     /// Acquire the exclusive operation lock at an explicit lock-file location,

@@ -1,0 +1,46 @@
+Assess a photo library on your NAS
+Choose the top folder of your collection. Chronoframe reads it to find identical copies and changes nothing on the NAS.
+Assess Library
+Assess Again
+Stop
+Reconnect
+This Is the Same Library
+Load Preview
+Assess only
+Use one Mac at a time for Chronoframe changes on this NAS.
+Checking the connection to your NAS…
+Waiting for your NAS. Reconnect the share, then choose Reconnect. Nothing was changed.
+This share looks slightly different (for example, a new network name). Confirm it's the same library to keep your saved choices.
+This isn't the library you assessed before. Choose the folder again to start a new assessment.
+Stopping… Chronoframe is finishing the file it's reading.
+Assessment complete. Every included folder was checked.
+Assessment incomplete. Some folders or files couldn't be read, so this isn't a full picture.
+Assessment stopped. Results so far are saved; assess again to finish.
+%@ in identical extra copies (logical size, not space freed)
+Your choice is saved on this Mac. Chronoframe doesn't delete or move files on a NAS in this version.
+No choice yet
+Your earlier choice no longer matches these files. Choose again.
+Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again.
+Loading a preview may read the whole file over the network.
+Not checked
+Ready to assess. Chronoframe reads this library to find identical copies and changes nothing on the NAS.
+Looking through your folders…
+Comparing files that look alike…
+Grouping identical copies…
+Folder summary
+A preview couldn't be made for this file.
+Identical copies
+Choose Folder…. Pick the top folder of your photo library on a network share.
+Assess Library. Chronoframe reads the library to find identical copies and changes nothing on the NAS.
+Stop. Stops the assessment.
+Reconnect. Checks the connection to your NAS again.
+This Is the Same Library. Confirms this share is the library you assessed before.
+Groups of identical files
+Group of identical files
+Load Preview. Shows the first file in this group. This may read the whole file over the network.
+Choose which copy you prefer to keep. The choice is saved on this Mac and nothing on the NAS changes.
+Assessment status
+Your earlier choice no longer matches these files
+1 folder
+1 photo or video
+1 group of identical files

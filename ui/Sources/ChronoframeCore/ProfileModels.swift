@@ -120,12 +120,16 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
     case deduplicate
     case guardian
     case profiles
+    case nasLibrary
 
     /// The destinations shown in the primary sidebar, in order. Library Guardian
     /// is appended only when its capability flag is enabled, so it stays hidden
     /// (and its whole workspace merges dark) until every phase lands.
     public static var primaryNavigationCases: [SidebarDestination] {
         var cases: [SidebarDestination] = [.organize, .photos, .deduplicate]
+        if NASCapability.isEnabled {
+            cases.append(.nasLibrary)
+        }
         if GuardianCapability.isEnabled {
             cases.append(.guardian)
         }
@@ -146,6 +150,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
             return "Guardian"
         case .profiles:
             return "Profiles"
+        case .nasLibrary:
+            return "NAS Library"
         }
     }
 
@@ -161,6 +167,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
             return "Detect bit rot, mirror, and restore"
         case .profiles:
             return "Reusable saved setups"
+        case .nasLibrary:
+            return "Assess a library on your NAS"
         }
     }
 
@@ -176,6 +184,8 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
             return "checkmark.shield"
         case .profiles:
             return "person.crop.rectangle.stack"
+        case .nasLibrary:
+            return "externaldrive.connected.to.line.below"
         }
     }
 
@@ -184,7 +194,7 @@ public enum SidebarDestination: String, CaseIterable, Identifiable, Hashable, Se
     /// becoming a flat list.
     public var section: SidebarSection {
         switch self {
-        case .organize, .photos, .deduplicate, .guardian:
+        case .organize, .photos, .deduplicate, .guardian, .nasLibrary:
             return .library
         case .profiles:
             return .preferences
