@@ -59,18 +59,56 @@ struct DeduplicateReviewLanes: Equatable {
         guard safeGroupCount == 0, checkGroupCount == 0, reviewedGroupCount > 0 else { return nil }
         return "Every group has been reviewed."
     }
+
+    /// One line for the stacked (narrow) layout, where a two-row bar with
+    /// buttons would take the height the photo preview needs.
+    var compactText: String? {
+        var parts: [String] = []
+        if safeGroupCount == 1 {
+            parts.append("1 safe match")
+        } else if safeGroupCount > 1 {
+            parts.append("\(safeGroupCount.formatted()) safe matches")
+        }
+        if checkGroupCount == 1 {
+            parts.append("1 group to check")
+        } else if checkGroupCount > 1 {
+            parts.append("\(checkGroupCount.formatted()) groups to check")
+        }
+        return parts.isEmpty ? doneText : parts.joined(separator: " · ")
+    }
 }
 
 /// Single-row band above the review body. The buttons only forward to the
 /// caller: "Accept All Safe" is the store's `acceptAllSuggestions()` and
 /// "Quick Review" opens the existing Quick Review sheet.
+///
+/// In the stacked layout the bar is one line of text with no buttons: the
+/// commit footer already has Accept Safe and the Options menu has Quick Review.
 struct DeduplicateReviewLanesBar: View {
     let lanes: DeduplicateReviewLanes
+    var isCompact = false
     let onAcceptSafe: () -> Void
     let onQuickReview: () -> Void
 
     var body: some View {
-        if lanes.safeText != nil || lanes.checkText != nil || lanes.doneText != nil {
+        if isCompact {
+            if let text = lanes.compactText {
+                VStack(spacing: 0) {
+                    Text(verbatim: text)
+                        .scaledFont(.label)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .padding(.horizontal, DesignTokens.Spacing.md)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    Divider()
+                }
+                .frame(height: DesignTokens.DeduplicateLayout.compactLanesBarHeight)
+                .background(DesignTokens.ColorSystem.panel)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier(AccessibilityIdentifiers.dedupeLanes)
+            }
+        } else if lanes.safeText != nil || lanes.checkText != nil || lanes.doneText != nil {
             VStack(spacing: 0) {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .center, spacing: DesignTokens.Spacing.lg) {

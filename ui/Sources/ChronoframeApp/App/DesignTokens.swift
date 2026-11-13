@@ -76,6 +76,9 @@ enum DesignTokens {
         static let compactClusterListMinHeight: CGFloat = 180
         static let compactClusterListMaxHeight: CGFloat = 280
         static let compactPreviewMinHeight: CGFloat = 160
+        /// Height of the one-line lanes bar in the stacked layout. The group
+        /// list gives up exactly this much, so the photo preview keeps its room.
+        static let compactLanesBarHeight: CGFloat = 26
         /// Review heights below this show the commit footer's safeguards as one
         /// line. The default 820pt window stays above it.
         static let condensedTrustSummaryBelowHeight: CGFloat = 720

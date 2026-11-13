@@ -359,17 +359,19 @@ struct DeduplicateView: View {
 
     private var reviewView: some View {
         GeometryReader { geometry in
+            let lanes = DeduplicateReviewLanes(
+                clusters: sessionStore.clusters,
+                reviewedIDs: Set(sessionStore.reviewedClusters.map(\.id))
+            )
             VStack(spacing: 0) {
                 restoredReviewBanner
                 DeduplicateReviewLanesBar(
-                    lanes: DeduplicateReviewLanes(
-                        clusters: sessionStore.clusters,
-                        reviewedIDs: Set(sessionStore.reviewedClusters.map(\.id))
-                    ),
+                    lanes: lanes,
+                    isCompact: DeduplicateReviewLayout.mode(forWidth: geometry.size.width) == .compact,
                     onAcceptSafe: { sessionStore.acceptAllSuggestions() },
                     onQuickReview: { showingRapidTriage = true }
                 )
-                reviewBody(for: geometry.size)
+                reviewBody(for: geometry.size, compactLanesBarShown: lanes.compactText != nil)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 Divider()
                 commitFooter(
@@ -437,7 +439,7 @@ struct DeduplicateView: View {
     }
 
     @ViewBuilder
-    private func reviewBody(for availableSize: CGSize) -> some View {
+    private func reviewBody(for availableSize: CGSize, compactLanesBarShown: Bool) -> some View {
         switch DeduplicateReviewLayout.mode(forWidth: availableSize.width) {
         case .wide:
             HSplitView {
@@ -458,7 +460,10 @@ struct DeduplicateView: View {
         case .compact:
             VStack(spacing: 0) {
                 reviewClusterList
-                    .frame(height: DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: availableSize.height))
+                    .frame(height: DeduplicateReviewLayout.compactClusterListHeight(
+                        forAvailableHeight: availableSize.height,
+                        lanesBarShown: compactLanesBarShown
+                    ))
                 Divider()
                 reviewClusterDetail
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1131,11 +1136,14 @@ enum DeduplicateReviewLayout {
         width >= DesignTokens.DeduplicateLayout.reviewWideBreakpoint ? .wide : .compact
     }
 
-    static func compactClusterListHeight(forAvailableHeight height: CGFloat) -> CGFloat {
-        min(
+    /// The one-line lanes bar sits above the list in the stacked layout; the
+    /// list gives up the bar's height so the photo preview below keeps its room.
+    static func compactClusterListHeight(forAvailableHeight height: CGFloat, lanesBarShown: Bool = false) -> CGFloat {
+        let base = min(
             max(height * 0.32, DesignTokens.DeduplicateLayout.compactClusterListMinHeight),
             DesignTokens.DeduplicateLayout.compactClusterListMaxHeight
         )
+        return lanesBarShown ? base - DesignTokens.DeduplicateLayout.compactLanesBarHeight : base
     }
 
     /// Whether the commit footer shows its safeguards as one line rather than
