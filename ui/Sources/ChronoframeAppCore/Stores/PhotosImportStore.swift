@@ -244,11 +244,11 @@ public final class PhotosImportStore: ObservableObject {
         // A new prepare supersedes whatever an earlier import left behind.
         // `preparedStagingPaths` is deliberately not cleared: a run may still
         // be reading an earlier prepared import until its `cleanupStaging`.
+        // The superseded import's files are removed only once the new import
+        // has saved its first checkpoint (see `runExport`), so a prepare that
+        // fails early does not cost the earlier downloads.
         refreshResumableImport(destination: destination)
-        if let superseded = resumable {
-            try? FileManager.default.removeItem(at: superseded.stagingDirectoryURL)
-            resumable = nil
-        }
+        let superseded = resumable?.stagingDirectoryURL
 
         let importID = UUID()
         let stagingDirectory = stagingParentURL.appendingPathComponent(importID.uuidString, isDirectory: true)
@@ -259,7 +259,12 @@ public final class PhotosImportStore: ObservableObject {
             destinationBookmarkKeys: destination.bookmarkKeys,
             plan: plan
         )
-        return await runExport(checkpoint: checkpoint, stagingDirectory: stagingDirectory, destination: destination)
+        return await runExport(
+            checkpoint: checkpoint,
+            stagingDirectory: stagingDirectory,
+            destination: destination,
+            supersedes: superseded
+        )
     }
 
     /// Continues the interrupted import from its checkpoint, exporting only
@@ -379,7 +384,8 @@ public final class PhotosImportStore: ObservableObject {
     private func runExport(
         checkpoint initial: PhotosImportCheckpoint,
         stagingDirectory: URL,
-        destination: DestinationCapture?
+        destination: DestinationCapture?,
+        supersedes: URL? = nil
     ) async -> PhotosImportContext? {
         cancellation.reset()
         checkpointSaveFailed = false
@@ -401,6 +407,10 @@ public final class PhotosImportStore: ObservableObject {
             refreshResumableImport(destination: destination)
             statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
             return nil
+        }
+        if let supersedes {
+            try? FileManager.default.removeItem(at: supersedes)
+            resumable = nil
         }
 
         // Events are delivered in order through one stream and applied on the

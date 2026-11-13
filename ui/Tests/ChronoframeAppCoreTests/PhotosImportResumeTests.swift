@@ -845,6 +845,44 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(store.resumable).readyCount, 1)
     }
 
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testFailedNewPrepareKeepsTheSupersededImport() async throws {
+        let staging = makeTempParent()
+        let old = try seedCheckpoint(parent: staging, name: "old", state: .stopped, assetIDs: ["a", "b"], planAssetIDs: ["a", "b", "c"], updatedAt: fixedDate(10))
+        let exporter = ScriptedExporter()
+        let store = makeStore(
+            ids: ["x"], exporter: exporter, staging: staging,
+            checkpointStore: ScriptedCheckpointStore(failFromSave: 1)
+        )
+
+        let context = await store.prepareImport(destination: destinationA)
+
+        XCTAssertNil(context)
+        XCTAssertTrue(exists(old.path), "Hours of downloads are not deleted for a prepare that never got going")
+        XCTAssertTrue(exporter.writes.isEmpty)
+        XCTAssertEqual(try XCTUnwrap(store.resumable).stagingDirectoryURL.lastPathComponent, "old")
+    }
+
+    @MainActor
+    func testSupersededImportIsRemovedOnceTheNewImportSavedItsFirstCheckpoint() async throws {
+        let staging = makeTempParent()
+        let old = try seedCheckpoint(parent: staging, name: "old", state: .stopped, assetIDs: ["a"], updatedAt: fixedDate(10))
+        let oldStillThereAtSave = LockedValues()
+        let checkpoints = ScriptedCheckpointStore(onSave: { index in
+            oldStillThereAtSave.append(index, FileManager.default.fileExists(atPath: old.path))
+        })
+        let store = makeStore(ids: ["x"], exporter: ScriptedExporter(), staging: staging, checkpointStore: checkpoints)
+
+        let _raw = await store.prepareImport(destination: destinationA)
+
+        _ = try XCTUnwrap(_raw)
+
+        XCTAssertFalse(exists(old.path))
+        XCTAssertEqual(oldStillThereAtSave.value(for: 1), true, "Still there while the first checkpoint is being written")
+        XCTAssertEqual(oldStillThereAtSave.value(for: 2), false, "Gone once that checkpoint was saved")
+    }
+
 }
 
 private final class LockedValues: @unchecked Sendable {
