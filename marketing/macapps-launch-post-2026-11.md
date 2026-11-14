@@ -17,7 +17,8 @@ summary is at the end.
    gives main-feed access to Mac App Store developers with a paid developer
    account and App Store distribution, plus 10 local karma. Notarization
    alone does not count, but you are on the store, so no portfolio or
-   LinkedIn is needed. Everyone else goes to the App Pile megathread.
+   LinkedIn is needed. Everyone else goes to the App Pile megathread; a
+   version for it is below the body, for use while the karma is short.
 3. **Use the PCP template exactly.** The mods define it as: **Problem** (what
    the app solves), **Comparison** (name 1–2 top competitors and say how yours
    is better), **Pricing** (price amounts plus link). The body below follows
@@ -146,6 +147,26 @@ paragraph after Pricing:
 
 Giveaway comments inflate counts without much signal, so skip it if you want
 the trust question answered rather than a code lottery.
+
+### App Pile megathread version
+
+For the megathread only, while the main feed is not open to you. It follows
+the same Problem / Comparison / Pricing order in one compact entry. Posting
+it does not replace the main-feed post later, but do not paste both in the
+same week.
+
+> **Chronoframe**: Mac photo and video organizer with duplicate finding. Native Swift, on device, macOS 14+.
+>
+> **Problem:** merging years of photos from phones, old drives, and Apple Photos without risking the only copies. It shows the full plan before any copy, verifies each copy, and never overwrites or changes a source file. Every run can be undone from History. Duplicates are matched by content, with optional similar-video matching, and only files you approve go to the Trash.
+>
+> **Comparison:** Gemini 2 and PhotoSweeper are duplicate finders. Chronoframe adds preview-first organizing into dated folders and pairs it with dedupe. If you only need photo dedupe, PhotoSweeper may suit you better.
+>
+> **Pricing:** free trial allowance of 500 files organized and 100 duplicates moved to Trash, a lifetime total per Mac. Scanning and preview are unlimited. US $14.99 once removes the limits, with Family Sharing. No subscription.
+>
+> **Disclosure:** I'm the developer.
+>
+> https://apps.apple.com/app/chronoframe/id6771245052
+> https://chronoframe.app
 
 ## What changed from your draft and why
 
