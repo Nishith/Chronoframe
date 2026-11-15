@@ -8,24 +8,26 @@ import XCTest
 /// cannot guarantee an atomic no-replace install, after recovery and before any planning.
 @MainActor
 final class OrganizerEnginePrepareNetworkGateTests: XCTestCase {
-    private var temporaryDirectoryURL: URL!
-    private var sourceURL: URL!
+    // XCTest's setUp/tearDown overrides are nonisolated, and Swift 6.1 (CI) refuses
+    // to let them touch main-actor state. XCTest runs them serially around each test.
+    private nonisolated(unsafe) var temporaryDirectoryURL: URL!
+    private nonisolated(unsafe) var sourceURL: URL!
 
-    override func setUp() async throws {
-        try await super.setUp()
+    override func setUpWithError() throws {
+        try super.setUpWithError()
         temporaryDirectoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("OrganizerEnginePrepareNetworkGateTests-\(UUID().uuidString)", isDirectory: true)
         sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
     }
 
-    override func tearDown() async throws {
+    override func tearDownWithError() throws {
         if let temporaryDirectoryURL {
             try? FileManager.default.removeItem(at: temporaryDirectoryURL)
         }
         temporaryDirectoryURL = nil
         sourceURL = nil
-        try await super.tearDown()
+        try super.tearDownWithError()
     }
 
     private static let remoteClassifier = NASVolumeClassifier { _ in
