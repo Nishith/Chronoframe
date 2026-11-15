@@ -125,7 +125,7 @@ jobs:
 
   swiftpm-tests:
     name: SwiftPM tests
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -144,6 +144,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run SwiftPM tests
         run: |
@@ -163,7 +164,7 @@ jobs:
 
   meaningful-coverage:
     name: Meaningful Swift coverage
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -182,6 +183,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run meaningful coverage gate
         run: |
@@ -201,7 +203,7 @@ jobs:
 
   xcode-build:
     name: Xcode build
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -222,6 +224,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Build Chronoframe app
         run: |
@@ -236,7 +239,7 @@ jobs:
 
   mas-build:
     name: Mac App Store build
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -257,6 +260,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       # Compiles the branches only the Mac App Store binary ever takes.
       # `MAS_BUILD` is otherwise defined solely by ui/archive-mas.sh, so before
@@ -284,7 +288,7 @@ jobs:
 
   xcode-ui-tests:
     name: Xcode UI tests
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -305,6 +309,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run Chronoframe UI tests
         run: |
@@ -320,7 +325,7 @@ jobs:
 
   xcode-accessibility-audit:
     name: Xcode accessibility audit
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -341,7 +346,16 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
+      # Experiment, safe to drop: the audit's contrast failures cluster in the
+      # bottom ~60pt of the window, about the height of the runner's Dock. With the
+      # Dock hidden the window gets that strip of screen to itself.
+      - name: Hide the Dock
+        run: |
+          defaults write com.apple.dock autohide -bool true
+          killall Dock
+          sleep 3
       - name: Run Chronoframe accessibility audit
         run: |
           xcodebuild \
@@ -356,7 +370,7 @@ jobs:
 
   release-archive-smoke:
     name: Release archive smoke
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -377,6 +391,7 @@ jobs:
             exit 1
           fi
           echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
           "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Build release archive
         run: |
