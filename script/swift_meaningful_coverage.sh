@@ -126,6 +126,18 @@ MEANINGFUL_BASENAMES=(
     LicenseStatusPresentation
     FreeTestBatchPlanner
     TrialIndicatorPresentation
+    NASVolumeClassifier
+    NASSystemContainerRules
+    NASLibraryIdentity
+    NASMeteredFileReader
+    NASAssessmentStore
+    NASAssessmentScanner
+    NASRemoteCopyPolicy
+    NASDeduplicateFolderRefusal
+    DeduplicateReviewSnapshot
+    DeduplicateReviewRestorer
+    NASCopyDestinationQualifier
+    NASCopyDestinationRefusal
 )
 
 missing_basenames=()

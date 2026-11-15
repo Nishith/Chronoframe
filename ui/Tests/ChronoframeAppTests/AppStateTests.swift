@@ -210,6 +210,82 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(harness.preferencesStore.bookmark(for: "deduplicate.destination")?.path, "/Volumes/Dedupe")
     }
 
+    @MainActor
+    func testChooseDeduplicateFolderRefusesNetworkVolumeAndStoresNothing() async {
+        #if DEBUG
+        NASCapability.isEnabledOverride = false
+        defer { NASCapability.isEnabledOverride = nil }
+        #endif
+        let harness = AppStateHarness()
+        harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Existing"
+        harness.folderAccessService.nextChosenFolder = URL(fileURLWithPath: "/Volumes/Share/Photos")
+        let appState = harness.makeAppState(performInitialBootstrap: false, volumeClassifier: AppStateHarness.remoteClassifier)
+
+        await appState.chooseDeduplicateDestinationFolder()
+
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed."
+        )
+        XCTAssertTrue(harness.folderAccessService.bookmarkURLs.isEmpty, "A refused folder must not be bookmarked")
+        XCTAssertNil(harness.preferencesStore.bookmark(for: "deduplicate.destination"))
+        XCTAssertEqual(harness.preferencesStore.lastDeduplicateDestinationPath, "/Volumes/Existing")
+    }
+
+    @MainActor
+    func testUseDeduplicateHistoryFolderRefusesNetworkVolume() {
+        #if DEBUG
+        NASCapability.isEnabledOverride = false
+        defer { NASCapability.isEnabledOverride = nil }
+        #endif
+        let harness = AppStateHarness()
+        harness.preferencesStore.lastDeduplicateDestinationPath = "/Volumes/Existing"
+        let appState = harness.makeAppState(performInitialBootstrap: false, volumeClassifier: AppStateHarness.remoteClassifier)
+
+        appState.useDeduplicateHistoryFolder(DeduplicateFolderHistoryRecord(
+            folderPath: "/Volumes/Share/Photos",
+            lastRunAt: Date(),
+            runCount: 1,
+            lastDeletedCount: 2,
+            lastFailedCount: 0,
+            lastBytesReclaimed: 1_024,
+            totalDeletedCount: 2,
+            totalFailedCount: 0,
+            totalBytesReclaimed: 1_024,
+            lastReceiptPath: nil,
+            lastHardDelete: false
+        ))
+
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed."
+        )
+        XCTAssertTrue(harness.folderAccessService.bookmarkURLs.isEmpty)
+        XCTAssertNil(harness.preferencesStore.bookmark(for: "deduplicate.destination"))
+        XCTAssertEqual(harness.preferencesStore.lastDeduplicateDestinationPath, "/Volumes/Existing")
+    }
+
+    @MainActor
+    func testStartDeduplicateScanRefusesNetworkFallbackDestination() {
+        #if DEBUG
+        NASCapability.isEnabledOverride = false
+        defer { NASCapability.isEnabledOverride = nil }
+        #endif
+        let harness = AppStateHarness()
+        harness.setupStore.destinationPath = "/Volumes/Share/Organized"
+        let appState = harness.makeAppState(performInitialBootstrap: false, volumeClassifier: AppStateHarness.remoteClassifier)
+        XCTAssertFalse(appState.hasDedicatedDeduplicateDestinationPath)
+        XCTAssertEqual(appState.deduplicateDestinationPath, "/Volumes/Share/Organized")
+
+        appState.startDeduplicateScan()
+
+        XCTAssertNil(harness.deduplicateEngine.lastScanConfiguration, "A refused folder must never reach the engine")
+        XCTAssertEqual(
+            appState.transientErrorMessage,
+            "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed."
+        )
+    }
+
     /// Regression for review rec #2: bookmark-creation failure used to be
     /// swallowed via `try?`, leaving the path persisted with no bookmark.
     /// The picker must now leave the path unchanged and surface a
@@ -476,6 +552,28 @@ final class AppStateTests: XCTestCase {
         XCTAssertNil(harness.deduplicateEngine.lastScanConfiguration, "Dedupe must not scan while an organize run is active")
         XCTAssertNotNil(appState.transientErrorMessage)
 
+        appState.cancelRun()
+    }
+
+    @MainActor
+    func testCancelRunOnNASLibraryStopsOnlyTheNASWorkspace() async {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.engine.startMode = .pending
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+
+        await appState.startPreview()
+        let running = await waitForCondition { appState.runSessionStore.isRunning }
+        XCTAssertTrue(running)
+
+        appState.selection = .nasLibrary
+        appState.cancelRun()
+
+        XCTAssertTrue(appState.runSessionStore.isRunning, "cancelRun on the NAS workspace must not cancel the organize run")
+        XCTAssertEqual(appState.nasWorkspaceStore.state, .noLibrary)
+
+        appState.selection = .organize
         appState.cancelRun()
     }
 
@@ -760,4 +858,70 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(appState.setupStore.sourcePath, "/Volumes/Card")
         XCTAssertEqual(harness.repository.savedProfiles.last?.name, "archive")
     }
+
+    @MainActor
+    func testWillTerminateFlushesDedupeReviewSave() async {
+        let harness = AppStateHarness()
+        let first = PhotoCandidate(path: "/dest/a.jpg", size: 100, modificationTime: 0)
+        let second = PhotoCandidate(path: "/dest/b.jpg", size: 100, modificationTime: 0)
+        harness.deduplicateEngine.clustersToEmit = [
+            DuplicateCluster(
+                kind: .exactDuplicate,
+                members: [first, second],
+                suggestedKeeperIDs: [first.path],
+                bytesIfPruned: 100
+            )
+        ]
+        let snapshotStore = RecordingDedupeSnapshotStore()
+        let store = DeduplicateSessionStore(
+            engine: harness.deduplicateEngine,
+            runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: harness.defaults),
+            reviewSnapshotStore: snapshotStore,
+            saveDebounceNanoseconds: 60_000_000_000
+        )
+        let appState = AppState(
+            preferencesStore: harness.preferencesStore,
+            setupStore: harness.setupStore,
+            runLogStore: harness.runLogStore,
+            historyStore: harness.historyStore,
+            runSessionStore: harness.runSessionStore,
+            deduplicateSessionStore: store,
+            folderAccessService: harness.folderAccessService,
+            finderService: harness.finderService,
+            profilesRepository: harness.repository,
+            performInitialBootstrap: false,
+            volumeClassifier: AppStateHarness.localClassifier,
+            showSettingsWindowAction: {}
+        )
+
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        let ready = await waitForCondition { store.status == .readyToReview }
+        XCTAssertTrue(ready)
+        store.setDecision(.keep, forPath: second.path)
+        XCTAssertEqual(snapshotStore.saveCount, 0, "The debounce has not elapsed yet.")
+
+        NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: NSApp)
+
+        XCTAssertEqual(snapshotStore.saveCount, 1)
+        withExtendedLifetime(appState) {}
+    }
+}
+
+private final class RecordingDedupeSnapshotStore: DeduplicateReviewSnapshotStoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var saved: [DeduplicateReviewSnapshot] = []
+
+    var saveCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return saved.count
+    }
+
+    func load(folderPath: String) -> DeduplicateReviewSnapshot? { nil }
+
+    func save(_ snapshot: DeduplicateReviewSnapshot) throws {
+        lock.lock(); defer { lock.unlock() }
+        saved.append(snapshot)
+    }
+
+    func remove(folderPath: String) {}
 }

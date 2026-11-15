@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Write",
+      "Bash(docs/plan/nas-v1/bin/nas_swift.sh *)",
+      "Bash(script/check_*.sh*)",
+      "Bash(script/run_swift_test_suites.sh*)",
+      "Bash(script/swift_meaningful_coverage.sh*)",
+      "Bash(/bin/zsh -lc *)",
+      "Bash(ui/.build/debug/ChronoframeNASProbeTool *)",
+      "Bash(xcodebuild -project ui/Chronoframe.xcodeproj *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git rev-parse *)",
+      "Bash(git add docs/*)",
+      "Bash(git add ui/*)",
+      "Bash(git add script/*)",
+      "Bash(git add AGENTS.md)",
+      "Bash(git add CLAUDE.md)",
+      "Bash(git commit -m *)",
+      "Bash(git switch feature/nas-v1)",
+      "Bash(git switch -c feature/nas-v1 codex/stable-invariant-ids)",
+      "Bash(chmod +x docs/plan/nas-v1/bin/nas_swift.sh)",
+      "Bash(mkdir -p *)"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(git push*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean*)",
+      "Bash(rm -rf *)"
+    ]
+  }
+}

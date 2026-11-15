@@ -1,0 +1,208 @@
+import Foundation
+import CryptoKit
+import XCTest
+@testable import ChronoframeCore
+
+final class ChronoframeCoreDeduplicateReviewSnapshotTests: XCTestCase {
+    private func identity(_ name: String, size: Int64 = 100) -> FileIdentity {
+        FileIdentity(size: size, digest: "digest-\(name)")
+    }
+
+    private func candidate(_ path: String) -> PhotoCandidate {
+        PhotoCandidate(path: path, size: 100, modificationTime: 1)
+    }
+
+    func testGroupKeyIsOrderIndependent() {
+        let a = identity("a")
+        let b = identity("b", size: 7)
+        let c = identity("c", size: 50_000)
+
+        let forward = DeduplicateReviewKeys.groupKey(memberIdentities: [a, b, c])
+        let shuffled = DeduplicateReviewKeys.groupKey(memberIdentities: [c, a, b])
+
+        XCTAssertEqual(forward, shuffled)
+        XCTAssertEqual(forward, [a, b, c].map(\.rawValue).sorted().joined(separator: "\n"))
+        XCTAssertNotEqual(forward, DeduplicateReviewKeys.groupKey(memberIdentities: [a, b]))
+    }
+
+    func testGroupKeyIsNilWhenAMemberLacksIdentity() {
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [candidate("/lib/a.jpg"), candidate("/lib/b.jpg")],
+            suggestedKeeperIDs: ["/lib/a.jpg"],
+            bytesIfPruned: 100
+        )
+        let complete = DeduplicateScanSnapshot(identitiesByPath: [
+            "/lib/a.jpg": identity("a"),
+            "/lib/b.jpg": identity("b"),
+        ])
+        let partial = DeduplicateScanSnapshot(identitiesByPath: ["/lib/a.jpg": identity("a")])
+
+        XCTAssertEqual(
+            DeduplicateReviewKeys.groupKey(for: cluster, snapshot: complete),
+            DeduplicateReviewKeys.groupKey(memberIdentities: [identity("a"), identity("b")])
+        )
+        XCTAssertNil(DeduplicateReviewKeys.groupKey(for: cluster, snapshot: partial))
+    }
+
+    func testFolderKeyStaysWithinTheFilenameLimitForDeepFolders() {
+        let deep = "/Volumes/Archive/" + String(repeating: "nested-folder/", count: 40)
+        XCTAssertGreaterThan(deep.utf8.count, 255)
+
+        let key = DeduplicateReviewKeys.folderKey(for: deep)
+
+        XCTAssertEqual(key.count, 64, "the key becomes a filename, so its length must not grow with the path")
+        XCTAssertNotEqual(key, DeduplicateReviewKeys.folderKey(for: deep + "other"))
+    }
+
+    func testFolderKeyIsStableAcrossTrailingSlashAndDotSegments() {
+        let canonical = DeduplicateReviewKeys.folderKey(for: "/Users/example/Photos")
+
+        XCTAssertEqual(canonical, DeduplicateReviewKeys.folderKey(for: "/Users/example/Photos/"))
+        XCTAssertEqual(canonical, DeduplicateReviewKeys.folderKey(for: "/Users/example/./Photos"))
+        XCTAssertEqual(canonical, DeduplicateReviewKeys.folderKey(for: "/Users/example/Other/../Photos"))
+        XCTAssertNotEqual(canonical, DeduplicateReviewKeys.folderKey(for: "/Users/example/Photos2"))
+
+        // SHA-256 hex of the standardized path: fixed length and filename-safe.
+        let expected = SHA256.hash(data: Data("/Users/example/Photos".utf8))
+            .map { String(format: "%02x", $0) }
+            .joined()
+        XCTAssertEqual(canonical, expected)
+        XCTAssertFalse(canonical.contains("/"))
+        XCTAssertFalse(canonical.contains("+"))
+        XCTAssertFalse(canonical.contains("="))
+    }
+
+    func testFingerprintIgnoresWorkerCountAndChangesWithThreshold() {
+        let base = DeduplicateConfiguration(destinationPath: "/lib", similarityThreshold: 0.35, workerCount: 2)
+        var moreWorkers = base
+        moreWorkers.workerCount = 16
+        var stricter = base
+        stricter.similarityThreshold = 0.20
+        var burstOff = base
+        burstOff.burstModeEnabled = false
+        var withSource = base
+        withSource.additionalSources = [CrossFolderSource(path: "/other", priority: 1, label: "Other")]
+        var videoTuned = base
+        videoTuned.videoPerceptualMatchConfiguration.frameHammingThreshold = 3
+
+        XCTAssertEqual(base.reviewFingerprint, moreWorkers.reviewFingerprint)
+        XCTAssertNotEqual(base.reviewFingerprint, stricter.reviewFingerprint)
+        XCTAssertNotEqual(base.reviewFingerprint, burstOff.reviewFingerprint)
+        XCTAssertNotEqual(base.reviewFingerprint, withSource.reviewFingerprint)
+        XCTAssertNotEqual(base.reviewFingerprint, videoTuned.reviewFingerprint)
+
+        // SHA-256 hex, deterministic.
+        XCTAssertEqual(base.reviewFingerprint.count, 64)
+        XCTAssertTrue(base.reviewFingerprint.allSatisfy { $0.isHexDigit && !$0.isUppercase })
+        XCTAssertEqual(base.reviewFingerprint, DeduplicateConfiguration(destinationPath: "/lib", workerCount: 9).reviewFingerprint)
+    }
+
+    func testSnapshotRoundTripsThroughJSON() throws {
+        let snapshot = DeduplicateReviewSnapshot(
+            folderPath: "/Users/example/Photos",
+            savedAt: Date(timeIntervalSince1970: 1_700_000_123.5),
+            configurationFingerprint: "abc123",
+            decisions: [
+                DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .keep),
+                DeduplicateSavedDecision(path: "/lib/b.jpg", identity: identity("b"), decision: .delete),
+            ],
+            approvals: [DeduplicateSavedGroupApproval(groupKey: "k", memberCount: 2)],
+            focusGroupKey: "k"
+        )
+
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(DeduplicateReviewSnapshot.self, from: data)
+
+        XCTAssertEqual(decoded, snapshot)
+        XCTAssertEqual(decoded.version, DeduplicateReviewSnapshot.version)
+        XCTAssertEqual(DeduplicateReviewSnapshot.version, 1)
+        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("hardDelete"))
+    }
+
+    func testEmptySnapshotIsEmpty() {
+        func make(decisions: [DeduplicateSavedDecision], approvals: [DeduplicateSavedGroupApproval], focus: String?) -> DeduplicateReviewSnapshot {
+            DeduplicateReviewSnapshot(
+                folderPath: "/lib", savedAt: Date(timeIntervalSince1970: 0),
+                configurationFingerprint: "f", decisions: decisions, approvals: approvals, focusGroupKey: focus
+            )
+        }
+
+        XCTAssertTrue(make(decisions: [], approvals: [], focus: nil).isEmpty)
+        // Focus alone is not worth saving.
+        XCTAssertTrue(make(decisions: [], approvals: [], focus: "k").isEmpty)
+        XCTAssertFalse(make(
+            decisions: [DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .delete)],
+            approvals: [], focus: nil
+        ).isEmpty)
+        XCTAssertFalse(make(
+            decisions: [], approvals: [DeduplicateSavedGroupApproval(groupKey: "k", memberCount: 2)], focus: nil
+        ).isEmpty)
+    }
+
+    func testSnapshotOfOnlyUnreviewedDecisionsIsEmpty() {
+        // Untouched suggestions in unreviewed groups are not a review worth keeping (D-DDP-123).
+        let untouched = DeduplicateReviewSnapshot(
+            folderPath: "/lib", savedAt: Date(timeIntervalSince1970: 0), configurationFingerprint: "f",
+            decisions: [
+                DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .keep, inReviewedGroup: false),
+                DeduplicateSavedDecision(path: "/lib/b.jpg", identity: identity("b"), decision: .delete, inReviewedGroup: false),
+            ],
+            approvals: [], focusGroupKey: nil
+        )
+        XCTAssertTrue(untouched.isEmpty)
+
+        let touched = DeduplicateReviewSnapshot(
+            folderPath: "/lib", savedAt: Date(timeIntervalSince1970: 0), configurationFingerprint: "f",
+            decisions: untouched.decisions + [
+                DeduplicateSavedDecision(path: "/lib/c.jpg", identity: identity("c"), decision: .keep, inReviewedGroup: true),
+            ],
+            approvals: [], focusGroupKey: nil
+        )
+        XCTAssertFalse(touched.isEmpty)
+    }
+
+    func testDecisionWithoutReviewedFlagDecodesAsReviewed() throws {
+        // A file saved before the flag existed: encode, then remove the key.
+        let current = DeduplicateSavedDecision(
+            path: "/lib/a.jpg", identity: identity("a"), decision: .keep, inReviewedGroup: false
+        )
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any]
+        )
+        XCTAssertNotNil(object.removeValue(forKey: "inReviewedGroup"))
+        let json = try JSONSerialization.data(withJSONObject: object)
+
+        let decoded = try JSONDecoder().decode(DeduplicateSavedDecision.self, from: json)
+
+        XCTAssertTrue(decoded.inReviewedGroup)
+        XCTAssertEqual(decoded, DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .keep))
+
+        let unreviewed = DeduplicateSavedDecision(
+            path: "/lib/b.jpg", identity: identity("b"), decision: .delete, inReviewedGroup: false
+        )
+        let encoded = try JSONEncoder().encode(unreviewed)
+        XCTAssertTrue(String(decoding: encoded, as: UTF8.self).contains("inReviewedGroup"))
+        XCTAssertEqual(try JSONDecoder().decode(DeduplicateSavedDecision.self, from: encoded), unreviewed)
+        XCTAssertEqual(DeduplicateReviewSnapshot.version, 1)
+    }
+
+    func testReviewedDecisionCountIgnoresUnreviewedGroups() {
+        let snapshot = DeduplicateReviewSnapshot(
+            folderPath: "/lib",
+            savedAt: Date(timeIntervalSince1970: 0),
+            configurationFingerprint: "f",
+            decisions: [
+                DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .keep),
+                DeduplicateSavedDecision(path: "/lib/b.jpg", identity: identity("b"), decision: .delete),
+                DeduplicateSavedDecision(path: "/lib/c.jpg", identity: identity("c"), decision: .keep, inReviewedGroup: false),
+                DeduplicateSavedDecision(path: "/lib/d.jpg", identity: identity("d"), decision: .delete, inReviewedGroup: false),
+            ],
+            approvals: [],
+            focusGroupKey: nil
+        )
+
+        XCTAssertEqual(snapshot.decisions.count, 4)
+        XCTAssertEqual(snapshot.reviewedDecisionCount, 2)
+    }
+}

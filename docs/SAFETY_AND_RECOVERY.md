@@ -52,7 +52,70 @@ substitute for keeping a shared/NAS destination single-host: the underlying
 file lock is unreliable over SMB/AFP, so two Macs pointed at the same network
 volume could both proceed. Chronoframe detects a network destination and shows
 a one-time warning per destination so you know this configuration isn't
-supported; it does not change locking behavior.
+supported; the warning itself changes nothing; in the app a per-share lease also
+serializes changes to one share on this Mac (see Network Destinations), but two
+Macs on one share are still not coordinated.
+
+## Network Destinations
+
+When the destination is a folder on a network share, or Chronoframe cannot tell
+what kind of volume it is on, copies follow stricter rules. These rules apply to
+every network destination. They are not behind the NAS Library feature flag.
+
+- **Verification can't be turned off.** A copy run with verification off does
+  not start. Nothing is copied.
+- **Copies are flushed to the server.** Chronoframe asks for a full flush of each
+  temporary file and falls back to a plain flush only when the share reports that
+  a full flush is unsupported. If the flush fails, that copy fails.
+- **A copy never replaces an existing file.** Files are installed with the
+  operating system's no-replace rename. If the share can't do that, Chronoframe
+  stops the run before placing the file. It never uses the check-then-rename
+  fallback that it still uses on local volumes.
+- **A changed or disconnected share stops the run.** Before each copy, the
+  destination volume must still be the one the run started on.
+- **Copy records are kept more conservatively.** `.organize_cache.db` on a network
+  folder uses a rollback journal instead of write-ahead logging. If the switch
+  can't be confirmed, Chronoframe refuses to open the records and copies
+  nothing. It never deletes the database's side files.
+- **One mutation per share on this Mac.** Besides the lock inside the destination,
+  the app holds a per-share lease in Application Support. It is designed so that
+  two folders on the same share, or the same share mounted twice, can't be
+  changed at once. This is still one Mac: two Macs on the same share are not
+  coordinated. If the lease folder can't be created, the change does not start.
+- **The command-line tool refuses.** `ChronoframeCLI` will not write to a network
+  destination in this version, and says so before it creates or locks anything.
+  Use the app.
+
+Originals stay untouched in every one of these cases.
+
+## NAS Assessment
+
+NAS Library assesses a photo library on a network share to find identical
+copies. It is read-only on the library. The workspace is behind a feature flag
+and isn't available in release builds yet.
+
+- Library files are opened read-only and symlinks are not followed. Chronoframe
+  never creates, renames, or deletes anything in the assessed folder.
+- Everything it keeps (scan results, your review choices, the share lease) lives
+  on this Mac under Application Support, never in the library. Chronoframe
+  refuses to start if that location would be inside the assessed folder.
+- A file whose size is unique in the library is never read, because it can't have
+  an identical copy.
+- Chronoframe never reports a complete assessment when a folder or file couldn't
+  be read, a candidate couldn't be compared, or the scan was interrupted. It shows
+  "Assessment incomplete", "Assessment stopped", or "Waiting for your NAS" instead
+  of a complete result.
+
+Your keeper choice for a group of identical files is saved on this Mac, keyed by
+the files' content. It is a note for you, not an approval to delete anything. If
+the files change so the chosen keeper is no longer in the group, the choice is
+shown as out of date and you choose again.
+
+**NAS Library offers no cleanup.** The NAS Library workspace has no delete, move,
+or Trash control. The existing Deduplicate workspace moves files to the macOS
+Trash; if you point it at a folder on a mounted network share it refuses the
+folder, because Chronoframe has not verified that files moved to the Trash on a
+network share can be put back.
 
 ## Content-Verified Deduplicate Plans
 
@@ -75,6 +138,73 @@ Before Trash, Chronoframe:
 RAW+JPEG pairs, Live Photo pairs, and owned metadata sidecars are validated as a
 unit. If one member changes or a journal update fails, Chronoframe restores the
 unit where it safely can and stops before touching more files.
+
+### Saved Deduplicate reviews
+
+Reviewing a large library can take longer than one sitting, so Chronoframe
+remembers your review of a folder. This is review state only: your Keep and
+Delete choices, which groups you marked as reviewed, and where you were in the
+list. It is not permission to move anything to the Trash.
+
+**Where it lives.** One small file per folder, at
+`Application Support/Chronoframe/dedupe_reviews/<key>.json`, where `<key>` is
+an encoded form of the folder's path. It is stored on this Mac, outside the
+folder you are deduplicating, so Chronoframe writes nothing extra into your
+photo folder. The file holds file paths, content fingerprints, and your
+choices; it holds no photo data.
+
+**What is saved.** Once you change anything, the save records the current
+choice for every file in a group, including suggestions you left as they were,
+so the counts on the card and banner include those. It also records which
+groups you marked as reviewed and where you were in the list.
+
+**When it is saved.** Shortly after you change a choice or mark a group
+reviewed, and again when you pause, cancel, reset, scan again, or quit. A review
+you have not touched is not saved, so opening a scan and leaving never creates
+a saved review. Cancelling while a scan is still running saves nothing, because
+there is no review yet. A normal quit writes any pending changes; a crash or
+force-quit can lose the last half second of changes. Saving is best-effort: if
+it fails (for example, the disk is full), Chronoframe doesn't interrupt your
+review, and the next launch simply finds an older save.
+
+**What comes back.** Saved reviews are applied when you scan the same folder
+again; nothing is applied until that scan finishes.
+
+- A Keep or Delete choice returns only when that file is at the same path, its
+  content is unchanged since you chose, and it is still part of a duplicate
+  group in the new scan.
+- A group returns as reviewed only when every file in it is unchanged and had
+  its own choice restored.
+- Your place in the list returns when that group still exists.
+- Choices come back even if you changed Deduplicate settings in between;
+  Chronoframe tells you the settings changed because the groups may differ.
+
+**What is dropped.** A file that was edited, replaced, moved, renamed, or
+deleted loses its saved choice, and any group it belonged to comes back
+unreviewed. A dropped file that still sits in a group gets the scan's own
+suggestion; a file that was deleted or is no longer a duplicate simply has
+nothing to restore. Chronoframe says so in the banner "Your earlier review was
+restored.", which reports how many groups changed and need another look and how
+many files had their choices cleared; that count includes files that left their
+group. After a restore, the
+next save replaces the file with what you see now, so cleared choices are not
+kept on disk. A saved file that is missing, damaged, or written by a different
+version of Chronoframe is ignored.
+
+**Moving to Trash is unchanged.** Restoring a review never builds a plan, never
+approves a commit, and never skips the reviewed-plan confirmation. You still
+review, prepare the commit, and confirm, and the commit re-checks every file's
+expected content before anything moves to the Trash, exactly as described
+above. A restored choice is only a starting point.
+
+**When it is removed.** After a Deduplicate commit finishes for that folder,
+its saved review is removed. Reverting a commit does not remove it, and
+choosing a different folder leaves each folder's save alone. To discard one
+yourself, open the Deduplicate start screen for that folder and choose
+**Discard Saved Review** on the "Pick up where you left off" card. The card
+appears when no paused review is open in the current session, and it also offers
+**Scan and Restore Review**. Discarding deletes only Chronoframe's saved review file; your photos
+are not touched.
 
 ## Library Guardian: Scrub, Mirror, Restore
 
@@ -183,6 +313,10 @@ shows interrupted work. Removing them can discard resume, recovery, history, or
 revert information. Completed-run artifacts may be removed if you intentionally
 accept losing those capabilities; Chronoframe will rebuild performance caches as
 needed.
+
+Saved Deduplicate reviews are not stored in the destination. They live under
+Application Support (see Saved Deduplicate reviews above), and removing one
+only discards your saved choices.
 
 ## Reporting A Safety Problem
 

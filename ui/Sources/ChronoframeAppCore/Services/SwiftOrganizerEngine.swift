@@ -19,6 +19,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
     private let transferExecutor: TransferExecutor
     private let revertExecutor: RevertExecutor
     private let reorganizeExecutor: ReorganizeExecutor
+    public let copyDestinationQualifier: NASCopyDestinationQualifier
     private var activeTask: Task<Void, Never>?
     private var activeRunID: UUID?
     /// Per-run cancellation flag the executors poll inside synchronous
@@ -46,7 +47,8 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         planner: DryRunPlanner = DryRunPlanner(),
         transferExecutor: TransferExecutor = TransferExecutor(),
         revertExecutor: RevertExecutor = RevertExecutor(),
-        reorganizeExecutor: ReorganizeExecutor = ReorganizeExecutor()
+        reorganizeExecutor: ReorganizeExecutor = ReorganizeExecutor(),
+        copyDestinationQualifier: NASCopyDestinationQualifier = .live
     ) {
         self.authorizer = authorizer
         self.refunder = refunder
@@ -55,6 +57,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         self.transferExecutor = transferExecutor
         self.revertExecutor = revertExecutor
         self.reorganizeExecutor = reorganizeExecutor
+        self.copyDestinationQualifier = copyDestinationQualifier
     }
 
     public func preflight(_ configuration: RunConfiguration) async throws -> RunPreflight {

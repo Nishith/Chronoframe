@@ -1,0 +1,43 @@
+{
+  "generatedAt" : "2026-11-09T01:27:15Z",
+  "results" : [
+    {
+      "detail" : "kind=remote fileSystemType=smbfs mountPoint=/Volumes/photo serverHost=<redacted> shareName=photo fileSystemID=129754988549 rootRelativePath=chronoframe-probe-h1 rootFileID=8481412 shareRootFileID=2 rootCreationTime=1794187620.6187177",
+      "id" : "P01",
+      "status" : "pass"
+    },
+    {
+      "detail" : "bytes=8388608 fullfsync=ok fsync=ok",
+      "id" : "P02",
+      "status" : "pass"
+    },
+    {
+      "detail" : "renamex_np RENAME_EXCL onto a new name failed (ENOTSUP)",
+      "errorCode" : 45,
+      "id" : "P03",
+      "status" : "unsupported"
+    },
+    {
+      "detail" : "rc=-1 errno=EEXIST existingDigestUnchanged=true sourceStillPresent=true",
+      "errorCode" : 17,
+      "id" : "P04",
+      "status" : "pass"
+    },
+    {
+      "detail" : "size=8388608 writtenDigest=45f13616ad1732e3 readbackDigest=45f13616ad1732e3 digestsMatch=true",
+      "id" : "P05",
+      "status" : "pass"
+    },
+    {
+      "detail" : "journalMode=delete synchronous=2 sqliteVersion=3.54.0 enableLockingStyle=true vfs=unix",
+      "id" : "P06",
+      "status" : "pass"
+    },
+    {
+      "detail" : "writer=BEGIN EXCLUSIVE heldMs=2000; timeout30000: rc=0 elapsedMs=2125; timeout0: rc=5 elapsedMs=0",
+      "id" : "P07",
+      "status" : "pass"
+    }
+  ],
+  "testDirectory" : "/Volumes/photo/chronoframe-probe-h1"
+}

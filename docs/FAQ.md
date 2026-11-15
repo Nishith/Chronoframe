@@ -99,6 +99,14 @@ A: Yes. Use the **Deduplicate** workspace:
 
 Visual video matching is off by default. Enable it in **Settings → Deduplicate** with the Balanced or Similar Shots preset. These groups are always review-only and never accepted automatically.
 
+**Q: Can I deduplicate a folder on my NAS?**
+
+A: No, not for now. Deduplicate moves files to the macOS Trash, and Chronoframe has not verified that files moved to the Trash from a network share can be put back, so Deduplicate refuses any folder that isn't on this Mac or an attached drive. It also refuses a folder when macOS can't tell what kind of volume it is on. Nothing is changed. In the released app, which doesn't include NAS Library yet, the message reads: "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed." In builds where NAS Library is available, the message adds: "For a NAS, use NAS Library." NAS Library only reads your library and changes nothing on the NAS. It finds identical copies, shows how much space they take up (logical size, not space freed), and lets you pick which copy to keep. That choice is saved on this Mac as a note for you, not as a deletion approval, and the workspace has no delete, move, or Trash control. NAS Library isn't available in release builds yet.
+
+**Q: Can I organize into a folder on my NAS?**
+
+A: Only when the share supports a rename that refuses to replace an existing file. Chronoframe checks this before it plans anything: when you start a preview or a transfer into a network folder, it creates and removes a small empty test file in the destination's `.organize_logs` folder. If the share can't make that guarantee, Chronoframe says so and stops. Nothing is copied, and your originals are untouched. Many SMB shares, including the Synology share tested, do not support it. Choose a folder on this Mac or an attached drive instead. NAS Library, where it is available, can still assess the share, and copying from a share to a folder on this Mac is not affected.
+
 **Q: What if a file changes after a deduplicate scan?**
 
 A: Chronoframe's commit summary and executor use the same immutable plan with the expected content identity for every target. Before Trash, the app quarantines and verifies each mutation unit without following symlinks. If a file, pair partner, or owned sidecar no longer matches, Chronoframe leaves or restores the unit and reports it as stale instead of deleting it.
@@ -106,6 +114,10 @@ A: Chronoframe's commit summary and executor use the same immutable plan with th
 **Q: What happens if Deduplicate is interrupted while moving files to Trash?**
 
 A: Deduplicate writes a pending receipt and append-only recovery journal before and during the commit. On relaunch, Chronoframe checks the original path, quarantine path, and recorded Trash candidates by content. It restores or finalizes only when the evidence is unambiguous; otherwise History preserves the record and asks for a drive or manual action.
+
+**Q: I quit halfway through reviewing duplicates. Is my work gone?**
+
+A: No. Chronoframe saves your Keep and Delete choices and the groups you marked as reviewed on this Mac, outside your photo folder. Scan the same folder again and your review comes back: any scan of that folder restores it, so **Scan and Restore Review** on the "Pick up where you left off" card and the normal **Start Scan** do the same thing. A choice returns only for files that haven't changed. A changed file loses its choice, its group needs another look, and the "Your earlier review was restored." banner tells you how many. Groups you had reviewed stay reviewed, and nothing moves to the Trash until you prepare the commit and confirm. To start fresh, choose **Discard Saved Review** before you scan. Your photos aren't touched either way.
 
 **Q: Can I organize into a folder that already has photos?**
 

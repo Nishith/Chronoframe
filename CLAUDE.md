@@ -138,6 +138,8 @@ ui/Sources/
 
 Library Guardian state lives **outside** the protected library, under Application Support keyed by library identity — `guardian/<libraryID>/manifest.db` (trusted-digest manifest), `guardian_mirror_receipt_*.json` / `guardian_restore_receipt_*.json` (+ journals), and `schedule.json` (next-run / last-attempted / last-succeeded). The mirror is a separate writable volume holding the bit-for-bit second copy. Restore is the only Guardian surface that writes the library; a scrub is read-only and a mirror pass writes only the mirror. See `docs/SAFETY_AND_RECOVERY.md` for the trust model and crash-recovery states.
 
+NAS assessment state also lives **outside** the assessed library, under Application Support `nas/` (`libraries.json`, `libraries/<uuid>/assessment.db`, `leases/`).
+
 ## Critical notes
 
 **SwiftPM ↔ Xcode project sync.** Both sides discover most files automatically now, so adding a source file usually needs no project edits at all:

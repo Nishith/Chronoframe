@@ -85,6 +85,10 @@ public struct ScopedAccessOutcome: Sendable {
 
 public protocol FolderAccessServicing: AnyObject, Sendable {
     @MainActor func chooseFolder(startingAt path: String?, prompt: String) -> URL?
+    /// Like `chooseFolder(startingAt:prompt:)`, but a caller that has already checked the
+    /// start path (the NAS reconnect probe) can ask for the panel to open on a network
+    /// volume instead of falling back to home.
+    @MainActor func chooseFolder(startingAt path: String?, prompt: String, allowNetworkStart: Bool) -> URL?
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark
     @MainActor func resolveBookmark(_ bookmark: FolderBookmark) -> ResolvedFolderBookmark?
     @MainActor func scopedAccess(for bookmarks: [FolderBookmark]) -> SecurityScopedFolderAccess
@@ -96,22 +100,32 @@ public protocol FolderAccessServicing: AnyObject, Sendable {
     func validateFolder(_ url: URL, role: FolderRole) throws
 }
 
+public extension FolderAccessServicing {
+    @MainActor func chooseFolder(startingAt path: String?, prompt: String, allowNetworkStart: Bool) -> URL? {
+        chooseFolder(startingAt: path, prompt: prompt)
+    }
+}
+
 @MainActor
 public final class FolderAccessService: FolderAccessServicing {
     public init() {}
 
     public func chooseFolder(startingAt path: String? = nil, prompt: String = "Choose Folder") -> URL? {
+        chooseFolder(startingAt: path, prompt: prompt, allowNetworkStart: false)
+    }
+
+    public func chooseFolder(startingAt path: String?, prompt: String, allowNetworkStart: Bool) -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         panel.prompt = prompt
-        panel.directoryURL = Self.initialPanelDirectoryURL(startingAt: path)
+        panel.directoryURL = Self.initialPanelDirectoryURL(startingAt: path, allowNetworkStart: allowNetworkStart)
 
         return panel.runModal() == .OK ? panel.url : nil
     }
 
-    public static func initialPanelDirectoryURL(startingAt path: String?) -> URL {
+    public static func initialPanelDirectoryURL(startingAt path: String?, allowNetworkStart: Bool = false) -> URL {
         let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
         guard let path = path?.trimmingCharacters(in: .whitespacesAndNewlines),
               !path.isEmpty
@@ -128,7 +142,8 @@ public final class FolderAccessService: FolderAccessServicing {
             // Path exists — ask the OS whether the volume is local. Non-local
             // volumes (SMB, NFS, AFP, WebDAV) can be slow or unresponsive, so
             // drop back to home rather than hanging the open panel.
-            if let values = try? url.resourceValues(forKeys: [.volumeIsLocalKey]),
+            if !allowNetworkStart,
+               let values = try? url.resourceValues(forKeys: [.volumeIsLocalKey]),
                values.volumeIsLocal == false {
                 return homeDirectory
             }

@@ -43,6 +43,12 @@ public final class DeduplicateSessionStore: ObservableObject {
     @Published public private(set) var runHistory: [DeduplicateFolderHistoryRecord]
     @Published public var decisions: DedupeDecisions = DedupeDecisions()
     @Published public var approvedClusterIDs: Set<DuplicateCluster.ID> = []
+    /// Set when a saved review was restored after a scan; cleared by `reset()` and `startScan`.
+    @Published public private(set) var restoredReview: DeduplicateReviewRestoration?
+    /// The saved review for the idle card; refreshed by `refreshSavedReview(folderPath:)`.
+    @Published public private(set) var savedReviewForCurrentFolder: DeduplicateReviewSnapshot?
+    /// Written by the view; captured into the saved review as the current position.
+    @Published public var reviewFocusClusterID: UUID?
     public weak var undoManager: UndoManager?
 
     private func registerUndo(oldDecisions: DedupeDecisions, oldApproved: Set<DuplicateCluster.ID>, actionName: String) {
@@ -58,6 +64,7 @@ public final class DeduplicateSessionStore: ObservableObject {
                 target.decisions = oldDecisions
                 target.approvedClusterIDs = oldApproved
                 target.registerUndo(oldDecisions: currentDecisions, oldApproved: currentApproved, actionName: actionName)
+                target.scheduleSave()
             }
         }
         if !undoManager.isUndoing {
@@ -87,13 +94,29 @@ public final class DeduplicateSessionStore: ObservableObject {
     /// deduplicated, even if preferences change while commit is in-flight.
     private var activeCommitConfiguration: DeduplicateConfiguration?
 
+    private let reviewSnapshotStore: any DeduplicateReviewSnapshotStoring
+    private let now: @Sendable () -> Date
+    private let saveDebounceNanoseconds: UInt64
+    private var saveTask: Task<Void, Never>?
+    /// True once the user has acted on (or restored) the current review. Untouched
+    /// suggestions are never saved (D-DDP-107).
+    private var reviewHasUserChanges = false
+    /// The folder the view asked about; `savedReviewForCurrentFolder` follows saves to it.
+    private var savedReviewFolderPath: String?
+
     public init(
         engine: any DeduplicateEngine,
-        runHistoryStore: any DeduplicateRunHistoryStoring = UserDefaultsDeduplicateRunHistoryStore()
+        runHistoryStore: any DeduplicateRunHistoryStoring = UserDefaultsDeduplicateRunHistoryStore(),
+        reviewSnapshotStore: any DeduplicateReviewSnapshotStoring = DeduplicateReviewFileSnapshotStore(),
+        now: @escaping @Sendable () -> Date = Date.init,
+        saveDebounceNanoseconds: UInt64 = 500_000_000
     ) {
         self.engine = engine
         self.runHistoryStore = runHistoryStore
         self.runHistory = runHistoryStore.load()
+        self.reviewSnapshotStore = reviewSnapshotStore
+        self.now = now
+        self.saveDebounceNanoseconds = saveDebounceNanoseconds
     }
 
     public var isWorking: Bool {
@@ -168,6 +191,9 @@ public final class DeduplicateSessionStore: ObservableObject {
         configuration: DeduplicateConfiguration,
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
+        // Save while the review is still open: once the status changes, a
+        // pending save is refused, and a failed commit would lose it.
+        flushPendingReviewSave()
         cancelStream()
         self.securityScope = securityScope
         commitSummary = nil
@@ -270,6 +296,7 @@ public final class DeduplicateSessionStore: ObservableObject {
         configuration: DeduplicateConfiguration,
         securityScope: SecurityScopedFolderAccess? = nil
     ) {
+        flushPendingReviewSave()
         cancelStream()
         self.securityScope = securityScope
         clusters = []
@@ -285,6 +312,9 @@ public final class DeduplicateSessionStore: ObservableObject {
         lastScanConfiguration = configuration
         decisions = DedupeDecisions(byPath: [:])
         approvedClusterIDs = []
+        restoredReview = nil
+        reviewFocusClusterID = nil
+        reviewHasUserChanges = false
 
         do {
             let stream = try engine.scan(configuration)
@@ -316,6 +346,7 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func cancel() {
+        saveNow()
         engine.cancelCurrentScan()
         cancelStream()
         if isWorking {
@@ -377,6 +408,7 @@ public final class DeduplicateSessionStore: ObservableObject {
             oldApproved: oldApproved,
             actionName: String(localized: "Triage Decision", bundle: Bundle.module)
         )
+        scheduleSave()
     }
 
     public func approveCluster(_ clusterID: DuplicateCluster.ID) {
@@ -388,6 +420,7 @@ public final class DeduplicateSessionStore: ObservableObject {
             oldApproved: oldApproved,
             actionName: String(localized: "Approve Group", bundle: Bundle.module)
         )
+        scheduleSave()
     }
 
     public func acceptSuggestionsForCluster(_ cluster: DuplicateCluster) {
@@ -404,6 +437,7 @@ public final class DeduplicateSessionStore: ObservableObject {
             oldApproved: oldApproved,
             actionName: String(localized: "Accept Suggestion", bundle: Bundle.module)
         )
+        scheduleSave()
     }
 
     public func keepAllInCluster(_ cluster: DuplicateCluster) {
@@ -420,6 +454,7 @@ public final class DeduplicateSessionStore: ObservableObject {
             oldApproved: oldApproved,
             actionName: String(localized: "Keep All in Group", bundle: Bundle.module)
         )
+        scheduleSave()
     }
 
     public func deleteAllInCluster(_ cluster: DuplicateCluster) {
@@ -436,6 +471,7 @@ public final class DeduplicateSessionStore: ObservableObject {
             oldApproved: oldApproved,
             actionName: String(localized: "Delete All in Group", bundle: Bundle.module)
         )
+        scheduleSave()
     }
 
     public func acceptAllSuggestions() {
@@ -462,6 +498,7 @@ public final class DeduplicateSessionStore: ObservableObject {
             oldApproved: oldApproved,
             actionName: String(localized: "Accept All Suggestions", bundle: Bundle.module)
         )
+        scheduleSave()
     }
 
     // MARK: - Confidence Triage
@@ -496,10 +533,12 @@ public final class DeduplicateSessionStore: ObservableObject {
             oldApproved: oldApproved,
             actionName: String(localized: "Accept All Safe", bundle: Bundle.module)
         )
+        scheduleSave()
     }
 
     public func pauseReview() {
         guard status == .readyToReview, !clusters.isEmpty else { return }
+        saveNow()
         cancelStream()
         status = .idle
         currentPhase = nil
@@ -519,6 +558,8 @@ public final class DeduplicateSessionStore: ObservableObject {
     }
 
     public func reset() {
+        saveNow()
+        reviewHasUserChanges = false
         engine.cancelCurrentScan()
         cancelStream()
         clusters = []
@@ -536,7 +577,30 @@ public final class DeduplicateSessionStore: ObservableObject {
         activeCommitConfiguration = nil
         decisions = DedupeDecisions(byPath: [:])
         approvedClusterIDs = []
+        restoredReview = nil
+        reviewFocusClusterID = nil
         closeSecurityScope()
+    }
+
+    /// Writes any pending review change now. Called on app termination.
+    public func flushPendingReviewSave() {
+        saveTask?.cancel()
+        saveTask = nil
+        saveNow()
+    }
+
+    public func refreshSavedReview(folderPath: String) {
+        savedReviewFolderPath = folderPath
+        savedReviewForCurrentFolder = reviewSnapshotStore.load(folderPath: folderPath)
+    }
+
+    public func discardSavedReview(folderPath: String) {
+        reviewSnapshotStore.remove(folderPath: folderPath)
+        savedReviewForCurrentFolder = nil
+    }
+
+    public var hasRestoredChanges: Bool {
+        (restoredReview?.changedGroupCount ?? 0) > 0 || (restoredReview?.droppedDecisionCount ?? 0) > 0
     }
 
     // MARK: - Private
@@ -551,6 +615,52 @@ public final class DeduplicateSessionStore: ObservableObject {
     private func closeSecurityScope() {
         securityScope?.close()
         securityScope = nil
+    }
+
+    /// A review is open or paused; the only states a save may be written from.
+    private var isReviewable: Bool {
+        status == .readyToReview || (status == .idle && hasPausedReview)
+    }
+
+    private func scheduleSave() {
+        // Undo and redo closures can fire after the review is gone (D-DDP-127).
+        guard isReviewable else { return }
+        reviewHasUserChanges = true
+        saveTask?.cancel()
+        let delay = saveDebounceNanoseconds
+        saveTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: delay)
+            } catch {
+                return
+            }
+            self?.saveNow()
+        }
+    }
+
+    /// Best-effort and silent (D-DDP-07): a failed save is not surfaced.
+    private func saveNow() {
+        guard reviewHasUserChanges,
+              isReviewable,
+              let summary,
+              let configuration = lastScanConfiguration
+        else { return }
+        let snapshot = DeduplicateReviewRestorer.capture(
+            folderPath: configuration.destinationPath,
+            savedAt: now(),
+            configuration: configuration,
+            decisions: decisions,
+            approvedClusterIDs: approvedClusterIDs,
+            clusters: clusters,
+            scanSnapshot: summary.scanSnapshot,
+            focusClusterID: reviewFocusClusterID
+        )
+        try? reviewSnapshotStore.save(snapshot)
+        // Publish the result so the idle card needs no view-side refresh (D-DDP-126).
+        if let tracked = savedReviewFolderPath,
+           URL(fileURLWithPath: tracked).standardizedFileURL.path == snapshot.folderPath {
+            savedReviewForCurrentFolder = reviewSnapshotStore.load(folderPath: tracked)
+        }
     }
 
     private func consume(_ event: DeduplicateEvent) {
@@ -582,6 +692,24 @@ public final class DeduplicateSessionStore: ObservableObject {
             let suggested = suggestedDecisions(for: clusters)
             decisions = DedupeDecisions(byPath: suggested.byPath)
             approvedClusterIDs = []
+            reviewHasUserChanges = false
+            if let configuration = lastScanConfiguration,
+               let saved = reviewSnapshotStore.load(folderPath: configuration.destinationPath) {
+                let restoration = DeduplicateReviewRestorer.restore(
+                    snapshot: saved,
+                    clusters: clusters,
+                    scanSnapshot: summary.scanSnapshot,
+                    suggested: suggested,
+                    currentFingerprint: configuration.reviewFingerprint
+                )
+                decisions = restoration.decisions
+                approvedClusterIDs = restoration.approvedClusterIDs
+                reviewFocusClusterID = restoration.focusClusterID
+                restoredReview = restoration
+                // Only a restore that brought something back counts as work to save; an
+                // empty one must not let a reset or pause overwrite the saved review.
+                reviewHasUserChanges = restoration.restoredDecisionCount > 0 || !restoration.approvedClusterIDs.isEmpty
+            }
         }
     }
 
@@ -625,10 +753,14 @@ public final class DeduplicateSessionStore: ObservableObject {
                     summary: summary,
                     completedAt: Date()
                 )
+                reviewSnapshotStore.remove(folderPath: destinationPath)
+                restoredReview = nil
+                savedReviewForCurrentFolder = nil
             }
             status = isHandlingRevert ? .reverted : .completed
             isHandlingRevert = false
             activeCommitConfiguration = nil
+            reviewHasUserChanges = false
             closeSecurityScope()
         }
     }

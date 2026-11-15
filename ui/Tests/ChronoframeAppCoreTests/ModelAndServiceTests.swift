@@ -101,6 +101,28 @@ final class ModelAndServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testFolderAccessServiceStartsPickerAtParentOfExistingLocalFolderWithOrWithoutNetworkStart() throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("FolderAccessPanel-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let expectedParent = URL(fileURLWithPath: root.path, isDirectory: true)
+            .standardizedFileURL
+            .deletingLastPathComponent()
+            .path
+
+        XCTAssertEqual(
+            FolderAccessService.initialPanelDirectoryURL(startingAt: root.path, allowNetworkStart: false).path,
+            expectedParent
+        )
+        XCTAssertEqual(
+            FolderAccessService.initialPanelDirectoryURL(startingAt: root.path, allowNetworkStart: true).path,
+            expectedParent
+        )
+    }
+
+    @MainActor
     func testFolderAccessServiceDoesNotProbeProtectedMediaLibraryPaths() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
 

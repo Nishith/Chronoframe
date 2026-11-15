@@ -26,6 +26,7 @@ final class AppState: ObservableObject {
     var watchedSourcesStore: WatchedSourcesStore
     var photosImportStore: PhotosImportStore
     let guardianStore: GuardianStore
+    let nasWorkspaceStore: NASWorkspaceStore
 
     /// Entitlement composed with the trial ledger.
     ///
@@ -54,8 +55,11 @@ final class AppState: ObservableObject {
     private let watchedSourcesRepository: any WatchedSourcesRepositorying
     private let droppedItemStager: DroppedItemStager
     private let showSettingsWindowAction: @MainActor () -> Void
+    private let volumeClassifier: NASVolumeClassifier
     /// Keeps the trial status in step with the entitlement (T16).
     private var trialStatusObservation: AnyCancellable?
+    /// Writes a pending Deduplicate review save before the app quits.
+    private var terminationObserver: NSObjectProtocol?
     private var lastObservedEntitlement: EntitlementState?
     private lazy var bookmarkPathResolver = BookmarkPathResolver(
         preferencesStore: preferencesStore,
@@ -232,10 +236,13 @@ final class AppState: ObservableObject {
         isAppStoreChannel: Bool = TrialComposition.isMacAppStoreBuild,
         entitlementStore: EntitlementStore? = nil,
         trialEntitlementResolver: (@MainActor () async -> TrialEntitlementSnapshot)? = nil,
+        volumeClassifier: NASVolumeClassifier = .live,
         showSettingsWindowAction: @escaping @MainActor () -> Void = {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
     ) {
+        // Skipped under XCTest (RuntimePaths ignores $HOME); App Intents call the same entry point.
+        NASStartup.configureForApp()
         self.selection = route.sidebar
         self.organizeSubSelection = route.organizeSubSection ?? .setup
         self.settingsSelection = .general
@@ -254,6 +261,11 @@ final class AppState: ObservableObject {
         self.watchedSourcesStore = watchedSourcesStore ?? WatchedSourcesStore()
         self.photosImportStore = photosImportStore ?? AppState.makePhotosImportStore()
         self.guardianStore = GuardianStore(engine: SwiftGuardianEngine(), notifier: GuardianUserNotifier())
+        self.nasWorkspaceStore = NASWorkspaceStore(
+            engine: SwiftNASAssessmentEngine(),
+            registry: NASLibraryRegistry(),
+            folderAccess: folderAccessService
+        )
         self.trialStatusStoreOverride = trialStatusStore
         self.isAppStoreChannel = isAppStoreChannel
         let entitlementStore = entitlementStore ?? TrialComposition.entitlementStore
@@ -268,6 +280,7 @@ final class AppState: ObservableObject {
         self.watchedSourcesRepository = watchedSourcesRepository ?? WatchedSourcesRepository()
         self.droppedItemStager = droppedItemStager
         self.showSettingsWindowAction = showSettingsWindowAction
+        self.volumeClassifier = volumeClassifier
         self.previewReviewStore.setDestinationScopeProvider { [weak self] destinationRoot in
             self?.destinationSecurityScope(destinationRoot: destinationRoot)
         }
@@ -284,6 +297,18 @@ final class AppState: ObservableObject {
         TrialComposition.installReconciler()
 
         observeEntitlementForTrialStatus()
+
+        // No queue: the notification is posted on the main thread and the flush
+        // must finish before termination continues.
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.deduplicateSessionStore.flushPendingReviewSave()
+            }
+        }
 
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
@@ -559,6 +584,8 @@ final class AppState: ObservableObject {
             guardianStore.cancelScan()
         case .profiles:
             runCoordinator.cancelRun()
+        case .nasLibrary:
+            nasWorkspaceStore.stop()
         }
     }
 
@@ -611,6 +638,11 @@ final class AppState: ObservableObject {
             return
         }
 
+        if let refusal = NASDeduplicateFolderRefusal.refusal(for: url, classifier: volumeClassifier) {
+            transientErrorMessage = UserFacingErrorMessage.message(for: refusal, context: .setup)
+            return
+        }
+
         // Persist the bookmark BEFORE the path so the two never drift. If
         // bookmark creation fails (e.g. APFS volume not bookmarkable, sandbox
         // mismatch), surface the error and leave the destination unchanged
@@ -641,6 +673,11 @@ final class AppState: ObservableObject {
             try folderAccessService.validateFolder(url, role: .destination)
         } catch {
             transientErrorMessage = "That Deduplicate folder is no longer available. Choose it again to continue."
+            return
+        }
+
+        if let refusal = NASDeduplicateFolderRefusal.refusal(for: url, classifier: volumeClassifier) {
+            transientErrorMessage = UserFacingErrorMessage.message(for: refusal, context: .setup)
             return
         }
 
@@ -686,6 +723,13 @@ final class AppState: ObservableObject {
         let destination = deduplicateDestinationPath
         guard !destination.isEmpty else {
             transientErrorMessage = "Choose a destination folder before running a deduplicate scan."
+            return
+        }
+        if let refusal = NASDeduplicateFolderRefusal.refusal(
+            for: URL(fileURLWithPath: destination, isDirectory: true),
+            classifier: volumeClassifier
+        ) {
+            transientErrorMessage = UserFacingErrorMessage.message(for: refusal, context: .setup)
             return
         }
         let configuration = preferencesStore.makeDeduplicateConfiguration(destinationPath: destination)
