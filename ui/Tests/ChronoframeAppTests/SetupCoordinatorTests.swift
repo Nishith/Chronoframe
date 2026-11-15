@@ -466,7 +466,7 @@ final class SetupCoordinatorTests: XCTestCase {
     }
 
     @MainActor
-    func testBootstrapDropsUnresolvableItem() async throws {
+    func testBootstrapSkipsUnresolvableItemButKeepsItSaved() async throws {
         let fixture = try SetupCoordinatorFixture()
         defer { fixture.tearDown() }
         let first = try fixture.makeFolder("Alpha")
@@ -481,15 +481,66 @@ final class SetupCoordinatorTests: XCTestCase {
         let restored = await waitForCondition { relaunched.setupStore.sourceItems.count == 2 }
 
         XCTAssertTrue(restored)
-        XCTAssertEqual(relaunched.setupStore.sourceItems, [first, third])
-        XCTAssertEqual(fixture.harness.preferencesStore.manualSourceItemPaths, [first.path, third.path])
+        XCTAssertEqual(relaunched.setupStore.sourceItems, [first, third], "This session uses what is reachable")
+        // A bookmark that merely failed to resolve (an unmounted drive) is not proof the folder is gone.
+        XCTAssertEqual(fixture.harness.preferencesStore.manualSourceItemPaths, [first.path, second.path, third.path])
         let keys = fixture.harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.").sorted()
-        XCTAssertEqual(keys, ["manual.sourceItem.0", "manual.sourceItem.1"], "The dropped item's key must not linger")
-        XCTAssertEqual(fixture.harness.preferencesStore.bookmark(for: "manual.sourceItem.1")?.path, third.path)
+        XCTAssertEqual(keys, ["manual.sourceItem.0", "manual.sourceItem.1", "manual.sourceItem.2"])
+        XCTAssertEqual(fixture.harness.preferencesStore.bookmark(for: "manual.sourceItem.1")?.path, second.path)
     }
 
     @MainActor
-    func testBootstrapFallsBackToTheSingleFolderWhenTooFewResolve() async throws {
+    func testUnreachableItemComesBackWhenItResolvesAgain() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let first = try fixture.makeFolder("Alpha")
+        let second = try fixture.makeFolder("Beta")
+        let third = try fixture.makeFolder("Gamma")
+
+        await fixture.coordinator.addSourceItems([first, second, third])
+        fixture.harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.1")
+        let firstLaunch = fixture.relaunch()
+        firstLaunch.coordinator.bootstrap()
+        _ = await waitForCondition { firstLaunch.setupStore.sourceItems.count == 2 }
+
+        fixture.harness.folderAccessService.bookmarkResolutionFailures.removeAll()
+        let secondLaunch = fixture.relaunch()
+        secondLaunch.coordinator.bootstrap()
+        let restored = await waitForCondition { secondLaunch.setupStore.sourceItems.count == 3 }
+
+        XCTAssertTrue(restored, "Reconnecting the drive must bring the whole list back")
+        XCTAssertEqual(secondLaunch.setupStore.sourceItems, [first, second, third])
+    }
+
+    @MainActor
+    func testEditingAfterPartialRestoreKeepsTheUnreachableItemSaved() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let first = try fixture.makeFolder("Alpha")
+        let second = try fixture.makeFolder("Beta")
+        let third = try fixture.makeFolder("Gamma")
+        let fourth = try fixture.makeFolder("Delta")
+
+        await fixture.coordinator.addSourceItems([first, second, third])
+        fixture.harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.1")
+        let relaunched = fixture.relaunch()
+        relaunched.coordinator.bootstrap()
+        _ = await waitForCondition { relaunched.setupStore.sourceItems.count == 2 }
+
+        await relaunched.coordinator.addSourceItems([fourth])
+
+        let preferences = fixture.harness.preferencesStore
+        XCTAssertEqual(relaunched.setupStore.sourceItems, [first, third, fourth])
+        XCTAssertEqual(
+            preferences.manualSourceItemPaths,
+            [first.path, third.path, fourth.path, second.path],
+            "An edit rewrites the visible items and keeps the unreachable one"
+        )
+        XCTAssertEqual(preferences.bookmark(for: "manual.sourceItem.3")?.path, second.path)
+    }
+
+    @MainActor
+    func testBootstrapUsesTheOneReachableFolderAndKeepsTheSavedList() async throws {
         let fixture = try SetupCoordinatorFixture()
         defer { fixture.tearDown() }
         let first = try fixture.makeFolder("Alpha")
@@ -501,11 +552,70 @@ final class SetupCoordinatorTests: XCTestCase {
 
         let relaunched = fixture.relaunch()
         relaunched.coordinator.bootstrap()
+        let restored = await waitForCondition { relaunched.setupStore.sourceItems == [first] }
 
-        XCTAssertEqual(relaunched.setupStore.sourcePath, first.path, "The remembered single folder is used")
+        XCTAssertTrue(restored)
+        XCTAssertEqual(relaunched.setupStore.sourcePath, first.path)
         XCTAssertFalse(relaunched.setupStore.usingDroppedSource)
-        XCTAssertEqual(fixture.harness.preferencesStore.manualSourceItemPaths, [])
-        XCTAssertTrue(fixture.harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.").isEmpty)
+        XCTAssertEqual(fixture.harness.preferencesStore.manualSourceItemPaths, [first.path, second.path])
+        XCTAssertEqual(
+            fixture.harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.").sorted(),
+            ["manual.sourceItem.0", "manual.sourceItem.1"]
+        )
+    }
+
+    @MainActor
+    func testBootstrapWithNoReachableItemDoesNotFallBackToAnOlderFolder() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let old = try fixture.makeFolder("Old")
+        let first = try fixture.makeFolder("Alpha")
+        let second = try fixture.makeFolder("Beta")
+
+        await fixture.coordinator.addSourceItems([old])
+        await fixture.coordinator.addSourceItems([first, second])
+        await fixture.coordinator.removeSourceItem(old)
+        fixture.harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.0")
+        fixture.harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.1")
+
+        let relaunched = fixture.relaunch()
+        relaunched.coordinator.bootstrap()
+
+        XCTAssertEqual(relaunched.setupStore.sourcePath, "", "A copy must not start from a folder the user last replaced")
+        XCTAssertTrue(relaunched.setupStore.sourceItems.isEmpty)
+        XCTAssertEqual(fixture.harness.preferencesStore.manualSourceItemPaths, [first.path, second.path])
+        XCTAssertEqual(
+            fixture.harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.").sorted(),
+            ["manual.sourceItem.0", "manual.sourceItem.1"]
+        )
+    }
+
+    @MainActor
+    func testSingleLooseFileListIsRestoredAtLaunch() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let old = try fixture.makeFolder("Old")
+        let file = fixture.root.appendingPathComponent("loose.jpg")
+        try Data("x".utf8).write(to: file)
+        fixture.harness.folderAccessService.validationFailures[file.path] =
+            FolderValidationError.notDirectory(role: .source, path: file.path)
+
+        await fixture.coordinator.addSourceItems([old])
+        await fixture.coordinator.addSourceItems([file])
+        await fixture.coordinator.removeSourceItem(old)
+        XCTAssertEqual(fixture.harness.setupStore.sourceItems, [file.resolvingSymlinksInPath()], "Setup for the test")
+
+        let relaunched = fixture.relaunch()
+        relaunched.coordinator.bootstrap()
+        let restored = await waitForCondition { fixture.stager.isStagingPath(relaunched.setupStore.sourcePath) }
+
+        XCTAssertTrue(restored, "The one-file list the user last chose must come back, not the older folder")
+        XCTAssertEqual(relaunched.setupStore.sourceItems, [file.resolvingSymlinksInPath()])
+        XCTAssertTrue(relaunched.setupStore.usingDroppedSource)
+        XCTAssertEqual(
+            MediaDiscovery.dropManifestLookup(inSourceRoot: relaunched.setupStore.sourcePath),
+            .items([file.resolvingSymlinksInPath().path])
+        )
     }
 
     @MainActor
@@ -588,7 +698,7 @@ final class SetupCoordinatorTests: XCTestCase {
     }
 
     @MainActor
-    func testRestoreWithFewerResolvedItemsClearsStaleRows() async throws {
+    func testRestoreWithFewerResolvedItemsListsOnlyWhatARunWillUse() async throws {
         let fixture = try SetupCoordinatorFixture()
         defer { fixture.tearDown() }
         let first = try fixture.makeFolder("Alpha")
@@ -608,14 +718,16 @@ final class SetupCoordinatorTests: XCTestCase {
         fixture.harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.1")
         fixture.harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.2")
         fixture.coordinator.clearSelectedProfile()
+        let restored = await waitForCondition { setup.sourceItems == [first] && setup.sourcePath == first.path }
 
+        XCTAssertTrue(restored)
         XCTAssertFalse(fixture.stager.isStagingPath(setup.sourcePath))
-        XCTAssertEqual(setup.sourcePath, first.path, "The remembered single folder is used")
-        XCTAssertTrue(
-            setup.sourceItems.isEmpty || setup.sourceItems == [first],
-            "Setup must not list folders a run will not use"
-        )
         XCTAssertFalse(setup.usingDroppedSource)
+        XCTAssertEqual(
+            fixture.harness.preferencesStore.manualSourceItemPaths,
+            [first.path, second.path, third.path],
+            "Unreachable folders stay in the saved list"
+        )
     }
 
     @MainActor
@@ -652,6 +764,104 @@ final class SetupCoordinatorTests: XCTestCase {
             MediaDiscovery.dropManifestLookup(inSourceRoot: setup.sourcePath),
             .items([first.path, second.path])
         )
+    }
+
+    @MainActor
+    func testAddKeepsProcessingAfterARejectedFolder() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let parent = try fixture.makeFolder("Alpha")
+        let nested = try fixture.makeFolder("Alpha/Inner")
+        let other = try fixture.makeFolder("Beta")
+        let setup = fixture.harness.setupStore
+
+        await fixture.coordinator.addSourceItems([parent, nested, other])
+
+        XCTAssertEqual(setup.sourceItems, [parent, other], "A rejected folder must not drop the ones after it")
+        XCTAssertEqual(
+            fixture.errors.last,
+            "\u{201C}Inner\u{201D} is already covered because it is inside \u{201C}Alpha\u{201D}."
+        )
+    }
+
+    @MainActor
+    func testAddReportsEveryRejection() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let parent = try fixture.makeFolder("Alpha")
+        let nestedOne = try fixture.makeFolder("Alpha/One")
+        let nestedTwo = try fixture.makeFolder("Alpha/Two")
+
+        await fixture.coordinator.addSourceItems([parent, nestedOne, nestedTwo])
+
+        let message = try XCTUnwrap(fixture.errors.last)
+        XCTAssertTrue(message.contains("\u{201C}One\u{201D}"))
+        XCTAssertTrue(message.contains("\u{201C}Two\u{201D}"))
+    }
+
+    @MainActor
+    func testDropOfOnlyRejectedItemsStaysOnTheCurrentScreen() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let parent = try fixture.makeFolder("Alpha")
+        let nested = try fixture.makeFolder("Alpha/Inner")
+
+        await fixture.coordinator.addSourceItems([parent])
+        await fixture.coordinator.applyDrop(urls: [nested])
+
+        XCTAssertNotNil(fixture.errors.last)
+        XCTAssertEqual(fixture.routes, [], "A drop that changed nothing must not navigate")
+        XCTAssertEqual(fixture.harness.setupStore.sourceItems, [parent])
+    }
+
+    @MainActor
+    func testAddWhileProfileActiveLeavesProfileAndSeedsFromItsFolder() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let remembered = try fixture.makeFolder("Remembered")
+        let profileFolder = try fixture.makeFolder("ProfileCard")
+        let added = try fixture.makeFolder("Added")
+        let setup = fixture.harness.setupStore
+        let preferences = fixture.harness.preferencesStore
+
+        await fixture.coordinator.addSourceItems([remembered])
+        fixture.harness.repository.profiles = [
+            Profile(name: "travel", sourcePath: profileFolder.path, destinationPath: "/Volumes/YAML-Trips")
+        ]
+        fixture.coordinator.refreshProfiles()
+        fixture.coordinator.useProfile(named: "travel")
+        XCTAssertTrue(setup.usingProfile, "Setup for the test")
+
+        await fixture.coordinator.addSourceItems([added])
+
+        XCTAssertFalse(setup.usingProfile, "Adding a folder leaves profile mode")
+        XCTAssertEqual(preferences.lastSelectedProfileName, "")
+        XCTAssertEqual(
+            setup.sourceItems,
+            [profileFolder, added],
+            "The list starts from the profile's folder, not the last manual folder"
+        )
+        XCTAssertTrue(fixture.stager.isStagingPath(setup.sourcePath))
+    }
+
+    @MainActor
+    func testRemoveWhileProfileActiveLeavesProfile() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let profileFolder = try fixture.makeFolder("ProfileCard")
+        let setup = fixture.harness.setupStore
+
+        fixture.harness.repository.profiles = [
+            Profile(name: "travel", sourcePath: profileFolder.path, destinationPath: "/Volumes/YAML-Trips")
+        ]
+        fixture.coordinator.refreshProfiles()
+        fixture.coordinator.useProfile(named: "travel")
+
+        await fixture.coordinator.removeSourceItem(profileFolder)
+
+        XCTAssertFalse(setup.usingProfile)
+        XCTAssertEqual(setup.sourcePath, "")
+        XCTAssertTrue(setup.sourceItems.isEmpty)
     }
 
     // AGENTS-INVARIANT: 1

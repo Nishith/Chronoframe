@@ -366,6 +366,32 @@ final class DeduplicateReviewPersistenceTests: XCTestCase {
         XCTAssertEqual(snapshotStore.saves.last?.approvals.count, 1)
     }
 
+    @MainActor
+    func testUndoAfterTheReviewIsGoneDoesNotSave() {
+        // A stale undo closure firing after reset must not count as a user change (D-DDP-127).
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let store = makeStore(
+            engine: MockDeduplicateEngine(clusters: [cluster]),
+            snapshotStore: snapshotStore,
+            debounce: shortDebounce
+        )
+        let undoManager = UndoManager()
+        undoManager.groupsByEvent = false
+        store.undoManager = undoManager
+        store.startScan(configuration: configuration)
+        XCTAssertTrue(pump { store.status == .readyToReview })
+        undoManager.beginUndoGrouping()
+        store.setDecision(.keep, forPath: file2.path)
+        undoManager.endUndoGrouping()
+        XCTAssertTrue(pump { snapshotStore.saves.count == 1 })
+
+        store.reset()
+        XCTAssertEqual(snapshotStore.saves.count, 2, "Reset saves the touched review once.")
+        undoManager.undo()
+        _ = pump(timeout: 0.3) { false }
+        XCTAssertEqual(snapshotStore.saves.count, 2, "Nothing is under review, so undo has nothing to save.")
+    }
+
     // MARK: - Restoring
 
     // AGENTS-INVARIANT: 29
@@ -439,6 +465,40 @@ final class DeduplicateReviewPersistenceTests: XCTestCase {
         XCTAssertEqual(restoration.changedGroupCount, 1)
         XCTAssertTrue(store.hasRestoredChanges)
         XCTAssertTrue(store.reviewedDeletionPlan().items.isEmpty)
+    }
+
+    @MainActor
+    func testNothingRestoredLeavesSavedReviewUntouchedOnReset() async throws {
+        // Both files changed since the save, so the rescan restores nothing. The saved
+        // approvals must survive a reset that follows without any user action (D-DDP-107).
+        let original = MockDeduplicateEngine(clusters: [cluster])
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let saved = savedReview(
+            decisions: [file1.path: .keep, file2.path: .keep],
+            approved: true,
+            scanSnapshot: original.summary.scanSnapshot
+        )
+        snapshotStore.preload(saved)
+        var changedSummary = DeduplicateSummary()
+        changedSummary.scanSnapshot = testScanSnapshot(
+            for: [cluster],
+            additionalIdentities: [
+                file1.path: FileIdentity(size: 100, digest: "edited-1"),
+                file2.path: FileIdentity(size: 100, digest: "edited-2"),
+            ]
+        )
+        let engine = MockDeduplicateEngine(clusters: [cluster], summary: changedSummary)
+        let store = makeStore(engine: engine, snapshotStore: snapshotStore, debounce: longDebounce)
+
+        await scanToReview(store)
+        let restoration = try XCTUnwrap(store.restoredReview)
+        XCTAssertEqual(restoration.restoredDecisionCount, 0)
+        XCTAssertTrue(restoration.approvedClusterIDs.isEmpty)
+
+        store.reset()
+
+        XCTAssertEqual(snapshotStore.saves.count, 0, "Untouched suggestions must not overwrite the saved review.")
+        XCTAssertEqual(snapshotStore.load(folderPath: "/dest"), saved)
     }
 
     // AGENTS-INVARIANT: 17
@@ -548,6 +608,49 @@ final class DeduplicateReviewPersistenceTests: XCTestCase {
         XCTAssertEqual(snapshotStore.removals, ["/dest"])
         XCTAssertNil(snapshotStore.load(folderPath: "/dest"))
         XCTAssertNil(store.savedReviewForCurrentFolder)
+    }
+
+    @MainActor
+    func testSavingRefreshesTheSavedReviewCardWithoutAViewCall() async throws {
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let store = makeStore(
+            engine: MockDeduplicateEngine(clusters: [cluster]),
+            snapshotStore: snapshotStore,
+            debounce: longDebounce
+        )
+        store.refreshSavedReview(folderPath: "/dest")
+        XCTAssertNil(store.savedReviewForCurrentFolder)
+        await scanToReview(store)
+        store.setDecision(.keep, forPath: file2.path)
+
+        store.pauseReview()
+        XCTAssertNotNil(store.savedReviewForCurrentFolder, "Pausing saves, so the card must follow.")
+
+        // Reset on an already-idle paused review saves again; the card must follow that too.
+        store.discardSavedReview(folderPath: "/dest")
+        XCTAssertNil(store.savedReviewForCurrentFolder)
+        store.reset()
+        XCTAssertEqual(snapshotStore.saves.count, 2)
+        XCTAssertEqual(store.savedReviewForCurrentFolder, snapshotStore.load(folderPath: "/dest"))
+        XCTAssertNotNil(store.savedReviewForCurrentFolder)
+    }
+
+    @MainActor
+    func testSavingDoesNotRefreshTheCardForAnotherFolder() async throws {
+        let snapshotStore = InMemoryDeduplicateReviewSnapshotStore()
+        let store = makeStore(
+            engine: MockDeduplicateEngine(clusters: [cluster]),
+            snapshotStore: snapshotStore,
+            debounce: longDebounce
+        )
+        store.refreshSavedReview(folderPath: "/elsewhere")
+        await scanToReview(store)
+        store.setDecision(.keep, forPath: file2.path)
+
+        store.pauseReview()
+
+        XCTAssertEqual(snapshotStore.saves.count, 1)
+        XCTAssertNil(store.savedReviewForCurrentFolder, "The card follows the folder the view shows, not the scanned one.")
     }
 
     @MainActor

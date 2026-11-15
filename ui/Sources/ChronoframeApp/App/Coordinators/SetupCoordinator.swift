@@ -17,6 +17,11 @@ final class SetupCoordinator {
     /// The staging directory this coordinator built for the current folder
     /// list, so it can be removed when the list is rebuilt or shrinks.
     private var stagingDirectory: URL?
+    /// Saved folder-list entries whose bookmark did not resolve at launch (an
+    /// unmounted drive, say). They are kept in the saved list, never inferred
+    /// missing, and are written back after every edit of the visible list.
+    private var unreachableSavedItems: [FolderBookmark] = []
+    private static let sourceItemKeyPrefix = "manual.sourceItem."
 
     init(
         preferencesStore: PreferencesStore,
@@ -73,11 +78,14 @@ final class SetupCoordinator {
     }
 
     func addSourceItems(_ urls: [URL]) async {
-        _ = await addSourceItems(urls, alwaysApply: false)
+        _ = await addSourceItemsReportingApplied(urls)
     }
 
-    /// Returns true when the new list was applied.
-    private func addSourceItems(_ urls: [URL], alwaysApply: Bool) async -> Bool {
+    /// Returns true when the new list was applied. A rejected item is reported
+    /// and skipped; the rest are still added. Adding while a profile is active
+    /// leaves profile mode, but only once the list was applied, so a failed add
+    /// doesn't leave the store half-switched.
+    private func addSourceItemsReportingApplied(_ urls: [URL]) async -> Bool {
         guard !urls.isEmpty else { return false }
 
         // Hold security-scoped access across validation, the staging manifest
@@ -86,9 +94,10 @@ final class SetupCoordinator {
         var accessed: [URL] = []
         defer { for url in accessed { url.stopAccessingSecurityScopedResource() } }
 
+        let leavingProfile = setupStore.usingProfile
         let before = currentSourceItemList()
         var list = before
-        var stoppedOnError = false
+        var rejections: [String] = []
         for url in urls {
             if url.startAccessingSecurityScopedResource() { accessed.append(url) }
 
@@ -96,22 +105,29 @@ final class SetupCoordinator {
             // folders go through folder validation; `list.add` still refuses a
             // path that is not on disk.
             if !Self.isExistingFile(url), let message = await validationMessage(for: url, role: .source) {
-                setTransientErrorMessage(message)
-                stoppedOnError = true
-                break
+                rejections.append(message)
+                continue
             }
             do {
                 try list.add(url, destinationPath: setupStore.destinationPath)
             } catch {
-                setTransientErrorMessage(error.localizedDescription)
-                stoppedOnError = true
-                break
+                rejections.append(error.localizedDescription)
             }
         }
+        if !rejections.isEmpty {
+            var seen = Set<String>()
+            let distinct = rejections.filter { seen.insert($0).inserted }
+            setTransientErrorMessage(distinct.joined(separator: "\n"))
+        }
 
-        guard list != before || (alwaysApply && !stoppedOnError) else { return false }
+        // Leaving a profile applies the list even when it equals the profile's
+        // own folder, as long as nothing was rejected.
+        guard list != before || (leavingProfile && rejections.isEmpty) else { return false }
         let applied = await applySourceItems(list)
-        if applied, !setupStore.usingProfile {
+        if applied {
+            if leavingProfile {
+                setupStore.clearProfileSelection()
+            }
             preferencesStore.lastSelectedProfileName = ""
         }
         return applied
@@ -127,7 +143,11 @@ final class SetupCoordinator {
         var list = before
         list.remove(url)
         guard list != before else { return }
-        await applySourceItems(list)
+        let leavingProfile = setupStore.usingProfile
+        if await applySourceItems(list), leavingProfile {
+            setupStore.clearProfileSelection()
+            preferencesStore.lastSelectedProfileName = ""
+        }
     }
 
     func selectSourceFolder(_ url: URL) async {
@@ -150,29 +170,46 @@ final class SetupCoordinator {
             return
         }
 
+        // An explicit replacement: it also ends the saved list's unreachable entries.
+        unreachableSavedItems = []
         await applySourceItems(list)
         if !setupStore.usingProfile {
             preferencesStore.lastSelectedProfileName = ""
         }
     }
 
-    /// The folder list as the user sees it. After a relaunch with one plain
-    /// folder the store's list is empty, so that remembered folder seeds it;
-    /// otherwise adding a second folder would silently drop the first.
+    /// The folder list as the user sees it. With a profile active the list is
+    /// seeded from the profile's own folder (what Setup shows), never from the
+    /// manual state the profile hides. After a relaunch with one plain folder
+    /// the store's list is empty, so that remembered folder seeds it; otherwise
+    /// adding a second folder would silently drop the first.
     private func currentSourceItemList() -> SourceItemList {
+        var list = SourceItemList()
+        if setupStore.usingProfile {
+            let path = setupStore.sourcePath
+            if !path.isEmpty, !droppedItemStager.isStagingPath(path) {
+                try? list.add(URL(fileURLWithPath: path), destinationPath: "")
+            }
+            return list
+        }
         if !setupStore.sourceItems.isEmpty {
             return SourceItemList(items: setupStore.sourceItems)
         }
         let remembered = preferencesStore.lastManualSourcePath
-        var list = SourceItemList()
-        if !remembered.isEmpty, !droppedItemStager.isStagingPath(remembered) {
+        // A saved list of other folders means the last plain folder was replaced.
+        let saved = preferencesStore.manualSourceItemPaths
+        if !remembered.isEmpty, !droppedItemStager.isStagingPath(remembered),
+           saved.isEmpty || saved == [remembered] {
             try? list.add(URL(fileURLWithPath: remembered), destinationPath: "")
         }
         return list
     }
 
+    /// `persist: false` is for rebuilding the list at launch from what is
+    /// already saved: it stages and shows the list but writes no bookmarks or
+    /// paths, so entries that could not be reached this session stay saved.
     @discardableResult
-    private func applySourceItems(_ list: SourceItemList) async -> Bool {
+    private func applySourceItems(_ list: SourceItemList, persist: Bool = true) async -> Bool {
         let items = list.items
         let previousStagingDirectory = stagingDirectory
 
@@ -181,20 +218,30 @@ final class SetupCoordinator {
             setupStore.sourcePath = ""
             setupStore.sourceURL = nil
             setupStore.clearDroppedSource()
-            preferencesStore.lastManualSourcePath = ""
-            bookmarkPathResolver.removeBookmark(for: .source, profileName: nil)
-            await bookmarkPathResolver.persistSourceItemBookmarks(for: [])
-            preferencesStore.manualSourceItemPaths = []
+            if persist {
+                // Emptying the list is the one way to forget the unreachable entries too.
+                unreachableSavedItems = []
+                preferencesStore.lastManualSourcePath = ""
+                bookmarkPathResolver.removeBookmark(for: .source, profileName: nil)
+                await bookmarkPathResolver.persistSourceItemBookmarks(for: [])
+                preferencesStore.manualSourceItemPaths = []
+            }
         } else if !list.needsStaging {
             let url = items[0]
             removeStagingDirectory(previousStagingDirectory)
             setupStore.sourcePath = url.path
             setupStore.sourceURL = url
             setupStore.clearDroppedSource()
-            preferencesStore.lastManualSourcePath = url.path
-            await bookmarkPathResolver.persistBookmark(for: url, role: .source, profileName: nil)
-            await bookmarkPathResolver.persistSourceItemBookmarks(for: [])
-            preferencesStore.manualSourceItemPaths = [url.path]
+            if persist {
+                preferencesStore.lastManualSourcePath = url.path
+                await bookmarkPathResolver.persistBookmark(for: url, role: .source, profileName: nil)
+                if unreachableSavedItems.isEmpty {
+                    await bookmarkPathResolver.persistSourceItemBookmarks(for: [])
+                    preferencesStore.manualSourceItemPaths = [url.path]
+                } else {
+                    await persistSavedList(items)
+                }
+            }
         } else {
             let staged: StagedDrop
             do {
@@ -209,12 +256,27 @@ final class SetupCoordinator {
             setupStore.sourceURL = staged.sourceDirectory
             setupStore.droppedSourceLabel = SourceItemList.summaryLabel(count: items.count)
             setupStore.droppedSourceItemCount = items.count
-            await bookmarkPathResolver.persistSourceItemBookmarks(for: items)
-            preferencesStore.manualSourceItemPaths = items.map(\.path)
+            if persist {
+                // The saved list, not `lastManualSourcePath` (which never holds
+                // a staging path), is what launch restores for a staged list.
+                await persistSavedList(items)
+            }
         }
 
         setupStore.setSourceItems(items)
         return true
+    }
+
+    /// Saves the visible items and then the unreachable entries after them.
+    private func persistSavedList(_ items: [URL]) async {
+        await bookmarkPathResolver.persistSourceItemBookmarks(for: items)
+        var paths = items.map(\.path)
+        for bookmark in unreachableSavedItems {
+            let key = bookmarkPathResolver.sourceItemBookmarkKey(index: paths.count)
+            preferencesStore.storeBookmark(FolderBookmark(key: key, path: bookmark.path, data: bookmark.data))
+            paths.append(bookmark.path)
+        }
+        preferencesStore.manualSourceItemPaths = paths
     }
 
     /// Removes a staging directory this coordinator created. Anything outside
@@ -231,39 +293,76 @@ final class SetupCoordinator {
     }
 
     /// Rebuilds the saved folder list at launch (staging is wiped on every
-    /// launch) or after a profile is cleared. An item that no longer resolves
-    /// is dropped; with fewer than two left the remembered single folder stands.
+    /// launch) or after a profile is cleared. Items that do not resolve this
+    /// session (an unmounted drive, a deleted file) are skipped but stay in the
+    /// saved list; resolving never deletes a bookmark. The list that was last
+    /// chosen wins over the older single folder, even when it holds one item.
     private func restoreSourceItems() {
-        let restored = bookmarkPathResolver.resolveSourceItemURLs()
-        if restored.count >= 2 {
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                // Bail unless the manual view is still current: a selected
-                // profile owns the source (D-CLP-21), and a different list
-                // applied since must not be overwritten.
-                guard !setupStore.usingProfile else { return }
-                var accessed: [URL] = []
-                defer { for url in accessed { url.stopAccessingSecurityScopedResource() } }
-                var list = SourceItemList()
-                for url in restored {
-                    if url.startAccessingSecurityScopedResource() { accessed.append(url) }
-                    try? list.add(url, destinationPath: setupStore.destinationPath)
-                }
-                if !setupStore.sourceItems.isEmpty,
-                   setupStore.sourceItems != list.items || setupStore.usingDroppedSource {
-                    // A stale list must not outlive the folder a run will use;
-                    // a newer staged list (or a profile) is left as it is.
-                    clearStaleSourceItems()
-                    return
-                }
-                await self.applySourceItems(list)
+        let saved = resolveSavedSourceItems()
+        unreachableSavedItems = saved.filter { $0.url == nil }.map(\.bookmark)
+        guard !saved.isEmpty else { return }
+
+        let reachable = saved.compactMap(\.url)
+        guard !reachable.isEmpty else {
+            // Nothing reachable: do not fall back to an older folder the user replaced.
+            if !setupStore.usingProfile, !setupStore.usingDroppedSource {
+                setupStore.sourcePath = ""
+                setupStore.sourceURL = nil
             }
-        } else if preferencesStore.manualSourceItemPaths.count >= 2 {
-            for key in preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.") {
-                preferencesStore.removeBookmark(for: key)
-            }
-            preferencesStore.manualSourceItemPaths = []
             clearStaleSourceItems()
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // Bail unless the manual view is still current: a selected
+            // profile owns the source (D-CLP-21), and a different list
+            // applied since must not be overwritten.
+            guard !setupStore.usingProfile else { return }
+            var accessed: [URL] = []
+            defer { for url in accessed { url.stopAccessingSecurityScopedResource() } }
+            var list = SourceItemList()
+            for url in reachable {
+                if url.startAccessingSecurityScopedResource() { accessed.append(url) }
+                try? list.add(url, destinationPath: setupStore.destinationPath)
+            }
+            if !setupStore.sourceItems.isEmpty,
+               setupStore.sourceItems != list.items || setupStore.usingDroppedSource {
+                // A stale list must not outlive the folder a run will use;
+                // a newer staged list (or a profile) is left as it is.
+                clearStaleSourceItems()
+                return
+            }
+            await self.applySourceItems(list, persist: false)
+        }
+    }
+
+    private struct SavedSourceItem {
+        let bookmark: FolderBookmark
+        /// Nil when the bookmark did not resolve this time.
+        let url: URL?
+    }
+
+    /// Resolves the saved folder list in index order without removing anything:
+    /// unlike `BookmarkPathResolver.resolveSourceItemURLs`, a bookmark that does
+    /// not resolve is reported, not deleted.
+    private func resolveSavedSourceItems() -> [SavedSourceItem] {
+        let prefix = Self.sourceItemKeyPrefix
+        let keys = preferencesStore.bookmarkKeys(withPrefix: prefix)
+            .compactMap { key -> (index: Int, key: String)? in
+                Int(key.dropFirst(prefix.count)).map { ($0, key) }
+            }
+            .sorted { $0.index < $1.index }
+            .map(\.key)
+        return keys.compactMap { key in
+            guard let bookmark = preferencesStore.bookmark(for: key) else { return nil }
+            guard let resolved = folderAccessService.resolveBookmark(bookmark) else {
+                return SavedSourceItem(bookmark: bookmark, url: nil)
+            }
+            if let refreshed = resolved.refreshedBookmark {
+                preferencesStore.storeBookmark(refreshed)
+            }
+            return SavedSourceItem(bookmark: resolved.refreshedBookmark ?? bookmark, url: resolved.url)
         }
     }
 
@@ -290,16 +389,12 @@ final class SetupCoordinator {
     func applyDrop(urls: [URL]) async {
         guard !urls.isEmpty else { return }
 
-        // Leave profile mode only once the drop has been applied, so a failed
-        // drop doesn't leave the store half-switched.
-        let leavingProfile = setupStore.usingProfile
-        let applied = await addSourceItems(urls, alwaysApply: leavingProfile)
-        if leavingProfile, applied {
-            setupStore.clearProfileSelection()
-            preferencesStore.lastSelectedProfileName = ""
+        // Adding leaves profile mode only once the drop has been applied, so a
+        // failed drop doesn't leave the store half-switched, and the window
+        // only changes when the drop changed something.
+        if await addSourceItemsReportingApplied(urls) {
+            navigate(.organize(.setup))
         }
-
-        navigate(.organize(.setup))
     }
 
     func chooseDestinationFolder() async {
@@ -353,6 +448,9 @@ final class SetupCoordinator {
         setupStore.clearProfileSelection()
         preferencesStore.lastSelectedProfileName = ""
         bookmarkPathResolver.restoreManualPaths(into: setupStore)
+        // The list a profile hid is rebuilt from the saved list, which is the
+        // truth; a partly reachable one must not be mistaken for a newer list.
+        setupStore.setSourceItems([])
         restoreSourceItems()
         reloadHistory(destinationRoot: setupStore.destinationPath)
     }

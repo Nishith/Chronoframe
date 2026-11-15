@@ -140,6 +140,28 @@ final class ChronoframeCoreDeduplicateReviewSnapshotTests: XCTestCase {
         ).isEmpty)
     }
 
+    func testSnapshotOfOnlyUnreviewedDecisionsIsEmpty() {
+        // Untouched suggestions in unreviewed groups are not a review worth keeping (D-DDP-123).
+        let untouched = DeduplicateReviewSnapshot(
+            folderPath: "/lib", savedAt: Date(timeIntervalSince1970: 0), configurationFingerprint: "f",
+            decisions: [
+                DeduplicateSavedDecision(path: "/lib/a.jpg", identity: identity("a"), decision: .keep, inReviewedGroup: false),
+                DeduplicateSavedDecision(path: "/lib/b.jpg", identity: identity("b"), decision: .delete, inReviewedGroup: false),
+            ],
+            approvals: [], focusGroupKey: nil
+        )
+        XCTAssertTrue(untouched.isEmpty)
+
+        let touched = DeduplicateReviewSnapshot(
+            folderPath: "/lib", savedAt: Date(timeIntervalSince1970: 0), configurationFingerprint: "f",
+            decisions: untouched.decisions + [
+                DeduplicateSavedDecision(path: "/lib/c.jpg", identity: identity("c"), decision: .keep, inReviewedGroup: true),
+            ],
+            approvals: [], focusGroupKey: nil
+        )
+        XCTAssertFalse(touched.isEmpty)
+    }
+
     func testDecisionWithoutReviewedFlagDecodesAsReviewed() throws {
         // A file saved before the flag existed: encode, then remove the key.
         let current = DeduplicateSavedDecision(

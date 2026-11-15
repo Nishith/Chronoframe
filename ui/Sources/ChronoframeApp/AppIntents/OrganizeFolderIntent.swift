@@ -118,6 +118,9 @@ public struct OrganizeFolderIntent: AppIntent {
             if destStart { destinationFolder.stopAccessingSecurityScopedResource() }
         }
         
+        // A Shortcut can run this without AppState ever being built. Without the share lease
+        // directory a network destination is refused, so configure it here too.
+        NASStartup.configureForApp()
         let engine = SwiftOrganizerEngine(authorizer: TrialComposition.authorizer)
         let runLogStore = RunLogStore(capacity: 100)
         let historyStore = HistoryStore()

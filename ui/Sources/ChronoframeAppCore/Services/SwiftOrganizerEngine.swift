@@ -476,12 +476,19 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
             throw OrganizerEngineError.sourceOverlapsDestination(conflict)
         }
 
-        if case let .items(paths) = MediaDiscovery.dropManifestLookup(inSourceRoot: resolvedConfiguration.sourcePath),
-           let conflict = SourceDestinationDisjointness.conflict(
-               sourceItemPaths: paths,
-               destinationPath: resolvedConfiguration.destinationPath
-           ) {
-            throw OrganizerEngineError.sourceOverlapsDestination(conflict)
+        switch MediaDiscovery.dropManifestLookup(inSourceRoot: resolvedConfiguration.sourcePath) {
+        case let .items(paths):
+            if let conflict = SourceDestinationDisjointness.conflict(
+                sourceItemPaths: paths,
+                destinationPath: resolvedConfiguration.destinationPath
+            ) {
+                throw OrganizerEngineError.sourceOverlapsDestination(conflict)
+            }
+        case .unreadable:
+            // The listed folders cannot be checked against the destination.
+            throw OrganizerEngineError.sourceListUnreadable
+        case .absent:
+            break
         }
 
         return resolvedConfiguration

@@ -46,8 +46,18 @@ public struct DestinationLockUnsafeError: LocalizedError, Sendable, Equatable {
 }
 
 public enum NASRemoteLeaseConfiguration {
-    /// Set once by the app at launch (NASStartup.configure). Nil in the CLI and in tests unless set.
+    /// Set once by the app at launch (NASStartup.configureForApp). Nil in the CLI and in tests unless set.
     public nonisolated(unsafe) static var leaseDirectory: URL?
+}
+
+/// A network destination can't be locked per share because the app never configured where the
+/// share leases live. The lock refuses (INV-28) rather than run without the lease.
+public enum NASShareLeaseError: LocalizedError, Equatable, Sendable {
+    case leaseDirectoryNotConfigured(destinationPath: String)
+
+    public var errorDescription: String? {
+        "Chronoframe couldn't set up its safeguards for network folders, so it didn't start. Restart Chronoframe and try again. Nothing was changed."
+    }
 }
 
 public final class DestinationOperationLease: @unchecked Sendable {
@@ -139,13 +149,14 @@ public enum DestinationOperationLock {
     }
 
     /// One lease per network share, held beside the in-root lock. Nil for local
-    /// destinations, or when the app has not configured a lease directory.
+    /// destinations. A network destination with no lease directory configured is refused with
+    /// `NASShareLeaseError` before anything is created (INV-28): running without the share
+    /// lease would let two Chronoframe processes mutate one share.
     private static func acquireShareCompanion(
         destinationRoot: URL,
         surface: String,
         operation: String
     ) throws -> DestinationOperationLease? {
-        guard let leaseDirectory = NASRemoteLeaseConfiguration.leaseDirectory else { return nil }
         let volume: NASVolumeObservation
         #if DEBUG
         if let volumeClassifierProvider {
@@ -157,6 +168,9 @@ public enum DestinationOperationLock {
         volume = NASVolumeClassifier.live.classify(destinationRoot)
         #endif
         guard volume.kind != .local else { return nil }
+        guard let leaseDirectory = NASRemoteLeaseConfiguration.leaseDirectory else {
+            throw NASShareLeaseError.leaseDirectoryNotConfigured(destinationPath: destinationRoot.path)
+        }
 
         var shareRootFileID: UInt64 = 0
         if !volume.mountPoint.isEmpty {

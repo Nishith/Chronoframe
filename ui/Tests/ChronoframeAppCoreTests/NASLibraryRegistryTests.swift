@@ -146,6 +146,18 @@ final class NASStartupTests: XCTestCase {
         XCTAssertTrue(NASPaths.leaseDirectory.path.hasPrefix(directory.path), "Paths must follow the injected root")
     }
 
+    func testConfigureForAppConfiguresLeaseDirectoryUnlessTesting() throws {
+        NASRemoteLeaseConfiguration.leaseDirectory = nil
+
+        NASStartup.configureForApp(isRunningUnderTests: true)
+        XCTAssertNil(NASRemoteLeaseConfiguration.leaseDirectory, "Under XCTest nothing may be created in the real home")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: NASPaths.leaseDirectory.path))
+
+        NASStartup.configureForApp(isRunningUnderTests: false)
+        XCTAssertEqual(NASRemoteLeaseConfiguration.leaseDirectory, NASPaths.leaseDirectory)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: NASPaths.leaseDirectory.path))
+    }
+
     func testPathsFollowTheContractLayout() throws {
         XCTAssertEqual(NASPaths.root.lastPathComponent, "nas")
         let rootPath = NASPaths.root.path

@@ -35,19 +35,9 @@
     "role": "staticText",
     "identifier": "",
     "label": "",
-    "value": "Preview",
+    "value": "42 photos and videos will be copied, all from Apr 2026. Nothing has been copied yet.",
     "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Preview"
-  },
-  {
-    "scenario": "runPreviewReview",
-    "auditType": "contrast",
-    "role": "staticText",
-    "identifier": "",
-    "label": "",
-    "value": "Nothing has been copied yet. 42 files are ready to transfer once the plan looks right.",
-    "compactDescription": "Contrast failed",
-    "detailedDescription": "Contrast failed for Nothing has been copied yet. 42 files are ready to transfer once the plan looks right."
+    "detailedDescription": "Contrast failed for 42 photos and videos will be copied, all from Apr 2026. Nothing has been copied yet."
   },
   {
     "scenario": "runPreviewReview",

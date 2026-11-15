@@ -151,22 +151,36 @@ final class ChronoframeCoreNASShareLeaseTests: XCTestCase {
 
     // AGENTS-INVARIANT: 28
     // AGENTS-INVARIANT: 19
-    func testNoLeaseDirectoryKeepsTodaysBehavior() throws {
+    func testNoLeaseDirectoryRefusesRemoteDestinationBeforeTouchingIt() throws {
         NASRemoteLeaseConfiguration.leaseDirectory = nil
         let volume = remoteVolume()
         DestinationOperationLock.volumeClassifierProvider = { _ in volume }
-        let first = try makeDestination("library-a")
-        let second = try makeDestination("library-b")
+        let destination = try makeDestination("library-a")
 
-        let firstLease = try acquire(first)
-        defer { firstLease.release() }
-        let secondLease = try acquire(second)
-        secondLease.release()
-
-        XCTAssertThrowsError(try acquire(first)) { error in
-            XCTAssertTrue(error is DestinationBusyError, "the in-root lock still guards one folder: \(error)")
+        XCTAssertThrowsError(try acquire(destination)) { error in
+            XCTAssertEqual(error as? NASShareLeaseError, .leaseDirectoryNotConfigured(destinationPath: destination.path))
+            XCTAssertEqual(
+                (error as? NASShareLeaseError)?.errorDescription,
+                "Chronoframe couldn't set up its safeguards for network folders, so it didn't start. Restart Chronoframe and try again. Nothing was changed."
+            )
         }
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: inRootLockURL(destination).deletingLastPathComponent().path),
+            "A refused acquire must not create the destination's .organize_logs"
+        )
         XCTAssertFalse(FileManager.default.fileExists(atPath: leaseDirectory.path))
+    }
+
+    // AGENTS-INVARIANT: 28
+    func testNoLeaseDirectoryStillAllowsLocalDestination() throws {
+        NASRemoteLeaseConfiguration.leaseDirectory = nil
+        let volume = localVolume()
+        DestinationOperationLock.volumeClassifierProvider = { _ in volume }
+        let destination = try makeDestination("local-library")
+
+        let lease = try acquire(destination)
+        lease.release()
     }
 
     // AGENTS-INVARIANT: 28

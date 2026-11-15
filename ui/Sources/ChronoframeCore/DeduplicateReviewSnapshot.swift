@@ -68,7 +68,9 @@ public struct DeduplicateReviewSnapshot: Equatable, Codable, Sendable {
         self.focusGroupKey = focusGroupKey
     }
 
-    public var isEmpty: Bool { decisions.isEmpty && approvals.isEmpty }
+    /// Nothing the user did: no approvals and no decision in a reviewed group. Untouched suggestions
+    /// captured alongside do not make a review worth saving (D-DDP-123).
+    public var isEmpty: Bool { approvals.isEmpty && !decisions.contains(where: \.inReviewedGroup) }
 
     /// Saved decisions whose group was marked reviewed; the count shown to the user.
     public var reviewedDecisionCount: Int { decisions.filter(\.inReviewedGroup).count }

@@ -111,13 +111,116 @@ final class RunSessionReorganizeRevertTests: XCTestCase {
         XCTAssertTrue(closed)
     }
 
+    // MARK: - Network destinations (INV-28)
+
+    private static let remoteClassifier = NASVolumeClassifier { _ in
+        NASStatfsSnapshot(
+            fileSystemType: "smbfs",
+            mountedOn: "/Volumes/Share",
+            mountedFrom: "//user@nas.local/Share",
+            flags: 0,
+            fileSystemID: 1
+        )
+    }
+
+    private func remoteQualifier(
+        rename: @escaping @Sendable (String, String) -> Int32
+    ) -> NASCopyDestinationQualifier {
+        NASCopyDestinationQualifier(classifier: Self.remoteClassifier, exclusiveRename: rename)
+    }
+
+    private func assertLeaseReleased(_ root: URL, file: StaticString = #filePath, line: UInt = #line) {
+        do {
+            let lease = try DestinationOperationLock.acquire(destinationRoot: root, surface: "test", operation: "after refusal")
+            lease.release()
+        } catch {
+            XCTFail("A refused run must release its lease, got \(error)", file: file, line: line)
+        }
+    }
+
+    // AGENTS-INVARIANT: 28
     @MainActor
-    private func makeStore(root: URL) -> RunSessionStore {
+    func testReorganizeIntoNetworkFolderWithoutAtomicRenameIsRefusedBeforeAnyMove() async throws {
+        let fixture = try makeFixture(fileCount: 2)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        // The fixture has already been reorganized once; a refusal must leave every file where it is.
+        let (store, engine) = makeStoreAndEngine(root: fixture.root, qualifier: remoteQualifier { _, _ in ENOTSUP })
+
+        store.requestReorganize(destinationRoot: fixture.root.path, targetStructure: .yyyyMMDD)
+
+        XCTAssertEqual(store.status, .failed)
+        XCTAssertTrue(engine.reorganizeRequests.isEmpty, "The engine must never be asked to move anything")
+        XCTAssertEqual(
+            store.lastErrorMessage,
+            NASCopyDestinationRefusal.noAtomicNoReplace(path: fixture.root.path, errorCode: ENOTSUP).errorDescription
+        )
+        try assertFileLocations(fixture, restoredCount: 0)
+        assertLeaseReleased(fixture.root)
+    }
+
+    // AGENTS-INVARIANT: 28
+    @MainActor
+    func testUndoReorganizeIntoNetworkFolderWithoutAtomicRenameIsRefusedBeforeAnyMove() async throws {
+        let fixture = try makeFixture(fileCount: 2)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let (store, _) = makeStoreAndEngine(root: fixture.root, qualifier: remoteQualifier { _, _ in ENOTSUP })
+
+        store.requestReorganizeRevert(receiptURL: fixture.receipt, destinationRoot: fixture.root.path)
+
+        XCTAssertEqual(store.status, .failed)
+        XCTAssertEqual(
+            store.lastErrorMessage,
+            NASCopyDestinationRefusal.noAtomicNoReplace(path: fixture.root.path, errorCode: ENOTSUP).errorDescription
+        )
+        try assertFileLocations(fixture, restoredCount: 0)
+        assertLeaseReleased(fixture.root)
+    }
+
+    @MainActor
+    func testReorganizeIntoQualifiedNetworkFolderStillRuns() async throws {
+        let fixture = try makeFixture(fileCount: 1)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let (store, engine) = makeStoreAndEngine(root: fixture.root, qualifier: remoteQualifier { _, _ in 0 })
+
+        store.requestReorganize(destinationRoot: fixture.root.path, targetStructure: .yyyyMMDD)
+        let engineAsked = await waitForCondition { engine.reorganizeRequests.count == 1 }
+        XCTAssertTrue(engineAsked)
+        XCTAssertNotEqual(store.status, .failed)
+    }
+
+    @MainActor
+    func testOrganizeRevertIsNotGatedBecauseItNeverRenamesIntoTheDestination() async throws {
+        let fixture = try makeFixture(fileCount: 1)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let (store, engine) = makeStoreAndEngine(
+            root: fixture.root,
+            qualifier: remoteQualifier { _, _ in
+                XCTFail("Organize revert only deletes hash-matched files; it must not probe for rename support")
+                return ENOTSUP
+            }
+        )
+
+        store.requestRevert(receiptURL: fixture.receipt, destinationRoot: fixture.root.path)
+        let engineAsked = await waitForCondition { engine.revertRequests.count == 1 }
+        XCTAssertTrue(engineAsked)
+    }
+
+    @MainActor
+    private func makeStoreAndEngine(
+        root: URL,
+        qualifier: NASCopyDestinationQualifier = .live
+    ) -> (RunSessionStore, MockOrganizerEngine) {
         let configuration = RunConfiguration(mode: .preview, sourcePath: "", destinationPath: root.path)
         let engine = MockOrganizerEngine(preflightResult: .success(RunPreflight(
             configuration: configuration, resolvedSourcePath: "", resolvedDestinationPath: root.path
         )))
-        return RunSessionStore(engine: engine, logStore: RunLogStore(), historyStore: HistoryStore())
+        engine.copyDestinationQualifier = qualifier
+        return (RunSessionStore(engine: engine, logStore: RunLogStore(), historyStore: HistoryStore()), engine)
+    }
+
+    @MainActor
+    private func makeStore(root: URL) -> RunSessionStore {
+        makeStoreAndEngine(root: root).0
     }
 
     private struct Fixture {

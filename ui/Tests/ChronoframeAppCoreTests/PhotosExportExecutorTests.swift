@@ -122,12 +122,13 @@ final class PhotosExportExecutorTests: XCTestCase {
         if let stagingRoot { try? FileManager.default.removeItem(at: stagingRoot) }
     }
 
-    private func resource(_ assetID: String, index: Int, ext: String) -> PhotosExportableResource {
+    private func resource(_ assetID: String, index: Int, ext: String, fileSize: Int64? = nil) -> PhotosExportableResource {
         PhotosExportableResource(
             assetID: assetID,
             resourceIndex: index,
             fileExtension: ext,
-            originalFilename: "\(assetID).\(ext)"
+            originalFilename: "\(assetID).\(ext)",
+            fileSize: fileSize
         )
     }
 
@@ -494,6 +495,50 @@ final class PhotosExportExecutorTests: XCTestCase {
         XCTAssertEqual(exporter.calls.filter { $0.assetID == "b" }, [], "Asset b is never listed or written")
         XCTAssertEqual(log.events.map(shape), ["started:a:0/2", "completed:a:1"])
         XCTAssertEqual(try stagedNames(), ["A.jpg"], "The completed asset's published file is kept")
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testLowSpaceThresholdIncludesTheAssetsKnownSize() async throws {
+        // 6 GiB free clears the 2 GiB floor, but not floor + the 5 GiB video.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "jpg")],
+            "v": [resource("v", index: 0, ext: "mov", fileSize: 5 * Self.oneGiB)],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("a", stem: "A"), entry("v", stem: "V", kind: .video)])
+        let space = FreeSpaceScript([6 * Self.oneGiB])
+        let executor = PhotosExportExecutor(
+            exporter: exporter,
+            freeSpaceFloorBytes: 2 * Self.oneGiB,
+            freeSpaceProvider: { _ in space.next() }
+        )
+
+        do {
+            _ = try await executor.export(plan: plan, to: stagingRoot)
+            XCTFail("expected a low-space stop")
+        } catch let stop as PhotosExportStop {
+            XCTAssertEqual(stop, .lowStagingSpace(freeBytes: 6 * Self.oneGiB, floorBytes: 7 * Self.oneGiB))
+        } catch {
+            XCTFail("expected PhotosExportStop, got \(error)")
+        }
+
+        XCTAssertEqual(exporter.calls.filter { $0.kind == .write && $0.assetID == "v" }, [], "The large video is never written")
+        XCTAssertEqual(try stagedNames(), ["A.jpg"], "The completed asset is kept and nothing of the video is left behind")
+    }
+
+    func testLowSpaceThresholdStillPassesWhenTheAssetFits() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "v": [resource("v", index: 0, ext: "mov", fileSize: 5 * Self.oneGiB)],
+        ])
+        let plan = PhotosExportPlan(entries: [entry("v", stem: "V", kind: .video)])
+        let executor = PhotosExportExecutor(
+            exporter: exporter,
+            freeSpaceFloorBytes: 2 * Self.oneGiB,
+            freeSpaceProvider: { _ in 7 * Self.oneGiB }
+        )
+
+        let receipt = try await executor.export(plan: plan, to: stagingRoot)
+
+        XCTAssertEqual(receipt.exportedAssetIDs, ["v"])
     }
 
     func testNilFreeSpaceNeverStopsExport() async throws {

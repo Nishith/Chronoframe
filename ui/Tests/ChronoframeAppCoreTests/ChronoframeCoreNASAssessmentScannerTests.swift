@@ -13,6 +13,13 @@ private final class ScannerFlag: @unchecked Sendable {
     func set() { lock.lock(); value = true; lock.unlock() }
 }
 
+private final class ScannerCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.lock(); defer { lock.unlock() }; return count }
+    func increment() { lock.lock(); count += 1; lock.unlock() }
+}
+
 private final class ScannerFakeActivity: NASActivityProviding, @unchecked Sendable {
     private let lock = NSLock()
     private var begun: [String] = []
@@ -839,6 +846,49 @@ final class ChronoframeCoreNASAssessmentScannerTests: XCTestCase {
         XCTAssertEqual(issues.filter { $0.category == .unreadableItem }.map(\.relativePath), ["Open/bad.jpg"])
         XCTAssertEqual(summary.counts.mediaFiles, 2, "The unreadable entry must not be counted as assessed media.")
         XCTAssertFalse(issues.contains { $0.detail.contains("errno") || $0.detail.contains("POSIX") })
+    }
+
+    // AGENTS-INVARIANT: 27
+    func testRepeatedEntryFailuresWithRootGoneEndInterruptedNotGaps() async throws {
+        let fixture = try makeFixture((0..<12).map { .file("Open/f\($0).jpg", bytes(UInt8($0), count: 700 + $0)) })
+        let store = try makeStore(fixture)
+        let rootPath = fixture.rootPath
+        let lost = ScannerFlag()
+        let childLookups = ScannerCounter()
+        // The share drops as soon as the first child is looked up: every later lstat fails,
+        // including the one on the root, while the folder listing itself already succeeded.
+        let fileSystem = hookedFileSystem(entry: { path, entry in
+            if path == rootPath { return lost.isSet ? nil : entry }
+            if path.hasSuffix(".jpg") {
+                lost.set()
+                childLookups.increment()
+                return nil
+            }
+            return entry
+        })
+        let result = await run(fixture, store: store, fileSystem: fileSystem)
+
+        XCTAssertNil(result.error)
+        let summary = try XCTUnwrap(result.summary)
+        XCTAssertEqual(summary.outcome, .interruptedVolumeUnavailable)
+        XCTAssertLessThan(childLookups.value, 12, "The scan must stop looking at entries once the root is gone.")
+        XCTAssertEqual(try store.scanSummary(generation: summary.generation)?.outcome, .interruptedVolumeUnavailable)
+    }
+
+    // AGENTS-INVARIANT: 27
+    func testRepeatedEntryFailuresWithRootPresentStayGapsNotInterrupted() async throws {
+        let fixture = try makeFixture((0..<12).map { .file("Open/f\($0).jpg", bytes(UInt8($0), count: 700 + $0)) })
+        let store = try makeStore(fixture)
+        let fileSystem = hookedFileSystem(entry: { path, entry in
+            path.hasSuffix(".jpg") ? nil : entry
+        })
+        let result = await run(fixture, store: store, fileSystem: fileSystem)
+
+        XCTAssertNil(result.error)
+        let summary = try XCTUnwrap(result.summary)
+        XCTAssertEqual(summary.outcome, .completedWithGaps)
+        let issues = try store.issues(generation: summary.generation)
+        XCTAssertEqual(issues.filter { $0.category == .unreadableItem }.count, 12, "Every unreadable entry is still reported when the root is reachable.")
     }
 
     func testRootThatIsAFileIsRefused() async throws {

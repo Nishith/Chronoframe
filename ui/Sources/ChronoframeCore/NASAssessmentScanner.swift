@@ -297,6 +297,10 @@ private final class NASScanSession: @unchecked Sendable {
     private var hasGap = false
     private var volumeLost = false
     private var wasCancelled = false
+    /// Consecutive `entry` failures during enumeration. A dropped share fails every child lstat
+    /// while the folder listing already succeeded, so a run of them is probed for a lost root.
+    private var consecutiveEntryFailures = 0
+    private let entryFailuresBeforeRootProbe = 3
 
     private var directoryBuffer: [NASDirectoryRow] = []
     private var itemBuffer: [NASItemRow] = []
@@ -469,8 +473,19 @@ private final class NASScanSession: @unchecked Sendable {
             let childPath = nasJoin(directoryPath, child.rawName)
             guard let entry = fileSystem.entry(childPath) else {
                 addIssue(NASIssue(category: .unreadableItem, relativePath: relativePath, detail: "Chronoframe couldn't read this item's details."))
+                consecutiveEntryFailures += 1
+                if consecutiveEntryFailures >= entryFailuresBeforeRootProbe {
+                    consecutiveEntryFailures = 0
+                    if fileSystem.entry(rootPath) == nil {
+                        // Same root-gone probe as the listing and hashing paths: the volume is
+                        // gone, so end as interrupted instead of marking every child a gap.
+                        directoryBuffer.append(NASDirectoryRow(relativePath: directory.relativePath, status: .unreadable))
+                        return .volumeLost
+                    }
+                }
                 continue
             }
+            consecutiveEntryFailures = 0
 
             if entry.isSymbolicLink {
                 addIssue(NASIssue(category: .skippedLink, relativePath: relativePath, detail: "Links are reported but never followed."))

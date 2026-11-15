@@ -61,6 +61,17 @@ final class MultiItemSourceOverlapTests: XCTestCase {
         }
     }
 
+    private func assertListUnreadable(
+        _ error: Error,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard case OrganizerEngineError.sourceListUnreadable = error else {
+            XCTFail("Expected sourceListUnreadable, got \(error)", file: file, line: line)
+            return
+        }
+    }
+
     private func assertEmpty(_ url: URL, file: StaticString = #filePath, line: UInt = #line) throws {
         let contents = try FileManager.default.contentsOfDirectory(atPath: url.path)
         XCTAssertEqual(contents, [], "Nothing may be created under the destination", file: file, line: line)
@@ -127,6 +138,50 @@ final class MultiItemSourceOverlapTests: XCTestCase {
             assertOverlapRejected(error)
         }
         try assertEmpty(destination)
+    }
+
+    /// A manifest that cannot be read cannot be checked against the destination,
+    /// so every entry point refuses rather than trusting the staging directory alone.
+    // AGENTS-INVARIANT: 21
+    @MainActor
+    func testUnreadableManifestIsRefusedAtPreflightStartAndResume() async throws {
+        let folderA = try makeDirectory("A")
+        let folderB = try makeDirectory("B")
+        let destination = try makeDirectory("Organized")
+        let stagingDirectory = try stage([folderA, folderB])
+        let manifestURL = stagingDirectory.appendingPathComponent(DroppedItemStager.manifestFilename)
+        let garbage = Data("not json".utf8)
+        try garbage.write(to: manifestURL)
+        let engine = makeEngine()
+
+        do {
+            _ = try await engine.preflight(
+                RunConfiguration(mode: .preview, sourcePath: stagingDirectory.path, destinationPath: destination.path)
+            )
+            XCTFail("Preflight must refuse a folder list it cannot read")
+        } catch {
+            assertListUnreadable(error)
+        }
+
+        let configuration = RunConfiguration(
+            mode: .transfer,
+            sourcePath: stagingDirectory.path,
+            destinationPath: destination.path
+        )
+        XCTAssertThrowsError(try engine.start(configuration)) { assertListUnreadable($0) }
+        XCTAssertThrowsError(try engine.resume(configuration)) { assertListUnreadable($0) }
+        try assertEmpty(destination)
+        XCTAssertEqual(try Data(contentsOf: manifestURL), garbage, "The refusal must not rewrite the manifest")
+    }
+
+    @MainActor
+    func testUnreadableManifestMessageIsPlainAndReassuring() {
+        let text = UserFacingErrorMessage.message(for: OrganizerEngineError.sourceListUnreadable, context: .setup)
+
+        XCTAssertTrue(text.contains("list of folders"))
+        XCTAssertTrue(text.contains("No files were changed."))
+        XCTAssertFalse(text.lowercased().contains("json"))
+        XCTAssertFalse(text.lowercased().contains("manifest"))
     }
 
     @MainActor

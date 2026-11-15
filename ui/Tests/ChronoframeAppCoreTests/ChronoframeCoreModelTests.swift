@@ -15,17 +15,13 @@ final class ChronoframeCoreModelTests: XCTestCase {
         XCTAssertEqual(RunIssue(severity: .error, message: "Copy failed").renderedLine, "ERROR: Copy failed")
     }
 
-    /// CLP WP-11b (D-CLP-113). Only `RunMode.title` is plain: `RunPhase.title`
-    /// and `runningTitle` also feed CLI progress lines, which D-CLP-03 keeps.
-    func testModeTitlesAvoidEngineVocabulary() {
-        let titles = [RunMode.preview, .transfer, .revert, .reorganize].map(\.title)
-        XCTAssertEqual(titles, ["Preview", "Copy", "Undo", "Reorganize"])
-        for title in titles {
-            let words = title.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
-            for banned in ["transfer", "source", "revert", "hash", "index"] {
-                XCTAssertFalse(words.contains(banned), "\(title) contains \(banned)")
-            }
-        }
+    /// `RunMode.title` appears in engine and CLI error text, so Core keeps the
+    /// engine wording; the app's plain wording lives in `RunMode.displayTitle`.
+    func testCoreModeTitlesKeepTheEngineWording() {
+        XCTAssertEqual(
+            [RunMode.preview, .transfer, .revert, .reorganize].map(\.title),
+            ["Preview", "Transfer", "Revert", "Reorganize"]
+        )
     }
 
     func testSidebarAndHistoryMetadataRemainStable() {

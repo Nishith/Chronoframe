@@ -241,10 +241,8 @@ final class AppState: ObservableObject {
             NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
         }
     ) {
-        // RuntimePaths ignores $HOME, so under XCTest this would create folders in the real home.
-        if NSClassFromString("XCTestCase") == nil {
-            NASStartup.configure()
-        }
+        // Skipped under XCTest (RuntimePaths ignores $HOME); App Intents call the same entry point.
+        NASStartup.configureForApp()
         self.selection = route.sidebar
         self.organizeSubSelection = route.organizeSubSection ?? .setup
         self.settingsSelection = .general

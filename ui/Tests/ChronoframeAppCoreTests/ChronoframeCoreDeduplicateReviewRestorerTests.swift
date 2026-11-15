@@ -407,6 +407,60 @@ final class ChronoframeCoreDeduplicateReviewRestorerTests: XCTestCase {
         XCTAssertEqual(captured.reviewedDecisionCount, 2)
     }
 
+    func testCaptureOfAnUntouchedReviewIsEmpty() {
+        let fixture = makeFixture()
+
+        let untouched = DeduplicateReviewRestorer.capture(
+            folderPath: "/lib", savedAt: savedAt, configuration: configuration,
+            decisions: fixture.suggested, approvedClusterIDs: [],
+            clusters: fixture.clusters, scanSnapshot: fixture.scan, focusClusterID: fixture.clusterA.id
+        )
+
+        XCTAssertEqual(untouched.decisions.count, 4, "every decision is still captured")
+        XCTAssertTrue(untouched.isEmpty, "no approvals and no reviewed decisions: nothing to keep")
+        XCTAssertFalse(captureWithClusterAReviewed(fixture).isEmpty)
+    }
+
+    private func unreviewed(_ name: String, _ decision: DedupeDecision) -> DeduplicateSavedDecision {
+        DeduplicateSavedDecision(path: "/lib/\(name).jpg", identity: identity(name), decision: decision, inReviewedGroup: false)
+    }
+
+    /// A cluster that changed since the save must not inherit part of the old arrangement (D-DDP-124).
+    func testUnreviewedDecisionIsNotRestoredIntoAChangedCluster() {
+        let changed = cluster(["/lib/a1.jpg", "/lib/d.jpg"])
+        let scan = DeduplicateScanSnapshot(identitiesByPath: [
+            "/lib/a1.jpg": identity("a1"), "/lib/d.jpg": identity("d"),
+        ])
+        let suggested = DedupeDecisions(byPath: ["/lib/a1.jpg": .keep, "/lib/d.jpg": .delete])
+        // Saved cluster was {a1: Delete, a2: Keep}; a2 is gone and d joined.
+        let saved = snapshot(decisions: [unreviewed("a1", .delete), unreviewed("a2", .keep)])
+
+        let result = DeduplicateReviewRestorer.restore(
+            snapshot: saved, clusters: [changed], scanSnapshot: scan,
+            suggested: suggested, currentFingerprint: configuration.reviewFingerprint
+        )
+
+        XCTAssertEqual(result.decisions.byPath, ["/lib/a1.jpg": .keep, "/lib/d.jpg": .delete],
+                       "the changed cluster keeps its fresh suggestion and so still has a keeper")
+    }
+
+    func testUnreviewedDecisionsThatWouldLeaveNoKeeperAreNotRestored() {
+        // Saved {a1: Delete, a2: Keep, a3: Delete}; the keeper left the cluster and {a1, a3} remains.
+        let changed = cluster(["/lib/a1.jpg", "/lib/a3.jpg"])
+        let scan = DeduplicateScanSnapshot(identitiesByPath: [
+            "/lib/a1.jpg": identity("a1"), "/lib/a3.jpg": identity("a3"),
+        ])
+        let suggested = DedupeDecisions(byPath: ["/lib/a1.jpg": .keep, "/lib/a3.jpg": .delete])
+        let saved = snapshot(decisions: [unreviewed("a1", .delete), unreviewed("a2", .keep), unreviewed("a3", .delete)])
+
+        let result = DeduplicateReviewRestorer.restore(
+            snapshot: saved, clusters: [changed], scanSnapshot: scan,
+            suggested: suggested, currentFingerprint: configuration.reviewFingerprint
+        )
+
+        XCTAssertEqual(result.decisions.byPath, ["/lib/a1.jpg": .keep, "/lib/a3.jpg": .delete])
+    }
+
     func testRestoredAndDroppedCountsIgnoreUnreviewedGroups() {
         var fixture = makeFixture()
         var saved = captureWithClusterAReviewed(fixture)

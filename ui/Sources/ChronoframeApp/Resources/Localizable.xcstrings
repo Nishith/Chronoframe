@@ -250,6 +250,17 @@
         }
       }
     },
+    "1 group to check" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 group to check"
+          }
+        }
+      }
+    },
     "1 group of identical files" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -279,6 +290,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "1 reviewed group"
+          }
+        }
+      }
+    },
+    "1 safe match" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 safe match"
           }
         }
       }
@@ -2594,6 +2616,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Every file is already in the chosen layout. Nothing was moved."
+          }
+        }
+      }
+    },
+    "Every group has been reviewed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every group has been reviewed"
           }
         }
       }

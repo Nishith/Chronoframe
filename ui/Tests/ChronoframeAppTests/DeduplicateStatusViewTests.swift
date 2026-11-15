@@ -319,16 +319,16 @@ final class DeduplicateStatusViewTests: XCTestCase {
 
     func testCompactClusterListHeightClampsWithinConfiguredRange() {
         XCTAssertEqual(
-            DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 300),
+            DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: 300),
             DesignTokens.DeduplicateLayout.compactClusterListMinHeight,
             accuracy: 0.5
         )
         XCTAssertEqual(
-            DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 2_000),
+            DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: 2_000),
             DesignTokens.DeduplicateLayout.compactClusterListMaxHeight,
             accuracy: 0.5
         )
-        let middle = DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 700)
+        let middle = DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: 700)
         XCTAssertGreaterThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMinHeight)
         XCTAssertLessThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMaxHeight)
     }
