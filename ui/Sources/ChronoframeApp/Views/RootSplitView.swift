@@ -152,6 +152,8 @@ struct RootSplitView: View {
             GuardianView(appState: appState)
         case .profiles:
             ProfilesView(appState: appState)
+        case .nasLibrary:
+            NASLibraryView(appState: appState)
         }
     }
 

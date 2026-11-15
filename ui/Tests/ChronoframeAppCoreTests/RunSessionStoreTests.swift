@@ -356,6 +356,24 @@ final class RunSessionStoreTests: XCTestCase {
         )
     }
 
+    @MainActor
+    func testPrepareRefusalSurfacesPlainMessage() async {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let refusal = NASCopyDestinationRefusal.noAtomicNoReplace(path: tempDestinationURL.path, errorCode: ENOTSUP)
+        let engine = MockOrganizerEngine(preflightResult: .failure(refusal))
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .transfer, configuration: configuration)
+        let failed = await waitForCondition { store.status == .failed }
+        XCTAssertTrue(failed)
+
+        let expected = "This network folder can't guarantee that a copy never replaces an existing file, so Chronoframe won't organize into it. Choose a folder on this Mac or an attached drive. Nothing was copied, and your originals were untouched."
+        XCTAssertEqual(store.lastErrorMessage, expected)
+        XCTAssertEqual(store.summary?.failureMessage, expected)
+        XCTAssertTrue(engine.startConfigurations.isEmpty, "A refused prepare must never start the engine")
+        XCTAssertTrue(engine.resumeConfigurations.isEmpty)
+    }
+
     // MARK: - Trial refusals (free-trial step 4, T11)
 
     /// A refused run must be distinguishable from a broken one, as a value

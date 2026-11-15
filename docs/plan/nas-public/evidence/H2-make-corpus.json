@@ -1,0 +1,7 @@
+{
+  "expectedGroupCount" : 1783,
+  "fileCount" : 10000,
+  "manifestPath" : "~/nas-corpus-manifest.json",
+  "seed" : 42,
+  "totalBytes" : 307745135
+}

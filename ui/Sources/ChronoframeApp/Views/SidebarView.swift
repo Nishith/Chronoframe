@@ -10,6 +10,7 @@ struct SidebarView: View {
     @ObservedObject private var runSessionStore: RunSessionStore
     @ObservedObject private var deduplicateSessionStore: DeduplicateSessionStore
     @ObservedObject private var watchedSourcesStore: WatchedSourcesStore
+    @ObservedObject private var nasWorkspaceStore: NASWorkspaceStore
     @AppStorage("lastSeenHistoryCount") private var lastSeenHistoryCount: Int = 0
     @AppStorage("lastSeenDeduplicateAttentionToken") private var lastSeenDeduplicateAttentionToken: String = ""
     @AppStorage("lastSeenWatchedSourcesToken") private var lastSeenWatchedSourcesToken: String = ""
@@ -21,6 +22,7 @@ struct SidebarView: View {
         self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
         self._deduplicateSessionStore = ObservedObject(wrappedValue: appState.deduplicateSessionStore)
         self._watchedSourcesStore = ObservedObject(wrappedValue: appState.watchedSourcesStore)
+        self._nasWorkspaceStore = ObservedObject(wrappedValue: appState.nasWorkspaceStore)
     }
 
     var body: some View {
@@ -175,6 +177,8 @@ struct SidebarView: View {
             return DesignTokens.ColorSystem.inkSecondary
         case .profiles:
             return DesignTokens.ColorSystem.inkSecondary
+        case .nasLibrary:
+            return DesignTokens.ColorSystem.inkSecondary
         }
     }
 
@@ -185,6 +189,11 @@ struct SidebarView: View {
         case .deduplicate: return deduplicateSessionStore.isWorking
         case .guardian: return false
         case .profiles: return false
+        case .nasLibrary:
+            switch nasWorkspaceStore.state {
+            case .assessing, .stopping: return true
+            default: return false
+            }
         }
     }
 
@@ -210,6 +219,8 @@ struct SidebarView: View {
             return false
         case .profiles:
             return setupStore.usingProfile
+        case .nasLibrary:
+            return false
         }
     }
 
@@ -249,6 +260,8 @@ struct SidebarView: View {
             return DesignTokens.ColorSystem.inkSecondary
         case .profiles:
             return DesignTokens.ColorSystem.accentWaypoint
+        case .nasLibrary:
+            return DesignTokens.ColorSystem.inkSecondary
         }
     }
 

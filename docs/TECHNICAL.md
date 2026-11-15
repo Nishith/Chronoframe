@@ -119,6 +119,43 @@ Durable mutation evidence is operation-specific:
 
 See [Safety and Recovery](SAFETY_AND_RECOVERY.md) for the user-facing contract and artifact-retention guidance.
 
+## NAS Support
+
+The NAS Library workspace is behind `NASCapability.isEnabled`: not available in release builds yet, and on in DEBUG builds with `CHRONOFRAME_ENABLE_NAS=1`. The remote copy policy, the journal policy, the share lease, and the CLI refusal are not behind the flag. They apply to every network or unclassifiable destination. Deduplicate also refuses any folder that isn't on a local volume (network or unclassifiable) through `NASDeduplicateFolderRefusal`, at the folder picker, the history shortcut, the scan entry, and inside the engine; that refusal is not behind the flag either, and its message mentions NAS Library only when the flag is on. Before an Organize preview or transfer plans anything, `NASCopyDestinationQualifier` (called from `OrganizerEngine.prepare`, after destination recovery, under the destination lock) probes a network or unclassifiable destination with the same `renamex_np(RENAME_EXCL)` call the executor uses, on an empty file created and removed in `.organize_logs`, and throws `NASCopyDestinationRefusal` when the rename is unsupported (ENOTSUP, EINVAL or ENOSYS); local destinations are not probed, and the result is not cached. This gate is not behind the flag either, and the executor's own abort stays as the backstop.
+
+### Application Support Layout
+
+NAS assessment state lives outside the assessed library, under the app's Application Support folder (`Chronoframe/nas/`):
+
+| Path | Purpose |
+| :--- | :--- |
+| `nas/libraries.json` | Saved NAS libraries (folder bookmark and last observed share identity). Sorted-key JSON with ISO-8601 dates, replaced atomically |
+| `nas/libraries/<uuid>/assessment.db` | SQLite assessment store for one library: `Meta`, `Scans`, `Directories`, `Items`, `Issues`, `ReviewChoices`, `ReviewState` |
+| `nas/leases/<key>.lock` | Per-share lease file. `<key>` is 32 hex characters derived from file system type, share name (or `fsid:<id>` when the share name is unknown), and the share root's file ID. The server host is left out so DNS and IP aliases of one share are designed to collide. |
+
+A scan keeps its latest two generations; review choices and review state are not pruned. The app points the lease directory at `nas/leases` at launch (`NASStartup.configure()`); the CLI never sets it. If the lease folder can't be created, the app can't take the lease and the change does not start.
+
+### Journal Policy
+
+`OrganizerDatabase` takes a journal policy (`automatic`, `writeAheadLog`, `rollbackDelete`). `automatic` classifies the folder holding `.organize_cache.db`:
+
+- Local volume: write-ahead logging, as before (`busy_timeout=30000`, `journal_mode=WAL`, `synchronous=FULL`, `wal_autocheckpoint=1000`).
+- Network or unclassifiable volume: `journal_mode=DELETE` and `synchronous=FULL`, each read back. If SQLite doesn't report `delete` (for example, another connection still holds the WAL, which makes the switch fail), or `synchronous` doesn't read back as `2`, the open is refused with the "copy records on this network folder" message and nothing is copied. `-wal`, `-shm`, and `-journal` files are never deleted.
+
+Read-only opens ignore the policy.
+
+### Probe Tool
+
+`ChronoframeNASProbeTool` is a local-only SwiftPM executable for real-share qualification evidence. CI builds it but never runs it. Run it only against an empty, disposable folder you created on the share. Run from the repo root after `docs/plan/nas-v1/bin/nas_swift.sh build`:
+
+```bash
+ui/.build/debug/ChronoframeNASProbeTool probe --test-dir "/Volumes/<share>/<empty-test-folder>" > probe.json
+ui/.build/debug/ChronoframeNASProbeTool make-corpus --dest "/Volumes/<share>/<empty-corpus-folder>" --manifest "$HOME/nas-corpus-manifest.json" --files 10000 --duplicate-percent 20 --seed 42
+ui/.build/debug/ChronoframeNASProbeTool assess-parity --root "/Volumes/<share>/<corpus-folder>" --state-dir "$HOME/nas-parity-state" > parity.json
+```
+
+`probe` writes inside `.chronoframe-nas-probe-<uuid>/` on the share and removes it. `make-corpus` needs an empty destination. `assess-parity` only reads the corpus and keeps its state on this Mac.
+
 ## Organize Details
 
 Supported destination layouts:
