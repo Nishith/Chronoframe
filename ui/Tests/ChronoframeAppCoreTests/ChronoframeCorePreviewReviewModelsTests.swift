@@ -18,8 +18,17 @@ final class ChronoframeCorePreviewReviewModelsTests: XCTestCase {
         )
         XCTAssertEqual(
             PreviewReviewIssueKind.allCases.map(\.title),
-            ["Unknown date", "Low confidence date", "Exact Copy", "Already There", "Could not read file"]
+            ["Unknown date", "Low confidence date", "Conflicting dates", "Exact Copy", "Already There", "Could not read file"]
         )
+    }
+
+    func testLegacyPreviewReviewRowDecodesWithoutAlternativeDate() throws {
+        let legacyRow = #"{"sourcePath":"/source/IMG_20190714_120000.jpg","dateSource":"photoMetadata","dateConfidence":"high","status":"ready","issues":["conflictingDates"]}"#
+        let decoded = try JSONDecoder().decode(PreviewReviewItem.self, from: Data(legacyRow.utf8))
+
+        XCTAssertEqual(decoded.sourcePath, "/source/IMG_20190714_120000.jpg")
+        XCTAssertEqual(decoded.issues, [.conflictingDates])
+        XCTAssertNil(decoded.alternativeDate)
     }
 
     func testReviewOverrideNormalizesEventNamesAndAppliesDateOnlyWhenPresent() {
@@ -41,6 +50,46 @@ final class ChronoframeCorePreviewReviewModelsTests: XCTestCase {
         XCTAssertEqual(overridden.date, overrideDate)
         XCTAssertEqual(overridden.source, .userOverride)
         XCTAssertEqual(overridden.confidence, .high)
+    }
+
+    func testAcceptedDateConflictClearsOnlyTheReviewWarning() throws {
+        let identity = FileIdentity(size: 12, digest: "abc")
+        let conflicted = ResolvedMediaDate(
+            date: Date(timeIntervalSince1970: 10),
+            source: .photoMetadata,
+            confidence: .high,
+            bucketTimeZoneOffsetSeconds: 19_800,
+            dateReviewIssue: .conflictingDates,
+            alternativeDate: DateReviewAlternative(date: Date(timeIntervalSince1970: 20), source: .filename)
+        )
+
+        let kept = conflicted.applying(
+            ReviewOverride(identity: identity, sourcePath: "/source/a.jpg", dateConflictAccepted: true)
+        )
+
+        XCTAssertEqual(
+            kept,
+            ResolvedMediaDate(
+                date: conflicted.date,
+                source: .photoMetadata,
+                confidence: .high,
+                bucketTimeZoneOffsetSeconds: 19_800
+            )
+        )
+
+        // Overrides and rows written before the field existed still decode.
+        let current = ReviewOverride(identity: identity, sourcePath: "/source/a.jpg", eventName: "Beach")
+        var legacyFields = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any]
+        )
+        legacyFields.removeValue(forKey: "dateConflictAccepted")
+        let legacyOverride = try JSONDecoder().decode(
+            ReviewOverride.self,
+            from: JSONSerialization.data(withJSONObject: legacyFields)
+        )
+        XCTAssertEqual(legacyOverride, current)
+        let legacyRow = #"{"sourcePath":"/source/a.jpg","dateSource":"photoMetadata","dateConfidence":"high","status":"ready","issues":[]}"#
+        XCTAssertNil(try JSONDecoder().decode(PreviewReviewItem.self, from: Data(legacyRow.utf8)).dateConflictAccepted)
     }
 
     func testPreviewReviewSummaryCountsEveryStatusAndIssue() {

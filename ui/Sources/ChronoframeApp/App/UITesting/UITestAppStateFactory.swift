@@ -104,6 +104,13 @@ enum UITestAppStateFactory {
             engine = copyCompleteEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath)
             route = .organize(.run)
 
+        case .previewDateConflict:
+            setupStore.sourcePath = "/Volumes/Card/April Session"
+            setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
+            historyStore = HistoryStore(destinationRoot: setupStore.destinationPath)
+            engine = previewReviewEngine(sourcePath: setupStore.sourcePath, destinationPath: setupStore.destinationPath, includeDateConflict: true)
+            route = .organize(.run)
+
         case .healthDashboard:
             setupStore.sourcePath = "/Volumes/Card/April Session"
             setupStore.destinationPath = "/Volumes/Archive/Chronoframe Library"
@@ -226,7 +233,7 @@ enum UITestAppStateFactory {
             break
         }
 
-        if scenario == .runPreviewReview || scenario == .runCopyComplete {
+        if scenario == .runPreviewReview || scenario == .runCopyComplete || scenario == .previewDateConflict {
             Task { @MainActor in
                 await appState.startPreview()
             }
@@ -360,7 +367,11 @@ enum UITestAppStateFactory {
         )
     }
 
-    private static func previewReviewEngine(sourcePath: String, destinationPath: String) -> MockOrganizerEngine {
+    private static func previewReviewEngine(
+        sourcePath: String,
+        destinationPath: String,
+        includeDateConflict: Bool = false
+    ) -> MockOrganizerEngine {
         let preflight = RunPreflight(
             configuration: RunConfiguration(mode: .preview, sourcePath: sourcePath, destinationPath: destinationPath),
             resolvedSourcePath: sourcePath,
@@ -370,6 +381,36 @@ enum UITestAppStateFactory {
         let sampleHistogram = [
             DateHistogramBucket(key: "2026-04", plannedCount: 42, samplePaths: ["/Volumes/Card/April Session/pic1.jpg"])
         ]
+
+        let reviewPath: String?
+        if includeDateConflict {
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("Chronoframe-PreviewConflict-\(UUID().uuidString)", isDirectory: true)
+            do {
+                try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+                let item = PreviewReviewItem(
+                    sourcePath: "/Volumes/Card/April Session/IMG_20190714_120000.jpg",
+                    identityRawValue: "10_\(String(repeating: "0", count: 128))",
+                    resolvedDate: ISO8601DateFormatter().date(from: "2000-01-01T00:00:00Z"),
+                    dateSource: .photoMetadata,
+                    dateConfidence: .high,
+                    plannedDestinationPath: "\(destinationPath)/2000/01/01/2000-01-01_0001.jpg",
+                    status: .ready,
+                    issues: [.conflictingDates],
+                    alternativeDate: DateReviewAlternative(
+                        date: ISO8601DateFormatter().date(from: "2019-07-14T00:00:00Z")!,
+                        source: .filename
+                    )
+                )
+                let url = root.appendingPathComponent("preview_review_conflict.jsonl")
+                try JSONEncoder().encode(item).write(to: url)
+                reviewPath = url.path
+            } catch {
+                preconditionFailure("Could not create the preview conflict UI fixture: \(error)")
+            }
+        } else {
+            reviewPath = nil
+        }
 
         let summary = RunSummary(
             status: .dryRunFinished,
@@ -388,6 +429,7 @@ enum UITestAppStateFactory {
             artifacts: RunArtifactPaths(
                 destinationRoot: destinationPath,
                 reportPath: "\(destinationPath)/.organize_logs/dry_run_report.csv",
+                previewReviewPath: reviewPath,
                 logFilePath: "\(destinationPath)/.organize_log.txt",
                 logsDirectoryPath: "\(destinationPath)/.organize_logs"
             )
