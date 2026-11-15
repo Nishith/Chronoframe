@@ -319,6 +319,89 @@ final class PhotosCaptureDateTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(result.copyJobs.first).destinationPath.contains("2024/07/17"))
     }
 
+    func testPlannerFlagsHintedFileWhoseSavedDatesDisagree() throws {
+        let staging = root.appendingPathComponent("staging")
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        let file = staging.appendingPathComponent("photo.jpg")
+        try Data("synthetic".utf8).write(to: file)
+        let metadataDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2001-07-14T12:00:00Z"))
+        let filenameDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2019-07-14T00:00:00Z"))
+        let hint = SourceDateHint(
+            identity: try FileIdentityHasher().hashIdentity(at: file),
+            resolvedDate: ResolvedMediaDate(
+                date: metadataDate,
+                source: .photoMetadata,
+                confidence: .high,
+                dateReviewIssue: .conflictingDates,
+                alternativeDate: DateReviewAlternative(date: filenameDate, source: .filename)
+            )
+        )
+        let hints = [SourceDateHint.pathKey(for: file.path): hint]
+
+        let result = try DryRunPlanner().plan(
+            sourceRoot: staging,
+            destinationRoot: root.appendingPathComponent("destination"),
+            sourceDateHints: hints
+        )
+
+        let item = try XCTUnwrap(result.previewReviewItems.first)
+        XCTAssertEqual(item.resolvedDate, metadataDate)
+        XCTAssertEqual(item.dateSource, .photoMetadata)
+        XCTAssertTrue(item.issues.contains(.conflictingDates))
+        XCTAssertTrue(item.needsAttention)
+        XCTAssertEqual(item.alternativeDate, DateReviewAlternative(date: filenameDate, source: .filename))
+        XCTAssertTrue(try XCTUnwrap(result.copyJobs.first).destinationPath.contains("2001/07/14"))
+    }
+
+    func testPreparedPhotosOriginalWithDisagreeingDatesIsFlaggedThroughItsHint() async throws {
+        let still = root.appendingPathComponent("original.heic")
+        try writeStill(at: still, date: "2001:07:14 12:00:00", offset: nil)
+        let staging = root.appendingPathComponent("staging")
+        let receipt = try await PhotosExportExecutor(exporter: FixturePhotosExporter(urls: [still])).export(plan: PhotosExportPlan(entries: [
+            PhotosAssetExportEntry(assetID: "still", mediaKind: .photo, stagingStem: "IMG_20190714_120000", creationDate: Date()),
+        ]), to: staging)
+
+        let hint = try XCTUnwrap(receipt.sourceDateHints.values.first)
+        XCTAssertEqual(hint.resolvedDate.dateReviewIssue, .conflictingDates)
+        XCTAssertEqual(hint.resolvedDate.alternativeDate?.source, .filename)
+
+        let result = try DryRunPlanner().plan(
+            sourceRoot: staging,
+            destinationRoot: root.appendingPathComponent("destination"),
+            sourceDateHints: receipt.sourceDateHints
+        )
+        let item = try XCTUnwrap(result.previewReviewItems.first)
+        XCTAssertEqual(item.dateSource, .photoMetadata)
+        XCTAssertTrue(item.issues.contains(.conflictingDates))
+        XCTAssertEqual(item.alternativeDate?.source, .filename)
+        XCTAssertTrue(try XCTUnwrap(result.copyJobs.first).destinationPath.contains("2001/07/14"))
+    }
+
+    func testHintSavedBeforeReviewFieldsStillDecodesAndPlansUnflagged() throws {
+        let staging = root.appendingPathComponent("staging")
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        let file = staging.appendingPathComponent("photo.jpg")
+        try Data("synthetic".utf8).write(to: file)
+        let identity = try FileIdentityHasher().hashIdentity(at: file)
+        // The hint as an older app version wrote it: a resolved date with no
+        // review issue and no alternative date keys at all.
+        let identityJSON = String(decoding: try JSONEncoder().encode(identity), as: UTF8.self)
+        let oldFormat = #"{"identity":\#(identityJSON),"resolvedDate":{"date":18000000,"source":"photoMetadata","confidence":"high"}}"#
+
+        let hint = try JSONDecoder().decode(SourceDateHint.self, from: Data(oldFormat.utf8))
+
+        XCTAssertEqual(hint.identity, identity)
+        XCTAssertEqual(hint.resolvedDate.date, Date(timeIntervalSinceReferenceDate: 18_000_000))
+        XCTAssertNil(hint.resolvedDate.dateReviewIssue)
+        XCTAssertNil(hint.resolvedDate.alternativeDate)
+        let result = try DryRunPlanner().plan(
+            sourceRoot: staging,
+            destinationRoot: root.appendingPathComponent("destination"),
+            sourceDateHints: [SourceDateHint.pathKey(for: file.path): hint]
+        )
+        XCTAssertEqual(result.previewReviewItems.first?.issues, [])
+    }
+
     func testInvalidAssetDateBecomesUnknownAndConfigurationSnapshotRoundTrips() async throws {
         let clip = root.appendingPathComponent("original.mov")
         try Data("no metadata".utf8).write(to: clip)

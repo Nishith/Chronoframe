@@ -14,6 +14,9 @@ final class HistoryCoordinator {
     private let navigate: @MainActor (AppRoute) -> Void
     private let reportTransientError: @MainActor (String) -> Void
     private let makeSecurityScopeForDestination: @MainActor (String) -> SecurityScopedFolderAccess?
+    /// Called after a historical folder replaces the folder list, so Setup can
+    /// drop state that belonged to the replaced list.
+    private let didReplaceSourceList: @MainActor () -> Void
 
     init(
         preferencesStore: PreferencesStore,
@@ -24,7 +27,8 @@ final class HistoryCoordinator {
         finderService: any FinderServicing,
         navigate: @escaping @MainActor (AppRoute) -> Void,
         reportTransientError: @escaping @MainActor (String) -> Void = { _ in },
-        makeSecurityScopeForDestination: @escaping @MainActor (String) -> SecurityScopedFolderAccess? = { _ in nil }
+        makeSecurityScopeForDestination: @escaping @MainActor (String) -> SecurityScopedFolderAccess? = { _ in nil },
+        didReplaceSourceList: @escaping @MainActor () -> Void = {}
     ) {
         self.preferencesStore = preferencesStore
         self.setupStore = setupStore
@@ -35,6 +39,7 @@ final class HistoryCoordinator {
         self.navigate = navigate
         self.reportTransientError = reportTransientError
         self.makeSecurityScopeForDestination = makeSecurityScopeForDestination
+        self.didReplaceSourceList = didReplaceSourceList
     }
 
     /// Triggers a revert of the receipt. Audit receipts go through the
@@ -103,6 +108,17 @@ final class HistoryCoordinator {
         setupStore.sourcePath = record.sourcePath
         preferencesStore.lastManualSourcePath = record.sourcePath
 
+        // The chosen folder's only saved authorization may be a folder-list
+        // bookmark; keep it as manual.source before the list keys are removed.
+        if preferencesStore.bookmark(for: "manual.source")?.path != record.sourcePath,
+           let listBookmark = preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.")
+               .compactMap({ preferencesStore.bookmark(for: $0) })
+               .first(where: { $0.path == record.sourcePath }) {
+            preferencesStore.storeBookmark(
+                FolderBookmark(key: "manual.source", path: listBookmark.path, data: listBookmark.data)
+            )
+        }
+
         // Resolve manual.source bookmark if it matches record.sourcePath
         var isStale = false
         if let bookmark = preferencesStore.bookmark(for: "manual.source"),
@@ -112,6 +128,18 @@ final class HistoryCoordinator {
         } else {
             setupStore.sourceURL = URL(fileURLWithPath: record.sourcePath)
         }
+
+        // The chosen folder replaces any earlier folder list, so Setup lists
+        // just this folder and a later "add folder" starts from it.
+        setupStore.clearDroppedSource()
+        if let sourceURL = setupStore.sourceURL {
+            setupStore.setSourceItems([sourceURL])
+        }
+        preferencesStore.manualSourceItemPaths = [record.sourcePath]
+        for key in preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.") {
+            preferencesStore.removeBookmark(for: key)
+        }
+        didReplaceSourceList()
 
         navigate(.organize(.setup))
     }

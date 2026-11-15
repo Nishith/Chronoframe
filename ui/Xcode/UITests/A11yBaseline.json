@@ -338,5 +338,15 @@
     "value": "0 groups reviewed · 12 still suggested",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for 0 groups reviewed · 12 still suggested"
+  },
+  {
+    "scenario": "runCopyComplete",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Now: Copy complete. Progress: 0%",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Now: Copy complete. Progress: 0%"
   }
 ]

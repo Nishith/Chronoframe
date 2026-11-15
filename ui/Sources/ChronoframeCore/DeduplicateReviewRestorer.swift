@@ -61,10 +61,10 @@ public enum DeduplicateReviewRestorer {
             guard paths.contains(where: { unreviewedMatches[$0] != nil }),
                   paths.allSatisfy({ restoredPaths.contains($0) || unreviewedMatches[$0] != nil })
             else { continue }
-            var overlaid = byPath
-            for path in paths { if let decision = unreviewedMatches[path] { overlaid[path] = decision } }
-            guard paths.contains(where: { overlaid[$0] == .keep }) else { continue }
-            byPath = overlaid
+            // Look the keeper up per path: copying the whole map for each cluster made a
+            // large restore quadratic.
+            guard paths.contains(where: { (unreviewedMatches[$0] ?? byPath[$0]) == .keep }) else { continue }
+            for path in paths { if let decision = unreviewedMatches[path] { byPath[path] = decision } }
         }
 
         var approvalCountsByKey: [String: Set<Int>] = [:]

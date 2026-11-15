@@ -177,11 +177,11 @@ final class NASViewRenderCalls: @unchecked Sendable {
 final class NASLibraryViewTests: XCTestCase {
     private var harness: NASViewTestHarness!
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         harness = try NASViewTestHarness()
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         harness.tearDown()
         harness = nil
     }

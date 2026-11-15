@@ -149,6 +149,10 @@ private struct RunOutcomeSummaryCard: View {
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             }
         }
+        // A bare identifier makes an unnamed group, which the accessibility
+        // audit rejects; name the group after its visible heading.
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Summary")
         .accessibilityIdentifier(AccessibilityIdentifiers.runOutcomeSummaryCard)
     }
 

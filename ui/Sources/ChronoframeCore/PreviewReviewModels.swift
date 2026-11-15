@@ -65,17 +65,25 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
     /// dates — all of which bucket by their UTC day as before. Absent in
     /// legacy persisted review rows (decodes to `nil`).
     public var bucketTimeZoneOffsetSeconds: Int?
+    /// Review-only warning and candidate. Neither affects date selection or bucketing.
+    /// Optional for rows and hints persisted by older app versions.
+    public var dateReviewIssue: PreviewReviewIssueKind?
+    public var alternativeDate: DateReviewAlternative?
 
     public init(
         date: Date?,
         source: DateResolutionSource,
         confidence: DateResolutionConfidence,
-        bucketTimeZoneOffsetSeconds: Int? = nil
+        bucketTimeZoneOffsetSeconds: Int? = nil,
+        dateReviewIssue: PreviewReviewIssueKind? = nil,
+        alternativeDate: DateReviewAlternative? = nil
     ) {
         self.date = date
         self.source = source
         self.confidence = confidence
         self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
+        self.dateReviewIssue = dateReviewIssue
+        self.alternativeDate = alternativeDate
     }
 
     public static let unknown = ResolvedMediaDate(
@@ -85,8 +93,19 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
     )
 
     public func applying(_ override: ReviewOverride?) -> ResolvedMediaDate {
-        guard let override, let captureDate = override.captureDate else {
+        guard let override else {
             return self
+        }
+        guard let captureDate = override.captureDate else {
+            guard override.dateConflictAccepted else {
+                return self
+            }
+            // The user kept the chosen date: the date, its source, and its
+            // bucket stay exactly as resolved; only the review warning goes.
+            var kept = self
+            kept.dateReviewIssue = nil
+            kept.alternativeDate = nil
+            return kept
         }
         // A user-entered date carries no timezone, so it buckets by its UTC day.
         return ResolvedMediaDate(
@@ -94,6 +113,16 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
             source: .userOverride,
             confidence: .high
         )
+    }
+}
+
+public struct DateReviewAlternative: Equatable, Codable, Sendable {
+    public var date: Date
+    public var source: DateResolutionSource
+
+    public init(date: Date, source: DateResolutionSource) {
+        self.date = date
+        self.source = source
     }
 }
 
@@ -169,6 +198,7 @@ public enum PreviewReviewStatus: String, Codable, Sendable, CaseIterable {
 public enum PreviewReviewIssueKind: String, Codable, Sendable, CaseIterable {
     case unknownDate
     case lowConfidenceDate
+    case conflictingDates
     case duplicate
     case alreadyInDestination
     case hashError
@@ -179,6 +209,8 @@ public enum PreviewReviewIssueKind: String, Codable, Sendable, CaseIterable {
             return "Unknown date"
         case .lowConfidenceDate:
             return "Low confidence date"
+        case .conflictingDates:
+            return "Conflicting dates"
         case .duplicate:
             return "Exact Copy"
         case .alreadyInDestination:
@@ -200,6 +232,16 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
     public var issues: [PreviewReviewIssueKind]
     public var eventSuggestion: EventSuggestion?
     public var acceptedEventName: String?
+    public var alternativeDate: DateReviewAlternative?
+    /// `true` once the user kept the chosen date on a row flagged with
+    /// conflicting dates; otherwise `nil` (never `false`), so rows persisted by
+    /// older versions decode unchanged.
+    public var dateConflictAccepted: Bool?
+    /// UTC offset (seconds) of the EXIF timestamp behind `resolvedDate`, when it
+    /// carried one. Lets the review UI show the calendar day the file buckets
+    /// into rather than the viewer's local day. `nil` when unknown or for rows
+    /// persisted by older versions.
+    public var bucketTimeZoneOffsetSeconds: Int?
 
     public var id: String { sourcePath }
 
@@ -213,7 +255,10 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         status: PreviewReviewStatus,
         issues: [PreviewReviewIssueKind],
         eventSuggestion: EventSuggestion? = nil,
-        acceptedEventName: String? = nil
+        acceptedEventName: String? = nil,
+        alternativeDate: DateReviewAlternative? = nil,
+        dateConflictAccepted: Bool? = nil,
+        bucketTimeZoneOffsetSeconds: Int? = nil
     ) {
         self.sourcePath = sourcePath
         self.identityRawValue = identityRawValue
@@ -225,11 +270,15 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         self.issues = issues
         self.eventSuggestion = eventSuggestion
         self.acceptedEventName = acceptedEventName
+        self.alternativeDate = alternativeDate
+        self.dateConflictAccepted = dateConflictAccepted
+        self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
     }
 
     public var needsAttention: Bool {
         issues.contains(.unknownDate)
             || issues.contains(.lowConfidenceDate)
+            || issues.contains(.conflictingDates)
             || issues.contains(.hashError)
     }
 }
@@ -281,6 +330,9 @@ public struct ReviewOverride: Equatable, Codable, Sendable {
     public var sourcePath: String
     public var captureDate: Date?
     public var eventName: String?
+    /// The user kept the chosen date on a row flagged with conflicting dates.
+    /// Clears the warning only; it never changes the date or the destination.
+    public var dateConflictAccepted: Bool
     public var updatedAt: Date
 
     public init(
@@ -288,13 +340,25 @@ public struct ReviewOverride: Equatable, Codable, Sendable {
         sourcePath: String,
         captureDate: Date? = nil,
         eventName: String? = nil,
+        dateConflictAccepted: Bool = false,
         updatedAt: Date = Date()
     ) {
         self.identity = identity
         self.sourcePath = sourcePath
         self.captureDate = captureDate
         self.eventName = Self.normalizedEventName(eventName)
+        self.dateConflictAccepted = dateConflictAccepted
         self.updatedAt = updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        identity = try container.decode(FileIdentity.self, forKey: .identity)
+        sourcePath = try container.decode(String.self, forKey: .sourcePath)
+        captureDate = try container.decodeIfPresent(Date.self, forKey: .captureDate)
+        eventName = try container.decodeIfPresent(String.self, forKey: .eventName)
+        dateConflictAccepted = try container.decodeIfPresent(Bool.self, forKey: .dateConflictAccepted) ?? false
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 
     public static func normalizedEventName(_ value: String?) -> String? {

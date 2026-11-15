@@ -201,7 +201,9 @@ public struct DryRunPlanner: Sendable {
                     issues: Self.reviewIssues(
                         for: resolvedWithoutOverride,
                         status: .hashError
-                    )
+                    ),
+                    alternativeDate: resolvedWithoutOverride.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedWithoutOverride.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -244,7 +246,10 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .alreadyInDestination
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -270,7 +275,10 @@ public struct DryRunPlanner: Sendable {
                             for: resolvedDate,
                             status: .duplicate
                         ),
-                        acceptedEventName: acceptedEventName
+                        acceptedEventName: acceptedEventName,
+                        alternativeDate: resolvedDate.alternativeDate,
+                        dateConflictAccepted: Self.dateConflictAccepted(override),
+                        bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                     )
                 } catch {
                     planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
@@ -298,7 +306,10 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .ready
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
             } catch {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
@@ -554,7 +565,9 @@ public struct DryRunPlanner: Sendable {
                     issues: Self.reviewIssues(
                         for: resolvedWithoutOverride,
                         status: .hashError
-                    )
+                    ),
+                    alternativeDate: resolvedWithoutOverride.alternativeDate,
+                    bucketTimeZoneOffsetSeconds: resolvedWithoutOverride.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -597,7 +610,10 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .alreadyInDestination
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
                 continue
             }
@@ -623,7 +639,10 @@ public struct DryRunPlanner: Sendable {
                             for: resolvedDate,
                             status: .duplicate
                         ),
-                        acceptedEventName: acceptedEventName
+                        acceptedEventName: acceptedEventName,
+                        alternativeDate: resolvedDate.alternativeDate,
+                        dateConflictAccepted: Self.dateConflictAccepted(override),
+                        bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                     )
                 } catch {
                     planningErrors.append("Failed to plan duplicate file: \(path) (\(error.localizedDescription))")
@@ -651,7 +670,10 @@ public struct DryRunPlanner: Sendable {
                         for: resolvedDate,
                         status: .ready
                     ),
-                    acceptedEventName: acceptedEventName
+                    acceptedEventName: acceptedEventName,
+                    alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
+                    bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
             } catch {
                 planningErrors.append("Failed to plan file: \(path) (\(error.localizedDescription))")
@@ -836,6 +858,15 @@ public struct DryRunPlanner: Sendable {
         return overrides.count == 1 ? overrides[0] : nil
     }
 
+    /// `true` only while the kept decision is what cleared the warning; a
+    /// user-entered date supersedes it.
+    private static func dateConflictAccepted(_ override: ReviewOverride?) -> Bool? {
+        guard let override, override.dateConflictAccepted, override.captureDate == nil else {
+            return nil
+        }
+        return true
+    }
+
     private static func reviewIssues(
         for resolvedDate: ResolvedMediaDate,
         status: PreviewReviewStatus
@@ -845,6 +876,9 @@ public struct DryRunPlanner: Sendable {
             issues.append(.unknownDate)
         } else if resolvedDate.confidence == .low {
             issues.append(.lowConfidenceDate)
+        }
+        if let dateReviewIssue = resolvedDate.dateReviewIssue, !issues.contains(dateReviewIssue) {
+            issues.append(dateReviewIssue)
         }
 
         switch status {
@@ -938,7 +972,8 @@ public struct DryRunPlanner: Sendable {
                 let completed = index + 1
                 if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            total: total, copiedCount: nil,
+                                            bytesCopied: nil, bytesTotal: nil,
                                             currentFilePath: nil))
                 }
             }
@@ -968,7 +1003,8 @@ public struct DryRunPlanner: Sendable {
                 let completed = results.store(result, at: index)
                 if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            total: total, copiedCount: nil,
+                                            bytesCopied: nil, bytesTotal: nil,
                                             currentFilePath: nil))
                 }
             }
@@ -1056,7 +1092,8 @@ public struct DryRunPlanner: Sendable {
                 let completed = index + 1
                 if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            total: total, copiedCount: nil,
+                                            bytesCopied: nil, bytesTotal: nil,
                                             currentFilePath: nil))
                 }
             }
@@ -1095,7 +1132,8 @@ public struct DryRunPlanner: Sendable {
                     let completed = results.store(result, at: index)
                     if completed % Self.planningProgressStride == 0 || completed == total {
                         onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                                total: total, bytesCopied: nil, bytesTotal: nil,
+                                                total: total, copiedCount: nil,
+                                                bytesCopied: nil, bytesTotal: nil,
                                                 currentFilePath: nil))
                     }
                 }

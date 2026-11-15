@@ -539,6 +539,32 @@ final class SetupCoordinatorTests: XCTestCase {
         XCTAssertEqual(preferences.bookmark(for: "manual.sourceItem.3")?.path, second.path)
     }
 
+    /// A list replaced outside this coordinator (a folder from History) ends
+    /// the saved list's unreachable entries, so the next edit does not write
+    /// them back.
+    @MainActor
+    func testForgettingUnreachableItemsKeepsThemOutOfTheNextEdit() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let first = try fixture.makeFolder("Alpha")
+        let second = try fixture.makeFolder("Beta")
+        let third = try fixture.makeFolder("Gamma")
+        let fourth = try fixture.makeFolder("Delta")
+
+        await fixture.coordinator.addSourceItems([first, second, third])
+        fixture.harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.1")
+        let relaunched = fixture.relaunch()
+        relaunched.coordinator.bootstrap()
+        _ = await waitForCondition { relaunched.setupStore.sourceItems.count == 2 }
+
+        relaunched.coordinator.forgetUnreachableSavedItems()
+        await relaunched.coordinator.addSourceItems([fourth])
+
+        let preferences = fixture.harness.preferencesStore
+        XCTAssertEqual(preferences.manualSourceItemPaths, [first.path, third.path, fourth.path])
+        XCTAssertFalse(preferences.manualSourceItemPaths.contains(second.path))
+    }
+
     @MainActor
     func testBootstrapUsesTheOneReachableFolderAndKeepsTheSavedList() async throws {
         let fixture = try SetupCoordinatorFixture()
@@ -887,6 +913,111 @@ final class SetupCoordinatorTests: XCTestCase {
             )
         }
         XCTAssertEqual([fixture.listing(of: first), fixture.listing(of: second)], before, "Staging must create nothing under a listed folder")
+    }
+
+    /// Two removes started before the first one's bookmark write finishes must
+    /// both apply: the second must not read the list from before the first.
+    @MainActor
+    func testOverlappingRemovesBothApply() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let a = try fixture.makeFolder("A")
+        let b = try fixture.makeFolder("B")
+        let c = try fixture.makeFolder("C")
+        let setup = fixture.harness.setupStore
+        let coordinator = fixture.coordinator!
+
+        await coordinator.addSourceItems([a, b, c])
+        XCTAssertEqual(setup.sourceItems, [a, b, c], "Setup for the test")
+
+        let first = Task { await coordinator.removeSourceItem(a) }
+        let second = Task { await coordinator.removeSourceItem(b) }
+        await first.value
+        await second.value
+
+        XCTAssertEqual(setup.sourceItems, [c], "A removed folder must not come back")
+        XCTAssertEqual(setup.sourcePath, c.path)
+        XCTAssertEqual(fixture.harness.preferencesStore.manualSourceItemPaths, [c.path])
+    }
+
+    /// Adding a folder while a profile is active leaves profile mode; the
+    /// destination Setup still shows must stay the one a run can open, and the
+    /// one a relaunch restores.
+    @MainActor
+    func testAddWhileProfileActiveKeepsTheProfileDestination() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let profileFolder = try fixture.makeFolder("ProfileCard")
+        let added = try fixture.makeFolder("Added")
+        let setup = fixture.harness.setupStore
+        let preferences = fixture.harness.preferencesStore
+
+        preferences.lastManualDestinationPath = "/Volumes/ManualArchive"
+        preferences.storeBookmark(
+            FolderBookmark(key: "manual.destination", path: "/Volumes/ManualArchive", data: Data([0x01]))
+        )
+        preferences.storeBookmark(
+            FolderBookmark(key: "profile.travel.destination", path: "/Volumes/YAML-Trips", data: Data([0x04]))
+        )
+        fixture.harness.repository.profiles = [
+            Profile(name: "travel", sourcePath: profileFolder.path, destinationPath: "/Volumes/YAML-Trips")
+        ]
+        fixture.coordinator.refreshProfiles()
+        fixture.coordinator.useProfile(named: "travel")
+        XCTAssertEqual(setup.destinationPath, "/Volumes/YAML-Trips", "Setup for the test")
+
+        await fixture.coordinator.addSourceItems([added])
+
+        XCTAssertFalse(setup.usingProfile)
+        XCTAssertEqual(setup.destinationPath, "/Volumes/YAML-Trips", "The destination shown does not change")
+        XCTAssertEqual(preferences.lastManualDestinationPath, "/Volumes/YAML-Trips")
+        let manual = preferences.bookmark(for: "manual.destination")
+        XCTAssertEqual(manual?.path, "/Volumes/YAML-Trips", "A run outside the profile must reach the destination it shows")
+        XCTAssertEqual(manual?.data, Data([0x04]))
+        XCTAssertEqual(preferences.bookmark(for: "profile.travel.destination")?.data, Data([0x04]), "The profile keeps its own bookmark")
+
+        let relaunched = fixture.relaunch()
+        relaunched.coordinator.bootstrap()
+        XCTAssertEqual(relaunched.setupStore.destinationPath, "/Volumes/YAML-Trips", "Relaunch restores the same destination")
+    }
+
+    /// A destination chosen while the profile was active is already the
+    /// manual one; leaving the profile must not replace it with the
+    /// profile's older bookmark.
+    @MainActor
+    func testAddAfterChoosingADestinationInAProfileKeepsTheChosenDestination() async throws {
+        let fixture = try SetupCoordinatorFixture()
+        defer { fixture.tearDown() }
+        let profileFolder = try fixture.makeFolder("ProfileCard")
+        let chosen = try fixture.makeFolder("ChosenArchive")
+        let added = try fixture.makeFolder("Added")
+        let setup = fixture.harness.setupStore
+        let preferences = fixture.harness.preferencesStore
+
+        preferences.storeBookmark(
+            FolderBookmark(key: "profile.travel.destination", path: "/Volumes/YAML-Trips", data: Data([0x04]))
+        )
+        fixture.harness.repository.profiles = [
+            Profile(name: "travel", sourcePath: profileFolder.path, destinationPath: "/Volumes/YAML-Trips")
+        ]
+        fixture.coordinator.refreshProfiles()
+        fixture.coordinator.useProfile(named: "travel")
+        await fixture.coordinator.selectDestinationFolder(chosen)
+        XCTAssertTrue(setup.usingProfile, "Setup for the test")
+        XCTAssertEqual(setup.destinationPath, chosen.path, "Setup for the test")
+        let chosenBookmark = preferences.bookmark(for: "manual.destination")
+        XCTAssertEqual(chosenBookmark?.path, chosen.path, "Setup for the test")
+
+        await fixture.coordinator.addSourceItems([added])
+
+        XCTAssertFalse(setup.usingProfile)
+        XCTAssertEqual(setup.destinationPath, chosen.path)
+        XCTAssertEqual(preferences.lastManualDestinationPath, chosen.path)
+        XCTAssertEqual(preferences.bookmark(for: "manual.destination"), chosenBookmark, "The newer choice is kept")
+
+        let relaunched = fixture.relaunch()
+        relaunched.coordinator.bootstrap()
+        XCTAssertEqual(relaunched.setupStore.destinationPath, chosen.path)
     }
 }
 

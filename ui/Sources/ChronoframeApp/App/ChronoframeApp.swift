@@ -75,7 +75,9 @@ struct ChronoframeApp: App {
                 .frame(
                     minWidth: DesignTokens.Window.mainMinWidth,
                     idealWidth: DesignTokens.Window.mainIdealWidth,
-                    minHeight: DesignTokens.Window.mainMinHeight,
+                    minHeight: uiTestScenario == nil
+                        ? DesignTokens.Window.mainMinHeight
+                        : UITestScenario.mainWindowMinHeight,
                     idealHeight: DesignTokens.Window.mainIdealHeight
                 )
         }

@@ -522,15 +522,23 @@ struct SetupLayoutBlock: View {
             .accessibilityIdentifier(AccessibilityIdentifiers.setupFolderLayoutPicker)
 
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(Array(FolderLayoutPresentation.exampleLines(structure).enumerated()), id: \.offset) { _, line in
-                    Text(line)
-                        .scaledFont(.mono)
-                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                        .accessibilityHidden(true)
+                // VoiceOver reads the example as one sentence. The first line
+                // carries it and the rest are hidden: a combined container has
+                // no role, which the accessibility audit rejects.
+                ForEach(Array(FolderLayoutPresentation.exampleLines(structure).enumerated()), id: \.offset) { index, line in
+                    if index == 0 {
+                        Text(line)
+                            .scaledFont(.mono)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                            .accessibilityLabel(FolderLayoutPresentation.accessibilityExample(structure))
+                    } else {
+                        Text(line)
+                            .scaledFont(.mono)
+                            .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                            .accessibilityHidden(true)
+                    }
                 }
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(FolderLayoutPresentation.accessibilityExample(structure))
         }
     }
 }
