@@ -949,6 +949,10 @@ final class ChronoframeUITests: XCTestCase {
         XCTAssertTrue(dateComparisonValue.contains("Alternative date Filename, Jul 14, 2019"))
         XCTAssertTrue(alternative.label.contains("Filename"))
         XCTAssertTrue(alternative.label.contains("Jul 14, 2019"))
+        let keep = Self.element(identifier: "previewReviewKeepDate", in: app)
+        XCTAssertTrue(keep.exists, app.debugDescription)
+        XCTAssertTrue(keep.label.contains("Keep Photo Metadata date"), "Keep label: \(keep.label)")
+        XCTAssertTrue(keep.label.contains("Jan 1, 2000"), "Keep label: \(keep.label)")
 
         let screenshot = app.windows.firstMatch.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
