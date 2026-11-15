@@ -447,7 +447,11 @@ public struct RunSummary: Equatable, Codable, Sendable {
 public enum RunEvent: Sendable {
     case startup
     case phaseStarted(phase: RunPhase, total: Int?)
-    case phaseProgress(phase: RunPhase, completed: Int, total: Int, bytesCopied: Int?, bytesTotal: Int?, currentFilePath: String?)
+    /// `completed` is how many items the phase has finished with, including
+    /// failures and skips, so it drives the progress fraction. `copiedCount` is
+    /// carried only by the copy phase and is the running number of files that
+    /// actually landed; it is `nil` for phases that have no such notion.
+    case phaseProgress(phase: RunPhase, completed: Int, total: Int, copiedCount: Int?, bytesCopied: Int?, bytesTotal: Int?, currentFilePath: String?)
     case phaseCompleted(phase: RunPhase, result: RunPhaseResult)
     case copyPlanReady(count: Int)
     case dateHistogram(buckets: [DateHistogramBucket])
