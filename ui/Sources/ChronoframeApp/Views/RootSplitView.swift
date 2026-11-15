@@ -41,22 +41,8 @@ struct RootSplitView: View {
                     Button(role: .destructive) {
                         appState.cancelRun()
                     } label: {
-                        Label("Cancel", systemImage: "stop.fill")
+                        Label("Stop", systemImage: "stop.fill")
                     }
-                } else if showsRunToolbarActions {
-                    Button {
-                        Task { await appState.startPreview() }
-                    } label: {
-                        Label("Preview", systemImage: "eye")
-                    }
-                    .disabled(!canStartRun)
-
-                    Button {
-                        Task { await appState.startTransfer() }
-                    } label: {
-                        Label("Transfer", systemImage: "arrow.right.circle.fill")
-                    }
-                    .disabled(!canStartRun)
                 }
             }
         }
@@ -73,7 +59,7 @@ struct RootSplitView: View {
         ) {
             switch runSessionStore.prompt?.kind {
             case .confirmTransfer:
-                Button("Continue") {
+                Button("Start Copying") {
                     appState.confirmRunPrompt()
                 }
                 Button("Cancel", role: .cancel) {
@@ -83,7 +69,7 @@ struct RootSplitView: View {
                 Button("Resume") {
                     appState.confirmRunPrompt()
                 }
-                Button("Start Fresh") {
+                Button("Start Over") {
                     appState.confirmRunPromptStartFresh()
                 }
                 Button("Cancel", role: .cancel) {
@@ -154,7 +140,10 @@ struct RootSplitView: View {
         case .organize:
             OrganizeContainerView(appState: appState)
         case .photos:
-            PhotosImportView(appState: appState)
+            PhotosImportView(appState: appState,
+                onResume: { Task { await appState.resumeInterruptedPhotosImport() } },
+                currentDestination: { appState.currentDestinationCapture() }
+            )
         case .deduplicate:
             DeduplicateView(appState: appState)
         case .guardian:
@@ -164,13 +153,5 @@ struct RootSplitView: View {
         case .nasLibrary:
             NASLibraryView(appState: appState)
         }
-    }
-
-    private var showsRunToolbarActions: Bool {
-        appState.selection == .organize && appState.organizeSubSelection == .run
-    }
-
-    private var canStartRun: Bool {
-        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
     }
 }

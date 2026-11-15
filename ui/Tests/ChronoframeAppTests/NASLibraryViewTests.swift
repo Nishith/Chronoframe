@@ -60,6 +60,7 @@ final class NASViewTestFolderAccess: FolderAccessServicing, @unchecked Sendable 
     var resolved: ResolvedFolderBookmark?
 
     @MainActor func chooseFolder(startingAt path: String?, prompt: String) -> URL? { nil }
+    @MainActor func chooseFolders(startingAt path: String?, prompt: String) -> [URL] { [] }
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
         FolderBookmark(key: key, path: url.path, data: Data("bm:\(url.path)".utf8))
     }

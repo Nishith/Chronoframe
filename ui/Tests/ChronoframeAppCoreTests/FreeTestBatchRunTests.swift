@@ -101,8 +101,8 @@ final class FreeTestBatchRunTests: XCTestCase {
         XCTAssertTrue(engine.startConfigurations.isEmpty)
         XCTAssertEqual(store.prompt?.kind, .blockingError)
         let message = store.prompt?.message ?? ""
-        XCTAssertTrue(message.contains("12 copy jobs"), message)
-        XCTAssertTrue(message.contains("originals were left untouched"), message)
+        XCTAssertTrue(message.contains("12 files"), message)
+        XCTAssertTrue(message.contains("originals were not changed"), message)
     }
 
     /// The pending-job decision itself is unchanged for a normal transfer.
@@ -155,7 +155,7 @@ final class RunCompletionNotificationTextTests: XCTestCase {
         )
 
         XCTAssertEqual(text?.title, "Already up to date")
-        XCTAssertEqual(text?.body, "All source files are already in the destination.")
+        XCTAssertEqual(text?.body, "Everything in your folders is already in the destination.")
     }
 
     func testACancelledRunIsNotAnnounced() {

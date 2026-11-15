@@ -319,16 +319,16 @@ final class DeduplicateStatusViewTests: XCTestCase {
 
     func testCompactClusterListHeightClampsWithinConfiguredRange() {
         XCTAssertEqual(
-            DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 300),
+            DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: 300),
             DesignTokens.DeduplicateLayout.compactClusterListMinHeight,
             accuracy: 0.5
         )
         XCTAssertEqual(
-            DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 2_000),
+            DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: 2_000),
             DesignTokens.DeduplicateLayout.compactClusterListMaxHeight,
             accuracy: 0.5
         )
-        let middle = DeduplicateReviewLayout.compactClusterListHeight(forAvailableHeight: 700)
+        let middle = DeduplicateReviewLayout.compactClusterListHeight(forBodyHeight: 700)
         XCTAssertGreaterThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMinHeight)
         XCTAssertLessThan(middle, DesignTokens.DeduplicateLayout.compactClusterListMaxHeight)
     }
@@ -403,7 +403,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
         ))
 
         XCTAssertEqual(copy.message, "Moved 3 files to Trash · 1 MB recoverable")
-        XCTAssertEqual(copy.warning, "1 item failed — see Run History for details.")
+        XCTAssertEqual(copy.warning, "1 item failed — see History for details.")
     }
 
     func testRevertedStatusCopyKeepsPartialFailuresVisuallySeparate() {
@@ -416,7 +416,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
         ))
 
         XCTAssertEqual(copy.message, "Restored 2 files · 1 MB returned to the destination")
-        XCTAssertEqual(copy.warning, "3 items could not be restored — see Run History for details.")
+        XCTAssertEqual(copy.warning, "3 items could not be restored — see History for details.")
     }
 
     func testMatchReasonFormatterExplainsConfidenceReasonsWarningsAndKeepers() {
@@ -463,7 +463,7 @@ final class DeduplicateStatusViewTests: XCTestCase {
 
         XCTAssertEqual(
             DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster),
-            "Near duplicates group, 2 photos, low confidence, suggested keeper keeper, needs careful review"
+            "Look-alikes group, 2 photos, low confidence, suggested keeper keeper, needs careful review"
         )
 
         let rowValue = DeduplicateAccessibilityText.clusterRowValue(

@@ -20,16 +20,27 @@ struct OrganizeContainerView: View {
         false
     }
 
+    static let tabs: [OrganizeSubSection] = OrganizeSubSection.displayOrder
+
+    static func showsDividerBefore(_ tab: OrganizeSubSection) -> Bool {
+        tab == OrganizeSubSection.secondary.first
+    }
+
+    static func tabIdentifier(_ tab: OrganizeSubSection) -> String {
+        "organizeTab.\(tab.rawValue)"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Spacer(minLength: 0)
                 WorkspaceTabStrip(
                     selection: $appState.organizeSubSelection,
-                    tabs: OrganizeSubSection.allCases,
+                    tabs: Self.tabs,
                     title: { $0.title },
                     systemImage: { $0.systemImage },
-                    accessibilityIdentifier: { "organizeTab.\($0.rawValue)" }
+                    accessibilityIdentifier: { Self.tabIdentifier($0) },
+                    showsDividerBefore: { Self.showsDividerBefore($0) }
                 )
                 // Intrinsic sizing instead of a fixed width so the strip
                 // adapts to five tabs, Dynamic Type, and localization.

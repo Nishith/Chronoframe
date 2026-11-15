@@ -10,7 +10,7 @@ import Foundation
 /// bytes; it carries just enough identity and metadata to browse, select,
 /// and later re-fetch the live asset for a read-only export.
 public struct PhotosAssetSummary: Equatable, Sendable, Identifiable {
-    public enum MediaKind: String, Equatable, Sendable, CaseIterable {
+    public enum MediaKind: String, Equatable, Sendable, CaseIterable, Codable {
         case photo
         case video
         /// A media type Chronoframe does not import (audio, or a future

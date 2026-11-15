@@ -29,12 +29,21 @@ public final class PhotosResourceExportService: PhotosResourceExporting {
                 assetID: id,
                 resourceIndex: index,
                 fileExtension: ext,
-                originalFilename: resource.originalFilename
+                originalFilename: resource.originalFilename,
+                fileSize: nil // PhotoKit has no public resource size; see D-PIR-128
             )
         }
     }
 
     public func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
+        try await writeResource(resource, to: destinationURL, onProgress: { _ in })
+    }
+
+    public func writeResource(
+        _ resource: PhotosExportableResource,
+        to destinationURL: URL,
+        onProgress: @escaping @Sendable (Double) -> Void
+    ) async throws {
         guard let asset = Self.fetchAsset(localIdentifier: resource.assetID) else {
             throw PhotosExportError.assetUnavailable
         }
@@ -47,6 +56,7 @@ public final class PhotosResourceExportService: PhotosResourceExporting {
         let options = PHAssetResourceRequestOptions()
         // Originals stored only in iCloud must be fetched over the network.
         options.isNetworkAccessAllowed = true
+        options.progressHandler = { fraction in onProgress(fraction) }
 
         // Write to a hidden temp sibling then atomically rename, so a partial
         // or interrupted write never leaves a truncated file under the final

@@ -66,6 +66,18 @@ final class PreferencesStoreTests: XCTestCase {
     }
 
     @MainActor
+    func testManualSourceItemPathsRoundTrip() {
+        let store = PreferencesStore(defaults: defaults)
+        XCTAssertEqual(store.manualSourceItemPaths, [])
+
+        store.manualSourceItemPaths = ["/tmp/b", "/tmp/a"]
+
+        XCTAssertEqual(defaults.stringArray(forKey: "manualSourceItemPaths"), ["/tmp/b", "/tmp/a"])
+        let reloaded = PreferencesStore(defaults: defaults)
+        XCTAssertEqual(reloaded.manualSourceItemPaths, ["/tmp/b", "/tmp/a"])
+    }
+
+    @MainActor
     func testPersistsScalarPreferencesAcrossReinit() {
         let store = PreferencesStore(defaults: defaults)
         store.workerCount = 12

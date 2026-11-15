@@ -78,7 +78,7 @@ struct RunTimelineView: View {
                     Text(formatMonthYear(bucket.key))
                         .scaledFont(.subtitle, weight: .bold)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                    Text("\(bucket.plannedCount.formatted(.number)) planned files")
+                    Text("\(bucket.plannedCount.formatted(.number)) files to copy")
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
@@ -153,11 +153,11 @@ struct RunTimelineView: View {
     private var emptyStateMessage: String {
         switch model.context.status {
         case .idle:
-            return "Run a preview to see the source timeline."
+            return "Preview the plan to see the timeline of your folders."
         case .preflighting, .running:
-            return "Scanning source — bars will appear as files are dated."
+            return "Scanning your folders — bars will appear as files are dated."
         default:
-            return "No dated files found in this source."
+            return "No dated files found in these folders."
         }
     }
 
@@ -205,29 +205,29 @@ struct RunTimelineView: View {
             if model.context.currentPhase == .copy {
                 return "Each bar fills as those frames find their place."
             }
-            return "Reading dates from the source."
+            return "Reading dates from your folders."
         case .dryRunFinished:
-            return "Here's the shape of your source — every bar a month of frames waiting to land."
+            return "Here's the shape of your folders — every bar a month of frames waiting to land."
         case .finished:
             return "Every frame is home."
         case .nothingToCopy:
-            return "The destination already has everything it needs."
+            return "Your organized library already has everything it needs."
         case .failed:
-            return "The run stopped early. Review issues to continue."
+            return "Chronoframe stopped early. Your originals were not changed. See Problems to continue."
         case .cancelled:
-            return "Run cancelled. Start again when ready."
+            return "Stopped. Your originals were not changed. Preview again when ready."
         case .preflighting:
-            return "Preparing the run."
+            return "Getting ready."
         case .idle:
-            return "Run a preview to see the timeline of your source."
+            return "Preview the plan to see the timeline of your folders."
         case .reverted:
             return "Files restored to their original state."
         case .revertEmpty:
-            return "This receipt had no transfers to undo."
+            return "That receipt lists no copies."
         case .reorganized:
             return "Layout updated in place."
         case .nothingToReorganize:
-            return "The destination already matches this layout."
+            return "The library already matches this layout."
         }
     }
 

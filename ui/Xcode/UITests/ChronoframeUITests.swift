@@ -6,7 +6,9 @@ final class ChronoframeUITests: XCTestCase {
     private enum Scenario: String, CaseIterable {
         case setupIncompleteRun
         case setupReady
+        case setupMultiFolder
         case runPreviewReview
+        case runCopyComplete
         case previewDateConflict
         case healthDashboard
         case watchedSources
@@ -714,7 +716,7 @@ final class ChronoframeUITests: XCTestCase {
             auditType: "sufficientElementDescription",
             role: "role_14",
             identifier: "",
-            label: "Actions for source",
+            label: "Actions for folder",
             value: "",
             compactDescription: "Element has no description",
             detailedDescription: "This element is missing useful accessibility information."
@@ -744,12 +746,14 @@ final class ChronoframeUITests: XCTestCase {
         }
 
         let expectations: [(Scenario, String)] = [
-            (.setupIncompleteRun, "Run"),
-            (.runPreviewReview, "Run"),
-            (.setupReady, "Setup"),
+            (.setupIncompleteRun, "Preview & Copy"),
+            (.runPreviewReview, "Preview & Copy"),
+            (.runCopyComplete, "Preview & Copy"),
+            (.setupReady, "Choose Folders"),
+            (.setupMultiFolder, "Choose Folders"),
             (.healthDashboard, "Health"),
             (.watchedSources, "Organize"),
-            (.historyPopulated, "Run History")
+            (.historyPopulated, "History")
         ]
         for (scenario, title) in expectations {
             XCTAssertTrue(Self.isAllowedAccessibilityAuditIssue(
@@ -761,7 +765,7 @@ final class ChronoframeUITests: XCTestCase {
 
         // A different scenario's toolbar title must not leak across scenarios.
         XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
-            toolbarTitleIssue("Setup"),
+            toolbarTitleIssue("Choose Folders"),
             scenario: .healthDashboard,
             baselineEntries: []
         ))
@@ -783,8 +787,8 @@ final class ChronoframeUITests: XCTestCase {
     }
 
     // Regression coverage for a second BASH-06 review finding: the setupReady
-    // scenario's DetailHeroCard renders a "Setup" title (SetupSectionViews.swift)
-    // that is textually identical to the window's ".navigationTitle(\"Setup\")".
+    // scenario's DetailHeroCard renders a "Choose Folders" title (SetupSectionViews.swift)
+    // that is textually identical to the window's ".navigationTitle(\"Choose Folders\")".
     // Matching by exact text alone (rather than substring) does not disambiguate
     // two elements with the *same* text, so the hero card title now carries a
     // non-empty accessibilityIdentifier (AccessibilityIdentifiers.setupHeroTitle
@@ -798,15 +802,15 @@ final class ChronoframeUITests: XCTestCase {
             role: "staticText",
             identifier: "setupHeroTitle",
             label: "",
-            value: "Setup",
+            value: "Choose Folders",
             compactDescription: "Contrast failed",
-            detailedDescription: "Contrast failed for Setup"
+            detailedDescription: "Contrast failed for Choose Folders"
         )
         XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
             heroCardTitleIssue,
             scenario: .setupReady,
             baselineEntries: []
-        ), "The hero card's \"Setup\" title must not be bypassed by the toolbar-title exception now that it carries its own accessibility identifier")
+        ), "The hero card's \"Choose Folders\" title must not be bypassed by the toolbar-title exception now that it carries its own accessibility identifier")
     }
 
     func testUnlabeledSwiftUILayoutWrapperFindingsAreBypassedNarrowly() {
@@ -862,7 +866,7 @@ final class ChronoframeUITests: XCTestCase {
             label: "",
             value: "",
             compactDescription: "Contrast failed",
-            detailedDescription: "Contrast failed for Setup"
+            detailedDescription: "Contrast failed for Choose Folders"
         )
         XCTAssertFalse(Self.isAllowedAccessibilityAuditIssue(
             contrastIssue,
@@ -899,16 +903,21 @@ final class ChronoframeUITests: XCTestCase {
         await MainActor.run {
             let app = Self.launchApp(.setupReady)
 
-            XCTAssertTrue(app.staticTexts["1. Source"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["1. Folders to organize"].waitForExistence(timeout: 5))
             XCTAssertFalse(
                 Self.element(identifier: "organizeNextActionBanner", in: app).exists,
                 "Setup-ready top chrome must not show the next-action banner"
             )
             XCTAssertTrue(app.buttons["previewButton"].exists)
             XCTAssertTrue(app.staticTexts["2. Destination"].exists)
-            XCTAssertTrue(Self.hittableButton(identifier: "chooseSourceButton", in: app).isHittable)
-            XCTAssertTrue(Self.hittableButton(identifier: "chooseDestinationButton", in: app).isHittable)
-            XCTAssertTrue(app.staticTexts["Start"].exists)
+            // On a short screen (the hosted runner) the window is fitted to the visible area
+            // and these sit below the fold, so bring each into view before checking it.
+            for identifier in ["chooseSourceButton", "chooseDestinationButton"] {
+                let button = Self.button(identifier: identifier, in: app)
+                XCTAssertTrue(Self.scrollIntoView(button, in: app), "\(identifier) should scroll into view")
+                XCTAssertTrue(Self.hittableButton(identifier: identifier, in: app).isHittable, "\(identifier) should be hittable")
+            }
+            XCTAssertTrue(app.staticTexts["3. Preview"].exists)
             // Profiles are earned complexity: the scenario seeds none, so the
             // saved-setup section must stay hidden for this first-run state.
             XCTAssertFalse(app.staticTexts["Profiles"].exists)
@@ -923,9 +932,13 @@ final class ChronoframeUITests: XCTestCase {
 
             XCTAssertTrue(Self.button(identifier: "startTransferFromPreviewButton", in: app).waitForExistence(timeout: 5))
             XCTAssertTrue(app.buttons["startTransferFromPreviewButton"].exists)
+            // D-CLP-10/11: the hero carries the one action; the toolbar and Setup no longer start a copy.
+            XCTAssertFalse(app.buttons["transferButton"].exists)
+            XCTAssertFalse(app.toolbars.buttons["Transfer"].exists)
+            XCTAssertFalse(app.toolbars.buttons["Preview"].exists)
             XCTAssertTrue(app.buttons["openDestinationButton"].exists)
             XCTAssertTrue(app.descendants(matching: .any)["runWorkspaceTabs"].exists)
-            XCTAssertTrue(app.staticTexts["Artifacts"].exists)
+            XCTAssertTrue(app.staticTexts["Reports and Logs"].exists)
         }
     }
 
@@ -965,11 +978,11 @@ final class ChronoframeUITests: XCTestCase {
         await MainActor.run {
             let app = Self.launchApp(.historyPopulated)
 
-            XCTAssertTrue(app.staticTexts["Reusable Sources"].waitForExistence(timeout: 5))
+            XCTAssertTrue(app.staticTexts["Reusable Folders"].waitForExistence(timeout: 5))
             XCTAssertTrue(app.searchFields.firstMatch.exists)
             XCTAssertTrue(app.descendants(matching: .any)["historyFilterControl"].exists)
             XCTAssertTrue(app.buttons["useHistoricalSourceButton"].waitForExistence(timeout: 5))
-            XCTAssertTrue(app.staticTexts["Artifacts"].exists)
+            XCTAssertTrue(app.staticTexts["Reports and Logs"].exists)
             XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Open")).firstMatch.exists)
         }
     }
@@ -1215,9 +1228,11 @@ final class ChronoframeUITests: XCTestCase {
     func testReviewRejectionScreensAvoidKnownOverlapStates() async {
         await MainActor.run {
             let runApp = Self.launchApp(.setupIncompleteRun)
-            XCTAssertTrue(runApp.buttons["Return to Setup"].waitForExistence(timeout: 5))
+            // "Choose Folders" is both the hero's button and the first Organize
+            // tab, so wait on the idle card and match the label by predicate.
+            XCTAssertTrue(Self.element(identifier: "runIdleOnboardingCard", in: runApp).waitForExistence(timeout: 5))
             XCTAssertFalse(runApp.buttons["Go to Setup"].exists, "Incomplete Run should not show the top next-action banner")
-            XCTAssertTrue(runApp.buttons["Return to Setup"].exists)
+            XCTAssertTrue(runApp.buttons.matching(NSPredicate(format: "label == %@", "Choose Folders")).firstMatch.exists)
 
             let window = runApp.windows.firstMatch
             let organizeRow = Self.element(identifier: "sidebarDestination-organize", in: runApp)
@@ -1475,13 +1490,18 @@ final class ChronoframeUITests: XCTestCase {
     private static func waitForScenarioReady(_ scenario: Scenario, in app: XCUIApplication) -> Bool {
         switch scenario {
         case .setupIncompleteRun:
-            return app.buttons["Return to Setup"].waitForExistence(timeout: 5)
+            return element(identifier: "runIdleOnboardingCard", in: app).waitForExistence(timeout: 5)
         case .setupReady:
             return button(identifier: "previewButton", in: app).waitForExistence(timeout: 5)
                 && button(identifier: "chooseSourceButton", in: app).waitForExistence(timeout: 5)
                 && button(identifier: "chooseDestinationButton", in: app).waitForExistence(timeout: 5)
+        case .setupMultiFolder:
+            return element(identifier: "setup.sourceItems", in: app).waitForExistence(timeout: 5)
+                && button(identifier: "previewButton", in: app).waitForExistence(timeout: 5)
         case .runPreviewReview:
             return button(identifier: "startTransferFromPreviewButton", in: app).waitForExistence(timeout: 5)
+        case .runCopyComplete:
+            return element(identifier: "run.nextStep.card", in: app).waitForExistence(timeout: 10)
         case .previewDateConflict:
             // The run workspace opens on Overview; the review panel only exists on the Review tab.
             let reviewTab = app.radioButtons["Review (1)"]
@@ -1673,18 +1693,20 @@ final class ChronoframeUITests: XCTestCase {
     /// Window toolbar titles the system draws from `.navigationTitle(...)` on
     /// each scenario's primary destination (BASH-06). Matched by *exact*
     /// lowercased target rather than the baseline file's substring matching,
-    /// because several of these titles ("Health", "Setup") are single words
+    /// because several of these titles ("Health", "History") are short phrases
     /// that are also substrings of unrelated app-authored text on the same
     /// screen (e.g. healthDashboard's "Library Health" title and "Healthy"
     /// legend) — a substring baseline entry would silently swallow a real
     /// contrast regression on that unrelated text.
     private static let toolbarTitleFalsePositives: [Scenario: String] = [
-        .setupIncompleteRun: "run",
-        .runPreviewReview: "run",
-        .setupReady: "setup",
+        .setupIncompleteRun: "preview & copy",
+        .runPreviewReview: "preview & copy",
+        .runCopyComplete: "preview & copy",
+        .setupReady: "choose folders",
+        .setupMultiFolder: "choose folders",
         .healthDashboard: "health",
         .watchedSources: "organize",
-        .historyPopulated: "run history"
+        .historyPopulated: "history"
     ]
 
     private static func isUnlabeledSwiftUILayoutWrapperIssue(_ issue: A11yAuditFingerprint) -> Bool {
@@ -2083,9 +2105,9 @@ final class ChronoframeUITests: XCTestCase {
         switch scenario {
         case .setupIncompleteRun:
             return nil
-        case .setupReady:
+        case .setupReady, .setupMultiFolder:
             return "Privacy"
-        case .runPreviewReview, .previewDateConflict:
+        case .runPreviewReview, .runCopyComplete, .previewDateConflict:
             return nil
         case .healthDashboard:
             return "Library Health"
@@ -2108,9 +2130,9 @@ final class ChronoframeUITests: XCTestCase {
 
     private static func organizeTabIdentifier(for scenario: Scenario) -> String {
         switch scenario {
-        case .setupReady:
+        case .setupReady, .setupMultiFolder:
             return "organizeTab.setup"
-        case .setupIncompleteRun, .runPreviewReview, .previewDateConflict:
+        case .setupIncompleteRun, .runPreviewReview, .runCopyComplete, .previewDateConflict:
             return "organizeTab.run"
         case .healthDashboard:
             return "organizeTab.health"

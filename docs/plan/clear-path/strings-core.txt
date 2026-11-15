@@ -1,0 +1,58 @@
+1 folder
+Add a folder to organize before the next preview.
+Already There
+Check the plan, then copy
+Checks on your organized library
+Choose Folders
+Copy
+Copy from Apple Photos
+Every recognized file follows the folder layout.
+Exact Copies
+Exact Copy
+Files Outside the Layout
+Finish the earlier copy?
+Finish the interrupted copy first
+Folders to organize and destination are set.
+Get told when new photos arrive
+Getting ready…
+Look-alikes
+Needs folders
+No Date
+No copies are waiting or failed.
+No exact copies were set aside during past copies.
+No files are waiting in the Unknown_Date folder.
+Nothing has been copied here yet, so there is nothing to undo.
+Past copies, reports and undo
+Preview & Copy
+Receipts are saved for recent copies, so they can be undone.
+Remove extra copies
+Resuming the copy…
+Some files don't follow Chronoframe's folder layout.
+Sort into dated folders
+Start copying?
+Undo
+Undo Records
+Undoing the layout change…
+Undoing…
+Unfinished Copies
+Watched Folders
+What to organize and where it goes
+Find Files
+Read Originals
+Check Destination
+Sort by Date
+Reorganize
+Finding files…
+Reading your originals…
+Checking the destination…
+Sorting by date…
+Copying files…
+Reorganizing files…
+Chronoframe could not finish. Originals were left untouched.
+Copy complete
+Everything in your folders is already in the destination.
+Copy failed
+A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: \(path).
+Choose a destination folder before you start.
+A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed.
+The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed.
