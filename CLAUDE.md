@@ -78,11 +78,15 @@ swift run --package-path ui ChronoframeCLI --revert ~/Photos/Organized/.organize
 
 ### Icon regeneration
 
+The app icon's source of truth is the committed 1024px master, `ui/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png`. It is raster artwork, not generated from code. To regenerate every smaller size from it:
+
 ```bash
-swift run --package-path ui ChronoframeIconTool <output-dir>
+swift ui/Tools/RestoreIconAlpha.swift <master-1024.png> <output-dir>
 ```
 
-The icon tool is the single source of truth for the app icon — all PNG variants are generated from code in `ChronoframeIconTool`, not from a Figma or Sketch file.
+That tool also repairs artwork that arrives flattened onto white — a past export lost the squircle's transparent corners, which macOS 14 and 15 draw as a white tile around the icon. It refuses artwork whose corners are already transparent, so it is safe to re-run.
+
+`ChronoframeIconTool` renders a **retired** hexagon design, not the shipping icon, and regenerating the catalog from it would revert the app icon. It refuses to write into `AppIcon.appiconset` for that reason. It remains the starting point if the icon is ever moved back into code.
 
 ### Bundle validation
 
@@ -108,7 +112,7 @@ ui/Sources/
   ChronoframeCLIKit/     CLI parser and runners (shares ChronoframeCore)
   ChronoframeCLI/        CLI executable entry point
   ChronoframePackaging/  App bundle validation helpers
-  ChronoframeIconTool/   Procedural icon renderer
+  ChronoframeIconTool/   Procedural renderer for the retired hexagon icon
 ```
 
 ### Layer boundaries

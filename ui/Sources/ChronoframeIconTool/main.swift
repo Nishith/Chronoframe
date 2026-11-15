@@ -1,17 +1,28 @@
 // Procedural macOS app-icon renderer for Chronoframe.
 //
-// One source of truth for the icon: every color, blade angle, and corner
-// radius lives in this file. Re-run after editing to regenerate the
-// asset catalog:
+// THIS IS NOT THE SHIPPING ICON. The design below — a purple squircle with
+// a hexagonal iris — was replaced in 6f25528 by the indigo aperture
+// artwork now in `ui/Resources/Assets.xcassets/AppIcon.appiconset`, which
+// did not come from this renderer and has never been ported back into it.
+// Pointing this tool at the catalog would revert the app icon, so it
+// refuses that destination; pass `--force` only if you mean to.
 //
-//     swift run --package-path ui ChronoframeIconTool \
-//         ui/Resources/Assets.xcassets/AppIcon.appiconset
+// The shipping icon's source of truth is the committed 1024px master in
+// the catalog. `ui/Tools/RestoreIconAlpha.swift` regenerates every smaller
+// size from it.
 //
-// The tool emits the 10 standard macOS AppIcon PNGs into the app-icon
-// catalog, plus optional Dark/Tinted reference renders in
-// `ui/Resources/IconSources/`. The reference renders intentionally live
+// What remains useful here is the geometry: the squircle, aperture blades,
+// horizon, amber waypoint and monogram are the same motifs the shipping
+// artwork uses, so this is the starting point if the icon is ever moved
+// back to code. Run it somewhere scratch to see what it draws:
+//
+//     swift run --package-path ui ChronoframeIconTool /tmp/icon-preview
+//
+// The tool emits the 10 standard macOS AppIcon PNGs, plus Dark/Tinted
+// reference renders in a sibling `IconSources/` directory. Those live
 // outside `.appiconset` because `actool` treats appearance variants there
-// as unassigned app-icon children.
+// as unassigned app-icon children. The catalog ships no Dark or Tinted
+// variants today — its `Contents.json` declares none.
 
 import AppKit
 import CoreGraphics
@@ -552,13 +563,30 @@ struct AssetCatalogWriter {
 // MARK: - Entry point
 
 let arguments = CommandLine.arguments
-guard arguments.count >= 2 else {
+let forced = arguments.contains("--force")
+let positional = arguments.dropFirst().filter { $0 != "--force" }
+guard let destination = positional.first else {
     let exe = (arguments.first as NSString?)?.lastPathComponent ?? "ChronoframeIconTool"
-    FileHandle.standardError.write(Data("usage: \(exe) <output-appiconset-directory>\n".utf8))
+    FileHandle.standardError.write(Data("usage: \(exe) [--force] <output-directory>\n".utf8))
     exit(64)
 }
 
-let outputDirectory = URL(fileURLWithPath: arguments[1])
+let outputDirectory = URL(fileURLWithPath: destination)
+
+// This renderer no longer draws the shipping icon, so writing into the
+// app-icon catalog would silently revert it. See the file header.
+if outputDirectory.lastPathComponent == "AppIcon.appiconset", !forced {
+    FileHandle.standardError.write(Data("""
+    Refusing to write into \(outputDirectory.lastPathComponent).
+
+    This tool renders the retired hexagon icon, not the aperture artwork
+    the app ships, so regenerating the catalog from it would revert the
+    app icon. Render somewhere scratch to preview the design, or pass
+    --force if reverting is what you actually want.
+
+    """.utf8))
+    exit(1)
+}
 do {
     let defaultIconSourcesDirectory = outputDirectory
         .deletingLastPathComponent()

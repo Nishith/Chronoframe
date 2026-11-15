@@ -1,6 +1,6 @@
 # Chronoframe 2.0 launch copy
 
-Publish the free-download copy only after the App Store displays a free download and the unlock works. Planned date: October 26, 2026; postpone if release gates are unfinished.
+Publish the free-download copy only after the App Store displays a free download and the unlock works. Planned date: October 29, 2026; postpone if release gates are unfinished.
 
 ## Short post
 

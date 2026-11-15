@@ -51,12 +51,11 @@ let package = Package(
             name: "ChronoframePackagingTool",
             dependencies: ["ChronoframePackaging"]
         ),
-        // Procedural renderer for the macOS app icon. Run via
-        // `swift run ChronoframeIconTool <output-dir>` to regenerate every
-        // PNG variant (Any / Dark / Tinted × all sizes) for the
-        // `Assets.xcassets/AppIcon.appiconset`. The tool is the single
-        // source of truth for the icon design — colors and geometry live
-        // in code, not in a Sketch/Figma file.
+        // Procedural renderer for the retired hexagon app icon. It does NOT
+        // draw the aperture artwork the app ships, and refuses to write into
+        // `Assets.xcassets/AppIcon.appiconset` for that reason — see the
+        // header of `ChronoframeIconTool/main.swift`. Kept as the starting
+        // point for moving the icon back into code.
         .executableTarget(
             name: "ChronoframeIconTool"
         ),

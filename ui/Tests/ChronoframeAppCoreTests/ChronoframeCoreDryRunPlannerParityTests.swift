@@ -186,6 +186,95 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         XCTAssertEqual(reviewItem.issues, [])
     }
 
+    func testPlannerFlagsConflictAndCarriesAlternativeWithoutChangingDestinationDate() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("conflict-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("conflict-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        let sourceFile = sourceRoot.appendingPathComponent("IMG_20190714_120000.jpg")
+        try writeMediaFile(at: sourceFile, contents: "metadata-wins")
+        let metadataDate = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+
+        let result = try DryRunPlanner(
+            dateResolver: FileDateResolver(
+                metadataReader: PlannerConflictMetadataReader(date: metadataDate),
+                scanDateProvider: { scanDate }
+            )
+        ).plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot)
+
+        let item = try XCTUnwrap(result.previewReviewItems.first)
+        XCTAssertEqual(item.resolvedDate, metadataDate)
+        XCTAssertEqual(item.dateSource, .photoMetadata)
+        XCTAssertTrue(item.issues.contains(.conflictingDates))
+        XCTAssertTrue(item.needsAttention)
+        XCTAssertEqual(item.alternativeDate?.date, makeDate("2019-07-14"))
+        XCTAssertEqual(item.alternativeDate?.source, .filename)
+        XCTAssertTrue(try XCTUnwrap(result.copyJobs.first?.destinationPath).contains("/2001/07/14/"))
+    }
+
+    func testPlannerClearsAnAcceptedConflictWithoutChangingDateSourceOrDestination() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("kept-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("kept-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        let sourceFile = sourceRoot.appendingPathComponent("IMG_20190714_120000.jpg")
+        try writeMediaFile(at: sourceFile, contents: "metadata-kept")
+        let metadataDate = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+        let planner = DryRunPlanner(
+            dateResolver: FileDateResolver(
+                metadataReader: PlannerConflictMetadataReader(date: metadataDate),
+                scanDateProvider: { scanDate }
+            )
+        )
+        let flagged = try XCTUnwrap(
+            planner.plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot).previewReviewItems.first
+        )
+        XCTAssertTrue(flagged.issues.contains(.conflictingDates))
+
+        let database = try OrganizerDatabase(url: destinationRoot.appendingPathComponent(".organize_cache.db"))
+        try database.saveReviewOverride(
+            ReviewOverride(
+                identity: try XCTUnwrap(FileIdentity(rawValue: try XCTUnwrap(flagged.identityRawValue))),
+                sourcePath: flagged.sourcePath,
+                dateConflictAccepted: true
+            )
+        )
+        database.close()
+
+        let result = try planner.plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot)
+
+        let item = try XCTUnwrap(result.previewReviewItems.first)
+        XCTAssertEqual(item.issues, [])
+        XCTAssertFalse(item.needsAttention)
+        XCTAssertNil(item.alternativeDate)
+        XCTAssertEqual(item.dateConflictAccepted, true)
+        XCTAssertEqual(item.resolvedDate, metadataDate)
+        XCTAssertEqual(item.dateSource, .photoMetadata)
+        XCTAssertEqual(item.dateConfidence, flagged.dateConfidence)
+        XCTAssertTrue(try XCTUnwrap(result.copyJobs.first?.destinationPath).contains("/2001/07/14/"))
+    }
+
+    func testPlannerCarriesMetadataOffsetIntoReviewItem() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("offset-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("offset-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        try writeMediaFile(at: sourceRoot.appendingPathComponent("IMG_20190714_120000.jpg"), contents: "offset")
+        let metadataDate = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+
+        let result = try DryRunPlanner(
+            dateResolver: FileDateResolver(
+                metadataReader: PlannerOffsetMetadataReader(date: metadataDate, offsetSeconds: 5 * 3600),
+                scanDateProvider: { scanDate }
+            )
+        ).plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot)
+
+        XCTAssertEqual(result.previewReviewItems.first?.bucketTimeZoneOffsetSeconds, 5 * 3600)
+    }
+
     func testPlannerAddsSmartEventSuggestionsWithoutApplyingThem() throws {
         let sourceRoot = temporaryDirectoryURL.appendingPathComponent("event-source", isDirectory: true)
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("event-dest", isDirectory: true)
@@ -352,7 +441,7 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
                 workerCount: 1,
                 isCancelled: { cancellation.isCancelled },
                 onEvent: { event in
-                    if case let .phaseProgress(phase, completed, _, _, _, _) = event,
+                    if case let .phaseProgress(phase, completed, _, _, _, _, _) = event,
                        phase == .sourceHashing,
                        completed >= 100 {
                         cancellation.cancel()
@@ -751,7 +840,7 @@ private final class SourceHashCheckpointProbe: @unchecked Sendable {
     }
 
     func observe(_ event: RunEvent) {
-        guard case let .phaseProgress(phase, completed, _, _, _, _) = event,
+        guard case let .phaseProgress(phase, completed, _, _, _, _, _) = event,
               phase == .sourceHashing,
               completed >= triggerCompletedCount else {
             return
@@ -797,7 +886,7 @@ private final class HashProgressTotalsProbe: @unchecked Sendable {
     }
 
     func observe(_ event: RunEvent) {
-        guard case let .phaseProgress(phase, _, total, _, _, _) = event else {
+        guard case let .phaseProgress(phase, _, total, _, _, _, _) = event else {
             return
         }
 
@@ -834,6 +923,26 @@ private final class CancellationProbe: @unchecked Sendable {
 
 private struct NoDateMetadataReader: MediaMetadataDateReading {
     func photoMetadataDate(at url: URL) -> Date? { nil }
+    func fileSystemCreationDate(at url: URL) -> Date? { nil }
+    func fileSystemModificationDate(at url: URL) -> Date? { nil }
+}
+
+private struct PlannerConflictMetadataReader: MediaMetadataDateReading {
+    let date: Date
+
+    func photoMetadataDate(at url: URL) -> Date? { date }
+    func fileSystemCreationDate(at url: URL) -> Date? { nil }
+    func fileSystemModificationDate(at url: URL) -> Date? { nil }
+}
+
+private struct PlannerOffsetMetadataReader: MediaMetadataDateReading {
+    let date: Date
+    let offsetSeconds: Int
+
+    func photoMetadataDate(at url: URL) -> Date? { date }
+    func photoMetadataResolvedDate(at url: URL) -> PhotoMetadataDate? {
+        PhotoMetadataDate(date: date, bucketTimeZoneOffsetSeconds: offsetSeconds)
+    }
     func fileSystemCreationDate(at url: URL) -> Date? { nil }
     func fileSystemModificationDate(at url: URL) -> Date? { nil }
 }
