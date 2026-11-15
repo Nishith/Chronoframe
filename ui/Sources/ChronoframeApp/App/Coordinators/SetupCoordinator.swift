@@ -22,6 +22,9 @@ final class SetupCoordinator {
     /// missing, and are written back after every edit of the visible list.
     private var unreachableSavedItems: [FolderBookmark] = []
     private static let sourceItemKeyPrefix = "manual.sourceItem."
+    /// The folder-list edit in flight. Each edit waits for it, so it reads the
+    /// list only after the previous edit has been applied and saved.
+    private var listEditTail: Task<Void, Never>?
 
     init(
         preferencesStore: PreferencesStore,
@@ -87,6 +90,10 @@ final class SetupCoordinator {
     /// doesn't leave the store half-switched.
     private func addSourceItemsReportingApplied(_ urls: [URL]) async -> Bool {
         guard !urls.isEmpty else { return false }
+        return await serializedListEdit { await self.addSourceItemsNow(urls) }
+    }
+
+    private func addSourceItemsNow(_ urls: [URL]) async -> Bool {
 
         // Hold security-scoped access across validation, the staging manifest
         // and bookmark creation, then release on return. (Open-panel URLs are
@@ -123,6 +130,9 @@ final class SetupCoordinator {
         // Leaving a profile applies the list even when it equals the profile's
         // own folder, as long as nothing was rejected.
         guard list != before || (leavingProfile && rejections.isEmpty) else { return false }
+        if leavingProfile {
+            adoptProfileDestination()
+        }
         let applied = await applySourceItems(list)
         if applied {
             if leavingProfile {
@@ -139,18 +149,69 @@ final class SetupCoordinator {
     }
 
     func removeSourceItem(_ url: URL) async {
-        let before = currentSourceItemList()
-        var list = before
-        list.remove(url)
-        guard list != before else { return }
-        let leavingProfile = setupStore.usingProfile
-        if await applySourceItems(list), leavingProfile {
-            setupStore.clearProfileSelection()
-            preferencesStore.lastSelectedProfileName = ""
+        await serializedListEdit {
+            let before = self.currentSourceItemList()
+            var list = before
+            list.remove(url)
+            guard list != before else { return }
+            let leavingProfile = self.setupStore.usingProfile
+            if leavingProfile {
+                self.adoptProfileDestination()
+            }
+            if await self.applySourceItems(list), leavingProfile {
+                self.setupStore.clearProfileSelection()
+                self.preferencesStore.lastSelectedProfileName = ""
+            }
+        }
+    }
+
+    /// Runs one folder-list edit after the previous one has finished. Without
+    /// this, two edits started together (two quick remove clicks) both read the
+    /// list from before either applied, and the later write brings back a
+    /// folder the user removed.
+    private func serializedListEdit<T: Sendable>(_ edit: @escaping @MainActor () async -> T) async -> T {
+        let previous = listEditTail
+        let task = Task { @MainActor in
+            await previous?.value
+            return await edit()
+        }
+        listEditTail = Task { @MainActor in _ = await task.value }
+        return await task.value
+    }
+
+    /// Editing the list while a profile is active leaves profile mode. The
+    /// destination Setup shows becomes the manual destination, so a run, which
+    /// no longer reads the profile's keys, and a relaunch both reach the folder
+    /// still shown. A manual bookmark that already describes it (a destination
+    /// chosen while the profile was active) is kept; otherwise the profile's
+    /// bookmark is copied when it describes it. Runs before the list is
+    /// applied: applying re-retains scope from the manual bookmarks and drops
+    /// the profile's.
+    private func adoptProfileDestination() {
+        let name = setupStore.selectedProfileName
+        let path = setupStore.destinationPath
+        guard setupStore.usingProfile, !name.isEmpty, !path.isEmpty else { return }
+        preferencesStore.lastManualDestinationPath = path
+        let manualKey = bookmarkPathResolver.bookmarkKey(for: .destination, profileName: nil)
+        let profileKey = bookmarkPathResolver.bookmarkKey(for: .destination, profileName: name)
+        if preferencesStore.bookmark(for: manualKey)?.path == path {
+            return
+        }
+        if let bookmark = preferencesStore.bookmark(for: profileKey), bookmark.path == path {
+            preferencesStore.storeBookmark(FolderBookmark(key: manualKey, path: bookmark.path, data: bookmark.data))
+        } else {
+            // No bookmark describes the shown folder (a profile with paths
+            // only): an older manual bookmark would restore a different
+            // folder at launch than the one shown.
+            preferencesStore.removeBookmark(for: manualKey)
         }
     }
 
     func selectSourceFolder(_ url: URL) async {
+        await serializedListEdit { await self.selectSourceFolderNow(url) }
+    }
+
+    private func selectSourceFolderNow(_ url: URL) async {
         // Hold security-scoped access across the off-main validation and
         // bookmark creation below, then release on return. (Open-panel URLs are
         // already granted via Powerbox, so this is a harmless no-op for them.)
@@ -176,6 +237,13 @@ final class SetupCoordinator {
         if !setupStore.usingProfile {
             preferencesStore.lastSelectedProfileName = ""
         }
+    }
+
+    /// Drops the saved list's unreachable entries after the list was replaced
+    /// outside this coordinator (a folder chosen from History), as an explicit
+    /// replacement here does.
+    func forgetUnreachableSavedItems() {
+        unreachableSavedItems = []
     }
 
     /// The folder list as the user sees it. With a profile active the list is
@@ -315,26 +383,30 @@ final class SetupCoordinator {
 
         Task { @MainActor [weak self] in
             guard let self else { return }
-            // Bail unless the manual view is still current: a selected
-            // profile owns the source (D-CLP-21), and a different list
-            // applied since must not be overwritten.
-            guard !setupStore.usingProfile else { return }
-            var accessed: [URL] = []
-            defer { for url in accessed { url.stopAccessingSecurityScopedResource() } }
-            var list = SourceItemList()
-            for url in reachable {
-                if url.startAccessingSecurityScopedResource() { accessed.append(url) }
-                try? list.add(url, destinationPath: setupStore.destinationPath)
-            }
-            if !setupStore.sourceItems.isEmpty,
-               setupStore.sourceItems != list.items || setupStore.usingDroppedSource {
-                // A stale list must not outlive the folder a run will use;
-                // a newer staged list (or a profile) is left as it is.
-                clearStaleSourceItems()
-                return
-            }
-            await self.applySourceItems(list, persist: false)
+            await self.serializedListEdit { await self.applyRestoredSourceItems(reachable) }
         }
+    }
+
+    private func applyRestoredSourceItems(_ reachable: [URL]) async {
+        // Bail unless the manual view is still current: a selected
+        // profile owns the source (D-CLP-21), and a different list
+        // applied since must not be overwritten.
+        guard !setupStore.usingProfile else { return }
+        var accessed: [URL] = []
+        defer { for url in accessed { url.stopAccessingSecurityScopedResource() } }
+        var list = SourceItemList()
+        for url in reachable {
+            if url.startAccessingSecurityScopedResource() { accessed.append(url) }
+            try? list.add(url, destinationPath: setupStore.destinationPath)
+        }
+        if !setupStore.sourceItems.isEmpty,
+           setupStore.sourceItems != list.items || setupStore.usingDroppedSource {
+            // A stale list must not outlive the folder a run will use;
+            // a newer staged list (or a profile) is left as it is.
+            clearStaleSourceItems()
+            return
+        }
+        await applySourceItems(list, persist: false)
     }
 
     private struct SavedSourceItem {

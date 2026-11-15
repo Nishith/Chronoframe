@@ -76,7 +76,7 @@ final class BookmarkPathResolver {
         }
     }
 
-    private func sourceItemKeysInIndexOrder() -> [String] {
+    func sourceItemKeysInIndexOrder() -> [String] {
         preferencesStore.bookmarkKeys(withPrefix: Self.sourceItemKeyPrefix)
             .compactMap { key -> (index: Int, key: String)? in
                 guard let index = Int(key.dropFirst(Self.sourceItemKeyPrefix.count)) else { return nil }

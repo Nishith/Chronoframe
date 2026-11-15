@@ -536,6 +536,34 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testRunSecurityScopeIncludesFolderListBookmarks() async {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.engine.startMode = .pending
+        for (key, path) in [
+            ("manual.source", "/Volumes/A"),
+            ("manual.destination", "/Volumes/Organize"),
+            ("manual.sourceItem.0", "/Volumes/A"),
+            ("manual.sourceItem.1", "/Volumes/B"),
+        ] {
+            harness.preferencesStore.storeBookmark(FolderBookmark(key: key, path: path, data: Data([1])))
+        }
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+        harness.folderAccessService.scopedAccessRequests.removeAll()
+
+        await appState.startPreview()
+
+        let requests = harness.folderAccessService.scopedAccessRequests
+        XCTAssertTrue(
+            requests.contains { $0.contains("manual.sourceItem.0") && $0.contains("manual.sourceItem.1") },
+            "The run's security scope must cover every folder in the list; got \(requests)"
+        )
+
+        appState.cancelRun()
+    }
+
+    @MainActor
     func testDeduplicateScanRejectedWhileOrganizeRunning() async {
         let harness = AppStateHarness()
         harness.setupStore.sourcePath = "/tmp/source"

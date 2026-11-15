@@ -167,6 +167,9 @@ final class AppState: ObservableObject {
         },
         makeSecurityScopeForDestination: { [weak self] destinationRoot in
             self?.destinationSecurityScope(destinationRoot: destinationRoot)
+        },
+        didReplaceSourceList: { [weak self] in
+            self?.setupCoordinator.forgetUnreachableSavedItems()
         }
     )
 
@@ -1065,6 +1068,7 @@ final class AppState: ObservableObject {
         if setupStore.usingProfile, !setupStore.selectedProfileName.isEmpty {
             keys.append(bookmarkPathResolver.bookmarkKey(for: .source, profileName: setupStore.selectedProfileName))
         }
+        keys.append(contentsOf: bookmarkPathResolver.sourceItemKeysInIndexOrder())
         return keys
     }
 
