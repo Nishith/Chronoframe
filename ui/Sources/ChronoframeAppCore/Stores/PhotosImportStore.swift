@@ -412,6 +412,14 @@ public final class PhotosImportStore: ObservableObject {
             isWaitingForCloud: false
         )
         guard saveProgress(checkpoint, in: stagingDirectory) else {
+            if !initial.completed.isEmpty {
+                // A resume that could not save: what the earlier run prepared and its
+                // checkpoint are still on disk, so leave them and keep the resume offer.
+                finishExport()
+                refreshResumableImport(destination: destination)
+                statusMessage = "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(initial.completed.count)) of \(Self.formatted(initial.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+                return nil
+            }
             // Nothing was exported yet, so there is nothing to keep or resume.
             finishExport()
             removeEmptyImportDirectory(stagingDirectory)

@@ -864,6 +864,32 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(store.resumable).stagingDirectoryURL.lastPathComponent, "old")
     }
 
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testResumeThatCannotSaveItsFirstCheckpointKeepsWhatWasPrepared() async throws {
+        // The staging drive is still full when Resume is pressed: the very first save fails.
+        let staging = makeTempParent()
+        let old = try seedCheckpoint(parent: staging, name: "old", state: .stopped, assetIDs: ["a", "b"], planAssetIDs: ["a", "b", "c"], updatedAt: fixedDate(10))
+        let before = try XCTUnwrap(fileStore.load(in: old))
+        let exporter = ScriptedExporter()
+        let store = makeStore(
+            ids: ["a", "b", "c"], exporter: exporter, staging: staging,
+            checkpointStore: ScriptedCheckpointStore(failFromSave: 1)
+        )
+        store.refreshResumableImport(destination: destinationA)
+        XCTAssertNotNil(store.resumable)
+
+        let context = await store.resumeImport(destination: destinationA)
+
+        XCTAssertNil(context)
+        XCTAssertTrue(exporter.writes.isEmpty)
+        XCTAssertTrue(exists(old.path), "A resume that never got going must not delete what was already prepared")
+        let after = try XCTUnwrap(fileStore.load(in: old))
+        XCTAssertEqual(after.completed.map(\.assetID), before.completed.map(\.assetID))
+        XCTAssertEqual(try XCTUnwrap(store.resumable).readyCount, 2, "The import is still offered for resume")
+        XCTAssertTrue(try XCTUnwrap(store.statusMessage).hasPrefix("Chronoframe stopped the import because it couldn't save its progress."))
+    }
+
     @MainActor
     func testSupersededImportIsRemovedOnceTheNewImportSavedItsFirstCheckpoint() async throws {
         let staging = makeTempParent()
