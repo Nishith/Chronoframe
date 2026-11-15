@@ -70,6 +70,7 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
                 SchemaColumn(name: "capture_date", type: "REAL", primaryKeyPosition: 0),
                 SchemaColumn(name: "event_name", type: "TEXT", primaryKeyPosition: 0),
                 SchemaColumn(name: "updated_at", type: "REAL", primaryKeyPosition: 0),
+                SchemaColumn(name: "date_conflict_accepted", type: "INTEGER", primaryKeyPosition: 0),
             ]
         )
         XCTAssertEqual(
@@ -190,6 +191,60 @@ final class ChronoframeCoreDatabaseTests: XCTestCase {
         )
 
         XCTAssertNil(try database.loadReviewOverride(identity: identity, sourcePath: "/src/IMG_0001.jpg"))
+    }
+
+    func testReviewOverrideKeepsAnAcceptedDateConflictOnItsOwn() throws {
+        let database = try OrganizerDatabase(url: temporaryDirectoryURL.appendingPathComponent(".organize_cache.db"))
+        defer { database.close() }
+        let identity = FileIdentity(size: 12, digest: "review-keep")
+
+        // No date and no event: the accepted conflict alone must keep the row.
+        try database.saveReviewOverride(
+            ReviewOverride(identity: identity, sourcePath: "/src/IMG_0002.jpg", dateConflictAccepted: true)
+        )
+
+        let loaded = try XCTUnwrap(database.loadReviewOverride(identity: identity, sourcePath: "/src/IMG_0002.jpg"))
+        XCTAssertTrue(loaded.dateConflictAccepted)
+        XCTAssertNil(loaded.captureDate)
+        XCTAssertNil(loaded.eventName)
+        XCTAssertEqual(try database.loadReviewOverrides().map(\.dateConflictAccepted), [true])
+
+        try database.saveReviewOverride(
+            ReviewOverride(identity: identity, sourcePath: "/src/IMG_0002.jpg", eventName: "Trip")
+        )
+        XCTAssertEqual(
+            try database.loadReviewOverride(identity: identity, sourcePath: "/src/IMG_0002.jpg")?.dateConflictAccepted,
+            false
+        )
+    }
+
+    func testReviewOverridesSavedBeforeTheAcceptedConflictColumnStillLoad() throws {
+        let dbURL = temporaryDirectoryURL.appendingPathComponent(".organize_cache.db")
+        var rawDatabase: OpaquePointer?
+        XCTAssertEqual(
+            sqlite3_open_v2(dbURL.path, &rawDatabase, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE, nil),
+            SQLITE_OK
+        )
+        let identity = FileIdentity(size: 12, digest: "review-old")
+        let legacySQL = """
+            CREATE TABLE ReviewOverrides (
+                identity TEXT, source_path TEXT, capture_date REAL, event_name TEXT, updated_at REAL,
+                PRIMARY KEY (identity, source_path)
+            );
+            INSERT INTO ReviewOverrides VALUES ('\(identity.rawValue)', '/src/old.jpg', NULL, 'Old Trip', 1.0);
+            CREATE TABLE Meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+            INSERT INTO Meta VALUES ('schema_version', '3');
+        """
+        XCTAssertEqual(sqlite3_exec(rawDatabase, legacySQL, nil, nil, nil), SQLITE_OK)
+        sqlite3_close(rawDatabase)
+
+        let database = try OrganizerDatabase(url: dbURL)
+        defer { database.close() }
+
+        XCTAssertEqual(try database.schemaVersion(), OrganizerDatabase.currentSchemaVersion)
+        let loaded = try XCTUnwrap(database.loadReviewOverride(identity: identity, sourcePath: "/src/old.jpg"))
+        XCTAssertEqual(loaded.eventName, "Old Trip")
+        XCTAssertFalse(loaded.dateConflictAccepted)
     }
 
     func testRawQueueAndCacheRowsRoundTripWithoutParsingIdentity() throws {

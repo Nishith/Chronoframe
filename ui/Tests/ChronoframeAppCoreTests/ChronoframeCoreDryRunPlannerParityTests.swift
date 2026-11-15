@@ -213,6 +213,49 @@ final class ChronoframeCoreDryRunPlannerParityTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(result.copyJobs.first?.destinationPath).contains("/2001/07/14/"))
     }
 
+    func testPlannerClearsAnAcceptedConflictWithoutChangingDateSourceOrDestination() throws {
+        let sourceRoot = temporaryDirectoryURL.appendingPathComponent("kept-source", isDirectory: true)
+        let destinationRoot = temporaryDirectoryURL.appendingPathComponent("kept-dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationRoot, withIntermediateDirectories: true)
+        let sourceFile = sourceRoot.appendingPathComponent("IMG_20190714_120000.jpg")
+        try writeMediaFile(at: sourceFile, contents: "metadata-kept")
+        let metadataDate = makeDate("2001-07-14")
+        let scanDate = makeDate("2024-01-01")
+        let planner = DryRunPlanner(
+            dateResolver: FileDateResolver(
+                metadataReader: PlannerConflictMetadataReader(date: metadataDate),
+                scanDateProvider: { scanDate }
+            )
+        )
+        let flagged = try XCTUnwrap(
+            planner.plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot).previewReviewItems.first
+        )
+        XCTAssertTrue(flagged.issues.contains(.conflictingDates))
+
+        let database = try OrganizerDatabase(url: destinationRoot.appendingPathComponent(".organize_cache.db"))
+        try database.saveReviewOverride(
+            ReviewOverride(
+                identity: try XCTUnwrap(FileIdentity(rawValue: try XCTUnwrap(flagged.identityRawValue))),
+                sourcePath: flagged.sourcePath,
+                dateConflictAccepted: true
+            )
+        )
+        database.close()
+
+        let result = try planner.plan(sourceRoot: sourceRoot, destinationRoot: destinationRoot)
+
+        let item = try XCTUnwrap(result.previewReviewItems.first)
+        XCTAssertEqual(item.issues, [])
+        XCTAssertFalse(item.needsAttention)
+        XCTAssertNil(item.alternativeDate)
+        XCTAssertEqual(item.dateConflictAccepted, true)
+        XCTAssertEqual(item.resolvedDate, metadataDate)
+        XCTAssertEqual(item.dateSource, .photoMetadata)
+        XCTAssertEqual(item.dateConfidence, flagged.dateConfidence)
+        XCTAssertTrue(try XCTUnwrap(result.copyJobs.first?.destinationPath).contains("/2001/07/14/"))
+    }
+
     func testPlannerCarriesMetadataOffsetIntoReviewItem() throws {
         let sourceRoot = temporaryDirectoryURL.appendingPathComponent("offset-source", isDirectory: true)
         let destinationRoot = temporaryDirectoryURL.appendingPathComponent("offset-dest", isDirectory: true)

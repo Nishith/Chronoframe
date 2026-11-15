@@ -52,6 +52,46 @@ final class ChronoframeCorePreviewReviewModelsTests: XCTestCase {
         XCTAssertEqual(overridden.confidence, .high)
     }
 
+    func testAcceptedDateConflictClearsOnlyTheReviewWarning() throws {
+        let identity = FileIdentity(size: 12, digest: "abc")
+        let conflicted = ResolvedMediaDate(
+            date: Date(timeIntervalSince1970: 10),
+            source: .photoMetadata,
+            confidence: .high,
+            bucketTimeZoneOffsetSeconds: 19_800,
+            dateReviewIssue: .conflictingDates,
+            alternativeDate: DateReviewAlternative(date: Date(timeIntervalSince1970: 20), source: .filename)
+        )
+
+        let kept = conflicted.applying(
+            ReviewOverride(identity: identity, sourcePath: "/source/a.jpg", dateConflictAccepted: true)
+        )
+
+        XCTAssertEqual(
+            kept,
+            ResolvedMediaDate(
+                date: conflicted.date,
+                source: .photoMetadata,
+                confidence: .high,
+                bucketTimeZoneOffsetSeconds: 19_800
+            )
+        )
+
+        // Overrides and rows written before the field existed still decode.
+        let current = ReviewOverride(identity: identity, sourcePath: "/source/a.jpg", eventName: "Beach")
+        var legacyFields = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(current)) as? [String: Any]
+        )
+        legacyFields.removeValue(forKey: "dateConflictAccepted")
+        let legacyOverride = try JSONDecoder().decode(
+            ReviewOverride.self,
+            from: JSONSerialization.data(withJSONObject: legacyFields)
+        )
+        XCTAssertEqual(legacyOverride, current)
+        let legacyRow = #"{"sourcePath":"/source/a.jpg","dateSource":"photoMetadata","dateConfidence":"high","status":"ready","issues":[]}"#
+        XCTAssertNil(try JSONDecoder().decode(PreviewReviewItem.self, from: Data(legacyRow.utf8)).dateConflictAccepted)
+    }
+
     func testPreviewReviewSummaryCountsEveryStatusAndIssue() {
         let items = [
             item("/ready.jpg", status: .ready, issues: []),
