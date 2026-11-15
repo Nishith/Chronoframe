@@ -11,21 +11,21 @@ final class OrganizerEnginePrepareNetworkGateTests: XCTestCase {
     private var temporaryDirectoryURL: URL!
     private var sourceURL: URL!
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         temporaryDirectoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("OrganizerEnginePrepareNetworkGateTests-\(UUID().uuidString)", isDirectory: true)
         sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
     }
 
-    override func tearDownWithError() throws {
+    override func tearDown() async throws {
         if let temporaryDirectoryURL {
             try? FileManager.default.removeItem(at: temporaryDirectoryURL)
         }
         temporaryDirectoryURL = nil
         sourceURL = nil
-        try super.tearDownWithError()
+        try await super.tearDown()
     }
 
     private static let remoteClassifier = NASVolumeClassifier { _ in
