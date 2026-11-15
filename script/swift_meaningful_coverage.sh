@@ -136,8 +136,10 @@ MEANINGFUL_BASENAMES=(
     NASDeduplicateFolderRefusal
     DeduplicateReviewSnapshot
     DeduplicateReviewRestorer
+    PhotosImportCheckpoint
     NASCopyDestinationQualifier
     NASCopyDestinationRefusal
+    SourceItemList
 )
 
 missing_basenames=()

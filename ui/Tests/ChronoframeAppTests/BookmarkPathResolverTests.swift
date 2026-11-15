@@ -117,4 +117,149 @@ final class BookmarkPathResolverTests: XCTestCase {
             [["profile.Trip.source"]]
         )
     }
+
+    // MARK: - Folder list bookmarks (CLP WP-04)
+
+    @MainActor
+    func testPersistSourceItemBookmarksRemovesStaleKeys() async {
+        let harness = AppStateHarness()
+        let resolver = BookmarkPathResolver(
+            preferencesStore: harness.preferencesStore,
+            folderAccessService: harness.folderAccessService
+        )
+        let urls = ["/Volumes/A", "/Volumes/B", "/Volumes/C"].map { URL(fileURLWithPath: $0) }
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.source", path: "/Volumes/Single", data: Data([0x01]))
+        )
+
+        await resolver.persistSourceItemBookmarks(for: urls)
+
+        XCTAssertEqual(resolver.sourceItemBookmarkKey(index: 2), "manual.sourceItem.2")
+        XCTAssertEqual(
+            harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.").sorted(),
+            ["manual.sourceItem.0", "manual.sourceItem.1", "manual.sourceItem.2"]
+        )
+        XCTAssertEqual(harness.preferencesStore.bookmark(for: "manual.sourceItem.1")?.path, "/Volumes/B")
+
+        await resolver.persistSourceItemBookmarks(for: [urls[2]])
+
+        XCTAssertEqual(
+            harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem."),
+            ["manual.sourceItem.0"],
+            "Keys beyond the new list must be removed"
+        )
+        XCTAssertEqual(harness.preferencesStore.bookmark(for: "manual.sourceItem.0")?.path, "/Volumes/C")
+        XCTAssertEqual(
+            harness.preferencesStore.bookmark(for: "manual.source")?.path,
+            "/Volumes/Single",
+            "The single-folder bookmark is not a folder-list key"
+        )
+
+        await resolver.persistSourceItemBookmarks(for: [])
+        XCTAssertTrue(harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.").isEmpty)
+    }
+
+    @MainActor
+    func testPersistSourceItemBookmarksClearsAKeyWhoseBookmarkCannotBeMade() async {
+        let harness = AppStateHarness()
+        let resolver = BookmarkPathResolver(
+            preferencesStore: harness.preferencesStore,
+            folderAccessService: harness.folderAccessService
+        )
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.sourceItem.1", path: "/Volumes/Old", data: Data([0x09]))
+        )
+        harness.folderAccessService.bookmarkCreationFailures["manual.sourceItem.1"] = AppTestFailure.expectedFailure("no")
+
+        await resolver.persistSourceItemBookmarks(
+            for: [URL(fileURLWithPath: "/Volumes/A"), URL(fileURLWithPath: "/Volumes/B")]
+        )
+
+        XCTAssertEqual(harness.preferencesStore.bookmark(for: "manual.sourceItem.0")?.path, "/Volumes/A")
+        XCTAssertNil(
+            harness.preferencesStore.bookmark(for: "manual.sourceItem.1"),
+            "A stale bookmark must not survive under an index it no longer describes"
+        )
+    }
+
+    @MainActor
+    func testResolveSourceItemURLsKeepsIndexOrder() {
+        let harness = AppStateHarness()
+        let resolver = BookmarkPathResolver(
+            preferencesStore: harness.preferencesStore,
+            folderAccessService: harness.folderAccessService
+        )
+        // Stored out of order, with indexes that sort differently as numbers
+        // and as text (2 comes before 10).
+        for index in [10, 2, 0, 11, 1, 3] {
+            harness.preferencesStore.storeBookmark(
+                FolderBookmark(
+                    key: "manual.sourceItem.\(index)",
+                    path: "/Volumes/Item\(index)",
+                    data: Data([UInt8(index)])
+                )
+            )
+        }
+        harness.folderAccessService.bookmarkResolutionFailures.insert("manual.sourceItem.3")
+
+        let urls = resolver.resolveSourceItemURLs()
+
+        XCTAssertEqual(
+            urls.map(\.path),
+            ["/Volumes/Item0", "/Volumes/Item1", "/Volumes/Item2", "/Volumes/Item10", "/Volumes/Item11"]
+        )
+        XCTAssertNil(
+            harness.preferencesStore.bookmark(for: "manual.sourceItem.3"),
+            "An item that no longer resolves has its key removed"
+        )
+    }
+
+    @MainActor
+    func testRetainScopedAccessIncludesSourceItems() async {
+        let harness = AppStateHarness()
+        let resolver = BookmarkPathResolver(
+            preferencesStore: harness.preferencesStore,
+            folderAccessService: harness.folderAccessService
+        )
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.source", path: "/Volumes/Card", data: Data([0x01]))
+        )
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "manual.destination", path: "/Volumes/Archive", data: Data([0x02]))
+        )
+        for index in [1, 0] {
+            harness.preferencesStore.storeBookmark(
+                FolderBookmark(key: "manual.sourceItem.\(index)", path: "/Volumes/Item\(index)", data: Data([0x10]))
+            )
+        }
+
+        resolver.restoreManualPaths(into: harness.setupStore)
+
+        XCTAssertEqual(
+            harness.folderAccessService.scopedAccessRequests,
+            [["manual.source", "manual.destination", "manual.sourceItem.0", "manual.sourceItem.1"]]
+        )
+
+        // A profile restore does not hold the folder list's scope.
+        harness.folderAccessService.scopedAccessRequests = []
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "profile.Trip.source", path: "/Volumes/Card", data: Data([0x03]))
+        )
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(key: "profile.Trip.destination", path: "/Volumes/Archive", data: Data([0x04]))
+        )
+        resolver.restoreProfilePaths(named: "Trip", into: harness.setupStore)
+        XCTAssertEqual(
+            harness.folderAccessService.scopedAccessRequests,
+            [["profile.Trip.source", "profile.Trip.destination"]]
+        )
+
+        // Saving the list holds scope for the new items too.
+        harness.folderAccessService.scopedAccessRequests = []
+        await resolver.persistSourceItemBookmarks(for: [URL(fileURLWithPath: "/Volumes/New")])
+        XCTAssertEqual(
+            harness.folderAccessService.scopedAccessRequests.last,
+            ["manual.source", "manual.destination", "manual.sourceItem.0"]
+        )
+    }
 }

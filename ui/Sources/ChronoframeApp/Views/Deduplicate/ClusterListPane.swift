@@ -187,7 +187,7 @@ struct ClusterListPane: View {
                     AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
                 }
             }
-            .accessibilityRotor(LocalizedStringKey("Perceptual Matches")) {
+            .accessibilityRotor(LocalizedStringKey("Look-alikes")) {
                 ForEach(filteredClusters.filter { $0.kind != .exactDuplicate }) { cluster in
                     AccessibilityRotorEntry(DeduplicateAccessibilityText.clusterRowLabel(cluster: cluster), id: cluster.id)
                 }

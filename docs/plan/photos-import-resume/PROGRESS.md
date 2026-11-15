@@ -3,21 +3,32 @@
 Prefix `PIR`. Status values: todo, in-progress, review, done, blocked. "done" requires the Done-when commands with exit 0 recorded in Notes.
 
 ## Baseline
-(WP-00 records `cf_swift.sh build` and `cf_swift.sh suite` exit codes and the branch's base commit here.)
+- 2026-11-12 branch `feature/photos-import-resume` from `feature/dedupe-persistence` @ 97fc546 (D-PIR-01 revised).
+- `docs/plan/next-half/bin/cf_swift.sh build` → exit 0
+- `docs/plan/next-half/bin/cf_swift.sh suite` → exit 0
 
 ## Work packages
 | WP | Title | Status | Compiled | Tested | Reviewer | Commit | Notes |
 |---|---|---|---|---|---|---|---|
-| WP-00 | Branch and baseline | todo | | | n/a | | |
-| WP-01 | Checkpoint model and store | todo | | | | | |
-| WP-02 | Executor events, reserved names, free-space floor | todo | | | | | safety-critical: orchestrator diff review required |
-| WP-03 | Service forwards PhotoKit progress | todo | | | | | safety-critical; no unit test (PhotoKit) |
-| WP-04 | Store: checkpoint, cancel, resume, purge policy | todo | | | | | |
-| G1 | Coverage scope, suite, invariants | todo | | | n/a | | |
-| WP-05 | Photos UI | todo | | | | | |
-| WP-06 | App wiring | todo | | | | | |
-| WP-07 | Documentation | todo | | | | | |
-| G2 | Final gate | todo | | | n/a | | verified: claim only with screenshot path |
+| WP-00 | Branch and baseline | done | 0 | suite 0 | n/a | | |
+| WP-01 | Checkpoint model and store | done | 0 | 9+12 pass | approve (round 1) | | D-PIR-101 |
+| WP-02 | Executor events, reserved names, free-space floor | done | 0 | 20 pass | approve (round 1) + orchestrator diff read | | safety-critical; D-PIR-102…104 |
+| WP-03 | Service forwards PhotoKit progress | done | 0 | not tested (PhotoKit) | orchestrator diff read (no subagent review) | | safety-critical; H-PIR-1 covers it |
+| WP-04 | Store: checkpoint, cancel, resume, purge policy | done | 0 | 17+13 pass | approve (round 1) + orchestrator fixes D-PIR-105/106 | | D-PIR-105…114 |
+| G1 | Coverage scope, suite, invariants | done | 0 | suite 0, coverage 96.06% | n/a | | |
+| WP-05 | Photos UI | done | 0 | 4+3+2 pass | approve (round 1), nits applied D-PIR-115 | | D-PIR-115…116 |
+| WP-06 | App wiring | done | 0 | 38+12 pass | approve (round 1) | | D-PIR-117…119 |
+| WP-07 | Documentation | done | n/a | n/a (docs) | changes required (round 1) → reviewer's replacement text applied; not re-reviewed | | |
+| G2 | Final gate | done (app smoke not run, B-1) | xcode 0 | suite 0, coverage 96.02% | n/a | | verified: no |
 
 ## Log
-(one line per step: date, WP, command, exit code, or decision/blocker reference)
+- 2026-11-12 WP-00: build 0, suite 0.
+- 2026-11-12 WP-01: implementer stopped on a plan gap (`MediaKind` not `Codable`) → D-PIR-101, same implementer continued. Compiled + tested (failing-first: `cannot find type 'PhotosImportCheckpoint' in scope`). Reviewer approve round 1 (nits: hint-merge collision policy unstated; cosmetic doc comment). Done-when: `cf_swift.sh test PhotosImportCheckpointTests` 0 (9); `… PhotosExportExecutorTests` 0 (12); `cf_swift.sh build` 0; `git diff --check` 0.
+- 2026-11-12 WP-02: implementer compiled + tested (failing-first: `cannot find type 'PhotosExportEvent' in scope`; `extra argument 'onEvent' in call`). Reviewer approve round 1 (nits: no test for the no-original-resource `.assetFailed` emit; pre-existing filename collision classes, D-PIR-104). Orchestrator read of the full `PhotosExportExecutor.swift` diff: every hunk traces to C-02 rules 1–6, C-03 or D-PIR-11/102; `PhotosExportStop` is thrown outside the do/catch so no rollback runs; `CancellationError` branch and `rollBack` untouched; receipt construction untouched. Done-when: `cf_swift.sh test PhotosExportExecutorTests` 0 (20); `script/check_photos_import_readonly.sh` 0; `cf_swift.sh build` 0; `git diff --check` 0.
+- 2026-11-12 WP-03: implementer compiled; no unit test possible. Orchestrator read the whole diff (+9/−0): one forwarding two-argument method, the original body under the three-argument signature, one `options.progressHandler` line after `isNetworkAccessAllowed`; matches C-03 verbatim, so the reviewer subagent was not spent on it. Done-when: `cf_swift.sh build` 0; `script/check_photos_import_readonly.sh` 0; `git diff --stat` only this file; `git diff --check` 0.
+- 2026-11-12 WP-04: implementer compiled + tested (failing-first: `cannot find type 'PhotosPreparationProgress' in scope`; `no member 'cancelPreparation'`). Orchestrator read of `PhotosImportStore.swift` found crash leftovers could survive a resume and reach the transfer pipeline → D-PIR-105 fix by the same implementer (failing-first: staging held `.x.photoexport.tmp` and `b.heic` after resume). Reviewer approve round 1 (nits: stale destination match at resume; `try?` checkpoint saves can overstate "kept"; late progress event cosmetic; nil label after relaunch). Stale-match nit closed as D-PIR-106 (failing-first: `XCTAssertNil failed: "PhotosImportContext(importID: …"`); that follow-up was verified by the orchestrator's test run, not re-reviewed by the subagent. Done-when: `cf_swift.sh test PhotosImportResumeTests` 0 (17); `… PhotosImportStoreTests` 0 (13); `cf_swift.sh build` 0; `script/check_no_await_in_xctassert.sh` 0; `git diff --check` 0.
+- 2026-11-12 G1: `PhotosImportCheckpoint` added to MEANINGFUL_BASENAMES. `cf_swift.sh suite` 0; `cf_swift.sh coverage` 0 (meaningful 96.06%, 19857/20672; checkpoint 98.9% 88/89); `script/check_agents_invariants_have_tests.sh` 0 (29 invariants tagged); `script/check_photos_import_readonly.sh` 0; `git diff --check` 0.
+- 2026-11-12 WP-05: implementer compiled + tested (failing-first: `type 'AccessibilityIdentifiers' has no member 'photosImportStopButton'`; `cannot find 'PhotosPreparationPanel' in scope`). Reviewer approve round 1 (nits: fixed constants rendered verbatim would never localize; ProgressView had no accessibility label; resume card hidden if Photos access is revoked; hosting-free tests do not click; narrow-width layout guard is a UI test). First two applied by the same implementer (D-PIR-115). Done-when: `cf_swift.sh test PhotosPreparationTextTests` 0 (4); `… PhotosPreparationPanelTests` 0 (3); `… PhotosImportViewTests` 0 (2); `script/check_no_raw_animations.sh` 0; `script/check_detail_views_set_navigation_title.sh` 0; `cf_swift.sh build` 0; `git diff --check` 0.
+- 2026-11-12 WP-06: implementer compiled + tested (failing-first: `value of type 'AppState' has no member 'currentDestinationCapture'`; `no member 'resumeInterruptedPhotosImport'`). Orchestrator read of the `AppState.swift` diff: five hunks, all C-07. Orchestrator follow-up D-PIR-117 (bootstrapping tests reached the real Application Support staging folder; harness now injects an isolated store). Reviewer approve round 1 (nits: empty-string env override would stage in the cwd — fixed by the orchestrator, D-PIR-119; weak default-path assertion). Done-when: `cf_swift.sh test AppStateTests` 0 (38); `… RunCoordinatorTests` 0 (12); `cf_swift.sh build` 0; `script/check_no_await_in_xctassert.sh` 0; `git diff --check` 0.
+- 2026-11-12 WP-07: docs written in parallel with G1 (no build). Reviewer round 1 "changes required": one blocking omission in three places (a prepared-but-not-copied import is not resumable and its staging is removed at the next launch, D-PIR-109) plus nits (failed-item wording, unquoted heading, "available space"). The same implementer applied the reviewer's replacement sentences after checking each against the code; the orchestrator accepted that without a second review round. The checkpoint is described in TECHNICAL.md prose, not the destination-artifact table (it is not in the destination). `git diff --check` 0.
+- 2026-11-12 G2: AGENTS.md staging sentence replaced (D-PIR-120). String keys added in each catalog's existing style: 8 in `Localizable.xcstrings`, 2 in `LocalizableCore.xcstrings`, diff +110/−0. First run: `cf_swift.sh build` 0; `cf_swift.sh suite` 0; `cf_swift.sh coverage` 0 (meaningful 96.02%, 19849/20672); `cf_swift.sh guards feature/dedupe-persistence` 1 — `check_detail_views_set_navigation_title` failed because WP-06 wrote the `PhotosImportView(` call across lines and the guard parses `TypeName(appState:` on one line. Orchestrator put `appState:` back on the call's first line (no behavior change). Re-run: that guard 0; `cf_swift.sh build` 0; `cf_swift.sh guards feature/dedupe-persistence` 0 (14/14); `cf_swift.sh xcode` 0 (BUILD SUCCEEDED); `ui/build.sh` 0; `cf_swift.sh suite` 0 (second full run after the reformat); `git diff --check` 0. App smoke (step 3) not completed: the Debug build launched against a seeded `.stopped` checkpoint, but the screen-access prompt for Chronoframe was declined, so there is no screenshot and nothing is verified in the running app (B-1, ledger row H-PIR-6). Fixture left at `.tmp/pir-smoke/` (gitignored).

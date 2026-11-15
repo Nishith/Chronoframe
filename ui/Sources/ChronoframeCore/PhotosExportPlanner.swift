@@ -5,7 +5,7 @@ import Foundation
 /// resources will share. A Live Photo's still and paired movie both use this
 /// stem so they land in staging as `IMG_0001.HEIC` + `IMG_0001.MOV` and pair
 /// by basename in the existing transfer pipeline for free.
-public struct PhotosAssetExportEntry: Equatable, Sendable {
+public struct PhotosAssetExportEntry: Equatable, Codable, Sendable {
     public let assetID: String
     public let mediaKind: PhotosAssetSummary.MediaKind
     /// Sanitized, dot-safe, collision-free basename (no extension). The
@@ -25,7 +25,7 @@ public struct PhotosAssetExportEntry: Equatable, Sendable {
 /// An ordered, deduplicated plan of assets to export into a staging directory.
 /// The plan carries no bytes and no PhotoKit types — it is a pure description
 /// the executor consumes.
-public struct PhotosExportPlan: Equatable, Sendable {
+public struct PhotosExportPlan: Equatable, Codable, Sendable {
     public let entries: [PhotosAssetExportEntry]
 
     public init(entries: [PhotosAssetExportEntry]) {

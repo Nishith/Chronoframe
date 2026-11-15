@@ -12,6 +12,9 @@ struct PhotosImportView: View {
     @ObservedObject private var store: PhotosImportStore
     @ObservedObject private var setupStore: SetupStore
     @StateObject private var thumbnailLoader = PhotosThumbnailLoader()
+    @State private var isConfirmingSupersede = false
+    private let onResume: () -> Void
+    private let currentDestination: () -> PhotosImportStore.DestinationCapture?
 
     private let cellSize = CGSize(width: 118, height: 118)
 
@@ -28,8 +31,14 @@ struct PhotosImportView: View {
     /// header. `script/check_detail_views_set_navigation_title.sh` guards it.
     static let navigationTitle = SidebarDestination.photos.title
 
-    init(appState: AppState) {
+    init(
+        appState: AppState,
+        onResume: @escaping () -> Void = {},
+        currentDestination: @escaping () -> PhotosImportStore.DestinationCapture? = { nil }
+    ) {
         self.appState = appState
+        self.onResume = onResume
+        self.currentDestination = currentDestination
         self._store = ObservedObject(wrappedValue: appState.photosImportStore)
         self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
     }
@@ -62,7 +71,10 @@ struct PhotosImportView: View {
             alignment: .topLeading
         )
         .navigationTitle(Self.navigationTitle)
-        .onAppear { appState.preparePhotosWorkspace() }
+        .onAppear {
+            appState.preparePhotosWorkspace()
+            store.refreshResumableImport(destination: currentDestination())
+        }
         .onDisappear { thumbnailLoader.purgeCache() }
     }
 
@@ -154,6 +166,15 @@ struct PhotosImportView: View {
 
     private var browser: some View {
         VStack(alignment: .leading, spacing: 0) {
+            if let resumable = store.resumable, store.preparation == nil {
+                PhotosResumeCard(
+                    resumable: resumable,
+                    onResume: onResume,
+                    onDiscard: { store.discardResumableImport() }
+                )
+                .padding(.horizontal, DesignTokens.Layout.contentPadding)
+                .padding(.vertical, DesignTokens.Layout.inlineSpacing)
+            }
             albumBar
             Divider()
             if store.assets.isEmpty {
@@ -282,13 +303,16 @@ struct PhotosImportView: View {
 
             Spacer()
 
-            if store.isPreparingImport {
-                ProgressView()
-                    .controlSize(.small)
+            if let progress = store.preparation {
+                PhotosPreparationPanel(progress: progress, onStop: { store.cancelPreparation() })
             }
 
             Button {
-                Task { await appState.reviewAndImportSelectedPhotos() }
+                if store.resumable != nil {
+                    isConfirmingSupersede = true
+                } else {
+                    Task { await appState.reviewAndImportSelectedPhotos() }
+                }
             } label: {
                 Text(importButtonTitleKey, bundle: .module)
             }
@@ -300,6 +324,23 @@ struct PhotosImportView: View {
         .padding(.horizontal, DesignTokens.Layout.contentPadding)
         .padding(.vertical, DesignTokens.Layout.compactPadding)
         .background(DesignTokens.ColorSystem.utilityBand)
+        .confirmationDialog(
+            Text("Start a new import?", bundle: .module),
+            isPresented: $isConfirmingSupersede,
+            titleVisibility: .visible
+        ) {
+            Button(role: .destructive) {
+                Task { await appState.reviewAndImportSelectedPhotos() }
+            } label: {
+                Text("Start New Import", bundle: .module)
+            }
+            Button(role: .cancel) {
+            } label: {
+                Text("Keep Interrupted Import", bundle: .module)
+            }
+        } message: {
+            Text(verbatim: PhotosPreparationText.supersedeMessage(readyCount: store.resumable?.readyCount ?? 0))
+        }
     }
 
     private var importButtonTitleKey: LocalizedStringKey {

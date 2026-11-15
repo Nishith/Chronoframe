@@ -96,6 +96,8 @@ private final class MockNASFolderAccess: FolderAccessServicing, @unchecked Senda
         return chosen
     }
 
+    @MainActor func chooseFolders(startingAt path: String?, prompt: String) -> [URL] { [] }
+
     func makeBookmark(for url: URL, key: String) throws -> FolderBookmark {
         FolderBookmark(key: key, path: url.path, data: Data("bm:\(url.path)".utf8))
     }
@@ -262,7 +264,13 @@ final class NASWorkspaceStoreTests: XCTestCase {
                 try? await Task.sleep(nanoseconds: 20_000_000)
             }
         }
-        try await Task.sleep(nanoseconds: 300_000_000)
+        // Wait for the ticker to run several times rather than for a fixed interval: on a
+        // loaded machine a 20 ms sleep can take far longer, which says nothing about whether
+        // the main actor was blocked.
+        let tickDeadline = Date().addingTimeInterval(1.5)
+        while !(store.state == .checkingConnection && ticks > 3), Date() < tickDeadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
         let ticksWhileChecking = ticks
         let stateWhileChecking = store.state
         XCTAssertEqual(stateWhileChecking, .checkingConnection)
