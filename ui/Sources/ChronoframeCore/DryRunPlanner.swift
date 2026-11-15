@@ -957,7 +957,8 @@ public struct DryRunPlanner: Sendable {
                 let completed = index + 1
                 if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            total: total, copiedCount: nil,
+                                            bytesCopied: nil, bytesTotal: nil,
                                             currentFilePath: nil))
                 }
             }
@@ -987,7 +988,8 @@ public struct DryRunPlanner: Sendable {
                 let completed = results.store(result, at: index)
                 if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            total: total, copiedCount: nil,
+                                            bytesCopied: nil, bytesTotal: nil,
                                             currentFilePath: nil))
                 }
             }
@@ -1075,7 +1077,8 @@ public struct DryRunPlanner: Sendable {
                 let completed = index + 1
                 if completed % Self.planningProgressStride == 0 || completed == total {
                     onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                            total: total, bytesCopied: nil, bytesTotal: nil,
+                                            total: total, copiedCount: nil,
+                                            bytesCopied: nil, bytesTotal: nil,
                                             currentFilePath: nil))
                 }
             }
@@ -1114,7 +1117,8 @@ public struct DryRunPlanner: Sendable {
                     let completed = results.store(result, at: index)
                     if completed % Self.planningProgressStride == 0 || completed == total {
                         onEvent?(.phaseProgress(phase: phase, completed: completed,
-                                                total: total, bytesCopied: nil, bytesTotal: nil,
+                                                total: total, copiedCount: nil,
+                                                bytesCopied: nil, bytesTotal: nil,
                                                 currentFilePath: nil))
                     }
                 }
