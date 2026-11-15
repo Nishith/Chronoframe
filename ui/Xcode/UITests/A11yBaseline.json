@@ -348,5 +348,25 @@
     "value": "Now: Copy complete. Progress: 0%",
     "compactDescription": "Contrast failed",
     "detailedDescription": "Contrast failed for Now: Copy complete. Progress: 0%"
+  },
+  {
+    "scenario": "previewDateConflict",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "42, to copy",
+    "compactDescription": "Contrast nearly passed",
+    "detailedDescription": "Contrast is not high enough for 42, to copy unless font size is larger."
+  },
+  {
+    "scenario": "previewDateConflict",
+    "auditType": "contrast",
+    "role": "staticText",
+    "identifier": "",
+    "label": "",
+    "value": "Preview & Copy",
+    "compactDescription": "Contrast failed",
+    "detailedDescription": "Contrast failed for Preview & Copy"
   }
 ]
