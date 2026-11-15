@@ -1212,6 +1212,9 @@ private struct PausedDeduplicateReviewCard: View {
                 verticalLayout
             }
         }
+        // Without a container element, the section identifier set by the
+        // caller replaces the buttons' own identifiers on macOS 15.
+        .accessibilityElement(children: .contain)
     }
 
     private var horizontalLayout: some View {
