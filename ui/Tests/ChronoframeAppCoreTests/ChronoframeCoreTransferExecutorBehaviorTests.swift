@@ -588,7 +588,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             destinationRoot: env.destinationRoot,
             verifyCopies: false,
             runLogger: env.logger,
-            observer: TransferExecutionObserver(onPhaseProgress: { completed, total, _, _, _ in
+            observer: TransferExecutionObserver(onPhaseProgress: { completed, total, _, _, _, _ in
                 progress.append((completed, total))
             }),
             isCancelled: { true },
@@ -646,7 +646,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             verifyCopies: false,
             runLogger: env.logger,
             observer: TransferExecutionObserver(
-                onPhaseProgress: { completed, total, _, _, _ in
+                onPhaseProgress: { completed, total, _, _, _, _ in
                     progress.append((completed, total))
                 }
             ),
@@ -655,6 +655,87 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
 
         XCTAssertEqual(progress.values.map { $0.completed }, [1, 2, 3, 4])
         XCTAssertEqual(progress.values.map { $0.total }, [4, 4, 4, 4])
+    }
+
+    /// The live count the observer reports for the Copied metric must be the
+    /// number of files that actually landed — not the number of jobs attempted.
+    /// A run with failures and skips used to report attempts mid-run and only
+    /// correct itself once the final result arrived.
+    func testProgressObserverReportsSuccessfulCopiesSeparatelyFromAttempts() throws {
+        let env = try makeEnvironment(jobCount: 0)
+        var jobs: [QueuedCopyJob] = []
+
+        func appendGood(_ index: Int) throws {
+            let sourceURL = env.sourceRoot.appendingPathComponent("good_\(index).jpg")
+            try Data("good-\(index)".utf8).write(to: sourceURL)
+            let hash = try FileIdentityHasher().hashIdentity(at: sourceURL).rawValue
+            jobs.append(
+                QueuedCopyJob(
+                    sourcePath: sourceURL.path,
+                    destinationPath: env.destinationRoot.appendingPathComponent("2024/01/01/good_\(index).jpg").path,
+                    hash: hash,
+                    status: .pending
+                )
+            )
+        }
+
+        // A missing source is skipped.
+        func appendSkipped(_ index: Int) {
+            jobs.append(
+                QueuedCopyJob(
+                    sourcePath: env.sourceRoot.appendingPathComponent("missing_\(index).jpg").path,
+                    destinationPath: env.destinationRoot.appendingPathComponent("2024/01/01/missing_\(index).jpg").path,
+                    hash: "0_missing_\(index)",
+                    status: .pending
+                )
+            )
+        }
+
+        // A real source whose queued hash is wrong fails copy verification.
+        func appendFailing(_ index: Int) throws {
+            let sourceURL = env.sourceRoot.appendingPathComponent("bad_\(index).jpg")
+            try Data("bad-\(index)".utf8).write(to: sourceURL)
+            jobs.append(
+                QueuedCopyJob(
+                    sourcePath: sourceURL.path,
+                    destinationPath: env.destinationRoot.appendingPathComponent("2024/01/01/bad_\(index).jpg").path,
+                    hash: "0_definitely_not_the_real_hash_\(index)",
+                    status: .pending
+                )
+            )
+        }
+
+        try appendGood(0)
+        appendSkipped(0)
+        try appendFailing(0)
+        try appendGood(1)
+        try env.database.enqueueQueuedJobs(jobs)
+
+        let progress = Recorder<(copied: Int, attempted: Int, total: Int)>()
+        let result = try TransferExecutor().execute(
+            queuedJobs: jobs,
+            database: env.database,
+            destinationRoot: env.destinationRoot,
+            verifyCopies: true,
+            runLogger: env.logger,
+            observer: TransferExecutionObserver(
+                onPhaseProgress: { attempted, total, copiedCount, _, _, _ in
+                    progress.append((copiedCount, attempted, total))
+                }
+            ),
+            runID: UUID()
+        )
+
+        XCTAssertEqual(result.copiedCount, 2)
+        XCTAssertEqual(result.failedCount, 1)
+        XCTAssertEqual(result.skippedCount, 1)
+
+        // Attempts advance on every job, so the progress fraction keeps moving.
+        XCTAssertEqual(progress.values.map(\.attempted), [1, 2, 3, 4])
+        XCTAssertEqual(progress.values.map(\.total), [4, 4, 4, 4])
+        // The copied count only advances on a file that actually landed.
+        XCTAssertEqual(progress.values.map(\.copied), [1, 1, 1, 2])
+        XCTAssertEqual(progress.values.last?.copied, result.copiedCount)
     }
 
     func testParallelTransferResolvesSameDestinationCollisionsWithoutOverwritingAndWritesReceipt() throws {
@@ -786,7 +867,7 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
             verifyCopies: false,
             runLogger: env.logger,
             maxConcurrentCopies: 2,
-            observer: TransferExecutionObserver(onPhaseProgress: { completed, _, _, _, _ in
+            observer: TransferExecutionObserver(onPhaseProgress: { completed, _, _, _, _, _ in
                 progress.append(completed)
             }),
             runID: UUID()

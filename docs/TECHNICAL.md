@@ -234,7 +234,7 @@ The Swift CLI can emit one JSON object per line with `--json`. The app normalize
 | :--- | :--- |
 | `startup` | `status` |
 | `task_start` | `task`, `total` |
-| `task_progress` | `task`, `completed`, `total`, `bytes_copied`, `bytes_total` |
+| `task_progress` | `task`, `completed`, `total`, `bytes_copied`, `bytes_total`, `copied` (copy task only) |
 | `task_complete` | `task`, `found`, `already_in_dst`, `dups`, `errors`, `copied`, `failed`, `reverted`, `skipped` |
 | `copy_plan_ready` | `count` |
 | `info` / `warning` / `error` | `message` |
