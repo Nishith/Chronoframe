@@ -14,6 +14,9 @@ final class HistoryCoordinator {
     private let navigate: @MainActor (AppRoute) -> Void
     private let reportTransientError: @MainActor (String) -> Void
     private let makeSecurityScopeForDestination: @MainActor (String) -> SecurityScopedFolderAccess?
+    /// Called after a historical folder replaces the folder list, so Setup can
+    /// drop state that belonged to the replaced list.
+    private let didReplaceSourceList: @MainActor () -> Void
 
     init(
         preferencesStore: PreferencesStore,
@@ -24,7 +27,8 @@ final class HistoryCoordinator {
         finderService: any FinderServicing,
         navigate: @escaping @MainActor (AppRoute) -> Void,
         reportTransientError: @escaping @MainActor (String) -> Void = { _ in },
-        makeSecurityScopeForDestination: @escaping @MainActor (String) -> SecurityScopedFolderAccess? = { _ in nil }
+        makeSecurityScopeForDestination: @escaping @MainActor (String) -> SecurityScopedFolderAccess? = { _ in nil },
+        didReplaceSourceList: @escaping @MainActor () -> Void = {}
     ) {
         self.preferencesStore = preferencesStore
         self.setupStore = setupStore
@@ -35,6 +39,7 @@ final class HistoryCoordinator {
         self.navigate = navigate
         self.reportTransientError = reportTransientError
         self.makeSecurityScopeForDestination = makeSecurityScopeForDestination
+        self.didReplaceSourceList = didReplaceSourceList
     }
 
     /// Triggers a revert of the receipt. Audit receipts go through the
@@ -134,6 +139,7 @@ final class HistoryCoordinator {
         for key in preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.") {
             preferencesStore.removeBookmark(for: key)
         }
+        didReplaceSourceList()
 
         navigate(.organize(.setup))
     }

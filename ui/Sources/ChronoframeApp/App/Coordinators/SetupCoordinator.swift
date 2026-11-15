@@ -180,11 +180,13 @@ final class SetupCoordinator {
     }
 
     /// Editing the list while a profile is active leaves profile mode. The
-    /// destination Setup shows (the profile's) becomes the manual destination,
-    /// with the profile's bookmark copied, so a run, which no longer reads the
-    /// profile's keys, and a relaunch both reach the folder still shown. Runs
-    /// before the list is applied: applying re-retains scope from the manual
-    /// bookmarks and drops the profile's.
+    /// destination Setup shows becomes the manual destination, so a run, which
+    /// no longer reads the profile's keys, and a relaunch both reach the folder
+    /// still shown. A manual bookmark that already describes it (a destination
+    /// chosen while the profile was active) is kept; otherwise the profile's
+    /// bookmark is copied when it describes it. Runs before the list is
+    /// applied: applying re-retains scope from the manual bookmarks and drops
+    /// the profile's.
     private func adoptProfileDestination() {
         let name = setupStore.selectedProfileName
         let path = setupStore.destinationPath
@@ -192,11 +194,15 @@ final class SetupCoordinator {
         preferencesStore.lastManualDestinationPath = path
         let manualKey = bookmarkPathResolver.bookmarkKey(for: .destination, profileName: nil)
         let profileKey = bookmarkPathResolver.bookmarkKey(for: .destination, profileName: name)
-        if let bookmark = preferencesStore.bookmark(for: profileKey) {
+        if preferencesStore.bookmark(for: manualKey)?.path == path {
+            return
+        }
+        if let bookmark = preferencesStore.bookmark(for: profileKey), bookmark.path == path {
             preferencesStore.storeBookmark(FolderBookmark(key: manualKey, path: bookmark.path, data: bookmark.data))
-        } else if preferencesStore.bookmark(for: manualKey)?.path != path {
-            // A profile with no bookmark (paths only): an older manual bookmark
-            // would restore a different folder at launch than the one shown.
+        } else {
+            // No bookmark describes the shown folder (a profile with paths
+            // only): an older manual bookmark would restore a different
+            // folder at launch than the one shown.
             preferencesStore.removeBookmark(for: manualKey)
         }
     }
@@ -231,6 +237,13 @@ final class SetupCoordinator {
         if !setupStore.usingProfile {
             preferencesStore.lastSelectedProfileName = ""
         }
+    }
+
+    /// Drops the saved list's unreachable entries after the list was replaced
+    /// outside this coordinator (a folder chosen from History), as an explicit
+    /// replacement here does.
+    func forgetUnreachableSavedItems() {
+        unreachableSavedItems = []
     }
 
     /// The folder list as the user sees it. With a profile active the list is

@@ -167,6 +167,9 @@ final class AppState: ObservableObject {
         },
         makeSecurityScopeForDestination: { [weak self] destinationRoot in
             self?.destinationSecurityScope(destinationRoot: destinationRoot)
+        },
+        didReplaceSourceList: { [weak self] in
+            self?.setupCoordinator.forgetUnreachableSavedItems()
         }
     )
 

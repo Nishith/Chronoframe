@@ -137,4 +137,34 @@ final class HistoryCoordinatorTests: XCTestCase {
         XCTAssertTrue(harness.preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.").isEmpty)
         XCTAssertEqual(harness.setupStore.sourceItems.map(\.path), ["/Volumes/Old/B"])
     }
+
+    /// Replacing the list from History tells Setup to drop the saved list's
+    /// unreachable entries too, or its next edit would write them back.
+    @MainActor
+    func testUseHistoricalSourceReportsTheReplacedList() {
+        let harness = AppStateHarness()
+        var replacements = 0
+        let coordinator = HistoryCoordinator(
+            preferencesStore: harness.preferencesStore,
+            setupStore: harness.setupStore,
+            historyStore: harness.historyStore,
+            runSessionStore: harness.runSessionStore,
+            deduplicateSessionStore: harness.deduplicateSessionStore,
+            finderService: harness.finderService,
+            navigate: { _ in },
+            didReplaceSourceList: { replacements += 1 }
+        )
+        let record = TransferredSourceRecord(
+            sourcePath: "/Volumes/Card",
+            firstTransferredAt: Date(),
+            lastTransferredAt: Date(),
+            runCount: 1,
+            lastCopiedCount: 10,
+            totalCopiedCount: 10
+        )
+
+        coordinator.useHistoricalSource(record)
+
+        XCTAssertEqual(replacements, 1)
+    }
 }
