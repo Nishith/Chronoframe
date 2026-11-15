@@ -174,6 +174,19 @@ private struct PreviewReviewRow: View {
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
+                        if let alternative = item.alternativeDate, let selected = item.resolvedDate {
+                            let selectedText = PreviewReviewDateText.string(
+                                for: selected,
+                                source: item.dateSource,
+                                bucketTimeZoneOffsetSeconds: item.bucketTimeZoneOffsetSeconds
+                            )
+                            let alternativeText = PreviewReviewDateText.string(for: alternative.date, source: alternative.source)
+                            Text("\(item.dateSource.title): \(selectedText) · \(alternative.source.title): \(alternativeText)")
+                                .scaledFont(.label)
+                                .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                                .accessibilityLabel("Chosen date \(item.dateSource.title), \(selectedText). Alternative date \(alternative.source.title), \(alternativeText)")
+                        }
+
                     }
 
                     Spacer(minLength: 12)
@@ -286,6 +299,34 @@ private struct PreviewReviewRow: View {
         DatePicker("Date", selection: $selectedDate, displayedComponents: [.date])
             .labelsHidden()
             .frame(width: 150)
+
+        if let alternative = item.alternativeDate {
+            Button {
+                Task {
+                    await store.saveOverride(
+                        for: item,
+                        captureDate: alternative.date,
+                        eventName: item.acceptedEventName,
+                        actionName: "Use Alternative Date"
+                    )
+                }
+            } label: {
+                Label("Use \(alternative.source.title) Date", systemImage: "calendar.badge.checkmark")
+            }
+            .accessibilityLabel("Use \(alternative.source.title) date, \(PreviewReviewDateText.string(for: alternative.date, source: alternative.source))")
+            .accessibilityIdentifier("previewReviewUseAlternativeDate")
+        }
+
+        if item.issues.contains(.conflictingDates), let chosen = item.resolvedDate {
+            Button {
+                Task { await store.keepCurrentDate(for: item) }
+            } label: {
+                Label("Keep This Date", systemImage: "checkmark.seal")
+            }
+            .disabled(item.identityRawValue == nil)
+            .accessibilityLabel("Keep \(item.dateSource.title) date, \(PreviewReviewDateText.string(for: chosen, source: item.dateSource, bucketTimeZoneOffsetSeconds: item.bucketTimeZoneOffsetSeconds))")
+            .accessibilityIdentifier("previewReviewKeepDate")
+        }
 
         TextField("Event", text: $eventName)
             .textFieldStyle(.roundedBorder)

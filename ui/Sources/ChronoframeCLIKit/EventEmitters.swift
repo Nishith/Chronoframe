@@ -42,12 +42,13 @@ public enum JSONLineEmitter {
                 "task": phase.rawValue,
                 "total": total,
             ])
-        case let .phaseProgress(phase, completed, total, bytesCopied, bytesTotal, _):
+        case let .phaseProgress(phase, completed, total, copiedCount, bytesCopied, bytesTotal, _):
             return compact([
                 "type": "task_progress",
                 "task": phase.rawValue,
                 "completed": completed,
                 "total": total,
+                "copied": copiedCount,
                 "bytes_copied": bytesCopied,
                 "bytes_total": bytesTotal,
             ])
@@ -160,7 +161,10 @@ public enum HumanLineEmitter {
                 return "\(phase.runningTitle) 0/\(total)"
             }
             return phase.runningTitle
-        case let .phaseProgress(phase, completed, total, _, _, _):
+        case let .phaseProgress(phase, completed, total, copiedCount, _, _, _):
+            if phase == .copy, let copiedCount {
+                return "\(phase.title): \(completed)/\(total) (\(copiedCount) copied)"
+            }
             return "\(phase.title): \(completed)/\(total)"
         case let .phaseCompleted(phase, result):
             return completedLine(phase: phase, result: result)
