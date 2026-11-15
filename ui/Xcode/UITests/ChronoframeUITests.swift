@@ -910,8 +910,13 @@ final class ChronoframeUITests: XCTestCase {
             )
             XCTAssertTrue(app.buttons["previewButton"].exists)
             XCTAssertTrue(app.staticTexts["2. Destination"].exists)
-            XCTAssertTrue(Self.hittableButton(identifier: "chooseSourceButton", in: app).isHittable)
-            XCTAssertTrue(Self.hittableButton(identifier: "chooseDestinationButton", in: app).isHittable)
+            // On a short screen (the hosted runner) the window is fitted to the visible area
+            // and these sit below the fold, so bring each into view before checking it.
+            for identifier in ["chooseSourceButton", "chooseDestinationButton"] {
+                let button = Self.button(identifier: identifier, in: app)
+                XCTAssertTrue(Self.scrollIntoView(button, in: app), "\(identifier) should scroll into view")
+                XCTAssertTrue(Self.hittableButton(identifier: identifier, in: app).isHittable, "\(identifier) should be hittable")
+            }
             XCTAssertTrue(app.staticTexts["3. Preview"].exists)
             // Profiles are earned complexity: the scenario seeds none, so the
             // saved-setup section must stay hidden for this first-run state.
