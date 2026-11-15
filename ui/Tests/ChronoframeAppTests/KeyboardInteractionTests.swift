@@ -11,6 +11,9 @@ final class KeyboardInteractionTests: XCTestCase {
 
     // MARK: - Run menu titles (CLP WP-07, C-08)
 
+    // `AppCommands` is main-actor isolated; Swift 6.1 (CI) rejects reading it from a
+    // nonisolated test method.
+    @MainActor
     func testRunMenuCommandTitlesMatchContract() {
         XCTAssertEqual(AppCommands.previewCommandTitle, "Preview Plan")
         XCTAssertEqual(AppCommands.startCopyingCommandTitle, "Start Copying")
