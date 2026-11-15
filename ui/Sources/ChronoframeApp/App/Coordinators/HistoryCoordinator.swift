@@ -103,6 +103,17 @@ final class HistoryCoordinator {
         setupStore.sourcePath = record.sourcePath
         preferencesStore.lastManualSourcePath = record.sourcePath
 
+        // The chosen folder's only saved authorization may be a folder-list
+        // bookmark; keep it as manual.source before the list keys are removed.
+        if preferencesStore.bookmark(for: "manual.source")?.path != record.sourcePath,
+           let listBookmark = preferencesStore.bookmarkKeys(withPrefix: "manual.sourceItem.")
+               .compactMap({ preferencesStore.bookmark(for: $0) })
+               .first(where: { $0.path == record.sourcePath }) {
+            preferencesStore.storeBookmark(
+                FolderBookmark(key: "manual.source", path: listBookmark.path, data: listBookmark.data)
+            )
+        }
+
         // Resolve manual.source bookmark if it matches record.sourcePath
         var isStale = false
         if let bookmark = preferencesStore.bookmark(for: "manual.source"),
