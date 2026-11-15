@@ -153,7 +153,14 @@ enum UITestAppStateFactory {
                     totalCandidatesScanned: clusters.reduce(0) { $0 + $1.members.count },
                     scanDuration: 4.2
                 )
-            ), runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: defaults))
+            ), runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: defaults),
+            // A folder of its own per launch: a scenario must not read a review saved by an
+            // earlier scenario (its banner changes the layout under test), and must never
+            // touch the real saved reviews in Application Support.
+            reviewSnapshotStore: DeduplicateReviewFileSnapshotStore(
+                directory: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("ChronoframeUITest-dedupe-reviews-\(UUID().uuidString)", isDirectory: true)
+            ))
         }
 
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
