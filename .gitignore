@@ -40,5 +40,11 @@ manifest.json
 release-artifacts/
 marketing/app-preview/exports/
 marketing/app-preview/work/
+marketing/app-preview/source-footage/
 marketing/social-video/exports/
 marketing/social-video/work/
+marketing/social-video/source-footage/
+
+# Xcode's SwiftPM workspace state and stray JS tool caches.
+ui/.swiftpm/
+node_modules/
