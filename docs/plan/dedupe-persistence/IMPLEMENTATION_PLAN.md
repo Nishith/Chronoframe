@@ -64,5 +64,18 @@ WP-00 → WP-01 → WP-02 → G1 → WP-03 → WP-04 → G2.
 4. Commit: `DDP G2: strings and evidence`.
 - **Pass when:** all commands exit 0; INV-29 is tagged by WP-01/WP-02 tests; owner rows in `EVIDENCE_LEDGER.md` are `todo-hardware`.
 
+## WP-05 — Counts cover reviewed groups only (added 2026-11-12, D-DDP-119)
+- **Model:** cf-implementer.
+- **Owned paths:** `ui/Sources/ChronoframeCore/DeduplicateReviewSnapshot.swift`, `ui/Sources/ChronoframeCore/DeduplicateReviewRestorer.swift`, `ui/Sources/ChronoframeApp/Views/Deduplicate/DeduplicateReviewCopy.swift`, `ui/Tests/ChronoframeAppCoreTests/ChronoframeCoreDeduplicateReviewSnapshotTests.swift`, `ui/Tests/ChronoframeAppCoreTests/ChronoframeCoreDeduplicateReviewRestorerTests.swift`, `ui/Tests/ChronoframeAppTests/DeduplicateReviewCopyTests.swift`. Locate the three test files with Glob if a path differs; they are owned wherever they live.
+- **Read for reference:** the three source files in full (they are short); `DeduplicateSessionStore.swift:390–408` (setDecision marks the group reviewed) and `:628–646` (the only `capture` call; it must compile unchanged).
+- **Contracts:** C-10. **Decisions:** D-DDP-119, D-DDP-101.
+- **Safety:** the restorer is safety-critical (INV-29). Change only the two counters and the capture flag. Do not touch which decisions are applied, dropped, or which groups are approved.
+- **Acceptance:**
+  - `ChronoframeCoreDeduplicateReviewSnapshotTests`: `testDecisionWithoutReviewedFlagDecodesAsReviewed`, `testReviewedDecisionCountIgnoresUnreviewedGroups`.
+  - `ChronoframeCoreDeduplicateReviewRestorerTests`: `testCaptureMarksOnlyDecisionsInReviewedGroups`, `testRestoredAndDroppedCountsIgnoreUnreviewedGroups` (two groups, one reviewed; all four decisions are still applied to `decisions.byPath`; counts reflect the reviewed group only), `testUnreviewedDecisionsAreStillRestored` (tag `// AGENTS-INVARIANT: 29` is not needed; assert `byPath`).
+  - `DeduplicateReviewCopyTests`: `testSavedBodyCountsOnlyReviewedChoices`.
+  - Existing tests in these classes pass; update an existing expectation only where it asserted a count that C-10 changes, and list each such edit in the report.
+- **Done when:** the three test classes exit 0; `cf_swift.sh test DeduplicateReviewPersistenceTests` exit 0 (unchanged file); `cf_swift.sh build` exit 0; `git diff --check` exit 0.
+
 ## Owner handoff (todo-hardware)
 H-DDP-1 real library of ≥ 5,000 photos: review for ten minutes, quit, relaunch, scan, confirm restored counts and focus; H-DDP-2 edit one reviewed file externally, scan, confirm it lost its choice and its group needs review; H-DDP-3 commit, confirm the saved file under Application Support is gone; H-DDP-4 VoiceOver reads the banner and card.

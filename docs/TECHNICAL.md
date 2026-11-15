@@ -64,6 +64,18 @@ Important SQLite tables:
 | `DedupeVideoFeatures` | Versioned sampled-frame hashes, decode outcomes, dimensions, and keeper metadata for perceptual video matching |
 | `ReviewOverrides` | User date and event corrections for future preview and transfer planning |
 
+State kept outside the destination is listed under [Saved Deduplicate Reviews](#saved-deduplicate-reviews) and, for NAS assessment, [Application Support Layout](#application-support-layout).
+
+### Saved Deduplicate Reviews
+
+Deduplicate review state lives outside the folder being reviewed, under the app's Application Support folder (`Chronoframe/dedupe_reviews/`):
+
+| Path | Purpose |
+| :--- | :--- |
+| `dedupe_reviews/<key>.json` | Saved review for one dedupe folder: Keep/Delete choices with the content identity of each file, reviewed groups keyed by their members' sorted identities, the focused group, a settings fingerprint, and the save time. `<key>` is the folder's standardized path, base64url-encoded without padding. Sorted-key JSON with ISO-8601 dates, replaced atomically; format version 1 |
+
+A save with no choices and no reviewed groups removes the file instead of writing it. A file that is missing, unreadable, or a different version loads as no saved review. On restore, a choice applies only when the scanned file at that path has the same content identity, and a group is restored as reviewed only when its members' identities match and every member's own choice was restored; the rest are dropped and counted in the restored-review banner. Restore sets review state only: it builds no plan and approves no commit. The file is written after a user change (debounced by half a second), on pause, cancel, reset, rescan and app termination, and removed when a commit for that folder finishes or by **Discard Saved Review**. Cancelling during a scan writes nothing, and a crash or force-quit can lose the last half second of changes.
+
 ## Architecture
 
 Chronoframe ships a native macOS app and a SwiftPM CLI.

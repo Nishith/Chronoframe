@@ -858,4 +858,70 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(appState.setupStore.sourcePath, "/Volumes/Card")
         XCTAssertEqual(harness.repository.savedProfiles.last?.name, "archive")
     }
+
+    @MainActor
+    func testWillTerminateFlushesDedupeReviewSave() async {
+        let harness = AppStateHarness()
+        let first = PhotoCandidate(path: "/dest/a.jpg", size: 100, modificationTime: 0)
+        let second = PhotoCandidate(path: "/dest/b.jpg", size: 100, modificationTime: 0)
+        harness.deduplicateEngine.clustersToEmit = [
+            DuplicateCluster(
+                kind: .exactDuplicate,
+                members: [first, second],
+                suggestedKeeperIDs: [first.path],
+                bytesIfPruned: 100
+            )
+        ]
+        let snapshotStore = RecordingDedupeSnapshotStore()
+        let store = DeduplicateSessionStore(
+            engine: harness.deduplicateEngine,
+            runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: harness.defaults),
+            reviewSnapshotStore: snapshotStore,
+            saveDebounceNanoseconds: 60_000_000_000
+        )
+        let appState = AppState(
+            preferencesStore: harness.preferencesStore,
+            setupStore: harness.setupStore,
+            runLogStore: harness.runLogStore,
+            historyStore: harness.historyStore,
+            runSessionStore: harness.runSessionStore,
+            deduplicateSessionStore: store,
+            folderAccessService: harness.folderAccessService,
+            finderService: harness.finderService,
+            profilesRepository: harness.repository,
+            performInitialBootstrap: false,
+            volumeClassifier: AppStateHarness.localClassifier,
+            showSettingsWindowAction: {}
+        )
+
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        let ready = await waitForCondition { store.status == .readyToReview }
+        XCTAssertTrue(ready)
+        store.setDecision(.keep, forPath: second.path)
+        XCTAssertEqual(snapshotStore.saveCount, 0, "The debounce has not elapsed yet.")
+
+        NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: NSApp)
+
+        XCTAssertEqual(snapshotStore.saveCount, 1)
+        withExtendedLifetime(appState) {}
+    }
+}
+
+private final class RecordingDedupeSnapshotStore: DeduplicateReviewSnapshotStoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var saved: [DeduplicateReviewSnapshot] = []
+
+    var saveCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return saved.count
+    }
+
+    func load(folderPath: String) -> DeduplicateReviewSnapshot? { nil }
+
+    func save(_ snapshot: DeduplicateReviewSnapshot) throws {
+        lock.lock(); defer { lock.unlock() }
+        saved.append(snapshot)
+    }
+
+    func remove(folderPath: String) {}
 }
