@@ -19,7 +19,7 @@ struct PreviewReviewPanel: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .center, spacing: 12) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Review Before Transfer")
+                            Text("Review Before Copying")
                                 .scaledFont(.cardTitle)
                             Text(headerMessage)
                                 .scaledFont(.subtitle)
@@ -78,8 +78,8 @@ struct PreviewReviewPanel: View {
                 )
             } else if store.items.isEmpty {
                 EmptyStateView(
-                    title: "No Review Artifact Yet",
-                    message: "Run a preview to generate reviewable copy decisions.",
+                    title: "Nothing to Review Yet",
+                    message: "Preview the plan to see what would be copied.",
                     systemImage: "doc.text.magnifyingglass"
                 )
             } else if store.filteredItems.isEmpty {
@@ -119,7 +119,7 @@ struct PreviewReviewPanel: View {
 
     private var headerMessage: String {
         if store.isStale {
-            return "Corrections are saved. Rebuild the preview before transfer."
+            return "Your changes are saved. Rebuild the preview before copying."
         }
         let summary = store.summary
         if summary.needsAttentionCount > 0 {
@@ -220,7 +220,7 @@ private struct PreviewReviewRow: View {
 
     private var visualPlan: some View {
         HStack(alignment: .top, spacing: 10) {
-            planEndpoint(title: "Source", path: item.sourcePath, systemImage: "folder")
+            planEndpoint(title: "Original", path: item.sourcePath, systemImage: "folder")
             Image(systemName: "arrow.right")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
@@ -242,9 +242,9 @@ private struct PreviewReviewRow: View {
         case .ready:
             return "Will Copy To"
         case .alreadyInDestination:
-            return "Already Exists"
+            return "Already There"
         case .duplicate:
-            return "Duplicate Route"
+            return "Set Aside as a Copy"
         case .hashError:
             return "Needs Attention"
         }
@@ -253,9 +253,9 @@ private struct PreviewReviewRow: View {
     private var destinationFallback: String {
         switch item.status {
         case .alreadyInDestination:
-            return "Destination already contains a matching file"
+            return "Your organized library already has this file"
         case .duplicate:
-            return "Duplicate handling will route this away from the main archive"
+            return "This exact copy will be set aside in the Duplicate folder"
         case .hashError:
             return "Chronoframe needs a readable file before it can plan this item"
         case .ready:

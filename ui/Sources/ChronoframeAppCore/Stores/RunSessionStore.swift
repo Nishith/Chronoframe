@@ -201,7 +201,7 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         self.securityScope = securityScope
         status = .preflighting
-        currentTaskTitle = "Preparing \(mode.title)..."
+        currentTaskTitle = "Getting ready…"
 
         do {
             let preparedRun = try await engine.prepare(configuration)
@@ -219,11 +219,12 @@ public final class RunSessionStore: ObservableObject {
             if batch != nil, preflight.pendingJobCount > 0 {
                 prompt = RunPrompt(
                     kind: .blockingError,
-                    title: "Finish the interrupted transfer first",
-                    message: "Chronoframe found \(preflight.pendingJobCount) copy job"
-                        + "\(preflight.pendingJobCount == 1 ? "" : "s") still queued from a transfer that "
-                        + "was interrupted. Start a transfer to resume or discard them, then run the free "
-                        + "test batch. Nothing was copied and your originals were left untouched.",
+                    title: "Finish the interrupted copy first",
+                    message: "\(preflight.pendingJobCount.formatted()) file"
+                        + "\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy that was "
+                        + "interrupted \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. "
+                        + "Start copying to resume or discard them, then run the free "
+                        + "test batch. Nothing was copied and your originals were not changed.",
                     preflight: preflight
                 )
                 return
@@ -233,14 +234,14 @@ public final class RunSessionStore: ObservableObject {
                 let promptKind: RunPromptKind = preflight.pendingJobCount > 0 ? .resumePendingJobs : .confirmTransfer
                 let message: String
                 if preflight.pendingJobCount > 0 {
-                    message = "Chronoframe found \(preflight.pendingJobCount) pending copy jobs in the destination queue. Continue by resuming the persisted transfer?"
+                    message = "\(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Resume to finish them, or start over with the current plan."
                 } else {
-                    message = "Chronoframe will leave the source untouched and transfer into \(preflight.resolvedDestinationPath). Continue?"
+                    message = "Chronoframe will copy into \(preflight.resolvedDestinationPath). Your originals stay exactly where they are."
                 }
 
                 prompt = RunPrompt(
                     kind: promptKind,
-                    title: preflight.pendingJobCount > 0 ? "Resume Pending Transfer" : "Start Transfer",
+                    title: preflight.pendingJobCount > 0 ? "Finish the earlier copy?" : "Start copying?",
                     message: message,
                     preflight: preflight
                 )
@@ -278,7 +279,7 @@ public final class RunSessionStore: ObservableObject {
         }
         self.securityScope = securityScope
         status = .running
-        currentTaskTitle = "Reverting…"
+        currentTaskTitle = "Undoing…"
         artifacts = RunArtifactPaths(
             destinationRoot: destinationRoot,
             reportPath: receiptURL.path,
@@ -392,7 +393,7 @@ public final class RunSessionStore: ObservableObject {
         }
         self.securityScope = securityScope
         status = .running
-        currentTaskTitle = "Undoing Reorganize…"
+        currentTaskTitle = "Undoing the layout change…"
         artifacts = RunArtifactPaths(
             destinationRoot: destinationRoot,
             reportPath: receiptURL.path,
@@ -635,7 +636,7 @@ public final class RunSessionStore: ObservableObject {
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
-        currentTaskTitle = resumePendingJobs ? "Resuming transfer..." : "Starting \(preflight.configuration.mode.title.lowercased())..."
+        currentTaskTitle = resumePendingJobs ? "Resuming the copy…" : "Starting the \(preflight.configuration.mode.displayTitle.lowercased())…"
         artifacts = RunArtifactPaths(
             destinationRoot: preflight.resolvedDestinationPath,
             reportPath: nil,
@@ -705,7 +706,7 @@ public final class RunSessionStore: ObservableObject {
                     etaSeconds: nil
                 )
             } else {
-                currentTaskTitle = phase.runningTitle
+                currentTaskTitle = phase.displayRunningTitle
             }
             progress = 0
             metrics.speedMBps = 0
@@ -731,7 +732,7 @@ public final class RunSessionStore: ObservableObject {
             if total > 0 {
                 progress = Double(completed) / Double(total)
                 if phase == .copy {
-                    currentTaskTitle = "\(phase.runningTitle) \(completed.formatted()) of \(total.formatted()) files…"
+                    currentTaskTitle = "\(phase.displayRunningTitle) \(completed.formatted()) of \(total.formatted()) files…"
                 } else if Self.usesFileCountETA(phase) {
                     let etaSeconds = estimatedFileETA(completed: completed, total: total)
                     metrics.etaSeconds = etaSeconds
@@ -745,7 +746,7 @@ public final class RunSessionStore: ObservableObject {
             } else {
                 // total == 0 means indeterminate (count is known, total is not).
                 // Show the running count in the title so the user sees forward progress.
-                currentTaskTitle = "\(phase.runningTitle) \(completed.formatted()) files…"
+                currentTaskTitle = "\(phase.displayRunningTitle) \(completed.formatted()) files…"
                 if Self.usesFileCountETA(phase) {
                     metrics.etaSeconds = nil
                 }
@@ -879,7 +880,7 @@ public final class RunSessionStore: ObservableObject {
             self.summary = finalSummary
             if finalSummary.status == .failed {
                 lastErrorMessage = finalSummary.failureMessage
-                    ?? "Chronoframe could not complete this run. Originals were left untouched."
+                    ?? "Chronoframe could not finish. Originals were left untouched."
             }
             preparedRun?.lease.release()
             preparedRun = nil
@@ -999,7 +1000,7 @@ public final class RunSessionStore: ObservableObject {
         switch summary.status {
         case .finished:
             return (
-                "Transfer complete",
+                "Copy complete",
                 "\(summary.metrics.copiedCount) file\(summary.metrics.copiedCount == 1 ? "" : "s") copied"
             )
         case .dryRunFinished:
@@ -1018,9 +1019,9 @@ public final class RunSessionStore: ObservableObject {
                     "The files in that batch have moved or changed, so nothing was copied."
                 )
             }
-            return ("Already up to date", "All source files are already in the destination.")
+            return ("Already up to date", "Everything in your folders is already in the destination.")
         case .failed:
-            return ("Transfer failed", summary.failureMessage ?? summary.title)
+            return ("Copy failed", summary.failureMessage ?? summary.title)
         case .cancelled:
             return nil  // user-initiated, no notification needed
         default:
@@ -1211,9 +1212,9 @@ public final class RunSessionStore: ObservableObject {
     ) -> String {
         let progress = "\(completed.formatted()) of \(total.formatted()) files"
         guard let etaSeconds, etaSeconds > 0 else {
-            return "\(phase.runningTitle) \(progress)"
+            return "\(phase.displayRunningTitle) \(progress)"
         }
-        return "\(phase.runningTitle) \(progress) · \(formattedRemainingTime(etaSeconds))"
+        return "\(phase.displayRunningTitle) \(progress) · \(formattedRemainingTime(etaSeconds))"
     }
 
     private static func formattedRemainingTime(_ seconds: Double) -> String {

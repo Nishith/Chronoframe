@@ -1615,6 +1615,33 @@ extension SwiftOrganizerEngineIntegrationTests {
         XCTAssertEqual(conflict, expected, file: file, line: line)
     }
 
+    /// The engine's refusal names the mode with its Core wording; the app's
+    /// plain wording must not leak into engine and CLI error text.
+    @MainActor
+    func testEngineErrorTextUsesTheCoreModeTitle() throws {
+        let sourceURL = temporaryDirectoryURL.appendingPathComponent("source", isDirectory: true)
+        let destinationURL = temporaryDirectoryURL.appendingPathComponent("dest", isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        let configuration = RunConfiguration(mode: .revert, sourcePath: sourceURL.path, destinationPath: destinationURL.path)
+        let engine = makeEngine()
+
+        XCTAssertThrowsError(try engine.start(configuration)) { error in
+            XCTAssertEqual(
+                error.localizedDescription.contains("Revert runs must be started from their matching app action."),
+                true,
+                "\(error.localizedDescription)"
+            )
+        }
+        XCTAssertThrowsError(try engine.resume(configuration)) { error in
+            XCTAssertEqual(
+                error.localizedDescription.contains("Revert runs cannot be resumed."),
+                true,
+                "\(error.localizedDescription)"
+            )
+        }
+    }
+
     // AGENTS-INVARIANT: 21
     @MainActor
     func testPreflightRejectsSourceInsideDestination() async throws {
@@ -1756,7 +1783,7 @@ extension SwiftOrganizerEngineIntegrationTests {
 
         XCTAssertTrue(sourceText.contains("inside the destination folder"))
         XCTAssertTrue(sourceText.contains("No files were changed."))
-        XCTAssertTrue(destinationText.contains("inside the source folder"))
+        XCTAssertTrue(destinationText.contains("inside a folder you chose to organize"))
         XCTAssertTrue(destinationText.contains("No files were changed."))
     }
 }

@@ -108,6 +108,7 @@ final class AppStateHarness {
 
     func makeAppState(
         photosImportStore: PhotosImportStore? = nil,
+        watchedSourcesStore: WatchedSourcesStore? = nil,
         performInitialBootstrap: Bool = true,
         restoreBookmarksDuringBootstrap: Bool = true,
         entitlementStore: EntitlementStore? = nil,
@@ -121,6 +122,7 @@ final class AppStateHarness {
             historyStore: self.historyStore,
             runSessionStore: self.runSessionStore,
             deduplicateSessionStore: self.deduplicateSessionStore,
+            watchedSourcesStore: watchedSourcesStore,
             photosImportStore: photosImportStore ?? PhotosImportStore(
                 access: AppStatePhotosAccessStub(),
                 catalog: AppStatePhotosCatalogStub(),

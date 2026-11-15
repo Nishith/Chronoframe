@@ -31,6 +31,61 @@ final class BookmarkPathResolver {
         return "manual.\(role.rawValue)"
     }
 
+    private static let sourceItemKeyPrefix = "manual.sourceItem."
+
+    func sourceItemBookmarkKey(index: Int) -> String {
+        "\(Self.sourceItemKeyPrefix)\(index)"
+    }
+
+    /// Writes bookmarks for `urls` under indexes 0..<n and removes every other
+    /// `manual.sourceItem.*` key, so a shorter list leaves nothing behind.
+    func persistSourceItemBookmarks(for urls: [URL]) async {
+        let service = folderAccessService
+        for (index, url) in urls.enumerated() {
+            let key = sourceItemBookmarkKey(index: index)
+            let bookmark = await Task.detached(priority: .userInitiated) {
+                try? service.makeBookmark(for: url, key: key)
+            }.value
+            if let bookmark {
+                preferencesStore.storeBookmark(bookmark)
+            } else {
+                // Never leave an older bookmark under an index it no longer describes.
+                preferencesStore.removeBookmark(for: key)
+            }
+        }
+        let wanted = Set(urls.indices.map { sourceItemBookmarkKey(index: $0) })
+        for key in preferencesStore.bookmarkKeys(withPrefix: Self.sourceItemKeyPrefix) where !wanted.contains(key) {
+            preferencesStore.removeBookmark(for: key)
+        }
+        retainScopedAccess(forProfileName: nil)
+    }
+
+    /// Resolves the stored folder list in index order. An item whose bookmark no
+    /// longer resolves has its key removed and is skipped.
+    func resolveSourceItemURLs() -> [URL] {
+        sourceItemKeysInIndexOrder().compactMap { key in
+            guard let bookmark = preferencesStore.bookmark(for: key) else { return nil }
+            guard let resolved = folderAccessService.resolveBookmark(bookmark) else {
+                preferencesStore.removeBookmark(for: key)
+                return nil
+            }
+            if let refreshed = resolved.refreshedBookmark {
+                preferencesStore.storeBookmark(refreshed)
+            }
+            return resolved.url
+        }
+    }
+
+    private func sourceItemKeysInIndexOrder() -> [String] {
+        preferencesStore.bookmarkKeys(withPrefix: Self.sourceItemKeyPrefix)
+            .compactMap { key -> (index: Int, key: String)? in
+                guard let index = Int(key.dropFirst(Self.sourceItemKeyPrefix.count)) else { return nil }
+                return (index, key)
+            }
+            .sorted { $0.index < $1.index }
+            .map(\.key)
+    }
+
     func persistBookmark(for url: URL, role: FolderRole, profileName: String?) async {
         let key = bookmarkKey(for: role, profileName: profileName)
         let service = folderAccessService
@@ -90,6 +145,9 @@ final class BookmarkPathResolver {
             bookmarkKey(for: .destination, profileName: profileName),
         ]
         var bookmarks = keys.compactMap { preferencesStore.bookmark(for: $0) }
+        if profileName == nil {
+            bookmarks += sourceItemKeysInIndexOrder().compactMap { preferencesStore.bookmark(for: $0) }
+        }
 
         // When profile-specific bookmarks are absent or partial (e.g. a profile
         // imported via CLI with YAML paths but no Finder-picked bookmark blobs),

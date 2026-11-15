@@ -26,6 +26,10 @@ enum AccessibilityIdentifiers {
     static let setupPreflightChecklist = "setupPreflightChecklist"
     static let setupSafetyDetailsDisclosure = "setupSafetyDetailsDisclosure"
     static let setupHeroTitle = "setupHeroTitle"
+    static let setupSourceItems = "setup.sourceItems"
+    static let setupFolderLayoutPicker = "setup.folderLayoutPicker"
+    /// Prefix for the per-row remove buttons; the row index is appended.
+    static let setupSourceItemRemovePrefix = "setup.sourceItem.remove."
 
     // MARK: - Run
 
@@ -37,6 +41,9 @@ enum AccessibilityIdentifiers {
     static let runWorkspaceTabs = "runWorkspaceTabs"
     static let runIdleOnboardingCard = "runIdleOnboardingCard"
     static let runOutcomeSummaryCard = "runOutcomeSummaryCard"
+    static let runPreviewSummary = "run.preview.summary"
+    static let runNextStepCard = "run.nextStep.card"
+    static let runNextStepFindDuplicates = "run.nextStep.findDuplicates"
     static let previewReviewFilter = "previewReviewFilter"
 
     // MARK: - Organize
@@ -74,6 +81,9 @@ enum AccessibilityIdentifiers {
     static let dedupeCommitReviewedButton = "dedupeCommitReviewedButton"
     static let dedupeDecisionControl = "dedupeDecisionControl"
     static let dedupeFolderHistorySection = "dedupeFolderHistorySection"
+    static let dedupeLanes = "dedupe.lanes"
+    static let dedupeLanesAcceptSafe = "dedupe.lanes.acceptSafe"
+    static let dedupeLanesQuickReview = "dedupe.lanes.quickReview"
     static let dedupeMemberStrip = "dedupeMemberStrip"
     static let dedupeOpenRunHistoryButton = "dedupeOpenRunHistoryButton"
     static let dedupePausedScanSection = "dedupePausedScanSection"
@@ -166,10 +176,10 @@ enum AccessibilityIdentifiers {
     static let all: [String] = [
         chooseSourceButton, chooseDestinationButton, dropZone, folderStructurePicker,
         profilePicker, previewButton, transferButton, setupPreflightChecklist,
-        setupSafetyDetailsDisclosure, setupHeroTitle,
+        setupSafetyDetailsDisclosure, setupHeroTitle, setupSourceItems,
         consoleScrollView, openDestinationButton, openReportButton, openLogsButton,
         startTransferFromPreviewButton, runWorkspaceTabs, runIdleOnboardingCard,
-        runOutcomeSummaryCard, previewReviewFilter,
+        runOutcomeSummaryCard, runPreviewSummary, previewReviewFilter,
         refreshLibraryHealthButton, reorganizeDestinationButton,
         dedupeAcceptAllSuggestionsButton, dedupeAcceptClusterSuggestionButton,
         dedupeAcceptHighConfidenceButton, dedupeCancelCommitButton, dedupeChangeFolderButton,
@@ -179,6 +189,7 @@ enum AccessibilityIdentifiers {
         dedupeReviewActionsMenu, dedupeReviewChangeFolderButton, dedupeReviewClusterList,
         dedupeReviewDetail, dedupeReviewSettingsButton, dedupeUseHistoryFolderButton,
         dedupeRestoredBanner, dedupeRestoredBannerDismiss, dedupeSavedReviewDiscard, dedupeSavedReviewResume,
+        dedupeLanes, dedupeLanesAcceptSafe, dedupeLanesQuickReview,
         historyFilterControl, recoveryCenterSection, useHistoricalSourceButton,
         revealHistoricalSourceButton, receiptFileCount, receiptCloseButton, receiptItemList, receiptVerifyButton,
         activeProfileBadge,

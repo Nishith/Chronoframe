@@ -36,6 +36,10 @@ struct CurrentRunView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                 RunHeroSection(model: model, workspaceTab: $workspaceTab, appState: appState)
 
+                if model.nextStep != nil {
+                    RunNextStepCard(model: model, appState: appState)
+                }
+
                 // How much of the free allowance is left (T16). Renders nothing
                 // for an unlocked customer.
                 TrialIndicatorLabel(appState: appState, meter: .organize)
@@ -45,9 +49,9 @@ struct CurrentRunView: View {
                 }
 
                 if model.showsPreviewReview {
-                    RunPreviewReviewSection(
+                    RunPreviewSummarySection(
                         model: model,
-                        startTransfer: { Task { await appState.startTransfer() } }
+                        openReview: { workspaceTab = .review }
                     )
                 }
 
@@ -75,7 +79,7 @@ struct CurrentRunView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .darkroom()
-        .navigationTitle("Run")
+        .navigationTitle("Preview & Copy")
         .onAppear {
             // Bind the window's undo manager so Preview Triage edits are ⌘Z-able.
             previewReviewStore.undoManager = undoManager
@@ -123,7 +127,7 @@ private struct RunOutcomeSummaryCard: View {
         MeridianSurfaceCard(tint: model.heroState.tone.color) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Run Summary")
+                    Text("Summary")
                         .scaledFont(.cardTitle)
                     Spacer()
                     Button("Open History") {
@@ -135,9 +139,9 @@ private struct RunOutcomeSummaryCard: View {
 
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
                     summaryMetric("Copied", value: model.context.metrics.copiedCount.formatted(), tint: DesignTokens.ColorSystem.statusSuccess)
-                    summaryMetric("Planned", value: model.context.metrics.plannedCount.formatted(), tint: DesignTokens.ColorSystem.accentAction)
-                    summaryMetric("Skipped", value: model.context.metrics.alreadyInDestinationCount.formatted(), tint: DesignTokens.ColorSystem.inkSecondary)
-                    summaryMetric("Issues", value: "\(model.context.issueCount)", tint: model.issueTone.color)
+                    summaryMetric("To Copy", value: model.context.metrics.plannedCount.formatted(), tint: DesignTokens.ColorSystem.accentAction)
+                    summaryMetric("Already There", value: model.context.metrics.alreadyInDestinationCount.formatted(), tint: DesignTokens.ColorSystem.inkSecondary)
+                    summaryMetric("Problems", value: "\(model.context.issueCount)", tint: model.issueTone.color)
                 }
 
                 Text(model.outcomeSummaryMessage)

@@ -105,7 +105,7 @@ struct ProfilesView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 0) {
-                    currentPathRow(label: "Source", value: setupStore.sourcePath)
+                    currentPathRow(label: "Folder to organize", value: setupStore.sourcePath)
                     Rectangle()
                         .fill(DesignTokens.ColorSystem.hairline)
                         .frame(height: 0.5)

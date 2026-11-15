@@ -44,7 +44,9 @@ struct HealthDashboardView: View {
                 }
 
                 if let summary = healthStore.summary {
-                    LibraryHealthHero(summary: summary)
+                    if summary.hasOrganizedHistory {
+                        LibraryHealthHero(summary: summary)
+                    }
 
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 12)],
@@ -61,7 +63,7 @@ struct HealthDashboardView: View {
                 } else {
                     EmptyStateView(
                         title: "No Health Check Yet",
-                        message: "Run a check to see destination readiness, unknown dates, duplicates, interrupted work, and structure drift.",
+                        message: "Run a check to see files with no date, exact copies, unfinished copies and files outside the layout.",
                         systemImage: "heart.text.square",
                         actionLabel: "Check Library",
                         action: { Task { await appState.refreshLibraryHealth() } }
@@ -86,12 +88,22 @@ struct HealthDashboardView: View {
         }
     }
 
+    private var hasNoOrganizedHistory: Bool {
+        if let summary = healthStore.summary {
+            return !summary.hasOrganizedHistory
+        }
+        return false
+    }
+
     private var heroMessage: String {
+        if hasNoOrganizedHistory {
+            return "Nothing has been organized into this folder yet. Health checks become useful after your first copy."
+        }
         switch healthStore.summary?.overallSeverity {
         case .good:
             return "The destination looks ready. Use the recommendations below for routine review."
         case .critical:
-            return "A few items need attention before the next clean run."
+            return "A few items need attention before the next copy."
         case .attention:
             return "Chronoframe found useful cleanup and review opportunities."
         case nil:
@@ -100,6 +112,7 @@ struct HealthDashboardView: View {
     }
 
     private var badgeTitle: String {
+        if hasNoOrganizedHistory { return "Not started" }
         switch healthStore.summary?.overallSeverity {
         case .good:
             return "Healthy"
@@ -113,6 +126,7 @@ struct HealthDashboardView: View {
     }
 
     private var badgeSymbol: String {
+        if hasNoOrganizedHistory { return "circle.dashed" }
         switch healthStore.summary?.overallSeverity {
         case .good:
             return "checkmark.circle.fill"
@@ -126,6 +140,7 @@ struct HealthDashboardView: View {
     }
 
     private var badgeTint: Color {
+        if hasNoOrganizedHistory { return DesignTokens.Status.idle }
         switch healthStore.summary?.overallSeverity {
         case .good:
             return DesignTokens.Status.ready
@@ -278,7 +293,7 @@ private struct LibraryHealthHero: View {
 
                     HStack(spacing: 14) {
                         legend("Healthy", count: counts.good, tint: DesignTokens.ColorSystem.statusSuccess)
-                        legend("Review", count: counts.attention, tint: DesignTokens.ColorSystem.statusWarning)
+                        legend("To Review", count: counts.attention, tint: DesignTokens.ColorSystem.statusWarning)
                         legend("Critical", count: counts.critical, tint: DesignTokens.ColorSystem.statusDanger)
                     }
                 }

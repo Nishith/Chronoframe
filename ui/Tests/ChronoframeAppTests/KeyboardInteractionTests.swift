@@ -9,6 +9,14 @@ import XCTest
 /// without needing a running UI.
 final class KeyboardInteractionTests: XCTestCase {
 
+    // MARK: - Run menu titles (CLP WP-07, C-08)
+
+    func testRunMenuCommandTitlesMatchContract() {
+        XCTAssertEqual(AppCommands.previewCommandTitle, "Preview Plan")
+        XCTAssertEqual(AppCommands.startCopyingCommandTitle, "Start Copying")
+        XCTAssertEqual(AppCommands.addFoldersCommandTitle, "Add Folders…")
+    }
+
     // MARK: - ComparisonSlider
 
     func testSliderClampsToUnitRange() {

@@ -79,6 +79,10 @@ public final class PreferencesStore: ObservableObject {
         didSet { persist(lastManualSourcePath, key: "lastManualSourcePath") }
     }
 
+    @Published public var manualSourceItemPaths: [String] {
+        didSet { persist(manualSourceItemPaths, key: "manualSourceItemPaths") }
+    }
+
     @Published public var lastManualDestinationPath: String {
         didSet { persist(lastManualDestinationPath, key: "lastManualDestinationPath") }
     }
@@ -185,6 +189,7 @@ public final class PreferencesStore: ObservableObject {
         self.parallelTransferEnabled = defaults.object(forKey: "parallelTransferEnabled") as? Bool ?? true
         self.logBufferCapacity = defaults.object(forKey: "logBufferCapacity") as? Int ?? 2_000
         self.lastManualSourcePath = defaults.string(forKey: "lastManualSourcePath") ?? ""
+        self.manualSourceItemPaths = defaults.stringArray(forKey: "manualSourceItemPaths") ?? []
         self.lastManualDestinationPath = defaults.string(forKey: "lastManualDestinationPath") ?? ""
         self.lastDeduplicateDestinationPath = defaults.string(forKey: "lastDeduplicateDestinationPath") ?? ""
         self.lastSelectedProfileName = defaults.string(forKey: "lastSelectedProfileName") ?? ""

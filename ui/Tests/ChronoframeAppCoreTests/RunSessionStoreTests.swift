@@ -232,7 +232,7 @@ final class RunSessionStoreTests: XCTestCase {
         await store.requestRun(mode: .transfer, configuration: configuration)
 
         XCTAssertEqual(store.prompt?.kind, .resumePendingJobs)
-        XCTAssertEqual(store.prompt?.title, "Resume Pending Transfer")
+        XCTAssertEqual(store.prompt?.title, "Finish the earlier copy?")
         XCTAssertEqual(engine.resumeConfigurations.count, 0)
 
         store.confirmPrompt()
@@ -657,7 +657,7 @@ final class RunSessionStoreTests: XCTestCase {
         engine.pendingContinuation?.yield(.phaseProgress(phase: .copy, completed: 30, total: 100, bytesCopied: 30_000, bytesTotal: 100_000, currentFilePath: "/tmp/source/photo30.jpg"))
         let progressSet = await waitForCondition { store.progress > 0 }
         XCTAssertTrue(progressSet)
-        XCTAssertEqual(store.currentTaskTitle, "Copying files... 30 of 100 files…")
+        XCTAssertEqual(store.currentTaskTitle, "Copying files… 30 of 100 files…")
         XCTAssertEqual(store.metrics.plannedCount, 100)
         XCTAssertEqual(store.metrics.copiedCount, 30)
         XCTAssertEqual(store.metrics.bytesCopied, 30_000)
@@ -780,6 +780,91 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(store.logLines.contains("ERROR: Error 1"))
         XCTAssertTrue(store.logLines.contains("⚠ Warning"))
         XCTAssertTrue(store.logLines.contains("ERROR: Error 2"))
+    }
+
+    // MARK: - Prompt copy (CLP WP-07, C-08)
+
+    @MainActor
+    func testConfirmPromptCopyMatchesContract() async {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: configuration,
+            resolvedSourcePath: configuration.sourcePath,
+            resolvedDestinationPath: configuration.destinationPath,
+            pendingJobCount: 0
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight))
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+        await store.requestRun(mode: .transfer, configuration: configuration)
+
+        XCTAssertEqual(store.prompt?.kind, .confirmTransfer)
+        XCTAssertEqual(store.prompt?.title, "Start copying?")
+        XCTAssertEqual(
+            store.prompt?.message,
+            "Chronoframe will copy into \(tempDestinationURL.path). Your originals stay exactly where they are."
+        )
+        XCTAssertFalse(
+            "\(store.prompt?.title ?? "") \(store.prompt?.message ?? "")".localizedCaseInsensitiveContains("transfer")
+        )
+    }
+
+    @MainActor
+    func testResumePromptCopyMatchesContract() async {
+        for (count, expected) in [
+            (1, "1 file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan."),
+            (4, "4 files from an earlier copy are still waiting. Resume to finish them, or start over with the current plan."),
+        ] {
+            let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+            let preflight = RunPreflight(
+                configuration: configuration,
+                resolvedSourcePath: configuration.sourcePath,
+                resolvedDestinationPath: configuration.destinationPath,
+                pendingJobCount: count
+            )
+            let engine = MockOrganizerEngine(preflightResult: .success(preflight))
+            let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+            await store.requestRun(mode: .transfer, configuration: configuration)
+
+            XCTAssertEqual(store.prompt?.kind, .resumePendingJobs)
+            XCTAssertEqual(store.prompt?.title, "Finish the earlier copy?")
+            XCTAssertEqual(store.prompt?.message, expected)
+            XCTAssertFalse(
+                "\(store.prompt?.title ?? "") \(store.prompt?.message ?? "")".localizedCaseInsensitiveContains("transfer")
+            )
+        }
+    }
+
+    // AGENTS-INVARIANT: 10
+    @MainActor
+    func testBlockingBatchPromptSaysOriginalsNotChanged() async {
+        let configuration = RunConfiguration(mode: .transfer, sourcePath: "/tmp/watched-source", destinationPath: tempDestinationURL.path)
+        let batch = FreeTestBatchSelection(confirmedIdentities: [
+            "/tmp/watched-source/a.jpg": FileIdentity(size: 1, digest: "a"),
+        ])
+
+        for (count, expected) in [
+            (1, "1 file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
+            (3, "3 files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
+        ] {
+            let preflight = RunPreflight(
+                configuration: configuration,
+                resolvedSourcePath: configuration.sourcePath,
+                resolvedDestinationPath: configuration.destinationPath,
+                pendingJobCount: count
+            )
+            let engine = MockOrganizerEngine(preflightResult: .success(preflight))
+            let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+
+            await store.requestRun(mode: .transfer, configuration: configuration, batch: batch)
+
+            XCTAssertEqual(store.prompt?.kind, .blockingError)
+            XCTAssertEqual(store.prompt?.title, "Finish the interrupted copy first")
+            XCTAssertEqual(store.prompt?.message, expected)
+            XCTAssertTrue(store.prompt?.message.contains("your originals were not changed") ?? false)
+            XCTAssertEqual(engine.startConfigurations.count, 0)
+        }
     }
 
     // MARK: - Confirm-transfer prompt path
@@ -1045,7 +1130,7 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(updated)
 
         XCTAssertEqual(store.progress, 0.42, accuracy: 0.000_1)
-        XCTAssertTrue(store.currentTaskTitle.hasPrefix("Hashing source... 42 of 100 files"))
+        XCTAssertTrue(store.currentTaskTitle.hasPrefix("Reading your originals… 42 of 100 files"))
         XCTAssertTrue(store.currentTaskTitle.contains("remaining"))
         XCTAssertNotNil(store.metrics.etaSeconds)
     }
@@ -1070,8 +1155,108 @@ final class RunSessionStoreTests: XCTestCase {
         XCTAssertTrue(updated)
 
         XCTAssertEqual(store.progress, 0)
-        XCTAssertEqual(store.currentTaskTitle, "Hashing source... 42 files…")
+        XCTAssertEqual(store.currentTaskTitle, "Reading your originals… 42 files…")
         XCTAssertNil(store.metrics.etaSeconds)
+    }
+
+    // MARK: - Plain wording (CLP WP-11b, D-CLP-113)
+
+    private static let engineVocabulary = ["transfer", "source", "revert", "reverting", "hash", "index"]
+
+    private func assertAvoidsEngineVocabulary(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        let words = title.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init)
+        for banned in Self.engineVocabulary {
+            XCTAssertFalse(words.contains(banned), "\"\(title)\" contains \"\(banned)\"", file: file, line: line)
+        }
+    }
+
+    @MainActor
+    func testCurrentTaskTitlesAvoidEngineVocabulary() async throws {
+        // Preflight: observed from inside the mock engine's preflight.
+        let transferConfig = RunConfiguration(mode: .transfer, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let preflight = RunPreflight(
+            configuration: transferConfig,
+            resolvedSourcePath: transferConfig.sourcePath,
+            resolvedDestinationPath: transferConfig.destinationPath
+        )
+        let engine = MockOrganizerEngine(preflightResult: .success(preflight), startMode: .pending)
+        let store = RunSessionStore(engine: engine, logStore: logStore, historyStore: historyStore)
+        let preflightTitle = MutableStringBox()
+        engine.preflightHook = { [weak store] in
+            preflightTitle.value = store?.currentTaskTitle ?? ""
+        }
+
+        // Starting the copy: the title set before the first engine event.
+        await store.requestRun(mode: .transfer, configuration: transferConfig)
+        XCTAssertEqual(preflightTitle.value, "Getting ready…")
+        assertAvoidsEngineVocabulary(preflightTitle.value)
+        store.confirmPrompt()
+        let started = await waitForCondition { engine.pendingContinuation != nil }
+        XCTAssertTrue(started)
+        XCTAssertEqual(store.currentTaskTitle, "Starting the copy…")
+        assertAvoidsEngineVocabulary(store.currentTaskTitle)
+        store.cancelCurrentRun()
+
+        // Starting the preview.
+        let previewConfig = RunConfiguration(mode: .preview, sourcePath: "/tmp/source", destinationPath: tempDestinationURL.path)
+        let previewEngine = MockOrganizerEngine(
+            preflightResult: .success(RunPreflight(
+                configuration: previewConfig,
+                resolvedSourcePath: previewConfig.sourcePath,
+                resolvedDestinationPath: previewConfig.destinationPath
+            )),
+            startMode: .pending
+        )
+        let previewStore = RunSessionStore(engine: previewEngine, logStore: logStore, historyStore: historyStore)
+        await previewStore.requestRun(mode: .preview, configuration: previewConfig)
+        let previewStarted = await waitForCondition { previewEngine.pendingContinuation != nil }
+        XCTAssertTrue(previewStarted)
+        XCTAssertEqual(previewStore.currentTaskTitle, "Starting the preview…")
+        assertAvoidsEngineVocabulary(previewStore.currentTaskTitle)
+        previewStore.cancelCurrentRun()
+
+        // Undo and undoing a layout change.
+        let undoEngine = MockOrganizerEngine(preflightResult: .success(preflight), revertMode: .pending, reorganizeMode: .pending)
+        let undoStore = RunSessionStore(engine: undoEngine, logStore: logStore, historyStore: historyStore)
+        let receiptURL = tempDestinationURL.appendingPathComponent("receipt.json")
+        undoStore.requestRevert(receiptURL: receiptURL, destinationRoot: tempDestinationURL.path)
+        XCTAssertEqual(undoStore.currentTaskTitle, "Undoing…")
+        assertAvoidsEngineVocabulary(undoStore.currentTaskTitle)
+        undoStore.cancelCurrentRun()
+        _ = await waitForCondition { !undoStore.isRunning }
+
+        let layoutEngine = MockOrganizerEngine(preflightResult: .success(preflight), reorganizeMode: .pending)
+        let layoutStore = RunSessionStore(engine: layoutEngine, logStore: logStore, historyStore: historyStore)
+        layoutStore.requestReorganizeRevert(receiptURL: receiptURL, destinationRoot: tempDestinationURL.path)
+        XCTAssertEqual(layoutStore.currentTaskTitle, "Undoing the layout change…")
+        assertAvoidsEngineVocabulary(layoutStore.currentTaskTitle)
+        layoutStore.cancelCurrentRun()
+    }
+
+    /// C-16 item 3: the completion notification says "copy", not "transfer", and
+    /// calls the folders "your folders", not "source".
+    func testNotificationCopyMatchesContract() {
+        func summary(_ status: RunStatus) -> RunSummary {
+            RunSummary(
+                status: status,
+                title: "Title",
+                metrics: RunMetrics(discoveredCount: 4, plannedCount: 0, copiedCount: 2),
+                artifacts: RunArtifactPaths()
+            )
+        }
+
+        XCTAssertEqual(
+            RunSessionStore.completionNotificationText(summary: summary(.finished), usedFreeTestBatch: false)?.title,
+            "Copy complete"
+        )
+        XCTAssertEqual(
+            RunSessionStore.completionNotificationText(summary: summary(.nothingToCopy), usedFreeTestBatch: false)?.body,
+            "Everything in your folders is already in the destination."
+        )
+        XCTAssertEqual(
+            RunSessionStore.completionNotificationText(summary: summary(.failed), usedFreeTestBatch: false)?.title,
+            "Copy failed"
+        )
     }
 }
 
@@ -1080,4 +1265,8 @@ final class RunSessionStoreTests: XCTestCase {
 /// reject). All access happens on the main actor in these tests.
 private final class MutableFlagBox: @unchecked Sendable {
     var value = false
+}
+
+private final class MutableStringBox: @unchecked Sendable {
+    var value = ""
 }
