@@ -93,8 +93,19 @@ public struct ResolvedMediaDate: Equatable, Codable, Sendable {
     )
 
     public func applying(_ override: ReviewOverride?) -> ResolvedMediaDate {
-        guard let override, let captureDate = override.captureDate else {
+        guard let override else {
             return self
+        }
+        guard let captureDate = override.captureDate else {
+            guard override.dateConflictAccepted else {
+                return self
+            }
+            // The user kept the chosen date: the date, its source, and its
+            // bucket stay exactly as resolved; only the review warning goes.
+            var kept = self
+            kept.dateReviewIssue = nil
+            kept.alternativeDate = nil
+            return kept
         }
         // A user-entered date carries no timezone, so it buckets by its UTC day.
         return ResolvedMediaDate(
@@ -222,6 +233,10 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
     public var eventSuggestion: EventSuggestion?
     public var acceptedEventName: String?
     public var alternativeDate: DateReviewAlternative?
+    /// `true` once the user kept the chosen date on a row flagged with
+    /// conflicting dates; otherwise `nil` (never `false`), so rows persisted by
+    /// older versions decode unchanged.
+    public var dateConflictAccepted: Bool?
     /// UTC offset (seconds) of the EXIF timestamp behind `resolvedDate`, when it
     /// carried one. Lets the review UI show the calendar day the file buckets
     /// into rather than the viewer's local day. `nil` when unknown or for rows
@@ -242,6 +257,7 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         eventSuggestion: EventSuggestion? = nil,
         acceptedEventName: String? = nil,
         alternativeDate: DateReviewAlternative? = nil,
+        dateConflictAccepted: Bool? = nil,
         bucketTimeZoneOffsetSeconds: Int? = nil
     ) {
         self.sourcePath = sourcePath
@@ -255,6 +271,7 @@ public struct PreviewReviewItem: Identifiable, Equatable, Codable, Sendable {
         self.eventSuggestion = eventSuggestion
         self.acceptedEventName = acceptedEventName
         self.alternativeDate = alternativeDate
+        self.dateConflictAccepted = dateConflictAccepted
         self.bucketTimeZoneOffsetSeconds = bucketTimeZoneOffsetSeconds
     }
 
@@ -313,6 +330,9 @@ public struct ReviewOverride: Equatable, Codable, Sendable {
     public var sourcePath: String
     public var captureDate: Date?
     public var eventName: String?
+    /// The user kept the chosen date on a row flagged with conflicting dates.
+    /// Clears the warning only; it never changes the date or the destination.
+    public var dateConflictAccepted: Bool
     public var updatedAt: Date
 
     public init(
@@ -320,13 +340,25 @@ public struct ReviewOverride: Equatable, Codable, Sendable {
         sourcePath: String,
         captureDate: Date? = nil,
         eventName: String? = nil,
+        dateConflictAccepted: Bool = false,
         updatedAt: Date = Date()
     ) {
         self.identity = identity
         self.sourcePath = sourcePath
         self.captureDate = captureDate
         self.eventName = Self.normalizedEventName(eventName)
+        self.dateConflictAccepted = dateConflictAccepted
         self.updatedAt = updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        identity = try container.decode(FileIdentity.self, forKey: .identity)
+        sourcePath = try container.decode(String.self, forKey: .sourcePath)
+        captureDate = try container.decodeIfPresent(Date.self, forKey: .captureDate)
+        eventName = try container.decodeIfPresent(String.self, forKey: .eventName)
+        dateConflictAccepted = try container.decodeIfPresent(Bool.self, forKey: .dateConflictAccepted) ?? false
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 
     public static func normalizedEventName(_ value: String?) -> String? {

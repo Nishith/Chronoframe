@@ -231,6 +231,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
                 capture_date REAL,
                 event_name TEXT,
                 updated_at REAL,
+                date_conflict_accepted INTEGER,
                 PRIMARY KEY (identity, source_path)
             );
             """
@@ -257,7 +258,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
     /// Bump this when adding a new entry to `Self.migrations`. Existing
     /// databases will run every migration whose key is `> oldVersion &&
     /// <= currentSchemaVersion` on next open.
-    public static let currentSchemaVersion: Int = 3
+    public static let currentSchemaVersion: Int = 4
 
     /// Migrations keyed by *target* version. v1 introduces the Meta table
     /// itself; the bare `CREATE TABLE IF NOT EXISTS` calls in
@@ -287,6 +288,10 @@ public final class OrganizerDatabase: @unchecked Sendable {
                 do { try database.execute(statement) }
                 catch let error as OrganizerDatabaseError where error.isDuplicateColumnName { continue }
             }
+        },
+        4: { database in
+            do { try database.execute("ALTER TABLE ReviewOverrides ADD COLUMN date_conflict_accepted INTEGER") }
+            catch let error as OrganizerDatabaseError where error.isDuplicateColumnName {}
         },
     ]
 
@@ -889,7 +894,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
 
     public func loadReviewOverrides() throws -> [ReviewOverride] {
         let statement = try prepare(
-            "SELECT identity, source_path, capture_date, event_name, updated_at FROM ReviewOverrides ORDER BY source_path"
+            "SELECT identity, source_path, capture_date, event_name, updated_at, date_conflict_accepted FROM ReviewOverrides ORDER BY source_path"
         )
         defer { sqlite3_finalize(statement) }
 
@@ -929,6 +934,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
                     sourcePath: sourcePath,
                     captureDate: captureDate,
                     eventName: eventName,
+                    dateConflictAccepted: sqlite3_column_int(statement, 5) != 0,
                     updatedAt: updatedAt
                 )
             )
@@ -939,7 +945,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
 
     public func loadReviewOverride(identity: FileIdentity, sourcePath: String) throws -> ReviewOverride? {
         let statement = try prepare(
-            "SELECT identity, source_path, capture_date, event_name, updated_at FROM ReviewOverrides WHERE identity = ? AND source_path = ?"
+            "SELECT identity, source_path, capture_date, event_name, updated_at, date_conflict_accepted FROM ReviewOverrides WHERE identity = ? AND source_path = ?"
         )
         defer { sqlite3_finalize(statement) }
 
@@ -966,6 +972,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
             sourcePath: sourcePath,
             captureDate: captureDate,
             eventName: Self.sqliteString(statement, column: 3),
+            dateConflictAccepted: sqlite3_column_int(statement, 5) != 0,
             updatedAt: sqlite3_column_type(statement, 4) == SQLITE_NULL
                 ? Date(timeIntervalSince1970: 0)
                 : Date(timeIntervalSince1970: sqlite3_column_double(statement, 4))
@@ -973,7 +980,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
     }
 
     public func saveReviewOverride(_ override: ReviewOverride) throws {
-        guard override.captureDate != nil || override.eventName != nil else {
+        guard override.captureDate != nil || override.eventName != nil || override.dateConflictAccepted else {
             try deleteReviewOverride(identity: override.identity, sourcePath: override.sourcePath)
             return
         }
@@ -981,8 +988,8 @@ public final class OrganizerDatabase: @unchecked Sendable {
         let statement = try prepare(
             """
             REPLACE INTO ReviewOverrides
-            (identity, source_path, capture_date, event_name, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            (identity, source_path, capture_date, event_name, updated_at, date_conflict_accepted)
+            VALUES (?, ?, ?, ?, ?, ?)
             """
         )
         defer { sqlite3_finalize(statement) }
@@ -1000,6 +1007,7 @@ public final class OrganizerDatabase: @unchecked Sendable {
             sqlite3_bind_null(statement, 4)
         }
         sqlite3_bind_double(statement, 5, override.updatedAt.timeIntervalSince1970)
+        sqlite3_bind_int(statement, 6, override.dateConflictAccepted ? 1 : 0)
 
         guard sqlite3_step(statement) == SQLITE_DONE else {
             throw OrganizerDatabaseError.stepFailed(lastErrorMessage())

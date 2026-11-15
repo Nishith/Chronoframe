@@ -317,6 +317,17 @@ private struct PreviewReviewRow: View {
             .accessibilityIdentifier("previewReviewUseAlternativeDate")
         }
 
+        if item.issues.contains(.conflictingDates), let chosen = item.resolvedDate {
+            Button {
+                Task { await store.keepCurrentDate(for: item) }
+            } label: {
+                Label("Keep This Date", systemImage: "checkmark.seal")
+            }
+            .disabled(item.identityRawValue == nil)
+            .accessibilityLabel("Keep \(item.dateSource.title) date, \(PreviewReviewDateText.string(for: chosen, source: item.dateSource, bucketTimeZoneOffsetSeconds: item.bucketTimeZoneOffsetSeconds))")
+            .accessibilityIdentifier("previewReviewKeepDate")
+        }
+
         TextField("Event", text: $eventName)
             .textFieldStyle(.roundedBorder)
             .frame(minWidth: 140, maxWidth: 220)

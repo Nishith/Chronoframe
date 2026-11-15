@@ -169,7 +169,9 @@ public final class PreviewReviewStore: ObservableObject {
             identity: identity,
             sourcePath: item.sourcePath,
             captureDate: captureDate,
-            eventName: eventName
+            eventName: eventName,
+            // A kept date survives an event-name edit; an entered date replaces it.
+            dateConflictAccepted: captureDate == nil && previous?.dateConflictAccepted == true
         )
 
         if let error = await enqueuePersist(override, destinationRoot: destinationRoot).value {
@@ -185,6 +187,7 @@ public final class PreviewReviewStore: ObservableObject {
                     $0 == .unknownDate || $0 == .lowConfidenceDate || $0 == .conflictingDates
                 }
                 current.alternativeDate = nil
+                current.dateConflictAccepted = nil
                 current.bucketTimeZoneOffsetSeconds = nil
             }
             current.acceptedEventName = ReviewOverride.normalizedEventName(eventName)
@@ -194,6 +197,42 @@ public final class PreviewReviewStore: ObservableObject {
         if let previous {
             registerUndo(restoring: previous, actionName: actionName)
         }
+    }
+
+    /// Accepts the chosen date on a row flagged with conflicting dates. Only
+    /// the warning is cleared: the date, its source, and the planned
+    /// destination stay as they are.
+    public func keepCurrentDate(for item: PreviewReviewItem) async {
+        guard let previous = items.first(where: { $0.sourcePath == item.sourcePath }),
+              previous.issues.contains(.conflictingDates) else {
+            return
+        }
+        guard let identityRawValue = previous.identityRawValue,
+              let identity = FileIdentity(rawValue: identityRawValue),
+              let destinationRoot else {
+            errorMessage = "Chronoframe needs a readable preview item before it can save that correction."
+            return
+        }
+
+        let override = ReviewOverride(
+            identity: identity,
+            sourcePath: previous.sourcePath,
+            captureDate: previous.dateSource == .userOverride ? previous.resolvedDate : nil,
+            eventName: previous.acceptedEventName,
+            dateConflictAccepted: true
+        )
+        if let error = await enqueuePersist(override, destinationRoot: destinationRoot).value {
+            errorMessage = UserFacingErrorMessage.message(for: error, context: .run)
+            return
+        }
+        updateLocalItem(previous.sourcePath) { current in
+            current.issues.removeAll { $0 == .conflictingDates }
+            current.alternativeDate = nil
+            current.dateConflictAccepted = true
+        }
+        isStale = true
+        errorMessage = nil
+        registerUndo(restoring: previous, actionName: "Keep This Date")
     }
 
     public func acceptSuggestion(for item: PreviewReviewItem) async {
@@ -257,7 +296,8 @@ public final class PreviewReviewStore: ObservableObject {
             identity: identity,
             sourcePath: item.sourcePath,
             captureDate: item.dateSource == .userOverride ? item.resolvedDate : nil,
-            eventName: item.acceptedEventName
+            eventName: item.acceptedEventName,
+            dateConflictAccepted: item.dateConflictAccepted == true
         )
         let task = enqueuePersist(override, destinationRoot: destinationRoot)
         Task {

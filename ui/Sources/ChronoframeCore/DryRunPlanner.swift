@@ -248,6 +248,7 @@ public struct DryRunPlanner: Sendable {
                     ),
                     acceptedEventName: acceptedEventName,
                     alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
                     bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
                 continue
@@ -276,6 +277,7 @@ public struct DryRunPlanner: Sendable {
                         ),
                         acceptedEventName: acceptedEventName,
                         alternativeDate: resolvedDate.alternativeDate,
+                        dateConflictAccepted: Self.dateConflictAccepted(override),
                         bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                     )
                 } catch {
@@ -306,6 +308,7 @@ public struct DryRunPlanner: Sendable {
                     ),
                     acceptedEventName: acceptedEventName,
                     alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
                     bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
             } catch {
@@ -609,6 +612,7 @@ public struct DryRunPlanner: Sendable {
                     ),
                     acceptedEventName: acceptedEventName,
                     alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
                     bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
                 continue
@@ -637,6 +641,7 @@ public struct DryRunPlanner: Sendable {
                         ),
                         acceptedEventName: acceptedEventName,
                         alternativeDate: resolvedDate.alternativeDate,
+                        dateConflictAccepted: Self.dateConflictAccepted(override),
                         bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                     )
                 } catch {
@@ -667,6 +672,7 @@ public struct DryRunPlanner: Sendable {
                     ),
                     acceptedEventName: acceptedEventName,
                     alternativeDate: resolvedDate.alternativeDate,
+                    dateConflictAccepted: Self.dateConflictAccepted(override),
                     bucketTimeZoneOffsetSeconds: resolvedDate.bucketTimeZoneOffsetSeconds
                 )
             } catch {
@@ -850,6 +856,15 @@ public struct DryRunPlanner: Sendable {
     ) -> ReviewOverride? {
         let overrides = overridesByIdentity[identity] ?? []
         return overrides.count == 1 ? overrides[0] : nil
+    }
+
+    /// `true` only while the kept decision is what cleared the warning; a
+    /// user-entered date supersedes it.
+    private static func dateConflictAccepted(_ override: ReviewOverride?) -> Bool? {
+        guard let override, override.dateConflictAccepted, override.captureDate == nil else {
+            return nil
+        }
+        return true
     }
 
     private static func reviewIssues(
