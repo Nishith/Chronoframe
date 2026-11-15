@@ -8,8 +8,10 @@ import XCTest
 /// cannot guarantee an atomic no-replace install, after recovery and before any planning.
 @MainActor
 final class OrganizerEnginePrepareNetworkGateTests: XCTestCase {
-    private var temporaryDirectoryURL: URL!
-    private var sourceURL: URL!
+    // XCTest's setUp/tearDown overrides are nonisolated, and Swift 6.1 (CI) refuses
+    // to let them touch main-actor state. XCTest runs them serially around each test.
+    private nonisolated(unsafe) var temporaryDirectoryURL: URL!
+    private nonisolated(unsafe) var sourceURL: URL!
 
     override func setUpWithError() throws {
         try super.setUpWithError()

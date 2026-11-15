@@ -31,11 +31,11 @@ private func makeImage() -> CGImage {
 final class NASPreviewLoaderTests: XCTestCase {
     private var harness: NASViewTestHarness!
 
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         harness = try NASViewTestHarness()
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         harness.tearDown()
         harness = nil
     }
