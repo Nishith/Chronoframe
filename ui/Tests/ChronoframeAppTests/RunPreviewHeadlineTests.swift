@@ -11,7 +11,7 @@ final class RunPreviewHeadlineTests: XCTestCase {
     private let enUS = Locale(identifier: "en_US")
 
     func testGermanHeadlineAndExceptionsUseTranslatedRuntimeTemplates() throws {
-        let german = try appGermanTestBundle()
+        let german = try germanAppBundle()
         for count in [1, 2] {
             let value = RunPreviewHeadline(
                 metrics: RunMetrics(plannedCount: count, duplicateCount: count),
