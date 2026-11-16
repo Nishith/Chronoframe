@@ -5,7 +5,7 @@ import ChronoframeAppCore
 
 final class LibraryHealthCopyTests: XCTestCase {
     private func germanBundle() throws -> Bundle {
-        try localizedTestBundle("de", in: AppLocalization.resourceBundle)
+        try appGermanTestBundle()
     }
 
     private func card(_ details: LibraryHealthMessageDetails?) -> LibraryHealthCard {
