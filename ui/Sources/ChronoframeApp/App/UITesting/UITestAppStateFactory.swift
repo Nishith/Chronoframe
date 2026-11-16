@@ -170,7 +170,7 @@ enum UITestAppStateFactory {
             engine = previewReviewEngine(sourcePath: "/Volumes/Card/April Session", destinationPath: setupStore.destinationPath)
             route = .deduplicate
             let clusters = sampleDeduplicateClusters()
-            deduplicateSessionStore = DeduplicateSessionStore(engine: MockDeduplicateEngine(
+            let deduplicateEngine = MockDeduplicateEngine(
                 clusters: clusters,
                 summary: DeduplicateSummary(
                     clusterCounts: [.burst: clusters.count],
@@ -178,14 +178,25 @@ enum UITestAppStateFactory {
                     totalCandidatesScanned: clusters.reduce(0) { $0 + $1.members.count },
                     scanDuration: 4.2
                 )
-            ), runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: defaults),
-            // A folder of its own per launch: a scenario must not read a review saved by an
-            // earlier scenario (its banner changes the layout under test), and must never
-            // touch the real saved reviews in Application Support.
-            reviewSnapshotStore: DeduplicateReviewFileSnapshotStore(
-                directory: FileManager.default.temporaryDirectory
-                    .appendingPathComponent("ChronoframeUITest-dedupe-reviews-\(UUID().uuidString)", isDirectory: true)
-            ))
+            )
+            if ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_DEDUPE_REFUSAL"] == "1" {
+                deduplicateEngine.commitErrorForPlan = { plan in
+                    TrialAuthorizationError(refusal: .allowanceSpent(
+                        TrialRefusal(meter: .dedupe, requested: plan.items.count, remaining: 0)
+                    ))
+                }
+            }
+            deduplicateSessionStore = DeduplicateSessionStore(
+                engine: deduplicateEngine,
+                runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: defaults),
+                // A folder of its own per launch: a scenario must not read a review saved by an
+                // earlier scenario (its banner changes the layout under test), and must never
+                // touch the real saved reviews in Application Support.
+                reviewSnapshotStore: DeduplicateReviewFileSnapshotStore(
+                    directory: FileManager.default.temporaryDirectory
+                        .appendingPathComponent("ChronoframeUITest-dedupe-reviews-\(UUID().uuidString)", isDirectory: true)
+                )
+            )
         }
 
         let runSessionStore = RunSessionStore(engine: engine, logStore: runLogStore, historyStore: historyStore)
@@ -276,7 +287,7 @@ enum UITestAppStateFactory {
             accountKey: accountKey
         )
         seedCharge(
-            4,
+            ProcessInfo.processInfo.environment["CHRONOFRAME_UI_TEST_DEDUPE_REFUSAL"] == "1" ? 100 : 4,
             meter: .dedupe,
             runID: "00000000-0000-0000-0000-000000000502",
             ledger: ledger,
