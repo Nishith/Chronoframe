@@ -314,6 +314,14 @@ Verify freshness before relying on these details for a new CI/debugging or relea
 
 Chronoframe is a native macOS SwiftUI app with a restrained, work-focused Meridian visual language. The amber waypoint dot is a key brand motif.
 
+### Localization
+
+- App copy lives in `ChronoframeApp/Resources/Localizable.xcstrings`; AppCore uses `LocalizableCore.xcstrings` through `CoreL10n.text`, which explicitly selects that table and its resource bundle. German is covered in both catalogs, including shared native Core model display keys consumed by App views. Keep user paths, names, persisted identifiers and protocol/diagnostic prefixes verbatim.
+- SwiftUI literals localize automatically, but `String` values and AppKit controls do not. Use localized construction for dynamic sentences, complete singular/plural phrases, and explicit app-bundle lookups for model-supplied static keys. Do not assemble English plural suffixes. `AppLocalization.string` resolves app-authored dynamic keys; never apply it to arbitrary user content.
+- `LibraryHealthCard.messageDetails` carries typed sizes/counts for its three dynamic messages. `LibraryHealthCopy` formats these in the App; the scanner's original English `message` is retained for CLI/legacy consumers. Do not parse English messages to recover values.
+- German Photos permission/copyright text is in `ChronoframeApp/Resources/de.lproj/InfoPlist.strings`. `GermanLocalizationTests` in both App and AppCore check real compiled lookups, interpolation and catalog coverage; `LibraryHealthCopyTests` checks typed German health messages.
+- For a localization audit, build with `SWIFT_EMIT_LOC_STRINGS=YES` and compare the emitted arm64 `.stringsdata` keys against the appropriate catalog by source module. Normal builds keep extraction off. Runtime checks remain necessary for model-supplied keys and AppKit controls that extraction cannot discover.
+
 When editing UI:
 
 - Keep it native and practical. This is an operational desktop app, not a marketing page.

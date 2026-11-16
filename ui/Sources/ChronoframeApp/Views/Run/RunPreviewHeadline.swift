@@ -18,20 +18,26 @@ struct RunPreviewHeadline: Equatable {
     let sentence: String
     let exceptions: [Exception]
 
-    init(metrics: RunMetrics, review: PreviewReviewSummary, isStale: Bool, locale: Locale = .current) {
+    init(
+        metrics: RunMetrics,
+        review: PreviewReviewSummary,
+        isStale: Bool,
+        locale: Locale = .current,
+        localizationBundle: Bundle = .module
+    ) {
         func number(_ value: Int) -> String {
             value.formatted(.number.locale(locale))
         }
 
         if isStale {
-            sentence = "You changed some dates. Rebuild the preview so the copy matches your changes."
+            sentence = String(localized: "You changed some dates. Rebuild the preview so the copy matches your changes.", bundle: localizationBundle)
         } else if metrics.plannedCount == 0 {
-            sentence = "Everything here is already in your organized library. Nothing needs copying."
+            sentence = String(localized: "Everything here is already in your organized library. Nothing needs copying.", bundle: localizationBundle)
         } else {
             let planned = metrics.plannedCount
-            let subject = planned == 1 ? "1 photo or video" : "\(number(planned)) photos and videos"
-            let span = Self.span(from: metrics.dateHistogram, locale: locale)
-            sentence = "\(subject) will be copied\(span). Nothing has been copied yet."
+            let subject = planned == 1 ? String(localized: "1 photo or video", bundle: localizationBundle) : String(localized: "\(String(number(planned))) photos and videos", bundle: localizationBundle)
+            let span = Self.span(from: metrics.dateHistogram, locale: locale, localizationBundle: localizationBundle)
+            sentence = String(localized: "\(String(subject)) will be copied\(String(span)). Nothing has been copied yet.", bundle: localizationBundle)
         }
 
         var found: [Exception] = []
@@ -40,7 +46,9 @@ struct RunPreviewHeadline: Equatable {
             found.append(Exception(
                 id: "unknown",
                 count: n,
-                text: "\(number(n)) \(n == 1 ? "has" : "have") no date and will go to the Unknown_Date folder unless you set one.",
+                text: n == 1
+                    ? String(localized: "1 has no date and will go to the Unknown_Date folder unless you set one.", bundle: localizationBundle)
+                    : String(localized: "\(number(n)) have no date and will go to the Unknown_Date folder unless you set one.", bundle: localizationBundle),
                 systemImage: "calendar.badge.exclamationmark",
                 opensReview: true
             ))
@@ -50,18 +58,21 @@ struct RunPreviewHeadline: Equatable {
             found.append(Exception(
                 id: "unsure",
                 count: n,
-                text: "\(number(n)) \(n == 1 ? "has" : "have") a date Chronoframe is unsure about.",
+                text: n == 1
+                    ? String(localized: "1 has a date Chronoframe is unsure about.", bundle: localizationBundle)
+                    : String(localized: "\(number(n)) have a date Chronoframe is unsure about.", bundle: localizationBundle),
                 systemImage: "questionmark.circle",
                 opensReview: true
             ))
         }
         if metrics.duplicateCount > 0 {
             let n = metrics.duplicateCount
-            let lead = n == 1 ? "1 is an exact copy" : "\(number(n)) are exact copies"
             found.append(Exception(
                 id: "copies",
                 count: n,
-                text: "\(lead) of another file here and will be set aside in the Duplicate folder.",
+                text: n == 1
+                    ? String(localized: "1 is an exact copy of another file here and will be set aside in the Duplicate folder.", bundle: localizationBundle)
+                    : String(localized: "\(number(n)) are exact copies of another file here and will be set aside in the Duplicate folder.", bundle: localizationBundle),
                 systemImage: "doc.on.doc",
                 opensReview: false
             ))
@@ -71,7 +82,9 @@ struct RunPreviewHeadline: Equatable {
             found.append(Exception(
                 id: "already",
                 count: n,
-                text: "\(number(n)) \(n == 1 ? "is" : "are") already in your organized library and will be skipped.",
+                text: n == 1
+                    ? String(localized: "1 is already in your organized library and will be skipped.", bundle: localizationBundle)
+                    : String(localized: "\(number(n)) are already in your organized library and will be skipped.", bundle: localizationBundle),
                 systemImage: "checkmark.circle",
                 opensReview: false
             ))
@@ -81,7 +94,7 @@ struct RunPreviewHeadline: Equatable {
             found.append(Exception(
                 id: "unreadable",
                 count: n,
-                text: "\(number(n)) could not be read and will be skipped.",
+                text: String(localized: "\(String(number(n))) could not be read and will be skipped.", bundle: localizationBundle),
                 systemImage: "exclamationmark.triangle",
                 opensReview: true
             ))
@@ -137,12 +150,12 @@ struct RunPreviewHeadline: Equatable {
         return formatter.string(from: date)
     }
 
-    private static func span(from buckets: [DateHistogramBucket], locale: Locale) -> String {
+    private static func span(from buckets: [DateHistogramBucket], locale: Locale, localizationBundle: Bundle) -> String {
         let parsed = buckets.compactMap { parse($0.key) }
         guard let first = parsed.first, let last = parsed.last else { return "" }
         let firstLabel = label(for: first, locale: locale)
         let lastLabel = label(for: last, locale: locale)
-        return firstLabel == lastLabel ? ", all from \(firstLabel)" : ", from \(firstLabel) to \(lastLabel)"
+        return firstLabel == lastLabel ? String(localized: ", all from \(String(firstLabel))", bundle: localizationBundle) : String(localized: ", from \(String(firstLabel)) to \(String(lastLabel))", bundle: localizationBundle)
     }
 }
 

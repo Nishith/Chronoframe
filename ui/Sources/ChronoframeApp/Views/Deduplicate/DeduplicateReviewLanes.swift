@@ -42,22 +42,22 @@ struct DeduplicateReviewLanes: Equatable {
     var safeText: String? {
         switch safeGroupCount {
         case ..<1: return nil
-        case 1: return "1 group is a safe match. Accept it now."
-        default: return "\(safeGroupCount.formatted()) groups are safe matches. Accept them together."
+        case 1: return String(localized: "1 group is a safe match. Accept it now.", bundle: .module)
+        default: return String(localized: "\(safeGroupCount.formatted()) groups are safe matches. Accept them together.", bundle: .module)
         }
     }
 
     var checkText: String? {
         switch checkGroupCount {
         case ..<1: return nil
-        case 1: return "1 group is a look-alike or less certain. Take a look."
-        default: return "\(checkGroupCount.formatted()) groups are look-alikes or less certain. Look at each one."
+        case 1: return String(localized: "1 group is a look-alike or less certain. Take a look.", bundle: .module)
+        default: return String(localized: "\(checkGroupCount.formatted()) groups are look-alikes or less certain. Look at each one.", bundle: .module)
         }
     }
 
     var doneText: String? {
         guard safeGroupCount == 0, checkGroupCount == 0, reviewedGroupCount > 0 else { return nil }
-        return "Every group has been reviewed."
+        return String(localized: "Every group has been reviewed.", bundle: .module)
     }
 
     /// One line for the stacked (narrow) layout, where a two-row bar with
@@ -65,18 +65,18 @@ struct DeduplicateReviewLanes: Equatable {
     var compactText: String? {
         var parts: [String] = []
         if safeGroupCount == 1 {
-            parts.append("1 safe match")
+            parts.append(String(localized: "1 safe match", bundle: .module))
         } else if safeGroupCount > 1 {
-            parts.append("\(safeGroupCount.formatted()) safe matches")
+            parts.append(String(localized: "\(safeGroupCount.formatted()) safe matches", bundle: .module))
         }
         if checkGroupCount == 1 {
-            parts.append("1 group to check")
+            parts.append(String(localized: "1 group to check", bundle: .module))
         } else if checkGroupCount > 1 {
-            parts.append("\(checkGroupCount.formatted()) groups to check")
+            parts.append(String(localized: "\(checkGroupCount.formatted()) groups to check", bundle: .module))
         }
         // No trailing full stop: the counts above have none either.
         if parts.isEmpty {
-            return doneText == nil ? nil : "Every group has been reviewed"
+            return doneText == nil ? nil : String(localized: "Every group has been reviewed", bundle: .module)
         }
         return parts.joined(separator: " · ")
     }

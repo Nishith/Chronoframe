@@ -17,7 +17,7 @@ struct HelpView: View {
 
             Picker("", selection: $section) {
                 ForEach(HelpSection.allCases) { item in
-                    Text(item.title).tag(item)
+                    Text(LocalizedStringKey(item.title), bundle: .module).tag(item)
                 }
             }
             .pickerStyle(.segmented)
@@ -89,7 +89,7 @@ private struct HelpHeader: View {
 
     private var versionString: String {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-        return "Version \(short)"
+        return String(localized: "Version \(short)", bundle: .module)
     }
 }
 
@@ -209,7 +209,7 @@ private struct HelpListPanel<Content: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkMuted)
 
@@ -234,10 +234,10 @@ private struct HelpStep: View {
                 .foregroundStyle(DesignTokens.ColorSystem.accentWaypoint)
                 .frame(width: 18, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                Text(detail)
+                Text(LocalizedStringKey(detail), bundle: .module)
                     .scaledFont(.subtitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -258,7 +258,7 @@ private struct HelpBullet: View {
                 .fill(DesignTokens.ColorSystem.inkMuted.opacity(0.5))
                 .frame(width: 4, height: 4)
                 .padding(.top, 7)
-            Text(text)
+            Text(LocalizedStringKey(text), bundle: .module)
                 .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -273,11 +273,11 @@ private struct ShortcutRow: View {
 
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
-            Text(keys)
+            Text(LocalizedStringKey(keys), bundle: .module)
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .frame(width: 56, alignment: .leading)
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Spacer(minLength: 0)
@@ -300,7 +300,7 @@ private struct PathRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .frame(width: 140, alignment: .leading)
@@ -318,7 +318,7 @@ private struct PathRow: View {
                 reveal(url)
             }
             .buttonStyle(.borderless)
-            .accessibilityLabel("Reveal \(label) in Finder")
+            .accessibilityLabel("Reveal \(AppLocalization.string(label)) in Finder")
         }
     }
 }

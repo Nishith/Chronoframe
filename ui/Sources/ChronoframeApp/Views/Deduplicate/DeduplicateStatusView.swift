@@ -67,11 +67,11 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
                 icon
 
                 VStack(spacing: 6) {
-                    Text(title)
+                    Text(LocalizedStringKey(title), bundle: .module)
                         .font(.headline)
                         .multilineTextAlignment(.center)
                     if let detail, !detail.isEmpty {
-                        Text(detail)
+                        Text(LocalizedStringKey(detail), bundle: .module)
                             .font(.caption)
                             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                             .monospacedDigit()
@@ -79,7 +79,7 @@ struct DeduplicateStatusView<Primary: View, Secondary: View>: View {
                 }
 
                 if let message, !message.isEmpty {
-                    Text(message)
+                    Text(LocalizedStringKey(message), bundle: .module)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                         .padding(.horizontal)

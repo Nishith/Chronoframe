@@ -121,7 +121,8 @@ struct SidebarView: View {
                     Text(LocalizedStringKey(destination.subtitle), bundle: .module)
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()

@@ -29,26 +29,28 @@ enum DeduplicateAccessibilityText {
     /// homogeneous in practice (a photo and a video can't be byte-identical), but
     /// a mixed cluster falls back to the neutral "item".
     static func mediaNoun(_ cluster: DuplicateCluster) -> String {
-        if cluster.members.allSatisfy({ $0.mediaKind == .video }) { return "video" }
-        if cluster.members.contains(where: { $0.mediaKind == .video }) { return "item" }
-        return "photo"
+        if cluster.members.allSatisfy({ $0.mediaKind == .video }) { return String(localized: "video", bundle: .module) }
+        if cluster.members.contains(where: { $0.mediaKind == .video }) { return String(localized: "item", bundle: .module) }
+        return String(localized: "photo", bundle: .module)
     }
 
     /// Plural form of `mediaNoun(_:)` — "photos" / "videos" / "items".
     static func pluralMediaNoun(_ cluster: DuplicateCluster) -> String {
-        mediaNoun(cluster) + "s"
+        if cluster.members.allSatisfy({ $0.mediaKind == .video }) { return String(localized: "videos", bundle: .module) }
+        if cluster.members.contains(where: { $0.mediaKind == .video }) { return String(localized: "items", bundle: .module) }
+        return String(localized: "photos", bundle: .module)
     }
 
     /// Singular media noun for a single member ("photo" / "video"). A lone member
     /// is never mixed, so the noun follows its own `mediaKind`.
     static func mediaNoun(_ member: PhotoCandidate) -> String {
-        member.mediaKind == .video ? "video" : "photo"
+        member.mediaKind == .video ? String(localized: "video", bundle: .module) : String(localized: "photo", bundle: .module)
     }
 
     /// "this photo" / "this video" — for hints and actions that refer to one
     /// focused member.
     static func thisMediaPhrase(_ member: PhotoCandidate) -> String {
-        "this \(mediaNoun(member))"
+        String(localized: "this \(String(mediaNoun(member)))", bundle: .module)
     }
 
     /// "3 photos" / "2 videos" / "4 items" — media-aware count phrase used by the
@@ -63,58 +65,58 @@ enum DeduplicateAccessibilityText {
     /// Container label for the rapid-triage member strip — "Photos in this group"
     /// / "Videos in this group" / "Items in this group".
     static func membersInGroupLabel(_ cluster: DuplicateCluster) -> String {
-        "\(pluralMediaNoun(cluster).capitalized) in this group"
+        String(localized: "\(String(pluralMediaNoun(cluster).capitalized)) in this group", bundle: .module)
     }
 
     /// Pointer-hover help for the cluster row's keep-all action.
     static func keepAllHelp(_ cluster: DuplicateCluster) -> String {
-        "Keep all \(pluralMediaNoun(cluster)) in this group"
+        String(localized: "Keep all \(String(pluralMediaNoun(cluster))) in this group", bundle: .module)
     }
 
     /// Pointer-hover help for the cluster row's delete-all action.
     static func deleteAllHelp(_ cluster: DuplicateCluster) -> String {
-        "Delete all \(pluralMediaNoun(cluster)) in this group"
+        String(localized: "Delete all \(String(pluralMediaNoun(cluster))) in this group", bundle: .module)
     }
 
     /// VoiceOver hint for a comparison-pane thumbnail — "Selects this photo for
     /// keyboard keep or delete actions".
     static func selectsForKeyboardActionsHint(_ member: PhotoCandidate) -> String {
-        "Selects \(thisMediaPhrase(member)) for keyboard keep or delete actions"
+        String(localized: "Selects \(String(thisMediaPhrase(member))) for keyboard keep or delete actions", bundle: .module)
     }
 
     /// VoiceOver hint for a member thumbnail in the detail strip.
     static func selectsForComparisonHint(_ member: PhotoCandidate) -> String {
-        "Selects \(thisMediaPhrase(member)) for comparison and decision review"
+        String(localized: "Selects \(String(thisMediaPhrase(member))) for comparison and decision review", bundle: .module)
     }
 
     /// VoiceOver label for the large preview pane — "Selected photo preview" /
     /// "Selected video preview".
     static func selectedPreviewLabel(_ cluster: DuplicateCluster) -> String {
-        "Selected \(mediaNoun(cluster)) preview"
+        String(localized: "Selected \(String(mediaNoun(cluster))) preview", bundle: .module)
     }
 
     /// VoiceOver label for the metadata panel — "Photo details" / "Video details".
     static func detailsLabel(_ member: PhotoCandidate) -> String {
-        "\(mediaNoun(member).capitalized) details"
+        String(localized: "\(String(mediaNoun(member).capitalized)) details", bundle: .module)
     }
 
     /// VoiceOver custom-action name for focusing a member — "Focus photo" /
     /// "Focus video".
     static func focusActionName(_ member: PhotoCandidate) -> String {
-        "Focus \(mediaNoun(member))"
+        String(localized: "Focus \(String(mediaNoun(member)))", bundle: .module)
     }
 
     /// Edited-variant warning headline — "These photos may be intentionally
     /// different".
     static func intentionallyDifferentNote(_ cluster: DuplicateCluster) -> String {
-        "These \(pluralMediaNoun(cluster)) may be intentionally different"
+        String(localized: "These \(String(pluralMediaNoun(cluster))) may be intentionally different", bundle: .module)
     }
 
     static func confidenceLabel(_ level: ConfidenceLevel?) -> String {
         switch level ?? .medium {
-        case .high: return "high"
-        case .medium: return "medium"
-        case .low: return "low"
+        case .high: return String(localized: "high", bundle: .module)
+        case .medium: return String(localized: "medium", bundle: .module)
+        case .low: return String(localized: "low", bundle: .module)
         }
     }
 
@@ -128,12 +130,12 @@ enum DeduplicateAccessibilityText {
 
     static func clusterRowLabel(cluster: DuplicateCluster) -> String {
         var parts: [String] = [
-            "\(cluster.kind.title) group",
+            String(localized: "\(AppLocalization.string(cluster.kind.title)) group", bundle: .module),
             memberCountPhrase(cluster),
-            "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
+            String(localized: "\(String(confidenceLabel(cluster.annotation?.confidence))) confidence", bundle: .module)
         ]
         if let keeper = suggestedKeeperName(in: cluster) {
-            parts.append("suggested keeper \(keeper)")
+            parts.append(String(localized: "suggested keeper \(String(keeper))", bundle: .module))
         }
         if let annotation = cluster.annotation, annotation.videoEvidence != nil {
             parts.append(MatchReasonFormatter.oneLiner(annotation))
@@ -142,7 +144,7 @@ enum DeduplicateAccessibilityText {
             parts.append(rationale)
         }
         if !(cluster.annotation?.warnings.isEmpty ?? true) {
-            parts.append("needs careful review")
+            parts.append(String(localized: "needs careful review", bundle: .module))
         }
         return parts.joined(separator: ", ")
     }
@@ -152,7 +154,7 @@ enum DeduplicateAccessibilityText {
         isApproved: Bool,
         recoverableBytes: Int64
     ) -> String {
-        let reviewState = isApproved ? "Reviewed" : "Suggested, not reviewed"
+        let reviewState = isApproved ? String(localized: "Reviewed", bundle: .module) : String(localized: "Suggested, not reviewed", bundle: .module)
         return "\(reviewState). \(reclaimableSummary(cluster: cluster, recoverableBytes: recoverableBytes))"
     }
 
@@ -162,12 +164,12 @@ enum DeduplicateAccessibilityText {
         totalCount: Int
     ) -> String {
         var parts = [
-            "Group \(currentIndex + 1) of \(totalCount)",
+            String(localized: "Group \(String(currentIndex + 1)) of \(String(totalCount))", bundle: .module),
             memberCountPhrase(cluster),
-            "\(confidenceLabel(cluster.annotation?.confidence)) confidence"
+            String(localized: "\(String(confidenceLabel(cluster.annotation?.confidence))) confidence", bundle: .module)
         ]
         if let keeper = suggestedKeeperName(in: cluster) {
-            parts.append("suggested keeper \(keeper)")
+            parts.append(String(localized: "suggested keeper \(String(keeper))", bundle: .module))
         }
         if let annotation = cluster.annotation, annotation.videoEvidence != nil {
             parts.append(MatchReasonFormatter.oneLiner(annotation))
@@ -180,7 +182,7 @@ enum DeduplicateAccessibilityText {
         // (which VoiceOver also reads), so repeating the full summary in this
         // composed label would announce it twice.
         if !(cluster.annotation?.warnings.isEmpty ?? true) {
-            parts.append("needs careful review")
+            parts.append(String(localized: "needs careful review", bundle: .module))
         }
         return parts.joined(separator: ", ")
     }
@@ -197,9 +199,9 @@ enum DeduplicateAccessibilityText {
         let name = AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent)
         guard isSuggestedKeeper else { return name }
         if let rationale = keeperRationale(keeperReason) {
-            return "\(name), suggested keeper, \(rationale)"
+            return String(localized: "\(String(name)), suggested keeper, \(String(rationale))", bundle: .module)
         }
-        return "\(name), suggested keeper"
+        return String(localized: "\(String(name)), suggested keeper", bundle: .module)
     }
 
     static func memberValue(
@@ -207,15 +209,15 @@ enum DeduplicateAccessibilityText {
         isFocused: Bool,
         confidence: ConfidenceLevel?
     ) -> String {
-        var parts = [decision == .keep ? "Marked keep" : "Marked delete"]
+        var parts = [decision == .keep ? String(localized: "Marked keep", bundle: .module) : String(localized: "Marked delete", bundle: .module)]
         if isFocused {
-            parts.append("selected")
+            parts.append(String(localized: "selected", bundle: .module))
         }
         if let confidence {
             // Use the same plain high/medium/low vocabulary as the cluster-row
             // and rapid-triage labels, so VoiceOver speaks one consistent term
             // for confidence (not the "Auto/Review/Careful" UI shorthand).
-            parts.append("\(confidenceLabel(confidence)) confidence group")
+            parts.append(String(localized: "\(String(confidenceLabel(confidence))) confidence group", bundle: .module))
         }
         return parts.joined(separator: ", ")
     }
@@ -228,16 +230,16 @@ enum DeduplicateAccessibilityText {
         keeperReason: KeeperReason?
     ) -> String {
         let name = AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent)
-        var parts = [decision == .keep ? "Marked keep" : "Marked delete"]
+        var parts = [decision == .keep ? String(localized: "Marked keep", bundle: .module) : String(localized: "Marked delete", bundle: .module)]
         if isSuggestedKeeper {
             if let rationale = keeperRationale(keeperReason) {
-                parts.append("suggested keeper, \(rationale)")
+                parts.append(String(localized: "suggested keeper, \(String(rationale))", bundle: .module))
             } else {
-                parts.append("suggested keeper")
+                parts.append(String(localized: "suggested keeper", bundle: .module))
             }
         }
         if let confidence {
-            parts.append("\(confidenceLabel(confidence)) confidence group")
+            parts.append(String(localized: "\(String(confidenceLabel(confidence))) confidence group", bundle: .module))
         }
         parts.append(name)
         return parts.joined(separator: ", ")
@@ -249,16 +251,16 @@ enum DeduplicateAccessibilityText {
     ) -> String {
         let bytes = formattedByteCount(recoverableBytes)
         if let annotation = cluster.annotation {
-            return "\(bytes) reclaimable. \(MatchReasonFormatter.oneLiner(annotation))"
+            return String(localized: "\(String(bytes)) reclaimable. \(String(MatchReasonFormatter.oneLiner(annotation)))", bundle: .module)
         }
-        return "\(bytes) reclaimable."
+        return String(localized: "\(String(bytes)) reclaimable.", bundle: .module)
     }
 
     static func keeperRationale(_ reason: KeeperReason?) -> String? {
         guard let reason, !reason.factors.isEmpty else { return nil }
         let summary = MatchReasonFormatter.keeperSummary(reason)
-        if summary.hasPrefix("Kept: ") {
-            return "because " + summary.dropFirst("Kept: ".count)
+        if summary.hasPrefix(String(localized: "Kept: ", bundle: .module)) {
+            return String(localized: "because ", bundle: .module) + summary.dropFirst(String(localized: "Kept: ", bundle: .module).count)
         }
         return summary
     }

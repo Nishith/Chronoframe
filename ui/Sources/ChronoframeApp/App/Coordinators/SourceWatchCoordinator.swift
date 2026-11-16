@@ -834,11 +834,11 @@ final class SourceWatchCoordinator {
     private func unavailableImportMessage(for availability: WatchedSourceAvailability) -> String {
         switch availability {
         case .unavailable:
-            return "This folder isn't reachable right now. Reconnect the drive, then try again."
+            return String(localized: "This folder isn't reachable right now. Reconnect the drive, then try again.", bundle: .module)
         case .accessLost:
-            return "Chronoframe lost access to this folder. Choose it again to restore access."
+            return String(localized: "Chronoframe lost access to this folder. Choose it again to restore access.", bundle: .module)
         case .pausedConflict:
-            return "This folder overlaps your destination, so it can't be imported. Change the destination or remove the watched folder."
+            return String(localized: "This folder overlaps your destination, so it can't be imported. Change the destination or remove the watched folder.", bundle: .module)
         case .available:
             return ""
         }

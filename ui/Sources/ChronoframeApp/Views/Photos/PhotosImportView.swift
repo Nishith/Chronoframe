@@ -70,7 +70,7 @@ struct PhotosImportView: View {
             maxHeight: .infinity,
             alignment: .topLeading
         )
-        .navigationTitle(Self.navigationTitle)
+        .navigationTitle(Text(LocalizedStringKey(Self.navigationTitle), bundle: .module))
         .onAppear {
             appState.preparePhotosWorkspace()
             store.refreshResumableImport(destination: currentDestination())

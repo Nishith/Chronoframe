@@ -222,11 +222,11 @@ struct RunWorkspaceModel {
         switch context.status {
         case .idle:
             return RunHeroState(
-                title: context.canStartRun ? "Preview the plan first" : "Choose your folders first",
+                title: context.canStartRun ? String(localized: "Preview the plan first", bundle: .module) : String(localized: "Choose your folders first", bundle: .module),
                 message: context.canStartRun
-                    ? "A preview copies nothing. It shows where every photo and video would go, so you can check before copying."
-                    : "Add the folders to organize and a destination, then come back here to preview and copy.",
-                badgeTitle: "Not started",
+                    ? String(localized: "A preview copies nothing. It shows where every photo and video would go, so you can check before copying.", bundle: .module)
+                    : String(localized: "Add the folders to organize and a destination, then come back here to preview and copy.", bundle: .module),
+                badgeTitle: String(localized: "Not started", bundle: .module),
                 badgeSymbol: "circle.dashed",
                 heroSymbol: "eye",
                 tone: context.canStartRun ? .ready : .idle,
@@ -235,9 +235,9 @@ struct RunWorkspaceModel {
 
         case .preflighting:
             return RunHeroState(
-                title: "Getting ready",
-                message: "Chronoframe is checking your folders before it starts.",
-                badgeTitle: "Preparing",
+                title: String(localized: "Getting ready", bundle: .module),
+                message: String(localized: "Chronoframe is checking your folders before it starts.", bundle: .module),
+                badgeTitle: String(localized: "Preparing", bundle: .module),
                 badgeSymbol: "clock.arrow.circlepath",
                 heroSymbol: "clock.arrow.circlepath",
                 tone: .ready,
@@ -247,11 +247,11 @@ struct RunWorkspaceModel {
         case .running:
             let mode = context.currentMode ?? .transfer
             return RunHeroState(
-                title: mode == .preview ? "Building the preview" : "Copying your photos",
+                title: mode == .preview ? String(localized: "Building the preview", bundle: .module) : String(localized: "Copying your photos", bundle: .module),
                 message: mode == .preview
-                    ? "You can keep using your Mac. Nothing is being copied."
-                    : "You can keep using your Mac. Originals are only read, never changed.",
-                badgeTitle: mode == .preview ? "Previewing" : "Copying",
+                    ? String(localized: "You can keep using your Mac. Nothing is being copied.", bundle: .module)
+                    : String(localized: "You can keep using your Mac. Originals are only read, never changed.", bundle: .module),
+                badgeTitle: mode == .preview ? String(localized: "Previewing", bundle: .module) : String(localized: "Copying", bundle: .module),
                 badgeSymbol: "arrow.triangle.2.circlepath",
                 heroSymbol: "bolt.horizontal.circle",
                 tone: .active,
@@ -260,9 +260,9 @@ struct RunWorkspaceModel {
 
         case .dryRunFinished:
             return RunHeroState(
-                title: "Preview ready",
+                title: String(localized: "Preview ready", bundle: .module),
                 message: previewHeadline.sentence,
-                badgeTitle: "Preview ready",
+                badgeTitle: String(localized: "Preview ready", bundle: .module),
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "doc.text.magnifyingglass",
                 tone: .ready,
@@ -271,11 +271,11 @@ struct RunWorkspaceModel {
 
         case .finished:
             let copied = context.metrics.copiedCount
-            let subject = copied == 1 ? "1 photo or video is" : "\(copied.formatted()) photos and videos are"
+            let subject = copied == 1 ? String(localized: "1 photo or video is", bundle: .module) : String(localized: "\(String(copied.formatted())) photos and videos are", bundle: .module)
             return RunHeroState(
-                title: "Copy complete",
-                message: "\(subject) in your organized library. Your originals were not changed.",
-                badgeTitle: "Done",
+                title: String(localized: "Copy complete", bundle: .module),
+                message: String(localized: "\(String(subject)) in your organized library. Your originals were not changed.", bundle: .module),
+                badgeTitle: String(localized: "Done", bundle: .module),
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "checkmark.circle.fill",
                 tone: .success,
@@ -284,9 +284,9 @@ struct RunWorkspaceModel {
 
         case .nothingToCopy:
             return RunHeroState(
-                title: "Already up to date",
-                message: "Everything in these folders is already in your organized library. Nothing was copied.",
-                badgeTitle: "Up to date",
+                title: String(localized: "Already up to date", bundle: .module),
+                message: String(localized: "Everything in these folders is already in your organized library. Nothing was copied.", bundle: .module),
+                badgeTitle: String(localized: "Up to date", bundle: .module),
                 badgeSymbol: "checkmark.seal.fill",
                 heroSymbol: "checkmark.seal.fill",
                 tone: .success,
@@ -295,9 +295,9 @@ struct RunWorkspaceModel {
 
         case .cancelled:
             return RunHeroState(
-                title: "Stopped",
-                message: "Chronoframe stopped before finishing. Files already copied stay in place and your originals were not changed. Preview again when you are ready.",
-                badgeTitle: "Stopped",
+                title: String(localized: "Stopped", bundle: .module),
+                message: String(localized: "Chronoframe stopped before finishing. Files already copied stay in place and your originals were not changed. Preview again when you are ready.", bundle: .module),
+                badgeTitle: String(localized: "Stopped", bundle: .module),
                 badgeSymbol: "pause.circle.fill",
                 heroSymbol: "pause.circle.fill",
                 tone: .warning,
@@ -306,9 +306,9 @@ struct RunWorkspaceModel {
 
         case .failed:
             return RunHeroState(
-                title: "Something needs attention",
-                message: context.lastErrorMessage ?? "Chronoframe could not finish. Your originals were not changed. Check that both folders are available, then try again.",
-                badgeTitle: "Needs attention",
+                title: String(localized: "Something needs attention", bundle: .module),
+                message: context.lastErrorMessage ?? String(localized: "Chronoframe could not finish. Your originals were not changed. Check that both folders are available, then try again.", bundle: .module),
+                badgeTitle: String(localized: "Needs attention", bundle: .module),
                 badgeSymbol: "exclamationmark.octagon.fill",
                 heroSymbol: "exclamationmark.triangle.fill",
                 tone: .danger,
@@ -317,9 +317,9 @@ struct RunWorkspaceModel {
 
         case .reverted:
             return RunHeroState(
-                title: "Undo complete",
-                message: "Chronoframe removed the copies listed in that receipt. Copies changed since then were kept.",
-                badgeTitle: "Undone",
+                title: String(localized: "Undo complete", bundle: .module),
+                message: String(localized: "Chronoframe removed the copies listed in that receipt. Copies changed since then were kept.", bundle: .module),
+                badgeTitle: String(localized: "Undone", bundle: .module),
                 badgeSymbol: "arrow.uturn.backward.circle.fill",
                 heroSymbol: "arrow.uturn.backward.circle.fill",
                 tone: .success,
@@ -328,9 +328,9 @@ struct RunWorkspaceModel {
 
         case .revertEmpty:
             return RunHeroState(
-                title: "Nothing to undo",
-                message: "That receipt lists no copies.",
-                badgeTitle: "Empty",
+                title: String(localized: "Nothing to undo", bundle: .module),
+                message: String(localized: "That receipt lists no copies.", bundle: .module),
+                badgeTitle: String(localized: "Empty", bundle: .module),
                 badgeSymbol: "tray",
                 heroSymbol: "tray",
                 tone: .ready,
@@ -339,9 +339,9 @@ struct RunWorkspaceModel {
 
         case .reorganized:
             return RunHeroState(
-                title: "Layout updated",
-                message: "Chronoframe moved the files in your organized library into the new folder layout.",
-                badgeTitle: "Updated",
+                title: String(localized: "Layout updated", bundle: .module),
+                message: String(localized: "Chronoframe moved the files in your organized library into the new folder layout.", bundle: .module),
+                badgeTitle: String(localized: "Updated", bundle: .module),
                 badgeSymbol: "rectangle.3.offgrid.fill",
                 heroSymbol: "rectangle.3.offgrid.fill",
                 tone: .success,
@@ -350,9 +350,9 @@ struct RunWorkspaceModel {
 
         case .nothingToReorganize:
             return RunHeroState(
-                title: "Layout already matches",
-                message: "Every file is already in the chosen layout. Nothing was moved.",
-                badgeTitle: "Up to date",
+                title: String(localized: "Layout already matches", bundle: .module),
+                message: String(localized: "Every file is already in the chosen layout. Nothing was moved.", bundle: .module),
+                badgeTitle: String(localized: "Up to date", bundle: .module),
                 badgeSymbol: "checkmark.seal.fill",
                 heroSymbol: "checkmark.seal.fill",
                 tone: .success,
@@ -376,7 +376,7 @@ struct RunWorkspaceModel {
             && context.progress == 0
             && context.currentPhase != nil
             && context.currentPhase != .copy {
-            return "Scanning"
+            return String(localized: "Scanning", bundle: .module)
         }
         return "\(Int(context.progress * 100))%"
     }
@@ -387,7 +387,7 @@ struct RunWorkspaceModel {
     }
 
     var destinationSummaryValue: String {
-        destinationRoot ?? "Your destination will appear here once you choose one."
+        destinationRoot ?? String(localized: "Your destination will appear here once you choose one.", bundle: .module)
     }
 
     var sourceRoot: String? {
@@ -395,7 +395,7 @@ struct RunWorkspaceModel {
     }
 
     var sourceSummaryValue: String {
-        sourceRoot ?? "Your folders will appear here once you choose them."
+        sourceRoot ?? String(localized: "Your folders will appear here once you choose them.", bundle: .module)
     }
 
     var issueSummaryValue: String {
@@ -403,17 +403,23 @@ struct RunWorkspaceModel {
         let errorCount = context.errorCount
         let issueCount = context.issueCount
         if warningCount == 0 && errorCount == 0 && issueCount == 0 {
-            return "No problems reported"
+            return String(localized: "No problems reported", bundle: .module)
         }
         var parts: [String] = []
         if warningCount > 0 {
-            parts.append("\(warningCount) warning\(warningCount == 1 ? "" : "s")")
+            parts.append(warningCount == 1
+                ? String(localized: "1 warning", bundle: .module)
+                : String(localized: "\(String(warningCount)) warnings", bundle: .module))
         }
         if errorCount > 0 {
-            parts.append("\(errorCount) error\(errorCount == 1 ? "" : "s")")
+            parts.append(errorCount == 1
+                ? String(localized: "1 error", bundle: .module)
+                : String(localized: "\(String(errorCount)) errors", bundle: .module))
         }
         if issueCount > 0 {
-            parts.append("\(issueCount) other problem\(issueCount == 1 ? "" : "s")")
+            parts.append(issueCount == 1
+                ? String(localized: "1 other problem", bundle: .module)
+                : String(localized: "\(String(issueCount)) other problems", bundle: .module))
         }
         return parts.joined(separator: ", ")
     }
@@ -422,7 +428,7 @@ struct RunWorkspaceModel {
     var nowSummaryValue: String {
         let task = context.currentTaskTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         if task.isEmpty || task.caseInsensitiveCompare("Idle") == .orderedSame {
-            return "Not started"
+            return String(localized: "Not started", bundle: .module)
         }
         return task
     }
@@ -461,19 +467,19 @@ struct RunWorkspaceModel {
         let total = max(context.metrics.plannedCount, 0)
         let copied = max(context.metrics.copiedCount, 0)
         guard total > 0 else {
-            return copied > 0 ? "\(copied.formatted()) files copied" : "Getting ready to copy"
+            return copied > 0 ? String(localized: "\(String(copied.formatted())) files copied", bundle: .module) : String(localized: "Getting ready to copy", bundle: .module)
         }
 
         let percent = min(100, max(0, Int((Double(copied) / Double(total) * 100).rounded())))
-        return "\(copied.formatted()) of \(total.formatted()) files · \(percent)%"
+        return String(localized: "\(String(copied.formatted())) of \(String(total.formatted())) files · \(String(percent))%", bundle: .module)
     }
 
     var byteProgressSummaryValue: String {
         guard context.metrics.bytesTotal > 0 else {
-            return "Measuring"
+            return String(localized: "Measuring", bundle: .module)
         }
 
-        return "\(formattedBytes(context.metrics.bytesCopied)) of \(formattedBytes(context.metrics.bytesTotal))"
+        return String(localized: "\(String(formattedBytes(context.metrics.bytesCopied))) of \(String(formattedBytes(context.metrics.bytesTotal)))", bundle: .module)
     }
 
     var throughputSummaryValue: String {
@@ -482,9 +488,9 @@ struct RunWorkspaceModel {
         if speed == "—", eta == "—" {
             switch context.status {
             case .finished, .nothingToCopy, .reverted, .reorganized:
-                return "Done"
+                return String(localized: "Done", bundle: .module)
             default:
-                return "Starting…"
+                return String(localized: "Starting…", bundle: .module)
             }
         }
         if eta == "—" {
@@ -521,15 +527,15 @@ struct RunWorkspaceModel {
         let pending = entries.filter { $0.state == .pending }.map { $0.phase.displayTitle }
 
         func line(color: String, label: String, names: [String]) -> String {
-            let joined = names.isEmpty ? "none" : names.joined(separator: ", ")
+            let joined = names.isEmpty ? String(localized: "none", bundle: .module) : names.joined(separator: ", ")
             return "\(color) · \(label) (\(names.count)): \(joined)"
         }
 
         return [
-            "Phase progress",
-            line(color: "Green", label: "Complete", names: complete),
-            line(color: "Yellow", label: "Current", names: current),
-            line(color: "Gray", label: "Pending", names: pending),
+            String(localized: "Phase progress", bundle: .module),
+            line(color: String(localized: "Green", bundle: .module), label: String(localized: "Complete", bundle: .module), names: complete),
+            line(color: String(localized: "Yellow", bundle: .module), label: String(localized: "Current", bundle: .module), names: current),
+            line(color: String(localized: "Gray", bundle: .module), label: String(localized: "Pending", bundle: .module), names: pending),
         ].joined(separator: "\n")
     }
 
@@ -554,28 +560,28 @@ struct RunWorkspaceModel {
 
     var nextStepBody: String {
         let setAside = context.metrics.duplicateCount
-        let closing = "Nothing is removed until you approve it."
+        let closing = String(localized: "Nothing is removed until you approve it.", bundle: .module)
         if setAside > 1 {
-            return "\(setAside.formatted()) exact copies were set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)"
+            return String(localized: "\(String(setAside.formatted())) exact copies were set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(String(closing))", bundle: .module)
         }
         if setAside == 1 {
-            return "1 exact copy was set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(closing)"
+            return String(localized: "1 exact copy was set aside in the Duplicate folder during this copy. Deduplicate checks the whole organized library, including look-alikes. \(String(closing))", bundle: .module)
         }
-        return "Deduplicate checks your organized library for exact copies and look-alikes. \(closing)"
+        return String(localized: "Deduplicate checks your organized library for exact copies and look-alikes. \(String(closing))", bundle: .module)
     }
 
     var outcomeSummaryMessage: String {
         switch context.status {
         case .finished:
-            return "Your originals were not changed. The report and the receipt for undoing this copy are in History."
+            return String(localized: "Your originals were not changed. The report and the receipt for undoing this copy are in History.", bundle: .module)
         case .nothingToCopy:
-            return "Nothing needed copying."
+            return String(localized: "Nothing needed copying.", bundle: .module)
         case .reverted:
-            return "Copies changed since the original copy were kept."
+            return String(localized: "Copies changed since the original copy were kept.", bundle: .module)
         case .reorganized:
-            return "Files were moved into the chosen layout and a receipt was saved."
+            return String(localized: "Files were moved into the chosen layout and a receipt was saved.", bundle: .module)
         case .nothingToReorganize:
-            return "The library already matches the chosen layout."
+            return String(localized: "The library already matches the chosen layout.", bundle: .module)
         default:
             return ""
         }
@@ -594,30 +600,30 @@ struct RunWorkspaceModel {
         return [
             RunMetricTileModel(
                 id: "ready-review",
-                title: "Ready",
+                title: String(localized: "Ready", bundle: .module),
                 value: abbreviated(summary.readyCount),
-                caption: "Ready to copy.",
+                caption: String(localized: "Ready to copy.", bundle: .module),
                 tone: .ready
             ),
             RunMetricTileModel(
                 id: "attention-review",
-                title: "Needs Attention",
+                title: String(localized: "Needs Attention", bundle: .module),
                 value: abbreviated(summary.needsAttentionCount),
-                caption: "No date, an unsure date, or unreadable.",
+                caption: String(localized: "No date, an unsure date, or unreadable.", bundle: .module),
                 tone: summary.needsAttentionCount > 0 ? .warning : .success
             ),
             RunMetricTileModel(
                 id: "unknown-review",
-                title: "No Date",
+                title: String(localized: "No Date", bundle: .module),
                 value: abbreviated(summary.unknownDateCount),
-                caption: "Go to the Unknown_Date folder unless you set a date.",
+                caption: String(localized: "Go to the Unknown_Date folder unless you set a date.", bundle: .module),
                 tone: summary.unknownDateCount > 0 ? .warning : .success
             ),
             RunMetricTileModel(
                 id: "dupe-review",
-                title: "Exact Copies",
+                title: String(localized: "Exact Copies", bundle: .module),
                 value: abbreviated(summary.duplicateCount),
-                caption: "Exact copies, set aside in the Duplicate folder.",
+                caption: String(localized: "Exact copies, set aside in the Duplicate folder.", bundle: .module),
                 tone: summary.duplicateCount > 0 ? .warning : .muted
             ),
         ]
@@ -627,44 +633,44 @@ struct RunWorkspaceModel {
         [
             RunMetricTileModel(
                 id: "discovered",
-                title: "Found",
+                title: String(localized: "Found", bundle: .module),
                 value: abbreviated(context.metrics.discoveredCount),
-                caption: "Photos and videos in your folders.",
+                caption: String(localized: "Photos and videos in your folders.", bundle: .module),
                 tone: .accent
             ),
             RunMetricTileModel(
                 id: "planned",
-                title: "To Copy",
+                title: String(localized: "To Copy", bundle: .module),
                 value: abbreviated(context.metrics.plannedCount),
-                caption: "New files in the plan.",
+                caption: String(localized: "New files in the plan.", bundle: .module),
                 tone: .ready
             ),
             RunMetricTileModel(
                 id: "already",
-                title: "Already There",
+                title: String(localized: "Already There", bundle: .module),
                 value: abbreviated(context.metrics.alreadyInDestinationCount),
-                caption: "Skipped because the same file is already in the library.",
+                caption: String(localized: "Skipped because the same file is already in the library.", bundle: .module),
                 tone: .success
             ),
             RunMetricTileModel(
                 id: "duplicates",
-                title: "Exact Copies",
+                title: String(localized: "Exact Copies", bundle: .module),
                 value: abbreviated(context.metrics.duplicateCount),
-                caption: "Set aside in the Duplicate folder.",
+                caption: String(localized: "Set aside in the Duplicate folder.", bundle: .module),
                 tone: .warning
             ),
             RunMetricTileModel(
                 id: "issues",
-                title: "Problems",
+                title: String(localized: "Problems", bundle: .module),
                 value: abbreviated(context.issueCount),
-                caption: "Warnings and files that could not be copied or checked.",
+                caption: String(localized: "Warnings and files that could not be copied or checked.", bundle: .module),
                 tone: issueTone
             ),
             RunMetricTileModel(
                 id: "copied",
-                title: "Copied",
+                title: String(localized: "Copied", bundle: .module),
                 value: abbreviated(context.metrics.copiedCount),
-                caption: "Files copied so far.",
+                caption: String(localized: "Files copied so far.", bundle: .module),
                 tone: .success
             ),
         ]
@@ -680,8 +686,8 @@ struct RunWorkspaceModel {
 
     var issueWorkspaceSummary: String {
         issueEntries.isEmpty
-            ? "No warnings or errors have been reported yet. If something changes, this view will pull the important problems out of the full activity log."
-            : "Warnings and errors are separated here so you can review the most important problems without scanning the entire activity log."
+            ? String(localized: "No warnings or errors have been reported yet. If something changes, this view will pull the important problems out of the full activity log.", bundle: .module)
+            : String(localized: "Warnings and errors are separated here so you can review the most important problems without scanning the entire activity log.", bundle: .module)
     }
 
     var reportPath: String? {
@@ -699,15 +705,15 @@ struct RunWorkspaceModel {
     func tabTitle(_ tab: RunWorkspaceTab) -> String {
         switch tab {
         case .overview:
-            return "Overview"
+            return String(localized: "Overview", bundle: .module)
         case .review:
             let count = context.previewReviewSummary.needsAttentionCount
-            return count > 0 ? "Review (\(count))" : "Review"
+            return count > 0 ? String(localized: "Review (\(String(count)))", bundle: .module) : String(localized: "Review", bundle: .module)
         case .issues:
             let count = max(context.warningCount + context.errorCount, context.issueCount)
-            return count > 0 ? "Problems (\(count))" : "Problems"
+            return count > 0 ? String(localized: "Problems (\(String(count)))", bundle: .module) : String(localized: "Problems", bundle: .module)
         case .console:
-            return "Activity"
+            return String(localized: "Activity", bundle: .module)
         }
     }
 
@@ -717,16 +723,16 @@ struct RunWorkspaceModel {
 
     func phaseAccessibilityLabel(for phase: RunPhase) -> String {
         guard let currentPhase = context.currentPhase else {
-            return "Phase \(phase.displayTitle): not started"
+            return String(localized: "Phase \(String(phase.displayTitle)): not started", bundle: .module)
         }
         let currentIndex = RunPhase.allCases.firstIndex(of: currentPhase) ?? 0
         let phaseIndex = RunPhase.allCases.firstIndex(of: phase) ?? 0
         if phaseIndex < currentIndex {
-            return "Phase \(phase.displayTitle): complete"
+            return String(localized: "Phase \(String(phase.displayTitle)): complete", bundle: .module)
         } else if phase == currentPhase {
-            return "Phase \(phase.displayTitle): in progress"
+            return String(localized: "Phase \(String(phase.displayTitle)): in progress", bundle: .module)
         } else {
-            return "Phase \(phase.displayTitle): pending"
+            return String(localized: "Phase \(String(phase.displayTitle)): pending", bundle: .module)
         }
     }
 
@@ -758,12 +764,12 @@ struct RunWorkspaceModel {
         guard let eta, eta > 0 else { return "—" }
         let totalSeconds = Int(eta.rounded())
         if totalSeconds < 60 {
-            return "\(totalSeconds)s"
+            return String(localized: "\(String(totalSeconds))s", bundle: .module)
         }
         if totalSeconds < 3_600 {
-            return "\(totalSeconds / 60)m \(totalSeconds % 60)s"
+            return String(localized: "\(String(totalSeconds / 60))m \(String(totalSeconds % 60))s", bundle: .module)
         }
-        return "\(totalSeconds / 3_600)h \((totalSeconds % 3_600) / 60)m"
+        return String(localized: "\(String(totalSeconds / 3_600))h \(String((totalSeconds % 3_600) / 60))m", bundle: .module)
     }
 
     private func formattedBytes(_ bytes: Int64) -> String {

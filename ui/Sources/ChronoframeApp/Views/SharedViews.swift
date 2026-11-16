@@ -461,7 +461,7 @@ struct MeridianStatusBadge: View {
                     .fill(tint)
                     .frame(width: 5, height: 5)
             }
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
@@ -489,18 +489,19 @@ struct SectionHeading: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if let eyebrow, !eyebrow.isEmpty {
-                Text(eyebrow.uppercased())
+                Text(LocalizedStringKey(eyebrow), bundle: .module)
+                    .textCase(.uppercase)
                     .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .tracking(0.8)
             }
 
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .scaledFont(.cardTitle)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
             if !message.isEmpty {
-                Text(message)
+                Text(LocalizedStringKey(message), bundle: .module)
                     .scaledFont(.body, weight: .medium)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -562,7 +563,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
     /// rather than carrying an explicit empty one.
     @ViewBuilder
     private var titleText: some View {
-        let text = Text(title)
+        let text = Text(LocalizedStringKey(title), bundle: .module)
             .scaledFont(.title)
             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         if let titleAccessibilityIdentifier {
@@ -588,7 +589,7 @@ struct DetailHeroCard<Summary: View, Actions: View>: View {
                         titleText
 
                         if !message.isEmpty {
-                            Text(message)
+                            Text(LocalizedStringKey(message), bundle: .module)
                                 .scaledFont(.subtitle)
                                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -636,7 +637,7 @@ struct SummaryLine: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
@@ -673,7 +674,8 @@ struct MetricTile: View {
     var body: some View {
         MeridianSurfaceCard(style: .inner, tint: tint) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(title.uppercased())
+                Text(LocalizedStringKey(title), bundle: .module)
+                    .textCase(.uppercase)
                     .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .tracking(0.6)
@@ -686,7 +688,7 @@ struct MetricTile: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
 
-                Text(caption)
+                Text(LocalizedStringKey(caption), bundle: .module)
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -704,21 +706,21 @@ struct PathValueView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .tracking(0.6)
 
-            Text(value.isEmpty ? "Not set" : value)
+            Text(verbatim: value.isEmpty ? AppLocalization.string("Not set") : value)
                 .scaledFont(.mono)
                 .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.captionText : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(DesignTokens.Layout.pathLineLimit)
                 .truncationMode(.middle)
                 .help(value.isEmpty ? "" : value)
-                .accessibilityLabel(value.isEmpty ? "Not set" : AccessibilityPathFormatter.spokenDescription(for: value))
+                .accessibilityLabel(value.isEmpty ? AppLocalization.string("Not set") : AccessibilityPathFormatter.spokenDescription(for: value))
 
             if !helper.isEmpty {
-                Text(helper)
+                Text(LocalizedStringKey(helper), bundle: .module)
                     .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.captionText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -746,15 +748,15 @@ struct EmptyStateView: View {
 
                     MeridianLeadIcon(systemImage: systemImage, tint: DesignTokens.ColorSystem.accentAction, size: 40, isAccessibilityHidden: true)
                 }
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                     .scaledFont(.cardTitle)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                Text(message)
+                Text(LocalizedStringKey(message), bundle: .module)
                     .scaledFont(.subtitle)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 if let actionLabel, let action {
-                    Button(actionLabel, action: action)
+                    Button(LocalizedStringKey(actionLabel), action: action)
                         .buttonStyle(.borderedProminent)
                         .controlSize(.regular)
                         .padding(.top, 4)
@@ -895,10 +897,10 @@ struct TrustProofModel {
             TrustProofItem(
                 id: "reviewed_only",
                 title: "Reviewed Groups Only",
-                message: "\(reviewedGroups) groups will be processed. \(unreviewedGroups) unreviewed groups remain completely untouched.",
+                message: String(localized: "\(reviewedGroups) groups will be processed. \(unreviewedGroups) unreviewed groups remain completely untouched.", bundle: .module),
                 symbol: "checklist",
                 tone: unreviewedGroups > 0 ? .warning : .success,
-                accessibilityLabel: "\(reviewedGroups) groups reviewed. \(unreviewedGroups) groups untouched.",
+                accessibilityLabel: String(localized: "\(reviewedGroups) groups reviewed. \(unreviewedGroups) groups untouched.", bundle: .module),
                 actionLabel: nil
             )
         ]
@@ -1079,7 +1081,7 @@ struct SandboxDetailPopover: View {
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                     .scaledFont(.body, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
@@ -1180,7 +1182,7 @@ struct TrustProofSurface: View {
     private var condensedItems: some View {
         ForEach(items) { item in
             Label {
-                Text(item.title)
+                Text(LocalizedStringKey(item.title), bundle: .module)
                     .scaledFont(.body, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             } icon: {
@@ -1188,9 +1190,9 @@ struct TrustProofSurface: View {
                     .foregroundStyle(item.tone.color)
             }
             .fixedSize()
-            .help(item.message)
+            .help(AppLocalization.string(item.message))
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(item.accessibilityLabel)
+            .accessibilityLabel(AppLocalization.string(item.accessibilityLabel))
         }
     }
 
@@ -1204,11 +1206,11 @@ struct TrustProofSurface: View {
                         .padding(.top, 2)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title)
+                        Text(LocalizedStringKey(item.title), bundle: .module)
                             .scaledFont(.body, weight: .semibold)
                             .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 
-                        Text(item.message)
+                        Text(LocalizedStringKey(item.message), bundle: .module)
                             .scaledFont(.body)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -1223,7 +1225,7 @@ struct TrustProofSurface: View {
                         .strokeBorder(item.tone.color.opacity(differentiateWithoutColor ? 0.55 : 0.18), lineWidth: differentiateWithoutColor ? 1.2 : 0.5)
                 )
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(item.accessibilityLabel)
+                .accessibilityLabel(AppLocalization.string(item.accessibilityLabel))
             }
         }
     }
@@ -1232,8 +1234,8 @@ struct TrustProofSurface: View {
 extension View {
     func accessibilityActionsMenu(label: String, hint: String) -> some View {
         self
-            .accessibilityLabel(label)
+            .accessibilityLabel(AppLocalization.string(label))
             .accessibilityValue("Menu")
-            .help(hint)
+            .help(AppLocalization.string(hint))
     }
 }

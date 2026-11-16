@@ -60,11 +60,11 @@ enum SetupPrimaryAction: Equatable {
     var title: String {
         switch self {
         case .chooseSource:
-            return "Add Folders"
+            return String(localized: "Add Folders", bundle: .module)
         case .chooseDestination:
-            return "Choose Destination"
+            return String(localized: "Choose Destination", bundle: .module)
         case .preview:
-            return "Preview Plan"
+            return String(localized: "Preview Plan", bundle: .module)
         }
     }
 
@@ -213,14 +213,14 @@ struct SetupScreenModel {
         if context.usingDroppedSource || !context.sourcePath.isEmpty {
             return .ready("", .success)
         }
-        return .needed("Add a folder", .warning)
+        return .needed(String(localized: "Add a folder", bundle: .module), .warning)
     }
 
     var destinationStepState: SetupStepState {
         if !context.destinationPath.isEmpty {
             return .ready("", .success)
         }
-        return .needed("Choose a destination", .warning)
+        return .needed(String(localized: "Choose a destination", bundle: .module), .warning)
     }
 
     var heroTone: SetupScreenTone {
@@ -235,15 +235,15 @@ struct SetupScreenModel {
 
     var heroBadgeTitle: String {
         if context.activeProfile != nil {
-            return "Profile ready"
+            return String(localized: "Profile ready", bundle: .module)
         }
         if canStartRun {
-            return "Ready to preview"
+            return String(localized: "Ready to preview", bundle: .module)
         }
         if context.usingDroppedSource || !context.sourcePath.isEmpty || !context.destinationPath.isEmpty {
-            return "One more step"
+            return String(localized: "One more step", bundle: .module)
         }
-        return "Start here"
+        return String(localized: "Start here", bundle: .module)
     }
 
     var heroBadgeSymbol: String {
@@ -261,8 +261,8 @@ struct SetupScreenModel {
             return profile.sourcePath
         }
         switch context.sourceItems.count {
-        case 0: return "Needed"
-        case 1: return "Ready"
+        case 0: return String(localized: "Needed", bundle: .module)
+        case 1: return String(localized: "Ready", bundle: .module)
         case let count: return SourceItemList.summaryLabel(count: count)
         }
     }
@@ -271,47 +271,47 @@ struct SetupScreenModel {
         if let profile = context.activeProfile {
             return profile.destinationPath
         }
-        return context.destinationPath.isEmpty ? "Needed" : "Ready"
+        return context.destinationPath.isEmpty ? String(localized: "Needed", bundle: .module) : String(localized: "Ready", bundle: .module)
     }
 
     var modeSummaryValue: String {
         if context.activeProfile != nil {
-            return "Saved profile: \(context.selectedProfileName)"
+            return String(localized: "Saved profile: \(String(context.selectedProfileName))", bundle: .module)
         }
-        return "Folders you chose"
+        return String(localized: "Folders you chose", bundle: .module)
     }
 
     var nextStepSummary: String {
         if context.sourcePath.isEmpty {
-            return "Add the folders to organize"
+            return String(localized: "Add the folders to organize", bundle: .module)
         }
         if context.destinationPath.isEmpty {
-            return "Choose where the copies go"
+            return String(localized: "Choose where the copies go", bundle: .module)
         }
-        return "Preview the plan"
+        return String(localized: "Preview the plan", bundle: .module)
     }
 
     var configurationSummary: String {
         if context.activeProfile != nil {
-            return "Using the saved profile \(context.selectedProfileName)"
+            return String(localized: "Using the saved profile \(String(context.selectedProfileName))", bundle: .module)
         }
-        return "Folders you chose"
+        return String(localized: "Folders you chose", bundle: .module)
     }
 
     var performanceSummary: String {
-        "\(context.workerCount) workers"
+        String(localized: "\(String(context.workerCount)) workers", bundle: .module)
     }
 
     var safetySummary: String {
         context.verifyCopies
-            ? "Verification is enabled after copy"
-            : "Verification is disabled for faster throughput"
+            ? String(localized: "Verification is enabled after copy", bundle: .module)
+            : String(localized: "Verification is disabled for faster throughput", bundle: .module)
     }
 
     var readinessMessage: String {
         canStartRun
-            ? "A preview copies nothing. It shows where every file would go, and you decide after that."
-            : "Add a folder and choose a destination to see a preview."
+            ? String(localized: "A preview copies nothing. It shows where every file would go, and you decide after that.", bundle: .module)
+            : String(localized: "Add a folder and choose a destination to see a preview.", bundle: .module)
     }
 
     /// Profiles are earned complexity: a first-time user has none and should
@@ -324,7 +324,7 @@ struct SetupScreenModel {
     }
 
     var savedSetupBadgeTitle: String {
-        context.activeProfile != nil ? "Active" : "Optional"
+        context.activeProfile != nil ? String(localized: "Active", bundle: .module) : String(localized: "Optional", bundle: .module)
     }
 
     var savedSetupBadgeSymbol: String {
@@ -338,14 +338,14 @@ struct SetupScreenModel {
     var sourcePathHelper: String {
         switch context.sourceItems.count {
         case 0: return ""
-        case 1: return "Chronoframe reads this folder and never changes what is in it."
+        case 1: return String(localized: "Chronoframe reads this folder and never changes what is in it.", bundle: .module)
         case let count:
-            return "Chronoframe reads these \(count.formatted()) folders together and never changes what is in them."
+            return String(localized: "Chronoframe reads these \(String(count.formatted())) folders together and never changes what is in them.", bundle: .module)
         }
     }
 
     var destinationPathHelper: String {
-        "Chronoframe creates dated folders here and keeps a receipt of each copy so you can undo it from History."
+        String(localized: "Chronoframe creates dated folders here and keeps a receipt of each copy so you can undo it from History.", bundle: .module)
     }
 
     var primaryAction: SetupPrimaryAction {

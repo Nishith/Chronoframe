@@ -64,12 +64,12 @@ struct ProfilesView: View {
 
     private var summaryMessage: String {
         if setupStore.profiles.isEmpty {
-            return "Save the current source and destination to create your first reusable profile."
+            return String(localized: "Save the current source and destination to create your first reusable profile.", bundle: .module)
         }
         if setupStore.usingProfile {
-            return "Active profile: \(setupStore.selectedProfileName)."
+            return String(localized: "Active profile: \(setupStore.selectedProfileName).", bundle: .module)
         }
-        return "\(setupStore.profiles.count) saved · manual paths in use."
+        return String(localized: "\(setupStore.profiles.count) saved · manual paths in use.", bundle: .module)
     }
 
     // MARK: - Save current paths
@@ -117,13 +117,13 @@ struct ProfilesView: View {
 
     private func currentPathRow(label: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.md) {
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .tracking(0.6)
-                .frame(width: 96, alignment: .leading)
+                .frame(width: 148, alignment: .leading)
 
-            Text(value.isEmpty ? "Not set" : value)
+            Text(verbatim: value.isEmpty ? AppLocalization.string("Not set") : value)
                 .scaledFont(.mono)
                 .foregroundStyle(value.isEmpty ? DesignTokens.ColorSystem.captionText : DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
@@ -257,7 +257,7 @@ private struct ProfileTile: View {
                 }
 
                 Button(action: onUse) {
-                    Text(isActive ? "Open in Setup" : "Use")
+                    Text(LocalizedStringKey(isActive ? "Open in Setup" : "Use"), bundle: .module)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
@@ -276,7 +276,7 @@ private struct ProfileTile: View {
                 .frame(width: 14)
                 .accessibilityHidden(true)
 
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 .tracking(0.6)
