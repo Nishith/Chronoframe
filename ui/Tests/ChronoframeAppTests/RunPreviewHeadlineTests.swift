@@ -11,8 +11,7 @@ final class RunPreviewHeadlineTests: XCTestCase {
     private let enUS = Locale(identifier: "en_US")
 
     func testGermanHeadlineAndExceptionsUseTranslatedRuntimeTemplates() throws {
-        let path = try XCTUnwrap(AppLocalization.resourceBundle.path(forResource: "de", ofType: "lproj"))
-        let german = try XCTUnwrap(Bundle(path: path))
+        let german = try localizedTestBundle("de", in: AppLocalization.resourceBundle)
         for count in [1, 2] {
             let value = RunPreviewHeadline(
                 metrics: RunMetrics(plannedCount: count, duplicateCount: count),

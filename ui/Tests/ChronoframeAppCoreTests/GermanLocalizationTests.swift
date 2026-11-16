@@ -4,8 +4,7 @@ import XCTest
 
 final class GermanLocalizationTests: XCTestCase {
     private func germanBundle() throws -> Bundle {
-        let path = try XCTUnwrap(Bundle.module.path(forResource: "de", ofType: "lproj"))
-        return try XCTUnwrap(Bundle(path: path))
+        try localizedTestBundle("de", in: Bundle.module)
     }
 
     func testCoreCatalogResolvesGermanInsteadOfFallingBackToEnglish() throws {
@@ -82,8 +81,7 @@ final class GermanLocalizationTests: XCTestCase {
     }
 
     func testEnglishPendingPromptRemainsUnchanged() throws {
-        let path = try XCTUnwrap(Bundle.module.path(forResource: "en", ofType: "lproj"))
-        let bundle = try XCTUnwrap(Bundle(path: path))
+        let bundle = try localizedTestBundle("en", in: Bundle.module)
         XCTAssertEqual(
             RunSessionStore.pendingCopyMessage(count: 1, forFreeTestBatch: false, bundle: bundle),
             "1 file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan."
