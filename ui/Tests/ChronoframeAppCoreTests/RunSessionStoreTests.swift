@@ -901,8 +901,8 @@ final class RunSessionStoreTests: XCTestCase {
         ])
 
         for (count, expected) in [
-            (1, "1 file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
-            (3, "3 files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
+            (1, "1 file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed."),
+            (3, "3 files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed."),
         ] {
             let preflight = RunPreflight(
                 configuration: configuration,
