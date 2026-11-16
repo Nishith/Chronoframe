@@ -26,7 +26,7 @@ enum ComparisonSlider {
 
     /// Spoken/announced value for the divider position.
     static func accessibilityValue(_ position: CGFloat) -> String {
-        "\(Int((clamped(position) * 100).rounded()))% keeper"
+        String(localized: "\(String(Int((clamped(position) * 100).rounded())))% keeper", bundle: .module)
     }
 }
 
@@ -65,9 +65,9 @@ enum FlickerComparisonPlayback {
     }
 
     static func accessibilityValue(isShowingKeeper: Bool, isPlaying: Bool) -> String {
-        let side = isShowingKeeper ? "showing keeper" : "showing compare"
+        let side = isShowingKeeper ? String(localized: "showing keeper", bundle: .module) : String(localized: "showing compare", bundle: .module)
         return isPlaying
-            ? "Playing, \(side), alternating every \(Double(automaticIntervalMilliseconds) / 1000) seconds"
-            : "Paused, \(side)"
+            ? String(localized: "Playing, \(side), alternating every \(String(Double(automaticIntervalMilliseconds) / 1000)) seconds", bundle: .module)
+            : String(localized: "Paused, \(side)", bundle: .module)
     }
 }

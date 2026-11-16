@@ -10,38 +10,38 @@ public extension RunPhase {
     var displayTitle: String {
         switch self {
         case .discovery:
-            return "Find Files"
+            return CoreL10n.text("Find Files")
         case .sourceHashing:
-            return "Read Originals"
+            return CoreL10n.text("Read Originals")
         case .destinationIndexing:
-            return "Check Destination"
+            return CoreL10n.text("Check Destination")
         case .classification:
-            return "Sort by Date"
+            return CoreL10n.text("Sort by Date")
         case .copy:
-            return "Copy"
+            return CoreL10n.text("Copy")
         case .revert:
-            return "Undo"
+            return CoreL10n.text("Undo")
         case .reorganize:
-            return "Reorganize"
+            return CoreL10n.text("Reorganize")
         }
     }
 
     var displayRunningTitle: String {
         switch self {
         case .discovery:
-            return "Finding files…"
+            return CoreL10n.text("Finding files…")
         case .sourceHashing:
-            return "Reading your originals…"
+            return CoreL10n.text("Reading your originals…")
         case .destinationIndexing:
-            return "Checking the destination…"
+            return CoreL10n.text("Checking the destination…")
         case .classification:
-            return "Sorting by date…"
+            return CoreL10n.text("Sorting by date…")
         case .copy:
-            return "Copying files…"
+            return CoreL10n.text("Copying files…")
         case .revert:
-            return "Undoing…"
+            return CoreL10n.text("Undoing…")
         case .reorganize:
-            return "Reorganizing files…"
+            return CoreL10n.text("Reorganizing files…")
         }
     }
 }
@@ -52,13 +52,13 @@ public extension RunMode {
     var displayTitle: String {
         switch self {
         case .preview:
-            return "Preview"
+            return CoreL10n.text("Preview")
         case .transfer:
-            return "Copy"
+            return CoreL10n.text("Copy")
         case .revert:
-            return "Undo"
+            return CoreL10n.text("Undo")
         case .reorganize:
-            return "Reorganize"
+            return CoreL10n.text("Reorganize")
         }
     }
 }

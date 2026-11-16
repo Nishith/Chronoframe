@@ -13,8 +13,8 @@ enum AccessibilityLabels {
     // MARK: - Setup
 
     /// Label for the source drag-and-drop target.
-    static let dropZone = "Drop photos, videos, or folders to organize"
+    static let dropZone = String(localized: "Drop photos, videos, or folders to organize", bundle: .module)
     /// Hint that points VoiceOver/keyboard users at the equivalent button, since
     /// the drop target itself cannot be activated from the keyboard.
-    static let dropZoneHint = "Or use the Add Folders button to pick folders"
+    static let dropZoneHint = String(localized: "Or use the Add Folders button to pick folders", bundle: .module)
 }

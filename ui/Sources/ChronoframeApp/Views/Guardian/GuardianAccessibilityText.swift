@@ -17,23 +17,23 @@ enum GuardianAccessibilityText {
     /// One spoken line summarizing a completed scan.
     static func scanSummary(_ summary: GuardianStore.ScanSummary) -> String {
         if summary.partialScan {
-            return "Scan incomplete. Some folders couldn't be read, so results are partial. "
+            return String(localized: "Scan incomplete. Some folders couldn't be read, so results are partial. ", bundle: .module)
                 + verifiedClause(summary)
         }
         if summary.corrupt == 0 && summary.missing == 0 && summary.modified == 0 {
-            return "Library healthy. " + verifiedClause(summary) + " No problems found."
+            return String(localized: "Library healthy. ", bundle: .module) + verifiedClause(summary) + String(localized: " No problems found.", bundle: .module)
         }
         var parts: [String] = [verifiedClause(summary)]
         if summary.corrupt > 0 {
-            parts.append("\(summary.corrupt) \(pluralize(summary.corrupt, "file")) with suspected bit rot")
+            parts.append(String(localized: "\(String(summary.corrupt)) \(fileNoun(summary.corrupt)) with suspected bit rot", bundle: .module))
         }
         if summary.missing > 0 {
-            parts.append("\(summary.missing) missing")
+            parts.append(String(localized: "\(String(summary.missing)) missing", bundle: .module))
         }
         if summary.modified > 0 {
-            parts.append("\(summary.modified) changed")
+            parts.append(String(localized: "\(String(summary.modified)) changed", bundle: .module))
         }
-        return parts.joined(separator: ", ") + ". Review needed."
+        return parts.joined(separator: ", ") + String(localized: ". Review needed.", bundle: .module)
     }
 
     /// The spoken description of one finding row.
@@ -41,21 +41,21 @@ enum GuardianAccessibilityText {
         let name = URL(fileURLWithPath: finding.relativePath).lastPathComponent
         switch finding.status {
         case .verified:
-            return "\(name), verified against the trusted copy."
+            return String(localized: "\(String(name)), verified against the trusted copy.", bundle: .module)
         case .corrupt:
-            return "\(name), suspected bit rot: the bytes changed but the size and date did not. Restore from the mirror or accept the new version."
+            return String(localized: "\(String(name)), suspected bit rot: the bytes changed but the size and date did not. Restore from the mirror or accept the new version.", bundle: .module)
         case .modified:
-            return "\(name), changed since it was trusted. Accept the new version or restore the trusted copy."
+            return String(localized: "\(String(name)), changed since it was trusted. Accept the new version or restore the trusted copy.", bundle: .module)
         case .missing:
-            return "\(name), missing from the library. Restore it from the mirror or acknowledge the deletion."
+            return String(localized: "\(String(name)), missing from the library. Restore it from the mirror or acknowledge the deletion.", bundle: .module)
         case .new:
-            return "\(name), new and not yet trusted."
+            return String(localized: "\(String(name)), new and not yet trusted.", bundle: .module)
         case .dataless:
-            return "\(name), stored in iCloud and not downloaded, so it was skipped."
+            return String(localized: "\(String(name)), stored in iCloud and not downloaded, so it was skipped.", bundle: .module)
         case .unreadable:
-            return "\(name), couldn't be read this scan."
+            return String(localized: "\(String(name)), couldn't be read this scan.", bundle: .module)
         case .changedDuringScan:
-            return "\(name), changed while it was being checked, so it will be re-checked next scan."
+            return String(localized: "\(String(name)), changed while it was being checked, so it will be re-checked next scan.", bundle: .module)
         }
     }
 
@@ -65,21 +65,21 @@ enum GuardianAccessibilityText {
         let reason: String
         switch action.reason {
         case .primaryCorrupt:
-            reason = "healing suspected bit rot"
+            reason = String(localized: "healing suspected bit rot", bundle: .module)
         case .primaryMissing:
-            reason = "restoring a missing file"
+            reason = String(localized: "restoring a missing file", bundle: .module)
         }
-        let state = isSelected ? "selected for restore" : "not selected"
-        return "\(name), \(reason) from the verified mirror copy, \(state)."
+        let state = isSelected ? String(localized: "selected for restore", bundle: .module) : String(localized: "not selected", bundle: .module)
+        return String(localized: "\(String(name)), \(String(reason)) from the verified mirror copy, \(String(state)).", bundle: .module)
     }
 
     // MARK: - Helpers
 
     private static func verifiedClause(_ summary: GuardianStore.ScanSummary) -> String {
-        "\(summary.verified) \(pluralize(summary.verified, "file")) verified"
+        String(localized: "\(String(summary.verified)) \(fileNoun(summary.verified)) verified", bundle: .module)
     }
 
-    private static func pluralize(_ count: Int, _ noun: String) -> String {
-        count == 1 ? noun : noun + "s"
+    private static func fileNoun(_ count: Int) -> String {
+        count == 1 ? String(localized: "file", bundle: .module) : String(localized: "files", bundle: .module)
     }
 }

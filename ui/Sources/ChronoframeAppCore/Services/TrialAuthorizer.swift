@@ -100,25 +100,25 @@ public struct TrialAuthorizationError: LocalizedError, Sendable, Equatable {
         case let .allowanceSpent(details):
             return Self.allowanceSpentMessage(details)
         case let .purchaseUnconfirmed(details):
-            return "Chronoframe could not confirm your purchase, so this run was not started. "
-                + "Check your internet connection and try again, or use Restore Purchases in Settings. "
+            return CoreL10n.text("Chronoframe could not confirm your purchase, so this run was not started. Check your internet connection and try again, or use Restore Purchases in Settings. ")
                 + Self.nothingHappened(details.meter)
         case .requiresUnlock:
-            return "This action is available once Chronoframe is unlocked. Nothing was changed."
+            return CoreL10n.text("This action is available once Chronoframe is unlocked. Nothing was changed.")
         }
     }
 
     private static func allowanceSpentMessage(_ refusal: TrialRefusal) -> String {
-        let noun = refusal.meter == .organize ? "file" : "duplicate"
         let action = refusal.meter == .organize
-            ? "this run would copy \(refusal.requested)"
-            : "this cleanup would remove \(refusal.requested)"
+            ? CoreL10n.text("this run would copy \(refusal.requested)")
+            : CoreL10n.text("this cleanup would remove \(refusal.requested)")
+        let remainingItems = refusal.meter == .organize
+            ? CoreL10n.files(refusal.remaining)
+            : CoreL10n.duplicates(refusal.remaining)
         let left = refusal.remaining == 0
-            ? "no \(noun)s left"
-            : "\(refusal.remaining) \(noun)\(refusal.remaining == 1 ? "" : "s") left"
+            ? (refusal.meter == .organize ? CoreL10n.text("no files left") : CoreL10n.text("no duplicates left"))
+            : CoreL10n.text("\(remainingItems) left")
 
-        return "Your free allowance has \(left), and \(action). "
-            + "Unlock Chronoframe to finish the job. \(nothingHappened(refusal.meter))"
+        return CoreL10n.text("Your free allowance has \(left), and \(action). Unlock Chronoframe to finish the job. \(nothingHappened(refusal.meter))")
     }
 
     /// Every refusal ends by saying nothing happened. A customer who is being
@@ -127,9 +127,9 @@ public struct TrialAuthorizationError: LocalizedError, Sendable, Equatable {
     private static func nothingHappened(_ meter: TrialMeter) -> String {
         switch meter {
         case .organize:
-            return "Nothing was copied and your originals were left untouched."
+            return CoreL10n.text("Nothing was copied and your originals were left untouched.")
         case .dedupe:
-            return "Nothing was moved to the Trash."
+            return CoreL10n.text("Nothing was moved to the Trash.")
         }
     }
 }

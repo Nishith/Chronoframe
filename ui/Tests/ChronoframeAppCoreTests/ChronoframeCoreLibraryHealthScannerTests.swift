@@ -74,6 +74,9 @@ final class ChronoframeCoreLibraryHealthScannerTests: XCTestCase {
         XCTAssertEqual(card("Unfinished Copies", in: summary)?.value, "2")
         XCTAssertEqual(card("Undo Records", in: summary)?.value, "1")
         XCTAssertEqual(card("Files Outside the Layout", in: summary)?.value, "1")
+        XCTAssertEqual(card("No Date", in: summary)?.messageDetails, .unknownDateBytes(7))
+        XCTAssertEqual(card("Exact Copies", in: summary)?.messageDetails, .duplicateBytes(3))
+        XCTAssertEqual(card("Unfinished Copies", in: summary)?.messageDetails, .unfinishedCopies(pending: 1, failed: 1))
     }
 
     func testHealthScannerHandlesMissingSetupAndUnavailableDestination() {
@@ -148,6 +151,25 @@ final class ChronoframeCoreLibraryHealthScannerTests: XCTestCase {
                 "Refresh Destination Index",
             ]
         )
+    }
+
+    func testLegacyHealthCardDecodesWithoutStructuredMessageDetails() throws {
+        let json = Data(#"{"id":"unknown-dates","title":"No Date","value":"1","message":"7 bytes of files need a date.","severity":"attention"}"#.utf8)
+        let card = try JSONDecoder().decode(LibraryHealthCard.self, from: json)
+        XCTAssertNil(card.messageDetails)
+        XCTAssertEqual(card.message, "7 bytes of files need a date.")
+        XCTAssertEqual(try JSONDecoder().decode(LibraryHealthCard.self, from: JSONEncoder().encode(card)), card)
+    }
+
+    func testStructuredHealthCardDetailsRoundTrip() throws {
+        for details in [
+            LibraryHealthMessageDetails.unknownDateBytes(2_048),
+            .duplicateBytes(4_096),
+            .unfinishedCopies(pending: 2, failed: 1),
+        ] {
+            let card = LibraryHealthCard(id: "test", title: "", value: "", message: "original", severity: .attention, messageDetails: details)
+            XCTAssertEqual(try JSONDecoder().decode(LibraryHealthCard.self, from: JSONEncoder().encode(card)), card)
+        }
     }
 
     func testNoReceiptsIsGoodAndSaysNothingToUndo() throws {

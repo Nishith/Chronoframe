@@ -18,7 +18,7 @@ private struct SetupFolderChooserButton: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSButton {
-        let button = NSButton(title: title, target: context.coordinator, action: #selector(Coordinator.performAction))
+        let button = NSButton(title: AppLocalization.string(title), target: context.coordinator, action: #selector(Coordinator.performAction))
         button.bezelStyle = .rounded
         button.controlSize = .regular
         button.setContentHuggingPriority(.required, for: .horizontal)
@@ -30,7 +30,7 @@ private struct SetupFolderChooserButton: NSViewRepresentable {
 
     func updateNSView(_ button: NSButton, context: Context) {
         context.coordinator.action = action
-        button.title = title
+        button.title = AppLocalization.string(title)
         button.identifier = NSUserInterfaceItemIdentifier(accessibilityIdentifier)
         button.setAccessibilityIdentifier(accessibilityIdentifier)
     }
@@ -82,7 +82,7 @@ struct SetupHeroSection: View {
             // lives at the end of the steps it depends on (the Start
             // section) — the hero orients, it does not act.
             VStack(alignment: .leading, spacing: 12) {
-                SummaryLine(title: "Privacy", value: "Everything stays on this Mac")
+                SummaryLine(title: "Privacy", value: String(localized: "Everything stays on this Mac", bundle: .module))
 
                 SummaryLine(
                     title: "Next",
@@ -675,7 +675,7 @@ private struct SetupPreflightChecklist: View {
                 .foregroundStyle(isReady ? DesignTokens.ColorSystem.statusSuccess : DesignTokens.ColorSystem.statusWarning)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                     .font(.caption.weight(.semibold))
                 Text(value)
                     .font(.caption2)
@@ -713,13 +713,13 @@ struct SetupDropZone: View {
                     )
 
                     if isActive {
-                        Text(droppedSourceLabel ?? "Folders added")
+                        Text(verbatim: droppedSourceLabel ?? AppLocalization.string("Folders added"))
                             .font(.headline)
                             .foregroundStyle(DesignTokens.Color.inkPrimary)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     } else {
-                        Text(isTargeted ? "Release to add" : "Drop folders here")
+                        Text(LocalizedStringKey(isTargeted ? "Release to add" : "Drop folders here"), bundle: .module)
                             .font(.headline)
                             .foregroundStyle(isTargeted ? DesignTokens.Color.sky : DesignTokens.Color.inkPrimary)
                     }

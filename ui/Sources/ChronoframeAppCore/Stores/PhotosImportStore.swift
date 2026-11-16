@@ -229,13 +229,13 @@ public final class PhotosImportStore: ObservableObject {
     public func prepareImport(destination: DestinationCapture?) async -> PhotosImportContext? {
         guard !isPreparingImport else { return nil }
         guard let destination, !destination.path.isEmpty else {
-            statusMessage = "Choose an organize destination before importing from Photos."
+            statusMessage = CoreL10n.text("Choose an organize destination before importing from Photos.")
             return nil
         }
 
         let plan = PhotosExportPlanner.plan(for: selectedSummaries)
         guard !plan.isEmpty else {
-            statusMessage = "Select at least one photo or video to import."
+            statusMessage = CoreL10n.text("Select at least one photo or video to import.")
             return nil
         }
 
@@ -277,12 +277,12 @@ public final class PhotosImportStore: ObservableObject {
               let resumable = resumableCandidate(at: shown.stagingDirectoryURL, destination: destination)
         else {
             refreshResumableImport(destination: destination)
-            statusMessage = "That interrupted import is no longer available. Your Photos library was not changed."
+            statusMessage = CoreL10n.text("That interrupted import is no longer available. Your Photos library was not changed.")
             return nil
         }
         self.resumable = resumable
         guard authorization.allowsReading else {
-            statusMessage = "Chronoframe needs access to Photos to continue this import."
+            statusMessage = CoreL10n.text("Chronoframe needs access to Photos to continue this import.")
             return nil
         }
         guard resumable.destinationMatches else {
@@ -292,7 +292,7 @@ public final class PhotosImportStore: ObservableObject {
 
         statusMessage = nil
         guard removeUnrecordedFiles(in: resumable.stagingDirectoryURL, checkpoint: resumable.checkpoint) else {
-            statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+            statusMessage = CoreL10n.text("Chronoframe couldn't prepare the Photos import. Your Photos library was not changed.")
             return nil
         }
         // Earlier failures are tried again: a cloud hiccup or a full disk is
@@ -417,14 +417,14 @@ public final class PhotosImportStore: ObservableObject {
                 // checkpoint are still on disk, so leave them and keep the resume offer.
                 finishExport()
                 refreshResumableImport(destination: destination)
-                statusMessage = "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(initial.completed.count)) of \(Self.formatted(initial.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+                statusMessage = CoreL10n.text("Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(initial.completed.count)) of \(Self.formatted(initial.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed.")
                 return nil
             }
             // Nothing was exported yet, so there is nothing to keep or resume.
             finishExport()
             removeEmptyImportDirectory(stagingDirectory)
             refreshResumableImport(destination: destination)
-            statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+            statusMessage = CoreL10n.text("Chronoframe couldn't prepare the Photos import. Your Photos library was not changed.")
             return nil
         }
         if let supersedes {
@@ -464,11 +464,11 @@ public final class PhotosImportStore: ObservableObject {
 
             guard !finished.completed.isEmpty else {
                 removeEmptyImportDirectory(stagingDirectory)
-                statusMessage = "Chronoframe couldn't read the selected items from Photos, so there is nothing to import. Your Photos library was not changed."
+                statusMessage = CoreL10n.text("Chronoframe couldn't read the selected items from Photos, so there is nothing to import. Your Photos library was not changed.")
                 return nil
             }
             if !finished.failures.isEmpty {
-                statusMessage = "\(finished.failures.count) item(s) couldn't be read and were skipped. Your Photos library was not changed."
+                statusMessage = CoreL10n.text("\(finished.failures.count) item(s) couldn't be read and were skipped. Your Photos library was not changed.")
             }
             preparedStagingPaths.insert(stagingDirectory.standardizedFileURL.path)
             return PhotosImportContext(
@@ -487,7 +487,7 @@ public final class PhotosImportStore: ObservableObject {
             }
             let kept = pauseExport(.stopped, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
-            statusMessage = "Import stopped. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Resume whenever you like. Your Photos library was not changed."
+            statusMessage = CoreL10n.text("Import stopped. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Resume whenever you like. Your Photos library was not changed.")
             return nil
         } catch is PhotosExportStop {
             continuation.finish()
@@ -497,7 +497,7 @@ public final class PhotosImportStore: ObservableObject {
             }
             let kept = pauseExport(.lowSpace, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
-            statusMessage = "Chronoframe paused the import because the drive holding its staging folder is almost full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+            statusMessage = CoreL10n.text("Chronoframe paused the import because the drive holding its staging folder is almost full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed.")
             return nil
         } catch {
             continuation.finish()
@@ -513,7 +513,7 @@ public final class PhotosImportStore: ObservableObject {
                 _ = pauseExport(.stopped, fallback: checkpoint, in: stagingDirectory)
             }
             refreshResumableImport(destination: destination)
-            statusMessage = "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+            statusMessage = CoreL10n.text("Chronoframe couldn't prepare the Photos import. Your Photos library was not changed.")
             return nil
         }
     }
@@ -539,7 +539,7 @@ public final class PhotosImportStore: ObservableObject {
     ) -> PhotosImportContext? {
         let kept = pauseExport(.lowSpace, fallback: fallback, in: stagingDirectory)
         refreshResumableImport(destination: destination)
-        statusMessage = "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+        statusMessage = CoreL10n.text("Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed.")
         return nil
     }
 
@@ -656,7 +656,7 @@ public final class PhotosImportStore: ObservableObject {
     // MARK: - Helpers
 
     private static let destinationMismatchMessage =
-        "This import was prepared for a different destination. Choose that destination again to resume, or discard it."
+        CoreL10n.text("This import was prepared for a different destination. Choose that destination again to resume, or discard it.")
 
     private static func formatted(_ count: Int) -> String {
         let formatter = NumberFormatter()

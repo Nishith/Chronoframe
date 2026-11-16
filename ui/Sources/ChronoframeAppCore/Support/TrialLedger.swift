@@ -75,13 +75,13 @@ public enum TrialLedgerError: LocalizedError, Sendable, Equatable {
     public var errorDescription: String? {
         switch self {
         case let .openFailed(message):
-            return "Chronoframe could not open its trial records. Check that your startup disk is available, then try again. Details: \(message)"
+            return CoreL10n.text("Chronoframe could not open its trial records. Check that your startup disk is available, then try again. Details: \(message)")
         case let .unreadable(message):
-            return "Chronoframe could not read its trial records, so it cannot confirm how much of the free allowance is left. Purchasing the unlock removes the limit entirely. Details: \(message)"
+            return CoreL10n.text("Chronoframe could not read its trial records, so it cannot confirm how much of the free allowance is left. Purchasing the unlock removes the limit entirely. Details: \(message)")
         case let .writeFailed(message):
-            return "Chronoframe could not update its trial records. Details: \(message)"
+            return CoreL10n.text("Chronoframe could not update its trial records. Details: \(message)")
         case .databaseClosed:
-            return "Chronoframe lost access to its trial records. Try again."
+            return CoreL10n.text("Chronoframe lost access to its trial records. Try again.")
         }
     }
 }

@@ -42,9 +42,9 @@ struct NASFolderSummaryView: View {
     private var totals: some View {
         let counts = snapshot.summary.counts
         return VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: "\(counts.directoriesAssessed) folders checked")
-            Text(verbatim: "\(counts.mediaFiles) photos and videos, \(ByteCountFormatter.string(fromByteCount: counts.mediaBytes, countStyle: .file))")
-            Text(verbatim: "\(snapshot.summary.exactGroupCount) groups of identical files")
+            Text("\(counts.directoriesAssessed) folders checked", bundle: .module)
+            Text("\(counts.mediaFiles) photos and videos, \(ByteCountFormatter.string(fromByteCount: counts.mediaBytes, countStyle: .file))", bundle: .module)
+            Text("\(snapshot.summary.exactGroupCount) groups of identical files", bundle: .module)
         }
         .scaledFont(.body)
         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)

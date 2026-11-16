@@ -271,7 +271,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                 let stoppedEarly = isCancelledRef.isCancelled
                     && result.revertedCount + result.skippedCount + result.missingCount < result.totalTransfers
                 let status: RunStatus = stoppedEarly ? .cancelled : (result.totalTransfers == 0 ? .revertEmpty : .reverted)
-                let title = stoppedEarly ? "Cancelled" : (status == .revertEmpty ? "Nothing to revert" : "Revert complete")
+                let title = stoppedEarly ? CoreL10n.text("Cancelled") : (status == .revertEmpty ? CoreL10n.text("Nothing to revert") : CoreL10n.text("Revert complete"))
 
                 continuation.yield(
                     .complete(
@@ -331,7 +331,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         .complete(
                             RunSummary(
                                 status: .nothingToReorganize,
-                                title: "Layout already correct",
+                                title: CoreL10n.text("Layout already correct"),
                                 metrics: metrics,
                                 artifacts: artifacts
                             )
@@ -428,7 +428,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     .complete(
                         RunSummary(
                             status: stoppedEarly ? .cancelled : .reorganized,
-                            title: stoppedEarly ? "Cancelled" : "Reorganize complete",
+                            title: stoppedEarly ? CoreL10n.text("Cancelled") : CoreL10n.text("Reorganize complete"),
                             metrics: metrics,
                             artifacts: artifacts
                         )
@@ -546,7 +546,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         .complete(
                             RunSummary(
                                 status: .dryRunFinished,
-                                title: "Preview complete",
+                                title: CoreL10n.text("Preview complete"),
                                 metrics: metrics,
                                 artifacts: artifacts
                             )
@@ -616,7 +616,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             .issue(
                                 RunIssue(
                                     severity: .info,
-                                    message: "Cleaned \(cleanedTemporaryFiles) orphaned .tmp files"
+                                    message: CoreL10n.text("Cleaned \(cleanedTemporaryFiles) orphaned .tmp files")
                                 )
                             )
                         )
@@ -634,7 +634,9 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             .issue(
                                 RunIssue(
                                     severity: .info,
-                                    message: "Recovered \(recovered) interrupted run\(recovered == 1 ? "" : "s") from a previous session. They appear in Run History as ABORTED and can be reverted."
+                                    message: recovered == 1
+                                        ? CoreL10n.text("Recovered \(recovered) interrupted copy from an earlier session. It appears in History and can be undone.")
+                                        : CoreL10n.text("Recovered \(recovered) interrupted copies from an earlier session. They appear in History and can be undone.")
                                 )
                             )
                         )
@@ -647,7 +649,9 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             .issue(
                                 RunIssue(
                                     severity: .info,
-                                    message: "Recovered \(recoveredDedupe) interrupted deduplicate run\(recoveredDedupe == 1 ? "" : "s") from a previous session. They appear in Run History as ABORTED and can be reverted."
+                                    message: recoveredDedupe == 1
+                                        ? CoreL10n.text("Recovered \(recoveredDedupe) interrupted duplicate cleanup from an earlier session. It appears in History and can be undone.")
+                                        : CoreL10n.text("Recovered \(recoveredDedupe) interrupted duplicate cleanups from an earlier session. They appear in History and can be undone.")
                                 )
                             )
                         )
@@ -792,15 +796,14 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         // `RunStatus` for it — `.nothingToCopy` is accurate, and the warning
         // says why.
         if batch != nil, result.transferCount == 0 {
-            let message = "None of the files in that batch are still where they were when you confirmed it, "
-                + "so nothing was copied. Your originals were left untouched. Run a preview to see what is there now."
+            let message = CoreL10n.text("None of the files in that batch are still where they were when you confirmed it, so nothing was copied. Your originals were left untouched. Run a preview to see what is there now.")
             runLogger.warn("Free test batch matched no planned transfers; nothing was enqueued or copied.")
             continuation.yield(.issue(RunIssue(severity: .warning, message: message)))
             continuation.yield(
                 .complete(
                     RunSummary(
                         status: .nothingToCopy,
-                        title: "Nothing left to copy",
+                        title: CoreL10n.text("Nothing left to copy"),
                         metrics: RunMetrics(
                             discoveredCount: result.discoveredSourceCount,
                             plannedCount: 0,
@@ -829,7 +832,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     .complete(
                         RunSummary(
                             status: .failed,
-                            title: "Some files couldn't be read",
+                            title: CoreL10n.text("Some files couldn't be read"),
                             metrics: RunMetrics(
                                 discoveredCount: result.discoveredSourceCount,
                                 plannedCount: 0,
@@ -839,7 +842,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                                 dateHistogram: result.dateHistogram
                             ),
                             artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL),
-                            failureMessage: "Chronoframe could not read \(result.counts.hashErrorCount) source file(s), so nothing was copied. Originals were left untouched; check file access and try again."
+                            failureMessage: CoreL10n.text("Chronoframe could not read \(result.counts.hashErrorCount) source file(s), so nothing was copied. Originals were left untouched; check file access and try again.")
                         )
                     )
                 )
@@ -851,7 +854,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                 .complete(
                     RunSummary(
                         status: .nothingToCopy,
-                        title: "Already up to date",
+                        title: CoreL10n.text("Already up to date"),
                         metrics: RunMetrics(
                             discoveredCount: result.discoveredSourceCount,
                             plannedCount: 0,
@@ -979,16 +982,16 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         let completedTitle: String
         if executionResult.abortReason == "Transfer was cancelled before all queued files were processed." {
             completedStatus = .cancelled
-            completedTitle = "Cancelled"
+            completedTitle = CoreL10n.text("Cancelled")
         } else if executionResult.status != "COMPLETED" {
             completedStatus = .failed
-            completedTitle = "Transfer stopped"
+            completedTitle = CoreL10n.text("Transfer stopped")
         } else if leftUnprocessed {
             completedStatus = .failed
-            completedTitle = "Transfer incomplete"
+            completedTitle = CoreL10n.text("Transfer incomplete")
         } else {
             completedStatus = .finished
-            completedTitle = "Done"
+            completedTitle = CoreL10n.text("Done")
         }
         continuation.yield(
             .complete(
@@ -1011,7 +1014,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     ),
                     artifacts: executionResult.artifacts,
                     failureMessage: completedStatus == .failed
-                        ? "The transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched."
+                        ? CoreL10n.text("The transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched.")
                         : nil,
                     // Only report retained batch paths on an actual finish:
                     // `retainedBatchSourcePaths` is the set the re-plan
@@ -1043,7 +1046,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                 .complete(
                     RunSummary(
                         status: .nothingToCopy,
-                        title: "Already up to date",
+                        title: CoreL10n.text("Already up to date"),
                         metrics: RunMetrics(),
                         artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL)
                     )
@@ -1158,16 +1161,16 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         let completedTitle: String
         if executionResult.abortReason == "Transfer was cancelled before all queued files were processed." {
             completedStatus = .cancelled
-            completedTitle = "Cancelled"
+            completedTitle = CoreL10n.text("Cancelled")
         } else if executionResult.status != "COMPLETED" {
             completedStatus = .failed
-            completedTitle = "Transfer stopped"
+            completedTitle = CoreL10n.text("Transfer stopped")
         } else if leftUnprocessed {
             completedStatus = .failed
-            completedTitle = "Transfer incomplete"
+            completedTitle = CoreL10n.text("Transfer incomplete")
         } else {
             completedStatus = .finished
-            completedTitle = "Done"
+            completedTitle = CoreL10n.text("Done")
         }
         continuation.yield(
             .complete(
@@ -1186,7 +1189,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                     ),
                     artifacts: executionResult.artifacts,
                     failureMessage: completedStatus == .failed
-                        ? "The resumed transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched."
+                        ? CoreL10n.text("The resumed transfer did not finish: \(executionResult.failedCount) failed and \(executionResult.skippedCount) were skipped. Originals were left untouched.")
                         : nil
                 )
             )

@@ -56,13 +56,20 @@ public enum FolderValidationError: LocalizedError, Equatable, Sendable {
     public var errorDescription: String? {
         switch self {
         case let .pathDoesNotExist(role, path):
-            return "The \(role.rawValue) folder is no longer available. Reconnect the drive or choose the \(role.rawValue) folder again. Path: \(path)."
+            return CoreL10n.text("The \(displayRole(role)) folder is no longer available. Reconnect the drive or choose the \(displayRole(role)) folder again. Path: \(path).")
         case let .notDirectory(role, path):
-            return "The selected \(role.rawValue) item is not a folder. Choose a folder instead. Path: \(path)."
+            return CoreL10n.text("The selected \(displayRole(role)) item is not a folder. Choose a folder instead. Path: \(path).")
         case let .unreadable(role, path):
-            return "Chronoframe cannot read the \(role.rawValue) folder. Choose it again to grant access, or pick a folder you have permission to open. Path: \(path)."
+            return CoreL10n.text("Chronoframe cannot read the \(displayRole(role)) folder. Choose it again to grant access, or pick a folder you have permission to open. Path: \(path).")
         case let .unwritable(role, path):
-            return "Chronoframe cannot write to the \(role.rawValue) folder. Choose it again to grant access, pick a writable folder, or check that the drive is not read-only. Path: \(path)."
+            return CoreL10n.text("Chronoframe cannot write to the \(displayRole(role)) folder. Choose it again to grant access, pick a writable folder, or check that the drive is not read-only. Path: \(path).")
+        }
+    }
+
+    private func displayRole(_ role: FolderRole) -> String {
+        switch role {
+        case .source: CoreL10n.text("source")
+        case .destination: CoreL10n.text("destination")
         }
     }
 }
@@ -121,7 +128,7 @@ public final class FolderAccessService: FolderAccessServicing {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
-        panel.prompt = prompt
+        panel.prompt = CoreL10n.text(String.LocalizationValue(prompt))
         panel.directoryURL = Self.initialPanelDirectoryURL(startingAt: path, allowNetworkStart: allowNetworkStart)
 
         return panel.runModal() == .OK ? panel.url : nil
@@ -132,7 +139,7 @@ public final class FolderAccessService: FolderAccessServicing {
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = true
-        panel.prompt = prompt
+        panel.prompt = CoreL10n.text(String.LocalizationValue(prompt))
         panel.directoryURL = Self.initialPanelDirectoryURL(startingAt: path, allowNetworkStart: false)
 
         return panel.runModal() == .OK ? panel.urls : []

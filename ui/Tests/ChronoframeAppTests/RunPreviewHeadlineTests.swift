@@ -10,6 +10,28 @@ import XCTest
 final class RunPreviewHeadlineTests: XCTestCase {
     private let enUS = Locale(identifier: "en_US")
 
+    func testGermanHeadlineAndExceptionsUseTranslatedRuntimeTemplates() throws {
+        let german = try germanAppBundle()
+        for count in [1, 2] {
+            let value = RunPreviewHeadline(
+                metrics: RunMetrics(plannedCount: count, duplicateCount: count),
+                review: PreviewReviewSummary(unknownDateCount: count),
+                isStale: false,
+                locale: Locale(identifier: "de_DE"),
+                localizationBundle: german
+            )
+            XCTAssertTrue(value.sentence.hasPrefix("Zum Kopieren vorgesehen:"))
+            XCTAssertTrue(value.sentence.hasSuffix("Es wurde noch nichts kopiert."))
+            XCTAssertFalse(value.sentence.contains("%@"))
+            XCTAssertEqual(value.exceptions[0].text, count == 1
+                ? "1 Datei hat kein Datum und wird im Ordner Unknown_Date abgelegt, sofern du kein Datum festlegst."
+                : "2 Dateien haben kein Datum und werden im Ordner Unknown_Date abgelegt, sofern du kein Datum festlegst.")
+            XCTAssertEqual(value.exceptions[1].text, count == 1
+                ? "1 Datei ist eine identische Kopie einer anderen Datei hier und wird im Ordner Duplicate abgelegt."
+                : "2 Dateien sind identische Kopien einer anderen Datei hier und werden im Ordner Duplicate abgelegt.")
+        }
+    }
+
     private func buckets(_ keys: [String]) -> [DateHistogramBucket] {
         keys.map { DateHistogramBucket(key: $0, plannedCount: 1) }
     }

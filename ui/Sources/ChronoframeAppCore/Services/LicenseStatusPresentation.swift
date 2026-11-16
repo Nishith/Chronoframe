@@ -62,9 +62,8 @@ public struct LicenseStatusModel: Equatable, Sendable {
         // to fix a problem that does not exist.
         guard isAppStoreChannel else {
             return LicenseStatusModel(
-                headline: "Unlocked",
-                detail: "This build is not distributed through the App Store, so it has no purchase to check. "
-                    + "Every feature is available, with no limits.",
+                headline: CoreL10n.text("Unlocked"),
+                detail: CoreL10n.text("This build is not distributed through the App Store, so it has no purchase to check. Every feature is available, with no limits."),
                 allowanceRows: [],
                 showsRestore: false
             )
@@ -72,7 +71,7 @@ public struct LicenseStatusModel: Equatable, Sendable {
 
         if status.isUnlocked {
             return LicenseStatusModel(
-                headline: "Unlocked",
+                headline: CoreL10n.text("Unlocked"),
                 detail: unlockedDetail(status.entitlement),
                 allowanceRows: [],
                 showsRestore: false
@@ -85,7 +84,7 @@ public struct LicenseStatusModel: Equatable, Sendable {
             // unlocked entitlement, handled above — but stating it beats
             // falling through to a trial description.
             return LicenseStatusModel(
-                headline: "Unlocked",
+                headline: CoreL10n.text("Unlocked"),
                 detail: "",
                 allowanceRows: [],
                 showsRestore: false
@@ -93,7 +92,7 @@ public struct LicenseStatusModel: Equatable, Sendable {
 
         case .unknown:
             return LicenseStatusModel(
-                headline: "Checking your purchase…",
+                headline: CoreL10n.text("Checking your purchase…"),
                 detail: "",
                 allowanceRows: [],
                 showsRestore: true,
@@ -106,9 +105,8 @@ public struct LicenseStatusModel: Equatable, Sendable {
             // unreadable is a different fact from zero-because-spent, and only
             // one of them is about the customer.
             return LicenseStatusModel(
-                headline: "Free trial",
-                detail: "Chronoframe could not read its record of how much of the free trial you have used, "
-                    + "so it cannot show what is left. Unlocking Chronoframe removes the limit entirely.",
+                headline: CoreL10n.text("Free trial"),
+                detail: CoreL10n.text("Chronoframe could not read its record of how much of the free trial you have used, so it cannot show what is left. Unlocking Chronoframe removes the limit entirely."),
                 allowanceRows: [],
                 showsRestore: true,
                 showsPurchase: status.entitlement == .locked
@@ -116,18 +114,18 @@ public struct LicenseStatusModel: Equatable, Sendable {
 
         case let .remaining(balance):
             return LicenseStatusModel(
-                headline: "Free trial",
+                headline: CoreL10n.text("Free trial"),
                 detail: status.describesASpentTrial
-                    ? "Your free allowance is used up. Unlock Chronoframe to keep organizing."
+                    ? CoreL10n.text("Your free allowance is used up. Unlock Chronoframe to keep organizing.")
                     : unconfirmedDetail(status.entitlement),
                 allowanceRows: [
                     Row(
-                        label: "Files organized",
-                        value: "\(balance.remaining(for: .organize)) of \(balance.caps.organizeFiles) left"
+                        label: CoreL10n.text("Files organized"),
+                        value: CoreL10n.text("\(balance.remaining(for: .organize)) of \(balance.caps.organizeFiles) left")
                     ),
                     Row(
-                        label: "Duplicates removed",
-                        value: "\(balance.remaining(for: .dedupe)) of \(balance.caps.dedupeFiles) left"
+                        label: CoreL10n.text("Duplicates removed"),
+                        value: CoreL10n.text("\(balance.remaining(for: .dedupe)) of \(balance.caps.dedupeFiles) left")
                     ),
                 ],
                 showsRestore: true,
@@ -140,11 +138,11 @@ public struct LicenseStatusModel: Equatable, Sendable {
         guard case let .unlocked(reason) = entitlement else { return "" }
         switch reason {
         case .inAppPurchase:
-            return "Thank you. Every feature is available, with no limits."
+            return CoreL10n.text("Thank you. Every feature is available, with no limits.")
         case .legacyPurchase:
             // Retained for explicitly injected historical policies; the shipping
             // direct-free policy never grants legacy access.
-            return "Thank you. Chronoframe is unlocked permanently for this Apple Account, with no limits."
+            return CoreL10n.text("Thank you. Chronoframe is unlocked permanently for this Apple Account, with no limits.")
         }
     }
 
@@ -153,11 +151,9 @@ public struct LicenseStatusModel: Equatable, Sendable {
     private static func unconfirmedDetail(_ entitlement: EntitlementState) -> String {
         switch entitlement {
         case .verificationUnavailable:
-            return "Chronoframe could not reach the App Store to check your purchase, "
-                + "so it is using the free allowance for now. Your access is unchanged."
+            return CoreL10n.text("Chronoframe could not reach the App Store to check your purchase, so it is using the free allowance for now. Your access is unchanged.")
         case .unverified:
-            return "Chronoframe could not verify your purchase on this Mac. "
-                + "Try Restore Purchases, and contact support if it keeps happening."
+            return CoreL10n.text("Chronoframe could not verify your purchase on this Mac. Try Restore Purchases, and contact support if it keeps happening.")
         case .locked, .loading, .unlocked:
             return ""
         }

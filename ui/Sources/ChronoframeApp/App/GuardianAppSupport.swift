@@ -14,9 +14,10 @@ import UserNotifications
 struct GuardianUserNotifier: GuardianNotifying {
     func notifyBitRotDetected(libraryName: String, corruptCount: Int) {
         let content = UNMutableNotificationContent()
-        content.title = "Guardian found possible bit rot"
-        let noun = corruptCount == 1 ? "file" : "files"
-        content.body = "\(corruptCount) \(noun) in \(libraryName) no longer match the trusted copy. Your originals were not changed."
+        content.title = String(localized: "Guardian found possible bit rot", bundle: .module)
+        content.body = corruptCount == 1
+            ? String(localized: "1 file in \(libraryName) no longer matches the trusted copy. Your originals were not changed.", bundle: .module)
+            : String(localized: "\(corruptCount) files in \(libraryName) no longer match the trusted copy. Your originals were not changed.", bundle: .module)
         content.sound = .default
         let request = UNNotificationRequest(
             identifier: "guardian.bitrot.\(UUID().uuidString)",

@@ -43,7 +43,7 @@ struct RunTimelineView: View {
                     }
                 }
 
-                Text(subtitle)
+                Text(LocalizedStringKey(subtitle), bundle: .module)
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -153,11 +153,11 @@ struct RunTimelineView: View {
     private var emptyStateMessage: String {
         switch model.context.status {
         case .idle:
-            return "Preview the plan to see the timeline of your folders."
+            return String(localized: "Preview the plan to see the timeline of your folders.", bundle: .module)
         case .preflighting, .running:
-            return "Scanning your folders — bars will appear as files are dated."
+            return String(localized: "Scanning your folders — bars will appear as files are dated.", bundle: .module)
         default:
-            return "No dated files found in these folders."
+            return String(localized: "No dated files found in these folders.", bundle: .module)
         }
     }
 
@@ -188,46 +188,46 @@ struct RunTimelineView: View {
         let dated = buckets.filter { $0.key != "Unknown" }
         guard let first = dated.first, let last = dated.last else {
             let total = buckets.reduce(0) { $0 + $1.plannedCount }
-            return total > 0 ? "\(total.formatted()) files" : "—"
+            return total > 0 ? String(localized: "\(total.formatted()) files", bundle: .module) : "—"
         }
         let firstYear = String(first.key.prefix(4))
         let lastYear = String(last.key.prefix(4))
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
         if firstYear == lastYear {
-            return "\(firstYear) · \(total.formatted()) files"
+            return String(localized: "\(firstYear) · \(total.formatted()) files", bundle: .module)
         }
-        return "\(firstYear)–\(lastYear) · \(total.formatted()) files"
+        return String(localized: "\(firstYear)–\(lastYear) · \(total.formatted()) files", bundle: .module)
     }
 
     private var subtitle: String {
         switch model.context.status {
         case .running:
             if model.context.currentPhase == .copy {
-                return "Each bar fills as those frames find their place."
+                return String(localized: "Each bar fills as those frames find their place.", bundle: .module)
             }
-            return "Reading dates from your folders."
+            return String(localized: "Reading dates from your folders.", bundle: .module)
         case .dryRunFinished:
-            return "Here's the shape of your folders — every bar a month of frames waiting to land."
+            return String(localized: "Here's the shape of your folders — every bar a month of frames waiting to land.", bundle: .module)
         case .finished:
-            return "Every frame is home."
+            return String(localized: "Every frame is home.", bundle: .module)
         case .nothingToCopy:
-            return "Your organized library already has everything it needs."
+            return String(localized: "Your organized library already has everything it needs.", bundle: .module)
         case .failed:
-            return "Chronoframe stopped early. Your originals were not changed. See Problems to continue."
+            return String(localized: "Chronoframe stopped early. Your originals were not changed. See Problems to continue.", bundle: .module)
         case .cancelled:
-            return "Stopped. Your originals were not changed. Preview again when ready."
+            return String(localized: "Stopped. Your originals were not changed. Preview again when ready.", bundle: .module)
         case .preflighting:
-            return "Getting ready."
+            return String(localized: "Getting ready.", bundle: .module)
         case .idle:
-            return "Preview the plan to see the timeline of your folders."
+            return String(localized: "Preview the plan to see the timeline of your folders.", bundle: .module)
         case .reverted:
-            return "Files restored to their original state."
+            return String(localized: "Files restored to their original state.", bundle: .module)
         case .revertEmpty:
-            return "That receipt lists no copies."
+            return String(localized: "That receipt lists no copies.", bundle: .module)
         case .reorganized:
-            return "Layout updated in place."
+            return String(localized: "Layout updated in place.", bundle: .module)
         case .nothingToReorganize:
-            return "The library already matches this layout."
+            return String(localized: "The library already matches this layout.", bundle: .module)
         }
     }
 
@@ -235,9 +235,9 @@ struct RunTimelineView: View {
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
         let copied = model.context.metrics.copiedCount
         if let selected = selectedBucketKey {
-            return "Selected month: \(selected). \(copied) of \(total) frames placed across \(buckets.count) months."
+            return String(localized: "Selected month: \(selected). \(copied) of \(total) frames placed across \(buckets.count) months.", bundle: .module)
         }
-        return "\(copied) of \(total) frames placed across \(buckets.count) months. Unselected."
+        return String(localized: "\(copied) of \(total) frames placed across \(buckets.count) months. Unselected.", bundle: .module)
     }
 }
 
@@ -373,7 +373,7 @@ struct RunPhaseStrip: View {
     private var phasesAccessibilityValue: String {
         let completed = model.phaseEntries.filter { $0.state == .complete }.count
         let total = model.phaseEntries.count
-        return "\(completed) of \(total) phases complete"
+        return String(localized: "\(completed) of \(total) phases complete", bundle: .module)
     }
 
     private var currentIndex: Int? {

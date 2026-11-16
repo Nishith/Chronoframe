@@ -158,7 +158,7 @@ private struct RunOutcomeSummaryCard: View {
 
     private func summaryMetric(_ title: String, value: String, tint: Color) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .font(.caption)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             Text(value)

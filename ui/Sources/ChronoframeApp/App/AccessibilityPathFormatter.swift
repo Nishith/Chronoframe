@@ -8,18 +8,18 @@ enum AccessibilityPathFormatter {
     static func spokenDescription(for path: String) -> String {
         let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            return "Not set"
+            return String(localized: "Not set", bundle: .module)
         }
 
         let url = URL(fileURLWithPath: trimmed)
         let name = url.lastPathComponent
         if name.isEmpty || name == "/" {
-            return "Root folder"
+            return String(localized: "Root folder", bundle: .module)
         }
 
         // If the path component lacks an extension, treat it as a folder for VoiceOver clarity.
         if url.pathExtension.isEmpty {
-            return "\(name) folder"
+            return String(localized: "\(name) folder", bundle: .module)
         } else {
             return name
         }

@@ -157,7 +157,7 @@ struct RunHeroSection: View {
             Button(role: .destructive) {
                 appState.cancelRun()
             } label: {
-                Label(appState.runSessionStore.isCancelling ? "Stopping…" : "Stop", systemImage: "stop.fill")
+                Label(LocalizedStringKey(appState.runSessionStore.isCancelling ? "Stopping…" : "Stop"), systemImage: "stop.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -655,16 +655,16 @@ struct RunIdleOnboardingCard: View {
                 .overlay(Circle().strokeBorder(DesignTokens.ColorSystem.accentAction, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                     .scaledFont(.body, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                Text(message)
+                Text(LocalizedStringKey(message), bundle: .module)
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Step \(number): \(title). \(message)")
+        .accessibilityLabel("Step \(number): \(AppLocalization.string(title)). \(AppLocalization.string(message))")
     }
 }

@@ -40,7 +40,7 @@ struct NASExactGroupListView: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Text(verbatim: "\(group.memberRelativePaths.count) copies, \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each")
+            Text("\(group.memberRelativePaths.count) copies, \(ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)) each", bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
             if stale {
