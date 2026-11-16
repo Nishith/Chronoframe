@@ -205,7 +205,7 @@ public struct PhotosExportExecutor {
             do {
                 let resources = try await exporter.originalResources(forAssetID: entry.assetID)
                 guard !resources.isEmpty else {
-                    let message = "No original photo or video was available to import for this item."
+                    let message = CoreL10n.text("No original photo or video was available to import for this item.")
                     failures.append(PhotosAssetExportFailure(assetID: entry.assetID, message: message))
                     onEvent(.assetFailed(assetID: entry.assetID, message: message))
                     continue
@@ -267,7 +267,7 @@ public struct PhotosExportExecutor {
                 throw CancellationError()
             } catch is PhotosExportNameExhausted {
                 rollBack(writtenURLs)
-                let message = "Chronoframe couldn't find a free file name for this item, so it was skipped. Your Photos library was not changed."
+                let message = CoreL10n.text("Chronoframe couldn't find a free file name for this item, so it was skipped. Your Photos library was not changed.")
                 failures.append(PhotosAssetExportFailure(assetID: entry.assetID, message: message))
                 onEvent(.assetFailed(assetID: entry.assetID, message: message))
             } catch let stop as PhotosExportStop {
@@ -277,7 +277,7 @@ public struct PhotosExportExecutor {
                 // A resource failed mid-asset: roll back what was written so an
                 // incomplete unit never reaches the transfer pipeline.
                 rollBack(writtenURLs)
-                let message = "Chronoframe couldn't read this item from Photos, so it was skipped. Your Photos library was not changed."
+                let message = CoreL10n.text("Chronoframe couldn't read this item from Photos, so it was skipped. Your Photos library was not changed.")
                 failures.append(PhotosAssetExportFailure(assetID: entry.assetID, message: message))
                 onEvent(.assetFailed(assetID: entry.assetID, message: message))
             }

@@ -45,7 +45,7 @@ public final class PhotosCatalogService: PhotosCatalogReading {
         result.append(
             PhotosAlbumSummary(
                 id: PhotosCatalogWellKnown.allPhotosAlbumID,
-                title: "All Photos",
+                title: CoreL10n.text("All Photos"),
                 kind: .allPhotos,
                 approximateCount: allPhotosCount
             )
@@ -97,7 +97,7 @@ public final class PhotosCatalogService: PhotosCatalogReading {
             albums.append(
                 PhotosAlbumSummary(
                     id: collection.localIdentifier,
-                    title: collection.localizedTitle ?? "Untitled",
+                    title: collection.localizedTitle ?? CoreL10n.text("Untitled"),
                     kind: kind,
                     approximateCount: assetCount
                 )

@@ -11,7 +11,7 @@ public enum DeduplicateEngineError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .destinationMissing:
-            return "Choose a destination folder before running a deduplicate scan."
+            return CoreL10n.text("Choose a destination folder before running a deduplicate scan.")
         case let .scanFailed(message):
             return message
         case let .commitFailed(message):
@@ -148,7 +148,7 @@ public final class NativeDeduplicateEngine: DeduplicateEngine {
         let runID = UUID()
         guard let lease = activeLease else {
             throw DeduplicateEngineError.commitFailed(
-                "Chronoframe could not reserve exclusive access to the destination folder. Try the cleanup again."
+                CoreL10n.text("Chronoframe could not reserve exclusive access to the destination folder. Try the cleanup again.")
             )
         }
         return gatedCommitStream(

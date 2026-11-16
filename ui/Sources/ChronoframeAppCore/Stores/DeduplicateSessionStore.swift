@@ -734,7 +734,7 @@ public final class DeduplicateSessionStore: ObservableObject {
             // so the UI doesn't appear stuck.
             issues.append(DeduplicateIssue(
                 severity: .warning,
-                message: "File was moved to Trash, but the audit receipt could not be updated: \(message)"
+                message: CoreL10n.text("File was moved to Trash, but the audit receipt could not be updated: \(message)")
             ))
             phaseCompleted += 1
         case let .itemStale(path, reason):
@@ -940,9 +940,9 @@ public enum RecoveryBadgeFormatter {
     public static func title(for state: MutationRecoveryState?) -> String? {
         switch state {
         case .none: return nil
-        case .needsVolume: return "Interrupted · Needs Drive"
-        case .trashLocationUnverified: return "Trash Location Unverified"
-        case .manualActionRequired: return "Manual Recovery Needed"
+        case .needsVolume: return CoreL10n.text("Interrupted · Needs Drive")
+        case .trashLocationUnverified: return CoreL10n.text("Trash Location Unverified")
+        case .manualActionRequired: return CoreL10n.text("Manual Recovery Needed")
         }
     }
 }

@@ -92,7 +92,7 @@ public final class NASWorkspaceStore: ObservableObject {
         let startPath = await validatedPickerStartPath()
         guard let url = folderAccess.chooseFolder(
             startingAt: startPath,
-            prompt: "Choose Folder",
+            prompt: CoreL10n.text("Choose Folder"),
             allowNetworkStart: true
         ) else { return }
 
@@ -113,12 +113,12 @@ public final class NASWorkspaceStore: ObservableObject {
 
         guard let observed else {
             scope.close()
-            state = .failed(String(localized: "Chronoframe can't use this folder. Choose a regular folder on a network share, not a link. Nothing was changed.", bundle: Bundle.module))
+            state = .failed(String(localized: "Chronoframe can't use this folder. Choose a regular folder on a network share, not a link. Nothing was changed.", table: "LocalizableCore", bundle: Bundle.module))
             return
         }
         guard observed.volume.kind == .remote else {
             scope.close()
-            state = .failed(String(localized: "Choose a folder on a network share. For folders on this Mac, use Deduplicate.", bundle: Bundle.module))
+            state = .failed(String(localized: "Choose a folder on a network share. For folders on this Mac, use Deduplicate.", table: "LocalizableCore", bundle: Bundle.module))
             return
         }
 
@@ -466,7 +466,7 @@ public final class NASWorkspaceStore: ObservableObject {
     }
 
     /// Shown under the keeper controls; `NASLibraryCopy.keeperSaveFailed` carries the same words.
-    static let keeperSaveFailedMessage = "Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again."
+    static let keeperSaveFailedMessage = CoreL10n.text("Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again.")
 
     /// Saves which copy the user prefers to keep. It is a note on this Mac and changes nothing on the NAS.
     public func chooseKeeper(digest: String, relativePath: String?) {
@@ -516,7 +516,7 @@ public final class NASWorkspaceStore: ObservableObject {
     /// Plain text for a failure. Raw system errors from the local assessment data are never shown.
     private static func message(for error: Error) -> String {
         if (error as NSError).domain == NSPOSIXErrorDomain {
-            return String(localized: "Chronoframe couldn't open its assessment data on this Mac. Nothing on the NAS was changed.", bundle: Bundle.module)
+            return String(localized: "Chronoframe couldn't open its assessment data on this Mac. Nothing on the NAS was changed.", table: "LocalizableCore", bundle: Bundle.module)
         }
         return UserFacingErrorMessage.message(for: error)
     }
@@ -527,17 +527,17 @@ public final class NASWorkspaceStore: ObservableObject {
         var plain = issue
         switch NASUnresolvedReason(rawValue: issue.detail) {
         case .notRegularFile?:
-            plain.detail = String(localized: "This item stopped being a regular file, so Chronoframe didn't read it.", bundle: Bundle.module)
+            plain.detail = String(localized: "This item stopped being a regular file, so Chronoframe didn't read it.", table: "LocalizableCore", bundle: Bundle.module)
         case .openFailed?:
-            plain.detail = String(localized: "Chronoframe couldn't open this file.", bundle: Bundle.module)
+            plain.detail = String(localized: "Chronoframe couldn't open this file.", table: "LocalizableCore", bundle: Bundle.module)
         case .sizeChangedBeforeRead?, .modificationTimeChanged?, .sizeChangedDuringRead?:
-            plain.detail = String(localized: "This file changed while Chronoframe was checking it, so it wasn't compared.", bundle: Bundle.module)
+            plain.detail = String(localized: "This file changed while Chronoframe was checking it, so it wasn't compared.", table: "LocalizableCore", bundle: Bundle.module)
         case .readFailed?, .bytesConsumedMismatch?:
-            plain.detail = String(localized: "Chronoframe couldn't finish reading this file, so it wasn't compared.", bundle: Bundle.module)
+            plain.detail = String(localized: "Chronoframe couldn't finish reading this file, so it wasn't compared.", table: "LocalizableCore", bundle: Bundle.module)
         case .volumeUnavailable?:
-            plain.detail = String(localized: "The NAS became unavailable while Chronoframe was reading this file.", bundle: Bundle.module)
+            plain.detail = String(localized: "The NAS became unavailable while Chronoframe was reading this file.", table: "LocalizableCore", bundle: Bundle.module)
         case nil:
-            plain.detail = String(localized: "Chronoframe couldn't check this file, so it wasn't compared.", bundle: Bundle.module)
+            plain.detail = String(localized: "Chronoframe couldn't check this file, so it wasn't compared.", table: "LocalizableCore", bundle: Bundle.module)
         }
         return plain
     }

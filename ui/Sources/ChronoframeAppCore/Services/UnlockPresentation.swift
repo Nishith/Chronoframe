@@ -144,8 +144,7 @@ public struct UnlockSheetModel: Equatable, Sendable {
         // who already owns it and does not need the product at all.
         return UnlockSheetModel(
             title: title,
-            message: "Chronoframe could not reach the App Store to check the price. "
-                + "Check your internet connection and try again.",
+            message: CoreL10n.text("Chronoframe could not reach the App Store to check the price. Check your internet connection and try again."),
             actions: [.retryProductLoad, .restore] + batchAction + [.dismiss],
             isBusy: busy,
             batchDetail: batchDetail,
@@ -172,41 +171,39 @@ public struct UnlockSheetModel: Equatable, Sendable {
     }
 
     private static func batchDetail(_ batch: FreeTestBatch) -> String {
-        let files = "\(batch.includedCount) file\(batch.includedCount == 1 ? "" : "s")"
+        let files = CoreL10n.files(batch.includedCount)
         guard let range = batch.dateBucketRange else {
-            return "Copies \(files) now and leaves \(batch.deferredCount) for later."
+            return CoreL10n.text("Copies \(files) now and leaves \(batch.deferredCount) for later.")
         }
         let span = range.earliest == range.latest
             ? range.earliest
-            : "\(range.earliest) to \(range.latest)"
-        return "Copies the earliest \(files), \(span), and leaves \(batch.deferredCount) for later."
+            : CoreL10n.text("\(range.earliest) to \(range.latest)")
+        return CoreL10n.text("Copies the earliest \(files), \(span), and leaves \(batch.deferredCount) for later.")
     }
 
     private static func title(for refusal: TrialAuthorizationRefusal?) -> String {
         switch refusal {
         case nil:
-            return "Unlock Chronoframe"
+            return CoreL10n.text("Unlock Chronoframe")
         case .allowanceSpent:
-            return "Unlock Chronoframe"
+            return CoreL10n.text("Unlock Chronoframe")
         case .purchaseUnconfirmed:
-            return "Purchase Not Confirmed"
+            return CoreL10n.text("Purchase Not Confirmed")
         case .requiresUnlock:
-            return "Unlock Chronoframe"
+            return CoreL10n.text("Unlock Chronoframe")
         }
     }
 
     private static func message(for refusal: TrialAuthorizationRefusal?) -> String {
         switch refusal {
         case nil:
-            return "A one-time lifetime unlock removes the organizing and duplicate cleanup limits "
-                + "and includes Reorganize, with Family Sharing. No subscription."
+            return CoreL10n.text("A one-time lifetime unlock removes the organizing and duplicate cleanup limits and includes Reorganize, with Family Sharing. No subscription.")
         case let .allowanceSpent(details):
             return Self.allowanceMessage(details)
         case .purchaseUnconfirmed:
-            return "Chronoframe could not confirm your purchase, so this run did not start. "
-                + "Restoring purchases usually fixes it. Nothing was changed."
+            return CoreL10n.text("Chronoframe could not confirm your purchase, so this run did not start. Restoring purchases usually fixes it. Nothing was changed.")
         case .requiresUnlock:
-            return "Reorganize is available once Chronoframe is unlocked. Nothing was changed."
+            return CoreL10n.text("Reorganize is available once Chronoframe is unlocked. Nothing was changed.")
         }
     }
 
@@ -216,18 +213,18 @@ public struct UnlockSheetModel: Equatable, Sendable {
     /// the run is larger than what remains — so a customer with room for a
     /// smaller batch must not be told their allowance is gone.
     private static func allowanceMessage(_ refusal: TrialRefusal) -> String {
-        let noun = refusal.meter == .organize ? "file" : "duplicate"
-        let verb = refusal.meter == .organize ? "copy" : "remove"
+        let remainingItems = refusal.meter == .organize
+            ? CoreL10n.files(refusal.remaining) : CoreL10n.duplicates(refusal.remaining)
+        let requestedItems = refusal.meter == .organize
+            ? CoreL10n.files(refusal.requested) : CoreL10n.duplicates(refusal.requested)
+        let verb = refusal.meter == .organize ? CoreL10n.text("copy") : CoreL10n.text("remove")
         let nothingHappened = refusal.meter == .organize
-            ? "Nothing was copied and your originals were left untouched."
-            : "Nothing was moved to the Trash."
+            ? CoreL10n.text("Nothing was copied and your originals were left untouched.")
+            : CoreL10n.text("Nothing was moved to the Trash.")
 
         if refusal.remaining == 0 {
-            return "Your free allowance is used up, and this run would \(verb) \(refusal.requested) "
-                + "\(noun)\(refusal.requested == 1 ? "" : "s"). \(nothingHappened)"
+            return CoreL10n.text("Your free allowance is used up, and this run would \(verb) \(requestedItems). \(nothingHappened)")
         }
-        return "Your free allowance has \(refusal.remaining) \(noun)"
-            + "\(refusal.remaining == 1 ? "" : "s") left, and this run would \(verb) "
-            + "\(refusal.requested). \(nothingHappened)"
+        return CoreL10n.text("Your free allowance has \(remainingItems) left, and this run would \(verb) \(refusal.requested). \(nothingHappened)")
     }
 }

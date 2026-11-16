@@ -16,30 +16,30 @@ public enum OrganizerEngineError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case let .profileNotFound(name):
-            return "The saved profile \"\(name)\" no longer exists. Choose another profile or save it again."
+            return CoreL10n.text("The saved profile \"\(name)\" no longer exists. Choose another profile or save it again.")
         case let .sourceDoesNotExist(path):
-            return "A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: \(path)."
+            return CoreL10n.text("A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: \(path).")
         case .destinationMissing:
-            return "Choose a destination folder before you start."
+            return CoreL10n.text("Choose a destination folder before you start.")
         case .sourceOverlapsDestination(.sourceInsideDestination):
-            return "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed."
+            return CoreL10n.text("A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed.")
         case .sourceOverlapsDestination(.destinationInsideSource):
-            return "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed."
+            return CoreL10n.text("The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed.")
         case .sourceListUnreadable:
-            return "Chronoframe can't read the list of folders you chose to organize, so it can't check them against the destination. Add the folders again. No files were changed."
+            return CoreL10n.text("Chronoframe can't read the list of folders you chose to organize, so it can't check them against the destination. Add the folders again. No files were changed.")
         case let .failedToLaunch(message):
             return UserFacingErrorMessage.withDetails(
-                "Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe.",
+                CoreL10n.text("Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe."),
                 details: message
             )
         case let .invalidPreflight(message):
             return UserFacingErrorMessage.withDetails(
-                "Chronoframe could not validate the run settings. Review the source and destination, then try again.",
+                CoreL10n.text("Chronoframe could not validate the run settings. Review the source and destination, then try again."),
                 details: message
             )
         case let .invalidOutput(line):
             return UserFacingErrorMessage.withDetails(
-                "Chronoframe received an unexpected response from its helper. Try again.",
+                CoreL10n.text("Chronoframe received an unexpected response from its helper. Try again."),
                 details: line
             )
         }
@@ -108,7 +108,7 @@ extension OrganizerEngine {
         batch: FreeTestBatchSelection
     ) throws -> AsyncThrowingStream<RunEvent, Error> {
         throw OrganizerEngineError.failedToLaunch(
-            "This engine cannot run a free test batch."
+            CoreL10n.text("This engine cannot run a free test batch.")
         )
     }
 
@@ -144,13 +144,13 @@ extension OrganizerEngine {
     }
 
     public func revert(receiptURL: URL, destinationRoot: String) throws -> AsyncThrowingStream<RunEvent, Error> {
-        throw OrganizerEngineError.failedToLaunch("Revert is not supported by this engine.")
+        throw OrganizerEngineError.failedToLaunch(CoreL10n.text("Revert is not supported by this engine."))
     }
 
     public func reorganize(
         destinationRoot: String,
         targetStructure: FolderStructure
     ) throws -> AsyncThrowingStream<RunEvent, Error> {
-        throw OrganizerEngineError.failedToLaunch("Reorganize is not supported by this engine.")
+        throw OrganizerEngineError.failedToLaunch(CoreL10n.text("Reorganize is not supported by this engine."))
     }
 }

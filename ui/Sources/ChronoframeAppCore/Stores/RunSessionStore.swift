@@ -150,7 +150,7 @@ public final class RunSessionStore: ObservableObject {
         self.historyStore = historyStore
         self.status = .idle
         self.currentMode = nil
-        self.currentTaskTitle = "Idle"
+        self.currentTaskTitle = CoreL10n.text("Idle")
         self.currentPhase = nil
         self.progress = 0
         self.metrics = RunMetrics()
@@ -201,7 +201,7 @@ public final class RunSessionStore: ObservableObject {
         let epoch = currentRunEpoch
         self.securityScope = securityScope
         status = .preflighting
-        currentTaskTitle = "Getting ready…"
+        currentTaskTitle = CoreL10n.text("Getting ready…")
 
         do {
             let preparedRun = try await engine.prepare(configuration)
@@ -219,12 +219,8 @@ public final class RunSessionStore: ObservableObject {
             if batch != nil, preflight.pendingJobCount > 0 {
                 prompt = RunPrompt(
                     kind: .blockingError,
-                    title: "Finish the interrupted copy first",
-                    message: "\(preflight.pendingJobCount.formatted()) file"
-                        + "\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy that was "
-                        + "interrupted \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. "
-                        + "Start copying to resume or discard them, then run the free "
-                        + "test batch. Nothing was copied and your originals were not changed.",
+                    title: CoreL10n.text("Finish the interrupted copy first"),
+                    message: Self.pendingCopyMessage(count: preflight.pendingJobCount, forFreeTestBatch: true),
                     preflight: preflight
                 )
                 return
@@ -234,14 +230,14 @@ public final class RunSessionStore: ObservableObject {
                 let promptKind: RunPromptKind = preflight.pendingJobCount > 0 ? .resumePendingJobs : .confirmTransfer
                 let message: String
                 if preflight.pendingJobCount > 0 {
-                    message = "\(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Resume to finish them, or start over with the current plan."
+                    message = Self.pendingCopyMessage(count: preflight.pendingJobCount, forFreeTestBatch: false)
                 } else {
-                    message = "Chronoframe will copy into \(preflight.resolvedDestinationPath). Your originals stay exactly where they are."
+                    message = CoreL10n.text("Chronoframe will copy into \(preflight.resolvedDestinationPath). Your originals stay exactly where they are.")
                 }
 
                 prompt = RunPrompt(
                     kind: promptKind,
-                    title: preflight.pendingJobCount > 0 ? "Finish the earlier copy?" : "Start copying?",
+                    title: preflight.pendingJobCount > 0 ? CoreL10n.text("Finish the earlier copy?") : CoreL10n.text("Start copying?"),
                     message: message,
                     preflight: preflight
                 )
@@ -279,7 +275,7 @@ public final class RunSessionStore: ObservableObject {
         }
         self.securityScope = securityScope
         status = .running
-        currentTaskTitle = "Undoing…"
+        currentTaskTitle = CoreL10n.text("Undoing…")
         artifacts = RunArtifactPaths(
             destinationRoot: destinationRoot,
             reportPath: receiptURL.path,
@@ -340,7 +336,7 @@ public final class RunSessionStore: ObservableObject {
         }
         self.securityScope = securityScope
         status = .running
-        currentTaskTitle = "Reorganizing…"
+        currentTaskTitle = CoreL10n.text("Reorganizing…")
         artifacts = RunArtifactPaths(destinationRoot: destinationRoot)
         emitNetworkDestinationWarningIfNeeded(forDestinationPath: destinationRoot)
 
@@ -393,7 +389,7 @@ public final class RunSessionStore: ObservableObject {
         }
         self.securityScope = securityScope
         status = .running
-        currentTaskTitle = "Undoing the layout change…"
+        currentTaskTitle = CoreL10n.text("Undoing the layout change…")
         artifacts = RunArtifactPaths(
             destinationRoot: destinationRoot,
             reportPath: receiptURL.path,
@@ -469,7 +465,7 @@ public final class RunSessionStore: ObservableObject {
                 ))
                 self.consume(.complete(RunSummary(
                     status: stoppedEarly ? .cancelled : .reorganized,
-                    title: stoppedEarly ? "Cancelled" : "Reorganize undone",
+                    title: stoppedEarly ? CoreL10n.text("Cancelled") : CoreL10n.text("Reorganize undone"),
                     metrics: RunMetrics(
                         plannedCount: result.totalMoves,
                         failedCount: result.failedCount,
@@ -522,7 +518,7 @@ public final class RunSessionStore: ObservableObject {
             preparedRun?.lease.release()
             preparedRun = nil
             status = .idle
-            currentTaskTitle = "Idle"
+            currentTaskTitle = CoreL10n.text("Idle")
             closeSecurityScope()
         }
     }
@@ -531,7 +527,7 @@ public final class RunSessionStore: ObservableObject {
         guard !isCancelling else { return }
         if status == .running {
             isCancelling = true
-            currentTaskTitle = "Stopping…"
+            currentTaskTitle = CoreL10n.text("Stopping…")
             prompt = nil
             directOperationCancellation?.cancel()
             engine.cancelCurrentRun()
@@ -586,7 +582,7 @@ public final class RunSessionStore: ObservableObject {
         currentRunBatchSourcePaths = nil
         currentRunResumedPendingJobs = false
         currentPhase = nil
-        currentTaskTitle = "Idle"
+        currentTaskTitle = CoreL10n.text("Idle")
         progress = 0
         metrics = RunMetrics()
         artifacts = RunArtifactPaths()
@@ -637,7 +633,7 @@ public final class RunSessionStore: ObservableObject {
         prompt = nil
         status = .running
         currentMode = preflight.configuration.mode
-        currentTaskTitle = resumePendingJobs ? "Resuming the copy…" : "Starting the \(preflight.configuration.mode.displayTitle.lowercased())…"
+        currentTaskTitle = resumePendingJobs ? CoreL10n.text("Resuming the copy…") : CoreL10n.text("Starting the \(preflight.configuration.mode.displayTitle.lowercased())…")
         artifacts = RunArtifactPaths(
             destinationRoot: preflight.resolvedDestinationPath,
             reportPath: nil,
@@ -689,11 +685,11 @@ public final class RunSessionStore: ObservableObject {
         // Buffered progress still updates counts while stopping, but must not
         // replace the stopping title with an apparently active phase.
         defer {
-            if isCancelling { currentTaskTitle = "Stopping…" }
+            if isCancelling { currentTaskTitle = CoreL10n.text("Stopping…") }
         }
         switch event {
         case .startup:
-            currentTaskTitle = "Initializing..."
+            currentTaskTitle = CoreL10n.text("Initializing...")
             logStore.append("Engine started.")
 
         case let .phaseStarted(phase, total):
@@ -742,7 +738,7 @@ public final class RunSessionStore: ObservableObject {
                     // after a job finishes, so `completed` names the last
                     // finished file; the one in flight is the next, capped at
                     // `total` once everything has been attempted.
-                    currentTaskTitle = "Copying file \(min(completed + 1, total).formatted()) of \(total.formatted())…"
+                    currentTaskTitle = CoreL10n.text("Copying file \(min(completed + 1, total).formatted()) of \(total.formatted())…")
                 } else if Self.usesFileCountETA(phase) {
                     let etaSeconds = estimatedFileETA(completed: completed, total: total)
                     metrics.etaSeconds = etaSeconds
@@ -756,7 +752,7 @@ public final class RunSessionStore: ObservableObject {
             } else {
                 // total == 0 means indeterminate (count is known, total is not).
                 // Show the running count in the title so the user sees forward progress.
-                currentTaskTitle = "\(phase.displayRunningTitle) \(completed.formatted()) files…"
+                currentTaskTitle = CoreL10n.text("\(phase.displayRunningTitle) \(completed.formatted()) files…")
                 if Self.usesFileCountETA(phase) {
                     metrics.etaSeconds = nil
                 }
@@ -824,18 +820,14 @@ public final class RunSessionStore: ObservableObject {
                 metrics.skippedCount = result.skippedCount ?? metrics.skippedCount
                 metrics.missingCount = result.missingCount ?? metrics.missingCount
                 logStore.append(
-                    "Revert complete: \(result.revertedCount ?? 0) reverted, "
-                    + "\(result.skippedCount ?? 0) preserved, "
-                    + "\(result.missingCount ?? 0) already missing."
+                    "Revert complete: \(result.revertedCount ?? 0) reverted, \(result.skippedCount ?? 0) preserved, \(result.missingCount ?? 0) already missing."
                 )
             case .reorganize:
                 metrics.movedCount = result.movedCount ?? metrics.movedCount
                 metrics.skippedCount = result.skippedCount ?? metrics.skippedCount
                 metrics.failedCount = result.failedCount ?? metrics.failedCount
                 logStore.append(
-                    "Reorganize complete: \(result.movedCount ?? 0) moved, "
-                    + "\(result.skippedCount ?? 0) skipped, "
-                    + "\(result.failedCount ?? 0) failed."
+                    "Reorganize complete: \(result.movedCount ?? 0) moved, \(result.skippedCount ?? 0) skipped, \(result.failedCount ?? 0) failed."
                 )
             }
 
@@ -855,7 +847,7 @@ public final class RunSessionStore: ObservableObject {
         case let .prompt(message):
             prompt = RunPrompt(
                 kind: .blockingError,
-                title: "Organizer Needs Attention",
+                title: CoreL10n.text("Organizer Needs Attention"),
                 message: UserFacingErrorMessage.backendPrompt(message)
             )
 
@@ -893,7 +885,7 @@ public final class RunSessionStore: ObservableObject {
             self.summary = finalSummary
             if finalSummary.status == .failed {
                 lastErrorMessage = finalSummary.failureMessage
-                    ?? "Chronoframe could not finish. Originals were left untouched."
+                    ?? CoreL10n.text("Chronoframe could not finish. Originals were left untouched.")
             }
             preparedRun?.lease.release()
             preparedRun = nil
@@ -941,7 +933,7 @@ public final class RunSessionStore: ObservableObject {
         guard isCancelling, status == .running else { return }
         consume(.complete(RunSummary(
             status: .cancelled,
-            title: "Cancelled",
+            title: CoreL10n.text("Cancelled"),
             metrics: metrics,
             artifacts: artifacts
         )))
@@ -1013,13 +1005,17 @@ public final class RunSessionStore: ObservableObject {
         switch summary.status {
         case .finished:
             return (
-                "Copy complete",
-                "\(summary.metrics.copiedCount) file\(summary.metrics.copiedCount == 1 ? "" : "s") copied"
+                CoreL10n.text("Copy complete"),
+                summary.metrics.copiedCount == 1
+                    ? CoreL10n.text("\(summary.metrics.copiedCount) file copied")
+                    : CoreL10n.text("\(summary.metrics.copiedCount) files copied")
             )
         case .dryRunFinished:
             return (
-                "Preview complete",
-                "\(summary.metrics.plannedCount) file\(summary.metrics.plannedCount == 1 ? "" : "s") planned"
+                CoreL10n.text("Preview complete"),
+                summary.metrics.plannedCount == 1
+                    ? CoreL10n.text("\(summary.metrics.plannedCount) file planned")
+                    : CoreL10n.text("\(summary.metrics.plannedCount) files planned")
             )
         case .nothingToCopy:
             // Not "already up to date" when a batch matched nothing: every file
@@ -1028,13 +1024,13 @@ public final class RunSessionStore: ObservableObject {
             // assurance — the same one the in-app branch exists to avoid.
             guard !usedFreeTestBatch else {
                 return (
-                    "Nothing left to copy",
-                    "The files in that batch have moved or changed, so nothing was copied."
+                    CoreL10n.text("Nothing left to copy"),
+                    CoreL10n.text("The files in that batch have moved or changed, so nothing was copied.")
                 )
             }
-            return ("Already up to date", "Everything in your folders is already in the destination.")
+            return (CoreL10n.text("Already up to date"), CoreL10n.text("Everything in your folders is already in the destination."))
         case .failed:
-            return ("Copy failed", summary.failureMessage ?? summary.title)
+            return (CoreL10n.text("Copy failed"), summary.failureMessage ?? summary.title)
         case .cancelled:
             return nil  // user-initiated, no notification needed
         default:
@@ -1146,7 +1142,7 @@ public final class RunSessionStore: ObservableObject {
     ) {
         isCancelling = false
         status = .idle
-        currentTaskTitle = "Idle"
+        currentTaskTitle = CoreL10n.text("Idle")
         metrics.speedMBps = 0
         metrics.etaSeconds = nil
         lastRefusal = refusal
@@ -1178,14 +1174,14 @@ public final class RunSessionStore: ObservableObject {
         isCancelling = false
         directOperationCancellation = nil
         status = .failed
-        currentTaskTitle = "Failed"
+        currentTaskTitle = CoreL10n.text("Failed")
         metrics.speedMBps = 0
         metrics.etaSeconds = nil
         lastErrorMessage = message
         logStore.append("ERROR: \(message)")
         summary = RunSummary(
             status: .failed,
-            title: "Failed",
+            title: CoreL10n.text("Failed"),
             metrics: metrics,
             artifacts: artifacts,
             failureMessage: message
@@ -1223,21 +1219,36 @@ public final class RunSessionStore: ObservableObject {
         total: Int,
         etaSeconds: Double?
     ) -> String {
-        let progress = "\(completed.formatted()) of \(total.formatted()) files"
+        let progress = CoreL10n.text("\(completed.formatted()) of \(total.formatted()) files")
         guard let etaSeconds, etaSeconds > 0 else {
-            return "\(phase.displayRunningTitle) \(progress)"
+            return CoreL10n.text("\(phase.displayRunningTitle) \(progress)")
         }
-        return "\(phase.displayRunningTitle) \(progress) · \(formattedRemainingTime(etaSeconds))"
+        return CoreL10n.text("\(phase.displayRunningTitle) \(progress) · \(formattedRemainingTime(etaSeconds))")
     }
 
     private static func formattedRemainingTime(_ seconds: Double) -> String {
         let totalSeconds = max(1, Int(seconds.rounded()))
         if totalSeconds < 60 {
-            return "less than 1m remaining"
+            return CoreL10n.text("less than 1m remaining")
         }
         if totalSeconds < 3_600 {
-            return "\(totalSeconds / 60)m remaining"
+            return CoreL10n.text("\(totalSeconds / 60)m remaining")
         }
-        return "\(totalSeconds / 3_600)h \((totalSeconds % 3_600) / 60)m remaining"
+        return CoreL10n.text("\(totalSeconds / 3_600)h \((totalSeconds % 3_600) / 60)m remaining")
+    }
+
+    nonisolated static func pendingCopyMessage(
+        count: Int,
+        forFreeTestBatch: Bool,
+        bundle: Bundle = .module
+    ) -> String {
+        if forFreeTestBatch {
+            return count == 1
+                ? CoreL10n.text("\(count.formatted()) file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed.", bundle: bundle)
+                : CoreL10n.text("\(count.formatted()) files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed.", bundle: bundle)
+        }
+        return count == 1
+            ? CoreL10n.text("\(count.formatted()) file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan.", bundle: bundle)
+            : CoreL10n.text("\(count.formatted()) files from an earlier copy are still waiting. Resume to finish them, or start over with the current plan.", bundle: bundle)
     }
 }
