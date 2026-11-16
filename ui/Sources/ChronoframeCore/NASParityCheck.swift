@@ -190,7 +190,8 @@ public struct NASParityCheck: Sendable {
     /// inclusion rules as the scanner (dot names, links, system containers,
     /// packages and nested mounts are skipped; empty files are never grouped).
     private func exhaustiveGroups(rootURL: URL, ignoring unresolved: Set<String>) -> (groups: Set<[String]>, problems: [String]) {
-        let rootPath = rootURL.standardizedFileURL.path
+        // The live file system refuses a link anywhere in a path, as the scanner's does.
+        let rootPath = nasPathWithResolvedParent(rootURL.standardizedFileURL.path)
         var problems: [String] = []
         guard let rootEntry = fileSystem.entry(rootPath) else {
             return ([], ["Exhaustive pass could not read the root"])

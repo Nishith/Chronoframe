@@ -24,11 +24,19 @@ final class NASFixtureBuilder: @unchecked Sendable {
     let stateDirectoryURL: URL
 
     var stateURL: URL { stateDirectoryURL.appendingPathComponent("assessment.sqlite") }
-    var rootPath: String { rootURL.standardizedFileURL.path }
+    /// Not `standardizedFileURL`: it turns `/private/var` back into `/var`, which is a link.
+    var rootPath: String { rootURL.path }
 
     init(_ nodes: [Node]) throws {
         let fileManager = FileManager.default
-        containerURL = fileManager.temporaryDirectory
+        // The scanner resolves links above its root (the temp folder sits under `/var`, a link),
+        // so the fixture's paths are resolved too and match what the scanner's seams are given.
+        let temporaryPath = fileManager.temporaryDirectory.path
+        let resolvedTemporaryPath = realpath(temporaryPath, nil).map { pointer -> String in
+            defer { free(pointer) }
+            return String(cString: pointer)
+        } ?? temporaryPath
+        containerURL = URL(fileURLWithPath: resolvedTemporaryPath, isDirectory: true)
             .appendingPathComponent("NASFixture-\(UUID().uuidString)", isDirectory: true)
         rootURL = containerURL.appendingPathComponent("library", isDirectory: true)
         stateDirectoryURL = containerURL.appendingPathComponent("state", isDirectory: true)
