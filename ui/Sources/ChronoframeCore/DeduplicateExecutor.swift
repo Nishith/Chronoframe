@@ -292,7 +292,7 @@ public final class DeduplicateExecutor: @unchecked Sendable {
                     // listener that treats itemFailed as "this path
                     // failed" render a phantom row for the empty path.
                     continuation.yield(.criticalReceiptFailure(
-                        errorMessage: "Critical: dedupe audit receipt could not be finalized. The last pending receipt remains in Run History. Details: \(error.localizedDescription)"
+                        errorMessage: "Critical: dedupe audit receipt could not be finalized. The last pending receipt remains in History. Details: \(error.localizedDescription)"
                     ))
                 }
 

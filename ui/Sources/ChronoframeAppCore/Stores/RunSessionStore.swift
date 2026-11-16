@@ -1244,8 +1244,8 @@ public final class RunSessionStore: ObservableObject {
     ) -> String {
         if forFreeTestBatch {
             return count == 1
-                ? CoreL10n.text("\(count.formatted()) file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed.", bundle: bundle)
-                : CoreL10n.text("\(count.formatted()) files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed.", bundle: bundle)
+                ? CoreL10n.text("\(count.formatted()) file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed.", bundle: bundle)
+                : CoreL10n.text("\(count.formatted()) files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed.", bundle: bundle)
         }
         return count == 1
             ? CoreL10n.text("\(count.formatted()) file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan.", bundle: bundle)

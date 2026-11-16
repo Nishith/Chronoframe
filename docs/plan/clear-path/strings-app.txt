@@ -316,7 +316,7 @@ Your originals in \(sourceName) are opened as read-only. Original files are neve
 \(number(n)) could not be read and will be skipped.
 \(number(planned)) photos and videos
 \(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Resume to finish them, or start over with the current plan.
-\(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy that was interrupted \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed.
+\(preflight.pendingJobCount.formatted()) file\(preflight.pendingJobCount == 1 ? "" : "s") from an earlier copy that was interrupted \(preflight.pendingJobCount == 1 ? "is" : "are") still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed.
 \(queueStats.pending) waiting, \(queueStats.failed) failed. Open Preview & Copy to finish them.
 \(record.runCount) \(record.runCount == 1 ? "copy" : "copies")
 \(safeGroupCount.formatted()) groups are safe matches. Accept them together.

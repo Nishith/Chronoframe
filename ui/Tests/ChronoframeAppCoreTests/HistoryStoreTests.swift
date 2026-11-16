@@ -232,7 +232,7 @@ final class HistoryStoreTests: XCTestCase {
         XCTAssertEqual(store.destinationRoot, "/tmp/run")
         XCTAssertEqual(
             store.lastRefreshError,
-            "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again. Details: History index failed"
+            "Chronoframe could not refresh History. Check that the destination drive is connected, then try again. Details: History index failed"
         )
     }
 }
