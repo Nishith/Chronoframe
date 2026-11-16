@@ -27,7 +27,11 @@ final class TipsTests: XCTestCase {
         // The Accept-All-Safe affordance must not imply uncertain matches are
         // auto-selected; the copy explicitly says they are not.
         XCTAssertTrue(
-            TipCopy.AcceptSafeSuggestions.message.lowercased().contains("never auto-selects")
+            TipCopy.AcceptSafeSuggestions.message.lowercased().contains("never selects uncertain matches")
+        )
+        XCTAssertEqual(
+            TipCopy.AcceptSafeSuggestions.message,
+            "Safe groups are matches Chronoframe has verified. Accept them together and keep moving. Chronoframe never selects uncertain matches for you."
         )
     }
 

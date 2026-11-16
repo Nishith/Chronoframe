@@ -7,11 +7,20 @@ struct RootSplitView: View {
     @ObservedObject var appState: AppState
     @ObservedObject private var setupStore: SetupStore
     @ObservedObject private var runSessionStore: RunSessionStore
+    @ObservedObject private var deduplicateSessionStore: DeduplicateSessionStore
 
     init(appState: AppState) {
         self.appState = appState
         self._setupStore = ObservedObject(wrappedValue: appState.setupStore)
         self._runSessionStore = ObservedObject(wrappedValue: appState.runSessionStore)
+        self._deduplicateSessionStore = ObservedObject(wrappedValue: appState.deduplicateSessionStore)
+    }
+
+    // AppState's computed refusal crosses into two independent stores. The
+    // presenting view must observe both, including a dedupe commit that is
+    // refused after its confirmation dialog has closed.
+    private var unlockRefusal: TrialAuthorizationRefusal? {
+        runSessionStore.lastRefusal ?? deduplicateSessionStore.lastRefusal
     }
 
     var body: some View {
@@ -32,22 +41,8 @@ struct RootSplitView: View {
                     Button(role: .destructive) {
                         appState.cancelRun()
                     } label: {
-                        Label("Cancel", systemImage: "stop.fill")
+                        Label("Stop", systemImage: "stop.fill")
                     }
-                } else if showsRunToolbarActions {
-                    Button {
-                        Task { await appState.startPreview() }
-                    } label: {
-                        Label("Preview", systemImage: "eye")
-                    }
-                    .disabled(!canStartRun)
-
-                    Button {
-                        Task { await appState.startTransfer() }
-                    } label: {
-                        Label("Transfer", systemImage: "arrow.right.circle.fill")
-                    }
-                    .disabled(!canStartRun)
                 }
             }
         }
@@ -64,7 +59,7 @@ struct RootSplitView: View {
         ) {
             switch runSessionStore.prompt?.kind {
             case .confirmTransfer:
-                Button("Continue") {
+                Button("Start Copying") {
                     appState.confirmRunPrompt()
                 }
                 Button("Cancel", role: .cancel) {
@@ -74,7 +69,7 @@ struct RootSplitView: View {
                 Button("Resume") {
                     appState.confirmRunPrompt()
                 }
-                Button("Start Fresh") {
+                Button("Start Over") {
                     appState.confirmRunPromptStartFresh()
                 }
                 Button("Cancel", role: .cancel) {
@@ -107,7 +102,7 @@ struct RootSplitView: View {
         }
         .sheet(
             isPresented: Binding(
-                get: { appState.unlockRefusal != nil },
+                get: { unlockRefusal != nil },
                 set: { isPresented in
                     if !isPresented {
                         appState.dismissUnlockSheet()
@@ -115,7 +110,7 @@ struct RootSplitView: View {
                 }
             )
         ) {
-            if let refusal = appState.unlockRefusal {
+            if let refusal = unlockRefusal {
                 UnlockSheet(
                     refusal: refusal,
                     entitlementStore: appState.entitlementStore,
@@ -145,7 +140,10 @@ struct RootSplitView: View {
         case .organize:
             OrganizeContainerView(appState: appState)
         case .photos:
-            PhotosImportView(appState: appState)
+            PhotosImportView(appState: appState,
+                onResume: { Task { await appState.resumeInterruptedPhotosImport() } },
+                currentDestination: { appState.currentDestinationCapture() }
+            )
         case .deduplicate:
             DeduplicateView(appState: appState)
         case .guardian:
@@ -155,13 +153,5 @@ struct RootSplitView: View {
         case .nasLibrary:
             NASLibraryView(appState: appState)
         }
-    }
-
-    private var showsRunToolbarActions: Bool {
-        appState.selection == .organize && appState.organizeSubSelection == .run
-    }
-
-    private var canStartRun: Bool {
-        setupStore.usingProfile || (!setupStore.sourcePath.isEmpty && !setupStore.destinationPath.isEmpty)
     }
 }

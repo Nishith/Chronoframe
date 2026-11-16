@@ -51,12 +51,14 @@ struct SetupView: View {
                                         model: screenModel,
                                         dropZone: dropZone,
                                         chooseSource: { Task { await appState.chooseSourceFolder() } },
-                                        selectSource: { url in Task { await appState.selectSourceFolder(url) } }
+                                        addSource: { urls in Task { await appState.applyDrop(urls: urls) } },
+                                        removeSource: { url in Task { await appState.removeSourceItem(url) } }
                                     )
                                     .id("sourceSection")
 
                                     SetupDestinationStepSection(
                                         model: screenModel,
+                                        preferencesStore: preferencesStore,
                                         chooseDestination: { Task { await appState.chooseDestinationFolder() } },
                                         selectDestination: { url in Task { await appState.selectDestinationFolder(url) } }
                                     )
@@ -65,7 +67,6 @@ struct SetupView: View {
                                     SetupReadinessSection(
                                         model: screenModel,
                                         preview: { Task { await appState.startPreview() } },
-                                        transfer: { Task { await appState.startTransfer() } },
                                         openSettings: appState.openSettingsWindow,
                                         isRunInProgress: runSessionStore.isRunning
                                     )
@@ -75,15 +76,15 @@ struct SetupView: View {
                                 VStack(alignment: .leading, spacing: DesignTokens.Layout.sectionSpacing) {
                                     if !didOnboard && setupStore.sourcePath.isEmpty {
                                         OnboardingCard(
-                                            title: "Point Chronoframe at your photo source.",
-                                            subtitle: "Drag a folder anywhere on this window, or choose one below. Nothing is copied until you say so.",
-                                            accessibilitySummary: "Welcome. Point Chronoframe at your photo source.",
+                                            title: "Start with the folders that hold your photos.",
+                                            subtitle: "Drag them onto this window or add them below. Nothing is copied until you say so.",
+                                            accessibilitySummary: "Welcome. Start with the folders that hold your photos.",
                                             onDismiss: { didOnboard = true }
                                         )
                                     }
 
                                     if !setupStore.sourcePath.isEmpty {
-                                        SetupContactSheetSection(sourcePath: setupStore.sourcePath, sourceURL: setupStore.sourceURL)
+                                        SetupContactSheetSection(sourcePath: contactSheetPath, sourceURL: contactSheetURL)
                                     }
 
                                     if screenModel.showsSavedSetupSection {
@@ -117,9 +118,9 @@ struct SetupView: View {
 
                                 if !didOnboard && setupStore.sourcePath.isEmpty {
                                     OnboardingCard(
-                                        title: "Point Chronoframe at your photo source.",
-                                        subtitle: "Drag a folder anywhere on this window, or choose one below. Nothing is copied until you say so.",
-                                        accessibilitySummary: "Welcome. Point Chronoframe at your photo source.",
+                                        title: "Start with the folders that hold your photos.",
+                                        subtitle: "Drag them onto this window or add them below. Nothing is copied until you say so.",
+                                        accessibilitySummary: "Welcome. Start with the folders that hold your photos.",
                                         onDismiss: { didOnboard = true }
                                     )
                                 }
@@ -128,19 +129,21 @@ struct SetupView: View {
                                     model: screenModel,
                                     dropZone: dropZone,
                                     chooseSource: { Task { await appState.chooseSourceFolder() } },
-                                    selectSource: { url in Task { await appState.selectSourceFolder(url) } }
+                                    addSource: { urls in Task { await appState.applyDrop(urls: urls) } },
+                                    removeSource: { url in Task { await appState.removeSourceItem(url) } }
                                 )
                                 .id("sourceSection")
 
                                 SetupDestinationStepSection(
                                     model: screenModel,
+                                    preferencesStore: preferencesStore,
                                     chooseDestination: { Task { await appState.chooseDestinationFolder() } },
                                     selectDestination: { url in Task { await appState.selectDestinationFolder(url) } }
                                 )
                                 .id("destinationSection")
 
                                 if !setupStore.sourcePath.isEmpty {
-                                    SetupContactSheetSection(sourcePath: setupStore.sourcePath, sourceURL: setupStore.sourceURL)
+                                    SetupContactSheetSection(sourcePath: contactSheetPath, sourceURL: contactSheetURL)
                                 }
 
                                 if screenModel.showsSavedSetupSection {
@@ -157,7 +160,6 @@ struct SetupView: View {
                                 SetupReadinessSection(
                                     model: screenModel,
                                     preview: { Task { await appState.startPreview() } },
-                                    transfer: { Task { await appState.startTransfer() } },
                                     openSettings: appState.openSettingsWindow,
                                     isRunInProgress: runSessionStore.isRunning
                                 )
@@ -176,7 +178,7 @@ struct SetupView: View {
             }
         }
         .darkroom()
-        .navigationTitle("Setup")
+        .navigationTitle("Choose Folders")
         .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted) { providers in
             didOnboard = true
             return handleDrop(providers: providers)
@@ -196,6 +198,24 @@ struct SetupView: View {
             }
         }
         .motion(.easeInOut(duration: Motion.Duration.fast), value: isDropTargeted)
+    }
+
+    /// A staged source is a manifest directory with nothing to show, so the
+    /// contact sheet reads the first listed folder instead.
+    private var contactSheetFolder: URL? {
+        guard DroppedItemStager.isStagingPath(setupStore.sourcePath) else { return nil }
+        return setupStore.sourceItems.first { item in
+            var isDirectory: ObjCBool = false
+            return FileManager.default.fileExists(atPath: item.path, isDirectory: &isDirectory) && isDirectory.boolValue
+        }
+    }
+
+    private var contactSheetPath: String {
+        contactSheetFolder?.path ?? setupStore.sourcePath
+    }
+
+    private var contactSheetURL: URL? {
+        contactSheetFolder ?? setupStore.sourceURL
     }
 
     private var dropZone: SetupDropZone {

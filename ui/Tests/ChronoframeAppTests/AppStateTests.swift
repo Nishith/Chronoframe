@@ -536,6 +536,34 @@ final class AppStateTests: XCTestCase {
     }
 
     @MainActor
+    func testRunSecurityScopeIncludesFolderListBookmarks() async {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/Volumes/Organize"
+        harness.engine.startMode = .pending
+        for (key, path) in [
+            ("manual.source", "/Volumes/A"),
+            ("manual.destination", "/Volumes/Organize"),
+            ("manual.sourceItem.0", "/Volumes/A"),
+            ("manual.sourceItem.1", "/Volumes/B"),
+        ] {
+            harness.preferencesStore.storeBookmark(FolderBookmark(key: key, path: path, data: Data([1])))
+        }
+        let appState = harness.makeAppState(performInitialBootstrap: false)
+        harness.folderAccessService.scopedAccessRequests.removeAll()
+
+        await appState.startPreview()
+
+        let requests = harness.folderAccessService.scopedAccessRequests
+        XCTAssertTrue(
+            requests.contains { $0.contains("manual.sourceItem.0") && $0.contains("manual.sourceItem.1") },
+            "The run's security scope must cover every folder in the list; got \(requests)"
+        )
+
+        appState.cancelRun()
+    }
+
+    @MainActor
     func testDeduplicateScanRejectedWhileOrganizeRunning() async {
         let harness = AppStateHarness()
         harness.setupStore.sourcePath = "/tmp/source"
@@ -858,4 +886,239 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(appState.setupStore.sourcePath, "/Volumes/Card")
         XCTAssertEqual(harness.repository.savedProfiles.last?.name, "archive")
     }
+
+    @MainActor
+    func testWillTerminateFlushesDedupeReviewSave() async {
+        let harness = AppStateHarness()
+        let first = PhotoCandidate(path: "/dest/a.jpg", size: 100, modificationTime: 0)
+        let second = PhotoCandidate(path: "/dest/b.jpg", size: 100, modificationTime: 0)
+        harness.deduplicateEngine.clustersToEmit = [
+            DuplicateCluster(
+                kind: .exactDuplicate,
+                members: [first, second],
+                suggestedKeeperIDs: [first.path],
+                bytesIfPruned: 100
+            )
+        ]
+        let snapshotStore = RecordingDedupeSnapshotStore()
+        let store = DeduplicateSessionStore(
+            engine: harness.deduplicateEngine,
+            runHistoryStore: UserDefaultsDeduplicateRunHistoryStore(defaults: harness.defaults),
+            reviewSnapshotStore: snapshotStore,
+            saveDebounceNanoseconds: 60_000_000_000
+        )
+        let appState = AppState(
+            preferencesStore: harness.preferencesStore,
+            setupStore: harness.setupStore,
+            runLogStore: harness.runLogStore,
+            historyStore: harness.historyStore,
+            runSessionStore: harness.runSessionStore,
+            deduplicateSessionStore: store,
+            folderAccessService: harness.folderAccessService,
+            finderService: harness.finderService,
+            profilesRepository: harness.repository,
+            performInitialBootstrap: false,
+            volumeClassifier: AppStateHarness.localClassifier,
+            showSettingsWindowAction: {}
+        )
+
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        let ready = await waitForCondition { store.status == .readyToReview }
+        XCTAssertTrue(ready)
+        store.setDecision(.keep, forPath: second.path)
+        XCTAssertEqual(snapshotStore.saveCount, 0, "The debounce has not elapsed yet.")
+
+        NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: NSApp)
+
+        XCTAssertEqual(snapshotStore.saveCount, 1)
+        withExtendedLifetime(appState) {}
+    }
+
+    // MARK: - Photos import resume (C-07)
+
+    /// Writes a stopped checkpoint whose completed files are intact.
+    @discardableResult
+    private func seedStoppedCheckpoint(
+        in parent: URL,
+        assetIDs: [String],
+        destinationPath: String
+    ) throws -> URL {
+        let dir = parent.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        var checkpoint = PhotosImportCheckpoint(
+            importID: UUID(),
+            createdAt: date,
+            destinationPath: destinationPath,
+            destinationBookmarkKeys: ["manual.destination"],
+            plan: PhotosExportPlan(entries: assetIDs.map {
+                PhotosAssetExportEntry(assetID: $0, mediaKind: .photo, stagingStem: $0)
+            })
+        )
+        for id in assetIDs {
+            let data = Data("bytes-\(id)".utf8)
+            let fileURL = dir.appendingPathComponent("\(id).jpg")
+            try data.write(to: fileURL)
+            checkpoint.recordCompleted(
+                PhotosCompletedAssetRecord(
+                    assetID: id,
+                    files: [PhotosExportedFile(assetID: id, stagingStem: id, path: fileURL.path)],
+                    sourceDateHints: [
+                        SourceDateHint.pathKey(for: fileURL.path): SourceDateHint(
+                            identity: FileIdentity(size: Int64(data.count), digest: "digest-\(id)"),
+                            resolvedDate: .unknown
+                        )
+                    ]
+                ),
+                at: date
+            )
+        }
+        checkpoint.setState(.stopped, at: date)
+        try PhotosImportFileCheckpointStore().save(checkpoint, in: dir)
+        return dir
+    }
+
+    @MainActor
+    func testResumeInterruptedPhotosImportStartsPreviewWithRestoredContext() async throws {
+        let harness = AppStateHarness()
+        let staging = harness.photosStagingParent
+        let destination = "/tmp/appstate-photos-dest"
+        harness.setupStore.destinationPath = destination
+        let seeded = try seedStoppedCheckpoint(in: staging, assetIDs: ["a", "b"], destinationPath: destination)
+        let appState = harness.makeAppState(performInitialBootstrap: false, restoreBookmarksDuringBootstrap: false)
+        appState.photosImportStore.refreshResumableImport(
+            destination: appState.currentDestinationCapture()
+        )
+        XCTAssertNotNil(appState.photosImportStore.resumable)
+
+        await appState.resumeInterruptedPhotosImport()
+
+        // `runCoordinator` is private, so the restored context is observed
+        // through the preview run it pinned: the staging directory it resumed
+        // and the date hints of exactly the checkpoint's exported assets.
+        XCTAssertTrue(appState.hasActivePhotosImport)
+        XCTAssertNil(appState.transientErrorMessage)
+        let requested = try XCTUnwrap(harness.engine.preflightConfigurations.last)
+        XCTAssertEqual(requested.mode, .preview)
+        XCTAssertEqual(
+            URL(fileURLWithPath: requested.sourcePath).resolvingSymlinksInPath().path,
+            seeded.resolvingSymlinksInPath().path
+        )
+        XCTAssertEqual(requested.destinationPath, destination)
+        XCTAssertEqual(
+            Set(requested.sourceDateHints.keys),
+            Set(["a", "b"].map { SourceDateHint.pathKey(for: seeded.appendingPathComponent("\($0).jpg").path) })
+        )
+    }
+
+    @MainActor
+    func testResumeRefusedCopiesStatusToTransientError() async throws {
+        let harness = AppStateHarness()
+        let staging = harness.photosStagingParent
+        harness.setupStore.destinationPath = "/tmp/appstate-photos-other-dest"
+        try seedStoppedCheckpoint(in: staging, assetIDs: ["a"], destinationPath: "/tmp/appstate-photos-dest")
+        let appState = harness.makeAppState(performInitialBootstrap: false, restoreBookmarksDuringBootstrap: false)
+        // Offered with no destination known, as before the user chose one.
+        appState.photosImportStore.refreshResumableImport(destination: nil)
+        XCTAssertNotNil(appState.photosImportStore.resumable)
+
+        await appState.resumeInterruptedPhotosImport()
+
+        let status = try XCTUnwrap(appState.photosImportStore.statusMessage)
+        XCTAssertEqual(appState.transientErrorMessage, status)
+        XCTAssertFalse(appState.hasActivePhotosImport)
+        XCTAssertTrue(harness.engine.preflightConfigurations.isEmpty, "A refused resume starts no run")
+    }
+
+    @MainActor
+    func testLaunchRefreshesResumableImport() throws {
+        let harness = AppStateHarness()
+        let staging = harness.photosStagingParent
+        let destination = "/tmp/appstate-photos-dest"
+        harness.setupStore.destinationPath = destination
+        try seedStoppedCheckpoint(in: staging, assetIDs: ["a", "b"], destinationPath: destination)
+
+        let appState = harness.makeAppState(performInitialBootstrap: true, restoreBookmarksDuringBootstrap: false)
+
+        let resumable = try XCTUnwrap(appState.photosImportStore.resumable)
+        XCTAssertEqual(resumable.readyCount, 2)
+        XCTAssertEqual(resumable.totalCount, 2)
+    }
+
+    #if DEBUG
+    @MainActor
+    func testDebugStagingOverrideIsHonoured() {
+        let override = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appstate-photos-override-\(UUID().uuidString)", isDirectory: true)
+
+        let overridden = AppState.photosStagingParentURL(
+            environment: ["CHRONOFRAME_PHOTOS_STAGING_DIR": override.path]
+        )
+        let defaulted = AppState.photosStagingParentURL(environment: [:])
+
+        XCTAssertEqual(overridden.standardizedFileURL.path, override.standardizedFileURL.path)
+        XCTAssertNotEqual(defaulted.standardizedFileURL.path, override.standardizedFileURL.path)
+        XCTAssertEqual(defaulted.lastPathComponent, "photos_import_staging")
+    }
+    #endif
+
+    /// Editing the folder list changes what a pending watched import would
+    /// copy, so both forwarders drop it first, like their neighbours.
+    @MainActor
+    func testAddAndRemoveSourceItemsInvalidateWatchedImport() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("appstate-source-items-\(UUID().uuidString)", isDirectory: true)
+        let watched = root.appendingPathComponent("watched", isDirectory: true)
+        let listed = root.appendingPathComponent("listed", isDirectory: true)
+        try FileManager.default.createDirectory(at: watched, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: listed, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let harness = AppStateHarness()
+        let store = WatchedSourcesStore()
+        let source = WatchedSource(path: watched.path, label: "watched")
+        store.insert(source)
+        store.setAvailability(id: source.id, .available)
+        harness.preferencesStore.storeBookmark(
+            FolderBookmark(
+                key: SourceWatchCoordinator.bookmarkKey(for: source.id),
+                path: watched.path,
+                data: Data(watched.path.utf8)
+            )
+        )
+        harness.setupStore.destinationPath = root.appendingPathComponent("library").path
+        let appState = harness.makeAppState(watchedSourcesStore: store, performInitialBootstrap: false)
+
+        await appState.reviewAndImportWatchedSource(id: source.id)
+        XCTAssertTrue(appState.hasActiveWatchedImport, "Setup for the test: an import is pending")
+
+        await appState.addSourceItems([listed])
+        XCTAssertFalse(appState.hasActiveWatchedImport, "Adding a folder drops the pending import")
+
+        _ = await waitForCondition { !harness.runSessionStore.isRunning }
+        await appState.reviewAndImportWatchedSource(id: source.id)
+        XCTAssertTrue(appState.hasActiveWatchedImport, "Setup for the test: an import is pending again")
+
+        await appState.removeSourceItem(listed)
+        XCTAssertFalse(appState.hasActiveWatchedImport, "Removing a folder drops the pending import")
+    }
+}
+
+private final class RecordingDedupeSnapshotStore: DeduplicateReviewSnapshotStoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var saved: [DeduplicateReviewSnapshot] = []
+
+    var saveCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return saved.count
+    }
+
+    func load(folderPath: String) -> DeduplicateReviewSnapshot? { nil }
+
+    func save(_ snapshot: DeduplicateReviewSnapshot) throws {
+        lock.lock(); defer { lock.unlock() }
+        saved.append(snapshot)
+    }
+
+    func remove(folderPath: String) {}
 }

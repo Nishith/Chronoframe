@@ -830,14 +830,14 @@ struct TrustProofModel {
         ))
 
         // 2. Source Safe Protection
-        let sourceName = source.isEmpty ? "library" : URL(fileURLWithPath: source).lastPathComponent
+        let sourceName = source.isEmpty ? "the folders you choose" : URL(fileURLWithPath: source).lastPathComponent
         items.append(TrustProofItem(
             id: "source_safe",
             title: "Original Photos Protected",
-            message: "Your source \(sourceName) is opened as read-only. Original files are never modified, moved, or deleted.",
+            message: "Your originals in \(sourceName) are opened as read-only. Original files are never modified, moved, or deleted.",
             symbol: "lock.shield",
             tone: .success,
-            accessibilityLabel: "Source files are read-only and safe",
+            accessibilityLabel: "Your original files are read-only and safe",
             actionLabel: nil
         ))
 
@@ -871,11 +871,11 @@ struct TrustProofModel {
         return [
             TrustProofItem(
                 id: "active_run",
-                title: isTransfer ? "Transfer In Progress" : "Preview In Progress",
-                message: isTransfer ? "Writing copies to destination. Source files stay untouched." : "Reading and planning copy routes only. No files are modified or written.",
+                title: isTransfer ? "Copy In Progress" : "Preview In Progress",
+                message: isTransfer ? "Writing copies to the destination. Your original files stay untouched." : "Reading and planning the copy only. No files are modified or written.",
                 symbol: isTransfer ? "arrow.right.circle.fill" : "eye.fill",
                 tone: isTransfer ? .success : .neutral,
-                accessibilityLabel: isTransfer ? "Active transfer. Originals stay safe." : "Active preview. Read only.",
+                accessibilityLabel: isTransfer ? "Active copy. Originals stay safe." : "Active preview. Read only.",
                 actionLabel: nil
             )
         ]
@@ -906,11 +906,11 @@ struct TrustProofModel {
         if willDeleteCount > 0 {
             items.append(TrustProofItem(
                 id: "receipt_write",
-                title: "Revertible Recovery",
-                message: "A revert receipt will be written to .organize_logs before trashing, allowing full restore from Run History.",
+                title: "Undo Available",
+                message: "A receipt you can undo from History will be written to .organize_logs before trashing, allowing full restore.",
                 symbol: "arrow.uturn.backward.circle.fill",
                 tone: .success,
-                accessibilityLabel: "Revert receipt active",
+                accessibilityLabel: "Undo receipt active",
                 actionLabel: nil
             ))
         }
@@ -1003,7 +1003,7 @@ struct SandboxDetailPopover: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 10) {
-                folderRow(title: "Source Folder", path: sourcePath, status: sourceStatus, isWrite: false)
+                folderRow(title: "Folder to Organize", path: sourcePath, status: sourceStatus, isWrite: false)
                 folderRow(title: "Destination Folder", path: destinationPath, status: destinationStatus, isWrite: true)
                 folderRow(title: "Deduplicate Folder", path: deduplicatePath, status: deduplicateStatus, isWrite: true)
             }

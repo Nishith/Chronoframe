@@ -543,7 +543,8 @@ final class DeduplicateSessionStoreTests: XCTestCase {
         store.acceptAllHighConfidence()
 
         XCTAssertEqual(store.decisions.byPath["/dest/high-a.jpg"], .keep)
-        XCTAssertEqual(store.decisions.byPath["/dest/high-b.jpg"], .delete)
+        // D-CLP-123: the high group was reviewed above (setDecision), so bulk accept leaves it alone.
+        XCTAssertEqual(store.decisions.byPath["/dest/high-b.jpg"], .keep)
         XCTAssertEqual(store.decisions.byPath["/dest/medium-a.jpg"], .keep)
         XCTAssertEqual(store.decisions.byPath["/dest/medium-b.jpg"], .keep)
     }
@@ -642,6 +643,89 @@ final class DeduplicateSessionStoreTests: XCTestCase {
             "Weak cluster member must NOT be in the reviewed deletion plan.")
         XCTAssertFalse(reviewedPaths.contains("/dest/weak-b.jpg"),
             "Weak cluster member must NOT be in the reviewed deletion plan.")
+    }
+
+    private func eligibleExactCluster(_ name: String) -> DuplicateCluster {
+        DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [
+                PhotoCandidate(path: "/dest/\(name)-a.jpg", size: 100, modificationTime: 0, qualityScore: 0.9),
+                PhotoCandidate(path: "/dest/\(name)-b.jpg", size: 100, modificationTime: 0, qualityScore: 0.4),
+            ],
+            suggestedKeeperIDs: ["/dest/\(name)-a.jpg"],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .exactDuplicate))
+        )
+    }
+
+    /// Flips the suggested keeper so the group is reviewed with custom choices.
+    @MainActor
+    private func reviewWithFlippedKeeper(_ store: DeduplicateSessionStore, name: String) {
+        store.setDecision(.delete, forPath: "/dest/\(name)-a.jpg")
+        store.setDecision(.keep, forPath: "/dest/\(name)-b.jpg")
+    }
+
+    @MainActor
+    func testAcceptAllSuggestionsKeepsChoicesInReviewedGroups() async throws {
+        let first = eligibleExactCluster("first")
+        let second = eligibleExactCluster("second")
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [first, second]))
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+        reviewWithFlippedKeeper(store, name: "first")
+        XCTAssertEqual(store.approvedClusterIDs, [first.id])
+
+        store.acceptAllSuggestions()
+
+        XCTAssertEqual(store.decisions.byPath["/dest/first-a.jpg"], .delete,
+            "A reviewed group's custom choice must survive Accept All.")
+        XCTAssertEqual(store.decisions.byPath["/dest/first-b.jpg"], .keep,
+            "A reviewed group's custom choice must survive Accept All.")
+        XCTAssertTrue(store.approvedClusterIDs.contains(first.id))
+        XCTAssertTrue(store.approvedClusterIDs.contains(second.id))
+        XCTAssertEqual(store.decisions.byPath["/dest/second-a.jpg"], .keep)
+        XCTAssertEqual(store.decisions.byPath["/dest/second-b.jpg"], .delete)
+    }
+
+    @MainActor
+    func testAcceptAllHighConfidenceKeepsChoicesInReviewedGroups() async throws {
+        let first = eligibleExactCluster("first")
+        let second = eligibleExactCluster("second")
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [first, second]))
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+        reviewWithFlippedKeeper(store, name: "first")
+        XCTAssertEqual(store.approvedClusterIDs, [first.id])
+
+        store.acceptAllHighConfidence()
+
+        XCTAssertEqual(store.decisions.byPath["/dest/first-a.jpg"], .delete,
+            "A reviewed group's custom choice must survive Accept All Safe.")
+        XCTAssertEqual(store.decisions.byPath["/dest/first-b.jpg"], .keep,
+            "A reviewed group's custom choice must survive Accept All Safe.")
+        XCTAssertTrue(store.approvedClusterIDs.contains(first.id))
+        XCTAssertTrue(store.approvedClusterIDs.contains(second.id))
+        XCTAssertEqual(store.decisions.byPath["/dest/second-a.jpg"], .keep)
+        XCTAssertEqual(store.decisions.byPath["/dest/second-b.jpg"], .delete)
+    }
+
+    @MainActor
+    func testAcceptAllSuggestionsDoesNothingWhenEveryEligibleGroupIsReviewed() async throws {
+        let first = eligibleExactCluster("first")
+        let second = eligibleExactCluster("second")
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [first, second]))
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+        reviewWithFlippedKeeper(store, name: "first")
+        reviewWithFlippedKeeper(store, name: "second")
+        let decisionsBefore = store.decisions
+        let approvedBefore = store.approvedClusterIDs
+        XCTAssertEqual(approvedBefore, [first.id, second.id])
+
+        store.acceptAllSuggestions()
+
+        XCTAssertEqual(store.decisions, decisionsBefore)
+        XCTAssertEqual(store.approvedClusterIDs, approvedBefore)
     }
 
     @MainActor

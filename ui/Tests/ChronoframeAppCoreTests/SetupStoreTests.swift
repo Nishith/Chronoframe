@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import XCTest
 @testable import ChronoframeAppCore
@@ -119,5 +120,34 @@ final class SetupStoreTests: XCTestCase {
         XCTAssertTrue(configuration.parallelTransferEnabled)
         XCTAssertEqual(configuration.workerCount, 1)
         defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    func testSetSourceItemsPublishes() {
+        let store = SetupStore()
+        XCTAssertEqual(store.sourceItems, [])
+
+        var published: [[URL]] = []
+        let cancellable = store.$sourceItems.dropFirst().sink { published.append($0) }
+        let items = [URL(fileURLWithPath: "/tmp/a"), URL(fileURLWithPath: "/tmp/b")]
+
+        store.setSourceItems(items)
+
+        XCTAssertEqual(store.sourceItems, items)
+        XCTAssertEqual(published, [items])
+        cancellable.cancel()
+    }
+
+    func testSelectProfileLeavesSourceItems() {
+        let store = SetupStore(profiles: [
+            Profile(name: "travel", sourcePath: "/Volumes/Card", destinationPath: "/Volumes/Trips")
+        ])
+        let items = [URL(fileURLWithPath: "/tmp/a"), URL(fileURLWithPath: "/tmp/b")]
+        store.setSourceItems(items)
+
+        store.selectProfile(named: "travel")
+        XCTAssertEqual(store.sourceItems, items)
+
+        store.clearProfileSelection()
+        XCTAssertEqual(store.sourceItems, items)
     }
 }

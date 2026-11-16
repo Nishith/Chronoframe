@@ -58,6 +58,8 @@ final class AppState: ObservableObject {
     private let volumeClassifier: NASVolumeClassifier
     /// Keeps the trial status in step with the entitlement (T16).
     private var trialStatusObservation: AnyCancellable?
+    /// Writes a pending Deduplicate review save before the app quits.
+    private var terminationObserver: NSObjectProtocol?
     private var lastObservedEntitlement: EntitlementState?
     private lazy var bookmarkPathResolver = BookmarkPathResolver(
         preferencesStore: preferencesStore,
@@ -123,7 +125,7 @@ final class AppState: ObservableObject {
         let startImportPreview: @MainActor (WatchedImportContext) async -> Void = { [weak self] context in
             guard let self else { return }
             guard !self.deduplicateSessionStore.isWorking else {
-                self.transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+                self.transientErrorMessage = "Finish the duplicate cleanup before organizing."
                 return
             }
             self.previewReviewStore.reset()
@@ -165,6 +167,9 @@ final class AppState: ObservableObject {
         },
         makeSecurityScopeForDestination: { [weak self] destinationRoot in
             self?.destinationSecurityScope(destinationRoot: destinationRoot)
+        },
+        didReplaceSourceList: { [weak self] in
+            self?.setupCoordinator.forgetUnreachableSavedItems()
         }
     )
 
@@ -296,10 +301,23 @@ final class AppState: ObservableObject {
 
         observeEntitlementForTrialStatus()
 
+        // No queue: the notification is posted on the main thread and the flush
+        // must finish before termination continues.
+        terminationObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.deduplicateSessionStore.flushPendingReviewSave()
+            }
+        }
+
         if performInitialBootstrap {
             setupCoordinator.bootstrap(restoreBookmarks: restoreBookmarksDuringBootstrap)
             restoreDeduplicateDestinationBookmark()
             recoverInterruptedMutationsAfterBootstrap()
+            self.photosImportStore.refreshResumableImport(destination: currentDestinationCapture())
         }
         self.menuBarManager = MenuBarStatusManager(appState: self)
     }
@@ -369,6 +387,16 @@ final class AppState: ObservableObject {
         await setupCoordinator.chooseSourceFolder()
     }
 
+    func addSourceItems(_ urls: [URL]) async {
+        runCoordinator.invalidateWatchedImportContext()
+        await setupCoordinator.addSourceItems(urls)
+    }
+
+    func removeSourceItem(_ url: URL) async {
+        runCoordinator.invalidateWatchedImportContext()
+        await setupCoordinator.removeSourceItem(url)
+    }
+
     func selectSourceFolder(_ url: URL) async {
         runCoordinator.invalidateWatchedImportContext()
         await setupCoordinator.selectSourceFolder(url)
@@ -424,7 +452,7 @@ final class AppState: ObservableObject {
         // they must never run concurrently. Reject an organize run while a
         // deduplicate scan/commit is in flight.
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+            transientErrorMessage = "Finish the duplicate cleanup before organizing."
             return
         }
         previewReviewStore.reset()
@@ -433,11 +461,11 @@ final class AppState: ObservableObject {
 
     func startTransfer() async {
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before starting an organize run."
+            transientErrorMessage = "Finish the duplicate cleanup before organizing."
             return
         }
         if previewReviewStore.isStale {
-            transientErrorMessage = "Rebuild the preview before transferring so Chronoframe copies exactly the corrected plan."
+            transientErrorMessage = "Rebuild the preview before copying so Chronoframe copies exactly the corrected plan."
             return
         }
         await runCoordinator.startTransfer()
@@ -528,16 +556,24 @@ final class AppState: ObservableObject {
         // and must not by itself authorize starting another operation.
         guard unlockRefusal != nil else { return }
 
+        // The sheet shows the Organize refusal ahead of the Deduplicate one
+        // (see `unlockRefusal`), so that is the one the customer just unlocked.
+        // Act on it first.
+        //
         // A dedupe refusal leaves its reviewed clusters paused and intact, so
         // there is nothing to rebuild and nothing safe to auto-run: committing
         // on the customer's behalf the moment a purchase completes would remove
         // files without them asking twice. Closing the sheet returns them to
         // their paused review, one click from Clean Up.
-        if deduplicateSessionStore.lastRefusal != nil {
+        if runSessionStore.lastRefusal == nil {
             deduplicateSessionStore.dismissRefusal()
             return
         }
 
+        // Unlocking covers both operations, so a Deduplicate refusal sitting
+        // behind the Organize one is stale. Clear it or the sheet reopens for
+        // an unlocked customer once the Organize refusal is gone.
+        deduplicateSessionStore.dismissRefusal()
         let refusedMode = runSessionStore.currentMode
         runSessionStore.dismissRefusal()
         switch refusedMode {
@@ -940,9 +976,21 @@ final class AppState: ObservableObject {
         return folderAccessService.scopedAccess(for: destinationBookmarks)
     }
 
-    private static func makePhotosImportStore() -> PhotosImportStore {
-        let staging = RuntimePaths.applicationSupportDirectory()
+    /// Staging parent for Photos imports. Debug builds honour
+    /// `CHRONOFRAME_PHOTOS_STAGING_DIR` so the low-space path can be exercised
+    /// on a small disk image; release builds always use Application Support.
+    static func photosStagingParentURL(environment: [String: String]) -> URL {
+        #if DEBUG
+        if let override = environment["CHRONOFRAME_PHOTOS_STAGING_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        #endif
+        return RuntimePaths.applicationSupportDirectory()
             .appendingPathComponent("photos_import_staging", isDirectory: true)
+    }
+
+    private static func makePhotosImportStore() -> PhotosImportStore {
+        let staging = photosStagingParentURL(environment: ProcessInfo.processInfo.environment)
         return PhotosImportStore(
             access: PhotosLibraryAccessService(),
             catalog: PhotosCatalogService(),
@@ -1028,6 +1076,7 @@ final class AppState: ObservableObject {
         if setupStore.usingProfile, !setupStore.selectedProfileName.isEmpty {
             keys.append(bookmarkPathResolver.bookmarkKey(for: .source, profileName: setupStore.selectedProfileName))
         }
+        keys.append(contentsOf: bookmarkPathResolver.sourceItemKeysInIndexOrder())
         return keys
     }
 
@@ -1299,12 +1348,34 @@ final class AppState: ObservableObject {
             transientErrorMessage = "Finish the duplicate cleanup before importing from Photos."
             return
         }
+        guard let context = await photosImportStore.prepareImport(destination: currentDestinationCapture()) else {
+            if let message = photosImportStore.statusMessage {
+                transientErrorMessage = message
+            }
+            return
+        }
+        previewReviewStore.reset()
+        await runCoordinator.startPreview(photosImportContext: context)
+    }
+
+    /// The destination active right now, pinned by Photos prepare and resume.
+    func currentDestinationCapture() -> PhotosImportStore.DestinationCapture? {
         let destinationPath = setupStore.destinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
-        let capture = PhotosImportStore.DestinationCapture(
+        return PhotosImportStore.DestinationCapture(
             path: destinationPath,
             bookmarkKeys: activeDestinationBookmarkKeys()
         )
-        guard let context = await photosImportStore.prepareImport(destination: capture) else {
+    }
+
+    /// Continues an interrupted Photos import from its checkpoint and hands
+    /// off to the same preview → consent → verified-transfer flow.
+    func resumeInterruptedPhotosImport() async {
+        guard !runSessionStore.isRunning else { return }
+        guard !deduplicateSessionStore.isWorking else {
+            transientErrorMessage = "Finish the duplicate cleanup before importing from Photos."
+            return
+        }
+        guard let context = await photosImportStore.resumeImport(destination: currentDestinationCapture()) else {
             if let message = photosImportStore.statusMessage {
                 transientErrorMessage = message
             }
@@ -1400,7 +1471,7 @@ final class MenuBarStatusManager: NSObject {
             item.isEnabled = false
             menu.addItem(item)
 
-            let phaseTitle = appState.runSessionStore.currentPhase?.title ?? "Processing"
+            let phaseTitle = appState.runSessionStore.currentPhase?.displayTitle ?? "Processing"
             let detailItem = NSMenuItem(title: "Phase: \(phaseTitle)", action: nil, keyEquivalent: "")
             detailItem.isEnabled = false
             menu.addItem(detailItem)

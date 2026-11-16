@@ -209,7 +209,7 @@ public enum ClusterKind: String, Sendable, Codable {
     public var title: String {
         switch self {
         case .exactDuplicate: return "Exact duplicates"
-        case .nearDuplicate: return "Near duplicates"
+        case .nearDuplicate: return "Look-alikes"
         case .burst: return "Bursts"
         case .editedVariant: return "Edited variants"
         }

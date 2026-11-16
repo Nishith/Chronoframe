@@ -188,7 +188,7 @@ public enum PreviewReviewStatus: String, Codable, Sendable, CaseIterable {
         case .alreadyInDestination:
             return "Already There"
         case .duplicate:
-            return "Duplicate"
+            return "Exact Copy"
         case .hashError:
             return "Needs Attention"
         }
@@ -212,9 +212,9 @@ public enum PreviewReviewIssueKind: String, Codable, Sendable, CaseIterable {
         case .conflictingDates:
             return "Conflicting dates"
         case .duplicate:
-            return "Duplicate"
+            return "Exact Copy"
         case .alreadyInDestination:
-            return "Already in destination"
+            return "Already There"
         case .hashError:
             return "Could not read file"
         }

@@ -31,4 +31,14 @@ public enum SourceDestinationDisjointness {
         }
         return nil
     }
+
+    /// First conflict between any item and the destination, using the existing single-pair rule for each.
+    public static func conflict(sourceItemPaths: [String], destinationPath: String) -> Conflict? {
+        for itemPath in sourceItemPaths {
+            if let conflict = conflict(sourcePath: itemPath, destinationPath: destinationPath) {
+                return conflict
+            }
+        }
+        return nil
+    }
 }

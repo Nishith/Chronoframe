@@ -64,6 +64,18 @@ Important SQLite tables:
 | `DedupeVideoFeatures` | Versioned sampled-frame hashes, decode outcomes, dimensions, and keeper metadata for perceptual video matching |
 | `ReviewOverrides` | User date and event corrections for future preview and transfer planning |
 
+State kept outside the destination is listed under [Saved Deduplicate Reviews](#saved-deduplicate-reviews) and, for NAS assessment, [Application Support Layout](#application-support-layout).
+
+### Saved Deduplicate Reviews
+
+Deduplicate review state lives outside the folder being reviewed, under the app's Application Support folder (`Chronoframe/dedupe_reviews/`):
+
+| Path | Purpose |
+| :--- | :--- |
+| `dedupe_reviews/<key>.json` | Saved review for one dedupe folder: Keep/Delete choices with the content identity of each file, reviewed groups keyed by their members' sorted identities, the focused group, a settings fingerprint, and the save time. `<key>` is the folder's standardized path, base64url-encoded without padding. Sorted-key JSON with ISO-8601 dates, replaced atomically; format version 1 |
+
+A save with no choices and no reviewed groups removes the file instead of writing it. A file that is missing, unreadable, or a different version loads as no saved review. On restore, a choice applies only when the scanned file at that path has the same content identity, and a group is restored as reviewed only when its members' identities match and every member's own choice was restored; the rest are dropped and counted in the restored-review banner. Restore sets review state only: it builds no plan and approves no commit. The file is written after a user change (debounced by half a second), on pause, cancel, reset, rescan and app termination, and removed when a commit for that folder finishes or by **Discard Saved Review**. Cancelling during a scan writes nothing, and a crash or force-quit can lose the last half second of changes.
+
 ## Architecture
 
 Chronoframe ships a native macOS app and a SwiftPM CLI.
@@ -238,7 +250,7 @@ The **Photos** sidebar destination imports copies of photos and videos out of th
 
 Chronoframe never mutates the Photos library. Authorization, album/asset enumeration, and export all go through read-only PhotoKit APIs; the export seam has no mutating method, and `script/check_photos_import_readonly.sh` fails CI if a mutating PhotoKit symbol (`performChanges`, any change request) appears in a file that imports Photos (safety invariant #22).
 
-Import runs in two stages. First, the selected assets' **original** (unedited) resources are exported with `PHAssetResourceManager` into a per-import staging directory under Application Support (`photos_import_staging/<uuid>/`); a Live Photo's still and paired movie share a basename, and export is transactional per asset (a partial write is rolled back so an incomplete pair never reaches the pipeline). Second, that staging directory is fed to the normal verified-transfer pipeline as the run source, so preview, consent, verification, receipts, and interruption recovery are identical to any other organize run. The destination is captured when the user clicks Import and revalidated before the transfer; a change cancels rather than retargets. Staging is deleted on completion, failure, or cancellation.
+Import runs in two stages. First, the selected assets' **original** (unedited) resources are exported with `PHAssetResourceManager` into a per-import staging directory under Application Support (`photos_import_staging/<uuid>/`); a Live Photo's still and paired movie share a basename, and export is transactional per asset (a partial write is rolled back so an incomplete pair never reaches the pipeline). Second, that staging directory is fed to the normal verified-transfer pipeline as the run source, so preview, consent, verification, receipts, and interruption recovery are identical to any other organize run. The destination is captured when the user clicks Import and revalidated before the transfer; a change cancels rather than retargets. Staging is deleted when a transfer run consumes it (a preview that fails or is cancelled counts), when the user discards an interrupted import or starts a new one, or when a prepare produced nothing. A prepare that finished but whose run never started or finished is not resumable: the launch refresh removes its staging folder, because only stopped, paused or crashed prepares are resumable. A stopped, paused, or crashed prepare keeps its completely exported assets with a checkpoint, `photos_import_staging/<uuid>/.chronoframe_photos_checkpoint.json` (versioned JSON, rewritten atomically after every asset), so the import can resume; a partially written asset is rolled back. The export pauses below a 2 GiB free-space floor on the volume holding the staging folder. Resume revalidates the destination path, Photos authorization, and that each completed file exists at its recorded size; it removes any staging file the checkpoint does not record before exporting the remaining assets, and the planner's `SourceDateHint` check remains the content gate. Failed assets are recorded in the checkpoint and skipped, not retried. See [Safety and Recovery](SAFETY_AND_RECOVERY.md).
 
 iCloud-only originals are downloaded on demand during export. `.limited` authorization is honored — the browser imports whatever subset the user has granted.
 

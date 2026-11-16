@@ -45,7 +45,7 @@ public enum DeduplicateReviewKeys {
     /// nil when any member lacks an identity in the snapshot (such a group can never be approved from a save).
     public static func groupKey(for cluster: DuplicateCluster, snapshot: DeduplicateScanSnapshot) -> String?
     /// Standardized dedupe root path, the key for the on-disk file (see C-03).
-    public static func folderKey(for folderPath: String) -> String   // base64url of URL(fileURLWithPath:).standardizedFileURL.path, no padding
+    public static func folderKey(for folderPath: String) -> String   // SHA-256 hex of URL(fileURLWithPath:).standardizedFileURL.path (D-DDP-120; was base64url, which could exceed the filename limit)
 }
 
 public extension DeduplicateConfiguration {
@@ -184,3 +184,10 @@ Tests covering it carry `// AGENTS-INVARIANT: 29`.
 - `docs/FAQ.md`: "I quit halfway through reviewing duplicates. Is my work gone?"
 - `docs/TECHNICAL.md`: artifact table row for `dedupe_reviews/<key>.json` (Application Support).
 - `AGENTS.md` "Deduplicate Workspace" section: one sentence pointing at INV-29 (orchestrator, G1).
+
+## C-10 Counts cover reviewed groups only (WP-05, D-DDP-119)
+1. `DeduplicateSavedDecision` gains `public let inReviewedGroup: Bool`, last in the memberwise `init` with default `true`. Decoding a value without the key yields `true`; encoding always writes it. `DeduplicateReviewSnapshot.version` stays 1.
+2. `DeduplicateReviewSnapshot` gains `public var reviewedDecisionCount: Int` = number of `decisions` with `inReviewedGroup == true`.
+3. `DeduplicateReviewRestorer.capture` sets `inReviewedGroup` to true exactly when the decision's path is a member of a cluster whose id is in `approvedClusterIDs`. Which decisions are saved does not change.
+4. `DeduplicateReviewRestorer.restore`: rules 1 to 6 of C-02 are unchanged (every saved decision is still applied or dropped, and approval still needs every member restored). Only the two counters change: `restoredDecisionCount` and `droppedDecisionCount` count saved decisions with `inReviewedGroup == true` only.
+5. `DeduplicateReviewCopy.savedBody` uses `snapshot.reviewedDecisionCount` in place of `snapshot.decisions.count`. No string literal changes; no new catalog keys.

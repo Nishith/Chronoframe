@@ -27,6 +27,8 @@ Subtitle alternative (28 char): `Safe photo & video organizer`
 
 ## Direct free V2 submission — October 16, 2026
 
+**October 22 live pricing correction:** V2 is public and Unlock is approved. The app's $14.99 download price had not been changed with the resubmission. App Store Connect now confirms the saved immediate global **$0.00 download price across all 175 regions**, independently rechecked after reload; the approved **$14.99 US Unlock** and Family Sharing remain unchanged. The first public recheck still showed the previous download price, so public propagation is not yet claimed. [Evidence ledger](app-review-replacement-511-2026-10-21.md). Earlier submission-only status statements below are historical.
+
 The owner confirmed there are no existing users. Submit the free-download offer below; the earlier paid-window and grandfathering copy is superseded. These values match `marketing/release-2.0/metadata/fields.json` and its adjacent text files. They are local preparation, not a claim that App Store Connect has been updated.
 
 ## Promotional Text (170 char max)
@@ -88,6 +90,8 @@ The owner confirmed there are no existing users. Submit the free-download offer 
 > No subscription. Your organizing source files and Photos library remain untouched.
 
 ## Review Notes
+
+October 21 submission uses replacement **2.0 (511)**, frozen source `3b38279`, containing merged PR #251 and the Deduplicate offer observation fix on draft PR #252 (not merged). All 24 hosted checks on that source, signed packaging, upload, processing and installed TestFlight verification pass. The disclosed, inspected **3:21** video contains a supplemental desktop launch, actual signed core workflow, purchase entrances, no-charge sandbox purchase, stopped pending operation and Unlocked persistence; it is attached to App Review Information. Direct app/IAP License navigation notes and the real signed purchase screenshot are saved. The old rejected submission was cancelled with history preserved. After owner **Go**, **511 + Chronoframe Unlock** were submitted together on **October 21 at 9:46 PM PDT**; both show **Waiting for Review**, submission `42e45604-bc72-4236-a1a1-8bca697a7884`. **Manual release** remains selected; public publication has not occurred. See [the active replacement ledger](app-review-replacement-511-2026-10-21.md).
 
 For the replacement after the October 19 rejection, prepend this purchase path
 to the notes below. Use it only with a build containing the direct License entry:

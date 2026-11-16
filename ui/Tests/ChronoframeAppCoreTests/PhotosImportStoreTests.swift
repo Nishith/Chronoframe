@@ -173,6 +173,7 @@ final class PhotosImportStoreTests: XCTestCase {
         XCTAssertEqual(unwrapped.destinationBookmarkKeys, ["k"])
         XCTAssertEqual(Set(unwrapped.assetIDs), ["a", "b"])
         let staged = try! FileManager.default.contentsOfDirectory(atPath: unwrapped.stagingDirectoryURL.path)
+            .filter { $0 != PhotosImportCheckpoint.filename }
         XCTAssertEqual(staged.count, 2)
         XCTAssertEqual(unwrapped.sourceDateHints.count, 2)
         for (path, hint) in unwrapped.sourceDateHints {
@@ -208,6 +209,7 @@ final class PhotosImportStoreTests: XCTestCase {
         XCTAssertEqual(Set(unwrapped.assetIDs), ["a", "b"])
         XCTAssertEqual(unwrapped.assetIDs.count, store.selectedCount, "Exported set matches the displayed count")
         let staged = try FileManager.default.contentsOfDirectory(atPath: unwrapped.stagingDirectoryURL.path)
+            .filter { $0 != PhotosImportCheckpoint.filename }
         XCTAssertEqual(staged.count, 2)
     }
 
