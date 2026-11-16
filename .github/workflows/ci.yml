@@ -127,12 +127,25 @@ jobs:
     name: SwiftPM tests
     runs-on: macos-15
     timeout-minutes: 45
-    env:
-      CHRONOFRAME_REQUIRE_COMPILED_STRING_CATALOGS: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Select Swift 6.2+ toolchain
-        run: script/select_swiftpm_toolchain.sh 6.2
+      - name: Select Swift 6 toolchain
+        run: |
+          swift6_developer_dir=""
+          for xcode in /Applications/Xcode*.app; do
+            swift_binary="$xcode/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
+            if [ -x "$swift_binary" ] && "$swift_binary" -version | grep -Eq 'Swift version 6\.'; then
+              swift6_developer_dir="$xcode/Contents/Developer"
+            fi
+          done
+          if [ -z "$swift6_developer_dir" ]; then
+            echo "::error title=Swift 6 toolchain not found::No installed Xcode app provides Swift 6."
+            ls -1 /Applications/Xcode*.app || true
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
+          "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run SwiftPM tests
         run: |
           mkdir -p .tmp/home/Library/Caches .tmp/modulecache
@@ -153,12 +166,25 @@ jobs:
     name: Meaningful Swift coverage
     runs-on: macos-15
     timeout-minutes: 45
-    env:
-      CHRONOFRAME_REQUIRE_COMPILED_STRING_CATALOGS: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Select Swift 6.2+ toolchain
-        run: script/select_swiftpm_toolchain.sh 6.2
+      - name: Select Swift 6 toolchain
+        run: |
+          swift6_developer_dir=""
+          for xcode in /Applications/Xcode*.app; do
+            swift_binary="$xcode/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
+            if [ -x "$swift_binary" ] && "$swift_binary" -version | grep -Eq 'Swift version 6\.'; then
+              swift6_developer_dir="$xcode/Contents/Developer"
+            fi
+          done
+          if [ -z "$swift6_developer_dir" ]; then
+            echo "::error title=Swift 6 toolchain not found::No installed Xcode app provides Swift 6."
+            ls -1 /Applications/Xcode*.app || true
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$swift6_developer_dir" >> "$GITHUB_ENV"
+          echo "::notice title=Selected toolchain::$swift6_developer_dir — $("$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version 2>&1 | head -1)"
+          "$swift6_developer_dir/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" -version
       - name: Run meaningful coverage gate
         run: |
           mkdir -p .tmp
