@@ -69,16 +69,58 @@ public struct NASScanFileSystem: Sendable {
         self.entry = entry
     }
 
+    /// Refuses a symbolic link anywhere in the path it is given, not only in the last
+    /// component: a folder swapped for a link while a scan runs must not lead the scan outside
+    /// the library. Callers therefore pass paths under a root with no links above it (the
+    /// scanner resolves its root once, before the first read).
     public static let live = NASScanFileSystem(
-        listDirectory: { path in try FileManager.default.contentsOfDirectory(atPath: path) },
+        listDirectory: { path in try nasLiveListDirectory(atPath: path) },
         entry: { path in nasLiveScanEntry(atPath: path) }
     )
+}
+
+/// `path` with the symbolic links above its last component resolved. The last component is
+/// kept as written, so a root that is itself a link is still seen as one. Returns `path`
+/// unchanged when the parent cannot be resolved.
+func nasPathWithResolvedParent(_ path: String) -> String {
+    let url = URL(fileURLWithPath: path)
+    let name = url.lastPathComponent
+    guard path != "/", !name.isEmpty, let resolved = realpath(url.deletingLastPathComponent().path, nil) else { return path }
+    defer { free(resolved) }
+    let parent = String(cString: resolved)
+    return parent.hasSuffix("/") ? parent + name : parent + "/" + name
+}
+
+private func nasLiveListDirectory(atPath path: String) throws -> [String] {
+    let descriptor = path.withCString { Darwin.open($0, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW_ANY) }
+    guard descriptor >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+    guard let stream = fdopendir(descriptor) else {
+        let code = errno
+        _ = Darwin.close(descriptor)
+        throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+    }
+    defer { closedir(stream) }
+
+    var names: [String] = []
+    while true {
+        errno = 0
+        guard let entry = readdir(stream) else {
+            if errno != 0 { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
+            break
+        }
+        let name = withUnsafePointer(to: &entry.pointee.d_name) { pointer in
+            pointer.withMemoryRebound(to: CChar.self, capacity: Int(entry.pointee.d_namlen) + 1) { String(cString: $0) }
+        }
+        if name != ".", name != ".." { names.append(name) }
+    }
+    return names
 }
 
 // File-scope wrapper so the Darwin call is not shadowed by any member named `entry`.
 private func nasLiveScanEntry(atPath path: String) -> NASScanFileSystem.Entry? {
     var info = Darwin.stat()
-    guard Darwin.lstat(path, &info) == 0 else { return nil }
+    // Like `lstat` for the last component, and fails when a link is anywhere above it.
+    guard fstatat(AT_FDCWD, path, &info, AT_SYMLINK_NOFOLLOW | AT_SYMLINK_NOFOLLOW_ANY) == 0 else { return nil }
     let type = info.st_mode & S_IFMT
     let isDirectory = type == S_IFDIR
     var isPackage = false
@@ -124,7 +166,7 @@ public final class NASAssessmentScanner: @unchecked Sendable {
 
     public init(
         store: NASAssessmentStore,
-        reader: NASMeteredFileReader = NASMeteredFileReader(),
+        reader: NASMeteredFileReader = NASMeteredFileReader(systemCalls: .liveRefusingLinksInPath),
         fileSystem: NASScanFileSystem = .live,
         activity: any NASActivityProviding = NASProcessActivityProvider(),
         now: @escaping @Sendable () -> Date = { Date() }
@@ -160,9 +202,12 @@ public final class NASAssessmentScanner: @unchecked Sendable {
     ) {
         // Step 1: preflight. Nothing is yielded and no activity begins when it refuses.
         let rootPath = configuration.rootURL.standardizedFileURL.path
+        // Every access refuses a link anywhere in its path, so the links above the root are
+        // resolved once, here. Preflight still refuses a root that is itself a link.
+        let scanRootPath = nasPathWithResolvedParent(rootPath)
         let rootDevice: Int32
         do {
-            rootDevice = try preflight(configuration: configuration, rootPath: rootPath)
+            rootDevice = try preflight(configuration: configuration, rootPath: rootPath, scanRootPath: scanRootPath)
         } catch {
             continuation.finish(throwing: error)
             return
@@ -174,7 +219,7 @@ public final class NASAssessmentScanner: @unchecked Sendable {
         do {
             let session = NASScanSession(
                 configuration: configuration,
-                rootPath: rootPath,
+                rootPath: scanRootPath,
                 rootDevice: rootDevice,
                 store: store,
                 reader: reader,
@@ -196,12 +241,16 @@ public final class NASAssessmentScanner: @unchecked Sendable {
         }
     }
 
-    private func preflight(configuration: NASAssessmentConfiguration, rootPath: String) throws -> Int32 {
+    private func preflight(configuration: NASAssessmentConfiguration, rootPath: String, scanRootPath: String) throws -> Int32 {
         let statePath = configuration.stateURL.standardizedFileURL.path
-        if Self.isInside(path: statePath, root: rootPath) || Self.resolvedStateIsInside(configuration.stateURL, root: configuration.rootURL) {
+        // The last check compares link-free spellings, so `/private/var/…` and `/var/…` (the
+        // same place) cannot slip past the first two when the state folder does not exist yet.
+        if Self.isInside(path: statePath, root: rootPath)
+            || Self.resolvedStateIsInside(configuration.stateURL, root: configuration.rootURL)
+            || Self.isInside(path: Self.pathWithResolvedExistingAncestor(statePath), root: scanRootPath) {
             throw NASAssessmentError.stateInsideLibrary(statePath: statePath, rootPath: rootPath)
         }
-        guard let root = fileSystem.entry(rootPath) else {
+        guard let root = fileSystem.entry(scanRootPath) else {
             throw NASAssessmentError.rootUnavailable(path: rootPath)
         }
         if root.isSymbolicLink {
@@ -211,6 +260,21 @@ public final class NASAssessmentScanner: @unchecked Sendable {
             throw NASAssessmentError.rootUnavailable(path: rootPath)
         }
         return root.deviceID
+    }
+
+    /// `path` with the links in its deepest existing ancestor resolved; the rest is kept as written.
+    private static func pathWithResolvedExistingAncestor(_ path: String) -> String {
+        var remainder: [String] = []
+        var current = URL(fileURLWithPath: path)
+        while current.path != "/" {
+            if let resolved = realpath(current.path, nil) {
+                defer { free(resolved) }
+                return ([String(cString: resolved)] + remainder.reversed()).joined(separator: "/")
+            }
+            remainder.append(current.lastPathComponent)
+            current = current.deletingLastPathComponent()
+        }
+        return path
     }
 
     private static func isInside(path: String, root: String) -> Bool {

@@ -60,7 +60,7 @@ private final class ScannerReaderProbe: @unchecked Sendable {
     var maxInFlight: Int { lock.lock(); defer { lock.unlock() }; return maxInFlightValue }
 
     func makeReader() -> NASMeteredFileReader {
-        let live = NASMeteredFileReader.SystemCalls.live
+        let live = NASMeteredFileReader.SystemCalls.liveRefusingLinksInPath
         return NASMeteredFileReader(systemCalls: NASMeteredFileReader.SystemCalls(
             open: { [self] path in
                 lock.lock()
@@ -122,6 +122,14 @@ private func hookedFileSystem(
     )
 }
 
+/// Moves `Photos` aside and puts a link to `outside` in its place, as another process could
+/// between the scanner queueing a folder and visiting it.
+private func replacePhotosWithLink(root: URL, container: URL, outside: URL) throws {
+    let photos = root.appendingPathComponent("Photos")
+    try FileManager.default.moveItem(at: photos, to: container.appendingPathComponent("Photos-moved-\(UUID().uuidString)"))
+    try FileManager.default.createSymbolicLink(atPath: photos.path, withDestinationPath: outside.path)
+}
+
 private func bytes(_ value: UInt8, count: Int) -> Data { Data(repeating: value, count: count) }
 
 private struct ScanResult {
@@ -162,7 +170,7 @@ final class ChronoframeCoreNASAssessmentScannerTests: XCTestCase {
         _ fixture: NASFixtureBuilder,
         store: NASAssessmentStore,
         workerCount: Int = 2,
-        reader: NASMeteredFileReader = NASMeteredFileReader(),
+        reader: NASMeteredFileReader = NASMeteredFileReader(systemCalls: .liveRefusingLinksInPath),
         fileSystem: NASScanFileSystem = .live,
         activity: any NASActivityProviding = ScannerFakeActivity(),
         stateURL: URL? = nil,
@@ -305,6 +313,117 @@ final class ChronoframeCoreNASAssessmentScannerTests: XCTestCase {
         let rows = try store.directoryRows(generation: summary.generation)
         XCTAssertEqual(rows.first { $0.relativePath == "#recycle" }?.status, .excludedSystem)
         XCTAssertNil(rows.first { $0.relativePath == "#recycle/deleted.jpg" })
+    }
+
+    // MARK: A folder swapped for a link while the scan runs
+
+    /// A folder outside the library holding two identical files named like the library's.
+    private func makeOutsideFolder(for fixture: NASFixtureBuilder, payload: Data, matching libraryFile: String) throws -> URL {
+        let outside = fixture.containerURL.appendingPathComponent("outside", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        let attributes = try FileManager.default.attributesOfItem(atPath: fixture.rootURL.appendingPathComponent(libraryFile).path)
+        for name in ["a.jpg", "b.jpg"] {
+            let url = outside.appendingPathComponent(name)
+            try payload.write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: attributes[.modificationDate] as Any], ofItemAtPath: url.path)
+        }
+        return outside
+    }
+
+    // AGENTS-INVARIANT: 15
+    func testQueuedFolderReplacedByALinkIsNotEntered() async throws {
+        let fixture = try makeFixture([
+            .file("Photos/a.jpg", bytes(1, count: 1500)),
+            .file("Photos/b.jpg", bytes(2, count: 1500)),
+        ])
+        let outside = try makeOutsideFolder(for: fixture, payload: bytes(7, count: 1500), matching: "Photos/a.jpg")
+        let store = try makeStore(fixture)
+        let photosPath = fixture.rootPath + "/Photos"
+        let swapped = ScannerFlag()
+        let rootURL = fixture.rootURL
+        let containerURL = fixture.containerURL
+        let fileSystem = hookedFileSystem(entry: { path, entry in
+            // `Photos` has just been seen as a real folder and queued; it has not been visited.
+            if path == photosPath, !swapped.isSet {
+                swapped.set()
+                try? replacePhotosWithLink(root: rootURL, container: containerURL, outside: outside)
+            }
+            return entry
+        })
+        let probe = ScannerReaderProbe()
+
+        let result = await run(fixture, store: store, reader: probe.makeReader(), fileSystem: fileSystem)
+
+        let summary = try XCTUnwrap(result.summary)
+        XCTAssertEqual(probe.openCount, 0, "Nothing behind the link may be opened")
+        XCTAssertTrue(try store.exactGroups(generation: summary.generation).isEmpty, "Files outside the library must not form groups")
+        XCTAssertNotEqual(summary.outcome, .complete, "A folder that could not be assessed is a gap")
+    }
+
+    // AGENTS-INVARIANT: 15
+    func testFilesAreNotReadThroughAParentReplacedAfterListing() async throws {
+        let fixture = try makeFixture([
+            .file("Photos/a.jpg", bytes(1, count: 1500)),
+            .file("Photos/b.jpg", bytes(2, count: 1500)),
+        ])
+        let outside = try makeOutsideFolder(for: fixture, payload: bytes(7, count: 1500), matching: "Photos/a.jpg")
+        let store = try makeStore(fixture)
+        let photosPath = fixture.rootPath + "/Photos"
+        let swapped = ScannerFlag()
+        let rootURL = fixture.rootURL
+        let containerURL = fixture.containerURL
+        let fileSystem = hookedFileSystem(list: { path, names in
+            // `Photos` has been listed; its children are about to be looked at.
+            if path == photosPath, !swapped.isSet {
+                swapped.set()
+                try replacePhotosWithLink(root: rootURL, container: containerURL, outside: outside)
+            }
+            return names
+        })
+        let probe = ScannerReaderProbe()
+
+        let result = await run(fixture, store: store, reader: probe.makeReader(), fileSystem: fileSystem)
+
+        let summary = try XCTUnwrap(result.summary)
+        XCTAssertEqual(probe.openCount, 0, "Nothing behind the link may be opened")
+        XCTAssertTrue(try store.exactGroups(generation: summary.generation).isEmpty)
+        XCTAssertNotEqual(summary.outcome, .complete)
+    }
+
+    // AGENTS-INVARIANT: 15
+    func testFilesAreNotHashedThroughAParentReplacedAfterEnumeration() async throws {
+        let fixture = try makeFixture([
+            .file("Photos/a.jpg", bytes(1, count: 1500)),
+            .file("Photos/b.jpg", bytes(2, count: 1500)),
+        ])
+        // Same sizes and dates as the library's files, so only the link can give the swap away.
+        let outside = try makeOutsideFolder(for: fixture, payload: bytes(7, count: 1500), matching: "Photos/a.jpg")
+        for name in ["a.jpg", "b.jpg"] {
+            let date = try FileManager.default.attributesOfItem(atPath: outside.appendingPathComponent(name).path)[.modificationDate]
+            try FileManager.default.setAttributes([.modificationDate: date as Any], ofItemAtPath: fixture.rootURL.appendingPathComponent("Photos/\(name)").path)
+        }
+        let store = try makeStore(fixture)
+        let lastChild = fixture.rootPath + "/Photos/b.jpg"
+        let swapped = ScannerFlag()
+        let rootURL = fixture.rootURL
+        let containerURL = fixture.containerURL
+        let fileSystem = hookedFileSystem(entry: { path, entry in
+            // Both files have been enumerated; hashing comes next.
+            if path == lastChild, !swapped.isSet {
+                swapped.set()
+                try? replacePhotosWithLink(root: rootURL, container: containerURL, outside: outside)
+            }
+            return entry
+        })
+
+        let result = await run(fixture, store: store, fileSystem: fileSystem)
+
+        let summary = try XCTUnwrap(result.summary)
+        XCTAssertTrue(
+            try store.exactGroups(generation: summary.generation).isEmpty,
+            "The two identical files outside the library must not be hashed into a group"
+        )
+        XCTAssertNotEqual(summary.outcome, .complete, "Files that could not be read are a gap")
     }
 
     func testSymlinksPackagesAndSpecialFilesAreReportedNotTraversed() async throws {
@@ -613,13 +732,15 @@ final class ChronoframeCoreNASAssessmentScannerTests: XCTestCase {
         let store = try makeStore(fixture)
         let before = try fixture.snapshot()
         let insideState = fixture.rootURL.appendingPathComponent(".nas-state/assessment.sqlite")
+        // The error reports the root as configured, which `standardizedFileURL` spells `/var/…`.
+        let configuredRootPath = fixture.rootURL.standardizedFileURL.path
         let activity = ScannerFakeActivity()
         let result = await run(fixture, store: store, activity: activity, stateURL: insideState)
 
         XCTAssertTrue(result.events.isEmpty, "A refused run must not yield any event.")
         XCTAssertEqual(
             result.error as? NASAssessmentError,
-            .stateInsideLibrary(statePath: insideState.standardizedFileURL.path, rootPath: fixture.rootPath)
+            .stateInsideLibrary(statePath: insideState.standardizedFileURL.path, rootPath: configuredRootPath)
         )
         XCTAssertEqual(activity.beginCount, 0)
         XCTAssertNil(try store.latestGeneration())
@@ -629,7 +750,7 @@ final class ChronoframeCoreNASAssessmentScannerTests: XCTestCase {
         let rootItself = await run(fixture, store: store, stateURL: fixture.rootURL)
         XCTAssertEqual(
             rootItself.error as? NASAssessmentError,
-            .stateInsideLibrary(statePath: fixture.rootPath, rootPath: fixture.rootPath)
+            .stateInsideLibrary(statePath: configuredRootPath, rootPath: configuredRootPath)
         )
         let sibling = URL(fileURLWithPath: fixture.rootPath + "-state/assessment.sqlite")
         let allowed = await run(fixture, store: store, stateURL: sibling)

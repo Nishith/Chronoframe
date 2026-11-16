@@ -50,6 +50,17 @@ public struct NASMeteredFileReader: Sendable {
             lastError: { errno }
         )
 
+        /// `live`, except that a symbolic link anywhere in the path fails the open, not only one
+        /// in the last component. Use it with paths under a root that has no links above it.
+        public static let liveRefusingLinksInPath: SystemCalls = {
+            var calls = SystemCalls.live
+            calls.open = { path in
+                // `O_NOFOLLOW_ANY` covers the last component too; adding `O_NOFOLLOW` is EINVAL.
+                path.withCString { Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW_ANY) }
+            }
+            return calls
+        }()
+
         public init(
             open: @escaping @Sendable (String) -> Int32,
             fstat: @escaping @Sendable (Int32) -> FileStat?,
