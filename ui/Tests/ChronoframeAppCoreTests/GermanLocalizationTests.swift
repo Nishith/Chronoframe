@@ -4,7 +4,30 @@ import XCTest
 
 final class GermanLocalizationTests: XCTestCase {
     private func germanBundle() throws -> Bundle {
-        try localizedTestBundle("de", in: Bundle.module)
+        try localizedBundle("de")
+    }
+
+    /// Older SwiftPM toolchains (Xcode 16.4's Swift 6.1) copy `.xcstrings` into
+    /// the resource bundle without compiling per-language `.lproj` folders, so
+    /// compile the catalog here when the folder is missing.
+    private func localizedBundle(_ language: String) throws -> Bundle {
+        if let path = Bundle.module.path(forResource: language, ofType: "lproj") {
+            return try XCTUnwrap(Bundle(path: path))
+        }
+        let catalog = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/ChronoframeAppCore/Resources/LocalizableCore.xcstrings")
+        let output = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GermanLocalizationTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: output) }
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+        process.arguments = ["xcstringstool", "compile", "-o", output.path, catalog.path]
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+        return try XCTUnwrap(Bundle(path: output.appendingPathComponent("\(language).lproj").path))
     }
 
     func testCoreCatalogResolvesGermanInsteadOfFallingBackToEnglish() throws {
@@ -81,7 +104,7 @@ final class GermanLocalizationTests: XCTestCase {
     }
 
     func testEnglishPendingPromptRemainsUnchanged() throws {
-        let bundle = try localizedTestBundle("en", in: Bundle.module)
+        let bundle = try localizedBundle("en")
         XCTAssertEqual(
             RunSessionStore.pendingCopyMessage(count: 1, forFreeTestBatch: false, bundle: bundle),
             "1 file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan."
