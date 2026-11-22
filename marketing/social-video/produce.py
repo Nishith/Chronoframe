@@ -108,6 +108,16 @@ def graphics(s,profile):
     im.save(WORK/f'{profile}-{s["name"]}-type.png')
 
 
+
+def file_digest(path):
+    """Content identity of a recording, so replacing footage under the same
+    filename invalidates every intermediate rendered from it."""
+    h=hashlib.sha256()
+    with open(path,'rb') as f:
+        for chunk in iter(lambda:f.read(1<<20),b''):h.update(chunk)
+    return h.hexdigest()
+
+
 def prepare():
     for p in (WORK,OUT,RAW):p.mkdir(exist_ok=True)
     provenance=[]
@@ -159,7 +169,7 @@ def render(profile):
             f'trim=duration={length:.3f},setpts=PTS-STARTPTS[base];'
             '[base][1:v]overlay=0:0:format=auto[back];'
             f'[2:v]format=rgba{fades}[type];[back][type]overlay=0:0:format=auto,format=yuv420p[v]')
-        sig=hashlib.sha256(vf.encode()+json.dumps(s).encode()+rail.read_bytes()+ty.read_bytes()).hexdigest()
+        sig=hashlib.sha256(vf.encode()+json.dumps(s).encode()+file_digest(RAW/s['file']).encode()+rail.read_bytes()+ty.read_bytes()).hexdigest()
         cache=p.with_suffix('.sha256')
         if p.exists() and cache.exists() and cache.read_text()==sig:continue
         run(['ffmpeg','-hide_banner','-loglevel','error','-y','-ss',s['start'],'-i',RAW/s['file'],

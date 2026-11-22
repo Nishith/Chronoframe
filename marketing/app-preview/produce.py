@@ -200,6 +200,16 @@ def compose_score():
         'Reproducible from produce.py (seed 27092026).\n')
 
 
+
+def file_digest(path):
+    """Content identity of a recording, so replacing footage under the same
+    filename invalidates every intermediate rendered from it."""
+    h=hashlib.sha256()
+    with open(path,'rb') as f:
+        for chunk in iter(lambda:f.read(1<<20),b''):h.update(chunk)
+    return h.hexdigest()
+
+
 def prepare():
     for d in (WORK,OUT,RAW):
         d.mkdir(exist_ok=True)
@@ -231,7 +241,7 @@ def render():
             'restored': 'crop=2048:1152:930:552,',
         }.get(s['name'], '')
         # Fixed editorial close-ups make the actual app text legible. No simulated UI or clicks.
-        signature=hashlib.sha256(('separate-type-v1'+json.dumps(s)+crop).encode()+
+        signature=hashlib.sha256(('separate-type-v1'+json.dumps(s)+crop+file_digest(RAW/s['file'])).encode()+
                                 (WORK/f'{s["name"]}-overlay.png').read_bytes()).hexdigest()
         cache=p.with_suffix('.sha256')
         if p.exists() and cache.exists() and cache.read_text()==signature:

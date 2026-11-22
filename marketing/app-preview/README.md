@@ -56,7 +56,7 @@ commercial recording. The score's construction is in `produce.py`; see `music-pr
 Requires FFmpeg, NumPy, Pillow and the macOS SF system font. The local bundled Python is:
 
 ```sh
-/Users/nishithnand/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 marketing/app-preview/produce.py all
+python3 marketing/app-preview/produce.py all
 ```
 
 Individual stages: `prepare`, `score`, `render`, `mux`. Rendering caches individual shots by

@@ -71,9 +71,9 @@ the scripts when archiving the production.
 Requires FFmpeg, Python with NumPy/Pillow, and the macOS SF system font. On this Mac:
 
 ```sh
-/Users/nishithnand/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 marketing/social-video/produce.py all --profile youtube
-/Users/nishithnand/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 marketing/social-video/produce.py all --profile vertical
-/Users/nishithnand/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 marketing/social-video/verify.py
+python3 marketing/social-video/produce.py all --profile youtube
+python3 marketing/social-video/produce.py all --profile vertical
+python3 marketing/social-video/verify.py
 ```
 
 Individual stages are `prepare`, `music`, `render`, and `finish`. Run `prepare` after changing
