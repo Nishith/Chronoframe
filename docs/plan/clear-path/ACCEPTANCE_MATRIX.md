@@ -1,5 +1,7 @@
 # Clear path — acceptance matrix
 
+Status: shipped in PR #269 with follow-up PR #274. Automated rows are pass; hardware rows are still owner-only.
+
 Status values: `todo`, `pass (<commit>)`, `fail`, `todo-hardware`, `pass-hardware (<date>, Nishith)`. Only Nishith sets `pass-hardware`.
 
 | ID | Requirement (review finding) | Automated coverage (class/method) | Hardware row | Auto status | Hardware status |

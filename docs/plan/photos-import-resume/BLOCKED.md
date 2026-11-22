@@ -1,23 +1,12 @@
 # Photos import resume — blocked items
 
-Rule: log it, then continue with the next independent WP. Only Nishith marks an item resolved.
+Status: shipped in PR #268; one item open (owner-only).
 
-## Template
-### B-<n> — <short title>
-- **WP:** <id>
-- **Command:** `<exact command>`
-- **Error:** <exact text>
-- **Tried:** <what, in order>
-- **Options:** 1) … 2) …
-- **Recommendation:** <one option, one sentence>
-- **Status:** open | resolved (<commit or decision>)
+Entry format: see "Blocked items" in `docs/plan/next-half/AGENT_RULES.md`. Only Nishith marks an item resolved.
 
 ## Open items
 ### B-1 — G2 app smoke: screen access declined
-- **WP:** G2 step 3
-- **Command:** `open -n --env CHRONOFRAME_PHOTOS_STAGING_DIR="$PWD/.tmp/pir-smoke/staging" ui/build/Chronoframe.app`, then a computer-use access request for Chronoframe
-- **Error:** access request returned `user_denied` for `com.nishith.chronoframe`
-- **Tried:** `ui/build.sh` (exit 0); seeded a `.stopped` checkpoint (3 planned, 0 completed) at `.tmp/pir-smoke/staging/7B0E4C0A-3C1D-4E55-9A51-5E0C7A1D2F10/`; launched the Debug build with the staging override (exit 0, process started); requested access once; not retried. The seeded directory was still present after the launch refresh, which is consistent with the checkpoint being judged resumable but is not a UI observation.
-- **Options:** 1) Owner runs row H-PIR-6 and saves the screenshot. 2) Owner allows the access prompt in a later session and the orchestrator captures it.
-- **Recommendation:** Option 1, alongside H-PIR-1…5, since the card only appears once Photos access is granted on this Mac.
+- **WP:** G2 step 3.
+- **What happened:** `ui/build.sh` exit 0; a seeded `.stopped` checkpoint (3 planned, 0 completed) at `.tmp/pir-smoke/staging/7B0E4C0A-3C1D-4E55-9A51-5E0C7A1D2F10/`; the Debug build launched with `CHRONOFRAME_PHOTOS_STAGING_DIR`, but the computer-use access request for `com.nishith.chronoframe` returned `user_denied`, so there is no UI observation.
+- **Recommendation:** the owner runs row H-PIR-6 together with H-PIR-1 to H-PIR-5; the card appears only once Photos access is granted on this Mac.
 - **Status:** open

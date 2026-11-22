@@ -1,5 +1,7 @@
 # Version 2.0 — manual release session, part 1 (local)
 
+**Historical evidence, 2026-09-28.** Pre-merge, ad hoc signed integration run (build 481), not signed-build Go evidence. Its findings were resolved afterwards: F1 (exFAT) in PR #237 and F2 (hidden Trash names) in PR #236, both merged 2026-09-29; F4 (video capture dates) in PR #242 (merged 2026-10-17); invariant 26 tagging in PR #231 (merged 2026-10-04). F3, F5, F6 and F7 were not re-checked here. Signed results are in the `release-2.0-5xx-manual-session.md` ledgers; launch status is in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md).
+
 Date: 2026-09-28. Scope and pass conditions: `docs/remaining-work-plan.md` § "Version 2.0 Release
 Scope".
 
@@ -49,10 +51,3 @@ Local automated baseline on the integration (2026-09-28): full SwiftPM lane 0 fa
 guards and the site check pass; 24 of 24 UI tests pass; meaningful coverage 95.52 % on `main` with
 #233; Release build succeeds. The accessibility audit is validated on hosted CI (macOS 14); locally
 on macOS 27 it stops on the sidebar "LIBRARY" heading.
-
-## Open for the Go decision
-
-F1 (exFAT organize fails for every file) and F2 (deduplicated files are hidden in the Trash) are
-unresolved. Under "What blocks 2.0" in `docs/remaining-work-plan.md` (broken copy or recovery;
-Trash recoverability) each needs an explicit owner decision before Go: fix, or accept with the
-impact and workaround recorded. The severities above are proposals, not decisions.

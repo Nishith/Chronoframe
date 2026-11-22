@@ -1,5 +1,7 @@
 # NAS public — decisions
 
+Status: shipped in PR #266 behind the disabled NAS flag. Durable decision record; kept in full.
+
 Prefix `NASP`. Runtime decisions are appended as `D-NASP-1NN`.
 
 ## Tie-break rule for new gaps

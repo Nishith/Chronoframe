@@ -1,5 +1,7 @@
 # Dedupe persistence — contracts
 
+Status: shipped in PR #267. Durable design contract; code and other docs refer to its C-numbers.
+
 Plan prefix `DDP`. Read `docs/plan/next-half/AGENT_RULES.md` first. Line numbers refer to `main` after `feature/nas-v1` merges; if a line moved, search for the quoted declaration.
 
 Goal: a Deduplicate review that survives quitting the app. Decisions, reviewed groups and the current position are saved per folder, restored only where the file content is unchanged, and Trash still requires the same explicit commit. The planner (`DeduplicationPlanner.plan`) and executor are not changed.

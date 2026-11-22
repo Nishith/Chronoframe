@@ -1,5 +1,7 @@
 # Photos import resume — decisions
 
+Status: shipped in PR #268. Durable decision record; kept in full.
+
 Plan prefix `PIR`. Resolves every gap the Round 3 review and the contracts leave open. Runtime decisions go at the bottom as `D-PIR-1NN`.
 
 ## Tie-break rule for new gaps

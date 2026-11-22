@@ -1,5 +1,7 @@
 # NAS evidence ledger
 
+Status: shipped in PR #266 behind the disabled NAS flag. This file holds the H1 to H8 procedures; results are recorded in `docs/plan/nas-public/EVIDENCE_LEDGER.md` (H1 fail-hardware; the rest open or awaiting the owner). Rows below stay `todo-hardware` here.
+
 Release record required by `docs/NAS_REQUIREMENTS.md` section 17.2. Every row below needs the owner's hardware, a signed build, VoiceOver, or the owner's network, so every row is `todo-hardware` (D-NAS-60). Agents never mark a row pass; Nishith records the result. Redact private paths and server names in any public copy.
 
 The probe tool is local only and is built but never run against a share in CI (D-NAS-61). Run it only against an empty, disposable folder you created on the share; it writes inside `.chronoframe-nas-probe-<uuid>/` and removes it. `make-corpus` needs an empty folder. `assess-parity` only reads the corpus and keeps its state on this Mac.

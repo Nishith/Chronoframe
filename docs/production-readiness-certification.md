@@ -1,63 +1,31 @@
 # Chronoframe Production-Readiness Certification
 
-**Submitted — October 21, 2026, 9:46 PM PDT:** the owner replied **Go** to **2.0 (511)**, its disclosed review video and residual coverage. Submission `42e45604-bc72-4236-a1a1-8bca697a7884` contains **511 + Chronoframe Unlock**, both visibly **Waiting for Review**. Manual release is retained; public release has not occurred. This approval does not certify unrecorded scenarios. PR #252 remains draft/unmerged; all 24 hosted passes refer to frozen app source `3b38279`. [Definitive submission record](app-review-replacement-511-2026-10-21.md). The preparation-time pending statements below are historical.
-
-**Current candidate — October 21, build 511:** clean source `3b38279` on draft PR #252 contains merged PR #251 and fixes the missing Deduplicate purchase offer. All 24 hosted checks on that frozen source, archive/export/signature/package validation and TestFlight install verification pass. Signed tests show the corrected duplicate offer, explicit fresh-account negative Restore, a recorded real no-charge sandbox purchase, no restart of a pending 501-file Organize request (all fixture bytes unchanged), and Unlocked after confirmed quit/relaunch. Positive owned Restore is separately recorded on signed **510**. The disclosed, inspected 3:21 video with supplemental desktop launch is attached; direct notes and the actual signed IAP screenshot are saved. The unsubmitted combined draft contains **511 + Unlock**, both ready to submit, with manual release selected. Owner Go and submission remain pending; PR #252 remains draft/unmerged. [Active candidate, evidence and residual signed coverage](app-review-replacement-511-2026-10-21.md). Earlier candidate summaries below are historical.
-
-**510 hold:** its recorded 101-removal Deduplicate request was refused safely but did not present the unlock offer. A root-view observation fix, signed replacement and completed recording are required; the fresh tester remains unpurchased. [Finding and correction](app-review-dedupe-offer-2026-10-21.md).
-
-**October 21 resubmission:** **2.0 (510)** from clean merged source `573682d` has successful CI/CodeQL and passed archive/export/signature/package validation; it uploaded, processed and is installed through TestFlight with About/receipt/signature verified. Explicit License Restore changed Free trial to Unlocked and cleared a pending Organize refusal without copying or changing fixture bytes. Fresh-account negative Restore and real $14.99 product discovery pass. Fresh purchase/pending-operation verification, Apple's complete physical-device screen recording, store preparation and owner Go remain open. 508's real sandbox purchase/cancellation and persisted unlock passed, but it predates the final PR #251 License safety correction. Live submission holds rejected 507 plus Unlock Ready for Review; older draft-501 references are historical. [Current evidence and open gates](app-review-resubmission-2026-10-21.md).
-
-**October 19 App Review update:** Apple rejected app 2.0 (507) under 2.1(b) for
-an undiscoverable Chronoframe Unlock purchase. The IAP is Ready for Review in the
-combined submission. See [the focused response record](app-review-iap-rejection-2026-10-19.md)
-for the replacement, current configuration observations and outstanding physical-Mac
-sandbox evidence. Earlier signed evidence below does not certify the replacement.
-
-**Current candidate — October 17:** replacement **2.0 (507)** has passed archive/export/signature validation, uploaded, processed and is installed through TestFlight. Signed 506 opened and verified all 344 files in the cancelled receipt, but its 9,656-item receipt viewer rendered blank with excessive memory use. Build 507 moves receipt read/decode off the UI thread and renders rows lazily; 53 focused tests and a 10,000-item macOS UI regression pass. On signed 507 the owner confirms the 9,656-item receipt loads and scrolls with every destination status Match and survives an app restart; the cancelled-run Revert removes exactly its 344 destinations while all 9,656 retained copies and all 10,000 originals keep their recorded digests; preview, re-copy and a final repeat preview after Revert behave; and an eight-file exact-duplicate review → Trash → receipt → restore smoke passes. [PR #246](https://github.com/Nishith/Chronoframe/pull/246) merged on October 17. Earlier signed 504 allowance, purchase, relaunch and cancellation/resume evidence remains valid for unchanged behavior; Restore Purchases, pair/sidecar retention, trial dedupe allowance, remaining recovery/Photos/external-volume coverage, final hosted candidate checks and owner Go still need their own results. The App Store draft still selects 501 with older paid-transition copy; final build/copy/free-pricing configuration is pending. See [the 507 signed-session ledger](release-2.0-507-manual-session.md). Older candidate records below are historical.
-
-**October 16 access-policy update:** the owner confirmed no existing users and approved a direct free launch. The app download is Free; the lifetime non-consumable is $14.99 US with Family Sharing. The 500/100 cumulative allowance and ungated refunding revert remain. Shipping policy disables acquisition-date and cached legacy grants. Historical paid-window, October 18 deadline, October 26 compiled cutoff and production-grandfathering gates below are superseded. Final-source CI, a new signed build, signed functional/StoreKit retests, store configuration and owner Go still gate release. No upload, price change, submission or publication is claimed by this update. See [the current launch sequence](APP_STORE_RELEASE.md#direct-free-launch).
+**Status (2026-11-21).** This is the gate-results ledger for the June 2026 certification and the 2.0 release. V2 shipped: the owner recorded **Go on 2026-10-21 for 2.0 (511)** (frozen source `3b38279`, hosted CI and CodeQL green: 24 checks) with the signed-scenario residuals listed in [remaining-work-plan.md](remaining-work-plan.md#still-open-after-launch), and App Store Connect shows 2.0 Ready for Distribution (2026-10-22). Launch status and open tasks: [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md). Per-build signed evidence: the `release-2.0-5xx-manual-session.md` ledgers and [app-review-replacement-511-2026-10-21.md](app-review-replacement-511-2026-10-21.md). The October candidate-by-candidate history that used to head this file is in those ledgers, not here.
 
 Certification date: 2026-06-20
-Status refresh: 2026-09-07; release scope for version 2.0 revised 2026-09-28
-Candidate branch: `codex/production-readiness-remediation`
-Baseline: `origin/main` at `081e00f`
-Implementation evidence commit: `80ff492`
+Status refresh: 2026-09-07; release scope for version 2.0 revised 2026-09-28; release decision 2026-10-21
+Candidate branch (June): `codex/production-readiness-remediation`
+Baseline (June): `origin/main` at `081e00f`
+Implementation evidence commit (June): `80ff492`
 
-The candidate coordinates above preserve the original certification evidence. Before release,
-replace them with the final version 2.0 commit, build number and archive identity.
-
-**New release hold, October 4:** signed 502 Photos import copied 8 additional resources safely, but two Live Photo pairs were split across date folders and standalone movies were filed by import date despite embedded capture timestamps. The split pairs cannot be recognized by the same-directory pair detector. Fix capture-date handling and retest a replacement signed candidate; do not submit 502. See [the 502 session](release-2.0-502-manual-session.md).
-
-**October 5 source fix:** `6a847f1` preserves video capture offsets and pins one content-bound date for each Photos asset through preview and execution planning. Generated fixtures pass real verified transfer and final metadata pair detection. All 1,742 Swift tests pass in 31 shards; final meaningful coverage is 95.86%, repository guards and universal Release MAS_BUILD compilation pass. Local signed replacement **503** archive/export and package validation/signatures pass; **not uploaded**. Signed TestFlight date-folder/pair/cancel-resume retests, final hosted checks and owner Go remain required. 502 remains held. See [the 503 candidate and exact retest checklist](release-2.0-503-manual-session.md); local checks do not close the signed gate.
-
-## October 4 candidate update
-
-The Mac App Store candidate is **2.0 (501)**, runtime `6df85b4`, uploaded and installed through TestFlight. See [the 501 signed session](release-2.0-501-manual-session.md) for 11,034 byte-identical verified copies, unchanged sources, focused 32-file repeat/persistence and reviewed watched-import evidence. [The 500 session](release-2.0-500-manual-session.md) preserves prior Trash/restore/revert and interruption recovery for the unchanged engines. CI and CodeQL passed on `64d0d43`; evidence-only final-head checks and owner Go remain distinct gates. Cancellation and other missing manual scenarios are explicitly open in those records. No review submission or production release is claimed.
+The June coordinates above preserve the original certification evidence. The shipped 2.0 candidate is build 511 at `3b38279`.
 
 ## Release decision
 
-**Build 501 is held after the October 4 owner cancellation check:** the UI showed 108 copied while the ABORTED receipt and destination agree on 844 byte-identical copies; all 10,000 originals remain unchanged. See the 501 session for preserved evidence. Signed replacement **2.0 (502)** is uploaded and installed. Its October 4 owner mid-copy cancellation retest **passes**: the terminal UI, finalized ABORTED receipt and actual destination agree at 311 byte-identical verified copies, with zero failures; all 10,000 originals match the saved SHA-256 baseline. See [the 502 signed session](release-2.0-502-manual-session.md). App Store draft selection, final hosted checks, remaining signed scenarios and owner Go still gate submission.
+**Go recorded 2026-10-21 for 2.0 (511).** The approval covers the presented candidate, the disclosed review video and the stated residual coverage; it does not turn unrecorded scenarios into passes. Earlier holds (501 stale cancellation count, 502 split Live Photo pairs, 504 History receipt permission, 506 large-receipt rendering, 507 undiscoverable purchase, 510 missing Deduplicate offer) were each fixed in a replacement build and are recorded in their ledgers.
 
-**NOT YET GO for version 2.0.** The September 2026 release bug bash (BASH-01…08) fixes are in
-review, and the focused manual session and Go record below are not complete.
-
-**Scope for 2.0: one developer, Mac App Store distribution only** (owner decision, 2026-09-28).
-`docs/remaining-work-plan.md` § "Version 2.0 Release Scope" defines what blocks 2.0, the automated
-baseline, the focused manual session and the Go record. Under that scope the sections below apply
-as follows. Their recorded results are kept, and nothing is relabelled PASS:
+**Scope for 2.0: one developer, Mac App Store distribution only** (owner decision, 2026-09-28). [remaining-work-plan.md](remaining-work-plan.md#version-20-release-scope-revised-2026-09-28) defines what blocks 2.0, the automated baseline, the focused manual session and the Go record. Under that scope the sections below apply as follows. Their recorded results are kept, and nothing is relabelled PASS:
 
 | Section | Status for 2.0 |
 |---|---|
-| Automated gates | Still required, re-run on the final 2.0 commit. |
+| Automated gates | Required; re-run on the final 2.0 commit (511 hosted checks passed). |
 | Developer ID distribution | **Out of scope** (App Store only). The BLOCKED rows below are not 2.0 blockers. |
 | Signed-sandbox matrix | **Replaced** by the focused manual session on a signed TestFlight build. The matrix rows stay PENDING as a record. |
 | Video corpus certification | PASS, unchanged. |
 | 100,000-file / 1-TB certification | **Deferred** with the eight-hour soak. Replaced by the realistic performance check; do not advertise certified performance at that scale. |
-| Required final sign-off | **Removed.** Replaced by the owner's single Go record. |
+| Required final sign-off | **Removed.** Replaced by the owner's single Go record above. |
 
-This report still distinguishes implementation evidence from environment-backed certification. A
-missing credential, corpus, external drive, or capacity fixture is not treated as a pass.
+This report still distinguishes implementation evidence from environment-backed certification. A missing credential, corpus, external drive, or capacity fixture is not treated as a pass.
 
 ## Certification environment
 
@@ -74,7 +42,7 @@ missing credential, corpus, external drive, or capacity fixture is not treated a
 |---|---|---|
 | Clean `origin/main` baseline | PASS | 941 Swift tests passed before remediation began |
 | Full SwiftPM suite after remediation | PASS | `script/run_swift_test_suites.sh`; every discovered XCTest suite passed in five-suite shards |
-| Invariant guard | PASS | All 19 `AGENTS-INVARIANT` bullets have tagged tests |
+| Invariant guard | PASS | All 19 `AGENTS-INVARIANT` bullets had tagged tests in June; `script/check_agents_invariants_have_tests.sh` reports 29 as of 2026-11-21 |
 | Animation guard | PASS | No raw reduce-motion-bypassing view animations |
 | App-layer test guard | PASS | Hosted PR run `27896063597` passed against the committed PR diff |
 | `git diff --check` | PASS | No whitespace errors on 2026-06-20 |

@@ -1,16 +1,5 @@
 # First ten minutes — blocked items
 
-Rule: log it, then continue with the next independent WP. Only Nishith marks an item resolved.
+Status: not started. No blocked items.
 
-## Template
-### B-<n> — <short title>
-- **WP:** <id>
-- **Command:** `<exact command>`
-- **Error:** <exact text>
-- **Tried:** <what, in order>
-- **Options:** 1) … 2) …
-- **Recommendation:** <one option, one sentence>
-- **Status:** open | resolved (<commit or decision>)
-
-## Open items
-(none)
+Entry format: see "Blocked items" in `docs/plan/next-half/AGENT_RULES.md`. Only Nishith marks an item resolved.

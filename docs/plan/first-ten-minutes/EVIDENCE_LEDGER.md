@@ -1,5 +1,7 @@
 # First ten minutes — evidence ledger (owner rows)
 
+Status: not started (no code on main; `RunPreflightAssessment` does not exist). No row is run.
+
 | Row | What to run | Pass when | Status | Evidence |
 |---|---|---|---|---|
 | H-FTM-1 | Destination on a nearly full external drive; Preview a plan larger than the free space | Setup checklist and Preview row show the blocked wording with both numbers; Start Transfer still works and pauses as before | todo-hardware | screenshot |

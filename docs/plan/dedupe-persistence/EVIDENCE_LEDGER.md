@@ -1,5 +1,7 @@
 # Dedupe persistence — evidence ledger (owner rows)
 
+Status: shipped in PR #267. Rows below are the owner's hardware checks; none was recorded as `pass-hardware` unless stated.
+
 Only Nishith records results. Use a copy of a real library in a disposable folder.
 
 | Row | What to run | Pass when | Status | Evidence |

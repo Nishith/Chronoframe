@@ -1,5 +1,7 @@
 # Dedupe persistence — decisions
 
+Status: shipped in PR #267. Durable decision record; kept in full.
+
 Prefix `DDP`. Runtime decisions appended as `D-DDP-1NN`.
 
 ## Tie-break rule for new gaps

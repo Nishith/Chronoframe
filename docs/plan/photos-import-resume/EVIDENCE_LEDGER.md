@@ -1,5 +1,7 @@
 # Photos import resume — evidence ledger (owner rows)
 
+Status: shipped in PR #268. Rows below are the owner's hardware checks; none was recorded as `pass-hardware` unless stated.
+
 Only Nishith records results here. Agents leave every row `todo-hardware`. Use a disposable destination folder and a Photos library you can afford to re-download from iCloud.
 
 ## Setup

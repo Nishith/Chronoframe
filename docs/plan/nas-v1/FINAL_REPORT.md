@@ -1,6 +1,8 @@
 # NAS v1 final report
 
-Date: 2026-11-07. Branch: `feature/nas-v1` (from `codex/stable-invariant-ids` e257003). Not pushed; no pull request opened.
+Status: shipped in PR #266 behind the disabled `NASCapability.isEnabled` flag. Items 1 to 5 under "Owner decisions, ranked" were closed by `nas-public` WP-01 to WP-04. This report is kept as the record of the v1 build.
+
+Date: 2026-11-07. Branch: `feature/nas-v1` (from `codex/stable-invariant-ids` e257003). Written before the merge (the branch was later merged as PR #266).
 
 ## Bottom line
 
@@ -28,46 +30,13 @@ All 13 work packages and gate G2 are committed. G3's automated checks all exit 0
 | 3100748 | NAS G3: final verification report |
 | 54bee13 | NAS WP-11b: Keep the NAS workspace's minimum height inside the window |
 
-## Gate commands
+## Gate results
 
-### G2 (at d6fbd13)
+G2 (d6fbd13): invariants 28/28, full sharded suite 0 (119 s, 33 shards), coverage meaningful 95.88%, `git diff --check` 0.
 
-| Command | Exit | Result |
-|---|---|---|
-| `script/check_agents_invariants_have_tests.sh` | 0 | 28 of 28 invariants tagged |
-| full sharded suite (`script/run_swift_test_suites.sh`, local HOME/module cache) | 0 | 119 s, 33 shards |
-| `script/swift_meaningful_coverage.sh` | 0 | meaningful 95.88%, raw 73.23% |
-| `git diff --check` | 0 | |
+G3 (ebdefd2 plus docs): the first suite run exited 1 (`BuildPipelineTests.testSwiftAppSourcesAreListedInXcodeProject`; the probe tool was not on the SwiftPM-tool exemption list; fixed in ebdefd2, D-NAS-136). Rerun: suite 0 (129 s, 35 shards, 175 suites), coverage meaningful 95.90% (19484/20318), all 14 CI guards 0, `git diff --check` 0, `xcodebuild` Debug `CODE_SIGNING_ALLOWED=NO` 0 (BUILD SUCCEEDED), `(cd ui && ./build.sh)` 0. The launch and `screencapture` smoke was refused by the permission classifier (B-1, since resolved by the owner). Per-WP Done-when results are in git history of `PROGRESS.md`.
 
-### G3 (at ebdefd2, plus docs)
-
-| Command | Exit | Result |
-|---|---|---|
-| full sharded suite, first run | **1** | `BuildPipelineTests.testSwiftAppSourcesAreListedInXcodeProject`: the WP-09 probe tool wasn't on the SwiftPM-tool exemption list. Fixed in ebdefd2 (D-NAS-136). |
-| full sharded suite, rerun | 0 | 129 s, 35 shards, 175 suites |
-| `script/swift_meaningful_coverage.sh` | 0 | meaningful 95.90% (19484/20318), raw 73.31% |
-| `check_agents_invariants_have_tests` | 0 | 28 of 28 |
-| `check_app_intents_never_purchase` | 0 | |
-| `check_app_layer_changes_have_tests codex/stable-invariant-ids` | 0 | |
-| `check_authorizer_has_no_default` | 0 | |
-| `check_detail_views_set_navigation_title` | 0 | |
-| `check_guardian_restore_verified` | 0 | |
-| `check_mas_build_lane_exists` | 0 | |
-| `check_no_await_in_xctassert` | 0 | |
-| `check_no_raw_animations` | 0 | |
-| `check_photos_import_readonly` | 0 | |
-| `check_recovery_goes_through_helper` | 0 | |
-| `check_storekit_config_matches_policy` | 0 | |
-| `check_test_dirs_are_targets` | 0 | |
-| `check_uitest_membership` | 0 | |
-| `git diff --check` | 0 | |
-| `xcodebuild … -configuration Debug … CODE_SIGNING_ALLOWED=NO build` | 0 | BUILD SUCCEEDED |
-| `(cd ui && ./build.sh)` | 0 | Debug app at `ui/build/Chronoframe.app` |
-| `open --env CHRONOFRAME_ENABLE_NAS=1 …` + `screencapture` | refused | Permission classifier ("Interfere With Workloads"), logged as B-1 |
-
-Per-WP Done-when commands and exit codes are in `PROGRESS.md` → Log.
-
-Coverage for the new NAS Core files is 100% for NASLibraryIdentity, NASMeteredFileReader, NASRemoteCopyPolicy and NASSystemContainerRules. The other three are lower: NASVolumeClassifier 94.6%, NASAssessmentStore 94.2%, NASAssessmentScanner 94.5%.
+Coverage for the new NAS Core files: 100% for NASLibraryIdentity, NASMeteredFileReader, NASRemoteCopyPolicy and NASSystemContainerRules; NASVolumeClassifier 94.6%, NASAssessmentStore 94.2%, NASAssessmentScanner 94.5%.
 
 ## Status per slice
 
@@ -80,31 +49,13 @@ Coverage for the new NAS Core files is 100% for NASLibraryIdentity, NASMeteredFi
 
 The NAS Library workspace is off in release builds (`NASCapability.isEnabled` is false). The remote copy policy, the journal policy and the CLI refusal ship unflagged (D-NAS-07). They are now enforced for every network or unclassifiable destination.
 
-## Review loop summary
-
-- WP-08 had one blocking finding, fixed in round 2 (D-NAS-118). `--profile NAS --dest /local` passed the CLI refusal, but the engine then wrote to the profile's NAS destination.
-- WP-12 had three false claims in the docs, fixed in round 2 (D-NAS-134, 135).
-- WP-09, WP-10 and WP-11 were approved with non-blocking findings, and I sent the cheap ones back to the same implementer:
-  - WP-09: P06 now reads back the live connection's mode.
-  - WP-10: a stale review can no longer be edited after a mismatch, and an ambiguous re-pick now asks for confirmation.
-  - WP-11: tests no longer write to the real home, preview paths are confined to the library, and accessibility labels start with the visible title.
-- I reviewed the safety-critical diffs line by line for WP-06 (TransferExecutor) and WP-07 (OrganizerDatabase, DestinationOperationLock). Every changed line traces to C-08, C-09 or C-10, and the review is recorded in `PROGRESS.md`.
-
 ## Post-G3
 
 Owner reported the NAS Library window blank. Cause: a `fixedSize` banner gave the workspace a 1,692 pt minimum height, pushing all content outside the window. Fixed in 54bee13 with two regression tests (D-NAS-137). Owner then verified the workspace renders in the running app.
 
 ## Open BLOCKED.md items
 
-- **B-1. G3 app smoke: resolved.** Owner verified the workspace renders and the local-folder refusal shows the C-13 text. No open BLOCKED items remain.
-  ```bash
-  pkill -x Chronoframe || true
-  open --env CHRONOFRAME_ENABLE_NAS=1 ui/build/Chronoframe.app
-  # click NAS Library in the sidebar
-  screencapture -x docs/plan/nas-v1/evidence/nas-empty.png
-  # click Choose Folder…, pick any local folder, confirm "Choose a folder on a network share…"
-  screencapture -x docs/plan/nas-v1/evidence/nas-refusal.png
-  ```
+None. B-1 (G3 app smoke) was resolved by the owner; see `BLOCKED.md`.
 
 ## Owner decisions, ranked
 
@@ -122,25 +73,6 @@ Owner reported the NAS Library window blank. Cause: a `fixedSize` banner gave th
    - The new UI strings are not in `.xcstrings` yet (D-NAS-51, D-NAS-130).
 6. **Local artifact:** earlier WP-11 test runs created an empty `~/Library/Application Support/Chronoframe/nas/leases`. The app creates the same directory on first launch, so I left it. Tests no longer do this (D-NAS-133).
 
-## Hardware checklist (owner only; from EVIDENCE_LEDGER.md)
+## Hardware checklist
 
-Build first: `docs/plan/nas-v1/bin/nas_swift.sh build`. Run against empty, disposable folders on the share only.
-
-```bash
-ui/.build/debug/ChronoframeNASProbeTool probe --test-dir "/Volumes/<share>/<empty-test-folder>" > probe.json
-ui/.build/debug/ChronoframeNASProbeTool make-corpus --dest "/Volumes/<share>/<empty-corpus-folder>" --manifest "$HOME/nas-corpus-manifest.json" --files 10000 --duplicate-percent 20 --seed 42
-ui/.build/debug/ChronoframeNASProbeTool assess-parity --root "/Volumes/<share>/<corpus-folder>" --state-dir "$HOME/nas-parity-state" > parity.json
-```
-
-| ID | What to run | Pass when |
-|---|---|---|
-| H1 | `probe` on the Synology SMB share; keep `probe.json` and note whether RENAME_EXCL is supported | P03, P04, P05 pass; P04 leaves the existing file's digest unchanged |
-| H2 | `make-corpus` (10,000 files, 20%, seed 42), then `assess-parity` three matched cold runs; record the manifest SHA-256 | `parity: true` and the ledger within the NAS-NFR-09 budget in all three runs |
-| H3 | Signed sandboxed build: choose share, assess, quit, relaunch, check review restored, remount under another path | Review restored; remount recognized as the same library |
-| H4 | Assess a share the account can't write to; compare server-side change history before and after | No server-side changes |
-| H5 | Disconnect the share, sleep and wake, during a scan and during a copy | Scan ends "Waiting for your NAS" without data loss; copy stops cleanly and resumes |
-| H6 | Verified copy batch of at least 100 files / 10 GiB each way, plus a forced quota-full fault | Every copy verified, no overwrite, quota fault stops cleanly with originals untouched |
-| H7 | VoiceOver, keyboard, increased text and reduced motion over the NAS workspace | Every control reachable and labeled |
-| H8 | Latency, memory and cancel on the reference corpus (`wallSeconds`, `ruMaxrss` from `parity.json`) | Within NAS-NFR-01 to NFR-04 targets |
-
-Record results in `EVIDENCE_LEDGER.md`. Only the owner sets `pass-hardware`.
+Owner only; procedures and exact commands for H1 to H8 are in `EVIDENCE_LEDGER.md`. Results are recorded in `docs/plan/nas-public/EVIDENCE_LEDGER.md`.

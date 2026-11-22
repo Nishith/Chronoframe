@@ -2,6 +2,8 @@
 
 Copy-paste-ready source for Chronoframe's current Mac App Store listing. Character limits are noted so nothing gets truncated in App Store Connect. Re-verify version, pricing, screenshots, and hosted URLs for every submission.
 
+**Status (2026-11-21).** These are the direct-free values submitted with 2.0 (511) on 2026-10-21; version 2.0 has been public since 2026-10-22 and the public US listing shows Free with Unlock $14.99. Release state and open tasks: [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md). The local source for these values is `marketing/release-2.0/metadata/fields.json` and its adjacent text files.
+
 ## Identity
 
 | Field | Value |
@@ -27,9 +29,7 @@ Subtitle alternative (28 char): `Safe photo & video organizer`
 
 ## Direct free V2 submission — October 16, 2026
 
-**October 22 live pricing correction:** V2 is public and Unlock is approved. The app's $14.99 download price had not been changed with the resubmission. App Store Connect now confirms the saved immediate global **$0.00 download price across all 175 regions**, independently rechecked after reload; the approved **$14.99 US Unlock** and Family Sharing remain unchanged. The first public recheck still showed the previous download price, so public propagation is not yet claimed. [Evidence ledger](app-review-replacement-511-2026-10-21.md). Earlier submission-only status statements below are historical.
-
-The owner confirmed there are no existing users. Submit the free-download offer below; the earlier paid-window and grandfathering copy is superseded. These values match `marketing/release-2.0/metadata/fields.json` and its adjacent text files. They are local preparation, not a claim that App Store Connect has been updated.
+The owner confirmed there are no existing users (2026-10-16), so the earlier paid-window and grandfathering copy is superseded. On 2026-10-22 the app's retained $14.99 download price was corrected to $0.00 in all 175 regions; the $14.99 US Unlock and Family Sharing were unchanged ([ledger](app-review-replacement-511-2026-10-21.md)). Public propagation was verified for the US storefront only (2026-11-21).
 
 ## Promotional Text (170 char max)
 
@@ -91,15 +91,11 @@ The owner confirmed there are no existing users. Submit the free-download offer 
 
 ## Review Notes
 
-October 21 submission uses replacement **2.0 (511)**, frozen source `3b38279`, containing merged PR #251 and the Deduplicate offer observation fix on draft PR #252 (not merged). All 24 hosted checks on that source, signed packaging, upload, processing and installed TestFlight verification pass. The disclosed, inspected **3:21** video contains a supplemental desktop launch, actual signed core workflow, purchase entrances, no-charge sandbox purchase, stopped pending operation and Unlocked persistence; it is attached to App Review Information. Direct app/IAP License navigation notes and the real signed purchase screenshot are saved. The old rejected submission was cancelled with history preserved. After owner **Go**, **511 + Chronoframe Unlock** were submitted together on **October 21 at 9:46 PM PDT**; both show **Waiting for Review**, submission `42e45604-bc72-4236-a1a1-8bca697a7884`. **Manual release** remains selected; public publication has not occurred. See [the active replacement ledger](app-review-replacement-511-2026-10-21.md).
+Submitted 2026-10-21 with **2.0 (511) + Chronoframe Unlock** (submission `42e45604-bc72-4236-a1a1-8bca697a7884`, manual release). The disclosed 3:21 physical-Mac video is attached to App Review Information; direct app/IAP License navigation notes and the real signed purchase screenshot are saved ([ledger](app-review-replacement-511-2026-10-21.md)).
 
-For the replacement after the October 19 rejection, prepend this purchase path
-to the notes below. Use it only with a build containing the direct License entry:
+The purchase path below leads the saved review notes; it requires a build with the direct License entry (511 has it):
 
 > FIND THE IN-APP PURCHASE: Launch Chronoframe, choose Chronoframe → Settings… (Command-comma), select License, then click Unlock Chronoframe…. The purchase sheet shows "Chronoframe Unlock" and the localized App Store price. Click that priced button to begin the Apple sandbox purchase. You do not need to select folders, organize 500 files, delete duplicates or use up any free allowance to reach this purchase. Restore Purchases is available in Settings → License and on the purchase sheet while locked. A successful purchase unlocks the app without starting any file operation. There is no Chronoframe sign-in or demo account. If the app already says Unlocked, that Apple Account already has access and another purchase is not offered.
-
-Attach the physical-Mac sandbox recording requested by Apple and record its tested
-version/build. The local implementation/UI-fixture tests are not that evidence.
 
 > Chronoframe is a sandboxed macOS photo/video organizer. It only accesses folders the reviewer selects through the standard macOS folder picker. Organize copies files into a chosen destination and does not modify originals. The optional Photos import reads the Apple Photos library only: it exports copies of selected originals with PHAssetResourceManager into the chosen destination and never calls any mutating PhotoKit API, so it cannot modify, move, favorite, or delete anything in the library (macOS has no read-only Photos permission level, so the app requests read/write access but never writes). Deduplicate moves reviewer-approved files to the macOS Trash only; it does not hard delete. Before Trash, approved mutation units may be temporarily renamed within the same selected folder for content verification and crash recovery. The app runs entirely on-device, does not upload photos, and includes no analytics, telemetry, advertising, or crash-reporting services. Local cache, lock, journal, log, and receipt files are created in the selected destination to support preview, interruption recovery, history, and revert. No sign-in or demo account is required.
 >
@@ -138,14 +134,14 @@ App Store Connect caps the display name and description tightly — around 30 an
 
 The description in `ui/Chronoframe.storekit` is longer than what App Store Connect will accept, deliberately: nothing truncates it locally and the longer text is easier to recognize while testing. It is not the shipping copy — the table above is.
 
-Screenshot for review: the purchase sheet reached directly through Settings → License → Unlock Chronoframe…. It shows the StoreKit-supplied price, purchase button and Restore Purchases. The same purchase sheet is also offered when a run exceeds the remaining allowance or Reorganize requires an unlock; an over-allowance organize run may additionally offer a smaller free batch. A screenshot of a fixture is interface evidence only; attach the requested real sandbox recording separately.
+Screenshot for review: the purchase sheet reached directly through Settings → License → Unlock Chronoframe…. It shows the StoreKit-supplied price, purchase button and Restore Purchases. The same purchase sheet is also offered when a run exceeds the remaining allowance or Reorganize requires an unlock; an over-allowance organize run may additionally offer a smaller free batch. A screenshot of a fixture is interface evidence only; the real sandbox recording is attached separately in App Review Information.
 
 ## Pricing
 
 - App download: **Free**.
 - Lifetime non-consumable unlock: **USD 14.99**, with Family Sharing; no subscription.
-- Availability: intended launch territories, to be confirmed in App Store Connect.
-- No paid V2 holding period or date-based automatic unlock. Submit the first IAP with V2 and coordinate free pricing with V2 availability if an older paid version remains listed.
+- Availability: all 175 territories (Unlock availability and $0.00 app prices confirmed in App Store Connect).
+- No paid V2 holding period or date-based automatic unlock. The first IAP was submitted with V2; free pricing was applied 2026-10-22 (see above).
 
 ## Hosting the URLs
 
@@ -158,10 +154,6 @@ To make the custom domain resolve, add these records at the registrar for `chron
 
 Then set the Pages custom domain (`gh api -X PUT repos/Nishith/Chronoframe/pages -f cname=chronoframe.app`) and enable "Enforce HTTPS" once DNS resolves.
 
-After the App Store listing is live, replace the Mac App Store button `href` in `site/index.html` with the live App Store product URL.
+The Mac App Store button `href` in `site/index.html` already points at the live product URL (`https://apps.apple.com/us/app/chronoframe/id6771245052`).
 
-**Every push to `main` that touches `site/**` publishes immediately.** The owner approved early website publication on October 18, accepting the temporary old/unavailable App Store offer. Website PRs #226/#248/#249 are published with direct-free wording and development-capture labels. Public V2 offer/capture verification remains a post-approval follow-up; the previous website publication hold is superseded. See `site/assets/product-proof.json`.
-
-## October 2026 prepared submission
-
-The October 4 App Store draft used paid-transition copy. The local October 16 metadata above supersedes it. Paste the new free-launch values into the V2 draft before submitting; preserve the prepared screenshots and preview. No browser or store changes were performed while finalizing access rules.
+**Every push to `main` that touches `site/**` publishes immediately.** The owner approved early website publication on October 18, 2026, accepting the temporary old/unavailable App Store offer; website PRs #226, #248 and #249 are merged and the site carries direct-free wording, the App Store link and development-capture labels (`site/assets/product-proof.json`). Verifying the live Pages deployment and the public V2 offer/capture labels is still open (see V2_LAUNCH_CHECKLIST.md section 5).

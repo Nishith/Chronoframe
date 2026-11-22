@@ -1,5 +1,7 @@
 # Clear path — contracts
 
+Status: shipped in PR #269 with follow-up PR #274. Durable design contract; code and other docs refer to its C-numbers.
+
 Plan prefix `CLP`. Read `docs/plan/next-half/AGENT_RULES.md` first. Line numbers refer to `feature/photos-import-resume` @ 5c72052; if a line moved, search for the quoted declaration. Paths are relative to `ui/Sources/` unless they start with `ui/` or `docs/`.
 
 Goal: a non-technical person with tens of thousands of photos in several folders can organize and deduplicate them without learning Chronoframe's internal vocabulary. Every engine behavior, receipt format and safety invariant is unchanged; one invariant gap (INV-21 for staged sources) is closed.

@@ -1,6 +1,6 @@
 # Final-candidate recording checklist — 2.0 (510)
 
-**Historical 510 attempt — held.** Its Deduplicate refusal did not display the purchase offer; the owner stopped and saved the video before any fresh purchase. Use this flow only after the observation fix is in a verified signed replacement, updating the actual candidate identities. See [the regression record](../app-review-dedupe-offer-2026-10-21.md).
+**Status (2026-11-21). Historical procedure, kept as a template.** The 510 attempt was held when its Deduplicate refusal did not show the purchase offer ([finding](../app-review-dedupe-offer-2026-10-21.md)). The same flow was recorded on signed 511 (3:21 App Review video; see [the 511 ledger](../app-review-replacement-511-2026-10-21.md)). Update the build identity if reusing it.
 
 Do not purchase on the fresh tester before recording is confirmed running. Preserve the original tester's ownership and every allowance/settings/bookmark/keychain record. Keep passwords, account screens, private files and unrelated windows out of the recording.
 

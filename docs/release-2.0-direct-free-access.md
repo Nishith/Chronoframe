@@ -1,5 +1,7 @@
 # V2 direct-free access rules — October 16, 2026
 
+**Status (2026-11-21).** Records the October 16 owner decision and its implementation (merged as PR #244, `5f10b17`, 2026-10-17). The rules shipped in 2.0 (511). The current policy statement is in [free-trial-plan.md](free-trial-plan.md); launch status is in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md).
+
 The owner confirmed there are no existing users and approved launching V2 directly as a free download. This supersedes the paid-to-free migration, seven-day paid rollout and October 26 acquisition cutoff. October 26 remains a target launch date, subject to testing and App Review.
 
 ## Approved behavior
@@ -16,7 +18,7 @@ The owner confirmed there are no existing users and approved launching V2 direct
 
 `ChronoframeUnlock.defaultPolicy()` now returns `GrandfatherPolicy.disabled`, which explicitly rejects live and cached legacy grants regardless of the date. Historical migration policies remain opt-in for deterministic tests. App transactions still identify the allowance account; usage records, bookmarks, personal settings and customer media are not reset or migrated. Settings License copy no longer depends on the clock or announces a price transition.
 
-Local App Store metadata JSON and adjacent text files now describe the approved free offer. They have not been pasted into App Store Connect. The website and social publication remain separate launch actions.
+Local App Store metadata JSON and adjacent text files describe the approved free offer (see [APP_STORE_METADATA.md](APP_STORE_METADATA.md)).
 
 ## Verification
 
@@ -28,6 +30,6 @@ Local App Store metadata JSON and adjacent text files now describe the approved 
 
 Local logs: `.tmp/direct-free-focused.log`, `.tmp/direct-free-all-suites.log`, `.tmp/direct-free-coverage.log`, `.tmp/direct-free-mas-build-unsandboxed.log`.
 
-## Next release step
+## Outcome
 
-Review and merge this access-policy change with green hosted checks, then build a new signed candidate containing all final fixes. Complete signed allowance, purchase/restore and focused Photos/cancel/recovery checks on that candidate. Verify the free app price and $14.99 unlock with Family Sharing in App Store Connect, update the draft copy, submit app and first IAP together, and retain manual release. No upload, pricing change, review submission, website deployment or public post was performed in this access-rule step.
+The access-policy change merged in PR #244; signed builds from 504 onward contain it and 2.0 (511) shipped with it. The App Store download price was set to Free on 2026-10-22 after it was found still at $14.99 ([511 ledger](app-review-replacement-511-2026-10-21.md)). No upload, pricing change, review submission, website deployment or public post was performed by this access-rule step itself.

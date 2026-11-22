@@ -15,25 +15,16 @@ Chronoframe is now Swift-first:
 
 The macOS app lives in `ui/`.
 
-- `ui/Sources/ChronoframeCore/`: native Swift organizing engine.
+- `ui/Sources/ChronoframeCore/`: native Swift organizing engine (no AppKit/SwiftUI).
 - `ui/Sources/ChronoframeAppCore/`: app state, stores, and user-facing services.
 - `ui/Sources/ChronoframeApp/`: SwiftUI views and app entry point.
-- `ui/Sources/ChronoframeCLIKit/`: reusable Swift command-line parser and runners.
-- `ui/Sources/ChronoframeCLI/`: SwiftPM CLI executable entry point.
-- `ui/Tests/ChronoframeAppCoreTests/` and `ui/Tests/ChronoframeAppTests/`: Swift tests.
-- `ui/Tests/ChronoframeCLIKitTests/`: Swift CLI tests.
+- `ui/Sources/ChronoframeCLIKit/` and `ChronoframeCLI/`: reusable CLI parser/runners and the SwiftPM CLI executable.
+- `ui/Sources/ChronoframePackaging/` and `ChronoframePackagingTool/`: app-bundle validation.
+- Local-only tools, never run in CI: `ChronoframeVideoCalibrationTool` (video dedupe calibration), `ChronoframeNASProbeTool` (real-share qualification), `ChronoframeIconTool` (renders a retired icon design; it does not write the shipping icon).
+- `ui/Tests/`: `ChronoframeAppCoreTests`, `ChronoframeAppTests`, `ChronoframeCLIKitTests`, `ChronoframePackagingTests`.
 - `ui/Chronoframe.xcodeproj/`: Xcode project used by CodeQL and app builds.
 
-Swift package targets:
-
-- `ChronoframeCore`
-- `ChronoframeAppCore`
-- `ChronoframeCLIKit`
-- `ChronoframeApp`
-- `ChronoframeCLI`
-- `ChronoframeAppCoreTests`
-- `ChronoframeAppTests`
-- `ChronoframeCLIKitTests`
+Targets are declared in `ui/Package.swift`; read it rather than trusting a list here.
 
 The app uses `SwiftOrganizerEngine` for preview, transfer, revert, and reorganize. The retired backend, hybrid engine selector, and shell-out flows have been removed.
 
@@ -46,6 +37,8 @@ Shared on-disk artifacts include:
 - `.organize_logs/reorganize_audit_receipt_*.json` (Reorganize move audit receipt — used by Run History → Revert)
 - `.organize_logs/.chronoframe-operation.lock` (cross-process destination mutation lock; diagnostic JSON is advisory only). The lock is `flock`-based and only guarantees mutual exclusion on a single machine — `flock` is unreliable over SMB/AFP, so concurrent multi-host use of a network destination is unsupported. `DestinationOperationLock.isRemoteVolume` detects network destinations and `NetworkDestinationAdvisory` surfaces a one-time per-destination warning (organize and dedupe entry points); it does not change locking behavior.
 - `.organize_log.txt`
+
+State kept **outside** the destination, under Application Support: `dedupe_reviews/*.json` (saved Deduplicate review state, INV-29), `watched_sources.db`, `photos_import_staging/<uuid>/`, `guardian/<libraryID>/` (Library Guardian) and `nas/` (NAS assessment, INV-27).
 
 The macOS app sidebar consolidates the original Setup / Run / Run History flows under a single **Organize** destination (`ui/Sources/ChronoframeApp/Views/Organize/OrganizeContainerView.swift`) and adds a peer **Deduplicate** destination (`ui/Sources/ChronoframeApp/Views/Deduplicate/`). Both share the active organize destination by default; Deduplicate may also point at a user-picked dedicated folder.
 
@@ -115,12 +108,12 @@ The Organize workspace's **Sources** tab (`ui/Sources/ChronoframeApp/Views/Organ
 
 Exact (byte-identical) video duplicates are always detected. **Perceptual** video matching — surfacing re-encodes, container re-wraps, and resizes of the same recording — is an opt-in lane.
 
-- Enabled by the `dedupePerceptualVideoMatchingEnabled` preference (Settings → Deduplicate → Video → "Find similar videos"), which `PreferencesStore.makeDeduplicateConfiguration` plumbs into `DeduplicateConfiguration.perceptualVideoMatchingEnabled`. Off by default: when off the scanner does no video decoding at all.
+- Enabled by the `dedupePerceptualVideoMatchingEnabled` preference (Settings → Deduplicate → Video → "Find similar videos"), which `PreferencesStore.makeDeduplicateConfiguration` plumbs into `DeduplicateConfiguration.perceptualVideoMatchingEnabled`. Off by default: when off the scanner does no video decoding at all. Only the Balanced and Similar Shots similarity presets allow it (`allowsPerceptualVideoMatching`); Exact Copies keeps video matching byte-identical, and Balanced uses the calibrated defaults below.
 - Live Photo movie metadata uses an async bounded loader (4 outstanding loads, 10-second item deadline, circuit breaker after 4 timeouts). Disabling Live Photo pairing performs no movie metadata work. Metadata and perceptual assets forbid external media references.
 - Always **review-only**. Perceptual video clusters are medium-capped by `ClusterConfidenceScorer` and rejected by `DeduplicationPlanner.isAutomaticCommitEligible` (AGENTS-INVARIANT 6) — nothing is ever auto-selected for deletion. A video already in an exact-duplicate cluster is held out of this lane (exact wins) until exacts are cleaned and the user rescans.
 - Evidence surfaces in the UI via `VideoMatchEvidence` on the cluster annotation: `MatchReasonFormatter` renders frame-agreement copy ("4 of 5 sample frames matched · 0.8s duration difference") instead of the photo vision-distance percentage. Per-scan `VideoPerceptualAnalysisMetrics` (analyzed / unsupported / decodeFailed / insufficientVisualEvidence) ride on `DeduplicateSummary.videoPerceptualMetrics`; the empty-results view reports how many videos were analyzed or failed to decode.
 - **Frame sampling.** Frames are sampled at the requested PTS with a small symmetric generator tolerance, `VideoFeatureExtractionConfiguration.frameTimeToleranceSeconds` (default 0.25s). This value is load-bearing: infinite tolerance snaps to the nearest *keyframe* (whose timestamp differs between codecs, so re-encodes never align), while exactly-zero tolerance makes B-frame HEVC-in-MP4 seeks fail or return the wrong frame. 0.25s is the proven center of the safe band — see the calibration note below. Changing how frames are sampled requires bumping `VideoPerceptualAnalysis.sampleStrategyVersion` to invalidate cached hashes.
-- **Calibration (done 2026-06-20).** The operating point was chosen with `ChronoframeVideoCalibrationTool` against a local labeled corpus (5 duplicate groups × 7 variants + 12 hard negatives; corpus is local-only, not in the repo). Chosen values, all in `VideoPerceptualMatchConfiguration`/`VideoFeatureExtractionConfiguration`: `durationToleranceSeconds=1.0`, `frameHammingThreshold=8`, `aggregateMedianThreshold=6`, `aspectRatioTolerance=0.10`, `lowVarianceThreshold=12.0`, `frameTimeToleranceSeconds=0.25`. On that corpus: candidate-index recall 100%, pair recall 100%, pair precision 99.1%, hard-negative FP 0.1%, warm/cold stable. The matcher thresholds were *validated unchanged* — H=8/A=6 sits in the flat interior of the sensitivity grid (H∈[7,10]×A=6 all at 99/100/0); the only code change required was the frame-tolerance fix. Re-running `script/video_calibration/run_calibration.sh --corpus <dir> --explode-underscore` reproduces this. **Follow-up:** the corpus is small for *threshold* confidence (the bug fixes are unambiguous; the H/A choice would be firmer against a larger negative set). Record the corpus/commit and metrics in any PR that changes a default, per `docs/video-dedupe-calibration-rubric.md` §6.
+- **Calibration (done 2026-06-20).** `ChronoframeVideoCalibrationTool` chose the operating point against a local labeled corpus (5 duplicate groups × 7 variants + 12 hard negatives; local-only, not in the repo). The Balanced defaults in `VideoPerceptualMatchConfiguration` (`durationToleranceSeconds=1.0`, `frameHammingThreshold=8`, `aggregateMedianThreshold=6`, `aspectRatioTolerance=0.10`) and `frameTimeToleranceSeconds=0.25` are those values: candidate and pair recall 100%, pair precision 99.1%, hard-negative false positives 0.1%. The corpus is small for *threshold* confidence. Re-run `script/video_calibration/run_calibration.sh --corpus <dir> --explode-underscore` and record the corpus, commit and metrics in any PR that changes a default, per `docs/video-dedupe-calibration-rubric.md` §6.
 
 ## Apple Photos Import
 
@@ -133,6 +126,13 @@ The **Photos** sidebar destination (`ui/Sources/ChronoframeApp/Views/Photos/Phot
 - **Review-gated, destination pinned at click time.** `PhotosImportStore.prepareImport` captures the active organize destination and returns a `PhotosImportContext` (mirrors `WatchedImportContext`); `RunCoordinator.startPreview(photosImportContext:)` runs preview → consent → transfer against the pinned staging source and destination, never Setup/profile. The transfer revalidates the destination and cancels (does not retarget) on a mismatch. Staging is deleted when a transfer run consumes it (a failed or cancelled preview counts), when the user discards an interrupted import or starts a new one, or when a prepare produced nothing; a prepare that finished but was never copied is not resumable and its staging is removed at the next launch. A stopped, paused or crashed prepare keeps its completely exported assets with a checkpoint (`.chronoframe_photos_checkpoint.json`) so the import can resume; a partially written asset is rolled back, or, if the app died mid-write, removed before the resume exports anything. The Photos library is never modified regardless of outcome.
 - **Limited-library authorization is honored.** macOS has no read-only Photos level, so Chronoframe requests `.readWrite` and simply never writes; `.limited` grants a user-chosen subset, which the browser imports as-is.
 
+## NAS Assessment And Remote Copy
+
+- `NASCapability.isEnabled` gates the NAS Library workspace: false in release builds, and in DEBUG only with `CHRONOFRAME_ENABLE_NAS=1`. The remote copy policy is **not** gated by it (INV-28).
+- Assessment (`NASAssessmentScanner`, `NASAssessmentStore`) is read-only on the library and keeps its state under Application Support `nas/` (INV-27).
+- Remote copy policy: `NASVolumeClassifier` and `NASRemoteCopyPolicy` decide what a destination is; `NASCopyDestinationQualifier` with `NASCopyDestinationRefusal` / `NASDeduplicateFolderRefusal` produce the plain-language refusals.
+- Requirements, gates and ADRs are in `docs/NAS_REQUIREMENTS.md`. `ChronoframeNASProbeTool` is local-only qualification evidence, not a CI dependency.
+
 ## Sandbox Status
 
 Run cancellation stays busy ("Stopping…") until the engine finishes and finalizes its receipt. Keep the stream consumer, security scope and destination lease alive; final counts/outcomes come from the execution result, including a successful completion already committed before the cancel click. Undo Reorganize runs directly through `ReorganizeExecutor.revert`, so `RunSessionStore` supplies its own per-operation cancellation flag and reports cancellation only when the executor stops before processing all items. Never publish a cancelled summary from the last progress sample or close import staging while workers are stopping.
@@ -143,23 +143,13 @@ Release packaging defaults to Developer ID signed, hardened-runtime, notarized, 
 
 ## Documentation Sources Of Truth
 
-**October 22 post-approval state:** public V2 and App Store Connect **2.0 Ready for Distribution / Unlock Approved** are observed. The app had incorrectly retained its **$14.99 download price**; a saved global correction effective immediately now shows **$0.00 in all 175 storefronts after reload**. The approved IAP remains **$14.99 US**, Family Sharing enabled. The first public recheck still showed the old paid download price; public free-price propagation remains unverified. See `docs/app-review-replacement-511-2026-10-21.md`. October 21 submission/manual-release statements below describe that earlier state, not current publication status.
-
-**October 21, 2026 final Go and submission:** the owner approved **2.0 (511)** from frozen source `3b38279` with the disclosed edited video and residual signed coverage. App Store Connect confirms submission `42e45604-bc72-4236-a1a1-8bca697a7884`, dated **9:46 PM PDT**, with **511 + Chronoframe Unlock both Waiting for Review**. Manual release is selected; no public release occurred. The preparation-time pending statements below are historical. See `docs/app-review-replacement-511-2026-10-21.md` for the definitive submitted state. PR #252 remains draft/unmerged; documentation commits do not change the archived app source.
-
-- `docs/app-review-replacement-511-2026-10-21.md` tracks corrected **2.0 (511)** from clean commit `3b38279` on draft PR #252 (not merged). All 24 hosted checks on that frozen source pass. Universal archive/export/package validation, upload, processing, TestFlight installation and actual About/receipt/signature verification pass. Signed Deduplicate refusal shows the real product; explicit fresh-account Restore returns no purchase and leaves review paused. A recorded real no-charge sandbox License purchase clears a pending 501-file Organize refusal without starting work: all five fixture snapshots remain unchanged, Run stays Idle and Unlocked persists after quit/relaunch. Positive owned Restore was verified on 510, not inferred for 511. The inspected, disclosed privacy-edited 3:21 video begins with a supplemental desktop launch and is attached to App Review Information. Direct app/IAP notes and actual signed IAP screenshot are saved. The old rejected submission was cancelled with history preserved; the fresh unsubmitted draft contains **511 + Unlock**, both ready to submit, with manual release selected. Preserve both testers' ownership and allowances. Owner Go and submission remain pending; remaining signed coverage is listed in the ledger.
-
-- `docs/app-review-dedupe-offer-2026-10-21.md` records the signed 510 hold: a 101-removal request against 100 remaining was refused without Trash or receipt, but its unlock offer was missing. `RootSplitView` must observe both `RunSessionStore` and `DeduplicateSessionStore` when presenting their computed refusal. The fresh sandbox tester remains unpurchased; a corrected signed replacement and completed recording are required. Do not treat the 510 diagnostic video as successful purchase proof.
-
-- `docs/app-review-resubmission-2026-10-21.md` tracks 2.0 (510) from clean merged source `573682d` (app source identical to final PR #251 `1ad818b`). Exact-source CI/CodeQL and archive/export/signature/package validation passed; upload/process/TestFlight installation and About/receipt/signature are verified. Explicit License Restore changed Free trial to Unlocked and cleared a pending Organize refusal with unchanged source/destination bytes, zero copies and no audit receipt. Fresh-account negative Restore and real $14.99 product discovery also pass. Fresh purchase/pending-operation verification and completed requested recording remain pending. Historical signed 508 purchase/cancellation/persistence passed, but it lacks the final License safety correction. Preserve primary design work and earlier `.tmp/iap-review-fix` evidence; private account captures stay local. No owner Go or resubmission recorded.
-
-- App Review rejected **2.0 (507)** on October 19, 2026 under 2.1(b) because the reviewer could not find Chronoframe Unlock. `docs/app-review-iap-rejection-2026-10-19.md` tracks the focused replacement, Store Connect observations, purchase navigation and physical-Mac sandbox recording checklist. The replacement adds Settings → License → Unlock Chronoframe… before any allowance is spent, reusing the real product/price/purchase/restore sheet with no automatic operation after purchase. Do not reset a user's allowance or existing purchase to prepare evidence. App/IAP approval, signed sandbox purchase/explicit restore and the requested recording must not be inferred from UI fixtures. Keep the earlier uncommitted design changes out of this fix.
+**Release state (approved and live; snapshot 2026-10-22, US listing rechecked 2026-11-21):** 2.0 (511) and Chronoframe Unlock were approved and released, and the US listing shows **Free** with the **$14.99 US** unlock (Family Sharing on). History: App Review rejected 2.0 (507) on 2026-10-19 under 2.1(b) because Chronoframe Unlock could not be found; the fix, Settings → License → Unlock Chronoframe… (PR #251), shipped through 510 and 511. The evidence is in `docs/app-review-*.md` and `docs/release-2.0-*-manual-session.md`; treat those as records, not instructions. Never infer purchase or Restore results from UI fixtures, and never reset a user's allowance or purchase to prepare evidence.
 
 - `README.md`, `docs/QUICK_START.md`, `docs/FAQ.md`, and `docs/TROUBLESHOOTING.md` are the public product guidance.
 - `docs/SAFETY_AND_RECOVERY.md` is the shared plain-language and technical contract for locking, content verification, journals, interruption states, and artifact retention.
 - `docs/TECHNICAL.md` is the current developer architecture and artifact reference.
 - `docs/production-readiness-certification.md` is the release-gate evidence ledger.
-- `docs/release-2.0-507-manual-session.md` records the current signed viewer replacement. Build 507 is uploaded and installed through TestFlight; on it the owner confirms the 9,656-item receipt loads, scrolls, shows every destination status Match and survives an app restart, the cancelled-run Revert removes exactly its 344 destinations with every retained copy and original digest intact, preview/re-copy/repeat preview after Revert behave, and an eight-file exact-duplicate review → Trash → receipt → restore smoke passes. PR #246 is merged. Build 506 verified all 344 cancelled-run files but exposed a large-receipt rendering blocker. The 504 ledger retains allowance/purchase/relaunch and cancellation/resume evidence; Restore Purchases, pair/sidecar retention, trial dedupe allowance, final hosted candidate checks and other unrecorded signed gates remain open. Owner Go is not recorded.
+- `docs/release-2.0-*-manual-session.md` and `docs/app-review-*.md` are the signed-session and App Review evidence for each build (500 through 511).
 - `docs/remaining-work-plan.md` lists only unfinished certification and product-decision work.
 - `docs/free-trial-plan.md` is the access-policy source of truth. On October 16, 2026 the owner confirmed no existing customers and approved a direct free V2 launch: 500 organized files and 100 duplicates trashed cumulatively per Apple Account per Mac, $14.99 US non-consumable lifetime unlock with Family Sharing, unlimited scanning/preview/review/history, and ungated revert that refunds allowance. `ChronoframeUnlock.defaultPolicy()` disables live and cached legacy grants; there is no acquisition cutoff or seven-day paid rollout. Keep the historical migration policy opt-in for tests only. Read the plan before entitlement, trial-allowance, or pricing work.
 
@@ -251,7 +241,8 @@ Be precise when discussing coverage.
 - Use `codex/...` branch names for Codex work unless the user asks otherwise.
 - The `app-layer-test-check` CI job (PRs only) runs `script/check_app_layer_changes_have_tests.sh` against the PR base. It fails if the diff touches App-layer source (`ChronoframeApp/**` or `ChronoframeAppCore/Stores/**`) with no test change. This backstops the coverage gate, which only reaches `ChronoframeCore`. Escape hatch for genuinely test-free edits: `[skip-app-test-check]` in a commit message.
 - The `detail-view-title-check` CI job runs `script/check_detail_views_set_navigation_title.sh`. It reads the view types `RootSplitView.detailView` switches to and fails if one of them never applies a `.navigationTitle(` modifier, so a new destination cannot ship with its header under the titlebar. It matches the applied modifier rather than the bare identifier, so a view that keeps a `navigationTitle` constant but drops the modifier is still caught. Its parser only recognizes a single-line `TypeName(appState:` call per `case`, so it cross-checks the parsed view count against the switch's `case` count and fails loudly on a mismatch rather than silently skipping a case it can't parse.
-- SwiftPM CI and the meaningful coverage script use `script/run_swift_test_suites.sh` to execute dynamically discovered groups of at most five XCTestCase suites in fresh processes. The sharding was added for Swift 6.0.3 on GitHub's retired `macos-14-arm64` image, whose long-lived XCTest process could stop advancing partway through the 865-test suite even though every completed test passed. CI now runs on `macos-15`. Keep the suite sharding until a combined CI run is verified on the current runner toolchain.
+- SwiftPM CI and the meaningful coverage script use `script/run_swift_test_suites.sh` to run groups of at most five XCTestCase suites in fresh processes. The sharding was added for Swift 6.0.3 on GitHub's retired `macos-14-arm64` image, whose long-lived XCTest process could stop advancing mid-suite. CI now runs on `macos-15`; keep the sharding until a combined run is verified on the current runner.
+- **CI compiles with Swift 6.0.3; local toolchains are newer and more lenient.** A test can pass locally and fail to compile in CI, typically on actor isolation (for example reading `@MainActor` view properties inside an `XCTAssert` autoclosure of a non-isolated `XCTestCase`; mark such test classes `@MainActor`). Also guard cross-module imports with `#if canImport(...)` so the single-target Xcode build compiles.
 - GitHub authentication is configured for `gh` in this workspace.
 - CodeQL workflow is `.github/workflows/codeql.yml`.
 - CodeQL analyzes Swift on macOS.
@@ -299,16 +290,9 @@ Note that `ui/Tests/ChronoframeAppTests/` files are also individually listed in
 
 Past Swift CodeQL failures included Swift 6 sendability issues, especially around `NSImage?` crossing async boundaries. Be careful with non-Sendable AppKit types in async groups and actor/nonisolated contexts.
 
-## Recent Known State
+## Release Scope
 
-As of 2026-06-20:
-
-- PR #160 (`codex/production-readiness-remediation`) implements destination locking, immutable content-verified dedupe plans, quarantine verification, durable organize/dedupe/reorganize recovery, and bounded Live Photo metadata work.
-- Implementation commit `80ff492` passed hosted CI run `27896063597`, including SwiftPM, meaningful coverage, Xcode build, UI tests, accessibility audit, release archive smoke, and all repository guards.
-- Hosted CodeQL for that implementation commit was still in progress when the certification documentation was refreshed; check the current PR status before claiming it passed.
-- For version 2.0 (owner decision 2026-09-28: Mac App Store only) the Developer ID, signed-matrix, 1-TB and human sign-off gates are out of scope, replaced or deferred per `docs/remaining-work-plan.md` "Version 2.0 Release Scope"; 2.0 needs the owner's Go record instead. As of 2026-06-20 the full June release remained blocked on Developer ID/notarization credentials, the signed sandbox/external-volume matrix, the real 100,000-file / 1-TB benchmark, and final human sign-off. The video calibration gate passed on the local labeled corpus, with larger-negative-set follow-up recommended for stronger threshold confidence.
-
-Verify freshness before relying on these details for a new CI/debugging or release task.
+Version 2.0 shipped through the Mac App Store only (owner decision 2026-09-28), so the Developer ID, notarization and 1-TB benchmark gates in the June certification are out of scope for 2.0; see `docs/remaining-work-plan.md` and `docs/production-readiness-certification.md`. Verify freshness before relying on release or CI details for a new task.
 
 ## Packaging And Launch Notes
 
@@ -338,7 +322,7 @@ When editing UI:
 - Prefer native controls and predictable macOS workflows.
 - Avoid nested cards, decorative gradient/orb backgrounds, and visible instructional text that describes obvious UI mechanics.
 - Make error and empty states useful to a nontechnical person.
-- **Every sidebar destination's root detail view must apply `.navigationTitle` (or otherwise populate the toolbar) whenever it has no other toolbar content.** On macOS the unified toolbar is what insets a `NavigationSplitView`'s detail column below the window titlebar; the sidebar deliberately runs full height behind that chrome and pays `DesignTokens.Sidebar.titlebarClearance` by hand, but the detail column has no such compensation. A destination that publishes neither a navigation title nor a toolbar item leaves the toolbar with nothing to draw, so the detail column starts at the very top of the window and the window title — inherited from the sidebar, so it reads "Chronoframe" — paints over the view's own header. `script/check_detail_views_set_navigation_title.sh` fails CI on a detail view whose file never applies the modifier, but it cannot prove the modifier is reached on every path: `DeduplicateView` applies `.navigationTitle` conditionally (`DeduplicateNavigationTitle`, empty during active cluster review, a deliberate space-reclaiming choice) and is a known, accepted instance of this same latent condition. Nothing else catches this: the app builds and every test passes.
+- **Every sidebar destination's root detail view must apply `.navigationTitle` (or otherwise populate the toolbar) whenever it has no other toolbar content.** On macOS the unified toolbar is what insets the `NavigationSplitView` detail column below the titlebar; without a title or toolbar item the view's header paints under the window title. `script/check_detail_views_set_navigation_title.sh` fails CI on a detail view whose file never applies the modifier but cannot prove it is reached on every path: `DeduplicateView` applies it conditionally (`DeduplicateNavigationTitle`, empty during active cluster review) and is a known, accepted instance.
 
 ### Accessibility bar
 
@@ -383,10 +367,7 @@ command against isolated publication states. `Deploy Site` runs `check_site.py -
 before artifact upload and deployment. Run that release check immediately before
 merging the publishing PR; it accepts verified proof or recorded explicit owner
 approval for early website publication. Draft PR checks permit held work.
-On October 18, 2026 the owner approved publishing ahead of public V2 and accepted
-a temporary unavailable/mismatched App Store link because there are no active users
-or traffic. This does not certify the public offer or capture builds.
-Asset checksums, approval and release observations live in
+The owner approved publishing ahead of public V2 on 2026-10-18 (recorded in `site/assets/product-proof.json`). Asset checksums, approval and release observations live in
 `site/assets/product-proof.json`. The self-hosted one-minute demo has native controls, WebVTT and
 an HTML transcript; optional `site.js` adds chapter shortcuts. Keep playback user-initiated.
 Keep visible pricing and JSON-LD in sync. Early website publication does not authorize

@@ -1,5 +1,7 @@
 # Clear path — decisions
 
+Status: shipped in PR #269 with follow-up PR #274. Durable decision record; kept in full.
+
 Plan prefix `CLP`. Resolves every gap the UX review (2026-11-12) and the contracts leave open. Runtime decisions go at the bottom as `D-CLP-1NN`.
 
 ## Tie-break rule for new gaps

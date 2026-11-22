@@ -1,5 +1,7 @@
 # NAS public — acceptance matrix
 
+Status: shipped in PR #266 behind the disabled NAS flag. Automated rows are pass; hardware rows are still owner-only.
+
 Status values: `todo`, `pass (<commit>)`, `fail`, `todo-hardware`, `pass-hardware (<date>, Nishith)`, `fail-hardware (<date>, Nishith)`.
 
 | ID | Requirement | Automated coverage | Hardware row | Auto status | Hardware status |

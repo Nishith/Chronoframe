@@ -111,15 +111,17 @@ ui/Sources/
   ChronoframeApp/        SwiftUI views and app entry point
   ChronoframeCLIKit/     CLI parser and runners (shares ChronoframeCore)
   ChronoframeCLI/        CLI executable entry point
-  ChronoframePackaging/  App bundle validation helpers
-  ChronoframeIconTool/   Procedural renderer for the retired hexagon icon
+  ChronoframePackaging/  App bundle validation helpers (+ ChronoframePackagingTool)
+  ChronoframeIconTool/   Procedural renderer for the retired hexagon icon (local-only)
+  ChronoframeVideoCalibrationTool/  Video-dedupe threshold calibration (local-only, not CI)
+  ChronoframeNASProbeTool/          Real-share NAS qualification evidence (local-only, not CI)
 ```
 
 ### Layer boundaries
 
-`ChronoframeCore` contains all the stateless domain algorithms: `MediaDiscovery`, `MediaDateResolver`, `DryRunPlanner`, `CopyPlanBuilder`, `TransferExecutor`, `RevertExecutor`, `ReorganizeExecutor`, `DeduplicateScanner`, `DeduplicationPlanner`, `DeduplicateExecutor`, `LibraryHealthScanner`. Library Guardian's engine also lives here: `GuardianLibraryProbe` (I/O collector) → `GuardianIntegrityClassifier` (pure) → `GuardianManifestUpdater`, plus `GuardianMirrorPlanner`/`GuardianMirrorExecutor`, `GuardianRestorePlanner`/`GuardianRestoreExecutor`, the `GuardianManifestStore` (SQLite), and `GuardianMultiRootLock`. It has no AppKit dependency and is tested entirely with SwiftPM unit tests.
+`ChronoframeCore` contains all the stateless domain algorithms: `MediaDiscovery`, `MediaDateResolver`, `DryRunPlanner`, `CopyPlanBuilder`, `TransferExecutor`, `RevertExecutor`, `ReorganizeExecutor`, `DeduplicateScanner`, `DeduplicationPlanner`, `DeduplicateExecutor`, `LibraryHealthScanner`, `MutationRecoveryCoordinator` and `DestinationOperationLock`. Also here: Watched Sources freshness (`WatchedSourceFreshness`, `FileSystemMonitor`, `WatchedSourceCheckpointDatabase`), Photos export planning (`PhotosExportPlanner`), and the NAS classifier and remote copy policy (`NASAssessmentScanner`, `NASVolumeClassifier`, `NASRemoteCopyPolicy`, `NASCopyDestinationQualifier`). Library Guardian's engine also lives here: `GuardianLibraryProbe` (I/O collector) → `GuardianIntegrityClassifier` (pure) → `GuardianManifestUpdater`, plus `GuardianMirrorPlanner`/`GuardianMirrorExecutor`, `GuardianRestorePlanner`/`GuardianRestoreExecutor`, the `GuardianManifestStore` (SQLite), and `GuardianMultiRootLock`. It has no AppKit dependency and is tested entirely with SwiftPM unit tests.
 
-`ChronoframeAppCore` wraps the core in `@MainActor` stores (`RunSessionStore`, `SetupStore`, `HistoryStore`, `PreviewReviewStore`, `DeduplicateSessionStore`, `GuardianStore`, etc.) and defines the `OrganizerEngine` protocol. `SwiftOrganizerEngine` is the concrete implementation; `MockOrganizerEngine` (in `Tests/`) is the test double. The `GuardianEngine` protocol (`SwiftGuardianEngine` concrete) follows the same pattern, with `GuardianBookmarkResolving`/`GuardianNotifying` seams the App target implements. Library Guardian ships behind the disabled `GuardianCapability.isEnabled` flag until its UI lands.
+`ChronoframeAppCore` wraps the core in `@MainActor` stores (`RunSessionStore`, `SetupStore`, `HistoryStore`, `PreviewReviewStore`, `DeduplicateSessionStore`, `WatchedSourcesStore`, `PhotosImportStore`, `NASWorkspaceStore`, `GuardianStore`, etc.) and defines the `OrganizerEngine` protocol. `SwiftOrganizerEngine` is the concrete implementation; `MockOrganizerEngine` (in `Tests/`) is the test double. The `GuardianEngine` protocol (`SwiftGuardianEngine` concrete) follows the same pattern, with `GuardianBookmarkResolving`/`GuardianNotifying` seams the App target implements. Library Guardian ships behind the disabled `GuardianCapability.isEnabled` flag until its UI lands; the NAS Library workspace is likewise off in release builds (`NASCapability.isEnabled`; DEBUG with `CHRONOFRAME_ENABLE_NAS=1`), while the remote copy policy is always active.
 
 `ChronoframeApp` contains the SwiftUI views. `AppState` is the root `@MainActor ObservableObject` that holds all stores and wires coordinator objects (`SetupCoordinator`, `RunCoordinator`, `HistoryCoordinator`) which encapsulate multi-step flows and navigate between views.
 
@@ -135,10 +137,11 @@ ui/Sources/
 | `.organize_logs/.chronoframe-operation.lock` | Cross-process destination mutation lock and diagnostics |
 | `.organize_logs/dry_run_report_*.csv` | Dry-run plan export |
 | `.organize_logs/preview_review_*.jsonl` | Review tab data |
+| `.organize_log.txt` | Plain run log |
 
 Library Guardian state lives **outside** the protected library, under Application Support keyed by library identity — `guardian/<libraryID>/manifest.db` (trusted-digest manifest), `guardian_mirror_receipt_*.json` / `guardian_restore_receipt_*.json` (+ journals), and `schedule.json` (next-run / last-attempted / last-succeeded). The mirror is a separate writable volume holding the bit-for-bit second copy. Restore is the only Guardian surface that writes the library; a scrub is read-only and a mirror pass writes only the mirror. See `docs/SAFETY_AND_RECOVERY.md` for the trust model and crash-recovery states.
 
-NAS assessment state also lives **outside** the assessed library, under Application Support `nas/` (`libraries.json`, `libraries/<uuid>/assessment.db`, `leases/`).
+NAS assessment state also lives **outside** the assessed library, under Application Support `nas/` (`libraries.json`, `libraries/<uuid>/assessment.db`, `leases/`). Other app-side state: `dedupe_reviews/*.json` (saved review state, never execution authority), `watched_sources.db`, and `photos_import_staging/<uuid>/`.
 
 ## Critical notes
 
@@ -157,7 +160,7 @@ NAS assessment state also lives **outside** the assessed library, under Applicat
 
 Do not hand-edit `project.pbxproj` to add app or library sources — the synchronized groups already cover them, and inventing UUIDs risks corrupting the project.
 
-**Safety invariants.** Before weakening any invariant (source read-only, no overwrites, Trash-only delete, receipt-before-mutation, revert hash-checks), confirm it's an explicit product change. Add `// AGENTS-INVARIANT: N` to at least one test covering the invariant and re-run `script/check_agents_invariants_have_tests.sh`.
+**Safety invariants.** Before weakening any invariant (source read-only, no overwrites, Trash-only delete, receipt-before-mutation, revert hash-checks), confirm it's an explicit product change. Invariants carry permanent `INV-NN` ids in `AGENTS.md`; add `// AGENTS-INVARIANT: N` (the number from the id) to at least one test covering it and re-run `script/check_agents_invariants_have_tests.sh`. Never renumber or reuse an id.
 
 **Lock and recovery lifecycle.** Every destination-changing surface must acquire `DestinationOperationLock` and hold its lease through prompts, execution, receipt finalization, and recovery. Use `MutationRecoveryCoordinator` for pending-state reconciliation. Never infer that an inaccessible path is missing, and never delete pending receipts, journals, or quarantine paths as generic cleanup.
 
@@ -166,6 +169,19 @@ Do not hand-edit `project.pbxproj` to add app or library sources — the synchro
 **User-facing error text.** Use `UserFacingErrorMessage.swift` to format technical errors. Keep wording plain, specific, and reassuring. When a run fails, copy must note that originals were untouched. Never surface raw `NSError`, POSIX codes, SQLite messages, or Swift decoding language directly in the UI.
 
 **UI language.** Chronoframe uses a restrained, work-focused "Meridian" visual language — native controls, no decorative gradients or orb backgrounds, no instructional text describing obvious UI mechanics. The amber waypoint dot is the brand motif.
+
+**Localization.** German ships in both `Localizable.xcstrings` (App) and `LocalizableCore.xcstrings` (Core, via `CoreL10n.text`). SwiftUI literals localize automatically but plain `String` values, interpolated sentences and AppKit controls do not: look up a template with `%@` first (`AppLocalization.format`) and fill it in afterwards, never look up an interpolated sentence. Check changes with:
+
+```bash
+xcodebuild -project ui/Chronoframe.xcodeproj -scheme Chronoframe -configuration Debug -derivedDataPath .tmp/ChronoframeDerivedData -destination "platform=macOS,arch=arm64" CODE_SIGNING_ALLOWED=NO SWIFT_EMIT_LOC_STRINGS=YES build
+python3 script/check_german_localization.py --baseline-ref origin/main --stringsdata-directory .tmp/ChronoframeDerivedData/Build/Intermediates.noindex/Chronoframe.build/Debug/ChronoframeApp.build/Objects-normal/arm64
+```
+
+Baseline catalog keys must be preserved (the script fails if one disappears), so retire a key by leaving it in place.
+
+**CI toolchain gap.** CI compiles with Swift 6.0.3; local toolchains are newer and more lenient. Actor-isolation errors (for example reading `@MainActor` view properties in an `XCTAssert` autoclosure of a non-isolated `XCTestCase`) can pass locally and fail in CI: mark such test classes `@MainActor`. Guard cross-module imports with `#if canImport(...)` so the single-target Xcode build compiles, and use the `Motion` helpers instead of raw `withAnimation` (`script/check_no_raw_animations.sh`).
+
+**CI guards.** `script/check_*.sh` run in CI and are cheap to run locally: invariant tags, raw animations, Photos import read-only, Guardian restore verification, authorizer has no default, no `await` inside `XCTAssert`, App Intents never purchase, recovery goes through the helper, UI-test membership, MAS build lane, StoreKit config matches policy, test dirs are targets, detail views set a navigation title, and app-layer changes have tests.
 
 ## Change discipline
 

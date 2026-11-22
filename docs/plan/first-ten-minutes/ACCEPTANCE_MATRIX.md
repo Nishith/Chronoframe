@@ -1,5 +1,7 @@
 # First ten minutes — acceptance matrix
 
+Status: not started (no code on main; `RunPreflightAssessment` does not exist). No row is built.
+
 | ID | Requirement (Round 3 #5) | Automated coverage | Hardware row | Auto status | Hardware status |
 |---|---|---|---|---|---|
 | A-FTM-01 | Capacity and access are checked before a run, with labeled estimates | RunPreflightAssessmentTests/*; PreflightServiceTests/*; SetupScreenModelTests (2 new); SetupCoordinatorTests (2 new) | H-FTM-1, H-FTM-2 | todo | todo-hardware |

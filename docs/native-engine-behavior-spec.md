@@ -80,8 +80,10 @@ this frozen contract but must not weaken it.
 
 - Database filename: `.organize_cache.db`
 - SQLite pragmas:
-  - `journal_mode = WAL`
-  - `synchronous = NORMAL`
+  - `journal_mode = WAL` (local volumes; network volumes use `DELETE`, see
+    [Technical Documentation](TECHNICAL.md#journal-policy))
+  - `synchronous = FULL`
+  - `busy_timeout = 30000`
 - Stable tables:
   - `FileCache(id, path, hash, size, mtime)` with primary key `(id, path)`
   - `CopyJobs(src_path, dst_path, hash, status)` with primary key `src_path`
@@ -192,6 +194,8 @@ this frozen contract but must not weaken it.
   - `execution_collision_receipt`
   - `execution_missing_source_abort`
   - `execution_verify_cleanup`
+- Resume fixture:
+  - `resume_pending_queue`
 - Swift tests remain the frozen reference surface for CLI flags, SQLite schema,
   retry behavior, abort thresholds, and artifact generation.
 
