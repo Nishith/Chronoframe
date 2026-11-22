@@ -808,7 +808,8 @@ struct RunHistoryView: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityActionsMenu(
-                label: "Actions for \(entry.title)",
+                labelTemplate: "Actions for %@",
+                subject: entry.title,
                 hint: "Reveal, undo, or move this file to Trash."
             )
         }

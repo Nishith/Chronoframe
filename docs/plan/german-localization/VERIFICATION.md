@@ -65,8 +65,25 @@ Visual recheck (same day): rebuilt with `xcodebuild … -derivedDataPath .tmp/Ch
 - History (`29-history-filter-fixed`): all five filter segments fit, "Sonstige" fully visible.
 - Preview & Copy (`30-preview-ticker-fixed`): ticker reads "BEREITS VORHANDEN".
 
-**Not verified:** `script/check_german_localization.py` and the full suite were not re-run.
+## 2026-11-21 recheck of Profiles, Health and the Preview tabs
+
+Driven through `ChronoframeGermanCheck.app` (`profilesPopulated`, `healthDashboard`, `runPreviewReview`); captures `31`–`39`.
+
+Fine as built: Profiles (label column wraps at a word boundary, `31`), Health at two columns (`33`), Probleme headings, Aktivität. Not counted as defects: the fixture strings ("Preview complete", sample file paths) and the English engine log lines in Aktivität, which mirror the log files on disk.
+
+Four defects found and fixed (`fix/german-ui-fit`):
+
+| # | Defect | Fix | Evidence |
+|---|---|---|---|
+| 1 | Prüfen tab: the five-segment review filter needs about 1,000 pt in German and pushed the page past the window (sidebar collapsed, toolbar overflowed) (`34`) | `ViewThatFits`: segmented when it fits, menu picker otherwise | `37` |
+| 2 | Health card title broke mid-word ("Rückgängigmache / n") at three columns (`32`) | adaptive column minimum 260 → 300 | `39` |
+| 3 | Problems tab "Suggested fixes" were English: `Label(String, …)` never consults the catalog | `suggestedFixes(for:bundle:)` looks each string up; `testSuggestedFixesAreTranslated` | `38` |
+| 4 | "Actions for \(name)" accessibility labels were English: the interpolated sentence can never match a key | `AppLocalization.format("Actions for %@", name)`; `testAccessibilityLabelsThatNameARowAreTranslated` | AX title reads "Aktionen für Meridian Travel" |
+
+Items 3 and 4 have unit tests (they did not compile before the fix, because the new `bundle:` and `format` seams did not exist). Items 1 and 2 are layout changes with no unit test; they are confirmed only by the recaptures above. A first attempt at item 2 used `layoutPriority` and clipped the count; it was removed before this commit.
+
+Still unverified: `script/check_german_localization.py` ran clean on this branch, but the full suite was run only as `ChronoframeAppCoreTests|ChronoframeAppTests|GermanLocalizationTests`. The Überblick/Prüfen/Probleme/Aktivität tab strip still ends about 28 pt past the card margin in German (`34`, `35`). The Preview screen shows three different problem counts (1 / 2 / 3) with the fixture data; not investigated.
 
 ## Next verification
 
-Still open: the Profiles label width, the Health screenshot, and the Prüfen/Probleme/Aktivität tabs.
+Still open: the tab strip margin and the problem-count question above.

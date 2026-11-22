@@ -3215,6 +3215,108 @@
         }
       }
     },
+    "Copy finished with problems": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy finished with problems"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren mit Problemen abgeschlossen"
+          }
+        }
+      }
+    },
+    "%lld copied, %lld could not be copied.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld copied, %lld could not be copied."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kopiert, %lld konnten nicht kopiert werden."
+          }
+        }
+      }
+    },
+    "%lld copied, but Chronoframe reported problems.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld copied, but Chronoframe reported problems."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kopiert, aber Chronoframe hat Probleme gemeldet."
+          }
+        }
+      }
+    },
+    "Nothing was copied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing was copied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es wurde nichts kopiert"
+          }
+        }
+      }
+    },
+    "Chronoframe copied nothing. Your originals were not changed. Open Chronoframe to see why.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe copied nothing. Your originals were not changed. Open Chronoframe to see why."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat nichts kopiert. Deine Originale wurden nicht verändert. Öffne Chronoframe, um den Grund zu sehen."
+          }
+        }
+      }
+    },
+    "Chronoframe found nothing to copy. Your originals were not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe found nothing to copy. Your originals were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat nichts zum Kopieren gefunden. Deine Originale wurden nicht verändert."
+          }
+        }
+      }
+    },
     "Copy complete": {
       "localizations": {
         "en": {

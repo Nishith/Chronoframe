@@ -243,7 +243,8 @@ private struct ProfileTile: View {
                     .fixedSize()
                     .opacity(isHovering || isActive ? 1 : 0.5)
                     .accessibilityActionsMenu(
-                        label: "Actions for \(profile.name)",
+                        labelTemplate: "Actions for %@",
+                        subject: profile.name,
                         hint: "Overwrite or delete this saved profile."
                     )
                 }

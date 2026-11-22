@@ -19,11 +19,23 @@ enum RunAnnouncementPlanner {
         var status: RunStatus
         var phase: RunPhase?
         var progress: Double
+        /// The user asked to stop and the run has not stopped yet.
+        var isCancelling: Bool
+        /// The finished run reported failed, errored or unreadable files.
+        var hasOutcomeIssues: Bool
 
-        init(status: RunStatus, phase: RunPhase?, progress: Double) {
+        init(
+            status: RunStatus,
+            phase: RunPhase?,
+            progress: Double,
+            isCancelling: Bool = false,
+            hasOutcomeIssues: Bool = false
+        ) {
             self.status = status
             self.phase = phase
             self.progress = progress
+            self.isCancelling = isCancelling
+            self.hasOutcomeIssues = hasOutcomeIssues
         }
     }
 
@@ -65,7 +77,19 @@ enum RunAnnouncementPlanner {
         // 1. Terminal status changes win — they're the most important to hear,
         //    and the only ones important enough to interrupt the user.
         if new.status != old.status, let message = terminalMessage(for: new.status) {
+            if new.status == .finished, new.hasOutcomeIssues {
+                return Announcement(
+                    message: String(localized: "Copy finished with problems. Your original files were left untouched.", bundle: .module),
+                    priority: .high
+                )
+            }
             return Announcement(message: message, priority: .high)
+        }
+
+        // 1b. Stop requested: say so once, so the silence while the engine
+        //     finishes its receipt is not mistaken for a hang.
+        if new.status == .running, new.isCancelling, !old.isCancelling {
+            return Announcement(message: String(localized: "Stopping…", bundle: .module), priority: .medium)
         }
 
         // 2. Phase changes during an active run.
