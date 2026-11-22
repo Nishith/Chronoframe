@@ -1,4 +1,4 @@
-> Historical 508 checklist, preserved from local evidence. Do not record or submit 508 as the corrected candidate. Use the [510 recording checklist](../app-review-resubmission-2026-10-21/recording-checklist.md) for the replacement.
+> **Status (2026-11-21). Historical 508 checklist**, preserved from local evidence; 508 was never submitted. The shipped build is 2.0 (511); use the [510/511 recording checklist](../app-review-resubmission-2026-10-21/recording-checklist.md) as the template.
 
 # TestFlight 508 purchase recording
 

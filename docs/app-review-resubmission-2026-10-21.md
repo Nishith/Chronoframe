@@ -1,10 +1,6 @@
 # App Review replacement 2.0 (510) — October 21, 2026
 
-**Replacement submitted:** [2.0 (511), exact artifact identities, completed recording and verified submission](app-review-replacement-511-2026-10-21.md). Following owner **Go**, **511 + Unlock** were submitted together **October 21 at 9:46 PM PDT**, submission `42e45604-bc72-4236-a1a1-8bca697a7884`; both show **Waiting for Review**. Manual release is retained. The 510 results below remain historical evidence; their pending steps are superseded only by explicit 511 results in that ledger.
-
-**510 held after recorded Deduplicate check:** a reviewed 102-file exact-duplicate cluster requested 101 removals against 100 remaining. Both attempts refused without moving files, but the expected unlock offer never appeared; the view returned to a paused review. All 102 fixture PNGs retain their baseline digests and no dedupe audit receipt exists. The fresh tester has not purchased. Preserve the saved October 21 recording as diagnostic/core-workflow evidence; it is not completed purchase proof. A UI observation regression is being checked before producing a replacement candidate.
-
-**Not submitted; owner Go pending.** The signed universal archive, local export and package validation passed. Upload succeeded at **13:41:29 PDT**; Apple processing/compliance and internal-group availability completed. The owner downloaded **510 through TestFlight**; installed About/Info.plist confirm **2.0 (510)**, an App Store receipt is present and strict/deep signature verification passes. Explicit owned-purchase Restore and its pending Organize refusal safety check pass below. Recorded fresh purchase remains pending. 508 predates the final License safety correction and must not be submitted as the replacement.
+**Status (2026-11-21). Historical; build 510 was held and replaced by 511.** The shipped build is [2.0 (511)](app-review-replacement-511-2026-10-21.md) (submitted 2026-10-21 9:46 PM PDT, approved and public 2026-10-22); its ledger holds the final artifact identities, recording and submission. 510 was uploaded 13:41:29 PDT, processed and installed through TestFlight (About/Info.plist 2.0 (510), receipt present, strict/deep signature valid). Signed 510 passed explicit owned-purchase Restore, fresh-account negative Restore, real $14.99 product discovery and the pending-Organize safety check. It was held after the recorded Deduplicate check: a reviewed 102-file exact-duplicate cluster requested 101 removals against 100 remaining; both attempts refused without moving files but the unlock offer never appeared ([finding](app-review-dedupe-offer-2026-10-21.md)). All 102 fixture PNGs kept their baseline digests, no dedupe receipt was written, and the fresh tester never purchased. The 510 recording is diagnostic/core-workflow evidence, not purchase proof. 508 predates the final PR #251 License safety correction and was never submitted.
 
 ## Frozen source and validation
 
@@ -26,7 +22,7 @@ Live macOS Builds and Build Uploads were inspected before selecting the number: 
 
 ## Live App Store Connect observations
 
-Submission `cdf1ea79-235f-4faa-8743-40ab920109f4` still contains **2.0 (507), Rejected**, and **Chronoframe Unlock, Ready for Review**. No items removed or resubmitted.
+As of this session, submission `cdf1ea79-235f-4faa-8743-40ab920109f4` still contained **2.0 (507), Rejected**, and **Chronoframe Unlock, Ready for Review**. No items removed or resubmitted.
 
 Version 2.0's saved metadata already uses the direct-free policy; the old draft-501/paid-transition notes elsewhere are historical. **Manually release this version** is selected, automatic and scheduled release are off, sign-in required is unchecked, no review attachment is present, and the saved review notes still omit direct License purchase navigation. This session has not changed these fields yet.
 
@@ -54,7 +50,7 @@ That explicit Restore request subsequently completed with **No previous purchase
 
 ## Signed verification and recording
 
-Installation passes as recorded above. The remaining rows are **pending on 510** until an actual result is recorded.
+Installation passes as recorded above. Rows not marked PASS were not completed on 510; they were completed on [511](app-review-replacement-511-2026-10-21.md).
 
 | Check | Evidence required |
 |---|---|
@@ -84,4 +80,4 @@ Historical passes remain build-specific: signed 504 allowance/free batch/exhaust
 
 Still unrecorded: replacement License purchase with a pending refusal; complete requested recording; kept pair/sidecar retention; trial dedupe allowance/refund; exact Photos regression resource identities/pairs; remaining forced-interruption/recovery and external-drive scenarios. Signed explicit License Restore and its pending Organize refusal case pass as recorded above. Owner assessment follows the approved V2 scope; a concrete safety failure blocks release. Developer ID/notarization, full three-volume matrix, 100,000-file/1-TB certification and four-person signoff are out of scope/replaced/deferred. Existing 10,000-file and receipt evidence is not wholly untested.
 
-No owner Go, review resubmission, automatic release or production publication occurred in this session.
+No owner Go, review resubmission, automatic release or production publication occurred on 510.

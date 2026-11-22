@@ -1,16 +1,12 @@
 # Free Trial Plan
 
-**October 22 implementation status:** V2 is publicly listed and Unlock is approved. Its retained paid-download price was corrected through an immediate global change: App Store Connect's saved current prices show **zero in all 175 storefronts after reload**. Unlock remains **$14.99 US** with Family Sharing. Public free-price propagation is still unverified after the first recheck. This corrects store configuration only; access policy, app source and account records are unchanged. [Post-approval evidence](app-review-replacement-511-2026-10-21.md). Earlier submission-only summaries are historical.
-
-Chronoframe V2 launches directly as a **free download plus one non-consumable lifetime unlock**, with a metered free tier. On October 16, 2026 the owner confirmed there are no existing customers and approved removing the paid migration. This decision supersedes the historical paid-window and grandfathering instructions. No customer settings or allowance ledgers need resetting.
+**Status (2026-11-21). Shipped and current.** Chronoframe V2 launched as a **free download plus one non-consumable lifetime unlock** with a metered free tier: 2.0 (511) was approved and became public 2026-10-22, and the public US listing (checked 2026-11-21) shows Free with "Chronoframe Unlock $14.99". On 2026-10-16 the owner confirmed there are no existing customers and approved removing the paid migration, which supersedes all historical paid-window and grandfathering instructions; no customer settings or allowance ledgers needed resetting. The $14.99 download price was missed at resubmission and corrected to $0.00 in 175 regions on 2026-10-22 ([ledger](app-review-replacement-511-2026-10-21.md)); only the US storefront was checked publicly. This file is the access-policy source of truth and the implementation plan for it (tasks T1–T23, all merged except the manual release steps, which are annotated below). Release evidence: [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md); direct-free rules and tests: [release-2.0-direct-free-access.md](release-2.0-direct-free-access.md).
 
 Grounded against the tree as of the 2026-09-07 IAP engineering refresh.
 
 ## Status
 
-**Submitted candidate 511:** the Deduplicate observation correction is uploaded and installed; all 24 hosted checks on frozen source `3b38279` pass. Its signed refusal shows the actual purchase offer without mutation. Explicit negative Restore, a recorded no-charge sandbox purchase through License, stopped pending Organize operation with unchanged fixture hashes and persisted Unlocked after relaunch pass. Positive owned Restore remains a separately verified signed 510 result. The disclosed, inspected 3:21 video includes the supplemental desktop launch and is attached; direct notes and the real signed IAP screenshot are saved. After owner **Go**, **511 + Unlock** were submitted together on **October 21 at 9:46 PM PDT** and both show **Waiting for Review**; manual release remains selected. Submission `42e45604-bc72-4236-a1a1-8bca697a7884`. No public release occurred. See [the active 511 ledger](app-review-replacement-511-2026-10-21.md). The earlier 510 paragraph below is historical; both testers now own the purchase and their records are preserved.
-
-October 21: PR #251 is merged, and clean candidate **2.0 (510)** passed archive/export/signature/package validation, uploaded, processed and is installed through TestFlight. Explicit License Restore changed Free trial to Unlocked with the purchased sandbox tester and cleared a pending Organize refusal without any fixture mutation. Fresh-account negative Restore and real $14.99 product discovery pass. Signed 508 already passed actual sandbox purchase/cancellation/persistence, but it predates the final License pending-operation correction. Fresh signed purchase/pending-operation verification, completed requested recording, final store preparation and owner Go remain open in [the replacement ledger](app-review-resubmission-2026-10-21.md). This does not change the settled policy below.
+2026-10-21: 2.0 (511) + Chronoframe Unlock submitted together (submission `42e45604-bc72-4236-a1a1-8bca697a7884`, manual release) after 507 was rejected 2026-10-19 under 2.1(b) and the direct Settings → License → Unlock entry shipped in PR #251. Signed results: negative Restore and a recorded no-charge sandbox purchase on 511, positive owned Restore on 510, and the Deduplicate purchase offer fixed in PR #252 (merged 2026-11-16). See the 511 ledger above.
 
 | # | Phase | State |
 |---|---|---|
@@ -20,11 +16,11 @@ October 21: PR #251 is merged, and clean candidate **2.0 (510)** passed archive/
 | 4 | Enforcement at the mutation surfaces | **Merged.** T7–T12 |
 | 5 | Unlock UI + free test batch | **Merged.** T13–T16 |
 | 6 | Test matrices | **Merged.** T17–T19 |
-| 7 | App Store Connect product creation | Verified October 19: correct non-consumable ID, $14.99 US, Family Sharing and all regions; Ready for Review |
-| 8 | Direct free V2 launch | App 507 rejected under 2.1(b); direct License purchase correction and replacement sandbox/recording evidence required |
-| 9 | Release monitoring | Not started |
+| 7 | App Store Connect product creation | Done: non-consumable ID, $14.99 US, Family Sharing and all regions; Approved with 2.0 (2026-10-22) |
+| 8 | Direct free V2 launch | Done: approved and public 2026-10-22; free price set 2026-10-22; US listing verified Free 2026-11-21 |
+| 9 | Release monitoring | Open — first-week checks and public-store verification, see [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md) |
 
-The launch target remains October 29, 2026, subject to final testing and App Review. There is no seven-day paid rollout or compiled acquisition-date cutoff. `ChronoframeUnlock.defaultPolicy()` disables both live and cached legacy grants. App transactions still supply the account identity for the allowance; verified ownership of the non-consumable unlock confers unrestricted access. Existing test-build legacy grants do not confer access, even offline. Test data and usage ledgers are not reset.
+There is no seven-day paid rollout or compiled acquisition-date cutoff. `ChronoframeUnlock.defaultPolicy()` disables both live and cached legacy grants. App transactions still supply the account identity for the allowance; verified ownership of the non-consumable unlock confers unrestricted access. Existing test-build legacy grants do not confer access, even offline. Test data and usage ledgers are not reset.
 
 ## Risk markers
 
@@ -562,14 +558,15 @@ The owner approved the direct-free rules on October 16. No acquisition date, inc
 
 ## T22 — Marketing and metadata copy · Routine
 
-**Merged.** The free-tier variants are staged in documentation but must not be published before the
-App Store price actually becomes free.
+**Merged.** The App Store price became free on 2026-10-22, so the free-tier copy is now accurate; website and launch-post publication status is in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md).
 
 `site/index.html`, `site/faq.html`, `README.md`, `docs/APP_STORE_RELEASE.md`,
 `docs/APP_STORE_METADATA.md`. "Free to try · $14.99 to unlock". **"No subscription, ever" stays
 true** and is worth keeping prominent. Review notes must disclose the trial limits explicitly.
 
 ## T23 — Execute the release · Manual
+
+Status 2026-11-21: steps 1 to 3 done (511 archived and tested, free price set 2026-10-22, app and IAP submitted together 2026-10-21 with manual release); step 4 partly done (released, US price verified; public-store install and purchase/restore, website and marketing are open).
 
 1. Archive the final source with a new build number and install through TestFlight. Complete the focused signed checks.
 2. Configure the app as Free and the non-consumable as $14.99 US with Family Sharing. Coordinate pricing with V2 availability if the older paid version is still listed.

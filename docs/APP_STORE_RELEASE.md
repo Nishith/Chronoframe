@@ -2,6 +2,8 @@
 
 This checklist is the release source of truth for the next Chronoframe Mac App Store candidate.
 
+**Status (2026-11-21).** Used for V2, which shipped (2.0 (511), public 2026-10-22; US listing Free). The gate list, metadata summary and TestFlight matrix below remain the reusable checklist for future submissions; V2's own results are in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md) and the per-build ledgers.
+
 ## Release Gate
 
 Chronoframe is ready to submit only when all items below are complete:
@@ -169,21 +171,21 @@ nothing, so it can only ever pass these vacuously.
 
 ## Direct Free Launch
 
-Owner decision, October 16, 2026: there are no existing users to migrate. V2 launches free with a $14.99 US non-consumable lifetime unlock and Family Sharing. No paid rollout, seven-day wait, acquisition cutoff or customer settings migration applies. October 26 remains a target subject to review.
+Owner decision, October 16, 2026: there are no existing users to migrate. V2 launches free with a $14.99 US non-consumable lifetime unlock and Family Sharing. No paid rollout, seven-day wait, acquisition cutoff or customer settings migration applies.
 
 1. Build from the final tested source with date-based legacy unlocks disabled.
 2. Complete signed TestFlight checks and record Go for the exact candidate.
-3. Configure free app pricing and submit V2 with its first IAP, retaining manual release. If the previous paid version is available, coordinate the price change with V2 availability.
+3. Configure free app pricing and submit with the first IAP, retaining manual release. If a previous paid version is listed, set the free price explicitly: manual version release does not hold or change pricing, and for V2 the $14.99 download price was missed and corrected on 2026-10-22.
 4. After approval, release and verify the public free listing, new-customer allowance, purchase and restore.
-5. Publish the prepared website and marketing only when the advertised offer is actually available. Any `site/**` push to `main` deploys immediately.
+5. Publish the website and marketing only when the advertised offer is actually available. Any `site/**` push to `main` deploys immediately.
 
-No App Store pricing, submission, release or website changes are performed by the access-rule implementation itself.
+V2 status: steps 1 to 3 done (Go 2026-10-21, submitted 2026-10-21, free price set 2026-10-22); step 4 partly done (US listing verified Free 2026-11-21, public-store install and purchase/restore verification open); step 5 is tracked in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md).
 
 ## Launch Tasks
 
 - Publish privacy policy, support, FAQ, and troubleshooting pages. (Done: privacy and support pages live at https://chronoframe.app/privacy.html and https://chronoframe.app/support.html, verified 2026-05-23.)
 - Build a landing page around the safety promise: originals untouched, preview before changes, Trash-only dedupe, on-device processing. (Done: https://chronoframe.app/ live, verified 2026-05-23.)
-- Record a 60-second demo video.
+- Record a 60-second demo video. (Done: `marketing/social-video/exports/`; upload still open, see the launch checklist.)
 - Recruit 20-50 TestFlight users with messy real-world libraries before public launch.
-- Prepare launch posts for Mac utility communities, photography groups, and personal archive workflows.
+- Prepare launch posts for Mac utility communities, photography groups, and personal archive workflows. (Drafted: `marketing/release-2.0/LAUNCH_COPY.md`, `marketing/macapps-launch-post-2026-11.md`; not posted.)
 - Monitor App Store reviews and support email daily during launch week.

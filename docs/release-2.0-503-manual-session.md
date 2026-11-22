@@ -1,6 +1,6 @@
 # Chronoframe 2.0 (503) — Photos capture-date replacement
 
-Prepared October 5, 2026. **Local signed archive/export validated; NOT UPLOADED, NOT INSTALLED through TestFlight, NOT SUBMITTED. No owner Go. Build 502 remains held.**
+**Historical evidence, 2026-10-05. Built and validated locally; never uploaded or installed.** Superseded by 504 and later builds, which contain the same Photos capture-date fix (PR #242, merged 2026-10-17). The shipped build is 2.0 (511); see [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md).
 
 ## Candidate
 
@@ -12,7 +12,6 @@ Prepared October 5, 2026. **Local signed archive/export validated; NOT UPLOADED,
 - Package SHA-256: **`daf46d7c86a2555b3399d2a75da208849440d7e9a19a6dfd5c39c904f213e061`**.
 - Export explicitly uses `destination=export`, `manageAppVersionAndBuildNumber=false`, `uploadSymbols=false`. No upload occurred.
 - Actual package-extracted app passes `ChronoframePackagingTool --app-store`: Apple Distribution, team EB2YPF68XZ, hardened runtime and sealed resources. Strict/deep signature verification passes; installer certificate chain is Apple-issued. Local Gatekeeper rejects the MAS bundle; this is not an Apple processing or TestFlight result.
-- Paid/free cutoff remains **2026-10-26T07:00Z**. No pricing, draft-selection, submission or publication changes.
 
 ## Fix and validation
 
@@ -28,16 +27,8 @@ Actual local results:
 - Universal Release MAS_BUILD compilation, signed archive and local export succeed. Versions/architectures inspected in the actual archived and package-extracted apps; package validator and signatures pass.
 - Regressions cover generated export → real preview → execution re-plan → verified copies → COMPLETED receipt → final metadata-based pair recognition; midnight boundaries in positive/negative offsets; differing still/movie timestamps; standalone January/July videos; invalid/missing dates; filename/user precedence; legacy configuration decoding; same-size/same-mtime staged-byte replacement; and metadata timeout/cancellation. Existing cancellation/recovery regressions pass in the full suite.
 
-Logs, local export options and machine-readable identity are retained under `release-artifacts/2.0-503/`. PR #242 is open and mergeable; CI and CodeQL were queued/in progress at the post-creation snapshot, not claimed green. Final-head hosted checks remain separate from these local results.
+Logs, local export options and machine-readable identity are retained under `release-artifacts/2.0-503/`. PR #242 merged 2026-10-17.
 
-## Exact signed retest steps
+## Planned signed retest (not executed on 503)
 
-Upload is a separate future action requiring authorization. After Apple processes the replacement, perform and record these steps before owner Go:
-
-1. Install through TestFlight; capture About confirming **2.0 (503)**. Record runtime commit/package identity and Apple processing/install outcome.
-2. Choose a **new empty disposable destination**, never the existing Test iPhotos evidence folder. Import the same three Live Photos and two standalone videos (eight original resources) with verification enabled. Retain review and final UI/receipt. Both August pairs must remain together under `2026/08/01`; the October pair must remain together under `2026/10/04`; standalone movies must use `2026/01/30` and `2026/07/17`, rather than the import day.
-3. Verify all eight copied hashes against the COMPLETED receipt. Confirm review destinations equal committed destinations, zero failures and cleaned staging. Read embedded offsets/dates/content IDs without rewriting files. Report library immutability as owner-observed/structurally guarded unless an independent baseline was actually collected.
-4. Run **scan-only Deduplicate** on the disposable destination. Retain evidence that all three pairs are recognized by embedded identifiers in their shared directories even when renamed stems differ. Do not confirm Trash. If available, include a generated/selected midnight-boundary pair and missing-date resource: explicit offsets retain local day; truly missing capture information goes to Unknown.
-5. Repeat import/preview (zero new resources), then repeat signed mid-copy cancel/resume on another disposable destination. Reconcile terminal UI counts with finalized receipts/copies and verify unchanged originals. Preserve all 502 evidence. Record remaining signed scenarios/accepted limitations, final-head CI/CodeQL and owner Go before review submission.
-
-No signed retest result is claimed. Do not submit 502 or select an untested replacement for review.
+Use a new empty disposable destination and import the three Live Photos and two standalone videos (eight original resources) with verification on. Expected: both August pairs together under `2026/08/01`, the October pair under `2026/10/04`, standalone movies under `2026/01/30` and `2026/07/17`; all eight hashes match the COMPLETED receipt; preview destinations equal committed destinations; staging cleaned; scan-only Deduplicate recognizes all three pairs by embedded identifiers; repeat import copies nothing; midnight-boundary and missing-date resources go to the local day and Unknown respectively. The owner's Photos check on [504](release-2.0-504-manual-session.md) used different photos, so this exact eight-resource set was never re-run on a signed build (see accepted residual coverage in [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md)).
