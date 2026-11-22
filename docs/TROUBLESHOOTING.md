@@ -2,17 +2,6 @@
 
 ## Installation & Launch
 
-### macOS blocks the app on first launch
-
-**Problem:** You see "Chronoframe cannot be opened because the developer cannot be verified."
-
-**Solution:**
-1. Right-click `Chronoframe.app` in Applications
-2. Choose **Open**
-3. Click **Open** in the confirmation dialog
-
-This is a one-time check.
-
 ### App crashes on launch
 
 **Problem:** The app opens briefly then closes.
@@ -23,15 +12,6 @@ This is a one-time check.
 3. Check the system logs for crash details (`Console.app` → `Chronoframe`)
 
 If the issue persists, [report it on GitHub](https://github.com/Nishith/Chronoframe/issues).
-
-### Permission denied when launching
-
-**Problem:** "Chronoframe does not have permission to run."
-
-**Solution:**
-1. Open **System Preferences** → **Security & Privacy** → **General**
-2. If you see "Chronoframe was blocked," click **Allow**
-3. Relaunch the app
 
 ---
 
@@ -52,13 +32,9 @@ Choosing a different folder leaves the current archive unchanged and explains wh
 **Problem:** The preview has been running for 10+ minutes.
 
 **Solution:**
-- **Large libraries** (50K+ files) naturally take longer. Give it time (5–15 min is normal).
+- Large libraries (50K+ files) naturally take longer; 5–15 minutes is normal. See the [FAQ](./FAQ.md#performance--system-requirements) for ways to speed it up.
 - Check the **Activity** tab under **Details** on the **Preview & Copy** screen to see progress.
-- If it's frozen (no progress for several minutes), force-quit and try again.
-- **To speed up future previews:**
-  - Open **Settings → Performance** and raise **Files at Once** (the presets only switch parallel copying and reset workers to 8, so they don't speed up a preview)
-  - Split your folders into smaller batches
-  - Keep your library on a local SSD rather than a network drive
+- If there is no progress for several minutes, force-quit and try again.
 
 ### Preview failed with a read error
 
@@ -326,11 +302,10 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 **Problem:** Chronoframe is sluggish, especially with large libraries.
 
 **Solution:**
-1. **Reduce worker threads** — sometimes more isn't better
-   - **Settings** → **Performance** → reduce worker count
-2. **Close other apps** to free up memory
-3. **Use a faster drive** — local SSDs are much faster than network drives
-4. **Reduce preview scope** — organize smaller batches at a time
+1. Lower **Files at Once** in **Settings → Performance**; more isn't always better
+2. Close other apps to free up memory
+3. Use a local SSD rather than a network drive
+4. Organize smaller batches at a time
 
 ### Hashing is slow
 
@@ -404,12 +379,7 @@ The NAS Library workspace isn't available in release builds yet. The copy rules,
 
 ### Where is my data stored?
 
-**Answer:**
-- Your original folders stay where they are — Chronoframe reads and copies them
-- Destination data is **your files** in the folder you selected
-- Chronoframe metadata is in `.organize_cache.db`, `.organize_logs/`, and `.organize_log.txt` inside your destination folder
-- Keep those files while a run is active, resumable, interrupted, or still needed for History and Undo
-- If all work is complete and you intentionally accept losing history and recovery evidence, Chronoframe can rebuild performance caches later
+**Answer:** Your original folders stay where they are, and Chronoframe's support files live in your destination folder. See the [FAQ](./FAQ.md#advanced) for what each file is and when it is safe to remove.
 
 ### How can I delete Chronoframe?
 
@@ -429,8 +399,7 @@ If your issue isn't covered here:
 1. Check the [FAQ](./FAQ.md) for general questions
 2. Review the [Technical Documentation](./TECHNICAL.md) for command-line and architecture details
 3. Read [Safety and Recovery](./SAFETY_AND_RECOVERY.md) before manually changing files from an interrupted copy
-4. Check the [Releases page](https://github.com/Nishith/Chronoframe/releases) for known issues
-5. [Open a GitHub issue](https://github.com/Nishith/Chronoframe/issues) with details about what's happening
+4. [Open a GitHub issue](https://github.com/Nishith/Chronoframe/issues) with details about what's happening
 
 **When reporting a bug, include:**
 - Your macOS version and hardware (Intel vs. Apple Silicon)

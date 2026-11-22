@@ -130,8 +130,8 @@ Consistent spacing throughout the app:
 | Token | Value | Usage |
 |--------|-------|-------|
 | `Corner.hero` | 20pt | Large cards, hero sections |
-| `Corner.card` | 14pt | Standard cards, panels |
-| `Corner.innerCard` | 10pt | Buttons, input fields, nested elements |
+| `Corner.card` | 10pt | Standard cards, panels |
+| `Corner.innerCard` | 8pt | Buttons, input fields, nested elements |
 | `Corner.badge` | 999pt | Capsule badges, pills |
 
 ### Window Sizes
@@ -179,7 +179,7 @@ Chronoframe uses **SF Pro** exclusively (not SF Rounded) for a professional, nat
 - **Body:** System font, regular, `inkSecondary`
 - **Captions:** System font, regular, `inkMuted`
 
-No custom font scaling; rely on standard macOS Dynamic Type.
+Type roles are defined in `DesignTokens.Typography` and scale with `dynamicTypeSize` through `.scaledFont(_:)` ([`Typography+Scaling.swift`](../ui/Sources/ChronoframeApp/App/Typography+Scaling.swift)).
 
 ---
 

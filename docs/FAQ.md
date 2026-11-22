@@ -16,7 +16,7 @@ A: Chronoframe does not treat a disconnected or permission-denied drive as proof
 
 **Q: Why does Chronoframe say another operation is using the destination?**
 
-A: Only one organize, deduplicate, reorganize, undo, CLI, or system-integrated mutation can use a destination at a time. Wait for the active operation to finish, then try again. This cross-process lock prevents two valid plans from racing each other.
+A: Only one organize, deduplicate, reorganize, undo, CLI, or system-integrated mutation can use a destination at a time, so two valid plans can't race each other. See [Troubleshooting](./TROUBLESHOOTING.md#another-chronoframe-operation-is-already-using-this-destination).
 
 **Q: Can I undo an organize operation?**
 
@@ -45,9 +45,10 @@ A: Scanning reads metadata, computes content hashes, and resolves dates. Large l
 **Q: Can I speed things up?**
 
 A: Yes—
-- Open **Settings → Performance** and raise **Files at Once**, or turn on **Parallel Copies** (the **Standard** preset turns them on and sets 8 workers)
+- Open **Settings → Performance** and raise **Files at Once**, or turn on **Parallel Copies** (the **Standard** preset turns them on and sets 8 workers).
 - Pre-filter your folders into smaller batches
 - Keep your library on a local SSD rather than a network drive
+- If Chronoframe feels sluggish instead, lower **Files at Once** and close other apps
 
 ---
 
@@ -90,11 +91,11 @@ A: Photos (JPG, PNG, HEIF, RAW, etc.) and videos (MP4, MOV, etc.). If your OS ca
 
 **Q: Can I organize several folders at once?**
 
-A: Yes. In **Organize → Choose Folders**, **Add Folders…** lets you select several folders, and dragging folders onto the window adds them to the **Folders to organize** list. A folder inside a listed folder is refused, a folder that contains listed folders replaces them, and none of them may overlap the destination. Chronoframe remembers the list, and a saved profile holds one folder. See [Organizing several folders at once](./QUICK_START.md#organizing-several-folders-at-once).
+A: Yes. **Add Folders…** in **Organize → Choose Folders** accepts several folders. See [Organizing several folders at once](./QUICK_START.md#organizing-several-folders-at-once) for the overlap rules.
 
 **Q: What happens after a copy finishes?**
 
-A: The **Preview & Copy** screen shows **Copy complete** and says your originals were not changed. The report and the receipt for undoing the copy are in **History**. If files were copied, a **Next: remove extra copies** card offers **Find Duplicates**, which only opens **Deduplicate**: it doesn't start a scan or change the folder to scan, and Deduplicate removes nothing until you approve it. See [What happens after a copy](./QUICK_START.md#what-happens-after-a-copy).
+A: The **Preview & Copy** screen shows **Copy complete**, and the report and undo receipt are in **History**. See [What happens after a copy](./QUICK_START.md#what-happens-after-a-copy).
 
 **Q: Can Chronoframe find duplicate photos?**
 
@@ -109,11 +110,11 @@ Visual video matching is off by default. Enable it in **Settings → Deduplicate
 
 **Q: Can I deduplicate a folder on my NAS?**
 
-A: No, not for now. Deduplicate moves files to the macOS Trash, and Chronoframe has not verified that files moved to the Trash from a network share can be put back, so Deduplicate refuses any folder that isn't on this Mac or an attached drive. It also refuses a folder when macOS can't tell what kind of volume it is on. Nothing is changed. In the released app, which doesn't include NAS Library yet, the message reads: "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed." In builds where NAS Library is available, the message adds: "For a NAS, use NAS Library." NAS Library only reads your library and changes nothing on the NAS. It finds identical copies, shows how much space they take up (logical size, not space freed), and lets you pick which copy to keep. That choice is saved on this Mac as a note for you, not as a deletion approval, and the workspace has no delete, move, or Trash control. NAS Library isn't available in release builds yet.
+A: No, not for now. Deduplicate moves files to the macOS Trash, and Chronoframe has not verified that files moved to the Trash from a network share can be put back, so it refuses any folder that isn't on this Mac or an attached drive. Nothing is changed. NAS Library, which only reads your library, isn't available in release builds yet. See [Troubleshooting](./TROUBLESHOOTING.md#choose-a-folder-on-this-mac-or-an-attached-drive).
 
 **Q: Can I organize into a folder on my NAS?**
 
-A: Only when the share supports a rename that refuses to replace an existing file. Chronoframe checks this before it plans anything: when you start a preview or a copy into a network folder, it creates and removes a small empty test file in the destination's `.organize_logs` folder. If the share can't make that guarantee, Chronoframe says so and stops. Nothing is copied, and your originals are untouched. Many SMB shares, including the Synology share tested, do not support it. Choose a folder on this Mac or an attached drive instead. NAS Library, where it is available, can still assess the share, and copying from a share to a folder on this Mac is not affected.
+A: Only when the share supports a rename that refuses to replace an existing file. Chronoframe checks this before it plans anything and stops if the share can't guarantee it. Nothing is copied, and your originals are untouched. Many SMB shares, including the Synology share tested, do not support it. Copying from a share to a folder on this Mac is not affected. See [Troubleshooting](./TROUBLESHOOTING.md#nas-and-network-folder-issues).
 
 **Q: What if a file changes after a deduplicate scan?**
 
@@ -143,13 +144,9 @@ A: Yes. Open the **Photos** tab, grant read access, pick photos and videos, and 
 
 A: No. The Photos import is strictly one-directional and read-only. Chronoframe never writes back to your Photos library — it only exports copies out of it.
 
-**Q: The import stopped. Do I have to start over?**
+**Q: The import stopped, or the drive is almost full. Do I have to start over?**
 
-A: No. When you press **Stop**, Chronoframe says, for example, "Import stopped. 12 of 480 items are ready and were kept. Resume whenever you like. Your Photos library was not changed." Every item that finished preparing stays in Chronoframe's staging folder, and **Resume Import** carries on with the rest. The same goes if the app quit or crashed while items were still being prepared. Once every item has finished preparing, the import moves on to preview; quitting after that point means preparing again. Resume needs Photos access and the same destination you chose when the import started; if you pick a different destination, Resume stays unavailable until you choose the original one again, or you can discard the import. An item that could not be read or written is recorded as failed and skipped; it is not retried automatically, so select it again in a new import. Only the newest interrupted import is kept, and starting a new one replaces it.
-
-**Q: Chronoframe says the drive is almost full**
-
-A: Chronoframe paused the import because the drive holding its staging folder is almost full. It pauses when that drive has less than 2 GiB free, and says, for example, "12 of 480 items are ready and were kept. Free up space, then resume. Your Photos library was not changed." Free up space on that drive, then choose **Resume Import**. The staging folder is inside Chronoframe's Application Support folder, not in your destination.
+A: No. Chronoframe keeps every item that finished preparing, and **Resume Import** carries on with the rest. See [Troubleshooting](./TROUBLESHOOTING.md#photos-import-issues).
 
 ---
 
@@ -161,22 +158,11 @@ A: macOS requires apps to ask permission before reading folders outside your hom
 
 **Q: The app says "Permission Denied" for some files.**
 
-A: Chronoframe can't read every file in your folders. This might be because:
-- The file is locked (right-click → Get Info → check "Locked")
-- Another app is using the file
-- The file system is read-only
-- The file is corrupted
-
-You can review these errors in the Review tab or History logs.
+A: Chronoframe can't read every file in your folders, for example when a file is locked or another app is using it. See [Troubleshooting](./TROUBLESHOOTING.md#permission-denied-for-some-files).
 
 **Q: Deduplicate didn't find duplicates I know exist.**
 
-A: Exact matching uses **content hashing** (not filename matching). Two files are exact duplicates only if their bytes are identical. If you have:
-- Compressed differently (e.g., JPEG quality settings)
-- Different metadata but same image data
-- Very similar but not identical
-
-…they won't be exact matches. Photo similarity and the optional visual-video lane can still surface them for review. You can adjust similarity with the **Detection** preset (**Exact copies**, **Balanced**, or **Similar shots**).
+A: Exact matching uses content hashing, so two files match only if their bytes are identical. Files that were recompressed or re-exported need the **Balanced** or **Similar shots** **Detection** preset. See [Troubleshooting](./TROUBLESHOOTING.md#deduplicate-didnt-find-duplicates).
 
 **Q: Can I organize into one of the folders I am organizing?**
 
@@ -209,11 +195,7 @@ A: Yes. Save a **Profile** in **Settings → Profiles** with a folder and a dest
 
 **Q: Where does Chronoframe store its data?**
 
-A: Inside your destination folder:
-- `.organize_cache.db` — metadata cache, review edits, dedupe cache
-- `.organize_logs/` — copy logs, receipts, recovery journals, and reports
-
-Do not delete these while an operation is active or History shows interrupted work. Removing them can discard resume, recovery, history, or undo evidence. If every copy is complete and you intentionally accept losing that history, Chronoframe can recreate performance caches later.
+A: Inside your destination folder: `.organize_cache.db` (metadata cache, review edits, dedupe cache), `.organize_logs/` (receipts, recovery journals, reports) and `.organize_log.txt`. Keep them while an operation is active or History shows interrupted work; removing them can discard resume, recovery, history, or undo evidence.
 
 ---
 

@@ -42,23 +42,23 @@ Chronoframe always shows you a plan before it changes anything. Your source fold
 
 ## Install
 
-[Download Chronoframe from the Mac App Store](https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12). It is a one-time purchase with no subscription, account, analytics, or uploads.
+[Download Chronoframe from the Mac App Store](https://apps.apple.com/us/app/chronoframe/id6771245052?mt=12). It is free to download: organize 500 files and move 100 duplicates to the Trash before you decide. Scanning, previews, duplicate review, and History are free and unlimited, and revert is never gated. A one-time $14.99 US lifetime unlock removes the limits and includes Reorganize, with Family Sharing. No subscription, account, analytics, or uploads.
 
 The current source targets **macOS 14.0 or later** on Apple Silicon and Intel Macs. Organizing also requires enough free space for a copy of the source library.
 
 ## Organize Photos
 
-Organize is a four-step workspace — **Setup**, **Run**, **Health**, and **History** — that you move through left to right.
+Organize has these tabs: **Choose Folders**, **Preview & Copy**, **History**, **Watched Folders**, and **Health**.
 
-1. Open **Organize → Setup**.
-2. Click **Choose Source…** and pick the folder with your unsorted photos and videos.
+1. Open **Organize → Choose Folders**.
+2. Click **Add Folders…** and pick the folders with your unsorted photos and videos.
 3. Click **Choose Destination…** and pick where organized copies should go.
 4. Click **Preview Plan**. Chronoframe scans the source, resolves dates, and builds a transfer plan — nothing is copied yet.
 
 ![Preview Ready for Review — a timeline of the library by month, with discovered, planned, and issue counts.](docs/screenshots/preview-timeline.jpg)
 
-5. On the **Run** tab, inspect the preview: the timeline shows your library by month, and the counts cover what's ready, what's already there, duplicates, and anything that needs attention. Open **Review** to fix uncertain dates.
-6. Click **Start Transfer** when the preview looks right. Chronoframe copies files into the destination, verifies them, and writes a receipt — your source is never touched.
+5. On **Preview & Copy**, inspect the preview: the timeline shows your library by month, and the counts cover what's ready, what's already there, duplicates, and anything that needs attention. Open **Review** to fix uncertain dates.
+6. Click **Start Copying** when the preview looks right. Chronoframe copies files into the destination, verifies them, and writes a receipt — your source is never touched.
 
 ![Transfer Complete — every frame copied, with a run summary and links to open the destination, report, and logs.](docs/screenshots/transfer-complete.jpg)
 
@@ -77,11 +77,11 @@ The **History** tab keeps every run's reports and receipts. Reuse a past source,
 ## Deduplicate Photos and Videos
 
 1. Open **Deduplicate**.
-2. Click **Choose Folder…** to pick the folder to scan, or reuse a recent one. Pick a **Detection** preset (Strict, Balanced, or Loose) and click **Start Scan**.
+2. Click **Choose Folder…** to pick the folder to scan, or reuse a recent one. Pick a **Detection** preset (Exact copies, Balanced, or Similar shots) and click **Start Scan**.
 
 ![Deduplicate setup — a scan folder, recent folders with files removed and space saved, and detection presets.](docs/screenshots/dedupe-setup.jpg)
 
-3. Review each group. Compare candidates side by side, choose what to **Keep**, and use **Accept & Next** to move through them. **Auto-Accept Safe** clears the obvious exact copies for you.
+3. Review each group. Compare candidates side by side, choose what to **Keep**, and use **Accept & Next** to move through them. **Accept All Safe** clears the obvious exact copies for you.
 4. Click **Move to Trash** to send the files you approved to the macOS Trash.
 
 ![Deduplicate review — two similar photos compared side by side, with keep and delete choices.](docs/screenshots/dedupe-compare.jpg)
@@ -104,11 +104,7 @@ Chronoframe is fully native Swift. Developers can run the shared organizing engi
 swift run --package-path ui ChronoframeCLI --source ~/Photos/Unsorted --dest ~/Photos/Organized --dry-run
 ```
 
-Run the full test suite with the sandbox-friendly cache setup used by the project:
-
-```bash
-/bin/zsh -lc "HOME=$PWD/.tmp/home XDG_CACHE_HOME=$PWD/.tmp/home/Library/Caches CLANG_MODULE_CACHE_PATH=$PWD/.tmp/modulecache SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.tmp/modulecache swift test --package-path ui"
-```
+For test and build commands, see [CONTRIBUTING.md](CONTRIBUTING.md#local-validation).
 
 ## Privacy
 
