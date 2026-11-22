@@ -26653,7 +26653,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Jeder Balken steht für einen Monat geplanter Kopien, die noch ankommen."
+            "value" : "Jeder Balken steht für einen Monat geplanter Kopien, die noch ausstehen."
           }
         }
       }
@@ -26685,7 +26685,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert. Keine Auswahl."
+            "value" : "%lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert. Nicht ausgewählt."
           }
         }
       }
@@ -26701,7 +26701,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Es wird nur gelesen und die Kopie geplant. Es werden keine Fotos oder Videos zum Ziel hinzugefügt, und deine Originaldateien bleiben unberührt."
+            "value" : "Es wird nur gelesen und die Kopie geplant. Es werden keine Fotos oder Videos zum Ziel hinzugefügt, und deine Originaldateien bleiben unangetastet."
           }
         }
       }
@@ -26717,7 +26717,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aktive Vorschau. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unberührt."
+            "value" : "Aktive Vorschau. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unangetastet."
           }
         }
       }
