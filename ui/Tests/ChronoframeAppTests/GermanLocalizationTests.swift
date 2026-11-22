@@ -45,6 +45,17 @@ final class GermanLocalizationTests: XCTestCase {
         XCTAssertTrue(description.contains("niemals etwas geändert, verschoben oder gelöscht"))
     }
 
+    /// The Preview & Copy ticker passes these lowercase labels as plain strings,
+    /// so each needs its own catalog key (the German capture showed
+    /// "ALREADY THERE" in English beside translated neighbours).
+    func testRunTickerLabelsResolveInGerman() throws {
+        let german = try germanAppBundle()
+        for key in ["found", "to copy", "copied", "already there", "exact copies", "problems"] {
+            XCTAssertNotEqual(AppLocalization.string(key, bundle: german), key, key)
+        }
+        XCTAssertEqual(AppLocalization.string("already there", bundle: german), "bereits vorhanden")
+    }
+
     func testSharedCoreDisplayAndNativeButtonKeysResolveInTheAppTable() throws {
         let german = try germanAppBundle()
         for key in [

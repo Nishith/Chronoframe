@@ -9989,6 +9989,22 @@
         }
       }
     },
+    "already there" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "already there"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bereits vorhanden"
+          }
+        }
+      }
+    },
     "found" : {
       "localizations" : {
         "en" : {

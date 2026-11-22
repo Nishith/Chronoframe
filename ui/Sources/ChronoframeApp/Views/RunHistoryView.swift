@@ -650,7 +650,9 @@ struct RunHistoryView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(maxWidth: 320)
+                // German segment titles ("Protokolle", "Sonstige") need more
+                // room than English; at 320 the last segment clipped.
+                .frame(maxWidth: 440)
                 .accessibilityLabel("Filter reports and logs")
                 .accessibilityIdentifier(AccessibilityIdentifiers.historyFilterControl)
             }
