@@ -1003,6 +1003,14 @@ public final class RunSessionStore: ObservableObject {
         usedFreeTestBatch: Bool
     ) -> (title: String, body: String)? {
         switch summary.status {
+        case .finished where summary.metrics.failedCount > 0
+            || summary.metrics.errorCount > 0 || summary.metrics.hashErrorCount > 0:
+            return (
+                CoreL10n.text("Copy finished with problems"),
+                summary.metrics.failedCount > 0
+                    ? CoreL10n.text("\(summary.metrics.copiedCount) copied, \(summary.metrics.failedCount) could not be copied.")
+                    : CoreL10n.text("\(summary.metrics.copiedCount) copied, but Chronoframe reported problems.")
+            )
         case .finished:
             return (
                 CoreL10n.text("Copy complete"),
@@ -1026,6 +1034,25 @@ public final class RunSessionStore: ObservableObject {
                 return (
                     CoreL10n.text("Nothing left to copy"),
                     CoreL10n.text("The files in that batch have moved or changed, so nothing was copied.")
+                )
+            }
+            // "Already up to date" says something about the destination, so it
+            // needs files actually found there and nothing that went wrong. An
+            // empty source, a resumed run with nothing pending, or unreadable
+            // files end here too.
+            let metrics = summary.metrics
+            let hadProblems = summary.failureMessage != nil || metrics.hashErrorCount > 0
+                || metrics.errorCount > 0 || metrics.failedCount > 0
+            if hadProblems {
+                return (
+                    CoreL10n.text("Nothing was copied"),
+                    CoreL10n.text("Chronoframe copied nothing. Your originals were not changed. Open Chronoframe to see why.")
+                )
+            }
+            guard metrics.alreadyInDestinationCount > 0 else {
+                return (
+                    CoreL10n.text("Nothing was copied"),
+                    CoreL10n.text("Chronoframe found nothing to copy. Your originals were not changed.")
                 )
             }
             return (CoreL10n.text("Already up to date"), CoreL10n.text("Everything in your folders is already in the destination."))

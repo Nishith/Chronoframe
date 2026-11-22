@@ -163,6 +163,7 @@ final class RunWorkspaceModelTests: XCTestCase {
         canStart: Bool = true,
         copied: Int = 0,
         planned: Int = 0,
+        alreadyInDestination: Int = 0,
         lastError: String? = nil
     ) -> RunWorkspaceModel {
         RunWorkspaceModel(
@@ -172,7 +173,7 @@ final class RunWorkspaceModelTests: XCTestCase {
                 currentTaskTitle: "",
                 currentPhase: nil,
                 progress: 0,
-                metrics: RunMetrics(plannedCount: planned, copiedCount: copied),
+                metrics: RunMetrics(plannedCount: planned, alreadyInDestinationCount: alreadyInDestination, copiedCount: copied),
                 summary: nil,
                 lastErrorMessage: lastError,
                 warningCount: 0,
@@ -242,7 +243,7 @@ final class RunWorkspaceModelTests: XCTestCase {
                     badge: "Up to date"),
         ]
         for row in rows {
-            let model = heroModel(status: row.status, mode: row.mode, canStart: row.canStart, copied: 64_212)
+            let model = heroModel(status: row.status, mode: row.mode, canStart: row.canStart, copied: 64_212, alreadyInDestination: 64_212)
             let hero = model.heroState
             XCTAssertEqual(hero.title, row.title, row.label)
             XCTAssertEqual(hero.message, row.message, row.label)
