@@ -1,0 +1,68 @@
+[
+  {
+    "file": "01-mas-opening-preview-raw.mov",
+    "sha256": "cc379dc8e33ba0ce2a34408a6766aa7b05969ee3f82697b9a76e6fb66b1a819c",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/01-mas-opening-preview-raw.mov"
+  },
+  {
+    "file": "02-mas-transfer-complete-raw.mov",
+    "sha256": "85fab2f0f6cd64259fd0c4dd3e2bea3141f58f8d5d334ca3886e1e1fc359b498",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/02-mas-transfer-complete-raw.mov"
+  },
+  {
+    "file": "03-mas-sandboarding-choice-raw.mov",
+    "sha256": "016b036adbbd3055a22d0bc61705f88f005e67aa973c2ed94d76dabc8ff4f579",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/03-mas-sandboarding-choice-raw.mov"
+  },
+  {
+    "file": "03b-mas-sandboarding-keeper-raw.mov",
+    "sha256": "49f0d32b304c9d6f137dec9194157003efba013c846e59594b3a33ad2975db01",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/03b-mas-sandboarding-keeper-raw.mov"
+  },
+  {
+    "file": "04a-mas-trash-review-raw.mov",
+    "sha256": "a51764dfb310b6e8410107f1f94a39efab9e60fa6199b57de1b151ae5751ba7b",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/04a-mas-trash-review-raw.mov"
+  },
+  {
+    "file": "04b-mas-trash-confirmation-raw.mov",
+    "sha256": "2d2946fdba2992f97e215dd7767a1c33670a471514119bc9b4d3180bdba17ffb",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/04b-mas-trash-confirmation-raw.mov"
+  },
+  {
+    "file": "05a-mas-history-before-revert-raw.mov",
+    "sha256": "dc189245f0d6033a439844a3ed998d08df153177e6ba84d3aae094f949e6fd58",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/05a-mas-history-before-revert-raw.mov"
+  },
+  {
+    "file": "05b-mas-revert-confirmation-raw.mov",
+    "sha256": "e3c32547e9830517561e95aecbc6252aa63a48c0ce91dc41aae507dac1676f65",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/05b-mas-revert-confirmation-raw.mov"
+  },
+  {
+    "file": "05c-mas-revert-complete-raw.mov",
+    "sha256": "6357e41ddfc21a7116c26c1707fe7fa075c8228f44b7e9fa6c7f91112ce9e409",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/marketing/app-preview/source-footage/05c-mas-revert-complete-raw.mov"
+  },
+  {
+    "file": "hero-organized-finder-raw.mov",
+    "sha256": "de72266303003a71de79a83de4bc49d2965015a0c481e9141626e2c4c538fb92",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/.tmp/marketing-capture/video/hero-organized-finder-raw.mov"
+  },
+  {
+    "file": "hero-source-finder-raw.mov",
+    "sha256": "f942c5b26a8755cbe7d6ee17138777941f365ad58a39c2ca5f9411cde4296b30",
+    "recorded": "2026-09-21",
+    "original": "/Users/nishithnand/Code/Chronoframe/.tmp/marketing-capture/video/hero-source-finder-raw.mov"
+  }
+]
