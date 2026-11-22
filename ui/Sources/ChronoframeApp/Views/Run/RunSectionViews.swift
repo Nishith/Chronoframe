@@ -567,28 +567,28 @@ struct RunIssuesPanel: View {
         }
     }
 
-    static func suggestedFixes(for entries: [RunIssueLineModel]) -> [String] {
+    static func suggestedFixes(for entries: [RunIssueLineModel], bundle: Bundle = .module) -> [String] {
         let text = entries.map(\.text).joined(separator: "\n").lowercased()
         var fixes: [String] = []
         if text.contains("permission") || text.contains("access") || text.contains("bookmark") {
-            fixes.append("Choose the folders or the destination again so macOS refreshes access.")
+            fixes.append(AppLocalization.string("Choose the folders or the destination again so macOS refreshes access.", bundle: bundle))
         }
         if text.contains("space") || text.contains("disk") || text.contains("volume") {
-            fixes.append("Free space on the destination volume, then rebuild the preview.")
+            fixes.append(AppLocalization.string("Free space on the destination volume, then rebuild the preview.", bundle: bundle))
         }
         if text.contains("hash") || text.contains("verify") {
-            fixes.append("Keep verification on and try again; Chronoframe removes bad copies when verification fails.")
+            fixes.append(AppLocalization.string("Keep verification on and try again; Chronoframe removes bad copies when verification fails.", bundle: bundle))
         }
         if text.contains("date") || text.contains("unknown") {
-            fixes.append("Open the Review tab and set unknown or unsure dates before copying.")
+            fixes.append(AppLocalization.string("Open the Review tab and set unknown or unsure dates before copying.", bundle: bundle))
         }
         if text.contains("exist") || text.contains("collision") || text.contains("duplicate") {
-            fixes.append("Check skipped and exact-copy items in the Review tab before copying.")
+            fixes.append(AppLocalization.string("Check skipped and exact-copy items in the Review tab before copying.", bundle: bundle))
         }
         if fixes.isEmpty {
-            fixes.append("Open the related file or folder from Reports and Logs, then preview again after fixing the cause.")
+            fixes.append(AppLocalization.string("Open the related file or folder from Reports and Logs, then preview again after fixing the cause.", bundle: bundle))
         }
-        fixes.append("Your originals are not changed while you resolve these problems.")
+        fixes.append(AppLocalization.string("Your originals are not changed while you resolve these problems.", bundle: bundle))
         return fixes
     }
 }

@@ -56,6 +56,34 @@ final class GermanLocalizationTests: XCTestCase {
         XCTAssertEqual(AppLocalization.string("already there", bundle: german), "bereits vorhanden")
     }
 
+    /// The Problems tab's suggested fixes were handed to `Label(String, …)`,
+    /// which never consults the catalog, so German users saw English.
+    func testSuggestedFixesAreTranslated() throws {
+        let german = try germanAppBundle()
+        let entries = ["permission denied", "no disk space", "hash mismatch", "unknown date", "file exists"]
+            .enumerated()
+            .map { RunIssueLineModel(id: $0.offset, text: $0.element, tone: .danger) }
+
+        let english = RunIssuesPanel.suggestedFixes(for: entries)
+        let translated = RunIssuesPanel.suggestedFixes(for: entries, bundle: german)
+
+        XCTAssertEqual(translated.count, english.count)
+        XCTAssertGreaterThan(translated.count, 1)
+        for (de, en) in zip(translated, english) {
+            XCTAssertNotEqual(de, en, en)
+        }
+    }
+
+    /// Row-menu accessibility labels carry the row's name, so the template
+    /// (not the interpolated sentence) has to be what gets looked up.
+    func testAccessibilityLabelsThatNameARowAreTranslated() throws {
+        let german = try germanAppBundle()
+        XCTAssertEqual(
+            AppLocalization.format("Actions for %@", "Meridian Travel", bundle: german),
+            "Aktionen für Meridian Travel"
+        )
+    }
+
     func testSharedCoreDisplayAndNativeButtonKeysResolveInTheAppTable() throws {
         let german = try germanAppBundle()
         for key in [

@@ -8,4 +8,11 @@ enum AppLocalization {
     static func string(_ key: String, bundle: Bundle = .module) -> String {
         String(localized: String.LocalizationValue(key), bundle: bundle)
     }
+
+    /// Looks up a `%@` template and fills it in afterwards. Use this when a
+    /// string names a row (a profile, a history entry): looking up the already
+    /// interpolated sentence can never match a catalog key.
+    static func format(_ key: String, _ argument: String, bundle: Bundle = .module) -> String {
+        String(format: string(key, bundle: bundle), argument)
+    }
 }
