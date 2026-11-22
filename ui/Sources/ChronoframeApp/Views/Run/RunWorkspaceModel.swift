@@ -118,6 +118,8 @@ struct RunWorkspaceContext {
     /// Active source file URL during the transfer phase. Drives the
     /// NowCopyingCard's live QuickLook thumbnail; `nil` outside copy.
     var currentFileURL: URL?
+    /// The user asked to stop and the engine has not finished stopping yet.
+    var isCancelling: Bool
 
     init(
         status: RunStatus,
@@ -138,7 +140,8 @@ struct RunWorkspaceContext {
         previewReviewIsStale: Bool = false,
         previewReviewSummary: PreviewReviewSummary = PreviewReviewSummary(),
         previewReviewPath: String? = nil,
-        currentFileURL: URL? = nil
+        currentFileURL: URL? = nil,
+        isCancelling: Bool = false
     ) {
         self.status = status
         self.currentMode = currentMode
@@ -159,6 +162,7 @@ struct RunWorkspaceContext {
         self.previewReviewSummary = previewReviewSummary
         self.previewReviewPath = previewReviewPath
         self.currentFileURL = currentFileURL
+        self.isCancelling = isCancelling
     }
 }
 
@@ -201,7 +205,8 @@ struct RunWorkspaceModel {
                 previewReviewIsStale: previewReviewStore?.isStale ?? false,
                 previewReviewSummary: previewReviewStore?.summary ?? PreviewReviewSummary(),
                 previewReviewPath: runSessionStore.summary?.artifacts.previewReviewPath,
-                currentFileURL: runSessionStore.currentFileURL
+                currentFileURL: runSessionStore.currentFileURL,
+                isCancelling: runSessionStore.isCancelling
             )
         )
     }
@@ -216,6 +221,16 @@ struct RunWorkspaceModel {
             review: context.previewReviewSummary,
             isStale: context.previewReviewIsStale
         )
+    }
+
+    /// Final totals outrank the last progress sample: the engine's summary is
+    /// what actually happened, including files that failed or were reduced by
+    /// revalidation.
+    var outcomeMetrics: RunMetrics { context.summary?.metrics ?? context.metrics }
+
+    var hasOutcomeIssues: Bool {
+        outcomeMetrics.failedCount > 0 || outcomeMetrics.errorCount > 0
+            || outcomeMetrics.hashErrorCount > 0 || context.issueCount > 0
     }
 
     var heroState: RunHeroState {
@@ -246,6 +261,17 @@ struct RunWorkspaceModel {
 
         case .running:
             let mode = context.currentMode ?? .transfer
+            if context.isCancelling {
+                return RunHeroState(
+                    title: String(localized: "Stopping…", bundle: .module),
+                    message: String(localized: "Waiting for Chronoframe to stop and save its receipt. Your originals are not changed. Files already copied stay in place.", bundle: .module),
+                    badgeTitle: String(localized: "Stopping…", bundle: .module),
+                    badgeSymbol: "arrow.triangle.2.circlepath",
+                    heroSymbol: "bolt.horizontal.circle",
+                    tone: .active,
+                    primaryAction: .cancel
+                )
+            }
             return RunHeroState(
                 title: mode == .preview ? String(localized: "Building the preview", bundle: .module) : String(localized: "Copying your photos", bundle: .module),
                 message: mode == .preview
@@ -269,6 +295,22 @@ struct RunWorkspaceModel {
                 primaryAction: .transfer
             )
 
+        case .finished where hasOutcomeIssues:
+            let failed = outcomeMetrics.failedCount
+            let copied = outcomeMetrics.copiedCount
+            let message = failed > 0
+                ? String(localized: "\(String(copied.formatted())) copied, \(String(failed.formatted())) could not be copied. Your originals were not changed. See Problems for details.", bundle: .module)
+                : String(localized: "\(String(copied.formatted())) copied, but Chronoframe reported problems. Your originals were not changed. See Problems for details.", bundle: .module)
+            return RunHeroState(
+                title: String(localized: "Copy finished with problems", bundle: .module),
+                message: message,
+                badgeTitle: String(localized: "Needs attention", bundle: .module),
+                badgeSymbol: "exclamationmark.triangle.fill",
+                heroSymbol: "exclamationmark.triangle.fill",
+                tone: .warning,
+                primaryAction: .showIssues
+            )
+
         case .finished:
             let copied = context.metrics.copiedCount
             let subject = copied == 1 ? String(localized: "1 photo or video is", bundle: .module) : String(localized: "\(String(copied.formatted())) photos and videos are", bundle: .module)
@@ -280,6 +322,22 @@ struct RunWorkspaceModel {
                 heroSymbol: "checkmark.circle.fill",
                 tone: .success,
                 primaryAction: .openDestination
+            )
+
+        case .nothingToCopy where hasOutcomeIssues || outcomeMetrics.alreadyInDestinationCount == 0:
+            // "Already up to date" is only true when files were found in the
+            // library and nothing went wrong. A free test batch whose files
+            // moved, an empty source, or a run with warnings all end here too.
+            return RunHeroState(
+                title: String(localized: "Nothing was copied", bundle: .module),
+                message: hasOutcomeIssues
+                    ? String(localized: "Chronoframe copied nothing this time. Your originals were not changed. See Problems for why.", bundle: .module)
+                    : String(localized: "Chronoframe found nothing to copy. Your originals were not changed.", bundle: .module),
+                badgeTitle: String(localized: "Nothing copied", bundle: .module),
+                badgeSymbol: "info.circle.fill",
+                heroSymbol: "info.circle.fill",
+                tone: hasOutcomeIssues ? .warning : .ready,
+                primaryAction: hasOutcomeIssues ? .showIssues : .openDestination
             )
 
         case .nothingToCopy:
