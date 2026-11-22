@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Chronoframe product film</title>
+<style>
+  :root {
+    --paper: #F7F4EE;
+    --graphite: #0E0F12;
+    --ink: #1A1A1E;
+    --ink-light: #F5F5F7;
+    --muted-light: #8E8E93;
+    --muted-dark: #6E6E73;
+    --amber: #E8A317;
+    --amber-2: #F6B94A;
+    --indigo: #3E5BFF;
+    --green: #58C98C;
+  }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 1920px; height: 1080px; overflow: hidden; position: relative;
+    background: var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--ink);
+  }
+  #stage { position: absolute; inset: 0; overflow: hidden; }
+  #bg { position: absolute; inset: 0; background: var(--paper); }
+  #bands { position: absolute; inset: 0; overflow: hidden; }
+  .band {
+    position: absolute; top: -700px; height: 2500px; border-radius: 400px;
+    filter: blur(110px); transform-origin: center center;
+  }
+  .layer { position: absolute; inset: 0; display: none; }
+  .layer.on { display: block; }
+  .abs { position: absolute; left: 0; top: 0; }
+  .nowrap { white-space: nowrap; }
+
+  .kin {
+    position: absolute; left: 0; top: 0; white-space: nowrap;
+    font-size: 196px; font-weight: 800; letter-spacing: -0.05em; line-height: 1;
+    will-change: transform;
+  }
+  .kin.light { color: var(--ink); }
+  .kin.dark { color: var(--ink-light); }
+  .kin .soft { color: #B9B4AB; }
+
+  .cap {
+    position: absolute; left: 0; width: 1920px; text-align: center; white-space: nowrap;
+    font-size: 40px; font-weight: 600; letter-spacing: -0.015em;
+  }
+  .cap .m { font-weight: 500; }
+  .cap span { display: inline-block; }
+
+  .card {
+    position: absolute; overflow: hidden; border-radius: 16px;
+    box-shadow: 0 40px 90px rgba(10, 8, 4, 0.28), 0 6px 18px rgba(10, 8, 4, 0.14);
+    background: #0f1013;
+  }
+  .card img { display: block; width: 100%; height: auto; }
+
+  .pill {
+    position: absolute; white-space: nowrap; border-radius: 999px;
+    font-size: 22px; font-weight: 600; letter-spacing: -0.01em;
+    padding: 12px 22px;
+  }
+  .pill.amber { background: var(--amber); color: #1A1200; }
+  .pill.glass-dark { background: rgba(28, 29, 34, 0.92); color: var(--ink-light); box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .pill .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 12px; vertical-align: 2px; }
+
+  /* MacBook frame */
+  .mac { position: absolute; width: 1560px; }
+  .mac .lid {
+    background: #111214; border-radius: 30px; padding: 18px 18px 22px;
+    box-shadow: 0 60px 120px rgba(10,8,4,.35), 0 10px 30px rgba(10,8,4,.2);
+  }
+  .mac .screen { border-radius: 14px; overflow: hidden; background: #0f1013; position: relative; }
+  .mac .screen img { display: block; width: 100%; height: auto; }
+  .mac .base {
+    margin: 0 -34px; height: 18px; border-radius: 0 0 18px 18px;
+    background: linear-gradient(#2c2d31, #1b1c1f);
+    position: relative;
+  }
+  .mac .base::after {
+    content: ""; position: absolute; left: 50%; top: 0; width: 220px; height: 7px;
+    transform: translateX(-50%); background: #0e0f11; border-radius: 0 0 8px 8px;
+  }
+
+  /* side column (Melt-style) */
+  .side { position: absolute; left: 140px; top: 390px; width: 560px; }
+  .side h2 { margin: 0 0 20px; font-size: 68px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.02; }
+  .side p { margin: 0 0 30px; font-size: 27px; line-height: 1.35; font-weight: 500; color: #5c5a55; }
+
+  /* dock-style chips */
+  .dock {
+    position: absolute; left: 50%; top: 520px; transform: translateX(-50%);
+    display: flex; gap: 22px; padding: 22px 26px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 34px; backdrop-filter: blur(20px);
+  }
+  .chip { position: relative; width: 150px; text-align: center; }
+  .chip svg { width: 110px; height: 90px; display: block; margin: 0 auto 10px; }
+  .chip .name { font-size: 18px; font-weight: 600; color: #d6d6db; letter-spacing: -0.01em; white-space: nowrap; }
+  .chip .badge {
+    position: absolute; top: -10px; right: 6px; min-width: 26px; height: 36px; padding: 0 11px;
+    border-radius: 18px; background: #FF3B30; color: #fff; font-size: 19px; font-weight: 700;
+    line-height: 36px; box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  }
+
+  .ring {
+    position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px;
+    border-radius: 50%; border: 5px solid rgba(26,26,30,0.14); border-top-color: var(--ink);
+  }
+  .icon { position: absolute; left: 50%; top: 50%; width: 180px; height: 180px; margin: -90px 0 0 -90px; }
+  .icon img { width: 100%; height: 100%; display: block; }
+  .wordmark {
+    position: absolute; left: 0; width: 1920px; text-align: center;
+    font-size: 46px; font-weight: 700; letter-spacing: -0.03em;
+  }
+  .wordmark .wp { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--amber); margin-right: 14px; vertical-align: 6px; }
+
+  .stack { position: absolute; left: 0; width: 1920px; text-align: center; }
+  .stack .line { font-size: 72px; font-weight: 800; letter-spacing: -0.045em; line-height: 1.18; color: var(--ink-light); }
+  .stack .line .no { color: #7a7a80; font-weight: 600; }
+  .stack .sub { margin-top: 26px; font-size: 30px; font-weight: 500; color: #9a9aa0; letter-spacing: -0.01em; }
+
+  .url { position: absolute; left: 0; width: 1920px; text-align: center; font-size: 46px; font-weight: 600; letter-spacing: -0.02em; }
+  .url .caret { display: inline-block; width: 3px; height: 48px; background: var(--ink); vertical-align: -8px; margin-left: 4px; }
+
+  .fin {
+    position: absolute; left: 0; width: 1920px; text-align: center;
+  }
+  .fin .pill { position: static; display: inline-block; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs id="filters"></defs></svg>
+<div id="stage">
+  <div id="bg"></div>
+  <div id="bands"></div>
+  <div id="scenes"></div>
+</div>
+<script>
+'use strict';
+const FPS = 30, DT = 1 / FPS;
+const SEQ_BASE = 'seq/';
+const SEQ_LEN = { src: 120, org: 120, preview: 180, transfer: 180, compare: 238, keeper: 117, trashreview: 117, trash: 87, history: 118, revert: 87, restored: 117 };
+
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const lerp = (a, b, u) => a + (b - a) * u;
+const span = (t, t0, d) => clamp((t - t0) / d, 0, 1);
+const outQuint = u => 1 - Math.pow(1 - u, 5);
+const outCubic = u => 1 - Math.pow(1 - u, 3);
+const inCubic = u => u * u * u;
+const inOut = u => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
+const spring = u => 1 - Math.exp(-6 * u) * Math.cos(9 * u);  // small overshoot
+
+const stage = document.getElementById('scenes');
+const bg = document.getElementById('bg');
+const bandsEl = document.getElementById('bands');
+const filterDefs = document.getElementById('filters');
+
+function el(tag, cls, html, parent) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html != null) e.innerHTML = html;
+  (parent || stage).appendChild(e);
+  return e;
+}
+
+// ---- directional motion blur via per-element SVG filter -------------------
+let filterCount = 0;
+function motionBlur(e) {
+  const id = 'mb' + (filterCount++);
+  const f = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+  f.setAttribute('id', id);
+  f.setAttribute('x', '-100%'); f.setAttribute('y', '-100%');
+  f.setAttribute('width', '300%'); f.setAttribute('height', '300%');
+  f.setAttribute('color-interpolation-filters', 'sRGB');
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+  g.setAttribute('stdDeviation', '0 0');
+  f.appendChild(g);
+  filterDefs.appendChild(f);
+  e.style.filter = `url(#${id})`;
+  return (sx, sy) => g.setAttribute('stdDeviation', `${sx.toFixed(2)} ${(sy || 0).toFixed(2)}`);
+}
+
+// Horizontal slide with velocity-driven blur. Positions are the element's
+// top-left in stage pixels.
+function makeSlide(e, cfg) {
+  const setBlur = motionBlur(e);
+  const xAt = (tt) => {
+    if (tt < cfg.inAt) return cfg.from;
+    if (tt < cfg.inAt + cfg.inDur) return lerp(cfg.from, cfg.to, outQuint((tt - cfg.inAt) / cfg.inDur));
+    if (cfg.outAt == null || tt < cfg.outAt) return cfg.to;
+    if (tt < cfg.outAt + cfg.outDur) return lerp(cfg.to, cfg.outTo, inCubic((tt - cfg.outAt) / cfg.outDur));
+    return cfg.outTo;
+  };
+  return (t) => {
+    const x = xAt(t), v = Math.abs(x - xAt(t - DT));
+    e.style.transform = `translate(${x.toFixed(1)}px, ${cfg.y}px)`;
+    setBlur(Math.min(70, v * 0.5), 0);
+    const visible = t >= cfg.inAt && (cfg.outAt == null || t < cfg.outAt + cfg.outDur);
+    e.style.visibility = visible ? 'visible' : 'hidden';
+  };
+}
+
+// Fade + blur + rise reveal. u in [0,1].
+function reveal(e, u, opts = {}) {
+  const rise = opts.rise ?? 18, blur = opts.blur ?? 16;
+  const k = outCubic(u);
+  e.style.opacity = k.toFixed(3);
+  e.style.filter = `blur(${((1 - k) * blur).toFixed(2)}px)`;
+  e.style.transform = `${opts.base || ''} translateY(${((1 - k) * rise).toFixed(2)}px) scale(${lerp(opts.scaleFrom ?? 1, 1, k).toFixed(4)})`;
+  e.style.visibility = u > 0 ? 'visible' : 'hidden';
+}
+function fadeOutBlur(e, u, opts = {}) {
+  const k = inCubic(u);
+  e.style.opacity = (1 - k).toFixed(3);
+  e.style.filter = `blur(${(k * (opts.blur ?? 14)).toFixed(2)}px)`;
+  e.style.transform = `${opts.base || ''} translateY(${(-k * (opts.rise ?? 10)).toFixed(2)}px)`;
+}
+
+// Character-by-character reveal with a blurred tail (caption typing).
+function typed(parent, text) {
+  const chars = [];
+  for (const ch of text) {
+    const s = document.createElement('span');
+    s.textContent = ch === ' ' ? ' ' : ch;
+    parent.appendChild(s);
+    chars.push(s);
+  }
+  return (t, t0, perChar = 0.045, fade = 0.26) => {
+    chars.forEach((s, i) => {
+      const u = span(t, t0 + i * perChar, fade);
+      s.style.opacity = u.toFixed(3);
+      s.style.filter = `blur(${((1 - u) * 10).toFixed(2)}px)`;
+      s.style.transform = `translateX(${((1 - u) * 14).toFixed(2)}px)`;
+    });
+  };
+}
+
+// Word-group reveal (caption built from groups that blur in one after another).
+function groups(parent, parts) {
+  const spans = parts.map(p => {
+    const s = document.createElement('span');
+    s.className = p.cls || '';
+    s.innerHTML = p.html + (p.gap === false ? '' : '&nbsp;');
+    parent.appendChild(s);
+    return s;
+  });
+  return (t, times, dur = 0.5) => spans.forEach((s, i) => reveal(s, span(t, times[i], dur), { rise: 8, blur: 12 }));
+}
+
+// Footage sequence inside an element.
+const seqImgs = {};
+function seqImg(name) {
+  const img = document.createElement('img');
+  img.dataset.seq = name;
+  img.decoding = 'sync';   // never let Chrome paint a frame before the swapped image is decoded
+  seqImgs[name] = seqImgs[name] || [];
+  seqImgs[name].push(img);
+  return img;
+}
+const pendingDecodes = [];
+function seqFrame(img, name, localT, offsetFrames = 0) {
+  const n = SEQ_LEN[name];
+  const idx = clamp(Math.floor(localT * FPS) + offsetFrames, 0, n - 1) + 1;
+  const src = `${SEQ_BASE}${name}/${String(idx).padStart(4, '0')}.jpg`;
+  if (img.getAttribute('src') !== src) {
+    img.src = src;
+    pendingDecodes.push(img.decode().catch(() => {}));
+  }
+}
+
+// ---- background bands -----------------------------------------------------
+const bandSpec = [
+  { x: -40,  w: 260, c: '#F3B65B', a: .50, r: -16, ph: 0.0 },
+  { x: 250,  w: 420, c: '#FBE4BE', a: .90, r: -16, ph: 1.1 },
+  { x: 600,  w: 240, c: '#F0A93B', a: .42, r: -16, ph: 2.2 },
+  { x: 860,  w: 520, c: '#FFF7EA', a: 1.0, r: -16, ph: 0.6 },
+  { x: 1180, w: 220, c: '#F7C97A', a: .50, r: -16, ph: 1.8 },
+  { x: 1400, w: 420, c: '#FCEBD0', a: .90, r: -16, ph: 2.9 },
+  { x: 1700, w: 260, c: '#EFA738', a: .40, r: -16, ph: 0.3 },
+  { x: 1960, w: 360, c: '#FFF4E2', a: 1.0, r: -16, ph: 1.5 },
+];
+const bands = bandSpec.map(b => {
+  const e = el('div', 'band', '', bandsEl);
+  e.style.left = b.x + 'px'; e.style.width = b.w + 'px';
+  e.style.background = b.c; e.style.opacity = b.a;
+  return e;
+});
+function updateBands(t, mode, strength) {
+  bandsEl.style.opacity = strength;
+  bands.forEach((e, i) => {
+    const b = bandSpec[i];
+    const dx = Math.sin(t * 0.35 + b.ph) * 36 + t * 6;
+    e.style.transform = `translateX(${dx.toFixed(1)}px) rotate(${b.r}deg)`;
+  });
+  bg.style.background = mode === 'dark' ? 'var(--graphite)' : 'var(--paper)';
+}
+
+// ---- scene registry -------------------------------------------------------
+const scenes = [];
+function scene(start, end, mode, bandStrength, build) {
+  const layer = el('div', 'layer');
+  const update = build(layer);
+  scenes.push({ start, end, mode, bandStrength, layer, update });
+}
+
+const FOLDER_SVG = `<svg viewBox="0 0 64 52"><path d="M4 10a6 6 0 0 1 6-6h14l6 6h24a6 6 0 0 1 6 6v26a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6z" fill="#4C9BE8"/><path d="M4 20h56v22a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6z" fill="#6FB8FF"/></svg>`;
+
+// 1. Scattered ---------------------------------------------------------------
+scene(0.0, 3.5, 'light', 1, (L) => {
+  const cap = el('div', 'cap', '', L); cap.style.top = '150px'; cap.style.fontSize = '36px';
+  const type = typed(cap, 'twenty years of photos.');
+  const card = el('div', 'card', '', L);
+  card.style.width = '900px'; card.style.left = '510px'; card.style.top = '236px';
+  card.style.borderRadius = '18px';
+  const img = seqImg('src'); card.appendChild(img);
+  const kin = el('div', 'kin light', 'are somewhere in here.', L);
+  kin.style.fontSize = '186px';
+  const slide = makeSlide(kin, { inAt: 1.55, inDur: 1.5, from: 2100, to: -30, y: 640, outAt: 3.1, outDur: 0.45, outTo: -3800 });
+  return (t) => {
+    type(t, 0.25);
+    slide(t);
+    reveal(card, span(t, 1.0, 0.7), { rise: 70, blur: 20, scaleFrom: 0.94 });
+    if (t > 3.1) fadeOutBlur(card, span(t, 3.1, 0.4), { blur: 20, rise: 30 });
+    seqFrame(img, 'src', t - 1.0);
+  };
+});
+
+// 2. Sources ------------------------------------------------------------------
+scene(3.5, 7.4, 'dark', 0.16, (L) => {
+  const cap = el('div', 'cap', '', L); cap.style.top = '300px'; cap.style.fontSize = '44px'; cap.style.color = '#F5F5F7';
+  const g = groups(cap, [
+    { html: 'phone backups.', cls: 'm' },
+    { html: 'camera cards.', cls: 'm' },
+    { html: 'that drawer of old drives.', gap: false },
+  ]);
+  const dock = el('div', 'dock', '', L);
+  const chips = [
+    ['DCIM', '1,206'], ['Camera Uploads', '334'], ['Old Laptop', '2,918'], ['External Drive', '7,540'],
+    ['Messages', '611'], ['Downloads', '87'], ['Edited Exports', '334'],
+    ['Pictures', '1,048'], ['iPhone Backup', '3,201'],
+  ].map(([name, n]) => {
+    const c = el('div', 'chip', `${FOLDER_SVG}<div class="name">${name}</div><div class="badge">${n}</div>`, dock);
+    return c;
+  });
+  return (t) => {
+    const tl = t - 3.5;
+    cap.querySelectorAll('span').forEach(s => { s.style.color = ''; });
+    cap.querySelectorAll('span.m').forEach(s => { s.style.color = '#8E8E93'; });
+    g(t, [3.7, 4.35, 5.0], 0.55);
+    reveal(dock, span(tl, 0.7, 0.6), { rise: 40, blur: 14, base: 'translateX(-50%)' });
+    chips.forEach((c, i) => {
+      const u = span(tl, 1.0 + i * 0.17, 0.5);
+      const k = spring(u);
+      c.style.opacity = clamp(u * 3, 0, 1);
+      c.style.transform = `translateY(${((1 - k) * 36).toFixed(2)}px) scale(${lerp(0.6, 1, k).toFixed(3)})`;
+      const b = c.querySelector('.badge');
+      const ub = span(tl, 1.25 + i * 0.17, 0.35);
+      b.style.transform = `scale(${spring(ub).toFixed(3)})`;
+      b.style.opacity = ub > 0 ? 1 : 0;
+    });
+    // subtle unease: the row wobbles once everything has piled in
+    const wob = tl > 3.1 ? Math.sin((tl - 3.1) * 28) * Math.exp(-(tl - 3.1) * 4) * 6 : 0;
+    dock.style.transform = `translateX(calc(-50% + ${wob.toFixed(2)}px))`;
+  };
+});
+
+// 3. Logo ----------------------------------------------------------------------
+scene(7.4, 9.7, 'light', 1, (L) => {
+  const ring = el('div', 'ring', '', L);
+  const icon = el('div', 'icon', '<img src="icon.png" alt="">', L);
+  const wm = el('div', 'wordmark', '<span class="wp"></span>Chronoframe', L); wm.style.top = '660px';
+  return (t) => {
+    const tl = t - 7.4;
+    const ringU = span(tl, 0, 0.3), ringOut = span(tl, 0.85, 0.25);
+    ring.style.opacity = (ringU * (1 - ringOut)).toFixed(3);
+    ring.style.transform = `rotate(${(tl * 420).toFixed(1)}deg) scale(${lerp(1, 0.6, ringOut).toFixed(3)})`;
+    const iu = span(tl, 0.95, 0.75);
+    const k = spring(iu);
+    icon.style.opacity = clamp(iu * 4, 0, 1);
+    icon.style.transform = `translateY(${((1 - k) * -90).toFixed(1)}px) scale(${lerp(0.5, 1, k).toFixed(3)})`;
+    icon.style.filter = `blur(${((1 - clamp(iu * 2, 0, 1)) * 14).toFixed(2)}px)`;
+    reveal(wm, span(tl, 1.35, 0.6), { rise: 16, blur: 10 });
+  };
+});
+
+// 4. Plan + MacBook ------------------------------------------------------------
+scene(9.7, 15.2, 'light', 1, (L) => {
+  const k1 = el('div', 'kin light', 'See the plan.', L);
+  const k2 = el('div', 'kin light', 'Then say <span class="soft">go.</span>', L);
+  const s1 = makeSlide(k1, { inAt: 9.75, inDur: 1.1, from: -2400, to: 120, y: 330, outAt: 11.55, outDur: 0.4, outTo: -2600 });
+  const s2 = makeSlide(k2, { inAt: 10.0, inDur: 1.1, from: 2300, to: 120, y: 560, outAt: 11.65, outDur: 0.4, outTo: 2600 });
+  const side = el('div', 'side', '', L);
+  const h = el('h2', '', 'Preview first.', side);
+  const p = el('p', '', 'Every copy is planned before a single file moves. Uncertain dates are flagged, not guessed.', side);
+  const pill = el('div', 'pill amber', '<span class="dot" style="background:#1A1200"></span>Source stays read-only', side);
+  pill.style.position = 'static'; pill.style.display = 'inline-block';
+  const mac = el('div', 'mac', `<div class="lid"><div class="screen"></div></div><div class="base"></div>`, L);
+  mac.style.left = '760px';
+  const img = seqImg('preview'); mac.querySelector('.screen').appendChild(img);
+  return (t) => {
+    s1(t); s2(t);
+    const mu = outQuint(span(t, 11.55, 1.0));
+    mac.style.transform = `translateY(${lerp(1100, 170, mu).toFixed(1)}px)`;
+    mac.style.visibility = t >= 11.55 ? 'visible' : 'hidden';
+    seqFrame(img, 'preview', t - 11.9);
+    reveal(h, span(t, 12.05, 0.6), { rise: 24, blur: 14 });
+    reveal(p, span(t, 12.3, 0.6), { rise: 24, blur: 14 });
+    reveal(pill, span(t, 12.8, 0.5), { rise: 18, blur: 10, base: '' });
+  };
+});
+
+// 5. Copies (dark captions) ----------------------------------------------------
+scene(15.2, 21.2, 'dark', 0.16, (L) => {
+  const caps = [
+    'it copies. it never moves.',
+    'it verifies every copy, hash by hash.',
+    'your originals stay exactly where they were.',
+  ].map(txt => { const c = el('div', 'cap', txt, L); c.style.top = '150px'; c.style.color = '#F5F5F7'; return c; });
+  const card = el('div', 'card', '', L);
+  card.style.width = '1380px'; card.style.left = '270px'; card.style.top = '265px';
+  const img = seqImg('transfer'); card.appendChild(img);
+  const pill = el('div', 'pill glass-dark', '<span class="dot" style="background:var(--green)"></span>4,000 of 4,000 copies verified', L);
+  pill.style.left = '1230px'; pill.style.top = '232px';
+  const times = [15.2, 17.2, 19.2];
+  return (t) => {
+    caps.forEach((c, i) => {
+      const a = times[i], b = times[i + 1] ?? 99;
+      if (t < a || t >= b + 0.35) { c.style.visibility = 'hidden'; return; }
+      if (t < b) reveal(c, span(t, a, 0.5), { rise: 10, blur: 12 });
+      else fadeOutBlur(c, span(t, b, 0.35), { blur: 12, rise: 10 });
+    });
+    reveal(card, span(t, 15.3, 0.8), { rise: 60, blur: 18, scaleFrom: 0.96 });
+    const push = 1 + 0.07 * inOut(span(t, 15.3, 5.9));
+    if (t > 16.1) card.style.transform = `scale(${push.toFixed(4)})`;
+    seqFrame(img, 'transfer', t - 15.3);
+    const pu = span(t, 17.6, 0.5), pout = span(t, 19.2, 0.3);
+    reveal(pill, pu, { rise: 24, blur: 10 });
+    if (pout > 0) fadeOutBlur(pill, pout, { blur: 10, rise: 14 });
+  };
+});
+
+// 6. Dedupe -------------------------------------------------------------------
+scene(21.2, 27.4, 'light', 1, (L) => {
+  const k1 = el('div', 'kin light', 'Keep the moment.', L);
+  const k2 = el('div', 'kin light', 'Lose <span class="soft">the extras.</span>', L);
+  const s1 = makeSlide(k1, { inAt: 21.25, inDur: 1.1, from: -2600, to: 120, y: 330, outAt: 22.95, outDur: 0.4, outTo: -2900 });
+  const s2 = makeSlide(k2, { inAt: 21.5, inDur: 1.1, from: 2400, to: 120, y: 560, outAt: 23.05, outDur: 0.4, outTo: 2700 });
+  const cap = el('div', 'cap', '', L); cap.style.top = '140px';
+  const g = groups(cap, [{ html: 'compare side by side.', cls: 'm' }, { html: 'you choose what stays.', gap: false }]);
+  const card = el('div', 'card', '', L);
+  card.style.width = '1380px'; card.style.left = '270px'; card.style.top = '250px';
+  const imgA = seqImg('compare'); const imgB = seqImg('keeper');
+  card.appendChild(imgA); card.appendChild(imgB);
+  imgB.style.position = 'absolute'; imgB.style.left = '0'; imgB.style.top = '0';
+  const pill = el('div', 'pill glass-dark', '<span class="dot" style="background:var(--amber-2)"></span>Keeper chosen · pairs reviewed as one', L);
+  pill.style.left = '1150px'; pill.style.top = '218px';
+  return (t) => {
+    s1(t); s2(t);
+    cap.querySelectorAll('span.m').forEach(s => { s.style.color = '#8a8782'; });
+    g(t, [23.45, 24.0], 0.5);
+    reveal(card, span(t, 23.3, 0.8), { rise: 70, blur: 18, scaleFrom: 0.96 });
+    const swap = t >= 25.3;
+    imgB.style.opacity = swap ? 1 : 0;
+    seqFrame(imgA, 'compare', t - 23.3, 20);
+    seqFrame(imgB, 'keeper', t - 25.3);
+    reveal(pill, span(t, 25.7, 0.5), { rise: 24, blur: 10 });
+  };
+});
+
+// 7. Trash + undo ------------------------------------------------------------
+scene(27.4, 32.6, 'dark', 0.16, (L) => {
+  const caps = [
+    ['to the Trash.', 'never a hard delete.'],
+    ['changed your mind?', ''],
+    ['undo it.', 'every run keeps a receipt.'],
+  ].map(([a, b]) => {
+    const c = el('div', 'cap', `<span>${a}</span>&nbsp;<span class="m">${b}</span>`, L);
+    c.style.top = '150px'; c.style.color = '#F5F5F7';
+    c.querySelector('.m').style.color = '#8E8E93';
+    return c;
+  });
+  const card = el('div', 'card', '', L);
+  card.style.width = '1380px'; card.style.left = '270px'; card.style.top = '265px';
+  const imgs = ['trash', 'revert', 'restored'].map(n => { const i = seqImg(n); card.appendChild(i); i.style.position = 'absolute'; i.style.left = '0'; i.style.top = '0'; return i; });
+  imgs[0].style.position = 'relative';
+  // The dialogs are small inside a dimmed window; push in on them.
+  imgs[0].style.transformOrigin = '40% 62%';
+  imgs[1].style.transformOrigin = '58% 55%';
+  imgs[2].style.transformOrigin = '50% 50%';
+  const times = [27.4, 29.5, 31.0];
+  return (t) => {
+    caps.forEach((c, i) => {
+      const a = times[i], b = times[i + 1] ?? 99;
+      if (t < a || t >= b + 0.35) { c.style.visibility = 'hidden'; return; }
+      if (t < b) reveal(c, span(t, a, 0.5), { rise: 10, blur: 12 });
+      else fadeOutBlur(c, span(t, b, 0.35), { blur: 12, rise: 10 });
+    });
+    reveal(card, span(t, 27.45, 0.7), { rise: 60, blur: 18, scaleFrom: 0.96 });
+    const which = t < 29.5 ? 0 : (t < 31.0 ? 1 : 2);
+    imgs.forEach((im, i) => {
+      im.style.opacity = i === which ? 1 : 0;
+      const z = 1.55 + 0.15 * span(t, times[i], 2.6);
+      im.style.transform = `scale(${z.toFixed(4)})`;
+    });
+    seqFrame(imgs[0], 'trash', t - 27.45);
+    seqFrame(imgs[1], 'revert', t - 29.5);
+    seqFrame(imgs[2], 'restored', t - 31.0, 10);
+  };
+});
+
+// 8. Private ---------------------------------------------------------------
+scene(32.6, 36.0, 'dark', 0.34, (L) => {
+  const st = el('div', 'stack', '', L); st.style.top = '345px';
+  const lines = ['account', 'uploads', 'subscription'].map(w => el('div', 'line', `<span class="no">no</span> ${w}.`, st));
+  const sub = el('div', 'sub', 'Everything runs on your Mac.', st);
+  return (t) => {
+    lines.forEach((ln, i) => reveal(ln, span(t, 32.75 + i * 0.6, 0.55), { rise: 14, blur: 14 }));
+    reveal(sub, span(t, 34.7, 0.6), { rise: 10, blur: 10 });
+  };
+});
+
+// 9. Price ---------------------------------------------------------------------
+scene(36.0, 40.0, 'light', 1, (L) => {
+  const k0 = el('div', 'kin light', 'Free to start.', L);
+  const k1 = el('div', 'kin light', '$14.99 once.', L);
+  const k2 = el('div', 'kin light soft', '<span class="soft">no subscription.</span>', L);
+  const s0 = makeSlide(k0, { inAt: 36.05, inDur: 1.0, from: 2400, to: 120, y: 445, outAt: 37.55, outDur: 0.4, outTo: -3200 });
+  const s1 = makeSlide(k1, { inAt: 37.6, inDur: 1.05, from: 2500, to: 120, y: 330, outAt: null });
+  const s2 = makeSlide(k2, { inAt: 37.85, inDur: 1.05, from: 2700, to: 120, y: 560, outAt: null });
+  return (t) => { s0(t); s1(t); s2(t); };
+});
+
+// 10. End card -----------------------------------------------------------------
+scene(40.0, 44.5, 'light', 1, (L) => {
+  const icon = el('div', 'icon', '<img src="icon.png" alt="">', L); icon.style.top = '430px';
+  const url = el('div', 'url', '', L); url.style.top = '590px';
+  const type = typed(url, 'chronoframe.app');
+  const caret = el('span', 'caret', '', url);
+  const fin = el('div', 'fin', '<div class="pill amber">Free on the Mac App Store · one $14.99 unlock, no subscription</div>', L);
+  fin.style.top = '690px';
+  return (t) => {
+    const tl = t - 40.0;
+    reveal(icon, span(tl, 0.0, 0.6), { rise: 0, blur: 16, scaleFrom: 0.7, base: '' });
+    type(t, 40.9, 0.055, 0.22);
+    const blink = tl > 0.35 && (tl < 0.9 ? Math.floor(tl * 2.2) % 2 === 0 : (tl < 1.9 ? true : Math.floor((tl - 1.9) * 1.6) % 2 === 0));
+    caret.style.opacity = blink ? 1 : 0;
+    reveal(fin, span(tl, 2.2, 0.6), { rise: 14, blur: 10 });
+  };
+});
+
+// ---- master render ----------------------------------------------------------
+window.DURATION = 44.5;
+window.render = async function (t) {
+  pendingDecodes.length = 0;
+  let active = null;
+  for (const s of scenes) {
+    const on = t >= s.start && t < s.end;
+    s.layer.classList.toggle('on', on);
+    if (on) active = s;
+  }
+  if (active) {
+    updateBands(t, active.mode, active.bandStrength);
+    active.update(t);
+  }
+  await Promise.all(pendingDecodes);
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return true;
+};
+window.ready = document.fonts.ready.then(() => true);
+
+// Interactive scrubbing when opened in a normal browser.
+if (!navigator.webdriver) {
+  let t = 0, playing = true, last = performance.now();
+  const tick = (now) => {
+    if (playing) { t += (now - last) / 1000; if (t > window.DURATION) t = 0; }
+    last = now; window.render(t); requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  window.addEventListener('keydown', e => {
+    if (e.key === ' ') playing = !playing;
+    if (e.key === 'ArrowRight') t += e.shiftKey ? 1 : DT;
+    if (e.key === 'ArrowLeft') t -= e.shiftKey ? 1 : DT;
+  });
+}
+</script>
+</body>
+</html>
