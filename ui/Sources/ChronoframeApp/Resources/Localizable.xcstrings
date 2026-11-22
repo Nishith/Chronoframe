@@ -4429,23 +4429,6 @@
         }
       }
     },
-    "Here's the shape of your folders — every bar a month of frames waiting to land." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Here's the shape of your folders — every bar a month of frames waiting to land."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "So verteilen sich deine Ordner über die Zeit. Jeder Balken steht für einen Monat voller Aufnahmen."
-          }
-        }
-      }
-    },
     "Hides this welcome card permanently" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6709,23 +6692,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Systemprüfung"
-          }
-        }
-      }
-    },
-    "Reading and planning the copy only. No files are modified or written." : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reading and planning the copy only. No files are modified or written."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Es werden nur Dateien gelesen und der Kopiervorgang geplant. Keine Datei wird verändert oder geschrieben."
           }
         }
       }
@@ -18106,22 +18072,6 @@
         }
       }
     },
-    "Active preview. Read only." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Active preview. Read only."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vorschau läuft. Nur Lesezugriff."
-          }
-        }
-      }
-    },
     "Testing..." : {
       "localizations" : {
         "en" : {
@@ -20230,22 +20180,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Gib Speicherplatz auf dem Ziellaufwerk frei und erstelle dann die Vorschau neu."
-          }
-        }
-      }
-    },
-    "Each bar fills as those frames find their place." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Each bar fills as those frames find their place."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Jeder Balken füllt sich, während diese Aufnahmen ihren Platz finden."
           }
         }
       }
@@ -26416,70 +26350,6 @@
         }
       }
     },
-    "%@ · %@ files" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ · %@ files"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ · %@ Dateien"
-          }
-        }
-      }
-    },
-    "%@–%@ · %@ files" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@–%@ · %@ files"
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@–%@ · %@ Dateien"
-          }
-        }
-      }
-    },
-    "Selected month: %@. %lld of %lld frames placed across %lld months." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Selected month: %@. %lld of %lld frames placed across %lld months."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ausgewählter Monat: %@. %lld von %lld Aufnahmen über %lld Monate abgelegt."
-          }
-        }
-      }
-    },
-    "%lld of %lld frames placed across %lld months. Unselected." : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld of %lld frames placed across %lld months. Unselected."
-          }
-        },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld von %lld Aufnahmen über %lld Monate abgelegt. Keine Auswahl."
-          }
-        }
-      }
-    },
     "%lld of %lld phases complete" : {
       "localizations" : {
         "en" : {
@@ -26576,6 +26446,408 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Übereinstimmungswert: %@"
+          }
+        }
+      }
+    },
+    "Possible match, %@ apart — review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible match, %@ apart — review"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mögliche Übereinstimmung, %@ Zeitabstand — bitte prüfen"
+          }
+        }
+      }
+    },
+    "Possible burst match — review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible burst match — review"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mögliche Serienbild-Übereinstimmung — bitte prüfen"
+          }
+        }
+      }
+    },
+    "Possible visual match, taken %@ apart — review to confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible visual match, taken %@ apart — review to confirm"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mögliche visuelle Übereinstimmung, mit %@ Zeitabstand aufgenommen — zur Bestätigung prüfen"
+          }
+        }
+      }
+    },
+    "Possible visual match — review to confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible visual match — review to confirm"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mögliche visuelle Übereinstimmung — zur Bestätigung prüfen"
+          }
+        }
+      }
+    },
+    "possible visual match — review to confirm" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "possible visual match — review to confirm"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "mögliche visuelle Übereinstimmung — zur Bestätigung prüfen"
+          }
+        }
+      }
+    },
+    "Possible match — review" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible match — review"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mögliche Übereinstimmung — prüfen"
+          }
+        }
+      }
+    },
+    "%@ of %@ planned files copied so far" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of %@ planned files copied so far"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ von %@ geplanten Dateien bisher kopiert"
+          }
+        }
+      }
+    },
+    "%@ of %@ planned files copied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of %@ planned files copied"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ von %@ geplanten Dateien kopiert"
+          }
+        }
+      }
+    },
+    "%@ of %@ planned files copied before the run stopped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of %@ planned files copied before the run stopped"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ von %@ geplanten Dateien kopiert, bevor der Vorgang gestoppt wurde"
+          }
+        }
+      }
+    },
+    "%@ · %@ planned files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ planned files"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ geplante Dateien"
+          }
+        }
+      }
+    },
+    "%@–%@ · %@ planned files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@–%@ · %@ planned files"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@–%@ · %@ geplante Dateien"
+          }
+        }
+      }
+    },
+    "Every bar is a month of planned transfers. Progress is counted for the run as a whole." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every bar is a month of planned transfers. Progress is counted for the run as a whole."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeder Balken steht für einen Monat geplanter Kopien. Der Fortschritt wird für den gesamten Vorgang gezählt."
+          }
+        }
+      }
+    },
+    "Every bar is a month of planned transfers waiting to land." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Every bar is a month of planned transfers waiting to land."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeder Balken steht für einen Monat geplanter Kopien, die noch ankommen."
+          }
+        }
+      }
+    },
+    "Selected month: %@. %lld planned files across %lld months. %lld copied so far for the run as a whole." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected month: %@. %lld planned files across %lld months. %lld copied so far for the run as a whole."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgewählter Monat: %@. %lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert."
+          }
+        }
+      }
+    },
+    "%lld planned files across %lld months. %lld copied so far for the run as a whole. Unselected." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld planned files across %lld months. %lld copied so far for the run as a whole. Unselected."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert. Keine Auswahl."
+          }
+        }
+      }
+    },
+    "Reading and planning the copy only. No photos or videos are added to the destination, and your original files stay untouched." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading and planning the copy only. No photos or videos are added to the destination, and your original files stay untouched."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es wird nur gelesen und die Kopie geplant. Es werden keine Fotos oder Videos zum Ziel hinzugefügt, und deine Originaldateien bleiben unberührt."
+          }
+        }
+      }
+    },
+    "Active preview. Nothing is added to the destination, and originals stay untouched." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active preview. Nothing is added to the destination, and originals stay untouched."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aktive Vorschau. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unberührt."
+          }
+        }
+      }
+    },
+    "Here's the shape of your folders — every bar a month of frames waiting to land." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Here's the shape of your folders — every bar a month of frames waiting to land."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So verteilen sich deine Ordner über die Zeit. Jeder Balken steht für einen Monat voller Aufnahmen."
+          }
+        }
+      }
+    },
+    "Reading and planning the copy only. No files are modified or written." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reading and planning the copy only. No files are modified or written."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es werden nur Dateien gelesen und der Kopiervorgang geplant. Keine Datei wird verändert oder geschrieben."
+          }
+        }
+      }
+    },
+    "Active preview. Read only." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Active preview. Read only."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorschau läuft. Nur Lesezugriff."
+          }
+        }
+      }
+    },
+    "Each bar fills as those frames find their place." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Each bar fills as those frames find their place."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeder Balken füllt sich, während diese Aufnahmen ihren Platz finden."
+          }
+        }
+      }
+    },
+    "%@ · %@ files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ files"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ · %@ Dateien"
+          }
+        }
+      }
+    },
+    "%@–%@ · %@ files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@–%@ · %@ files"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@–%@ · %@ Dateien"
+          }
+        }
+      }
+    },
+    "Selected month: %@. %lld of %lld frames placed across %lld months." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected month: %@. %lld of %lld frames placed across %lld months."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgewählter Monat: %@. %lld von %lld Aufnahmen über %lld Monate abgelegt."
+          }
+        }
+      }
+    },
+    "%lld of %lld frames placed across %lld months. Unselected." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld of %lld frames placed across %lld months. Unselected."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld von %lld Aufnahmen über %lld Monate abgelegt. Keine Auswahl."
           }
         }
       }

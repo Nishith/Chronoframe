@@ -16,9 +16,67 @@ final class MatchReasonFormatterBranchTests: XCTestCase {
         XCTAssertEqual(MatchReasonFormatter.summary(withoutDelta), "90% visually similar")
     }
 
-    func testSimilarityFallsBackToTildeWhenVisionDistanceMissing() {
+    /// dHash-only clusters carry no Vision confirmation
+    /// (`ClusterAnnotator.buildMatchReason` leaves `averageVisionDistance` nil
+    /// when no pairwise match supplied one), so there is no similarity figure
+    /// to show. The wording must say the match is unconfirmed and needs
+    /// review rather than printing a placeholder percentage.
+    // AGENTS-INVARIANT: 6
+    func testUnconfirmedSimilarityDescribesReviewInsteadOfAPercentage() {
         let noDistance = MatchReason(kind: .nearDuplicate)
-        XCTAssertEqual(MatchReasonFormatter.summary(noDistance), "~ visually similar")
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(noDistance),
+            "Possible visual match — review to confirm"
+        )
+
+        let withDelta = MatchReason(timeDeltaSeconds: 45, kind: .nearDuplicate)
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(withDelta),
+            "Possible visual match, taken 45s apart — review to confirm"
+        )
+
+        let burst = MatchReason(timeDeltaSeconds: 12, kind: .burst)
+        XCTAssertEqual(
+            MatchReasonFormatter.summary(burst),
+            "Taken 12s apart, possible visual match — review to confirm"
+        )
+
+        for text in [
+            MatchReasonFormatter.summary(noDistance),
+            MatchReasonFormatter.summary(withDelta),
+            MatchReasonFormatter.summary(burst),
+            MatchReasonFormatter.oneLiner(ClusterAnnotation(confidence: .low, matchReason: noDistance)),
+            MatchReasonFormatter.oneLiner(ClusterAnnotation(confidence: .low, matchReason: withDelta)),
+            MatchReasonFormatter.oneLiner(ClusterAnnotation(confidence: .low, matchReason: burst)),
+        ] {
+            XCTAssertFalse(text.contains("~"), "Unconfirmed similarity leaked a placeholder: \(text)")
+            XCTAssertFalse(text.contains("%"), "Unconfirmed similarity invented a percentage: \(text)")
+        }
+    }
+
+    // AGENTS-INVARIANT: 6
+    func testUnconfirmedSimilarityOneLinersStayShortAndNumberFree() {
+        XCTAssertEqual(
+            MatchReasonFormatter.oneLiner(ClusterAnnotation(
+                confidence: .low,
+                matchReason: MatchReason(kind: .nearDuplicate)
+            )),
+            "Possible match — review"
+        )
+        XCTAssertEqual(
+            MatchReasonFormatter.oneLiner(ClusterAnnotation(
+                confidence: .low,
+                matchReason: MatchReason(kind: .burst)
+            )),
+            "Possible burst match — review"
+        )
+        XCTAssertEqual(
+            MatchReasonFormatter.oneLiner(ClusterAnnotation(
+                confidence: .low,
+                matchReason: MatchReason(timeDeltaSeconds: 12, kind: .burst)
+            )),
+            "Possible match, 12s apart — review"
+        )
     }
 
     func testVideoEvidenceUsesConcreteFrameAgreementCopy() {

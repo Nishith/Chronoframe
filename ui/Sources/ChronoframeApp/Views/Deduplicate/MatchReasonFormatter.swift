@@ -43,6 +43,12 @@ enum MatchReasonFormatter {
         case .exactDuplicate:
             return String(localized: "Exact match", bundle: .module)
         case .burst:
+            guard let similarity else {
+                if let delta = annotation.matchReason.timeDeltaSeconds {
+                    return String(localized: "Possible match, \(String(formattedTimeDelta(delta))) apart — review", bundle: .module)
+                }
+                return String(localized: "Possible burst match — review", bundle: .module)
+            }
             if let delta = annotation.matchReason.timeDeltaSeconds {
                 return String(localized: "\(String(similarity)) similar, \(String(formattedTimeDelta(delta))) apart", bundle: .module)
             }
@@ -51,6 +57,7 @@ enum MatchReasonFormatter {
             if let evidence = annotation.videoEvidence {
                 return videoFrameOneLiner(evidence)
             }
+            guard let similarity else { return unconfirmedSimilarityOneLiner }
             return String(localized: "\(String(similarity)) visually similar", bundle: .module)
         case .editedVariant:
             return String(localized: "Edited variant", bundle: .module)
@@ -102,7 +109,11 @@ enum MatchReasonFormatter {
         if let delta = reason.timeDeltaSeconds {
             parts.append(String(localized: "taken \(String(formattedTimeDelta(delta))) apart", bundle: .module))
         }
-        parts.append(similarityPercentage(reason) + String(localized: " visually similar", bundle: .module))
+        if let similarity = similarityPercentage(reason) {
+            parts.append(similarity + String(localized: " visually similar", bundle: .module))
+        } else {
+            parts.append(unconfirmedSimilarityPhrase)
+        }
         return parts.joined(separator: ", ").prefix(1).uppercased() + parts.joined(separator: ", ").dropFirst()
     }
 
@@ -110,7 +121,12 @@ enum MatchReasonFormatter {
         if let evidence = videoEvidence {
             return videoFrameSummary(evidence)
         }
-        let pct = similarityPercentage(reason)
+        guard let pct = similarityPercentage(reason) else {
+            if let delta = reason.timeDeltaSeconds {
+                return String(localized: "Possible visual match, taken \(String(formattedTimeDelta(delta))) apart — review to confirm", bundle: .module)
+            }
+            return unconfirmedSimilaritySummary
+        }
         if let delta = reason.timeDeltaSeconds {
             return String(localized: "\(String(pct)) visually similar, taken \(String(formattedTimeDelta(delta))) apart", bundle: .module)
         }
@@ -129,12 +145,25 @@ enum MatchReasonFormatter {
         String(localized: "\(String(evidence.agreeingSamples))/\(String(evidence.usableSamples)) frames match", bundle: .module)
     }
 
-    private static func similarityPercentage(_ reason: MatchReason) -> String {
-        if let dist = reason.averageVisionDistance {
-            let pct = Int(round((1.0 - dist) * 100))
-            return "\(pct)%"
-        }
-        return "~"
+    /// dHash-only clusters reach the UI with no `averageVisionDistance`
+    /// (`ClusterAnnotator.buildMatchReason` leaves it nil when no pairwise
+    /// match supplied a Vision distance), so there is no similarity figure to
+    /// report. Those clusters are review-only by design; the copy says the
+    /// match is unconfirmed instead of inventing or placeholdering a number.
+    private static var unconfirmedSimilaritySummary: String {
+        String(localized: "Possible visual match — review to confirm", bundle: .module)
+    }
+    private static var unconfirmedSimilarityPhrase: String {
+        String(localized: "possible visual match — review to confirm", bundle: .module)
+    }
+    private static var unconfirmedSimilarityOneLiner: String {
+        String(localized: "Possible match — review", bundle: .module)
+    }
+
+    private static func similarityPercentage(_ reason: MatchReason) -> String? {
+        guard let dist = reason.averageVisionDistance else { return nil }
+        let pct = Int(round((1.0 - dist) * 100))
+        return "\(pct)%"
     }
 
     private static func formattedTimeDelta(_ seconds: TimeInterval) -> String {
