@@ -8,6 +8,7 @@ import XCTest
 /// engine reports `copiedCount` for the run as a whole and never per month,
 /// so no bar may claim a month is finished, and the surrounding labels must
 /// not describe the chart as the whole source library.
+@MainActor
 final class RunTimelinePresentationTests: XCTestCase {
     private func makeView(
         status: RunStatus,
