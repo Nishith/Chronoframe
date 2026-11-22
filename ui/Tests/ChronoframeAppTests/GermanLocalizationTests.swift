@@ -58,6 +58,7 @@ final class GermanLocalizationTests: XCTestCase {
 
     /// The Problems tab's suggested fixes were handed to `Label(String, …)`,
     /// which never consults the catalog, so German users saw English.
+    @MainActor
     func testSuggestedFixesAreTranslated() throws {
         let german = try germanAppBundle()
         let entries = ["permission denied", "no disk space", "hash mismatch", "unknown date", "file exists"]
