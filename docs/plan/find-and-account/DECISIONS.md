@@ -1,5 +1,7 @@
 # Find and account — decisions
 
+Status: not started (no code on main; `RunOutcomeRecord` and the lookup index do not exist). Intact. D-01 names the base branch; edit it before running (the earlier plans merged to `main`).
+
 Prefix `FAA`. Runtime decisions appended as `D-FAA-1NN`.
 
 ## Tie-break rule for new gaps

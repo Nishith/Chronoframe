@@ -1,5 +1,7 @@
 # Photos import resume — contracts
 
+Status: shipped in PR #268. Durable design contract; code and other docs refer to its C-numbers.
+
 Plan prefix `PIR`. Read `docs/plan/next-half/AGENT_RULES.md` first. Line numbers refer to `main` after `feature/nas-v1` merges; if a line has moved, search for the quoted declaration.
 
 Goal: an Apple Photos import that shows per-asset progress and iCloud waits, can be stopped, keeps every completely exported asset in a checkpoint, and resumes after a stop, a crash or a relaunch. Read-only PhotoKit (INV-22), per-asset transactions, `SourceDateHint` identity and the destination pin are unchanged.

@@ -1,5 +1,7 @@
 # Find and account — contracts
 
+Status: not started (no code on main; `RunOutcomeRecord` and the lookup index do not exist). Intact. The Setup, Run and Preview UI it references changed under clear-path (#269, #274): refresh line references and UI copy (the Start Transfer button is now Start Copying) against the code before any WP runs.
+
 Plan prefix `FAA`. Read `docs/plan/next-half/AGENT_RULES.md` first. Line numbers refer to `main` after the preceding plans merge; if a line moved, search for the quoted declaration.
 
 Goal: two faces on one index. (a) After an Organize run, every selected item has an outcome the customer can inspect: copied and verified, already present at an identified destination, excluded from discovery, failed, changed, or unresolved, each with evidence and a next action. (b) Across runs, find an imported file by its original filename or source folder and reveal where it went, with honest present / missing / unavailable status.

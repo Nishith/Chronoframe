@@ -1,5 +1,7 @@
 # First ten minutes — contracts
 
+Status: not started (no code on main; `RunPreflightAssessment` does not exist). Intact. The Setup, Run and Preview UI it references changed under clear-path (#269, #274): refresh line references and UI copy (the Start Transfer button is now Start Copying) against the code before any WP runs.
+
 Plan prefix `FTM`. Read `docs/plan/next-half/AGENT_RULES.md` first. Line numbers refer to `main` after the preceding plans merge; if a line moved, search for the quoted declaration.
 
 Goal: the first archive feels safe before it starts and proven after it finishes. Three moments: (1) a live preflight on the Setup and Preview screens: destination free space against planned bytes, source and destination still reachable, Photos staging free space; (2) a proactive small verified test batch offered to first-time users next to Start Transfer; (3) after that batch, a proof card: the files that now exist, Show in Finder, and Undo. No new wizard; experienced users keep the direct path.

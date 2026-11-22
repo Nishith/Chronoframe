@@ -1,5 +1,7 @@
 # Find and account — progress
 
+Status: not started (no code on main; `RunOutcomeRecord` and the lookup index do not exist). Every WP is `todo`.
+
 Prefix `FAA`. Status values: todo, in-progress, review, done, blocked.
 
 ## Baseline

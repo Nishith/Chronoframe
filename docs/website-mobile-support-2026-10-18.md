@@ -1,10 +1,8 @@
 # Mobile preview and Support — October 18, 2026
 
-The owner requested both recommendations from the live website follow-up review.
-W1 (mobile preview) and W3 (Support) are implemented on
-`codex/mobile-preview-support`, based on merged PR #248 (`c6546b7`). Publication
-waits for the owner’s merge and Pages deployment. No app source, submitted build,
-new hosting, dependencies or data collection changes are included.
+> **Status (2026-11-21): historical record, shipped.** W1 (mobile preview) and W3 (Support) merged as PR #249 (`8c6948c`), based on #248 (`c6546b7`). W2 (public app/offer and refreshed or identified product proof) was deferred until public release; V2 has been public since 2026-10-22 and W2 is still open (see the open item in [website-design-2026-10-18.md](website-design-2026-10-18.md)). Shortened 2026-11-21: validation narrative condensed.
+
+No app source, submitted build, hosting, dependencies or data collection changed.
 
 ## Implementation
 
@@ -32,34 +30,11 @@ new hosting, dependencies or data collection changes are included.
 
 ## Validation
 
-- `python3 script/check_site.py --release`: passes all ten HTML files, local
-  links/fragments, sitemap, metadata, proof checksums, captions/media and the
-  owner-approved prelaunch gate. Four `test_site_release_gate.py` regressions pass.
-  JavaScript syntax and `git diff --check` pass.
-- Browser review: mobile 390×844 (375px document client width with scrollbar) and
-  desktop 1280×720 (1265px client width). Screenshot crop, readable summary,
-  Support topics and guide were visually inspected. Enter opens the full-size
-  JPEG, all six Support shortcuts and all four guide steps focus their headings,
-  and a troubleshooting disclosure expands. The purchase heading lands below
-  the sticky navigation. The mailto URI was inspected without sending email.
-- Axe-core 4.10.3, WCAG 2 A/AA, 2.1 A/AA, 2.2 AA and best-practice tags:
-  **zero violations and no document-wide overflow in 40 page/size runs** — eight
-  content pages at 320/390/768/1280 frame widths and at 320 with doubled computed
-  font sizes. Scrollbars reduce recorded client widths by 15px on scrolling
-  frames. All disclosures were expanded during checks. This font-size stress
-  test is not a browser-zoom test.
-- Axe reports some contrast checks as incomplete on the existing gradient/decorative
-  contexts and homepage caption/note; these are not certified passes. The new
-  secondary ink `#c7c7cc` has at least 8.8:1 contrast across the relevant solid
-  canvas/panel surfaces. Support and the guide have zero incomplete results at
-  all tested sizes. Raw node/results data is in
-  [the QA record](website-mobile-support-qa-2026-10-18.json).
+- `python3 script/check_site.py --release` passed all ten HTML files, local links and fragments, sitemap, metadata, proof checksums, captions/media and the owner-approved prelaunch gate; four `test_site_release_gate.py` regressions, JavaScript syntax and `git diff --check` passed.
+- Browser review at mobile 390×844 and desktop 1280×720: crop, readable summary, Support topics and guide inspected; Enter opens the full-size JPEG, all six Support shortcuts and four guide steps focus their headings, a troubleshooting disclosure expands, the purchase heading clears the sticky navigation, and the mailto URI was inspected without sending email.
+- Axe-core 4.10.3 (WCAG 2 A/AA, 2.1 A/AA, 2.2 AA, best practices): zero violations and no document-wide overflow in 40 page/size runs (eight content pages at 320/390/768/1280, and at 320 with doubled font sizes; not a browser-zoom test). Some contrast checks stayed "incomplete" on existing gradient/decorative contexts and the homepage caption and note; these are not certified passes. New secondary ink `#c7c7cc` has at least 8.8:1 contrast on the relevant solid surfaces. Raw results: [the QA record](website-mobile-support-qa-2026-10-18.json).
 
-This is focused browser, keyboard and automated QA, not full WCAG certification.
-Spoken VoiceOver, physical iPhone/Safari, production StoreKit and public V2
-capture-build mapping were not exercised. The film/player code is unchanged.
-W2 (public app/offer and refreshed or identified product proof) remains pending
-until the public release; it is not a website publication hold.
+This is focused browser, keyboard and automated QA, not WCAG certification. Spoken VoiceOver, physical iPhone/Safari, production StoreKit and public V2 capture-build mapping were not exercised. The film/player code is unchanged.
 
 ## Review captures
 

@@ -1,6 +1,6 @@
 # NAS requirements review appendix
 
-Status: proposal review history, not separate implementation approval. [Current requirements](NAS_REQUIREMENTS.md) own active scope; later revisions supersede earlier dispositions.
+Status (2026-11-21): historical record of the v0.2 to v1.0 review rounds; v1.0 was approved 2026-11-07 and implemented behind a flag in PR #266. Nothing here is open work. Kept for the reasoning behind ADR-NAS-02/03 and the CLI-refusal decision. Original status: proposal review history, not separate implementation approval. [Current requirements](NAS_REQUIREMENTS.md) own active scope; later revisions supersede earlier dispositions.
 
 ## 22. Review dispositions — v0.2
 
@@ -37,7 +37,7 @@ Status: proposal review history, not separate implementation approval. [Current 
 | 2. Video preview rule | Accept | All videos default to placeholders. Frame loading requires explicit per-group consent that may read the full original; image-provider metering does not cover AVFoundation/QuickLook. Custom video resource loading/budgets are P1. |
 | 3. Defer metered previews | Accept as revised proposal | NFR-10 and render-path consolidation move to P1. V1 preserves recognition through an explicit per-group preview request, without claiming an 8 MiB guarantee. Zero automatic preview IO remains a P0 test. |
 | 4. Record SQLite locking style and read stalls | Accept with evidence qualification | P0 T06 records installed system SQLite/VFS/actual locking evidence and held-writer background-read/busy/cancel/UI latency. Unknown strategy stays an evidence gap; no unverified claim that all SMB readers use whole-file exclusive locking. App/CLI simultaneous write contention is P1 after namespace support. |
-| 5. Separate invariant commit | Accept | The actual current checkout was marketing/phase0-campaign-links. AGENTS.md labeling and the guard are isolated in commit e2570034ea71ba7c2ccfc2075c11d2cb2afea776 on codex/stable-invariant-ids, parent main 566b6ba. Exactly those two paths are committed; their owned working-tree changes were removed after byte/commit verification. No checkout switch, worktree, push or NAS implementation. |
+| 5. Separate invariant commit | Accept | AGENTS.md labeling and the guard were isolated in commit e2570034ea71ba7c2ccfc2075c11d2cb2afea776 on `codex/stable-invariant-ids` (parent main 566b6ba), exactly those two paths. Since merged: `INV-NN` labels are in AGENTS.md. |
 | 6. Data contract and appendix | Accept | Separate P0 local assessment/non-mutating review/coordination lease records from inherited copy evidence and P1 protection/destructive approvals. Move prior dispositions to this appendix; current scope remains in the requirements document. |
 
 ## Review dispositions — v1.0 (final)
@@ -47,7 +47,7 @@ Status: proposal review history, not separate implementation approval. [Current 
 | v0.3 findings 1–6 | All closed in v0.4 with the dispositions above. |
 | App Intents namespace | `ChronoframeApp/AppIntents` compiles into the app target and no app extension exists, so Intents share the app-container lease namespace that NAS-CON-06 requires. |
 | Cross-references | NFR-10 and its preview-consolidation work are P1 everywhere they appear. P0 gates cite only NFR-09 byte limits and zero automatic preview IO. No stale references to the moved review sections remain. |
-| Invariant references | Section 4.1 defines bare numbers and `INV-NN` labels as the same stable IDs. Both styles stay valid once `codex/stable-invariant-ids` merges. |
+| Invariant references | Section 4.1 defines bare numbers and `INV-NN` labels as the same stable IDs. Both styles are valid; the stable-ID change is merged. |
 | Open items carried as evidence, not review gaps | The SMB Trash probe and the slice 0 copy probes need a mounted, authorized share. Owner approval under section 17.1 is pending. |
 
 No further requirements changes. The next step is owner approval, then slice 0 and slice 1a.

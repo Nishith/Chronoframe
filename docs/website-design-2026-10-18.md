@@ -1,195 +1,28 @@
 # Website design update — October 18, 2026
 
-The owner asked to prioritize the website while the submitted app is in review.
-This increment continues held PR #226 from remote head `276bc8569384736247153511d65e41cd8ee8d9ec`.
-It changes website assets, content, validation and this record only; it does not
-change the submitted app. The older divergent local `codex/website-demo` branch
-and the primary checkout's uncommitted app/marketing work are preserved.
+> **Status (2026-11-21): historical record, shipped.** Continued held PR #226 (remote head `276bc8569384736247153511d65e41cd8ee8d9ec`); the owner merged it at 23:54:32 UTC on 2026-10-18 and Pages deployed `54df5f9` at 23:54:53 UTC. Final QA fixes shipped as PR #248 (`c6546b7`), followed by [mobile preview and Support](website-mobile-support-2026-10-18.md) in #249. The owner approved publishing before V2 was public and accepted a temporary unavailable or mismatched App Store link; that superseded the publication hold. V2 has been public since 2026-10-22. Shortened 2026-11-21 (validation narrative condensed; raw results are in [website-qa-2026-10-18.json](website-qa-2026-10-18.json)).
+>
+> **Still open:** the September development screenshots and film are not certified captures of public V2. `site/assets/product-proof.json` still has `publication_status: owner_approved_prelaunch` and `verify_against_public_V2_before_publication` on each proof asset. Verify their visible behavior against public 2.0 or replace them, then update the manifest and the `--release` gate expectations. The app/offer proof (public build, Free storefront, unlock price, Family Sharing) was not re-verified by this website work; the owner's 2026-11-21 check of the US listing shows Free, 2.0, and the "Chronoframe Unlock $14.99" in-app purchase (US only).
 
-**Status update:** the owner merged PR #226 at 23:54:32 UTC during this QA pass.
-Pages deployed `54df5f9` successfully at 23:54:53 UTC. The final QA fixes continue
-as follow-up PR #248 based on that main commit. The owner then explicitly approved
-publishing before V2 is public and accepted a temporary unavailable/mismatched
-App Store link because there are no active users or traffic. This supersedes the
-publication hold; merge proceeds after checks. It does not certify the public
-app/offer or the older capture builds.
+The change touched website assets, content, validation and this record only; no app change.
 
-## Delivered for review
+## Delivered
 
-- A shorter introduction keeps “A lifetime of photos, finally in order.” Original
-  generated photo-print artwork adds a photographic identity beside the copy.
-  Warm graphite, amber accents, indigo actions and system typography retain the
-  Meridian identity. This direction is implemented for owner review, not recorded
-  as an owner-approved final visual selection.
-- One real Organize preview now has the main proof position. Its staged 4,000-file
-  scope is explicit and distinct from the 500-file allowance. Small screens can
-  pan the screenshot, open the original, or expand a readable text alternative.
-- Four steps explain choosing folders, previewing, approving copies and inspecting
-  History. Deduplicate has a separate compare → review → Trash → conditional
-  restore story, including the Trash/storage tradeoff.
-- The existing captioned, user-initiated recorded walkthrough is the selected
-  delivery under Phase 5's explicit fallback. The interactive Organize simulator
-  is cut from this delivery: a new browser state machine, test dependencies and
-  CI lane would add maintenance without improving the explanation enough to
-  justify it. The optional interactive dedupe extension stays deferred. No
-  JavaScript dependency, analytics or hosting change is added.
-- The offer is aligned with the owner's October 16 direct-free policy: cumulative
-  500/100 allowance per Apple Account per Mac; unlimited scanning, preview, review
-  and History; $14.99 US one-time lifetime unlock with Family Sharing; ungated
-  revert with refunds for successfully undone work. Old paid-app ownership grants
-  and paid-transition instructions are removed from the affected site guidance.
-- `site/assets/product-proof.json` distinguishes real development captures from
-  decorative artwork and records unknown app versions/builds explicitly. The
-  film no longer claims a projected public upload date. Original screenshot,
-  film, photo and music provenance is retained.
+- Shorter introduction keeping "A lifetime of photos, finally in order." Original generated photo-print artwork (`site/assets/artwork/photos-to-order.jpg`, 1536×1024, under 350 KB; prompt in `site/assets/artwork/README.md`). Warm graphite, amber and indigo with system typography keep the Meridian identity. Implemented for owner review, not recorded as an approved final visual selection.
+- One real Organize preview in the main proof position, its staged 4,000-file scope stated and distinct from the 500-file allowance. Small screens can pan, open the original or expand a readable text alternative.
+- Four steps (choose folders, preview, approve copies, inspect History) and a separate Deduplicate story (compare, review, Trash, conditional restore, including the Trash/storage tradeoff).
+- The captioned, user-initiated recorded walkthrough is the selected delivery. The interactive Organize simulator was cut (new state machine, test dependencies and CI lane for too little explanatory gain); the optional interactive dedupe extension stays deferred. No JavaScript dependency, analytics or hosting change.
+- Offer aligned with the 2026-10-16 direct-free policy: cumulative 500/100 allowance per Apple Account per Mac; unlimited scanning, preview, review and History; $14.99 US one-time lifetime unlock with Family Sharing; ungated revert with refunds for successfully undone work. Old paid-app grants and paid-transition instructions removed.
+- `site/assets/product-proof.json` separates real development captures from decorative artwork and records unknown app versions and builds explicitly. The film's publication date is **2026-10-18** (successful Pages run recorded; live byte-range request returned HTTP 206 for the 6,874,782-byte film). The privacy policy was reviewed and its September 29 effective date retained.
+- All five approved original screenshot PNGs matched their recorded source SHA-256, and the film matched its production export hash; every proof asset has a checksum verified by `check_site.py`.
 
-## Validation
+## Follow-through checks
 
-- `python3 script/check_site.py`: passes for all nine HTML pages, links/fragments,
-  images, JSON-LD, sitemap, video policy/size/fast-start/captions, offer terms and
-  proof provenance. The new checks reject retired access claims and a projected
-  upload date for unpublished footage.
-- `node --check site/site.js`, Python syntax compilation and `git diff --check`:
-  pass. No app build or Swift tests are needed for this website-only increment.
-- Browser review at effective CSS viewports **1280×1000**, **390×843** and
-  **320×800**. The in-app browser's existing 110% zoom was retained; viewport
-  overrides were compensated against observed `innerWidth`, then reset.
-- No document-wide horizontal overflow at either narrow width. At 320 pixels the
-  observed gap between the brand and download action is 12 pixels after fixing
-  their overlap; the primary action remains inside the content area.
-- The screenshot region receives keyboard focus and pans with ArrowRight. The
-  native sample-details disclosure expands; its counts, destination and sample
-  limitation are readable. The skip link receives focus with a visible outline.
-- The recorded demo starts on request (`paused=false`, `readyState=4`), retains
-  native controls and one caption track, seeks to the 39.8-second restore chapter,
-  and pauses with Space. Transcript and FAQ disclosures work. The offer FAQ
-  exposes the scope, Family Sharing and revert-refund terms. The primary App Store
-  link retains app ID `6771245052`.
-- The preview server returns HTTP 206 and the correct `Content-Range` for a
-  1,024-byte media request. No broken in-view images were found.
-- Computed palette checks: white text on the new indigo action is **5.42:1**,
-  and **6.56:1** on hover. The new sections add no motion. Existing reduced-motion
-  and forced-color rules remain. This is focused visual/keyboard verification,
-  not a full screen-reader or WCAG certification.
-
-Local review captures (not public product-proof assets):
-
-- `.tmp/website-review-2026-10-18/home-desktop-1280.png`
-- `.tmp/website-review-2026-10-18/home-mobile-390.png`
-- `.tmp/website-review-2026-10-18/home-mobile-320.png`
-- `.tmp/website-review-2026-10-18/mobile-preview-details.png`
-
-Generated artwork and the exact final prompt are in
-`site/assets/artwork/README.md`; the optimized delivery image is
-`site/assets/artwork/photos-to-order.jpg` (1536×1024, under 350 KB).
-
-## Public app proof still unverified
-
-Submission for App Review is not public availability. The owner merged PR #226
-while this follow-through was underway, then approved early website publication.
-The matching public V2 build, free storefront, unlock price and Family Sharing
-remain verification follow-ups after V2 becomes available. Merging `site/**` to
-main publishes through Pages.
-
-The reused September development screenshots/film are not certified captures of
-the submitted build. Their app build/source commit and public-version mapping
-remain unknown in the proof manifest. Verify their visible behavior against the
-public release or replace them in the post-launch proof follow-up. The uncommitted app design changes
-from the owner's primary checkout are not used as website screenshots.
-
-The actual film publication date is now **October 18, 2026** in the manifest and
-VideoObject: the successful Pages run is recorded and a live byte-range request
-returned HTTP 206 for the expected 6,874,782-byte film. The asset did not exist in
-main before PR #226. App-release proof remains unverified despite film publication.
-The privacy policy was reviewed against the prepared site: no data collection,
-network use or storage behavior changes in this increment, so its September 29
-effective date is retained. Do not substitute a projected launch date.
-
-## Follow-through — remaining website preparation
-
-On October 18 the owner asked to do the remaining website work. The photographic
-direction is retained for this implementation; additional artwork variants are
-optional exploration, not unfinished requirements. No separate owner visual
-sign-off or outside participant study is claimed.
-
-**Public release check.** Apple's US lookup endpoint
-`https://itunes.apple.com/lookup?id=6771245052&country=us` returned version **1.1**,
-download price **$14.99 USD**, minimum OS **13.0**. The installed app's bundle reports
-**2.0 (507)**, matching the submitted candidate's release record, whose source commit
-is `f54191843a7f95f0ad211c79714402e36ea7f4ea`. These are different availability
-states. The manifest records both without mapping the September captures to 507.
-All five approved original screenshot PNGs matched their recorded source SHA-256;
-the film matched its production export hash. Every delivered proof asset now has
-a checksum checked by `check_site.py`.
-
-**Accessibility and responsive checks.** Temporary local axe-core **4.10.3**,
-downloaded from the npm registry, ran WCAG 2 A/AA, 2.1 A/AA, 2.2 AA and best-practice
-rules across all seven content pages. All disclosures were expanded for the scan.
-Frame widths **320, 390, 768 and 1280** produced **zero automated violations** and
-**zero document horizontal overflow**. Frames with a scrollbar had 14 pixels less
-content width. A separate stress pass doubled every computed text size at a
-320-pixel frame width; all seven pages again had zero violations/overflow. This
-is a text enlargement stress test, not a claim that browser zoom was emulated.
-
-The checks found and fixed color-only inline links, an unsupported label on a
-generic proof container, minimum-width grid overflow, unbreakable support/email
-text, and a mobile player button that overlapped the film caption with enlarged
-text. Links in prose/captions are underlined, the proof has a named group role,
-grid tracks can shrink, long text wraps, and the mobile Play button occupies its
-own row below the video.
-
-Remaining axe contrast review items were inspected separately: decorative,
-`aria-hidden` checkmarks duplicate written safety statements; gradient/pseudo
-surfaces have bounded colors. Secondary/primary text over the brightest hero
-gradient is **8.19:1 / 12.67:1**; the lowest muted text over the closing gradient is
-**4.75:1**. Reduced-motion rules were applied in the local harness and produced
-`scroll-behavior: auto` on all seven pages; there are no animated counters,
-transitions or autoplay. Forced-color rules retain explicit control borders and
-no meaning depends on color. OS-level forced-color and spoken VoiceOver sessions
-were not performed; this is documented browser/AX verification, not certification.
-
-**Keyboard and failure states.** Skip navigation moves focus to `main` with a
-visible outline. The screenshot scroll region, native details, chapter controls
-and video are keyboard reachable. A local missing-media fixture produced the
-announced load error and an available transcript/direct link. A copy with the
-enhancement script omitted retained native video controls, one caption track,
-keyboard-openable transcript/FAQ, download links, and hidden chapter/overlay
-controls. Pressing Space requested native playback. The transcript preserves
-the staged-library caveat, media credit and conditional restoration explanation.
-
-Raw local audit reports and captures are under
-`.tmp/website-review-2026-10-18/` (not deployed). The temporary axe harness and
-download are removed from `site/`; no third-party runtime or CI dependency ships.
-The checked-in `docs/website-qa-2026-10-18.json` preserves the per-page results,
-measured content widths and limitations.
-
-Run `python3 script/check_site.py` for draft validation. Run
-`python3 script/check_site.py --release` immediately before merging. It now accepts
-the recorded owner-approved prelaunch state while keeping the unknown proof fields
-explicit. A held manifest without approval still fails; labeling unknown captures
-as fully verified still fails. The remaining app/offer and capture-build checks
-are post-launch follow-ups, not website merge blockers under the owner's decision.
-Merge #248 after checks and verify the live website. No submitted app or storefront
-change is authorized by this website-only decision.
-
-The publication check was exercised in an isolated temporary site copy: recorded
-owner-approved prelaunch passes; missing approval fails; an unapproved held state
-fails; changing the state to fully verified while capture identities are unknown
-fails. Standard nine-page validation, JavaScript/Python syntax and whitespace pass.
+- Apple's US lookup (`https://itunes.apple.com/lookup?id=6771245052&country=us`) on 2026-10-18 returned version 1.1, $14.99, minimum OS 13.0, while the installed app was 2.0 (507, source commit `f54191843a7f95f0ad211c79714402e36ea7f4ea`). The manifest records both without mapping the September captures to 507.
+- Accessibility (temporary local axe-core 4.10.3, WCAG 2 A/AA, 2.1 A/AA, 2.2 AA, best practices): zero violations and zero horizontal overflow on all seven content pages at 320, 390, 768 and 1280 px frames, plus a doubled-text-size stress pass at 320 (not browser zoom). Fixed: color-only inline links, an unsupported label on a proof container, grid overflow, unbreakable email text, a mobile Play button overlapping the caption. Lowest muted-text contrast over the closing gradient is 4.75:1. Spoken VoiceOver and OS forced-color sessions were not performed; this is not WCAG certification.
+- Keyboard and failure states: skip link, screenshot scroll region (ArrowRight pans), details, chapter controls and video are reachable; a missing-media fixture announced the load error with transcript fallback; with the enhancement script removed, native controls, one caption track and transcript still work.
+- Release gate: `python3 script/check_site.py` for drafts, `--release` before merging. It accepts the recorded owner-approved prelaunch state, fails on a held manifest without approval, and fails if unknown captures are labeled fully verified.
 
 ## PR #248 review follow-up
 
-The review's deployment-gate finding was valid: Pages still invoked the ordinary
-draft checker, so a held manifest could pass and reach artifact upload. The Pages
-workflow now invokes `python3 script/check_site.py --release` before upload and
-deployment. This preserves the owner's recorded prelaunch approval while refusing
-unapproved held work.
-
-`script/test_site_release_gate.py` reads the validation command from the actual
-Pages workflow and runs it against temporary copies of the site. Its held-proof
-case failed before the workflow fix because deployment validation returned success.
-All four cases now pass: draft checking permits held proof; deployment rejects
-held proof; deployment accepts recorded owner approval; deployment rejects missing
-approval. `Check Website` runs these regressions and triggers on changes to them.
-Both nine-page checker modes, Python compilation and whitespace validation pass.
-No app code or visible website content changes in this review fix.
+Pages still ran the draft checker, so a held manifest could reach deployment. The Pages workflow now runs `python3 script/check_site.py --release` before upload and deploy. `script/test_site_release_gate.py` reads the command from the real workflow and checks four cases against temporary copies (draft permits held proof; deploy rejects held proof; deploy accepts recorded owner approval; deploy rejects missing approval); `Check Website` runs it. No app code or visible content changed.

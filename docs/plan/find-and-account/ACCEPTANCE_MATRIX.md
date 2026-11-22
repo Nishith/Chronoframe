@@ -1,5 +1,7 @@
 # Find and account — acceptance matrix
 
+Status: not started (no code on main; `RunOutcomeRecord` and the lookup index do not exist). No row is built.
+
 | ID | Requirement (Round 3 #4) | Automated coverage | Hardware row | Auto status | Hardware status |
 |---|---|---|---|---|---|
 | A-FAA-01 | Every selected item has exactly one evidence-bound outcome | RunOutcomeRecordTests/testBuilderGivesEveryPreviewItemExactlyOneOutcome, testReceiptEntryWinsOverJobRow, testCopiedJobWithoutReceiptIsUnresolved | H-FAA-1 | todo | todo-hardware |

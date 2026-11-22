@@ -1,5 +1,7 @@
 # First ten minutes — decisions
 
+Status: not started (no code on main; `RunPreflightAssessment` does not exist). Intact. D-01 names the base branch; edit it before running (the earlier plans merged to `main`).
+
 Prefix `FTM`. Runtime decisions appended as `D-FTM-1NN`.
 
 ## Tie-break rule for new gaps

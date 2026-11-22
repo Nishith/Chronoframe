@@ -1,5 +1,7 @@
 # Find and account — evidence ledger (owner rows)
 
+Status: not started (no code on main; `RunOutcomeRecord` and the lookup index do not exist). No row is run.
+
 | Row | What to run | Pass when | Status | Evidence |
 |---|---|---|---|---|
 | H-FAA-1 | Organize a 10,000-file source to an external drive; Account for Every Item | Sheet opens in under 2 s; copied count equals the receipt viewer's row count; no "Unresolved" after a clean run | todo-hardware | screenshot |

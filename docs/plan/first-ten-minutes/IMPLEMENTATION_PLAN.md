@@ -1,6 +1,6 @@
 # First ten minutes — implementation plan
 
-Status: proposal (prepared 2026-11-07). Prefix `FTM`. Read first: `docs/plan/next-half/AGENT_RULES.md`, `CONTRACTS.md`, `DECISIONS.md`.
+Status: not started (no code on main). Plan text predates clear-path (#269, #274): refresh line references and UI copy before running. Proposal prepared 2026-11-07. Prefix `FTM`. Read first: `docs/plan/next-half/AGENT_RULES.md`, `CONTRACTS.md`, `DECISIONS.md`.
 
 ## Run order
 WP-00 → WP-01 → WP-02 → G1 → WP-03 → WP-04 → WP-05 → WP-06 → WP-07 → G2.

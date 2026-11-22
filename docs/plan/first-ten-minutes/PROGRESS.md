@@ -1,5 +1,7 @@
 # First ten minutes — progress
 
+Status: not started (no code on main; `RunPreflightAssessment` does not exist). Every WP is `todo`.
+
 Prefix `FTM`. Status values: todo, in-progress, review, done, blocked.
 
 ## Baseline

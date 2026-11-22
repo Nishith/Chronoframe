@@ -1,5 +1,7 @@
 # NAS v1 acceptance matrix
 
+Status: shipped in PR #266 behind the disabled NAS flag. Automated rows are pass; hardware rows are still owner-only.
+
 Maps the P0 portions of `docs/NAS_REQUIREMENTS.md` section 16 (T01–T21) to automated tests and hardware rows. P1 portions and T10/T22 are out of scope. Status values: `todo`, `pass (<commit>)`, `fail`, `todo-hardware`, `pass-hardware (<date>, Nishith)`. Only Nishith sets `pass-hardware`.
 
 | Spec test | Requirements | Automated coverage (class/method) | Hardware row | Auto status | Hardware status |
