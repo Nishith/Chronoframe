@@ -13,6 +13,14 @@ struct PreviewReviewPanel: View {
     @State private var selectedItemPath: String? = nil
     @State private var quickLookURL: URL? = nil
 
+    private var reviewFilterPicker: some View {
+        Picker("Review Filter", selection: $store.filter) {
+            ForEach(PreviewReviewFilter.allCases) { filter in
+                Text(filter.title).tag(filter)
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             MeridianSurfaceCard(style: .inner, tint: model.context.previewReviewIsStale ? DesignTokens.Color.warning : DesignTokens.Color.sky) {
@@ -60,12 +68,14 @@ struct PreviewReviewPanel: View {
                 }
             }
 
-            Picker("Review Filter", selection: $store.filter) {
-                ForEach(PreviewReviewFilter.allCases) { filter in
-                    Text(filter.title).tag(filter)
-                }
+            // Five segments are wider than the pane once the titles are German
+            // ("Widersprüchliche Datumsangaben"); a segmented control reports
+            // that width and pushes the whole page past the window. Fall back
+            // to a menu when it does not fit.
+            ViewThatFits(in: .horizontal) {
+                reviewFilterPicker.pickerStyle(.segmented)
+                reviewFilterPicker.pickerStyle(.menu).frame(maxWidth: .infinity, alignment: .leading)
             }
-            .pickerStyle(.segmented)
             .accessibilityIdentifier(AccessibilityIdentifiers.previewReviewFilter)
 
             if store.isLoading {

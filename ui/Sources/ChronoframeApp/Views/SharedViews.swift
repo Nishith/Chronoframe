@@ -1236,6 +1236,15 @@ struct TrustProofSurface: View {
 }
 
 extension View {
+    /// For menus that name their row: `labelTemplate` is a `%@` key such as
+    /// "Actions for %@", looked up before the name is filled in.
+    func accessibilityActionsMenu(labelTemplate: String, subject: String, hint: String) -> some View {
+        self
+            .accessibilityLabel(AppLocalization.format(labelTemplate, subject))
+            .accessibilityValue("Menu")
+            .help(AppLocalization.string(hint))
+    }
+
     func accessibilityActionsMenu(label: String, hint: String) -> some View {
         self
             .accessibilityLabel(AppLocalization.string(label))

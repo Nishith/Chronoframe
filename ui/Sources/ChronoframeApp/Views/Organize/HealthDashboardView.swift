@@ -49,7 +49,9 @@ struct HealthDashboardView: View {
                     }
 
                     LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 12)],
+                        // 300 keeps long German titles such as "Belege zum Rückgängigmachen"
+                        // from being squeezed into a mid-word break.
+                        columns: [GridItem(.adaptive(minimum: 300, maximum: 400), spacing: 12)],
                         spacing: 12
                     ) {
                         ForEach(summary.cards) { card in
