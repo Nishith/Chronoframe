@@ -30,8 +30,8 @@ German catalogs and runtime lookup paths are complete for the current extracted 
 | 13 | Help privacy / acknowledgments | German text and spoken reveal labels; paths, framework names and URLs unchanged. |
 | 14 | Populated duplicate review | Captured German list, safeguards, footer, buttons and allowance at 900×700 points. Fixed English dynamic safeguard text, raw kind/role names, score tooltips, and inspector text fit. Final compact capture accepted; final wide inspector recheck blocked. No Trash action initiated. |
 | 15 | Photos import | 2026-11-21 capture (`20`, `21`): German header, selection, button and the unreadable-selection alert. The English "All Photos" album title is the UI-test fixture (`UITestAppStateFactory`); production uses `CoreL10n`. |
-| 16 | Populated History | Captures `22`/`23`: German throughout. **Found:** the report filter's last segment ("Sonstige") clipped at the 320 pt cap. Fixed (cap 440 pt); not recaptured. |
-| 17 | Populated Preview & Copy | Captures `24`/`25`: German. **Found:** the metrics ticker showed "ALREADY THERE" (no catalog key for the lowercase plain-string label). Fixed by adding `already there` → "bereits vorhanden"; not recaptured. Prüfen, Probleme and Aktivität tabs not opened. |
+| 16 | Populated History | Captures `22`/`23`: German throughout. **Found:** the report filter's last segment ("Sonstige") clipped at the 320 pt cap. Fixed (cap 440 pt); recapture `29` confirms all segments fit. |
+| 17 | Populated Preview & Copy | Captures `24`/`25`: German. **Found:** the metrics ticker showed "ALREADY THERE" (no catalog key for the lowercase plain-string label). Fixed by adding `already there` → "bereits vorhanden"; recapture `30` confirms "BEREITS VORHANDEN". Prüfen, Probleme and Aktivität tabs not opened. |
 | 18 | License allowance and unlock sheet | Captures `26`/`27`: German allowance and "Chronoframe freischalten" sheet. The price button text is the fixture product. Dismissed with "Nicht jetzt"; no purchase. |
 | 19 | Wide duplicate review | Capture `28`: German; the quality row fits ("Qualität / Ausgezeichnet"). |
 
@@ -59,8 +59,14 @@ Two defects were fixed after the pass:
 - `already there` ticker label: new catalog key. `GermanLocalizationTests.testRunTickerLabelsResolveInGerman` failed before the key and passes after.
 - History filter clipping: `RunHistoryView` filter `maxWidth` 320 → 440. This is a layout change with no unit test.
 
-Verified: `swift test --filter 'GermanLocalizationTests|RunHistoryView|HistoryStoreTests|AccessibilityTests'` — 0 failures; the catalog JSON loads. **Not verified:** the app was not rebuilt or relaunched after the fixes, so neither fix is visually confirmed, and `script/check_german_localization.py` was not re-run.
+Verified: `swift test --filter 'GermanLocalizationTests|RunHistoryView|HistoryStoreTests|AccessibilityTests'` — 0 failures; the catalog JSON loads.
+
+Visual recheck (same day): rebuilt with `xcodebuild … -derivedDataPath .tmp/ChronoframeDerivedData` (`BUILD SUCCEEDED`), swapped the binary and `de`/`en.lproj` into `ChronoframeGermanCheck.app`, re-signed ad hoc, relaunched.
+- History (`29-history-filter-fixed`): all five filter segments fit, "Sonstige" fully visible.
+- Preview & Copy (`30-preview-ticker-fixed`): ticker reads "BEREITS VORHANDEN".
+
+**Not verified:** `script/check_german_localization.py` and the full suite were not re-run.
 
 ## Next verification
 
-Rebuild the copied test app, then recapture History (filter fit) and Preview & Copy (ticker). Still open from before: the Profiles label width, the Health screenshot, and the Prüfen/Probleme/Aktivität tabs.
+Still open: the Profiles label width, the Health screenshot, and the Prüfen/Probleme/Aktivität tabs.
