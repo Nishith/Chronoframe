@@ -84,6 +84,16 @@ Items 3 and 4 have unit tests (they did not compile before the fix, because the 
 
 Still unverified: `script/check_german_localization.py` ran clean on this branch, but the full suite was run only as `ChronoframeAppCoreTests|ChronoframeAppTests|GermanLocalizationTests`. The Überblick/Prüfen/Probleme/Aktivität tab strip still ends about 28 pt past the card margin in German (`34`, `35`). The Preview screen shows three different problem counts (1 / 2 / 3) with the fixture data; not investigated.
 
+## 2026-11-22 independent German review (model reviewers, not native speakers)
+
+The 35 German strings added since #280 were reviewed twice by separate model reviewers, the second without sight of the first's verdict. No meaning errors were found in the "originals were not changed" or "nothing was copied" sentences. Applied, each checked against the existing catalog:
+- "unberührt" → "unangetastet" (the app's established word, 20 existing uses) — reviewer 1.
+- "Keine Auswahl" kept for an unselected timeline month: reviewer 1's "Nicht ausgewählt" was wrong, because the existing identical-English strings already read "Keine Auswahl" — reviewer 2.
+- "1 konnten nicht kopiert werden" is ungrammatical for a count of 1, so both failure-count strings now read "…, %@ nicht kopiert" — reviewer 2.
+- "Aktive Vorschau" → "Vorschau läuft" (matches "Kopiervorgang läuft"); "— prüfen" → "— bitte prüfen" (consistency); "Grund zu sehen" → "Grund zu erfahren" — reviewer 2.
+
+Still open: the English sources "%lld planned files across %lld months…" and "%@ planned files" have no singular form, so a count of 1 reads "1 geplante Dateien" / "in 1 Monaten"; fixing it needs plural variations in both languages, not a translation change. A native speaker has not reviewed any of this; the safety sentences are the ones worth their time.
+
 ## Next verification
 
 Still open: the tab strip margin and the problem-count question above.
