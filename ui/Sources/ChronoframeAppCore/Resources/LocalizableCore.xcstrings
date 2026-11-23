@@ -5669,6 +5669,176 @@
         }
       }
     },
+    "%@ 1 file…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 1 file…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 1 Datei…"
+          }
+        }
+      }
+    },
+    "%@ of 1 file": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ of 1 file"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ von 1 Datei"
+          }
+        }
+      }
+    },
+    "Cleaned 1 orphaned .tmp file": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleaned 1 orphaned .tmp file"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 verwaiste .tmp-Datei bereinigt"
+          }
+        }
+      }
+    },
+    "Chronoframe could not read 1 source file, so nothing was copied. Originals were left untouched; check file access and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read 1 source file, so nothing was copied. Originals were left untouched; check file access and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte 1 Quelldatei nicht lesen. Deshalb wurde nichts kopiert. Die Originale blieben unangetastet. Prüfe den Dateizugriff und versuche es erneut."
+          }
+        }
+      }
+    },
+    "Chronoframe could not read %lld source files, so nothing was copied. Originals were left untouched; check file access and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read %lld source files, so nothing was copied. Originals were left untouched; check file access and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte %lld Quelldateien nicht lesen. Deshalb wurde nichts kopiert. Die Originale blieben unangetastet. Prüfe den Dateizugriff und versuche es erneut."
+          }
+        }
+      }
+    },
+    "1 item couldn't be read and was skipped. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 item couldn't be read and was skipped. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Objekt konnte nicht gelesen werden und wurde übersprungen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "%lld items couldn't be read and were skipped. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld items couldn't be read and were skipped. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Objekte konnten nicht gelesen werden und wurden übersprungen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Import stopped. %@ of 1 item is ready and was kept. Resume whenever you like. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import stopped. %@ of 1 item is ready and was kept. Resume whenever you like. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import gestoppt. %@ von 1 Objekt ist bereit und wurde aufbewahrt. Du kannst jederzeit fortsetzen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe paused the import because the drive holding its staging folder is almost full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe paused the import because the drive holding its staging folder is almost full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat den Import pausiert, weil das Laufwerk mit dem Zwischenordner fast voll ist. %@ von 1 Objekt ist bereit und wurde aufbewahrt. Schaffe Speicherplatz und setze dann fort. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat den Import gestoppt, weil der Fortschritt nicht gespeichert werden konnte. Das Laufwerk mit dem Zwischenordner ist möglicherweise voll. %@ von 1 Objekt ist bereit und wurde aufbewahrt. Schaffe Speicherplatz und setze dann fort. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
     "Cleaned %lld orphaned .tmp files": {
       "localizations": {
         "en": {

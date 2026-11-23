@@ -349,9 +349,11 @@ struct RunTickerSection: View {
             ),
             TickerRow.Entry(
                 id: "issues",
-                value: "\(model.context.issueCount)",
+                value: "\(model.problemCount)",
                 label: "problems",
-                tone: model.context.issueCount > 0 ? .danger : .neutral
+                tone: model.context.errorCount > 0 || model.context.issueCount > 0
+                    ? .danger
+                    : (model.context.warningCount > 0 ? .warning : .neutral)
             ),
         ]
     }
@@ -382,7 +384,9 @@ struct RunWorkspaceShell: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(maxWidth: 340)
+                    // German titles ("Probleme (2)", "Aktivität") need about
+                    // 410 pt; a 340 pt cap let the control run past the card.
+                    .frame(maxWidth: 440)
                     .accessibilityLabel("Details section")
                     .accessibilityIdentifier(AccessibilityIdentifiers.runWorkspaceTabs)
                 }
@@ -437,7 +441,7 @@ struct RunSnapshotPanel: View {
                 SummaryLine(title: "ETA", value: model.etaSummaryValue)
                 SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                 SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
-                SummaryLine(title: "Problems", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
+                SummaryLine(title: "Problems", value: "\(model.problemCount)", valueColor: model.issueTone.color)
             }
         }
     }
@@ -520,7 +524,7 @@ struct RunIssuesPanel: View {
 
                     SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                     SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
-                    SummaryLine(title: "Problems", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
+                    SummaryLine(title: "Problems", value: "\(model.problemCount)", valueColor: model.issueTone.color)
                 }
             }
 

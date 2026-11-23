@@ -847,10 +847,10 @@ public struct TransferExecutor: Sendable {
         attemptedJobs: Int
     ) -> String? {
         if consecutiveFailures >= failureThresholds.consecutive {
-            return "Aborting: \(consecutiveFailures) consecutive failures (out of \(attemptedJobs) attempted)"
+            return "Aborting: \(consecutiveFailures) consecutive \(consecutiveFailures == 1 ? "failure" : "failures") (out of \(attemptedJobs) attempted)"
         }
         if totalFailures >= failureThresholds.total {
-            return "Aborting: \(totalFailures) total failures (out of \(attemptedJobs) attempted)"
+            return "Aborting: \(totalFailures) total \(totalFailures == 1 ? "failure" : "failures") (out of \(attemptedJobs) attempted)"
         }
         return nil
     }
@@ -2010,7 +2010,9 @@ private final class TransferExecutionContext {
         if appleDoubleCount > 0 {
             observer.onIssue(RunIssue(
                 severity: .info,
-                message: "macOS created \(appleDoubleCount) hidden ._ metadata files beside copies on the network folder. They aren't photos or videos and aren't counted as copies."
+                message: appleDoubleCount == 1
+                    ? "macOS created 1 hidden ._ metadata file beside a copy on the network folder. It isn't a photo or video and isn't counted as a copy."
+                    : "macOS created \(appleDoubleCount) hidden ._ metadata files beside copies on the network folder. They aren't photos or videos and aren't counted as copies."
             ))
         }
         if abortReason == nil, isCancelled(), attemptedJobs < totalJobs {

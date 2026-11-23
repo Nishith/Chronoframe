@@ -616,7 +616,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                             .issue(
                                 RunIssue(
                                     severity: .info,
-                                    message: CoreL10n.text("Cleaned \(cleanedTemporaryFiles) orphaned .tmp files")
+                                    message: CorePlurals.cleanedTemporaryFiles(cleanedTemporaryFiles)
                                 )
                             )
                         )
@@ -842,7 +842,7 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                                 dateHistogram: result.dateHistogram
                             ),
                             artifacts: transferExecutor.artifactPaths(destinationRoot: destinationURL),
-                            failureMessage: CoreL10n.text("Chronoframe could not read \(result.counts.hashErrorCount) source file(s), so nothing was copied. Originals were left untouched; check file access and try again.")
+                            failureMessage: CorePlurals.unreadableSourceFiles(result.counts.hashErrorCount)
                         )
                     )
                 )

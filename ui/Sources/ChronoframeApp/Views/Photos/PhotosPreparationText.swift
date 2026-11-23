@@ -21,16 +21,23 @@ enum PhotosPreparationText {
     static func resumeBody(
         _ r: PhotosResumableImport,
         locale: Locale = .current,
-        timeZone: TimeZone = .current
+        timeZone: TimeZone = .current,
+        bundle: Bundle = .module
     ) -> String {
         var style = Date.FormatStyle().month().day().hour().minute().locale(locale)
         style.timeZone = timeZone
         let date = r.interruptedAt.formatted(style)
-        return String(localized: "\(String(count(r.readyCount, locale: locale))) of \(String(count(r.totalCount, locale: locale))) items from Photos were prepared on \(String(date)) and are ready to import. Your Photos library was not changed.", bundle: .module)
+        if r.totalCount == 1 {
+            return String(localized: "\(String(count(r.readyCount, locale: locale))) of 1 item from Photos was prepared on \(String(date)) and is ready to import. Your Photos library was not changed.", bundle: bundle)
+        }
+        return String(localized: "\(String(count(r.readyCount, locale: locale))) of \(String(count(r.totalCount, locale: locale))) items from Photos were prepared on \(String(date)) and are ready to import. Your Photos library was not changed.", bundle: bundle)
     }
 
-    static func supersedeMessage(readyCount: Int, locale: Locale = .current) -> String {
-        String(localized: "Starting a new import discards the \(String(count(readyCount, locale: locale))) prepared items from the interrupted one. Your Photos library is not affected either way.", bundle: .module)
+    static func supersedeMessage(readyCount: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        if readyCount == 1 {
+            return String(localized: "Starting a new import discards the prepared item from the interrupted one. Your Photos library is not affected either way.", bundle: bundle)
+        }
+        return String(localized: "Starting a new import discards the \(String(count(readyCount, locale: locale))) prepared items from the interrupted one. Your Photos library is not affected either way.", bundle: bundle)
     }
 
     static let destinationMismatch =

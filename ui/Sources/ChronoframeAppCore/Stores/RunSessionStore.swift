@@ -752,7 +752,7 @@ public final class RunSessionStore: ObservableObject {
             } else {
                 // total == 0 means indeterminate (count is known, total is not).
                 // Show the running count in the title so the user sees forward progress.
-                currentTaskTitle = CoreL10n.text("\(phase.displayRunningTitle) \(completed.formatted()) files…")
+                currentTaskTitle = CorePlurals.runningFileCount(phaseTitle: phase.displayRunningTitle, completed: completed)
                 if Self.usesFileCountETA(phase) {
                     metrics.etaSeconds = nil
                 }
@@ -833,7 +833,7 @@ public final class RunSessionStore: ObservableObject {
 
         case let .copyPlanReady(count):
             metrics.plannedCount = count
-            logStore.append("Plan ready: \(count) files queued for copy.")
+            logStore.append(count == 1 ? "Plan ready: 1 file queued for copy." : "Plan ready: \(count) files queued for copy.")
 
         case let .dateHistogram(buckets):
             metrics.dateHistogram = buckets
@@ -1246,7 +1246,7 @@ public final class RunSessionStore: ObservableObject {
         total: Int,
         etaSeconds: Double?
     ) -> String {
-        let progress = CoreL10n.text("\(completed.formatted()) of \(total.formatted()) files")
+        let progress = CorePlurals.fileProgress(completed: completed, total: total)
         guard let etaSeconds, etaSeconds > 0 else {
             return CoreL10n.text("\(phase.displayRunningTitle) \(progress)")
         }

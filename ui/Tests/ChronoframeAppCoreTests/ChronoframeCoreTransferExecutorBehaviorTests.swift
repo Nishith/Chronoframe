@@ -942,6 +942,19 @@ final class ChronoframeCoreTransferExecutorBehaviorTests: XCTestCase {
         )
     }
 
+    func testAbortReasonUsesSingularForAThresholdOfOne() {
+        let executor = TransferExecutor(failureThresholds: FailureThresholds(consecutive: 1, total: 1))
+        XCTAssertEqual(
+            executor.abortReason(consecutiveFailures: 1, totalFailures: 1, attemptedJobs: 1),
+            "Aborting: 1 consecutive failure (out of 1 attempted)"
+        )
+        let totalOnly = TransferExecutor(failureThresholds: FailureThresholds(consecutive: 9, total: 1))
+        XCTAssertEqual(
+            totalOnly.abortReason(consecutiveFailures: 0, totalFailures: 1, attemptedJobs: 4),
+            "Aborting: 1 total failure (out of 4 attempted)"
+        )
+    }
+
     func testTransferExecutorHelpersReportAbortAndFileSizes() throws {
         let executor = TransferExecutor(failureThresholds: FailureThresholds(consecutive: 2, total: 4))
         XCTAssertEqual(

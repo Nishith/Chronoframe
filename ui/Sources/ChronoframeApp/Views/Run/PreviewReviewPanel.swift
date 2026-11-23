@@ -133,7 +133,7 @@ struct PreviewReviewPanel: View {
         }
         let summary = store.summary
         if summary.needsAttentionCount > 0 {
-            return String(localized: "\(summary.needsAttentionCount.formatted()) items need attention. Originals stay untouched.", bundle: .module)
+            return PluralPhrases.itemsNeedAttention(summary.needsAttentionCount)
         }
         return String(localized: "The plan is ready to inspect. Originals stay untouched.", bundle: .module)
     }
