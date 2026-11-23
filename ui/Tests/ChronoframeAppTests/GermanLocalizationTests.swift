@@ -112,6 +112,18 @@ final class GermanLocalizationTests: XCTestCase {
         )
     }
 
+    /// The Setup tab is now "Choose Folders" ("Ordner wählen"); two hints still
+    /// sent people to "Organize › Setup".
+    func testDestinationHintsNameTheCurrentTab() throws {
+        let german = try germanAppBundle()
+        for key in [
+            "Set an organize destination in Organize › Choose Folders first — imports go there.",
+            "Choose a destination folder in Organize → Choose Folders first; watched folders import into it.",
+        ] {
+            XCTAssertTrue(AppLocalization.string(key, bundle: german).contains("Ordner wählen"), key)
+        }
+    }
+
     func testSharedCoreDisplayAndNativeButtonKeysResolveInTheAppTable() throws {
         let german = try germanAppBundle()
         for key in [

@@ -46,7 +46,7 @@ final class RunWorkspaceModelTests: XCTestCase {
         XCTAssertEqual(model.heroState.badgeTitle, "Preview ready")
         XCTAssertTrue(model.showsPreviewReview)
         XCTAssertTrue(model.canStartTransferFromPreview)
-        XCTAssertEqual(model.issueSummaryValue, "1 warning, 1 error, 1 other problem")
+        XCTAssertEqual(model.issueSummaryValue, "1 warning, 1 error")
         XCTAssertEqual(model.tabTitle(.issues), "Problems (2)")
         XCTAssertEqual(model.sourceSummaryValue, "/Volumes/Ingest")
     }

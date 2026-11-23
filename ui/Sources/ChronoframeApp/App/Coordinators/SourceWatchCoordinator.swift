@@ -810,7 +810,7 @@ final class SourceWatchCoordinator {
         }
         let destination = setupStore.destinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !destination.isEmpty else {
-            reportTransientError("Choose a destination folder in Organize → Setup first; watched folders import into it.")
+            reportTransientError("Choose a destination folder in Organize → Choose Folders first; watched folders import into it.")
             return
         }
         guard let bookmark = preferencesStore.bookmark(for: Self.bookmarkKey(for: id)) else {
