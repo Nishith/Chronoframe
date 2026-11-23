@@ -456,11 +456,21 @@ struct RunWorkspaceModel {
         sourceRoot ?? String(localized: "Your folders will appear here once you choose them.", bundle: .module)
     }
 
+    /// The one number "Problems" means everywhere (ticker, tab, tile, summary
+    /// lines): every warning, plus the larger of the logged errors and the
+    /// file-level issues the engine counted. An error line and the file-level
+    /// issue behind it are the same problem, so they are not added together.
+    var problemCount: Int {
+        context.warningCount + max(context.errorCount, context.issueCount)
+    }
+
     var issueSummaryValue: String {
         let warningCount = context.warningCount
         let errorCount = context.errorCount
-        let issueCount = context.issueCount
-        if warningCount == 0 && errorCount == 0 && issueCount == 0 {
+        // File-level issues with no matching error line; the rest are already
+        // counted as errors.
+        let issueCount = max(0, context.issueCount - errorCount)
+        if problemCount == 0 {
             return String(localized: "No problems reported", bundle: .module)
         }
         var parts: [String] = []
@@ -720,7 +730,7 @@ struct RunWorkspaceModel {
             RunMetricTileModel(
                 id: "issues",
                 title: String(localized: "Problems", bundle: .module),
-                value: abbreviated(context.issueCount),
+                value: abbreviated(problemCount),
                 caption: String(localized: "Warnings and files that could not be copied or checked.", bundle: .module),
                 tone: issueTone
             ),
@@ -768,7 +778,7 @@ struct RunWorkspaceModel {
             let count = context.previewReviewSummary.needsAttentionCount
             return count > 0 ? String(localized: "Review (\(String(count)))", bundle: .module) : String(localized: "Review", bundle: .module)
         case .issues:
-            let count = max(context.warningCount + context.errorCount, context.issueCount)
+            let count = problemCount
             return count > 0 ? String(localized: "Problems (\(String(count)))", bundle: .module) : String(localized: "Problems", bundle: .module)
         case .console:
             return String(localized: "Activity", bundle: .module)

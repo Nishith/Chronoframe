@@ -14,6 +14,8 @@ final class RunOutcomeAccuracyTests: XCTestCase {
         summaryMetrics: RunMetrics? = nil,
         summaryFailureMessage: String? = nil,
         issueCount: Int = 0,
+        warnings: Int = 0,
+        errors: Int = 0,
         isCancelling: Bool = false,
         mode: RunMode = .transfer
     ) -> RunWorkspaceModel {
@@ -35,8 +37,8 @@ final class RunOutcomeAccuracyTests: XCTestCase {
                     )
                 },
                 lastErrorMessage: nil,
-                warningCount: 0,
-                errorCount: 0,
+                warningCount: warnings,
+                errorCount: errors,
                 issueCount: issueCount,
                 logEntries: [],
                 historyDestinationRoot: "",
@@ -163,5 +165,35 @@ final class RunOutcomeAccuracyTests: XCTestCase {
         XCTAssertEqual(first?.message, "Stopping…")
         XCTAssertEqual(first?.priority, .medium)
         XCTAssertNil(RunAnnouncementPlanner.detailedAnnouncement(from: stopping, to: stopping))
+    }
+
+    // MARK: Problem count
+
+    /// "Problems" is one number everywhere: warnings plus the larger of the
+    /// logged errors and the file-level issues, because an error line and the
+    /// file that failed behind it are the same problem.
+    func testProblemCountDoesNotCountAnErrorAndItsFileTwice() {
+        let m = model(status: .dryRunFinished, issueCount: 1, warnings: 1, errors: 1, mode: .preview)
+        XCTAssertEqual(m.problemCount, 2)
+        XCTAssertEqual(m.issueSummaryValue, "1 warning, 1 error")
+        XCTAssertEqual(m.tabTitle(.issues), "Problems (2)")
+    }
+
+    func testProblemCountKeepsFileIssuesThatHaveNoErrorLine() {
+        let m = model(status: .finished, issueCount: 3, warnings: 0, errors: 1)
+        XCTAssertEqual(m.problemCount, 3)
+        XCTAssertEqual(m.issueSummaryValue, "1 error, 2 other problems")
+        XCTAssertEqual(m.tabTitle(.issues), "Problems (3)")
+    }
+
+    func testProblemCountFromWarningsAloneAndFromNothing() {
+        let warned = model(status: .dryRunFinished, warnings: 2, mode: .preview)
+        XCTAssertEqual(warned.problemCount, 2)
+        XCTAssertEqual(warned.issueSummaryValue, "2 warnings")
+
+        let quiet = model(status: .dryRunFinished, mode: .preview)
+        XCTAssertEqual(quiet.problemCount, 0)
+        XCTAssertEqual(quiet.issueSummaryValue, "No problems reported")
+        XCTAssertEqual(quiet.tabTitle(.issues), "Problems")
     }
 }

@@ -144,7 +144,7 @@ private struct RunOutcomeSummaryCard: View {
                     if model.outcomeMetrics.failedCount > 0 {
                         summaryMetric("Not copied", value: model.outcomeMetrics.failedCount.formatted(), tint: DesignTokens.Color.danger)
                     }
-                    summaryMetric("Problems", value: "\(model.context.issueCount)", tint: model.issueTone.color)
+                    summaryMetric("Problems", value: "\(model.problemCount)", tint: model.issueTone.color)
                 }
 
                 Text(model.outcomeSummaryMessage)
