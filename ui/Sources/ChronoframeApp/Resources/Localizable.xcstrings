@@ -26541,7 +26541,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mögliche Übereinstimmung — prüfen"
+            "value" : "Mögliche Übereinstimmung — bitte prüfen"
           }
         }
       }
@@ -26685,7 +26685,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert. Nicht ausgewählt."
+            "value" : "%lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert. Keine Auswahl."
           }
         }
       }
@@ -26717,7 +26717,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aktive Vorschau. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unangetastet."
+            "value" : "Vorschau läuft. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unangetastet."
           }
         }
       }
@@ -26879,7 +26879,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ kopiert, %@ konnten nicht kopiert werden. Deine Originale wurden nicht verändert. Details findest du unter „Probleme“."
+            "value" : "%@ kopiert, %@ nicht kopiert. Deine Originale wurden nicht verändert. Details findest du unter „Probleme“."
           }
         }
       }
@@ -27024,6 +27024,182 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aktionen für %@"
+          }
+        }
+      }
+    },
+    "1 planned file" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 planned file"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 geplante Datei"
+          }
+        }
+      }
+    },
+    "of 1 planned file" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "of 1 planned file"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "von 1 geplanten Datei"
+          }
+        }
+      }
+    },
+    "of %@ planned files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "of %@ planned files"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "von %@ geplanten Dateien"
+          }
+        }
+      }
+    },
+    "across 1 month" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "across 1 month"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "in 1 Monat"
+          }
+        }
+      }
+    },
+    "across %@ months" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "across %@ months"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "in %@ Monaten"
+          }
+        }
+      }
+    },
+    "1 file to copy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 file to copy"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 Datei zu kopieren"
+          }
+        }
+      }
+    },
+    "%@ %@ copied so far" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@ copied so far"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@ bisher kopiert"
+          }
+        }
+      }
+    },
+    "%@ %@ copied" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@ copied"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@ kopiert"
+          }
+        }
+      }
+    },
+    "%@ %@ copied before the run stopped" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@ copied before the run stopped"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@ kopiert, bevor der Vorgang gestoppt wurde"
+          }
+        }
+      }
+    },
+    "Selected month: %@. %@ %@. %lld copied so far for the run as a whole." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected month: %@. %@ %@. %lld copied so far for the run as a whole."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausgewählter Monat: %@. %@ %@. %lld davon bisher für den gesamten Vorgang kopiert."
+          }
+        }
+      }
+    },
+    "%@ %@. %lld copied so far for the run as a whole. Unselected." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@. %lld copied so far for the run as a whole. Unselected."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ %@. %lld davon bisher für den gesamten Vorgang kopiert. Keine Auswahl."
           }
         }
       }
