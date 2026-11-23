@@ -91,7 +91,7 @@ struct RunTimelineView: View {
                     Text(formatMonthYear(bucket.key))
                         .scaledFont(.subtitle, weight: .bold)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                    Text("\(bucket.plannedCount.formatted(.number)) files to copy")
+                    Text(TimelinePlurals.filesToCopy(bucket.plannedCount))
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
@@ -197,11 +197,11 @@ struct RunTimelineView: View {
         let copied = model.context.metrics.copiedCount
         switch model.context.status {
         case .running where model.context.currentPhase == .copy:
-            return String(localized: "\(copied.formatted(.number)) of \(planned.formatted(.number)) planned files copied so far", bundle: .module)
+            return String(localized: "\(copied.formatted(.number)) \(TimelinePlurals.ofPlannedFiles(planned)) copied so far", bundle: .module)
         case .finished:
-            return String(localized: "\(copied.formatted(.number)) of \(planned.formatted(.number)) planned files copied", bundle: .module)
+            return String(localized: "\(copied.formatted(.number)) \(TimelinePlurals.ofPlannedFiles(planned)) copied", bundle: .module)
         case .failed, .cancelled:
-            return String(localized: "\(copied.formatted(.number)) of \(planned.formatted(.number)) planned files copied before the run stopped", bundle: .module)
+            return String(localized: "\(copied.formatted(.number)) \(TimelinePlurals.ofPlannedFiles(planned)) copied before the run stopped", bundle: .module)
         default:
             return nil
         }
@@ -211,15 +211,15 @@ struct RunTimelineView: View {
         let dated = buckets.filter { $0.key != "Unknown" }
         guard let first = dated.first, let last = dated.last else {
             let total = buckets.reduce(0) { $0 + $1.plannedCount }
-            return total > 0 ? String(localized: "\(total.formatted()) planned files", bundle: .module) : "—"
+            return total > 0 ? TimelinePlurals.plannedFiles(total) : "—"
         }
         let firstYear = String(first.key.prefix(4))
         let lastYear = String(last.key.prefix(4))
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
         if firstYear == lastYear {
-            return String(localized: "\(firstYear) · \(total.formatted()) planned files", bundle: .module)
+            return "\(firstYear) · \(TimelinePlurals.plannedFiles(total))"
         }
-        return String(localized: "\(firstYear)–\(lastYear) · \(total.formatted()) planned files", bundle: .module)
+        return "\(firstYear)–\(lastYear) · \(TimelinePlurals.plannedFiles(total))"
     }
 
     var subtitle: String {
@@ -258,9 +258,9 @@ struct RunTimelineView: View {
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
         let copied = model.context.metrics.copiedCount
         if let selected = selectedKey {
-            return String(localized: "Selected month: \(selected). \(total) planned files across \(buckets.count) months. \(copied) copied so far for the run as a whole.", bundle: .module)
+            return String(localized: "Selected month: \(selected). \(TimelinePlurals.plannedFiles(total)) \(TimelinePlurals.acrossMonths(buckets.count)). \(copied) copied so far for the run as a whole.", bundle: .module)
         }
-        return String(localized: "\(total) planned files across \(buckets.count) months. \(copied) copied so far for the run as a whole. Unselected.", bundle: .module)
+        return String(localized: "\(TimelinePlurals.plannedFiles(total)) \(TimelinePlurals.acrossMonths(buckets.count)). \(copied) copied so far for the run as a whole. Unselected.", bundle: .module)
     }
 }
 
