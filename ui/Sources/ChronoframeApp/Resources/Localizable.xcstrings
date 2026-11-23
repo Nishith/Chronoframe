@@ -27027,6 +27027,38 @@
           }
         }
       }
+    },
+    "Set an organize destination in Organize › Choose Folders first — imports go there." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set an organize destination in Organize › Choose Folders first — imports go there."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lege zuerst unter „Organisieren › Ordner wählen“ ein Ziel fest. Importe werden dort gespeichert."
+          }
+        }
+      }
+    },
+    "Choose a destination folder in Organize → Choose Folders first; watched folders import into it." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose a destination folder in Organize → Choose Folders first; watched folders import into it."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle zuerst unter „Organisieren → Ordner wählen“ einen Zielordner. Überwachte Ordner importieren dorthin."
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
