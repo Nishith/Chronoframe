@@ -85,6 +85,33 @@ final class GermanLocalizationTests: XCTestCase {
         )
     }
 
+    /// Wording fixed after the second German review: a fixed plural "konnten"
+    /// read "1 konnten nicht kopiert werden", and an unselected timeline month
+    /// must match the app's existing "Keine Auswahl".
+    func testReviewedRunOutcomeWordingStaysFixed() throws {
+        let german = try germanAppBundle()
+        XCTAssertEqual(
+            AppLocalization.string(
+                "%@ copied, %@ could not be copied. Your originals were not changed. See Problems for details.",
+                bundle: german
+            ),
+            "%@ kopiert, %@ nicht kopiert. Deine Originale wurden nicht verändert. Details findest du unter „Probleme“."
+        )
+        XCTAssertTrue(
+            AppLocalization.string(
+                "%lld planned files across %lld months. %lld copied so far for the run as a whole. Unselected.",
+                bundle: german
+            ).hasSuffix("Keine Auswahl.")
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Active preview. Nothing is added to the destination, and originals stay untouched.",
+                bundle: german
+            ),
+            "Vorschau läuft. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unangetastet."
+        )
+    }
+
     func testSharedCoreDisplayAndNativeButtonKeysResolveInTheAppTable() throws {
         let german = try germanAppBundle()
         for key in [

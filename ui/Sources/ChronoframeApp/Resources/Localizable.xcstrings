@@ -26541,7 +26541,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mögliche Übereinstimmung — prüfen"
+            "value" : "Mögliche Übereinstimmung — bitte prüfen"
           }
         }
       }
@@ -26685,7 +26685,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert. Nicht ausgewählt."
+            "value" : "%lld geplante Dateien in %lld Monaten. %lld davon bisher für den gesamten Vorgang kopiert. Keine Auswahl."
           }
         }
       }
@@ -26717,7 +26717,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Aktive Vorschau. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unangetastet."
+            "value" : "Vorschau läuft. Nichts wird zum Ziel hinzugefügt, und die Originale bleiben unangetastet."
           }
         }
       }
@@ -26879,7 +26879,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ kopiert, %@ konnten nicht kopiert werden. Deine Originale wurden nicht verändert. Details findest du unter „Probleme“."
+            "value" : "%@ kopiert, %@ nicht kopiert. Deine Originale wurden nicht verändert. Details findest du unter „Probleme“."
           }
         }
       }
