@@ -1,6 +1,5 @@
 # Chronoframe
 
-[![Release](https://img.shields.io/github/v/release/Nishith/Chronoframe?label=release)](https://github.com/Nishith/Chronoframe/releases/latest)
 [![License](https://img.shields.io/badge/license-source--visible-lightgrey)](LICENSE)
 
 **Organize messy photo and video folders without changing your source files, then clean up duplicates safely through Trash.**

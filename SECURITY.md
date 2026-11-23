@@ -6,7 +6,7 @@ Chronoframe is built around one promise: originals should remain untouched. Plea
 
 Security review focuses on:
 
-- The latest published GitHub release.
+- The current version on the Mac App Store.
 - The current `main` branch.
 
 Older releases may receive fixes when the issue is severe and the fix can be applied safely.
