@@ -496,6 +496,29 @@ final class ChronoframeCoreNASRemoteCopyPolicyTests: XCTestCase {
         )
     }
 
+    func testSingleAppleDoubleFileIsDescribedInTheSingular() throws {
+        let env = try makeEnvironment(jobCount: 3)
+        defer { env.close() }
+        var executor = makeRemoteExecutor()
+        executor.exclusiveRename = { source, destination in
+            let result = TransferExecutor.systemExclusiveRename(from: source, to: destination)
+            if result == 0, destination.hasSuffix("photo_1.jpg") {
+                let url = URL(fileURLWithPath: destination)
+                let companion = url.deletingLastPathComponent().appendingPathComponent("._" + url.lastPathComponent)
+                FileManager.default.createFile(atPath: companion.path, contents: Data("appledouble".utf8))
+            }
+            return result
+        }
+        let issues = IssueRecorder()
+
+        _ = try run(executor, env, verifyCopies: true, issues: issues)
+
+        XCTAssertEqual(
+            issues.all.filter { $0.severity == .info }.first?.message,
+            "macOS created 1 hidden ._ metadata file beside a copy on the network folder. It isn't a photo or video and isn't counted as a copy."
+        )
+    }
+
     // AGENTS-INVARIANT: 28
     func testRemoteRunWithoutAppleDoubleFilesEmitsNoInfoIssue() throws {
         let env = try makeEnvironment(jobCount: 2)

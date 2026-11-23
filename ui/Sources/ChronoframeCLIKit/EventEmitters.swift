@@ -152,6 +152,12 @@ public enum JSONLineEmitter {
 }
 
 public enum HumanLineEmitter {
+    /// "1 file", "0 files", "5 new files". A count of 1 takes the singular noun.
+    static func fileCount(_ count: Int, adjective: String? = nil) -> String {
+        let noun = adjective.map { "\($0) file" } ?? "file"
+        return count == 1 ? "1 \(noun)" : "\(count) \(noun)s"
+    }
+
     public static func line(for event: RunEvent) -> String? {
         switch event {
         case .startup:
@@ -169,7 +175,7 @@ public enum HumanLineEmitter {
         case let .phaseCompleted(phase, result):
             return completedLine(phase: phase, result: result)
         case let .copyPlanReady(count):
-            return "\(count) files ready to copy."
+            return "\(fileCount(count)) ready to copy."
         case let .issue(issue):
             return "\(issue.severity.prefix): \(issue.message)"
         case let .prompt(message):
@@ -184,9 +190,9 @@ public enum HumanLineEmitter {
     private static func completedLine(phase: RunPhase, result: RunPhaseResult) -> String {
         switch phase {
         case .discovery:
-            return "Discovered \(result.found ?? 0) files."
+            return "Discovered \(fileCount(result.found ?? 0))."
         case .classification:
-            return "Classified \(result.newCount ?? 0) new files, \(result.alreadyInDestinationCount ?? 0) already in destination."
+            return "Classified \(fileCount(result.newCount ?? 0, adjective: "new")), \(result.alreadyInDestinationCount ?? 0) already in destination."
         case .copy:
             return "Transfer complete: \(result.copiedCount ?? 0) copied, \(result.failedCount ?? 0) failed."
         case .revert:
@@ -203,15 +209,15 @@ public enum HumanLineEmitter {
         case .dryRunFinished:
             return "Preview complete. Report: \(summary.artifacts.reportPath ?? "not written")"
         case .finished:
-            return "Done. Copied \(summary.metrics.copiedCount) files."
+            return "Done. Copied \(fileCount(summary.metrics.copiedCount))."
         case .nothingToCopy:
             return "Already up to date. Nothing to copy."
         case .reverted:
-            return "Revert complete. Reverted \(summary.metrics.revertedCount) files."
+            return "Revert complete. Reverted \(fileCount(summary.metrics.revertedCount))."
         case .revertEmpty:
             return "Nothing to revert."
         case .reorganized:
-            return "Reorganize complete. Moved \(summary.metrics.movedCount) files."
+            return "Reorganize complete. Moved \(fileCount(summary.metrics.movedCount))."
         case .nothingToReorganize:
             return "Layout already correct."
         case .failed:

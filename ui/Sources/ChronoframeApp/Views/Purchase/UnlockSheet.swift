@@ -186,7 +186,7 @@ struct UnlockSheet: View {
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            DisclosureGroup("Show these \(batch.includedCount) files") {
+            DisclosureGroup(PluralPhrases.showTheseFiles(batch.includedCount)) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(batch.included, id: \.sourcePath) { transfer in
@@ -205,7 +205,7 @@ struct UnlockSheet: View {
             .accessibilityIdentifier("unlockSheet.batchFiles")
 
             if case let .runFreeTestBatch(fileCount, _) = action {
-                Button("Copy These \(fileCount) Files") {
+                Button(PluralPhrases.copyTheseFiles(fileCount)) {
                     onRunFreeTestBatch()
                 }
                 .disabled(!model.isBatchEnabled)

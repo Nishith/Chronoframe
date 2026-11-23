@@ -417,7 +417,7 @@ public final class PhotosImportStore: ObservableObject {
                 // checkpoint are still on disk, so leave them and keep the resume offer.
                 finishExport()
                 refreshResumableImport(destination: destination)
-                statusMessage = CoreL10n.text("Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(initial.completed.count)) of \(Self.formatted(initial.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed.")
+                statusMessage = CorePlurals.importProgressNotSaved(completed: initial.completed.count, total: initial.plan.entries.count)
                 return nil
             }
             // Nothing was exported yet, so there is nothing to keep or resume.
@@ -468,7 +468,7 @@ public final class PhotosImportStore: ObservableObject {
                 return nil
             }
             if !finished.failures.isEmpty {
-                statusMessage = CoreL10n.text("\(finished.failures.count) item(s) couldn't be read and were skipped. Your Photos library was not changed.")
+                statusMessage = CorePlurals.photosItemsUnreadable(finished.failures.count)
             }
             preparedStagingPaths.insert(stagingDirectory.standardizedFileURL.path)
             return PhotosImportContext(
@@ -487,7 +487,7 @@ public final class PhotosImportStore: ObservableObject {
             }
             let kept = pauseExport(.stopped, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
-            statusMessage = CoreL10n.text("Import stopped. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Resume whenever you like. Your Photos library was not changed.")
+            statusMessage = CorePlurals.importStopped(completed: kept.completed.count, total: kept.plan.entries.count)
             return nil
         } catch is PhotosExportStop {
             continuation.finish()
@@ -497,7 +497,7 @@ public final class PhotosImportStore: ObservableObject {
             }
             let kept = pauseExport(.lowSpace, fallback: checkpoint, in: stagingDirectory)
             refreshResumableImport(destination: destination)
-            statusMessage = CoreL10n.text("Chronoframe paused the import because the drive holding its staging folder is almost full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed.")
+            statusMessage = CorePlurals.importPausedLowSpace(completed: kept.completed.count, total: kept.plan.entries.count)
             return nil
         } catch {
             continuation.finish()
@@ -539,7 +539,7 @@ public final class PhotosImportStore: ObservableObject {
     ) -> PhotosImportContext? {
         let kept = pauseExport(.lowSpace, fallback: fallback, in: stagingDirectory)
         refreshResumableImport(destination: destination)
-        statusMessage = CoreL10n.text("Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. \(Self.formatted(kept.completed.count)) of \(Self.formatted(kept.plan.entries.count)) items are ready and were kept. Free up space, then resume. Your Photos library was not changed.")
+        statusMessage = CorePlurals.importProgressNotSaved(completed: kept.completed.count, total: kept.plan.entries.count)
         return nil
     }
 
@@ -657,12 +657,6 @@ public final class PhotosImportStore: ObservableObject {
 
     private static let destinationMismatchMessage =
         CoreL10n.text("This import was prepared for a different destination. Choose that destination again to resume, or discard it.")
-
-    private static func formatted(_ count: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        return formatter.string(from: NSNumber(value: count)) ?? String(count)
-    }
 
     private static func pathsMatch(_ a: String, _ b: String?) -> Bool {
         guard let b else { return false }

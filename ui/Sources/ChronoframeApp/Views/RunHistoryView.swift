@@ -232,7 +232,7 @@ struct RunHistoryView: View {
                 ? String(localized: "Choose a destination in Setup, then a preview will create the first report here.", bundle: .module)
                 : String(localized: "Start a preview or copy to build the first entries in this archive.", bundle: .module)
         }
-        return String(localized: "\(historyStore.entries.count) reports and logs · \(historyStore.transferredSources.count) reusable folders.", bundle: .module)
+        return PluralPhrases.historySummary(reports: historyStore.entries.count, folders: historyStore.transferredSources.count)
     }
 
     // MARK: - Hero strip (P1.3)
@@ -266,7 +266,7 @@ struct RunHistoryView: View {
                 }
                 .frame(maxWidth: 220, alignment: .leading)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? String(localized: "copy", bundle: .module) : String(localized: "copies", bundle: .module)).")
+                .accessibilityLabel(PluralPhrases.archiveOverview(frames: totalFramesArchived, copies: archiveOverviewReceiptEntries.count))
 
                 Divider()
                     .frame(height: 120)
@@ -337,10 +337,10 @@ struct RunHistoryView: View {
         if let key = selectedTimelineMonth {
             let matchingBucket = timelineBuckets.first { $0.key == key }
             let count = matchingBucket?.plannedCount ?? 0
-            return String(localized: "Selected month: \(formatMonthYear(key)), \(count) \(count == 1 ? String(localized: "copy", bundle: .module) : String(localized: "copies", bundle: .module)). Timeline contains \(timelineBuckets.count) months.", bundle: .module)
+            return PluralPhrases.timelineSelectedValue(month: formatMonthYear(key), countPhrase: PluralPhrases.copies(count), monthCount: timelineBuckets.count)
         }
         let total = timelineBuckets.reduce(0) { $0 + $1.plannedCount }
-        return String(localized: "Timeline containing \(total) \(total == 1 ? String(localized: "copy", bundle: .module) : String(localized: "copies", bundle: .module)) across \(timelineBuckets.count) months. Unselected.", bundle: .module)
+        return PluralPhrases.timelineUnselectedValue(countPhrase: PluralPhrases.copies(total), monthCount: timelineBuckets.count)
     }
 
     private func formatMonthYear(_ key: String) -> String {
@@ -955,7 +955,7 @@ struct ReceiptDetailSheet: View {
                         Text("Date: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(AppLocalization.string(meta.status))")
                             .font(.subheadline)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                        Text("\(meta.totalFiles.formatted()) files")
+                        Text(verbatim: PluralPhrases.files(meta.totalFiles))
                             .font(.caption)
                             .accessibilityIdentifier(AccessibilityIdentifiers.receiptFileCount)
                         if let badge = RecoveryBadgeFormatter.title(for: meta.recoveryState) {

@@ -741,7 +741,7 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertTrue(checkpoint.remainingEntries.isEmpty, "A failed asset is not retried on resume")
         XCTAssertEqual(
             store.statusMessage,
-            "1 item(s) couldn't be read and were skipped. Your Photos library was not changed."
+            "1 item couldn't be read and was skipped. Your Photos library was not changed."
         )
     }
 

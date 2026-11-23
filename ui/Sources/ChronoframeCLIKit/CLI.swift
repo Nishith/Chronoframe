@@ -436,6 +436,12 @@ public struct ChronoframeCLI {
         }
     }
 
+    static func resumePrompt(pendingJobCount: Int) -> String {
+        pendingJobCount == 1
+            ? "Found 1 pending copy job. Resume it? [Y/n/fresh]"
+            : "Found \(pendingJobCount) pending copy jobs. Resume them? [Y/n/fresh]"
+    }
+
     private static func transferDecision(
         options: CLIOptions,
         preflight: RunPreflight,
@@ -464,7 +470,7 @@ public struct ChronoframeCLI {
             if options.assumeYes {
                 return true
             }
-            output("Found \(preflight.pendingJobCount) pending copy jobs. Resume them? [Y/n/fresh]")
+            output(Self.resumePrompt(pendingJobCount: preflight.pendingJobCount))
             let answer = input()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
             switch answer {
             case "", "y", "yes":
