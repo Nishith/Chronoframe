@@ -322,7 +322,7 @@ struct NASLibraryView: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 } else {
                     ProgressView().controlSize(.small)
-                    Text("\(store.progress.directories) folders, \(store.progress.files) files", bundle: .module)
+                    Text(verbatim: PluralPhrases.scanProgress(folders: store.progress.directories, files: store.progress.files))
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }

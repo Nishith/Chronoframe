@@ -901,10 +901,10 @@ struct TrustProofModel {
             TrustProofItem(
                 id: "reviewed_only",
                 title: "Reviewed Groups Only",
-                message: String(localized: "\(reviewedGroups) groups will be processed. \(unreviewedGroups) unreviewed groups remain completely untouched.", bundle: .module),
+                message: "\(PluralPhrases.groupsWillBeProcessed(reviewedGroups)) \(PluralPhrases.unreviewedGroupsUntouched(unreviewedGroups))",
                 symbol: "checklist",
                 tone: unreviewedGroups > 0 ? .warning : .success,
-                accessibilityLabel: String(localized: "\(reviewedGroups) groups reviewed. \(unreviewedGroups) groups untouched.", bundle: .module),
+                accessibilityLabel: "\(PluralPhrases.groupsReviewedLabel(reviewedGroups)) \(PluralPhrases.groupsUntouchedLabel(unreviewedGroups))",
                 actionLabel: nil
             )
         ]

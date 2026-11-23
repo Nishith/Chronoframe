@@ -299,7 +299,7 @@ struct SetupScreenModel {
     }
 
     var performanceSummary: String {
-        String(localized: "\(String(context.workerCount)) workers", bundle: .module)
+        PluralPhrases.workers(context.workerCount)
     }
 
     var safetySummary: String {

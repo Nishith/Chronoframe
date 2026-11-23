@@ -95,6 +95,11 @@ public struct OrganizeFolderIntent: AppIntent {
         self.destinationFolder = destinationFolder
     }
 
+    /// "Transferred 1 file." for a count of 1, "Transferred 0 files." for zero.
+    static func finishedMessage(copiedCount: Int) -> String {
+        "Successfully organized folder. Transferred \(copiedCount == 1 ? "1 file" : "\(copiedCount) files")."
+    }
+
     @MainActor
     public func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let sourcePath = sourceFolder.path
@@ -151,7 +156,7 @@ public struct OrganizeFolderIntent: AppIntent {
         
         switch session.status {
         case .finished:
-            return .result(value: "Successfully organized folder. Transferred \(session.metrics.copiedCount) files.")
+            return .result(value: Self.finishedMessage(copiedCount: session.metrics.copiedCount))
         case .nothingToCopy:
             return .result(value: "No files to copy. Everything is already organized.")
         case .failed:

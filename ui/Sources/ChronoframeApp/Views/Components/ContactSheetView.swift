@@ -158,7 +158,7 @@ struct ContactSheetView: View {
             return String(localized: "Contact sheet preview — \(ContactSheetLayout.emptyResultMessage(foundMediaCount: loader.foundMediaCount))", bundle: .module)
         }
         let visible = min(loader.loadedThumbnailCount, displayedTileCount)
-        return String(localized: "Contact sheet showing \(String(visible)) preview frames from the source.", bundle: .module)
+        return PluralPhrases.contactSheetShowing(visible)
     }
 
     private var shouldShowHeroCell: Bool {
