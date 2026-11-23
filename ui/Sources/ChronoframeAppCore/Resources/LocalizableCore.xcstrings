@@ -3244,7 +3244,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld kopiert, %lld konnten nicht kopiert werden."
+            "value": "%lld kopiert, %lld nicht kopiert."
           }
         }
       }
@@ -3295,7 +3295,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe hat nichts kopiert. Deine Originale wurden nicht verändert. Öffne Chronoframe, um den Grund zu sehen."
+            "value": "Chronoframe hat nichts kopiert. Deine Originale wurden nicht verändert. Öffne Chronoframe, um den Grund zu erfahren."
           }
         }
       }
