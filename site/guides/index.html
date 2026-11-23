@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guides — Chronoframe</title>
+  <meta name="description" content="Step-by-step guides for Chronoframe for Mac: organize photos into dated folders, export Apple Photos originals, and find duplicate photos." />
+  <meta name="theme-color" content="#161618" />
+  <link rel="canonical" href="https://chronoframe.app/guides/" />
+  <meta property="og:title" content="Chronoframe guides" />
+  <meta property="og:description" content="Step-by-step guides for organizing, exporting and deduplicating photos on Mac." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://chronoframe.app/guides/" />
+  <meta property="og:image" content="https://chronoframe.app/og-card.jpg?v=20260525" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png?v=20260523-f" />
+  <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png?v=20260523-f" />
+  <link rel="stylesheet" href="../styles.css?v=20261027-compare" />
+</head>
+<body class="help-page">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-nav">
+    <div class="container">
+      <a class="brand" href="../index.html" aria-label="Chronoframe home"><img class="brand-icon" src="../favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="../features.html">How it works</a>
+        <a href="../safety.html">Safety</a>
+        <a href="../faq.html">FAQ</a>
+        <a href="../support.html">Support</a>
+      </nav>
+      <a class="nav-download" href="https://apps.apple.com/us/app/chronoframe/id6771245052?pt=117867077&amp;ct=guides-index&amp;mt=12">Download free</a>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="page-head"><div class="container">
+      <p class="eyebrow">Guides</p>
+      <h1>Chronoframe guides</h1>
+      <p>Step-by-step guides for Chronoframe for Mac.</p>
+    </div></section>
+
+    <section class="help-content"><div class="container">
+      <article class="prose guide-prose">
+        <ul>
+          <li><a href="organize-photos-into-dated-folders-mac/"><strong>How to organize photos into dated folders on Mac</strong></a><br />Bring years of scattered photos into dated folders on your Mac without risking the originals: preview the plan, approve verified copies, and check the result in History.</li>
+          <li><a href="export-apple-photos-originals-mac/"><strong>How to export Apple Photos originals to folders without changing your library</strong></a><br />Copy the original, unedited photos and videos out of Apple Photos into dated folders on your Mac. Preview the plan first; your Photos library is only read, never changed.</li>
+          <li><a href="find-duplicate-photos-mac/"><strong>Find duplicate photos on Mac without risking originals</strong></a><br />Find exact and similar duplicate photos and videos on your Mac, compare them side by side, and move only the ones you approve to Trash, with restore from History.</li>
+        </ul>
+      </article>
+    </div></section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-cta">
+          <a class="brand" href="../index.html"><img class="brand-icon" src="../favicon-32x32.png?v=20260523-f" width="28" height="28" alt="" /> Chronoframe</a>
+          <p>A little order for a lifetime of memories.<br />Made for Mac by Nishith Nand.</p>
+        </div>
+        <nav class="footer-nav" aria-label="Footer">
+          <a href="../features.html">How it works</a><a href="../safety.html">Safety &amp; recovery</a>
+          <a href="../compare/">Compare</a><a href="../index.html#demo">Watch the demo</a>
+          <a href="../privacy.html">Privacy</a><a href="../faq.html">FAQ</a>
+          <a href="../support.html">Support</a><a href="../index.html#download">Try Chronoframe free</a>
+          <a href="../guides/">Guides</a><a href="mailto:support@chronoframe.app">Contact the maker</a>
+        </nav>
+      </div>
+      <div class="footer-bottom"><span>&copy; 2026 Nishith Nand</span><span>On your Mac. Under your control.</span></div>
+    </div>
+  </footer>
+  <script>
+    // Channel attribution: a utm_source (or utm_campaign) on the landing URL replaces the default ct=.
+    (function () {
+      try {
+        var q = new URLSearchParams(window.location.search);
+        var clean = function (s) { return (s || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40); };
+        var v = clean(q.get("utm_source")) || clean(q.get("utm_campaign"));
+        if (!v) return;
+        var links = document.querySelectorAll('a[href*="apps.apple.com"]');
+        for (var i = 0; i < links.length; i++) {
+          var h = links[i].getAttribute("href");
+          if (h && h.indexOf("ct=") > -1) links[i].setAttribute("href", h.replace(/([?&])ct=[^&]*/, "$1ct=" + v));
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

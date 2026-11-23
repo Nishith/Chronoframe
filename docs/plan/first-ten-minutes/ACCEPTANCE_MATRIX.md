@@ -1,6 +1,6 @@
 # First ten minutes — acceptance matrix
 
-Status: not started (no code on main; `RunPreflightAssessment` does not exist). No row is built.
+Status: not started (verified 2026-11-22 on main 8308aac: `git grep` finds no `RunPreflightAssessment`, `PreflightService`, `FirstRunTestBatch` or `RunProofModel` in `ui/`). No row is built.
 
 | ID | Requirement (Round 3 #5) | Automated coverage | Hardware row | Auto status | Hardware status |
 |---|---|---|---|---|---|

@@ -1,6 +1,6 @@
 # Find and account — acceptance matrix
 
-Status: not started (no code on main; `RunOutcomeRecord` and the lookup index do not exist). No row is built.
+Status: not started (verified 2026-11-22 on main 8308aac: no `RunOutcomeRecord` or lookup index in `ui/`, no INV-30 tag). No row is built.
 
 | ID | Requirement (Round 3 #4) | Automated coverage | Hardware row | Auto status | Hardware status |
 |---|---|---|---|---|---|

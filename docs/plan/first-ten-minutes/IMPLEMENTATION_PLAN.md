@@ -1,6 +1,6 @@
 # First ten minutes — implementation plan
 
-Status: not started (no code on main). Plan text predates clear-path (#269, #274): refresh line references and UI copy before running. Proposal prepared 2026-11-07. Prefix `FTM`. Read first: `docs/plan/next-half/AGENT_RULES.md`, `CONTRACTS.md`, `DECISIONS.md`.
+Status: not started (verified 2026-11-22 on main 8308aac: `git grep` finds no `RunPreflightAssessment`, `PreflightService`, `FirstRunTestBatch` or `RunProofModel` in `ui/`). Line references and UI names refreshed 2026-11-22 after clear-path (#269, #274), #265, #282 and #281; `photos-import-resume` (#268, #270), `dedupe-persistence` (#267) and `nas-v1`/`nas-public` (#266) are on `main`. Proposal prepared 2026-11-07. Prefix `FTM`. Read first: `docs/plan/next-half/AGENT_RULES.md`, `CONTRACTS.md`, `DECISIONS.md`.
 
 ## Run order
 WP-00 → WP-01 → WP-02 → G1 → WP-03 → WP-04 → WP-05 → WP-06 → WP-07 → G2.
@@ -20,7 +20,7 @@ WP-00 → WP-01 → WP-02 → G1 → WP-03 → WP-04 → WP-05 → WP-06 → WP-
 
 ## WP-02 — Preview bytes, preflight service, store state
 - **Model:** cf-implementer.
-- **Owned paths:** `ui/Sources/ChronoframeAppCore/Services/SwiftOrganizerEngine.swift` (lines 515–534 only), `ui/Sources/ChronoframeAppCore/Services/PreflightService.swift` (new), `ui/Sources/ChronoframeAppCore/Stores/SetupStore.swift`, `ui/Sources/ChronoframeAppCore/Stores/RunSessionStore.swift` (`previewPlannedBytes`, `lastPreviewTransfers`), `ui/Tests/ChronoframeAppCoreTests/PreflightServiceTests.swift` (new), `ui/Tests/ChronoframeAppCoreTests/SetupStoreTests.swift`, `ui/Tests/ChronoframeAppCoreTests/RunSessionStoreTests.swift`, the existing engine preview test file that asserts preview metrics (named in the report).
+- **Owned paths:** `ui/Sources/ChronoframeAppCore/Services/SwiftOrganizerEngine.swift` (lines 535–542 only), `ui/Sources/ChronoframeAppCore/Services/PreflightService.swift` (new), `ui/Sources/ChronoframeAppCore/Stores/SetupStore.swift`, `ui/Sources/ChronoframeAppCore/Stores/RunSessionStore.swift` (`previewPlannedBytes`, `lastPreviewTransfers`), `ui/Tests/ChronoframeAppCoreTests/PreflightServiceTests.swift` (new), `ui/Tests/ChronoframeAppCoreTests/SetupStoreTests.swift`, `ui/Tests/ChronoframeAppCoreTests/RunSessionStoreTests.swift`, the existing engine preview test file that asserts preview metrics (named in the report).
 - **Contracts:** C-02, C-03, C-06 (`lastPreviewTransfers`).
 - **Acceptance:** `PreflightServiceTests/testInputsFromRealTempFolders` (free bytes non-nil, both reachable), `testUnreachableSourceGivesFalse`, `testMissingPathsGiveNil`; `SetupStoreTests/testApplyPreflightPublishes`; `RunSessionStoreTests/testPreviewPlannedBytesAndTransfersExposed`; engine preview test: `bytesTotal` equals the fixture's summed sizes.
 - **Done when:** the named classes exit 0; build exit 0.
@@ -31,15 +31,15 @@ Add `RunPreflightAssessment FirstRunTestBatch` to `MEANINGFUL_BASENAMES`; `cf_sw
 ## WP-03 — Setup recheck and live checklist
 - **Model:** cf-implementer.
 - **Owned paths:** `ui/Sources/ChronoframeApp/App/Coordinators/SetupCoordinator.swift`, `ui/Sources/ChronoframeApp/App/AppState.swift` (`refreshPreflight` forwarder and preview-completion hook), `ui/Sources/ChronoframeApp/Views/Setup/SetupScreenModel.swift`, `ui/Sources/ChronoframeApp/Views/Setup/SetupSectionViews.swift`, `ui/Sources/ChronoframeApp/Views/Setup/SetupView.swift` (call on appear), `ui/Tests/ChronoframeAppTests/SetupScreenModelTests.swift`, `ui/Tests/ChronoframeAppTests/SetupCoordinatorTests.swift`.
-- **Read for reference:** `SetupCoordinator.swift:40–160`, `SetupScreenModel.swift:35–60, :126–200, :292–340`, `SetupSectionViews.swift:457–620`.
+- **Read for reference:** `SetupCoordinator.swift:51–160`, `SetupScreenModel.swift:35–60, :205–232, :311–316`, `SetupSectionViews.swift:546–690`.
 - **Contracts:** C-04, C-05. **Decisions:** D-FTM-02, D-FTM-09.
 - **Acceptance:** `SetupScreenModelTests/testBlockedSourceCheckGivesSourceUnavailableState`, `testBlockedDestinationCheckGivesDestinationUnavailableState`, `testCanStartRunUnchangedByPreflight`; `SetupCoordinatorTests/testBootstrapRefreshesPreflight`, `testSelectDestinationRefreshesPreflight`.
 - **Done when:** both classes exit 0; `script/check_no_raw_animations.sh` exit 0; build exit 0.
 
 ## WP-04 — Preview preflight row and first-run test batch
 - **Model:** cf-implementer.
-- **Owned paths:** `ui/Sources/ChronoframeApp/Views/Run/RunSectionViews.swift`, `ui/Sources/ChronoframeApp/Views/Run/RunWorkspaceModel.swift`, `ui/Sources/ChronoframeApp/App/AppState.swift` (`startFirstRunTestBatch`), `ui/Sources/ChronoframeApp/App/AccessibilityIdentifiers.swift`, `ui/Tests/ChronoframeAppTests/RunWorkspaceModelTests.swift`, `ui/Tests/ChronoframeAppTests/AppStateTests.swift`.
-- **Read for reference:** `RunSectionViews.swift:257–320`, `RunWorkspaceModel.swift:105–203, :536–560`, `AppState.swift:486–510`, `RunCoordinator.swift:138`.
+- **Owned paths:** `ui/Sources/ChronoframeApp/Views/Run/RunSectionViews.swift`, `ui/Sources/ChronoframeApp/Views/Run/RunWorkspaceModel.swift`, `ui/Sources/ChronoframeApp/Views/Run/PreviewReviewPanel.swift` (preflight row only), `ui/Sources/ChronoframeApp/App/AppState.swift` (`startFirstRunTestBatch`), `ui/Sources/ChronoframeApp/App/AccessibilityIdentifiers.swift`, `ui/Tests/ChronoframeAppTests/RunWorkspaceModelTests.swift`, `ui/Tests/ChronoframeAppTests/AppStateTests.swift`.
+- **Read for reference:** `RunSectionViews.swift:134–160, :260–310`, `PreviewReviewPanel.swift:30–80`, `RunWorkspaceModel.swift:99–215, :546–560, :658–680`, `AppState.swift:515–535`, `RunCoordinator.swift:138`.
 - **Contracts:** C-06. **Decisions:** D-FTM-04, D-FTM-05.
 - **Acceptance:** `RunWorkspaceModelTests/testOffersTestBatchOnlyForFirstRunWithEnoughFiles`, `testTestBatchTitle`, `testPreflightRowUsesDestinationSpaceCheck`; `AppStateTests/testStartFirstRunTestBatchStartsTransferWithSelection` (coordinator receives a 25-file selection), `testNoTestBatchAfterFirstReceipt`.
 - **Done when:** both classes exit 0; build exit 0.
@@ -47,7 +47,7 @@ Add `RunPreflightAssessment FirstRunTestBatch` to `MEANINGFUL_BASENAMES`; `cf_sw
 ## WP-05 — Proof card
 - **Model:** cf-implementer.
 - **Owned paths:** `ui/Sources/ChronoframeApp/Views/Run/RunProofCard.swift` (new), `ui/Sources/ChronoframeApp/Views/Run/RunProofModel.swift` (new), `ui/Sources/ChronoframeApp/Views/Run/CurrentRunView.swift`, `ui/Sources/ChronoframeApp/App/AppState.swift` (receipt lookup + reveal/undo/continue actions), `ui/Sources/ChronoframeApp/App/AccessibilityIdentifiers.swift`, `ui/Tests/ChronoframeAppTests/RunProofModelTests.swift` (new), `ui/Tests/ChronoframeAppTests/AppStateTests.swift`.
-- **Read for reference:** `CurrentRunView.swift:37–60, :118–149`, `RunSessionStore.swift:16–34, :260`, `HistoryCoordinator.swift:44–91`, `RevertExecutor.swift:247`, `TransferExecutor.swift:1379–1406`.
+- **Read for reference:** `CurrentRunView.swift:37–60, :122–173`, `RunSessionStore.swift:16–50, :117–119`, `HistoryCoordinator.swift:49–94`, `RevertExecutor.swift:247`, `TransferExecutor.swift:1405–1440`.
 - **Contracts:** C-07. **Decisions:** D-FTM-06, D-FTM-07.
 - **Acceptance:** `RunProofModelTests/testHeadlineVerifiedAndUnverified`, `testFolderCountFromReceiptDestinations`, `testNoReceiptDisablesUndoWithExplanation`; `AppStateTests/testProofCardUndoRevertsThatReceiptOnly` (`// AGENTS-INVARIANT: 8`; harness asserts `requestRevert` is called with the batch's receipt URL), `testProofCardRevealUsesFirstDestination`, `testProofCardShownOnlyForBatchCompletion`.
 - **Done when:** both classes exit 0; `script/check_detail_views_set_navigation_title.sh` exit 0; build exit 0.
@@ -60,8 +60,8 @@ Add `RunPreflightAssessment FirstRunTestBatch` to `MEANINGFUL_BASENAMES`; `cf_sw
 - **Owned paths:** `docs/QUICK_START.md`, `docs/FAQ.md`, `docs/TROUBLESHOOTING.md`, `README.md`, `docs/plan/first-ten-minutes/strings-app.txt`. Contract C-09, C-10. Done when `git diff --check` exit 0 and the reviewer confirms claims.
 
 ## Gate G2 — Final (orchestrator)
-1. Strings via `add_xcstrings_keys.py`. 2. `cf_swift.sh suite`, `coverage`, `guards main`, `xcode`, `git diff --check`. 3. App smoke (verified, if permitted): fresh `UserDefaults` domain (`defaults delete` is owner-only; instead use a temp destination with no receipts and a Debug build whose trial ledger is empty), choose a 100-file temp source; screenshots `evidence/setup-preflight.png`, `evidence/preview-batch-offer.png`, `evidence/proof-card.png`. 4. Commit `FTM G2: strings and evidence`.
+1. Strings via `add_xcstrings_keys.py`. 2. `cf_swift.sh suite`, `coverage`, `guards main`, `xcode`, `git diff --check`. 3. App smoke (verified, if permitted): fresh `UserDefaults` domain (`defaults delete` is owner-only; instead use a temp destination with no receipts and a Debug build whose trial ledger is empty), choose a 100-file temp source under Choose Folders, then Preview Plan; screenshots `evidence/setup-preflight.png`, `evidence/preview-batch-offer.png`, `evidence/proof-card.png`. 4. Commit `FTM G2: strings and evidence`.
 - **Pass when:** all exit 0; owner rows `todo-hardware`.
 
 ## Owner handoff (todo-hardware)
-H-FTM-1 external drive with less free space than the plan: Setup and Preview show the blocked copy; the transfer pauses as before; H-FTM-2 unplug the source drive, relaunch: "Source Unavailable"; H-FTM-3 fresh install path (new Mac user account or a clean Debug container): offer appears, batch copies 25, proof card shows files, Show in Finder selects them, Undo removes exactly 25 and refunds allowance; H-FTM-4 VoiceOver through checklist, offer and proof card.
+H-FTM-1 external drive with less free space than the plan: Choose Folders and Preview & Copy show the blocked copy; Start Copying still works and the copy pauses as before; H-FTM-2 unplug the source drive, relaunch: "Source Unavailable"; H-FTM-3 fresh install path (new Mac user account or a clean Debug container): offer appears, batch copies 25, proof card shows files, Show in Finder selects them, Undo removes exactly 25 and refunds allowance; H-FTM-4 VoiceOver through checklist, offer and proof card.
