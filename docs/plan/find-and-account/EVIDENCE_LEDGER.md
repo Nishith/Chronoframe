@@ -1,6 +1,6 @@
 # Find and account — evidence ledger (owner rows)
 
-Status: not started (no code on main; `RunOutcomeRecord` and the lookup index do not exist). No row is run.
+Status: not started (verified 2026-11-22 on main 8308aac: no `RunOutcomeRecord` or lookup index in `ui/`, no INV-30 tag). No row is run.
 
 | Row | What to run | Pass when | Status | Evidence |
 |---|---|---|---|---|
