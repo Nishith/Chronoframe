@@ -94,6 +94,12 @@ The 35 German strings added since #280 were reviewed twice by separate model rev
 
 Still open: the English sources "%lld planned files across %lld months…" and "%@ planned files" have no singular form, so a count of 1 reads "1 geplante Dateien" / "in 1 Monaten"; fixing it needs plural variations in both languages, not a translation change. A native speaker has not reviewed any of this; the safety sentences are the ones worth their time.
 
+## 2026-11-22 follow-ups (merged: #287, #288, #290, #291)
+
+- Second review applied (#287); timeline singular phrases (#288); app-wide, NAS and CLI singular phrases (#291), which closes the "1 geplante Dateien" gap noted above.
+- Problem counts now share one definition (`RunWorkspaceModel.problemCount`), so the ticker, tab, tile, summary and outcome card agree (#290). The Details tab picker cap went 340 → 440 pt for German; confirmed by build and tests, not recaptured.
+- Two hints naming the old "Setup" tab now say "Ordner wählen" (#290).
+
 ## Next verification
 
-Still open: the tab strip margin and the problem-count question above.
+Still open: recapture the Preview tab strip in German to confirm the 440 pt cap removes the ~28 pt overhang, and a native-speaker review of the safety sentences (none has been done).
