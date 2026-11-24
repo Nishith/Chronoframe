@@ -165,7 +165,7 @@ Read-only opens ignore the policy.
 
 ### Probe Tool
 
-`ChronoframeNASProbeTool` is a local-only SwiftPM executable for real-share qualification evidence. CI builds it but never runs it. Run it only against an empty, disposable folder you created on the share. Run from the repo root after `docs/plan/nas-v1/bin/nas_swift.sh build`:
+`ChronoframeNASProbeTool` is a local-only SwiftPM executable for real-share qualification evidence. CI builds it but never runs it. Run it only against an empty, disposable folder you created on the share. Run from the repo root after `docs/plan/next-half/bin/cf_swift.sh build`:
 
 ```bash
 ui/.build/debug/ChronoframeNASProbeTool probe --test-dir "/Volumes/<share>/<empty-test-folder>" > probe.json

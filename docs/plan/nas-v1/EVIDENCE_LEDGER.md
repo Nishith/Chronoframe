@@ -8,7 +8,7 @@ The probe tool is local only and is built but never run against a share in CI (D
 
 ## Commands
 
-Run from the repo root after `docs/plan/nas-v1/bin/nas_swift.sh build`:
+Run from the repo root after `docs/plan/next-half/bin/cf_swift.sh build` (the NAS-specific `nas_swift.sh` wrapper was removed 2026-11-23; see git history):
 
 ```bash
 ui/.build/debug/ChronoframeNASProbeTool probe --test-dir "/Volumes/<share>/<empty-test-folder>" > probe.json

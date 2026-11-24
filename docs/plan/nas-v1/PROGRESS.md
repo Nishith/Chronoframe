@@ -3,7 +3,7 @@
 Status: shipped in PR #266 behind the disabled `NASCapability.isEnabled` flag; WP-00 to WP-12 and gates G2 and G3 done. Owner verified the NAS Library workspace renders and the local-folder refusal shows in a Debug build (54bee13); hardware rows H1 to H8 are `todo-hardware` in this folder (results live in `docs/plan/nas-public/EVIDENCE_LEDGER.md`).
 
 ## Baseline (2026-11-07, `feature/nas-v1` @ e257003)
-- `docs/plan/nas-v1/bin/nas_swift.sh build`: exit 0, 15 s ("Build complete! (13.63 sec)").
+- `nas_swift.sh build` (wrapper removed 2026-11-23; see git history): exit 0, 15 s ("Build complete! (13.63 sec)").
 - `script/check_agents_invariants_have_tests.sh`: exit 0, <1 s, "All 26 safety invariants have at least one tagged test."
 - Full sharded suite (`script/run_swift_test_suites.sh` with local HOME/module cache): exit 0, 86 s, 154 suites in 31 shards, no line reporting a non-zero failure count.
 

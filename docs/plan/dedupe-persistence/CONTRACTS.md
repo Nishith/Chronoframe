@@ -1,6 +1,6 @@
 # Dedupe persistence — contracts
 
-Status: shipped in PR #267. Durable design contract; code and other docs refer to its C-numbers.
+Status: shipped in PR #267. Durable design contract; code and other docs refer to its C-numbers. The `strings-app.txt` / `strings-core.txt` working lists this plan mentions were removed 2026-11-23 (every key is in the catalogs; see git history).
 
 Plan prefix `DDP`. Read `docs/plan/next-half/AGENT_RULES.md` first. Line numbers refer to `main` after `feature/nas-v1` merges; if a line moved, search for the quoted declaration.
 

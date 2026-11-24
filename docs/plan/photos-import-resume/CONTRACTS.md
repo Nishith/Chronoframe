@@ -1,6 +1,6 @@
 # Photos import resume — contracts
 
-Status: shipped in PR #268. Durable design contract; code and other docs refer to its C-numbers.
+Status: shipped in PR #268. Durable design contract; code and other docs refer to its C-numbers. The `strings-app.txt` / `strings-core.txt` working lists this plan mentions were removed 2026-11-23 (every key is in the catalogs; see git history).
 
 Plan prefix `PIR`. Read `docs/plan/next-half/AGENT_RULES.md` first. Line numbers refer to `main` after `feature/nas-v1` merges; if a line has moved, search for the quoted declaration.
 
