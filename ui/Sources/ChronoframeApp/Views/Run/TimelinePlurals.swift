@@ -23,6 +23,16 @@ enum TimelinePlurals {
         phrase(count, one: "1 file to copy", other: "%@ files to copy", bundle: bundle)
     }
 
+    /// "2 of 5 phases complete"; the noun follows the total, so only a total of 1 is singular.
+    static func phasesComplete(_ completed: Int, of total: Int, bundle: Bundle = .module) -> String {
+        total == 1
+            ? AppLocalization.format("%@ of 1 phase complete", completed.formatted(), bundle: bundle)
+            : String(
+                format: AppLocalization.string("%@ of %@ phases complete", bundle: bundle),
+                completed.formatted(), total.formatted()
+            )
+    }
+
     private static func phrase(_ count: Int, one: String, other: String, bundle: Bundle) -> String {
         count == 1
             ? AppLocalization.string(one, bundle: bundle)
