@@ -102,4 +102,4 @@ Still open: the English sources "%lld planned files across %lld months…" and "
 
 ## Next verification
 
-Still open: recapture the Preview tab strip in German to confirm the 440 pt cap removes the ~28 pt overhang, and a native-speaker review of the safety sentences (none has been done).
+Recaptured 2026-11-23 (`41-details-strip-fixed`, gitignored): the Überblick/Prüfen/Probleme (2)/Aktivität strip ends at 1041 pt, inside the 1055 pt card margin, and the ticker, tab, status table and summary all agree on 1 Warnung, 1 Fehler / 2 Probleme. Still open: a native-speaker review of the safety sentences (none has been done).

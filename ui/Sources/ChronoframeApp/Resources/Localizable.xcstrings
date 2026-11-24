@@ -27847,6 +27847,38 @@
           }
         }
       }
+    },
+    "%@ of 1 phase complete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of 1 phase complete"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ von 1 Phase abgeschlossen"
+          }
+        }
+      }
+    },
+    "%@ of %@ phases complete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ of %@ phases complete"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ von %@ Phasen abgeschlossen"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"
