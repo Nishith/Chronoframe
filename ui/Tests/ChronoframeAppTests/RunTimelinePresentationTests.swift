@@ -140,6 +140,16 @@ final class RunTimelinePresentationTests: XCTestCase {
         XCTAssertEqual(TimelinePlurals.filesToCopy(40), "40 files to copy")
     }
 
+    func testPhasesCompleteUsesTheSingularForOnePhase() throws {
+        XCTAssertEqual(TimelinePlurals.phasesComplete(0, of: 1), "0 of 1 phase complete")
+        XCTAssertEqual(TimelinePlurals.phasesComplete(1, of: 1), "1 of 1 phase complete")
+        XCTAssertEqual(TimelinePlurals.phasesComplete(2, of: 5), "2 of 5 phases complete")
+        XCTAssertEqual(TimelinePlurals.phasesComplete(0, of: 0), "0 of 0 phases complete")
+        let german = try germanAppBundle()
+        XCTAssertEqual(TimelinePlurals.phasesComplete(1, of: 1, bundle: german), "1 von 1 Phase abgeschlossen")
+        XCTAssertEqual(TimelinePlurals.phasesComplete(2, of: 5, bundle: german), "2 von 5 Phasen abgeschlossen")
+    }
+
     func testGermanSingularPhrasesAgreeWithTheirCase() throws {
         let german = try germanAppBundle()
         XCTAssertEqual(TimelinePlurals.plannedFiles(1, bundle: german), "1 geplante Datei")

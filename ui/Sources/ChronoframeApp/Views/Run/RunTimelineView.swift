@@ -396,7 +396,7 @@ struct RunPhaseStrip: View {
     private var phasesAccessibilityValue: String {
         let completed = model.phaseEntries.filter { $0.state == .complete }.count
         let total = model.phaseEntries.count
-        return String(localized: "\(completed) of \(total) phases complete", bundle: .module)
+        return TimelinePlurals.phasesComplete(completed, of: total)
     }
 
     private var currentIndex: Int? {
