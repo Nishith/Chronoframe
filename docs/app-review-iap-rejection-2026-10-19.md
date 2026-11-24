@@ -246,7 +246,7 @@ success screenshot and independently verified persisted unlock remain valid
 functional evidence, but the requested purchase recording is missing. The saved
 175.992-second desktop diagnostic clip does not capture the successful transaction.
 
-Follow-ups: explicit button-driven Restore passed on signed 510; the completed recording Apple requested was made on signed 511; a second fresh tester (Chronoframe Recording510) was used for the recorded purchase ([checklist](app-review-iap-rejection-2026-10-19/recording-checklist.md)).
+Follow-ups: explicit button-driven Restore passed on signed 510; the completed recording Apple requested was made on signed 511; a second fresh tester (Chronoframe Recording510) was used for the recorded purchase (its checklist was removed 2026-11-23; see git history).
 
 ## Resubmission preparation
 

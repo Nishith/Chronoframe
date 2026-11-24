@@ -1,6 +1,6 @@
 # Chronoframe 2.0 (504) — direct-free signed candidate
 
-**Historical evidence, 2026-10-16 to 2026-10-17. First signed build with the direct-free policy; held** for the History receipt-viewer permission failure below (fixed in [505](release-2.0-505-manual-session.md), [506](release-2.0-506-manual-session.md), [507](release-2.0-507-manual-session.md)). Uploaded, processed, export compliance saved, installed through TestFlight; About confirms 2.0 (504). The shipped build is 2.0 (511); see [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md).
+**Historical evidence, 2026-10-16 to 2026-10-17. First signed build with the direct-free policy; held** for the History receipt-viewer permission failure below (fixed in builds 505 and 506 (session records removed 2026-11-23; see git history), [507](release-2.0-507-manual-session.md)). Uploaded, processed, export compliance saved, installed through TestFlight; About confirms 2.0 (504). The shipped build is 2.0 (511); see [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md).
 
 ## Source and identity
 

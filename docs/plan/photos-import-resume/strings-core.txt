@@ -1,2 +1,0 @@
-Chronoframe needs access to Photos to continue this import.
-This import was prepared for a different destination. Choose that destination again to resume, or discard it.
