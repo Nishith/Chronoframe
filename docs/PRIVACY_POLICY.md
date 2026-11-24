@@ -18,7 +18,7 @@ Chronoframe may read file contents, file names, paths, metadata, hashes, timesta
 
 ## Local Storage
 
-Chronoframe stores app preferences and folder-access bookmarks on your Mac. Local Application Support data also includes watched-folder checkpoints, temporary Apple Photos exports, and a trial-usage ledger associated with an Apple-provided purchase identifier. These records are not sent to a Chronoframe server.
+Chronoframe stores app preferences and folder-access bookmarks on your Mac. Local Application Support data also includes watched-folder checkpoints, temporary Apple Photos exports, and a trial-usage ledger associated with an Apple-provided purchase identifier. A small record of the last trial usage the ledger reported is also kept in your login Keychain, keyed by that identifier, so that deleting the ledger file alone does not reset your free allowance; Chronoframe stores no other personal data there. These records are not sent to a Chronoframe server.
 
 For each destination folder you choose, Chronoframe may create local support files such as:
 
