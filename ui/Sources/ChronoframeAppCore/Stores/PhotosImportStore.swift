@@ -85,6 +85,11 @@ public final class PhotosImportStore: ObservableObject {
     /// disk). The export is then stopped rather than carried on with progress
     /// the disk does not reflect.
     private var checkpointSaveFailed = false
+    /// An asset's edited-render outcome, held from its `editedVersion…` event
+    /// until its `.assetCompleted` records it with the asset in one checkpoint
+    /// write, so a rolled-back asset leaves nothing behind.
+    private var pendingEditedFile: PhotosExportedFile?
+    private var pendingEditedFailure = false
     /// Staging directories handed out in a context whose run has not yet
     /// called `cleanupStaging(for:)`. A refresh must never treat these as
     /// consumed.
@@ -226,7 +231,7 @@ public final class PhotosImportStore: ObservableObject {
     /// `statusMessage`) if there is nothing to import or the export failed.
     /// The Photos library is never modified. A new prepare supersedes any
     /// interrupted import (the UI confirms first).
-    public func prepareImport(destination: DestinationCapture?) async -> PhotosImportContext? {
+    public func prepareImport(destination: DestinationCapture?, includeEditedVersions: Bool = false) async -> PhotosImportContext? {
         guard !isPreparingImport else { return nil }
         guard let destination, !destination.path.isEmpty else {
             statusMessage = CoreL10n.text("Choose an organize destination before importing from Photos.")
@@ -257,7 +262,8 @@ public final class PhotosImportStore: ObservableObject {
             createdAt: now(),
             destinationPath: destination.path,
             destinationBookmarkKeys: destination.bookmarkKeys,
-            plan: plan
+            plan: plan,
+            includeEditedVersions: includeEditedVersions
         )
         return await runExport(
             checkpoint: checkpoint,
@@ -447,6 +453,7 @@ public final class PhotosImportStore: ObservableObject {
                 plan: PhotosExportPlan(entries: checkpoint.remainingEntries),
                 to: stagingDirectory,
                 reservedFilenames: checkpoint.reservedFilenames,
+                includeEditedVersions: checkpoint.includeEditedVersions,
                 isCancelled: { flag.isCancelled },
                 onEvent: { continuation.yield($0) }
             )
@@ -589,17 +596,30 @@ public final class PhotosImportStore: ObservableObject {
 
         switch event {
         case .assetStarted(let assetID, _, _):
+            pendingEditedFile = nil
+            pendingEditedFailure = false
             let label = selectedSummaries.first { $0.id == assetID }?.originalFilename
             preparation = updated(label: label, waiting: false)
         case .resourceProgress(_, let fraction):
             if fraction < 1, !progress.isWaitingForCloud {
                 preparation = updated(label: progress.currentAssetLabel, waiting: true)
             }
+        case .editedVersionSaved(_, let file):
+            pendingEditedFile = file
+        case .editedVersionFailed:
+            pendingEditedFailure = true
+        case .editedVersionNotIncluded:
+            break
         case .assetCompleted(let assetID, let files, let hints):
             checkpoint.recordCompleted(
-                PhotosCompletedAssetRecord(assetID: assetID, files: files, sourceDateHints: hints),
+                PhotosCompletedAssetRecord(assetID: assetID, files: files, sourceDateHints: hints, editedFile: pendingEditedFile),
                 at: now()
             )
+            if pendingEditedFailure {
+                checkpoint.recordVariantFailure(PhotosVariantFailure(assetID: assetID, reason: .editedRenderUnavailable), at: now())
+            }
+            pendingEditedFile = nil
+            pendingEditedFailure = false
             guard saveProgress(checkpoint, in: stagingDirectory) else {
                 cancellation.cancel()
                 return
