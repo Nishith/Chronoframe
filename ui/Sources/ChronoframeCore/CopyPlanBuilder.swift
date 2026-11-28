@@ -51,6 +51,7 @@ public struct CopyPlanResult: Equatable, Codable, Sendable {
     public var sequenceState: SequenceCounterState
     public var infoMessages: [String]
     public var dateHistogram: [DateHistogramBucket]
+    public var unresolvedCompanions: [UnresolvedCompanion]
 
     public init(
         transfers: [PlannedTransfer],
@@ -58,7 +59,8 @@ public struct CopyPlanResult: Equatable, Codable, Sendable {
         warningMessages: [String],
         sequenceState: SequenceCounterState,
         infoMessages: [String] = [],
-        dateHistogram: [DateHistogramBucket] = []
+        dateHistogram: [DateHistogramBucket] = [],
+        unresolvedCompanions: [UnresolvedCompanion] = []
     ) {
         self.transfers = transfers
         self.counts = counts
@@ -66,10 +68,11 @@ public struct CopyPlanResult: Equatable, Codable, Sendable {
         self.sequenceState = sequenceState
         self.infoMessages = infoMessages
         self.dateHistogram = dateHistogram
+        self.unresolvedCompanions = unresolvedCompanions
     }
 
     private enum CodingKeys: String, CodingKey {
-        case transfers, counts, warningMessages, sequenceState, infoMessages, dateHistogram
+        case transfers, counts, warningMessages, sequenceState, infoMessages, dateHistogram, unresolvedCompanions
     }
 
     public init(from decoder: Decoder) throws {
@@ -80,6 +83,7 @@ public struct CopyPlanResult: Equatable, Codable, Sendable {
         self.sequenceState = try container.decode(SequenceCounterState.self, forKey: .sequenceState)
         self.infoMessages = try container.decodeIfPresent([String].self, forKey: .infoMessages) ?? []
         self.dateHistogram = try container.decodeIfPresent([DateHistogramBucket].self, forKey: .dateHistogram) ?? []
+        self.unresolvedCompanions = try container.decodeIfPresent([UnresolvedCompanion].self, forKey: .unresolvedCompanions) ?? []
     }
 
     public var transferCount: Int {

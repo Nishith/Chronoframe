@@ -329,7 +329,9 @@ public struct LibraryHealthScanner: @unchecked Sendable {
             return (0, 0)
         }
 
-        let groups = Dictionary(grouping: records) { $0.hash }
+        // Companion sidecars (.xmp/.aae) are cached after an organize run but are
+        // not media; byte-identical ones must not read as duplicate photos.
+        let groups = Dictionary(grouping: records.filter { MediaLibraryRules.isSupportedMediaFile(path: $0.path) }) { $0.hash }
         var duplicateCount = 0
         var duplicateBytes: Int64 = 0
         for records in groups.values where records.count > 1 {

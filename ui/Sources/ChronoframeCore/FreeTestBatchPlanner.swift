@@ -165,17 +165,29 @@ extension DryRunPlanningResult {
         to selection: FreeTestBatchSelection,
         namingRules: PlannerNamingRules = .chronoframeDefault
     ) -> DryRunPlanningResult {
-        let kept = selection.apply(to: copyPlan.transfers)
+        let selected = selection.apply(to: copyPlan.transfers)
+        let selectedSources = Set(selected.map(\.sourcePath))
+        // A companion copied without its owner would land at a name its owner
+        // never takes, so it stays out unless its owner is in the batch too.
+        let kept = selected.filter { transfer in
+            guard let owner = companionOwners[transfer.sourcePath] else { return true }
+            return selectedSources.contains(owner)
+        }
 
         var reduced = self
         reduced.copyPlan.transfers = kept
         // Both kinds of file end up as planned transfers, so both counts move.
-        reduced.copyPlan.counts.newCount = kept.filter { !$0.isDuplicate }.count
-        reduced.copyPlan.counts.duplicateCount = kept.filter(\.isDuplicate).count
+        // Companions are not counted, as in a full plan.
+        let keptOwners = kept.filter { companionOwners[$0.sourcePath] == nil }
+        reduced.copyPlan.counts.newCount = keptOwners.filter { !$0.isDuplicate }.count
+        reduced.copyPlan.counts.duplicateCount = keptOwners.filter(\.isDuplicate).count
         reduced.copyPlan.dateHistogram = CopyPlanBuilder.dateHistogram(
-            fromDestinationPaths: kept.map(\.destinationPath),
+            fromDestinationPaths: keptOwners.map(\.destinationPath),
             namingRules: namingRules
         )
+
+        let keptSources = Set(kept.map(\.sourcePath))
+        reduced.companionOwners = companionOwners.filter { keptSources.contains($0.key) }
 
         // `alreadyInDestinationCount` and `hashErrorCount` are deliberately
         // untouched. They describe what discovery found, not what this run will

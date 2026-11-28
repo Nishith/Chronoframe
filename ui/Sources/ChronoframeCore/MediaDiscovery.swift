@@ -59,15 +59,52 @@ public enum MediaDiscovery {
         return results
     }
 
+    /// Discovers media files and, separately, `.xmp`/`.aae` companion files
+    /// using the same traversal rules (hidden files, symlinks, packages and
+    /// dataless files are skipped). Companions are never media entries.
+    public static func discoverMediaAndCompanions(
+        at rootURL: URL,
+        isCancelled: @Sendable () -> Bool = { false },
+        onDirectoryIssue: (@Sendable (DirectoryIssue) -> Void)? = nil
+    ) throws -> (media: [String], companions: [String]) {
+        var media: [String] = []
+        var companions: [String] = []
+        try enumerateMediaFiles(
+            at: rootURL,
+            isCancelled: isCancelled,
+            onDirectoryIssue: onDirectoryIssue,
+            visitCompanionPath: { companions.append($0) }
+        ) { path in
+            media.append(path)
+        }
+        return (media, companions)
+    }
+
     public static func enumerateMediaFiles(
         at rootURL: URL,
         isCancelled: @Sendable () -> Bool = { false },
         onDirectoryIssue: (@Sendable (DirectoryIssue) -> Void)? = nil,
         _ body: (String) throws -> Void
     ) throws {
+        try enumerateMediaFiles(
+            at: rootURL,
+            isCancelled: isCancelled,
+            onDirectoryIssue: onDirectoryIssue,
+            visitCompanionPath: nil,
+            body
+        )
+    }
+
+    private static func enumerateMediaFiles(
+        at rootURL: URL,
+        isCancelled: @Sendable () -> Bool,
+        onDirectoryIssue: (@Sendable (DirectoryIssue) -> Void)?,
+        visitCompanionPath: ((String) throws -> Void)?,
+        _ body: (String) throws -> Void
+    ) throws {
         switch readDropManifest(at: rootURL) {
         case let .present(manifest):
-            try enumerateManifest(manifest, rootURL: rootURL, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body)
+            try enumerateManifest(manifest, rootURL: rootURL, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body, visitCompanionPath: visitCompanionPath)
             return
         case let .corrupt(manifestURL, error):
             // The staging directory only contains the manifest; falling
@@ -82,7 +119,7 @@ public enum MediaDiscovery {
         case .absent:
             break
         }
-        try walk(directoryURL: rootURL, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body)
+        try walk(directoryURL: rootURL, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: body, visitCompanionPath: visitCompanionPath)
     }
 
     private enum DropManifestLookup {
@@ -104,7 +141,8 @@ public enum MediaDiscovery {
         directoryURL: URL,
         isCancelled: @Sendable () -> Bool,
         onDirectoryIssue: (@Sendable (DirectoryIssue) -> Void)?,
-        visitFilePath: (String) throws -> Void
+        visitFilePath: (String) throws -> Void,
+        visitCompanionPath: ((String) throws -> Void)? = nil
     ) throws {
         try throwIfCancelled(isCancelled)
         let partition = try partitionedChildren(of: directoryURL, onDirectoryIssue: onDirectoryIssue)
@@ -127,13 +165,16 @@ public enum MediaDiscovery {
 
                 if MediaLibraryRules.isSupportedMediaFile(path: child.path) {
                     try visitFilePath(child.path)
+                } else if let visitCompanionPath,
+                          MediaLibraryRules.isCompanionFile(path: child.path) {
+                    try visitCompanionPath(child.path)
                 }
             }
         }
 
         for child in partition.directories {
             try throwIfCancelled(isCancelled)
-            try walk(directoryURL: child, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: visitFilePath)
+            try walk(directoryURL: child, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: visitFilePath, visitCompanionPath: visitCompanionPath)
         }
     }
 
@@ -314,7 +355,8 @@ public enum MediaDiscovery {
         rootURL: URL,
         isCancelled: @Sendable () -> Bool,
         onDirectoryIssue: (@Sendable (DirectoryIssue) -> Void)?,
-        visitFilePath: (String) throws -> Void
+        visitFilePath: (String) throws -> Void,
+        visitCompanionPath: ((String) throws -> Void)? = nil
     ) throws {
         var seen = Set<String>()
         for item in manifest.items {
@@ -348,13 +390,21 @@ public enum MediaDiscovery {
             }
 
             if item.isDirectory {
-                try walk(directoryURL: url, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: visitFilePath)
+                try walk(directoryURL: url, isCancelled: isCancelled, onDirectoryIssue: onDirectoryIssue, visitFilePath: visitFilePath, visitCompanionPath: visitCompanionPath)
             } else if !url.lastPathComponent.hasPrefix("."),
                       MediaLibraryRules.isSupportedMediaFile(path: url.path) {
                 if isICloudDataless(url) {
                     continue
                 }
                 try visitFilePath(url.path)
+            } else if let visitCompanionPath,
+                      !url.lastPathComponent.hasPrefix("."),
+                      !MediaLibraryRules.shouldSkipDiscoveredFile(named: url.lastPathComponent),
+                      MediaLibraryRules.isCompanionFile(path: url.path) {
+                if isICloudDataless(url) {
+                    continue
+                }
+                try visitCompanionPath(url.path)
             }
         }
     }
