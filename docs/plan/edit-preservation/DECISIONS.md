@@ -13,7 +13,7 @@ Choose the option that, in order: (1) keeps every `AGENTS.md` safety invariant; 
 
 ## Product decisions
 - **D-EPR-05 Edited export is opt-in, default off (default).** Off keeps today's behavior and today's storage footprint.
-- **D-EPR-06 Variant link is a stem convention for v1 (default; owner question open).** An edited variant is `<stem>-edited.<ext>` beside `<stem>.<ext>` in the same folder. Receipt-recorded links are a follow-up if the convention produces false positives. A user file that happens to be named `x-edited.jpg` beside `x.jpg` is protected by the same rule, which fails closed (it is never auto-trashed).
+- **D-EPR-06 Variant link is a stem convention for v1 (approved by owner 2026-11-27).** An edited variant is `<stem>-edited.<ext>` beside `<stem>.<ext>` in the same folder. Receipt-recorded links are a follow-up if the convention produces false positives. A user file that happens to be named `x-edited.jpg` beside `x.jpg` is protected by the same rule, which fails closed (it is never auto-trashed).
 - **D-EPR-07 Stills only first (default).** Edited renders of Live Photos and videos are not exported in v1; the import summary says "N edited videos / Live Photos not included". Claims for them need fixtures first (review, line 194).
 - **D-EPR-08 Sidecars are copied byte-for-byte, never parsed or rewritten (default).** No XMP/AAE fidelity promise.
 - **D-EPR-09 Ambiguous or orphan companions are unresolved, never guessed (default).** A companion with zero or more than one eligible owner is listed and not copied. Over-keeping is safe; mis-pairing is not.

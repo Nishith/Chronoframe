@@ -1,6 +1,6 @@
 # Edit preservation — scope
 
-Status: **approved in part 2026-11-15** (owner approved widening INV-22 and a new INV-31; stem-based variant link, D-EPR-06, not yet answered and defaulted). Superseded by the plan files in this folder; this file is kept as the rationale. Builds on the review's "Follow-up challenge — edited photos" (`docs/next-half-product-review-2026-11-07.md:182`) and backlog card B8 (`docs/plan/next-half/README.md:59`). Verified by reading code only; no builds or tests were run.
+Status: **approved in part 2026-11-15** (owner approved widening INV-22 and a new INV-31; stem-based variant link, D-EPR-06, approved 2026-11-27). Superseded by the plan files in this folder; this file is kept as the rationale. Builds on the review's "Follow-up challenge — edited photos" (`docs/next-half-product-review-2026-11-07.md:182`) and backlog card B8 (`docs/plan/next-half/README.md:59`). Verified by reading code only; no builds or tests were run.
 
 ## Current state (read from code)
 
@@ -81,4 +81,4 @@ Total: ~3.5 weeks sequential; the first three (~1 week) close the sidecar gaps w
 1. Approve widening INV-22 to allow exporting edited renders (EP-4)?
 2. Approve a new INV-31 (edited variants never auto-trashed)?
 3. Should edited export default to off (recommended) or on?
-4. Is a stem convention (`-edited`) acceptable, or must the link live in the receipt?
+4. Is a stem convention (`-edited`) acceptable, or must the link live in the receipt? — Answered 2026-11-27: link by file name (D-EPR-06).
