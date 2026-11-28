@@ -22,4 +22,4 @@ Keep every invariant (INV-08, INV-09, INV-26 and the new INV-30 above all); fewe
 - **D-FAA-13 Test placement.** Core: `ui/Tests/ChronoframeAppCoreTests/ChronoframeCoreRunOutcome*Tests.swift`, `ChronoframeCoreMediaLookupIndexTests.swift`; AppCore: `MediaLookupStoreTests.swift`, additions to `HistoryStoreTests.swift`; App: `RunOutcomeDetailSheetTests.swift`, `MediaLookupViewTests.swift`, additions to `ReceiptVerificationTests.swift`.
 
 ## Runtime decisions
-- **D-FAA-100 Invariant number (2026-11-27).** INV-30 belongs to this plan. `edit-preservation` takes INV-31 for edited variants (D-EPR-07). Ids are permanent: whichever plan lands first, neither renumbers.
+- **D-FAA-100 Invariant number (2026-11-27).** INV-30 belongs to this plan. `edit-preservation` takes INV-31 for edited variants (D-EPR-12). Ids are permanent: whichever plan lands first, neither renumbers.

@@ -25,5 +25,5 @@ Prefix `EPR`. Status values: todo, in-progress, review, done, blocked. "done" re
 
 ## Log
 - 2026-11-15 plan written; owner approved INV-22 widening and INV-31. D-EPR-06 (stem link) defaulted pending owner answer.
-- 2026-11-27 merged `origin/main` @ 4cabd27 (#297) into the branch; baseline above is from 5eee91f, so re-run the WP-00 commands at kickoff. Invariant renumbered INV-30 → INV-31 (D-EPR-07).
+- 2026-11-27 merged `origin/main` @ 4cabd27 (#297) into the branch; baseline above is from 5eee91f, so re-run the WP-00 commands at kickoff. Invariant renumbered INV-30 → INV-31 (D-EPR-12).
 - 2026-11-27 owner approved D-EPR-06: link edited variants by file name (`<stem>-edited.<ext>`). No open owner questions remain.
