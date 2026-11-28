@@ -14,8 +14,8 @@ Prefix `EPR`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-00 | Branch and baseline | done | build 0 | suite 0, inv 0 | n/a | 10ede42, 8d13bd5 | B-1 resolved |
 | WP-01 | Copy and docs for what import preserves | done | build 0 | PhotosImportEditsCopyTests 2/2 (exit 0), l10n 0 | approved | (this commit) | failing-first: "cannot find PhotosImportEditsCaption"; xcode loc build 0; check_german_localization 0; diff --check 0; app-layer guard 0 |
 | WP-02 | `.aae` is a dedupe sidecar (INV-14) | done | build 0 | DeduplicatePairDetectorTests 11/11, DeduplicateTests 74/74 (exit 0); inv 0 | approved (round 1 after orchestrator fix) | (this commit) | safety-critical; orchestrator diff review: pass after one fix (aae lookup was O(n·m) per scan; now per-directory dictionary); failing-first: 4 detector + 2 planner tests failed with nil sidecars; diff --check 0 |
-| WP-03 | Spike: companion plug-in points | in-progress | | | n/a | | answers go to D-EPR-101… |
-| WP-04 | Organize copies companions | todo | | | | | safety-critical |
+| WP-03 | Spike: companion plug-in points | done | n/a | n/a | n/a | (this commit) | answers D-EPR-103…111; no schema change (D-EPR-105); B-2 logged non-blocking |
+| WP-04 | Organize copies companions | in-progress | | | | | safety-critical |
 | G1 | Gate after companions | todo | | | n/a | | |
 | WP-05 | Export model, role, checkpoint fields | todo | | | | | |
 | WP-06 | Executor and service export edited still | todo | | | | | safety-critical; INV-22 wording |
@@ -30,3 +30,4 @@ Prefix `EPR`. Status values: todo, in-progress, review, done, blocked. "done" re
 - 2026-11-27 kickoff: owner answers recorded as D-EPR-01, 05, 07–11 approved and D-EPR-13…17; D-EPR-18 notes stale citations. Baseline re-run on the impl branch, all exit 0.
 - 2026-11-27 WP-01: caption helper `PhotosImportEditsCaption.text(includeEditedVersions:)`; view passes `false` until WP-07 (D-EPR-101). Both C-01 caption keys added to Localizable.xcstrings with German.
 - 2026-11-27 WP-02: `.aae` detected (both forms + IMG_E exact digits), on-disk spelling (D-EPR-102); AGENTS.md INV-14 sentence names `.aae`. Reviewer nit kept for follow-up: `.XMP` spelling issue is pre-existing.
+- 2026-11-27 WP-03 spike: CopyPlanBuilder.build is unused in production, hook moves to DryRunPlanner (D-EPR-104); WP-04 owned paths widened to DryRunPlanner.swift and LibraryHealthScanner.swift (one filter). WP-04 runs in two parts: 4a Core planning, 4b preview/summary copy and docs.

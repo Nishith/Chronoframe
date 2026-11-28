@@ -21,3 +21,12 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Options:** 1) Owner commits or stashes that work before WP-00. 2) Run this plan in a separate clone at `main`. 3) Owner approves a worktree (note the global rule about Antigravity: remove the worktree and unset `extensions.worktreeConfig` when finished).
 - **Recommendation:** Option 2, because several of those files (AGENTS.md, Localizable.xcstrings, the Photos views) are also owned by WPs here and would mix with unrelated edits.
 - **Status:** resolved (2026-11-16: tracked tree was clean when WP-00 ran; branch cut from origin/main @ 5eee91f)
+
+### B-2 — Companion follow-ups outside this plan's owned paths (non-blocking)
+- **WP:** WP-03 / WP-04
+- **Command:** read-only spike (D-EPR-103…111)
+- **Error:** none at runtime. Three gaps for appended-form (`photo.jpg.xmp`) companions need changes the plan does not allow: (1) `TransferExecutor.chronoframeTmpPattern` (`TransferExecutor.swift:214-216`) does not match `2024-03-01_007.jpg.xmp.<UUID>.tmp`, so a crash mid-copy leaves that temp file behind; (2) `ReorganizeExecutor.parseFileBucket` (`:583-613`) counts `…_007.jpg.xmp` as unrecognized and leaves it in place when its photo moves; (3) the execution-time `_collision_N` rename can separate a companion from its owner (D-EPR-111).
+- **Tried:** confirmed none needs a cache or receipt schema change and none breaks an AGENTS.md invariant (no overwrite, no deletion); WP-04 proceeds.
+- **Options:** 1) Follow-up PR: widen the tmp regex to `\.[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)?` before the UUID, and teach `parseFileBucket` to strip a known companion extension first. 2) Map appended-form companions to stem form in the destination (contradicts C-03.4 and breaks darktable's naming).
+- **Recommendation:** Option 1 as a small follow-up PR with tests, since both are one-line pattern changes in safety-adjacent files that deserve their own review.
+- **Status:** open
