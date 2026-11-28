@@ -14,7 +14,7 @@ import Foundation
 /// pure and injectable: tests provide a stub `isRemote` closure and a scratch
 /// `UserDefaults` to exercise the warn-once logic without a real network mount.
 public struct NetworkDestinationAdvisory {
-    public static let warningMessage = "This destination is on a network drive. Chronoframe can't guarantee safe results if it runs from more than one Mac at the same time — keep it to a single machine."
+    public static let warningMessage = CoreL10n.text("This destination is on a network drive. Chronoframe can't guarantee safe results if it runs from more than one Mac at the same time — keep it to a single machine.")
 
     static let defaultsKey = "chronoframe.warnedRemoteDestinations"
 

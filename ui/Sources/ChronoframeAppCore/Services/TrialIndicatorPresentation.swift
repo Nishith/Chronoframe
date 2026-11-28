@@ -58,7 +58,7 @@ public struct TrialIndicatorModel: Equatable, Sendable {
         let cap = cap(of: balance, for: meter)
 
         return TrialIndicatorModel(
-            text: "\(remaining) of \(cap) \(noun(for: meter, count: cap)) left",
+            text: CoreL10n.text("\(remaining) of \(cap) \(noun(for: meter, count: cap)) left"),
             isSpent: remaining <= 0
         )
     }
@@ -77,9 +77,9 @@ public struct TrialIndicatorModel: Equatable, Sendable {
     private static func noun(for meter: TrialMeter, count: Int) -> String {
         switch meter {
         case .organize:
-            return count == 1 ? "file" : "files"
+            return count == 1 ? CoreL10n.text("file") : CoreL10n.text("files")
         case .dedupe:
-            return count == 1 ? "duplicate" : "duplicates"
+            return count == 1 ? CoreL10n.text("duplicate") : CoreL10n.text("duplicates")
         }
     }
 }

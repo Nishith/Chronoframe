@@ -1,5 +1,7 @@
 # Find and account — progress
 
+Status: not started (verified 2026-11-22 on main 8308aac: no `RunOutcomeRecord` or lookup index in `ui/`, no INV-30 tag). Every WP is `todo`.
+
 Prefix `FAA`. Status values: todo, in-progress, review, done, blocked.
 
 ## Baseline

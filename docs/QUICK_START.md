@@ -44,11 +44,10 @@ Use this when you want Chronoframe to copy messy folders into a cleaner date-bas
 11. Click **Start Copying** on the **Preview & Copy** screen (or choose **Start Copying** from the **Organize** menu), then confirm in the **Start copying?** prompt
     - Files are copied to destination, written safely, and verified
     - You'll see live progress and a summary when done
-    - If another Chronoframe window, CLI run, or system action is already changing this destination, wait for it to finish and try again
 
 ### Step 5: Keep Your Originals Safe
 
-12. **Your original folders stay untouched.** Nothing is deleted or modified.
+12. **Your original folders stay untouched.** Nothing is deleted or modified. Preview Plan copies nothing; Chronoframe copies only after you click **Start Copying** and confirm.
 13. You can review the report and the receipt for each copy under **History**
 14. If something went wrong, open **History** and click **Undo** next to the copy in the **Undo Center** to undo the copy
 15. If a copy was interrupted, reopen Chronoframe with the destination drive connected. History will reconcile recorded work or show **Needs Drive** / **Manual Recovery Needed** when it cannot safely finish on its own.
@@ -90,7 +89,6 @@ The commit summary and executor use the same content-verified plan. If a planned
 
 ## Tips
 
-- **Trust the preview.** It shows exactly what will copy before anything happens.
 - **Edit uncertain dates.** If a photo has an unknown date, fix it in Review and Chronoframe will use your correction.
 - **Review duplicate groups carefully.** Exact copies are straightforward, but similar shots still need your judgment.
 - **Keep destination support files during recovery.** Do not remove `.organize_cache.db` or `.organize_logs/` while a copy is active or History shows interrupted work.
@@ -102,12 +100,5 @@ The commit summary and executor use the same content-verified plan. If a planned
 
 ## Need Help?
 
-- **First preview taking too long?** Large libraries (50K+ files) can take 5–10 minutes to scan. That's normal.
-- **Unsure about a photo?** You can look at it in Review before copying.
-- **Want to see what will happen without copying?** Preview Plan copies nothing — Chronoframe copies only after you click **Start Copying** and confirm.
-- **Seeing “already using this destination”?** Another Chronoframe operation owns the destination. Let it finish; starting a second mutation is intentionally blocked.
-- **Questions?** See [Troubleshooting](./TROUBLESHOOTING.md) or check the full [README](../README.md).
-
----
-
-**Remember:** Your originals are always safe. Chronoframe only copies, never deletes your original folders.
+- **Preview taking a long time, or “already using this destination”?** See [Troubleshooting](./TROUBLESHOOTING.md).
+- **Other questions?** See the [FAQ](./FAQ.md) or the [README](../README.md).

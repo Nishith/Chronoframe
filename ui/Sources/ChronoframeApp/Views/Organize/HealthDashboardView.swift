@@ -31,7 +31,7 @@ struct HealthDashboardView: View {
                     Button {
                         Task { await appState.refreshLibraryHealth() }
                     } label: {
-                        Label(healthStore.isRefreshing ? "Checking..." : "Check Library", systemImage: "arrow.clockwise")
+                        Label(LocalizedStringKey(healthStore.isRefreshing ? "Checking..." : "Check Library"), systemImage: "arrow.clockwise")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
@@ -49,7 +49,9 @@ struct HealthDashboardView: View {
                     }
 
                     LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 12)],
+                        // 300 keeps long German titles such as "Belege zum Rückgängigmachen"
+                        // from being squeezed into a mid-word break.
+                        columns: [GridItem(.adaptive(minimum: 300, maximum: 400), spacing: 12)],
                         spacing: 12
                     ) {
                         ForEach(summary.cards) { card in
@@ -160,12 +162,12 @@ struct HealthDashboardView: View {
         if !appState.setupStore.destinationPath.isEmpty {
             return appState.setupStore.destinationPath
         }
-        return appState.historyStore.destinationRoot.isEmpty ? "Choose a destination in Setup" : appState.historyStore.destinationRoot
+        return appState.historyStore.destinationRoot.isEmpty ? String(localized: "Choose a destination in Setup", bundle: .module) : appState.historyStore.destinationRoot
     }
 
     private var lastCheckSummary: String {
         guard let generatedAt = healthStore.summary?.generatedAt else {
-            return "Not checked yet"
+            return String(localized: "Not checked yet", bundle: .module)
         }
         return generatedAt.formatted(date: .abbreviated, time: .shortened)
     }
@@ -182,16 +184,16 @@ private struct HealthCardView: View {
                     Image(systemName: symbol)
                         .foregroundStyle(tint)
                         .accessibilityHidden(true)
-                    Text(card.title)
+                    Text(LocalizedStringKey(card.title), bundle: .module)
                         .scaledFont(.cardTitle)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     Spacer()
-                    Text(card.value)
+                    Text(LocalizedStringKey(card.value), bundle: .module)
                         .font(.title3.monospacedDigit())
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 }
 
-                Text(card.message)
+                Text(verbatim: LibraryHealthCopy.message(card))
                     .font(.subheadline)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -200,7 +202,7 @@ private struct HealthCardView: View {
                     Button {
                         appState.performLibraryHealthAction(action)
                     } label: {
-                        Label(action.title, systemImage: actionSymbol(action))
+                        Label(LocalizedStringKey(action.title), systemImage: actionSymbol(action))
                     }
                     .buttonStyle(.bordered)
                 }
@@ -392,7 +394,7 @@ private struct LibraryHealthHero: View {
             Circle()
                 .fill(tint)
                 .frame(width: 6, height: 6)
-            Text("\(count) \(label.lowercased())")
+            Text("\(count) \(AppLocalization.string(label.lowercased()))")
                 .scaledFont(.body)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .monospacedDigit()

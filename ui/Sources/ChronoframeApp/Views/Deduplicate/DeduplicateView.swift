@@ -195,12 +195,12 @@ struct DeduplicateView: View {
                         .font(.headline)
                     Picker("Similarity preset", selection: $preferencesStore.dedupeSimilarityPreset) {
                         ForEach(DedupeSimilarityPreset.allCases) { preset in
-                            Text(preset.title).tag(preset)
+                            Text(LocalizedStringKey(preset.title), bundle: .module).tag(preset)
                         }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    Text(preferencesStore.dedupeSimilarityPreset.subtitle)
+                    Text(LocalizedStringKey(preferencesStore.dedupeSimilarityPreset.subtitle), bundle: .module)
                         .font(.caption)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     // Engine tuning (burst window, etc.) lives in Settings →
@@ -539,7 +539,9 @@ struct DeduplicateView: View {
         .frame(maxWidth: .infinity)
         .background(DesignTokens.ColorSystem.panel)
         .confirmationDialog(
-            "Move \(toDelete) file\(toDelete == 1 ? "" : "s") to Trash?",
+            toDelete == 1
+                ? String(localized: "Move 1 file to Trash?", bundle: .module)
+                : String(localized: "Move \(String(toDelete)) files to Trash?", bundle: .module),
             isPresented: $showingCommitConfirmation
         ) {
             Button("Move to Trash", role: .destructive) {
@@ -565,7 +567,7 @@ struct DeduplicateView: View {
                 sessionStore.discardPreparedCommitPlan()
             }
         } message: {
-            Text("Only groups you have fully reviewed will be affected. Unreviewed groups stay untouched. " + Self.trashCommitMessage(
+            Text(String(localized: "Only groups you have fully reviewed will be affected. Unreviewed groups stay untouched. ", bundle: .module) + Self.trashCommitMessage(
                 byteCount: sessionStore.preparedCommitPlan?.totalBytes ?? bytes,
                 availableCapacity: deduplicateVolumeAvailableCapacity
             ))
@@ -577,9 +579,11 @@ struct DeduplicateView: View {
         let count = plan.count
         let reviewed = sessionStore.reviewedClusters.count
         if count == 0 {
-            return "No deletions in reviewed groups"
+            return String(localized: "No deletions in reviewed groups", bundle: .module)
         }
-        return "Move \(count) file\(count == 1 ? "" : "s") from \(reviewed) reviewed group\(reviewed == 1 ? "" : "s") to Trash?"
+        let files = count == 1 ? String(localized: "1 file", bundle: .module) : String(localized: "\(String(count)) files", bundle: .module)
+        let groups = reviewed == 1 ? String(localized: "1 reviewed group", bundle: .module) : String(localized: "\(String(reviewed)) reviewed groups", bundle: .module)
+        return String(localized: "Move \(files) from \(groups) to Trash?", bundle: .module)
     }
 
     private var deduplicateVolumeAvailableCapacity: Int64? {
@@ -623,13 +627,16 @@ struct DeduplicateView: View {
         let suggestedCount = max(0, sessionStore.clusters.count - reviewedCount)
         let title = Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete)
         let detail = Self.commitFooterDetail(byteCount: bytes, hardDelete: hardDelete)
-        let reviewProgress = "\(reviewedCount) group\(reviewedCount == 1 ? "" : "s") reviewed · \(suggestedCount) still suggested"
+        let reviewed = reviewedCount == 1
+            ? String(localized: "1 group reviewed", bundle: .module)
+            : String(localized: "\(reviewedCount) groups reviewed", bundle: .module)
+        let reviewProgress = String(localized: "\(reviewed) · \(suggestedCount) still suggested", bundle: .module)
         VStack(alignment: .leading, spacing: 2) {
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
-            Text(detail)
+            Text(LocalizedStringKey(detail), bundle: .module)
                 .font(.body.weight(.medium))
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
@@ -712,7 +719,9 @@ struct DeduplicateView: View {
             let reviewedCount = sessionStore.reviewedClusters.count
             if reviewedCount > 0 {
                 Divider()
-                Button("Move Reviewed to Trash (\(reviewedCount) group\(reviewedCount == 1 ? "" : "s"))") {
+                Button(reviewedCount == 1
+                    ? String(localized: "Move Reviewed to Trash (1 group)", bundle: .module)
+                    : String(localized: "Move Reviewed to Trash (\(String(reviewedCount)) groups)", bundle: .module)) {
                     sessionStore.prepareReviewedCommitPlan()
                     showingCommitReviewedConfirmation = true
                 }
@@ -1003,7 +1012,9 @@ struct DeduplicateView: View {
 
     static func emptyResultsMessage(_ summary: DeduplicateSummary) -> String {
         let count = summary.totalCandidatesScanned
-        var parts = ["Scanned \(count) file\(count == 1 ? "" : "s") in \(formattedDuration(summary.scanDuration)). No duplicate groups found."]
+        var parts = [count == 1
+            ? String(localized: "Scanned 1 file in \(formattedDuration(summary.scanDuration)). No duplicate groups found.", bundle: .module)
+            : String(localized: "Scanned \(String(count)) files in \(formattedDuration(summary.scanDuration)). No duplicate groups found.", bundle: .module)]
         if let note = videoAnalysisNote(for: summary) {
             parts.append(note)
         }
@@ -1014,20 +1025,22 @@ struct DeduplicateView: View {
         guard let metrics = summary?.videoPerceptualMetrics else { return nil }
         var parts: [String] = []
         if metrics.analyzed > 0 {
-            parts.append("\(metrics.analyzed) video\(metrics.analyzed == 1 ? "" : "s") analyzed")
+            parts.append(metrics.analyzed == 1
+                ? String(localized: "1 video analyzed", bundle: .module)
+                : String(localized: "\(String(metrics.analyzed)) videos analyzed", bundle: .module))
         }
         if metrics.prefilteredNoNeighbor > 0 {
-            parts.append("\(metrics.prefilteredNoNeighbor) had no plausible visual-match candidate")
+            parts.append(String(localized: "\(String(metrics.prefilteredNoNeighbor)) had no plausible visual-match candidate", bundle: .module))
         }
         let unavailable = metrics.unsupported + metrics.decodeFailed
         if unavailable > 0 {
-            parts.append("\(unavailable) could not be decoded")
+            parts.append(String(localized: "\(String(unavailable)) could not be decoded", bundle: .module))
         }
         if metrics.insufficientVisualEvidence > 0 {
-            parts.append("\(metrics.insufficientVisualEvidence) lacked enough visual detail")
+            parts.append(String(localized: "\(String(metrics.insufficientVisualEvidence)) lacked enough visual detail", bundle: .module))
         }
         if metrics.deferredPendingExactCleanup > 0 {
-            parts.append("\(metrics.deferredPendingExactCleanup) deferred until exact duplicates are cleaned")
+            parts.append(String(localized: "\(String(metrics.deferredPendingExactCleanup)) deferred until exact duplicates are cleaned", bundle: .module))
         }
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: " · ") + "."
@@ -1037,15 +1050,15 @@ struct DeduplicateView: View {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         var parts = [
-            "Files will move to the macOS Trash.",
-            "Storage is not reclaimed until Trash is emptied, and History cannot restore files after that."
+            String(localized: "Files will move to the macOS Trash.", bundle: .module),
+            String(localized: "Storage is not reclaimed until Trash is emptied, and History cannot restore files after that.", bundle: .module)
         ]
         let largeSelectionThreshold: Int64 = 10 * 1_000_000_000
         if byteCount >= largeSelectionThreshold {
-            parts.append("This selection uses \(formatter.string(fromByteCount: byteCount)).")
+            parts.append(String(localized: "This selection uses \(formatter.string(fromByteCount: byteCount)).", bundle: .module))
         }
         if let availableCapacity, availableCapacity < 5 * 1_000_000_000 {
-            parts.append("This volume has only \(formatter.string(fromByteCount: availableCapacity)) available; moving files to Trash will not increase it.")
+            parts.append(String(localized: "This volume has only \(formatter.string(fromByteCount: availableCapacity)) available; moving files to Trash will not increase it.", bundle: .module))
         }
         return parts.joined(separator: " ")
     }
@@ -1068,26 +1081,29 @@ extension DeduplicateView {
     /// count-free phrase before the executor's `.started` event reports the
     /// total, then reads "Moving N files to Trash…" once it lands.
     static func committingTitle(fileCount: Int) -> String {
-        fileCount > 0
-            ? "Moving \(fileCount) file\(fileCount == 1 ? "" : "s") to Trash…"
-            : "Moving files to Trash…"
+        if fileCount == 1 { return String(localized: "Moving 1 file to Trash…", bundle: .module) }
+        return fileCount > 0
+            ? String(localized: "Moving \(String(fileCount)) files to Trash…", bundle: .module)
+            : String(localized: "Moving files to Trash…", bundle: .module)
     }
 
     static func commitFooterTitle(fileCount: Int, hardDelete: Bool) -> String {
         guard fileCount > 0 else {
-            return "Nothing will move to Trash yet"
+            return String(localized: "Nothing will move to Trash yet", bundle: .module)
         }
-        return "\(fileCount) file\(fileCount == 1 ? "" : "s") will be moved to Trash"
+        return fileCount == 1
+            ? String(localized: "1 file will be moved to Trash", bundle: .module)
+            : String(localized: "\(fileCount) files will be moved to Trash", bundle: .module)
     }
 
     static func commitFooterDetail(byteCount: Int64, hardDelete: Bool) -> String {
         guard byteCount > 0 else {
             // ByteCountFormatter renders 0 as the words "Zero KB" — guide the
             // user toward the next step instead of printing that.
-            return "Accept a group's suggestion to select its extra copies."
+            return String(localized: "Accept a group's suggestion to select its extra copies.", bundle: .module)
         }
         let formattedBytes = statusByteCountFormatter.string(fromByteCount: byteCount)
-        return "≈ \(formattedBytes) recoverable"
+        return String(localized: "≈ \(formattedBytes) recoverable", bundle: .module)
     }
 
     static func completedStatusCopy(for summary: DeduplicateCommitSummary?) -> DeduplicateStatusCopy {
@@ -1095,10 +1111,16 @@ extension DeduplicateView {
             return DeduplicateStatusCopy(message: nil, warning: nil)
         }
 
+        let moved = summary.deletedCount == 1
+            ? String(localized: "Moved 1 file to Trash", bundle: .module)
+            : String(localized: "Moved \(summary.deletedCount) files to Trash", bundle: .module)
+        let failed = summary.failedCount == 1
+            ? String(localized: "1 item failed — see History for details.", bundle: .module)
+            : String(localized: "\(summary.failedCount) items failed — see History for details.", bundle: .module)
         return DeduplicateStatusCopy(
-            message: "Moved \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") to Trash · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) recoverable",
+            message: String(localized: "\(moved) · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) recoverable", bundle: .module),
             warning: summary.failedCount > 0
-                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") failed — see History for details."
+                ? failed
                 : nil
         )
     }
@@ -1108,10 +1130,16 @@ extension DeduplicateView {
             return DeduplicateStatusCopy(message: nil, warning: nil)
         }
 
+        let restored = summary.deletedCount == 1
+            ? String(localized: "Restored 1 file", bundle: .module)
+            : String(localized: "Restored \(summary.deletedCount) files", bundle: .module)
+        let failed = summary.failedCount == 1
+            ? String(localized: "1 item could not be restored — see History for details.", bundle: .module)
+            : String(localized: "\(summary.failedCount) items could not be restored — see History for details.", bundle: .module)
         return DeduplicateStatusCopy(
-            message: "Restored \(summary.deletedCount) file\(summary.deletedCount == 1 ? "" : "s") · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination",
+            message: String(localized: "\(restored) · \(statusByteCountFormatter.string(fromByteCount: summary.bytesReclaimed)) returned to the destination", bundle: .module),
             warning: summary.failedCount > 0
-                ? "\(summary.failedCount) item\(summary.failedCount == 1 ? "" : "s") could not be restored — see History for details."
+                ? failed
                 : nil
         )
     }
@@ -1170,31 +1198,34 @@ enum CommitFooterButtonDensity {
 
     var acceptAllTitle: String {
         switch self {
-        case .full: return "Accept All Safe"
-        case .compact: return "Accept Safe"
+        case .full: return String(localized: "Accept All Safe", bundle: .module)
+        case .compact: return String(localized: "Accept Safe", bundle: .module)
         }
     }
 
     var changeFolderTitle: String {
         switch self {
-        case .full: return "Change Folder"
-        case .compact: return "Folder"
+        case .full: return String(localized: "Change Folder", bundle: .module)
+        case .compact: return String(localized: "Folder", bundle: .module)
         }
     }
 
     var settingsTitle: String {
         switch self {
-        case .full: return "Adjust Settings"
-        case .compact: return "Settings"
+        case .full: return String(localized: "Adjust Settings", bundle: .module)
+        case .compact: return String(localized: "Settings", bundle: .module)
         }
     }
 
     func commitTitle(fileCount: Int) -> String {
         switch self {
         case .full:
-            return fileCount > 0 ? "Move \(fileCount) File\(fileCount == 1 ? "" : "s") to Trash" : "Move to Trash"
+            if fileCount == 1 { return String(localized: "Move 1 File to Trash", bundle: .module) }
+            return fileCount > 0
+                ? String(localized: "Move \(String(fileCount)) Files to Trash", bundle: .module)
+                : String(localized: "Move to Trash", bundle: .module)
         case .compact:
-            return "Move to Trash"
+            return String(localized: "Move to Trash", bundle: .module)
         }
     }
 }
@@ -1207,7 +1238,7 @@ private struct DeduplicateNavigationTitle: ViewModifier {
         if title.isEmpty {
             content
         } else {
-            content.navigationTitle(title)
+            content.navigationTitle(Text(LocalizedStringKey(title), bundle: .module))
         }
     }
 }
@@ -1344,7 +1375,7 @@ private struct PausedDeduplicateReviewCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Paused Scan")
                     .font(.subheadline.weight(.semibold))
-                Text(settingsChanged ? "Settings changed since this scan." : "Ready to review.")
+                Text(LocalizedStringKey(settingsChanged ? "Settings changed since this scan." : "Ready to review."), bundle: .module)
                     .font(.caption)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
             }
@@ -1379,7 +1410,7 @@ private struct PausedDeduplicateReviewCard: View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(value)
                 .font(.subheadline.weight(.semibold).monospacedDigit())
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .font(.caption2)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }
@@ -1451,7 +1482,7 @@ private struct DeduplicateRunHistoryRow: View {
                     .font(.caption)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 if let badge = RecoveryBadgeFormatter.title(for: record.recoveryState) {
-                    Text(badge)
+                    Text(LocalizedStringKey(badge), bundle: .module)
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
                         .accessibilityLabel(badge)
@@ -1489,7 +1520,7 @@ private struct DeduplicateRunHistoryRow: View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(value)
                 .font(.subheadline.weight(.semibold).monospacedDigit())
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .font(.caption2)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
         }

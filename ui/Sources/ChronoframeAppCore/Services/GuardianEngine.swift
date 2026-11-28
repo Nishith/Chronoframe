@@ -40,12 +40,12 @@ public enum GuardianEngineError: LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .rootRetargeted:
-            return "The library or mirror folder changed since this action started, so Chronoframe stopped to avoid working on the wrong folder. Nothing was changed."
+            return CoreL10n.text("The library or mirror folder changed since this action started, so Chronoframe stopped to avoid working on the wrong folder. Nothing was changed.")
         case .mirrorOffline:
-            return "The mirror drive isn't connected right now. Reconnect it and try again. Nothing was changed."
+            return CoreL10n.text("The mirror drive isn't connected right now. Reconnect it and try again. Nothing was changed.")
         case let .io(message):
             return UserFacingErrorMessage.withDetails(
-                "Chronoframe couldn't complete the Guardian operation. Your files were not changed.",
+                CoreL10n.text("Chronoframe couldn't complete the Guardian operation. Your files were not changed."),
                 details: message
             )
         }

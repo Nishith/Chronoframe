@@ -34,7 +34,9 @@ struct RunHeroSection: View {
         RunAnnouncementPlanner.Snapshot(
             status: model.context.status,
             phase: model.context.currentPhase,
-            progress: model.context.progress
+            progress: model.context.progress,
+            isCancelling: model.context.isCancelling,
+            hasOutcomeIssues: model.hasOutcomeIssues
         )
     }
 
@@ -101,7 +103,7 @@ struct RunHeroSection: View {
                 .blendMode(.plusLighter)
         }
         .onChange(of: model.context.status) { _, newValue in
-            guard newValue == .finished, !reduceMotion else { return }
+            guard newValue == .finished, !model.hasOutcomeIssues, !reduceMotion else { return }
             Motion.withMotion(Motion.wash, reduceMotion: reduceMotion) {
                 washOpacity = 0.18
             }
@@ -157,7 +159,7 @@ struct RunHeroSection: View {
             Button(role: .destructive) {
                 appState.cancelRun()
             } label: {
-                Label(appState.runSessionStore.isCancelling ? "Stopping…" : "Stop", systemImage: "stop.fill")
+                Label(LocalizedStringKey(appState.runSessionStore.isCancelling ? "Stopping…" : "Stop"), systemImage: "stop.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -347,9 +349,11 @@ struct RunTickerSection: View {
             ),
             TickerRow.Entry(
                 id: "issues",
-                value: "\(model.context.issueCount)",
+                value: "\(model.problemCount)",
                 label: "problems",
-                tone: model.context.issueCount > 0 ? .danger : .neutral
+                tone: model.context.errorCount > 0 || model.context.issueCount > 0
+                    ? .danger
+                    : (model.context.warningCount > 0 ? .warning : .neutral)
             ),
         ]
     }
@@ -380,7 +384,9 @@ struct RunWorkspaceShell: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .frame(maxWidth: 340)
+                    // German titles ("Probleme (2)", "Aktivität") need about
+                    // 410 pt; a 340 pt cap let the control run past the card.
+                    .frame(maxWidth: 440)
                     .accessibilityLabel("Details section")
                     .accessibilityIdentifier(AccessibilityIdentifiers.runWorkspaceTabs)
                 }
@@ -435,7 +441,7 @@ struct RunSnapshotPanel: View {
                 SummaryLine(title: "ETA", value: model.etaSummaryValue)
                 SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                 SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
-                SummaryLine(title: "Problems", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
+                SummaryLine(title: "Problems", value: "\(model.problemCount)", valueColor: model.issueTone.color)
             }
         }
     }
@@ -518,7 +524,7 @@ struct RunIssuesPanel: View {
 
                     SummaryLine(title: "Warnings", value: "\(model.context.warningCount)", valueColor: model.warningTone.color)
                     SummaryLine(title: "Errors", value: "\(model.context.errorCount)", valueColor: model.errorTone.color)
-                    SummaryLine(title: "Problems", value: "\(model.context.issueCount)", valueColor: model.issueTone.color)
+                    SummaryLine(title: "Problems", value: "\(model.problemCount)", valueColor: model.issueTone.color)
                 }
             }
 
@@ -567,28 +573,28 @@ struct RunIssuesPanel: View {
         }
     }
 
-    static func suggestedFixes(for entries: [RunIssueLineModel]) -> [String] {
+    static func suggestedFixes(for entries: [RunIssueLineModel], bundle: Bundle = .module) -> [String] {
         let text = entries.map(\.text).joined(separator: "\n").lowercased()
         var fixes: [String] = []
         if text.contains("permission") || text.contains("access") || text.contains("bookmark") {
-            fixes.append("Choose the folders or the destination again so macOS refreshes access.")
+            fixes.append(AppLocalization.string("Choose the folders or the destination again so macOS refreshes access.", bundle: bundle))
         }
         if text.contains("space") || text.contains("disk") || text.contains("volume") {
-            fixes.append("Free space on the destination volume, then rebuild the preview.")
+            fixes.append(AppLocalization.string("Free space on the destination volume, then rebuild the preview.", bundle: bundle))
         }
         if text.contains("hash") || text.contains("verify") {
-            fixes.append("Keep verification on and try again; Chronoframe removes bad copies when verification fails.")
+            fixes.append(AppLocalization.string("Keep verification on and try again; Chronoframe removes bad copies when verification fails.", bundle: bundle))
         }
         if text.contains("date") || text.contains("unknown") {
-            fixes.append("Open the Review tab and set unknown or unsure dates before copying.")
+            fixes.append(AppLocalization.string("Open the Review tab and set unknown or unsure dates before copying.", bundle: bundle))
         }
         if text.contains("exist") || text.contains("collision") || text.contains("duplicate") {
-            fixes.append("Check skipped and exact-copy items in the Review tab before copying.")
+            fixes.append(AppLocalization.string("Check skipped and exact-copy items in the Review tab before copying.", bundle: bundle))
         }
         if fixes.isEmpty {
-            fixes.append("Open the related file or folder from Reports and Logs, then preview again after fixing the cause.")
+            fixes.append(AppLocalization.string("Open the related file or folder from Reports and Logs, then preview again after fixing the cause.", bundle: bundle))
         }
-        fixes.append("Your originals are not changed while you resolve these problems.")
+        fixes.append(AppLocalization.string("Your originals are not changed while you resolve these problems.", bundle: bundle))
         return fixes
     }
 }
@@ -655,16 +661,16 @@ struct RunIdleOnboardingCard: View {
                 .overlay(Circle().strokeBorder(DesignTokens.ColorSystem.accentAction, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                     .scaledFont(.body, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                Text(message)
+                Text(LocalizedStringKey(message), bundle: .module)
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Step \(number): \(title). \(message)")
+        .accessibilityLabel("Step \(number): \(AppLocalization.string(title)). \(AppLocalization.string(message))")
     }
 }

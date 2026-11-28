@@ -32,6 +32,14 @@ public enum LibraryHealthAction: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// Values needed to present a dynamic message without parsing English copy.
+/// The scanner keeps `message` for command-line consumers and older clients.
+public enum LibraryHealthMessageDetails: Equatable, Codable, Sendable {
+    case unknownDateBytes(Int64)
+    case duplicateBytes(Int64)
+    case unfinishedCopies(pending: Int, failed: Int)
+}
+
 public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
     public var id: String
     public var title: String
@@ -42,6 +50,7 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
     /// The number `value` shows, for cards that count something, so logic
     /// never has to parse a formatted display string.
     public var count: Int?
+    public var messageDetails: LibraryHealthMessageDetails?
 
     public init(
         id: String,
@@ -50,7 +59,8 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
         message: String,
         severity: LibraryHealthSeverity,
         action: LibraryHealthAction? = nil,
-        count: Int? = nil
+        count: Int? = nil,
+        messageDetails: LibraryHealthMessageDetails? = nil
     ) {
         self.id = id
         self.title = title
@@ -59,6 +69,7 @@ public struct LibraryHealthCard: Identifiable, Equatable, Codable, Sendable {
         self.severity = severity
         self.action = action
         self.count = count
+        self.messageDetails = messageDetails
     }
 }
 
@@ -142,7 +153,8 @@ public struct LibraryHealthScanner: @unchecked Sendable {
                     ? "No files are waiting in the Unknown_Date folder."
                     : "\(formattedBytes(unknownStats.bytes)) of files need a date.",
                 severity: unknownStats.count == 0 ? .good : .attention,
-                action: unknownStats.count == 0 ? nil : .reviewUnknownDates
+                action: unknownStats.count == 0 ? nil : .reviewUnknownDates,
+                messageDetails: unknownStats.count == 0 ? nil : .unknownDateBytes(unknownStats.bytes)
             )
         )
 
@@ -159,7 +171,8 @@ public struct LibraryHealthScanner: @unchecked Sendable {
                     ? "No exact copies were set aside during past copies."
                     : "\(formattedBytes(duplicateBytes)) could be freed after you review them.",
                 severity: duplicateCount == 0 ? .good : .attention,
-                action: duplicateCount == 0 ? nil : .runDeduplicate
+                action: duplicateCount == 0 ? nil : .runDeduplicate,
+                messageDetails: duplicateCount == 0 ? nil : .duplicateBytes(duplicateBytes)
             )
         )
 
@@ -173,7 +186,9 @@ public struct LibraryHealthScanner: @unchecked Sendable {
                     ? "No copies are waiting or failed."
                     : "\(queueStats.pending) waiting, \(queueStats.failed) failed. Open Preview & Copy to finish them.",
                 severity: queueStats.failed > 0 ? .critical : (queueStats.pending > 0 ? .attention : .good),
-                action: queueStats.pending + queueStats.failed == 0 ? nil : .runPreview
+                action: queueStats.pending + queueStats.failed == 0 ? nil : .runPreview,
+                messageDetails: queueStats.pending + queueStats.failed == 0
+                    ? nil : .unfinishedCopies(pending: queueStats.pending, failed: queueStats.failed)
             )
         )
 

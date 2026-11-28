@@ -80,7 +80,7 @@ struct RapidTriageView: View {
             ProgressView(value: progress)
                 .tint(DesignTokens.ColorSystem.accentAction)
                 .accessibilityLabel("Rapid triage progress")
-                .accessibilityValue("\(currentIndex) of \(clustersToReview.count) groups reviewed")
+                .accessibilityValue(PluralPhrases.triageProgress(current: currentIndex, total: clustersToReview.count))
         }
         .padding(DesignTokens.Spacing.md)
     }

@@ -27,44 +27,46 @@ enum NASAccessibilityText {
 
     /// One label per accessibility identifier in `AccessibilityIdentifiers.NAS`.
     static let controlLabels: [String: String] = [
-        AccessibilityIdentifiers.NAS.chooseFolder: "Choose Folder…. Pick the top folder of your photo library on a network share.",
-        AccessibilityIdentifiers.NAS.startAssessment: "Assess Library. Chronoframe reads the library to find identical copies and changes nothing on the NAS.",
-        AccessibilityIdentifiers.NAS.stop: "Stop. Stops the assessment.",
-        AccessibilityIdentifiers.NAS.reconnect: "Reconnect. Checks the connection to your NAS again.",
-        AccessibilityIdentifiers.NAS.confirmIdentity: "This Is the Same Library. Confirms this share is the library you assessed before.",
-        AccessibilityIdentifiers.NAS.groupList: "Groups of identical files",
-        AccessibilityIdentifiers.NAS.groupRow: "Group of identical files",
-        AccessibilityIdentifiers.NAS.loadPreview: "Load Preview. Shows the first file in this group. This may read the whole file over the network.",
-        AccessibilityIdentifiers.NAS.keeperPicker: "Choose which copy you prefer to keep. The choice is saved on this Mac and nothing on the NAS changes.",
-        AccessibilityIdentifiers.NAS.folderSummary: "Folder summary",
-        AccessibilityIdentifiers.NAS.stateBanner: "Assessment status",
+        AccessibilityIdentifiers.NAS.chooseFolder: String(localized: "Choose Folder…. Pick the top folder of your photo library on a network share.", bundle: .module),
+        AccessibilityIdentifiers.NAS.startAssessment: String(localized: "Assess Library. Chronoframe reads the library to find identical copies and changes nothing on the NAS.", bundle: .module),
+        AccessibilityIdentifiers.NAS.stop: String(localized: "Stop. Stops the assessment.", bundle: .module),
+        AccessibilityIdentifiers.NAS.reconnect: String(localized: "Reconnect. Checks the connection to your NAS again.", bundle: .module),
+        AccessibilityIdentifiers.NAS.confirmIdentity: String(localized: "This Is the Same Library. Confirms this share is the library you assessed before.", bundle: .module),
+        AccessibilityIdentifiers.NAS.groupList: String(localized: "Groups of identical files", bundle: .module),
+        AccessibilityIdentifiers.NAS.groupRow: String(localized: "Group of identical files", bundle: .module),
+        AccessibilityIdentifiers.NAS.loadPreview: String(localized: "Load Preview. Shows the first file in this group. This may read the whole file over the network.", bundle: .module),
+        AccessibilityIdentifiers.NAS.keeperPicker: String(localized: "Choose which copy you prefer to keep. The choice is saved on this Mac and nothing on the NAS changes.", bundle: .module),
+        AccessibilityIdentifiers.NAS.folderSummary: String(localized: "Folder summary", bundle: .module),
+        AccessibilityIdentifiers.NAS.stateBanner: String(localized: "Assessment status", bundle: .module),
     ]
 
     /// The label for a control. `visibleTitle` is the title currently on screen for a button
     /// whose title changes (Assess Library becomes Assess Again); the label starts with it.
     static func label(forIdentifier identifier: String, visibleTitle: String? = nil) -> String {
         guard let base = controlLabels[identifier] else { return "" }
-        guard let visibleTitle, let defaultTitle = visibleTitles[identifier], base.hasPrefix(defaultTitle) else { return base }
-        return visibleTitle + base.dropFirst(defaultTitle.count)
+        guard let visibleTitle, let defaultKey = visibleTitles[identifier] else { return base }
+        let defaultTitle = String(localized: String.LocalizationValue(defaultKey), bundle: .module)
+        guard base.hasPrefix(defaultTitle) else { return base }
+        return String(localized: String.LocalizationValue(visibleTitle), bundle: .module) + base.dropFirst(defaultTitle.count)
     }
 
     /// The spoken status line for the state banner.
     static func stateBanner(_ state: NASWorkspaceState) -> String {
-        NASLibraryCopy.bannerText(for: state)
+        String(localized: String.LocalizationValue(NASLibraryCopy.bannerText(for: state)), bundle: .module)
     }
 
     /// One spoken line for a group row in the list.
     static func groupRow(group: NASExactGroup, keeper: String?, isChoiceStale: Bool) -> String {
         let count = group.memberRelativePaths.count
-        let name = group.memberRelativePaths.sorted().first.map { fileName($0) } ?? "file"
+        let name = group.memberRelativePaths.sorted().first.map { fileName($0) } ?? String(localized: "file", bundle: .module)
         let size = ByteCountFormatter.string(fromByteCount: group.size, countStyle: .file)
-        var parts = ["\(count) identical copies of \(name), \(size) each"]
+        var parts = [String(localized: "\(String(count)) identical copies of \(String(name)), \(String(size)) each", bundle: .module)]
         if isChoiceStale {
-            parts.append("Your earlier choice no longer matches these files")
+            parts.append(String(localized: "Your earlier choice no longer matches these files", bundle: .module))
         } else if let keeper {
-            parts.append("Keeper chosen: \(fileName(keeper))")
+            parts.append(String(localized: "Keeper chosen: \(String(fileName(keeper)))", bundle: .module))
         } else {
-            parts.append(NASLibraryCopy.keeperNone)
+            parts.append(String(localized: String.LocalizationValue(NASLibraryCopy.keeperNone), bundle: .module))
         }
         return parts.joined(separator: ". ") + "."
     }
@@ -74,9 +76,9 @@ enum NASAccessibilityText {
         let folders = summary.counts.directoriesAssessed
         let media = summary.counts.mediaFiles
         let groups = summary.exactGroupCount
-        let folderPhrase = folders == 1 ? "1 folder" : "\(folders) folders"
-        let mediaPhrase = media == 1 ? "1 photo or video" : "\(media) photos and videos"
-        let groupPhrase = groups == 1 ? "1 group of identical files" : "\(groups) groups of identical files"
+        let folderPhrase = folders == 1 ? String(localized: "1 folder", bundle: .module) : String(localized: "\(String(folders)) folders", bundle: .module)
+        let mediaPhrase = media == 1 ? String(localized: "1 photo or video", bundle: .module) : String(localized: "\(String(media)) photos and videos", bundle: .module)
+        let groupPhrase = groups == 1 ? String(localized: "1 group of identical files", bundle: .module) : String(localized: "\(String(groups)) groups of identical files", bundle: .module)
         return "\(folderPhrase), \(mediaPhrase), \(groupPhrase). "
             + NASLibraryCopy.redundantBytesLabel(bytes: summary.redundantLogicalBytes)
     }

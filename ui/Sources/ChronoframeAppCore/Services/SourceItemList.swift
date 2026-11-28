@@ -11,11 +11,11 @@ public enum SourceItemListError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case let .insideListed(name, parentName):
-            return "\u{201C}\(name)\u{201D} is already covered because it is inside \u{201C}\(parentName)\u{201D}."
+            return CoreL10n.text("\u{201C}\(name)\u{201D} is already covered because it is inside \u{201C}\(parentName)\u{201D}.")
         case let .overlapsDestination(name):
-            return "\u{201C}\(name)\u{201D} and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed."
+            return CoreL10n.text("\u{201C}\(name)\u{201D} and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed.")
         case let .missing(name):
-            return "Chronoframe can't find \u{201C}\(name)\u{201D} any more. Reconnect the drive or add the folder again."
+            return CoreL10n.text("Chronoframe can't find \u{201C}\(name)\u{201D} any more. Reconnect the drive or add the folder again.")
         }
     }
 }
@@ -87,7 +87,7 @@ public struct SourceItemList: Equatable, Sendable {
     }
 
     public static func summaryLabel(count: Int) -> String {
-        count == 1 ? "1 folder" : "\(count.formatted()) folders"
+        count == 1 ? CoreL10n.text("1 folder") : CoreL10n.text("\(count.formatted()) folders")
     }
 
     private static func resolve(_ url: URL) -> URL {

@@ -20,7 +20,7 @@ The operating point is chosen under a deliberately **asymmetric** cost model:
 
 Perceptual video clusters are always **review-only**: medium-capped by
 `ClusterConfidenceScorer` and rejected by
-`DeduplicationPlanner.isAutomaticCommitEligible` (AGENTS-INVARIANT 6). Calibration
+`DeduplicationPlanner.isAutomaticCommitEligible` (INV-06, tagged `AGENTS-INVARIANT: 6`). Calibration
 therefore only tunes **which clusters are surfaced for review**, never whether
 anything is deleted automatically. When a threshold choice trades precision for
 recall, prefer precision.

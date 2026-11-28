@@ -172,18 +172,18 @@ enum SafetyPerformancePreset: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .standard:
-            return "Standard"
+            return String(localized: "Standard", bundle: .module)
         case .oneAtATime:
-            return "One at a Time"
+            return String(localized: "One at a Time", bundle: .module)
         }
     }
 
     var summary: String {
         switch self {
         case .standard:
-            return "Verified copies, several files at once, \(workerCount) worker threads."
+            return String(localized: "Verified copies, several files at once, \(workerCount) worker threads.", bundle: .module)
         case .oneAtATime:
-            return "Verified copies, one file at a time, \(workerCount) worker threads."
+            return String(localized: "Verified copies, one file at a time, \(workerCount) worker threads.", bundle: .module)
         }
     }
 
@@ -289,7 +289,7 @@ private extension PerformanceSettingsTab {
     func presetRow(title: String, summary: String, isActive: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                 Text(summary)
                     .font(.callout)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
@@ -319,12 +319,12 @@ private struct DeduplicateSettingsTab: View {
 
                 Picker("Similarity", selection: $preferencesStore.dedupeSimilarityPreset) {
                     ForEach(DedupeSimilarityPreset.allCases) { preset in
-                        Text(preset.title).tag(preset)
+                        Text(LocalizedStringKey(preset.title), bundle: .module).tag(preset)
                     }
                 }
                 .pickerStyle(.segmented)
 
-                Text(preferencesStore.dedupeSimilarityPreset.subtitle)
+                Text(LocalizedStringKey(preferencesStore.dedupeSimilarityPreset.subtitle), bundle: .module)
                     .font(.callout)
                     .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
 

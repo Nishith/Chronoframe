@@ -1,8 +1,6 @@
 # App Review purchase discovery correction — October 19, 2026
 
-## Current replacement — October 21, 2026
-
-PR #251 is merged. Clean current-main source `573682dc33af317dfbdb76ea805f9b297dcdb6f9` contains the final License safety correction; its app source is identical to `1ad818b`. CI and CodeQL passed on current main. Universal signed **2.0 (510)** passed archive/export/signature/package validation and uploaded at 13:41 PDT on October 21; Apple processing/compliance completed and 510 is Testing with the existing internal group; installation and signed testing remain pending. App Store Connect upload inventory was checked: 508 was the latest upload and 509 was absent. 510 deliberately avoids the local diagnostic 509 identity. See [the replacement session](app-review-resubmission-2026-10-21.md). **508 is historical evidence and must not be submitted as the corrected candidate.**
+**Status (2026-11-21). Historical; resolved.** Apple rejected 2.0 (507) on 2026-10-19 under 2.1(b) because Chronoframe Unlock could not be found. The direct Settings → License → Unlock entry shipped in PR #251 (merged 2026-10-21 as `bffc63e`); the corrected build 2.0 (511) was approved and is public (2026-10-22). This file keeps the rejection, the App Store Connect observations and the 508 signed evidence. Current truth: [app-review-replacement-511-2026-10-21.md](app-review-replacement-511-2026-10-21.md) (shipped build) and [V2_LAUNCH_CHECKLIST.md](V2_LAUNCH_CHECKLIST.md). Build 510 ([record](app-review-resubmission-2026-10-21.md)) came from clean main source `573682dc33af317dfbdb76ea805f9b297dcdb6f9` (app source identical to `1ad818b`); **508 was never submitted** because it predates the final License safety correction.
 
 ## Build 508 evidence (historical)
 
@@ -24,7 +22,7 @@ The fresh-account physical-Mac sandbox purchase **passed on TestFlight 508** at
 approximately 21:06 PDT. Apple displayed purchase success, License became
 **Unlocked**, and the unlock persisted after quit/relaunch. The owner retried
 without restarting; no authentication reset or shipping-code change was needed.
-Explicit Restore Purchases and the requested completed recording remain pending.
+Explicit Restore and the completed recording were done later (Restore on 510, recording on 511).
 
 ## Findings and correction
 
@@ -105,8 +103,8 @@ must be included with an app version in the same submission:
   Archive, packages and logs are in `.tmp/release-508/` and `.tmp/logs/` in the
   isolated checkout; `release-artifacts/2.0-508/release-record.json` is local evidence.
 - Actual fresh-account sandbox transaction, signed cancellation and unlock after
-  relaunch: **passed on TestFlight 508**. Explicit Restore Purchases and the
-  completed physical-Mac purchase recording remain pending. Local fake transactions
+  relaunch: **passed on TestFlight 508**. Explicit Restore and the
+  physical-Mac recording were completed later (510, 511). Local fake transactions
   never count as sandbox/production evidence.
 
 Native Settings-window capture from a passing UI fixture (simulated product/price,
@@ -114,81 +112,13 @@ not a sandbox transaction or Apple submission attachment):
 
 ![Direct License purchase](app-review-iap-rejection-2026-10-19/license-purchase-ui-fixture.png)
 
-## Physical-Mac evidence session
+## Physical-Mac evidence session (plan)
 
-Use the replacement installed through TestFlight on a real Mac, a sandbox test
-account and disposable source/destination folders. Preserve existing owner settings,
-bookmarks, allowance records and purchases. Use a fresh sandbox account for a new
-purchase; reinstalling does not reset allowance or purchase ownership.
-
-1. Start a screen recording from the Mac desktop, launch Chronoframe and show
-   About’s actual version/build. Record the account’s storefront, without showing
-   credentials or personal media.
-2. Demonstrate choosing separate folders, Preview Plan, approving a small verified
-   copy and inspecting History. Show duplicate review/Trash/recovery on disposable
-   copies if demonstrating those core flows; do not empty Trash.
-3. Open Settings → License with free allowance still remaining. Click
-   Unlock Chronoframe… and show the product’s localized price and Restore Purchases.
-   Cancel one Apple sandbox purchase and confirm access/allowance is unchanged.
-4. Complete a new **sandbox** purchase. Capture Apple’s sandbox success and License
-   becoming Unlocked, then quit/relaunch and confirm the verified unlock persists.
-5. Exercise **Restore Purchases explicitly**, using a signed test installation that
-   has not already recovered ownership automatically. If launch recovery already
-   shows Unlocked, record that separately; it is not a button-driven restore test.
-   Do not reset the owner’s ledger or entitlement to force the screen.
-6. Demonstrate the other purchase entrances (an over-allowance operation and locked
-   Reorganize) with a separate unowned sandbox state as needed. They use the same
-   single product; there is no subscription, second SKU or Chronoframe login.
-
-Record actual results, build/source/package identities and recording path before
-claiming completion. Have the owner confirm any remaining signed release gates.
+Apple asked for a screen recording from a physical Mac: desktop launch with About's actual version, a core Preview Plan → verified copy → History flow, Settings → License → Unlock Chronoframe… with price and Restore, a cancelled and a completed sandbox purchase with relaunch persistence, an explicit Restore, and the other purchase entrances (over-allowance operation, locked Reorganize). Use a TestFlight build, a sandbox account and disposable folders; never reset a tester's purchase history, allowance, settings or bookmarks. Executed on 508, 510 and finally 511 (see the 511 ledger for the shipped recording).
 
 ## Fresh sandbox account handoff
 
-The owner reports creating the fresh sandbox tester on October 19. Its prepared
-form used a test name and the United States storefront; the owner supplied the
-email and password and completed creation personally. No credentials are recorded
-here. Build 508 was installed through TestFlight, and the installed Info.plist
-confirms 2.0 (508) with an App Store receipt present. Before switching purchase
-accounts, License showed Unlocked from earlier testing.
-
-The owner explicitly authorized signing out of **Media & Purchases** on this Mac.
-System Settings then showed “No media accounts found”; the main iCloud account
-remained signed in. No allowance records, purchases, preferences or bookmarks were
-reset. On relaunch, License showed “Checking your purchase…” and an explicit
-Restore Purchases request was started to reach Apple’s account prompt. Signing
-into the new sandbox identity and a real purchase remain unverified.
-
-A separate Apple Development-signed Debug `MAS_BUILD` was compiled from the same
-app source to initialize sandbox sign-in (no Xcode StoreKit configuration and no
-fake entitlement injected). It lives in `.tmp/SandboxSignInDerivedData/`, separate
-from the installed TestFlight app. Initial authentication stalled; the StoreKit
-helper was restarted, and the Apple `storeuid` dialog was located through native
-UI inspection. A fresh development-build Restore request logs **Sandbox
-authentication** with no active sandbox account. The generic Apple Account dialog
-prefilled the personal email; it was cleared for the owner to enter the newly
-created sandbox tester. No credential was entered by the agent. This is an
-authentication handoff, **not a completed restore or purchase**. After sign-in,
-return to `/Applications/Chronoframe.app` (TestFlight 508), confirm the actual
-identity/locked state and complete the recording.
-
-The signed-out TestFlight attempt stayed at Checking your purchase and Restore
-reported it could not reach the App Store after authentication failed. StoreKit
-logged no active account and authentication cancellation. This is observed
-negative-state evidence; it does not establish a product-availability failure or
-a successfully completed fresh-account test. Do not put the account password in
-this repository or the recording.
-Do not clear an existing account’s purchase history to manufacture a fresh purchase.
-
-Apple’s [account creation instructions](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/create-a-sandbox-apple-account/)
-describe the fields and email restrictions. Its
-[sandbox testing documentation](https://developer.apple.com/documentation/storekit/testing-in-app-purchases-with-sandbox)
-places the macOS sandbox sign-in in App Store → Settings after an initial purchase
-attempt. Inspect the actual Mac UI before changing sign-in state; the documented
-TestFlight Developer-settings walkthrough is for iOS and must not be assumed to
-apply to macOS. Creating an account alone is not proof that TestFlight is using it.
-Verify the actual purchasing identity/environment and locked entitlement before
-recording a new transaction.
+The owner created a fresh US sandbox tester on 2026-10-19 (credentials are not recorded). TestFlight 508 was installed (Info.plist 2.0 (508), receipt present) and License initially showed Unlocked from earlier testing. With the owner's authorization, Media & Purchases was signed out in System Settings (main iCloud account kept; no allowance, purchase, preference, bookmark or keychain reset). A signed-out attempt stayed at "Checking your purchase…" and Restore reported it could not reach the App Store; StoreKit logged no active account. A separate Apple Development-signed Debug `MAS_BUILD` of the same source, kept in `.tmp/SandboxSignInDerivedData/` and never uploaded, was used only to start Apple's sandbox sign-in; the owner entered the credentials. This was an authentication handoff, not a purchase or restore. Apple's [account creation](https://developer.apple.com/help/app-store-connect/test-in-app-purchases/create-a-sandbox-apple-account/) and [sandbox testing](https://developer.apple.com/documentation/storekit/testing-in-app-purchases-with-sandbox) documentation applies; the iOS TestFlight walkthrough must not be assumed to apply to macOS.
 
 ## Fresh-account signed product verification — October 19
 
@@ -252,8 +182,8 @@ restore it. A fresh cancellation/retry again exposed only Cancel, so Purchase wa
 not invoked. Both sheets were cancelled and the app returned to License with
 499/500 and 100/100 remaining. The Mac reports macOS 27.0.1 (26A434).
 StoreKit-related logs also reported a biometric accessory not paired error;
-this is diagnostic context, not a proven cause. A local check with recording and
-computer control inactive is still pending; do not assert either is the cause.
+this is diagnostic context, not a proven cause. The cause was not established; a later retry
+without restarting succeeded (below).
 
 The owner supplied the saved Desktop recording `Screen Recording 2026-10-19 at
 5.59.08 PM.mov` (the actual filename uses a narrow no-break space before PM).
@@ -286,10 +216,8 @@ overlapping purchase/restore requests, with no automatic purchase retry loop.
 
 The stalled request closed and License returned to Free trial with **499/500**
 and **100/100** remaining. A redacted diagnostic extract is retained locally in
-`.tmp/release-508/auth-loop-diagnostic-redacted.log`. A Mac restart followed by a
-local TestFlight retry is pending. No account, purchase history, allowance ledger,
-bookmark, keychain or authentication cache was reset. Purchase, relaunch, explicit
-restore and the completed App Review recording remain open.
+`.tmp/release-508/auth-loop-diagnostic-redacted.log`. The later retry succeeded without a Mac restart (below). No account, purchase history, allowance ledger,
+bookmark, keychain or authentication cache was reset.
 
 ## Successful sandbox purchase and relaunch — approximately 21:06 PDT
 
@@ -318,25 +246,11 @@ success screenshot and independently verified persisted unlock remain valid
 functional evidence, but the requested purchase recording is missing. The saved
 175.992-second desktop diagnostic clip does not capture the successful transaction.
 
-**Still pending:** explicit button-driven Restore Purchases (automatic recovery on
-relaunch does not satisfy that gate) and the complete recording Apple requested.
-A second fresh tester is being prepared for a recorded new purchase without
-resetting the first tester's ownership. The New Tester form has test name
-Chronoframe Recording508 and US storefront populated; the owner must supply new
-credentials and complete creation locally. This is a prepared form, not a created
-account. See [the capture checklist](app-review-iap-rejection-2026-10-19/recording-checklist.md).
+Follow-ups: explicit button-driven Restore passed on signed 510; the completed recording Apple requested was made on signed 511; a second fresh tester (Chronoframe Recording510) was used for the recorded purchase (its checklist was removed 2026-11-23; see git history).
 
 ## Resubmission preparation
 
-The exact purchase navigation is prepared in `docs/APP_STORE_METADATA.md`.
-After the signed checks and recording are complete, select the validated replacement
-build, update the app and IAP review notes, replace the IAP review screenshot with
-the real signed purchase screen, and attach the requested physical-Mac recording
-in App Review Information. Keep Chronoframe Unlock and the app together in the
-submission; retain manual release. Public app Free pricing remains coordinated
-with approved V2 release, not changed as part of this code correction.
-
-Draft reply — send only after the replacement and real recording are attached:
+The purchase navigation for the review notes is in [APP_STORE_METADATA.md](APP_STORE_METADATA.md). Resubmission selected the validated replacement build, updated the app and IAP review notes, replaced the IAP screenshot with the real signed purchase screen, attached the physical-Mac recording in App Review Information, and kept the app and Chronoframe Unlock together with manual release; this was done for 2.0 (511). The draft reply below was prepared for that resubmission; whether it was sent is not recorded here.
 
 > Thank you. We have added a direct purchase entry at Chronoframe → Settings… →
 > License → Unlock Chronoframe…. The sheet displays Chronoframe Unlock
@@ -345,9 +259,6 @@ Draft reply — send only after the replacement and real recording are attached:
 > Restore Purchases is available from License and the purchase sheet while locked.
 > No Chronoframe sign-in or demo account is required. The replacement build and
 > attached physical-Mac recording demonstrate the sandbox purchase and access flow.
-
-Do not send this draft with placeholders or infer a completed restore from automatic
-entitlement recovery. Record the tested build and recording filename alongside it.
 
 ## PR #251 review correction — October 20, 2026
 
@@ -362,6 +273,4 @@ The focused run passed **60 Swift tests**, including a regression matrix exercis
 the License view's three purchase/restore actions against pending preview and
 transfer refusals, publication-time ordering, stale callbacks, normal retries and
 the rendered localized-price layout. These use deterministic StoreKit fixtures.
-This source correction is **not in signed build 508**; that build's recorded
-source and transaction evidence remain separate. A new signed build is needed to
-exercise this correction through TestFlight.
+This source correction is **not in signed build 508**; it is in 510 and 511, where it was exercised through TestFlight.

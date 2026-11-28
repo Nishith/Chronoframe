@@ -13,6 +13,14 @@ struct PreviewReviewPanel: View {
     @State private var selectedItemPath: String? = nil
     @State private var quickLookURL: URL? = nil
 
+    private var reviewFilterPicker: some View {
+        Picker("Review Filter", selection: $store.filter) {
+            ForEach(PreviewReviewFilter.allCases) { filter in
+                Text(filter.title).tag(filter)
+            }
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             MeridianSurfaceCard(style: .inner, tint: model.context.previewReviewIsStale ? DesignTokens.Color.warning : DesignTokens.Color.sky) {
@@ -46,7 +54,7 @@ struct PreviewReviewPanel: View {
                     HStack(spacing: 10) {
                         ForEach(model.previewReviewSummaryTiles) { tile in
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(tile.title)
+                                Text(LocalizedStringKey(tile.title), bundle: .module)
                                     .scaledFont(.label)
                                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                                 Text(tile.value)
@@ -60,12 +68,14 @@ struct PreviewReviewPanel: View {
                 }
             }
 
-            Picker("Review Filter", selection: $store.filter) {
-                ForEach(PreviewReviewFilter.allCases) { filter in
-                    Text(filter.title).tag(filter)
-                }
+            // Five segments are wider than the pane once the titles are German
+            // ("Widersprüchliche Datumsangaben"); a segmented control reports
+            // that width and pushes the whole page past the window. Fall back
+            // to a menu when it does not fit.
+            ViewThatFits(in: .horizontal) {
+                reviewFilterPicker.pickerStyle(.segmented)
+                reviewFilterPicker.pickerStyle(.menu).frame(maxWidth: .infinity, alignment: .leading)
             }
-            .pickerStyle(.segmented)
             .accessibilityIdentifier(AccessibilityIdentifiers.previewReviewFilter)
 
             if store.isLoading {
@@ -119,13 +129,13 @@ struct PreviewReviewPanel: View {
 
     private var headerMessage: String {
         if store.isStale {
-            return "Your changes are saved. Rebuild the preview before copying."
+            return String(localized: "Your changes are saved. Rebuild the preview before copying.", bundle: .module)
         }
         let summary = store.summary
         if summary.needsAttentionCount > 0 {
-            return "\(summary.needsAttentionCount.formatted()) items need attention. Originals stay untouched."
+            return PluralPhrases.itemsNeedAttention(summary.needsAttentionCount)
         }
-        return "The plan is ready to inspect. Originals stay untouched."
+        return String(localized: "The plan is ready to inspect. Originals stay untouched.", bundle: .module)
     }
 }
 
@@ -165,10 +175,10 @@ private struct PreviewReviewRow: View {
                             .truncationMode(.middle)
 
                         HStack(spacing: 8) {
-                            Label(item.status.title, systemImage: statusSymbol)
-                            Text("\(item.dateSource.title) · \(item.dateConfidence.title)")
+                            Label(LocalizedStringKey(item.status.title), systemImage: statusSymbol)
+                            Text("\(AppLocalization.string(item.dateSource.title)) · \(AppLocalization.string(item.dateConfidence.title))")
                             if !item.issues.isEmpty {
-                                Text(item.issues.map(\.title).joined(separator: ", "))
+                                Text(item.issues.map { AppLocalization.string($0.title) }.joined(separator: ", "))
                             }
                         }
                         .scaledFont(.label)
@@ -181,10 +191,10 @@ private struct PreviewReviewRow: View {
                                 bucketTimeZoneOffsetSeconds: item.bucketTimeZoneOffsetSeconds
                             )
                             let alternativeText = PreviewReviewDateText.string(for: alternative.date, source: alternative.source)
-                            Text("\(item.dateSource.title): \(selectedText) · \(alternative.source.title): \(alternativeText)")
+                            Text("\(AppLocalization.string(item.dateSource.title)): \(selectedText) · \(AppLocalization.string(alternative.source.title)): \(alternativeText)")
                                 .scaledFont(.label)
                                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                                .accessibilityLabel("Chosen date \(item.dateSource.title), \(selectedText). Alternative date \(alternative.source.title), \(alternativeText)")
+                                .accessibilityLabel("Chosen date \(AppLocalization.string(item.dateSource.title)), \(selectedText). Alternative date \(AppLocalization.string(alternative.source.title)), \(alternativeText)")
                         }
 
                     }
@@ -253,26 +263,26 @@ private struct PreviewReviewRow: View {
     private var destinationTitle: String {
         switch item.status {
         case .ready:
-            return "Will Copy To"
+            return String(localized: "Will Copy To", bundle: .module)
         case .alreadyInDestination:
-            return "Already There"
+            return String(localized: "Already There", bundle: .module)
         case .duplicate:
-            return "Set Aside as a Copy"
+            return String(localized: "Set Aside as a Copy", bundle: .module)
         case .hashError:
-            return "Needs Attention"
+            return String(localized: "Needs Attention", bundle: .module)
         }
     }
 
     private var destinationFallback: String {
         switch item.status {
         case .alreadyInDestination:
-            return "Your organized library already has this file"
+            return String(localized: "Your organized library already has this file", bundle: .module)
         case .duplicate:
-            return "This exact copy will be set aside in the Duplicate folder"
+            return String(localized: "This exact copy will be set aside in the Duplicate folder", bundle: .module)
         case .hashError:
-            return "Chronoframe needs a readable file before it can plan this item"
+            return String(localized: "Chronoframe needs a readable file before it can plan this item", bundle: .module)
         case .ready:
-            return "Destination path will appear after preview rebuild"
+            return String(localized: "Destination path will appear after preview rebuild", bundle: .module)
         }
     }
 
@@ -282,7 +292,7 @@ private struct PreviewReviewRow: View {
                 .foregroundStyle(tint)
                 .frame(width: 16)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(LocalizedStringKey(title), bundle: .module)
                     .scaledFont(.label, weight: .semibold)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 Text(path)
@@ -311,9 +321,9 @@ private struct PreviewReviewRow: View {
                     )
                 }
             } label: {
-                Label("Use \(alternative.source.title) Date", systemImage: "calendar.badge.checkmark")
+                Label("Use \(AppLocalization.string(alternative.source.title)) Date", systemImage: "calendar.badge.checkmark")
             }
-            .accessibilityLabel("Use \(alternative.source.title) date, \(PreviewReviewDateText.string(for: alternative.date, source: alternative.source))")
+            .accessibilityLabel("Use \(AppLocalization.string(alternative.source.title)) date, \(PreviewReviewDateText.string(for: alternative.date, source: alternative.source))")
             .accessibilityIdentifier("previewReviewUseAlternativeDate")
         }
 
@@ -324,7 +334,7 @@ private struct PreviewReviewRow: View {
                 Label("Keep This Date", systemImage: "checkmark.seal")
             }
             .disabled(item.identityRawValue == nil)
-            .accessibilityLabel("Keep \(item.dateSource.title) date, \(PreviewReviewDateText.string(for: chosen, source: item.dateSource, bucketTimeZoneOffsetSeconds: item.bucketTimeZoneOffsetSeconds))")
+            .accessibilityLabel("Keep \(AppLocalization.string(item.dateSource.title)) date, \(PreviewReviewDateText.string(for: chosen, source: item.dateSource, bucketTimeZoneOffsetSeconds: item.bucketTimeZoneOffsetSeconds))")
             .accessibilityIdentifier("previewReviewKeepDate")
         }
 

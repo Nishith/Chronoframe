@@ -133,7 +133,7 @@ struct ClusterListPane: View {
             }
             Picker("Filter", selection: $confidenceFilter) {
                 ForEach(DedupeClusterConfidenceFilter.allCases, id: \.self) { filter in
-                    Text("\(filter.label) (\(bucketCount(filter)))")
+                    Text("\(AppLocalization.string(filter.label)) (\(bucketCount(filter)))")
                         .tag(filter)
                 }
             }
@@ -147,7 +147,7 @@ struct ClusterListPane: View {
             let bytesByCluster = recoverableBytesByCluster
             List(selection: $focusedClusterID) {
                 ForEach(grouped, id: \.0) { kind, list in
-                    Section(header: Text("\(kind.title) (\(list.count))")) {
+                    Section(header: Text("\(AppLocalization.string(kind.title)) (\(list.count))")) {
                         ForEach(list) { cluster in
                             ClusterRow(
                                 cluster: cluster,

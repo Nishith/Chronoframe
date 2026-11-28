@@ -147,10 +147,16 @@ final class RunCompletionNotificationTextTests: XCTestCase {
         XCTAssertTrue((text?.body ?? "").contains("moved or changed"), text?.body ?? "")
     }
 
-    /// An ordinary up-to-date run keeps saying so.
+    /// An ordinary up-to-date run (its files were found in the destination)
+    /// keeps saying so.
     func testAnOrdinaryNothingToCopyRunStillReportsUpToDate() {
         let text = RunSessionStore.completionNotificationText(
-            summary: summary(.nothingToCopy),
+            summary: RunSummary(
+                status: .nothingToCopy,
+                title: "Title",
+                metrics: RunMetrics(discoveredCount: 4, plannedCount: 0, alreadyInDestinationCount: 4, copiedCount: 0),
+                artifacts: RunArtifactPaths()
+            ),
             usedFreeTestBatch: false
         )
 

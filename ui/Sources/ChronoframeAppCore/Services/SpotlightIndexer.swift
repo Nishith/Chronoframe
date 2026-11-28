@@ -17,7 +17,7 @@ public final class SpotlightIndexer {
                 
                 let attributeSet = CSSearchableItemAttributeSet(contentType: .json)
                 attributeSet.title = entry.title
-                attributeSet.contentDescription = "Chronoframe run receipt: \(entry.relativePath) (\(entry.createdAt.formatted()))"
+                attributeSet.contentDescription = CoreL10n.text("Chronoframe run receipt: \(entry.relativePath) (\(entry.createdAt.formatted()))")
                 attributeSet.contentModificationDate = entry.createdAt
                 if let size = entry.fileSizeBytes {
                     attributeSet.fileSize = NSNumber(value: size)

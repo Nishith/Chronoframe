@@ -116,6 +116,12 @@
             "state": "translated",
             "value": "1 folder"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Ordner"
+          }
         }
       }
     },
@@ -143,7 +149,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Am neuen Ort existiert bereits eine Datei, daher hat Chronoframe das Original unverändert gelassen. Ziel: %@."
+            "value": "Am neuen Ort existiert bereits eine Datei, daher hat Chronoframe das Original unangetastet gelassen. Ziel: %@."
           }
         },
         "ja": {
@@ -249,7 +255,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eine Datei oder ein Ordner, den Chronoframe benötigt, ist nicht mehr verfügbar. Verbinden Sie das Laufwerk erneut oder wählen Sie den Ordner erneut aus, und versuchen Sie es dann noch einmal."
+            "value": "Eine benötigte Datei oder ein Ordner ist nicht mehr verfügbar. Verbinde das Laufwerk neu oder wähle den Ordner erneut aus, und versuche es dann nochmal."
           }
         },
         "ja": {
@@ -445,6 +451,12 @@
             "state": "translated",
             "value": "Add a folder to organize before the next preview."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Füge vor der nächsten Vorschau einen Ordner zum Organisieren hinzu."
+          }
         }
       }
     },
@@ -455,6 +467,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Already There"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereits vorhanden"
           }
         }
       }
@@ -520,6 +538,12 @@
             "state": "translated",
             "value": "Check the plan, then copy"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan prüfen, dann kopieren"
+          }
         }
       }
     },
@@ -530,6 +554,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Checks on your organized library"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfungen deiner organisierten Mediathek"
           }
         }
       }
@@ -542,6 +572,12 @@
             "state": "translated",
             "value": "Choose Folders"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner auswählen"
+          }
         }
       }
     },
@@ -552,6 +588,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose a folder on a network share. For folders on this Mac, use Deduplicate."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle einen Ordner auf einer Netzwerkfreigabe. Verwende für Ordner auf diesem Mac „Duplikate entfernen“."
           }
         }
       }
@@ -564,6 +606,12 @@
             "state": "translated",
             "value": "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle einen Ordner auf diesem Mac oder einem angeschlossenen Laufwerk. „Duplikate entfernen“ kann Dateien auf einer Netzwerkfreigabe noch nicht sicher in den Papierkorb legen. Deshalb wurde nichts geändert."
+          }
         }
       }
     },
@@ -574,6 +622,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Choose a folder on this Mac or an attached drive. Deduplicate can't move files on a network share to the Trash safely yet, so nothing was changed. For a NAS, use NAS Library."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle einen Ordner auf diesem Mac oder einem angeschlossenen Laufwerk. „Duplikate entfernen“ kann Dateien auf einer Netzwerkfreigabe noch nicht sicher in den Papierkorb legen. Deshalb wurde nichts geändert. Verwende für ein NAS „NAS-Mediathek“."
           }
         }
       }
@@ -602,7 +656,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wählen Sie vor dem Start sowohl einen Quellordner als auch einen Zielordner aus."
+            "value": "Wähle vor dem Start sowohl einen Quellordner als auch einen Zielordner aus."
           }
         },
         "ja": {
@@ -639,6 +693,12 @@
             "state": "translated",
             "value": "Chronoframe can't use this folder. Choose a regular folder on a network share, not a link. Nothing was changed."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe kann diesen Ordner nicht verwenden. Wähle einen regulären Ordner auf einer Netzwerkfreigabe statt eines Links. Es wurde nichts geändert."
+          }
         }
       }
     },
@@ -666,7 +726,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe hat diese Datei kopiert, konnte die Kopie jedoch nicht verifizieren, sodass die Zielkopie entfernt und die Quelle unverändert gelassen wurde. Quelle: %@. Ziel: %@."
+            "value": "Chronoframe hat diese Datei kopiert, konnte die Kopie aber nicht überprüfen. Die Zielkopie wurde entfernt und die Quelle blieb unangetastet. Quelle: %@. Ziel: %@."
           }
         },
         "ja": {
@@ -719,7 +779,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte diese Datei nicht überprüfen und hat sie daher übersprungen. Datei: %@."
+            "value": "Chronoframe konnte diese Datei nicht überprüfen und hat sie übersprungen. Datei: %@."
           }
         },
         "ja": {
@@ -772,7 +832,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte nicht überprüfen, ob sich diese Datei geändert hat, sodass sie unverändert gelassen wurde. Datei: %@."
+            "value": "Chronoframe konnte nicht überprüfen, ob sich diese Datei geändert hat. Sie blieb am ursprünglichen Ort. Datei: %@."
           }
         },
         "ja": {
@@ -825,7 +885,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte diese Datei nicht kopieren, sodass die Quelle unverändert gelassen wurde. Quelle: %@. Ziel: %@."
+            "value": "Chronoframe konnte diese Datei nicht kopieren. Die Quelle blieb unangetastet. Quelle: %@. Ziel: %@."
           }
         },
         "ja": {
@@ -878,7 +938,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte diesen Durchlauf nicht beenden. Ihre Quelldateien wurden nicht verändert. Prüfen Sie, ob beide Ordner verfügbar sind, und versuchen Sie es erneut."
+            "value": "Chronoframe konnte diesen Durchlauf nicht beenden. Deine Quelldateien blieben unangetastet. Prüfe, ob beide Ordner verfügbar sind, und versuche es erneut."
           }
         },
         "ja": {
@@ -931,7 +991,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte diese Datei nicht innerhalb des Ziels verschieben. Sie wurde unverändert gelassen. Datei: %@."
+            "value": "Chronoframe konnte diese Datei nicht innerhalb des Ziels verschieben. Sie blieb, wo sie ist. Datei: %@."
           }
         },
         "ja": {
@@ -984,7 +1044,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte eine gespeicherte Datei nicht lesen, da sie beschädigt zu sein scheint. Starten Sie eine neue Vorschau oder einen Transfer, um eine neue Datei zu erstellen."
+            "value": "Chronoframe konnte eine gespeicherte Datei nicht lesen, da sie offenbar beschädigt ist. Starte eine neue Vorschau oder einen Transfer, um eine neue Datei zu erstellen."
           }
         },
         "ja": {
@@ -1037,7 +1097,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte eine seiner gespeicherten Dateien nicht lesen, da das Dateiformat nicht den Erwartungen entsprach. Starten Sie eine neue Vorschau oder einen Transfer, um eine neue Datei zu erstellen."
+            "value": "Chronoframe konnte eine gespeicherte Datei nicht lesen, da das Format unerwartet war. Starte eine neue Vorschau oder einen Transfer, um eine neue Datei zu erstellen."
           }
         },
         "ja": {
@@ -1090,7 +1150,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte diesen Revert-Beleg nicht lesen. Wählen Sie einen anderen Beleg oder führen Sie einen neuen Transfer durch."
+            "value": "Chronoframe konnte diesen Wiederherstellungsbeleg nicht lesen. Wähle einen anderen Beleg oder führe einen neuen Transfer durch."
           }
         },
         "ja": {
@@ -1119,13 +1179,13 @@
         }
       }
     },
-    "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again.": {
+    "Chronoframe could not refresh History. Check that the destination drive is connected, then try again.": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again."
+            "value": "Chronoframe could not refresh History. Check that the destination drive is connected, then try again."
           }
         },
         "es": {
@@ -1143,7 +1203,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte den Verlauf nicht aktualisieren. Prüfen Sie, ob das Ziellaufwerk angeschlossen ist, und versuchen Sie es erneut."
+            "value": "Chronoframe konnte den Verlauf nicht aktualisieren. Prüfe, ob das Ziellaufwerk angeschlossen ist, und versuche es erneut."
           }
         },
         "ja": {
@@ -1196,7 +1256,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte diese kopierte Datei während des Reverts nicht entfernen, sodass sie unverändert gelassen wurde. Datei: %@."
+            "value": "Chronoframe konnte diese kopierte Datei bei der Wiederherstellung nicht entfernen. Sie blieb am ursprünglichen Ort. Datei: %@."
           }
         },
         "ja": {
@@ -1249,7 +1309,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte das Setup nicht aktualisieren. Wählen Sie den Ordner erneut aus oder prüfen Sie, ob das Laufwerk angeschlossen ist."
+            "value": "Chronoframe konnte das Setup nicht aktualisieren. Wähle den Ordner erneut aus oder prüfe, ob das Laufwerk angeschlossen ist."
           }
         },
         "ja": {
@@ -1302,7 +1362,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte die gespeicherten Profile nicht aktualisieren. Prüfen Sie, ob Chronoframe in die Einstellungen schreiben kann, und versuchen Sie es erneut."
+            "value": "Chronoframe konnte die gespeicherten Profile nicht aktualisieren. Prüfe, ob Chronoframe in die Einstellungen schreiben kann, und versuche es erneut."
           }
         },
         "ja": {
@@ -1355,7 +1415,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe konnte die abgelegten Elemente nicht verwenden. Versuchen Sie stattdessen, den Quellordner über die Auswahl zu wählen."
+            "value": "Chronoframe konnte die abgelegten Elemente nicht verwenden. Versuche stattdessen, den Quellordner über die Auswahl auszuwählen."
           }
         },
         "ja": {
@@ -1392,6 +1452,12 @@
             "state": "translated",
             "value": "Chronoframe couldn't check this file, so it wasn't compared."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Datei nicht prüfen. Deshalb wurde sie nicht verglichen."
+          }
         }
       }
     },
@@ -1402,6 +1468,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chronoframe couldn't finish reading this file, so it wasn't compared."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Datei nicht vollständig lesen. Deshalb wurde sie nicht verglichen."
           }
         }
       }
@@ -1414,6 +1486,12 @@
             "state": "translated",
             "value": "Chronoframe couldn't open its assessment data on this Mac. Nothing on the NAS was changed."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte seine Auswertungsdaten auf diesem Mac nicht öffnen. Auf dem NAS wurde nichts geändert."
+          }
         }
       }
     },
@@ -1424,6 +1502,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chronoframe couldn't open this file."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Datei nicht öffnen."
           }
         }
       }
@@ -1452,7 +1536,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe hat keine unterstützten Foto- oder Videodateien in der Quelle gefunden. Wählen Sie einen anderen Quellordner und versuchen Sie es erneut."
+            "value": "Chronoframe hat in der Quelle keine unterstützten Foto- oder Videodateien gefunden. Wähle einen anderen Quellordner und versuche es erneut."
           }
         },
         "ja": {
@@ -1542,6 +1626,12 @@
             "state": "translated",
             "value": "Chronoframe needs access to Photos to continue this import."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe benötigt Zugriff auf Fotos, um diesen Import fortzusetzen."
+          }
         }
       }
     },
@@ -1569,7 +1659,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe erfordert Aufmerksamkeit, bevor fortgefahren werden kann. Lesen Sie die folgende Meldung und versuchen Sie es erneut."
+            "value": "Chronoframe erfordert Aufmerksamkeit, um fortzufahren. Lies die Meldung unten und versuche es erneut."
           }
         },
         "ja": {
@@ -1622,7 +1712,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe benötigt eine weitere Entscheidung, bevor fortgefahren werden kann. Überprüfen Sie das Setup und versuchen Sie es erneut."
+            "value": "Chronoframe benötigt eine weitere Entscheidung, um fortzufahren. Überprüfe das Setup und versuche es erneut."
           }
         },
         "ja": {
@@ -1675,7 +1765,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe hat ein Problem festgestellt. Bitte versuchen Sie es erneut."
+            "value": "Chronoframe hat ein Problem festgestellt. Bitte versuche es erneut."
           }
         },
         "ja": {
@@ -1728,7 +1818,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe hat ein Problem gemeldet, aber keine Details angegeben."
+            "value": "Chronoframe meldet ein Problem, aber ohne Details."
           }
         },
         "ja": {
@@ -1781,7 +1871,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe hat eine Warnung gemeldet, aber keine Details angegeben."
+            "value": "Chronoframe meldet eine Warnung, aber ohne Details."
           }
         },
         "ja": {
@@ -1834,7 +1924,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chronoframe hat eine Aktualisierung gemeldet."
+            "value": "Chronoframe meldet ein Update."
           }
         },
         "ja": {
@@ -1871,6 +1961,12 @@
             "state": "translated",
             "value": "Copy"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren"
+          }
         }
       }
     },
@@ -1881,6 +1977,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copy from Apple Photos"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aus Apple Fotos kopieren"
           }
         }
       }
@@ -1909,7 +2011,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle in der Gruppe löschen"
+            "value": "Alle in Gruppe löschen"
           }
         },
         "ja": {
@@ -1946,6 +2048,12 @@
             "state": "translated",
             "value": "Every recognized file follows the folder layout."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle erkannten Dateien entsprechen der Ordnerstruktur."
+          }
         }
       }
     },
@@ -1956,6 +2064,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Exact Copies"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identische Kopien"
           }
         }
       }
@@ -1968,6 +2082,12 @@
             "state": "translated",
             "value": "Exact Copy"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Identische Kopie"
+          }
         }
       }
     },
@@ -1978,6 +2098,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Files Outside the Layout"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien außerhalb der Ordnerstruktur"
           }
         }
       }
@@ -1990,6 +2116,12 @@
             "state": "translated",
             "value": "Finish the earlier copy?"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Früheren Kopiervorgang abschließen?"
+          }
         }
       }
     },
@@ -2000,6 +2132,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finish the interrupted copy first"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schließe zuerst den unterbrochenen Kopiervorgang ab"
           }
         }
       }
@@ -2012,6 +2150,12 @@
             "state": "translated",
             "value": "Folders to organize and destination are set."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die zu organisierenden Ordner und das Ziel sind festgelegt."
+          }
         }
       }
     },
@@ -2023,6 +2167,12 @@
             "state": "translated",
             "value": "Get told when new photos arrive"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei neuen Fotos benachrichtigen"
+          }
         }
       }
     },
@@ -2033,6 +2183,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Getting ready…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorbereitung läuft…"
           }
         }
       }
@@ -2061,7 +2217,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Alle in der Gruppe behalten"
+            "value": "Alle in Gruppe behalten"
           }
         },
         "ja": {
@@ -2098,6 +2254,12 @@
             "state": "translated",
             "value": "Look-alikes"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ähnliche Dateien"
+          }
         }
       }
     },
@@ -2108,6 +2270,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Needs folders"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner fehlen"
           }
         }
       }
@@ -2120,6 +2288,12 @@
             "state": "translated",
             "value": "No Date"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne Datum"
+          }
         }
       }
     },
@@ -2130,6 +2304,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No copies are waiting or failed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine ausstehenden oder fehlgeschlagenen Kopien."
           }
         }
       }
@@ -2142,6 +2322,12 @@
             "state": "translated",
             "value": "No exact copies were set aside during past copies."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei früheren Kopiervorgängen wurden keine identischen Kopien aussortiert."
+          }
         }
       }
     },
@@ -2152,6 +2338,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "No files are waiting in the Unknown_Date folder."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Ordner Unknown_Date warten keine Dateien."
           }
         }
       }
@@ -2164,6 +2356,12 @@
             "state": "translated",
             "value": "Nothing has been copied here yet, so there is nothing to undo."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hierher wurde noch nichts kopiert. Deshalb gibt es nichts rückgängig zu machen."
+          }
         }
       }
     },
@@ -2174,6 +2372,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Past copies, reports and undo"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Frühere Kopiervorgänge, Berichte und Rückgängig"
           }
         }
       }
@@ -2186,6 +2390,12 @@
             "state": "translated",
             "value": "Preview & Copy"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorschau & Kopieren"
+          }
         }
       }
     },
@@ -2196,6 +2406,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Receipts are saved for recent copies, so they can be undone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für die letzten Kopiervorgänge werden Belege gespeichert, damit du sie rückgängig machen kannst."
           }
         }
       }
@@ -2208,6 +2424,12 @@
             "state": "translated",
             "value": "Remove extra copies"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zusätzliche Kopien entfernen"
+          }
         }
       }
     },
@@ -2218,6 +2440,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Resuming the copy…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiervorgang wird fortgesetzt…"
           }
         }
       }
@@ -2230,6 +2458,12 @@
             "state": "translated",
             "value": "Some files don't follow Chronoframe's folder layout."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Dateien entsprechen nicht der Ordnerstruktur von Chronoframe."
+          }
         }
       }
     },
@@ -2240,6 +2474,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sort into dated folders"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In datierte Ordner einsortieren"
           }
         }
       }
@@ -2252,6 +2492,12 @@
             "state": "translated",
             "value": "Start copying?"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren starten?"
+          }
         }
       }
     },
@@ -2262,6 +2508,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "The NAS became unavailable while Chronoframe was reading this file."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das NAS war nicht mehr erreichbar, während Chronoframe diese Datei las."
           }
         }
       }
@@ -2290,7 +2542,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Ziellaufwerk ist voll. Geben Sie Speicherplatz frei oder wählen Sie ein anderes Ziel und versuchen Sie es erneut."
+            "value": "Das Ziellaufwerk ist voll. Gib Speicherplatz frei oder wähle ein anderes Ziel und versuche es erneut."
           }
         },
         "ja": {
@@ -2343,7 +2595,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Das Ziel ist schreibgeschützt. Wählen Sie einen beschreibbaren Ordner oder ändern Sie die Laufwerksberechtigungen und versuchen Sie es erneut."
+            "value": "Das Ziel ist schreibgeschützt. Wähle einen beschreibbaren Ordner oder ändere die Laufwerksberechtigungen und versuche es erneut."
           }
         },
         "ja": {
@@ -2396,7 +2648,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der ausgewählte Revert-Beleg konnte nicht gefunden werden. Er wurde möglicherweise verschoben oder gelöscht. Beleg: %@."
+            "value": "Der ausgewählte Wiederherstellungsbeleg wurde nicht gefunden. Möglicherweise wurde er verschoben oder gelöscht. Beleg: %@."
           }
         },
         "ja": {
@@ -2433,6 +2685,12 @@
             "state": "translated",
             "value": "This file changed while Chronoframe was checking it, so it wasn't compared."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Datei hat sich während der Prüfung durch Chronoframe geändert. Deshalb wurde sie nicht verglichen."
+          }
         }
       }
     },
@@ -2443,6 +2701,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "This import was prepared for a different destination. Choose that destination again to resume, or discard it."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Import wurde für ein anderes Ziel vorbereitet. Wähle dieses Ziel erneut, um fortzufahren, oder verwirf den Import."
           }
         }
       }
@@ -2455,6 +2719,12 @@
             "state": "translated",
             "value": "This item stopped being a regular file, so Chronoframe didn't read it."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Objekt ist keine reguläre Datei mehr. Deshalb hat Chronoframe es nicht gelesen."
+          }
         }
       }
     },
@@ -2465,6 +2735,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "This network folder can't guarantee that a copy never replaces an existing file, so Chronoframe won't organize into it. Choose a folder on this Mac or an attached drive. Nothing was copied, and your originals were untouched."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Netzwerkordner kann nicht garantieren, dass eine Kopie niemals eine vorhandene Datei ersetzt. Deshalb organisiert Chronoframe keine Dateien dorthin. Wähle einen Ordner auf diesem Mac oder einem angeschlossenen Laufwerk. Es wurde nichts kopiert und deine Originale blieben unangetastet."
           }
         }
       }
@@ -2493,7 +2769,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Triage-Entscheidung"
+            "value": "Bereinigungsentscheidung"
           }
         },
         "ja": {
@@ -2530,6 +2806,12 @@
             "state": "translated",
             "value": "Undo"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rückgängig"
+          }
         }
       }
     },
@@ -2540,6 +2822,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Undo Records"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belege zum Rückgängigmachen"
           }
         }
       }
@@ -2552,6 +2840,12 @@
             "state": "translated",
             "value": "Undoing the layout change…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Änderung der Ordnerstruktur wird rückgängig gemacht…"
+          }
         }
       }
     },
@@ -2562,6 +2856,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Undoing…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird rückgängig gemacht…"
           }
         }
       }
@@ -2574,6 +2874,12 @@
             "state": "translated",
             "value": "Unfinished Copies"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unvollständige Kopiervorgänge"
+          }
         }
       }
     },
@@ -2585,6 +2891,12 @@
             "state": "translated",
             "value": "Watched Folders"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überwachte Ordner"
+          }
         }
       }
     },
@@ -2595,6 +2907,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "What to organize and where it goes"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was organisiert wird und wohin"
           }
         }
       }
@@ -2623,7 +2941,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "macOS blockiert den Zugriff auf eine Datei oder einen Ordner. Wählen Sie den Ordner erneut aus, um den Zugriff zu gestatten, oder überprüfen Sie die Datenschutz- und Sicherheitseinstellungen."
+            "value": "macOS blockiert den Zugriff auf eine Datei oder einen Ordner. Wähle den Ordner erneut aus, um den Zugriff zu gestatten, oder prüfe die Datenschutz- und Sicherheitseinstellungen."
           }
         },
         "ja": {
@@ -2676,7 +2994,7 @@
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "temporäre Dateien, die von einem unterbrochenen Durchlauf übrig geblieben sind"
+            "value": "Temporäre Dateien eines abgebrochenen Durchlaufs"
           }
         },
         "ja": {
@@ -2712,6 +3030,12 @@
             "state": "translated",
             "value": "Find Files"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien suchen"
+          }
         }
       }
     },
@@ -2721,6 +3045,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Read Originals"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Originale lesen"
           }
         }
       }
@@ -2732,6 +3062,12 @@
             "state": "translated",
             "value": "Check Destination"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziel prüfen"
+          }
         }
       }
     },
@@ -2741,6 +3077,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sort by Date"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nach Datum sortieren"
           }
         }
       }
@@ -2752,6 +3094,12 @@
             "state": "translated",
             "value": "Reorganize"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neu organisieren"
+          }
         }
       }
     },
@@ -2761,6 +3109,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finding files…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien werden gesucht…"
           }
         }
       }
@@ -2772,6 +3126,12 @@
             "state": "translated",
             "value": "Reading your originals…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Originale werden gelesen…"
+          }
         }
       }
     },
@@ -2781,6 +3141,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Checking the destination…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziel wird geprüft…"
           }
         }
       }
@@ -2792,6 +3158,12 @@
             "state": "translated",
             "value": "Sorting by date…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird nach Datum sortiert…"
+          }
         }
       }
     },
@@ -2801,6 +3173,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copying files…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien werden kopiert…"
           }
         }
       }
@@ -2812,6 +3190,12 @@
             "state": "translated",
             "value": "Reorganizing files…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien werden neu organisiert…"
+          }
         }
       }
     },
@@ -2821,6 +3205,114 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chronoframe could not finish. Originals were left untouched."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den Vorgang nicht abschließen. Die Originale blieben unangetastet."
+          }
+        }
+      }
+    },
+    "Copy finished with problems": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy finished with problems"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren mit Problemen abgeschlossen"
+          }
+        }
+      }
+    },
+    "%lld copied, %lld could not be copied.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld copied, %lld could not be copied."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kopiert, %lld nicht kopiert."
+          }
+        }
+      }
+    },
+    "%lld copied, but Chronoframe reported problems.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld copied, but Chronoframe reported problems."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kopiert, aber Chronoframe hat Probleme gemeldet."
+          }
+        }
+      }
+    },
+    "Nothing was copied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing was copied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es wurde nichts kopiert"
+          }
+        }
+      }
+    },
+    "Chronoframe copied nothing. Your originals were not changed. Open Chronoframe to see why.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe copied nothing. Your originals were not changed. Open Chronoframe to see why."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat nichts kopiert. Deine Originale wurden nicht verändert. Öffne Chronoframe, um den Grund zu erfahren."
+          }
+        }
+      }
+    },
+    "Chronoframe found nothing to copy. Your originals were not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe found nothing to copy. Your originals were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat nichts zum Kopieren gefunden. Deine Originale wurden nicht verändert."
           }
         }
       }
@@ -2832,6 +3324,12 @@
             "state": "translated",
             "value": "Copy complete"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren abgeschlossen"
+          }
         }
       }
     },
@@ -2841,6 +3339,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Everything in your folders is already in the destination."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles aus deinen Ordnern ist bereits am Ziel vorhanden."
           }
         }
       }
@@ -2852,6 +3356,12 @@
             "state": "translated",
             "value": "Copy failed"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopieren fehlgeschlagen"
+          }
         }
       }
     },
@@ -2861,6 +3371,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "A folder you chose to organize is no longer available. Reconnect the drive or choose the folder again. Path: %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein zum Organisieren ausgewählter Ordner ist nicht mehr verfügbar. Verbinde das Laufwerk erneut oder wähle den Ordner erneut aus. Pfad: %@."
           }
         }
       }
@@ -2872,6 +3388,12 @@
             "state": "translated",
             "value": "Choose a destination folder before you start."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle vor dem Start einen Zielordner."
+          }
         }
       }
     },
@@ -2882,6 +3404,12 @@
             "state": "translated",
             "value": "A folder you chose to organize is inside the destination folder, so Chronoframe would see its own copies as new files. Choose a folder outside the destination. No files were changed."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein zum Organisieren ausgewählter Ordner liegt im Zielordner. Dadurch würde Chronoframe seine eigenen Kopien als neue Dateien erkennen. Wähle einen Ordner außerhalb des Ziels. Es wurden keine Dateien geändert."
+          }
         }
       }
     },
@@ -2891,6 +3419,3153 @@
           "stringUnit": {
             "state": "translated",
             "value": "The destination folder is inside a folder you chose to organize, so copies would land back inside the folder being organized. Choose a destination outside it. No files were changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Zielordner liegt in einem zum Organisieren ausgewählten Ordner. Dadurch würden die Kopien wieder in diesem Ordner landen. Wähle ein Ziel außerhalb dieses Ordners. Es wurden keine Dateien geändert."
+          }
+        }
+      }
+    },
+    "Needs Attention": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs Attention"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benötigt Aufmerksamkeit"
+          }
+        }
+      }
+    },
+    "Unknown Date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown Date"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekanntes Datum"
+          }
+        }
+      }
+    },
+    "Low Confidence": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Low Confidence"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unsicheres Datum"
+          }
+        }
+      }
+    },
+    "Conflicting Dates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conflicting Dates"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Widersprüchliche Datumsangaben"
+          }
+        }
+      }
+    },
+    "Duplicates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicates"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplikate"
+          }
+        }
+      }
+    },
+    "Skipped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skipped"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Übersprungen"
+          }
+        }
+      }
+    },
+    "Ready": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereit"
+          }
+        }
+      }
+    },
+    "All": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle"
+          }
+        }
+      }
+    },
+    "Chronoframe needs a readable preview item before it can save that correction.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe needs a readable preview item before it can save that correction."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe benötigt einen lesbaren Vorschau-Eintrag, bevor es diese Korrektur speichern kann."
+          }
+        }
+      }
+    },
+    "Choose an organize destination before importing from Photos.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose an organize destination before importing from Photos."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle vor dem Import aus Fotos ein Ziel zum Organisieren."
+          }
+        }
+      }
+    },
+    "Select at least one photo or video to import.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select at least one photo or video to import."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle mindestens ein Foto oder Video zum Importieren."
+          }
+        }
+      }
+    },
+    "That interrupted import is no longer available. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That interrupted import is no longer available. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser unterbrochene Import ist nicht mehr verfügbar. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't prepare the Photos import. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den Import aus Fotos nicht vorbereiten. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. %@ of %@ items are ready and were kept. Free up space, then resume. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. %@ of %@ items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat den Import gestoppt, weil der Fortschritt nicht gespeichert werden konnte. Das Laufwerk mit dem Zwischenordner ist möglicherweise voll. %1$@ von %2$@ Objekten sind bereit und wurden aufbewahrt. Schaffe Speicherplatz und setze dann fort. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't read the selected items from Photos, so there is nothing to import. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't read the selected items from Photos, so there is nothing to import. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die ausgewählten Objekte aus Fotos nicht lesen. Deshalb gibt es nichts zu importieren. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "%lld item(s) couldn't be read and were skipped. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld item(s) couldn't be read and were skipped. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Objekte konnten nicht gelesen werden und wurden übersprungen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Import stopped. %@ of %@ items are ready and were kept. Resume whenever you like. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import stopped. %@ of %@ items are ready and were kept. Resume whenever you like. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import gestoppt. %1$@ von %2$@ Objekten sind bereit und wurden aufbewahrt. Du kannst jederzeit fortsetzen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe paused the import because the drive holding its staging folder is almost full. %@ of %@ items are ready and were kept. Free up space, then resume. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe paused the import because the drive holding its staging folder is almost full. %@ of %@ items are ready and were kept. Free up space, then resume. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat den Import pausiert, weil das Laufwerk mit dem Zwischenordner fast voll ist. %1$@ von %2$@ Objekten sind bereit und wurden aufbewahrt. Schaffe Speicherplatz und setze dann fort. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "File was moved to Trash, but the audit receipt could not be updated: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File was moved to Trash, but the audit receipt could not be updated: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Datei wurde in den Papierkorb gelegt, aber der Prüfbeleg konnte nicht aktualisiert werden: %@"
+          }
+        }
+      }
+    },
+    "Interrupted · Needs Drive": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Interrupted · Needs Drive"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unterbrochen · Laufwerk benötigt"
+          }
+        }
+      }
+    },
+    "Trash Location Unverified": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trash Location Unverified"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Papierkorb-Speicherort ungeprüft"
+          }
+        }
+      }
+    },
+    "Manual Recovery Needed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual Recovery Needed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuelle Wiederherstellung erforderlich"
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't save that choice. Your library and the assessment weren't changed. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Entscheidung nicht speichern. Deine Mediathek und die Prüfung wurden nicht verändert. Versuche es erneut."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't fully check this library. Some folders couldn't be read, so the results are incomplete.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't fully check this library. Some folders couldn't be read, so the results are incomplete."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diese Mediathek nicht vollständig prüfen. Einige Ordner konnten nicht gelesen werden. Deshalb sind die Ergebnisse unvollständig."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't complete the integrity scan. Your files were not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't complete the integrity scan. Your files were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die Integritätsprüfung nicht abschließen. Deine Dateien wurden nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't update the trusted baseline. Your files were not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't update the trusted baseline. Your files were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den vertrauenswürdigen Referenzstand nicht aktualisieren. Deine Dateien wurden nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't complete the scheduled integrity scan. Your files were not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't complete the scheduled integrity scan. Your files were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die geplante Integritätsprüfung nicht abschließen. Deine Dateien wurden nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't complete the Guardian operation. Your files were not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't complete the Guardian operation. Your files were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den Guardian-Vorgang nicht abschließen. Deine Dateien wurden nicht verändert."
+          }
+        }
+      }
+    },
+    "That folder is inside your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder outside the destination.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That folder is inside your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder outside the destination."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Ordner liegt in deinem Zielordner. Bei der Überwachung würde Chronoframe seine eigenen Kopien als neue Objekte erkennen. Wähle einen Ordner außerhalb des Ziels."
+          }
+        }
+      }
+    },
+    "That folder contains your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder that doesn't contain the destination.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That folder contains your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder that doesn't contain the destination."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Ordner enthält deinen Zielordner. Bei der Überwachung würde Chronoframe seine eigenen Kopien als neue Objekte erkennen. Wähle einen Ordner, der das Ziel nicht enthält."
+          }
+        }
+      }
+    },
+    "That folder overlaps a folder Chronoframe is already watching. Watching both would count the same photos twice.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That folder overlaps a folder Chronoframe is already watching. Watching both would count the same photos twice."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Ordner überschneidet sich mit einem bereits überwachten Ordner. Bei der Überwachung beider Ordner würden dieselben Fotos doppelt gezählt."
+          }
+        }
+      }
+    },
+    "Chronoframe is already watching that folder.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe is already watching that folder."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe überwacht diesen Ordner bereits."
+          }
+        }
+      }
+    },
+    "Chronoframe could not move this history item to Trash. Open it in Finder and remove it manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not move this history item to Trash. Open it in Finder and remove it manually."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diesen Verlaufseintrag nicht in den Papierkorb legen. Öffne ihn im Finder und entferne ihn manuell."
+          }
+        }
+      }
+    },
+    "Chronoframe could not move %lld history item to Trash. Open the destination in Finder and remove them manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not move %lld history item to Trash. Open the destination in Finder and remove them manually."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte %lld Verlaufseintrag nicht in den Papierkorb legen. Öffne das Ziel im Finder und entferne ihn manuell."
+          }
+        }
+      }
+    },
+    "Chronoframe could not move %lld history items to Trash. Open the destination in Finder and remove them manually.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not move %lld history items to Trash. Open the destination in Finder and remove them manually."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte %lld Verlaufseinträge nicht in den Papierkorb legen. Öffne das Ziel im Finder und entferne sie manuell."
+          }
+        }
+      }
+    },
+    "Idle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idle"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereit"
+          }
+        }
+      }
+    },
+    "Chronoframe will copy into %@. Your originals stay exactly where they are.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe will copy into %@. Your originals stay exactly where they are."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe kopiert nach %@. Deine Originale bleiben genau dort, wo sie sind."
+          }
+        }
+      }
+    },
+    "Reorganizing…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorganizing…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird neu organisiert…"
+          }
+        }
+      }
+    },
+    "Cancelled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgebrochen"
+          }
+        }
+      }
+    },
+    "Reorganize undone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorganize undone"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuorganisation rückgängig gemacht"
+          }
+        }
+      }
+    },
+    "Stopping…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopping…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird gestoppt…"
+          }
+        }
+      }
+    },
+    "Starting the %@…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting the %@…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ wird gestartet…"
+          }
+        }
+      }
+    },
+    "Initializing...": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Initializing..."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird vorbereitet..."
+          }
+        }
+      }
+    },
+    "Copying file %@ of %@…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copying file %@ of %@…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei %1$@ von %2$@ wird kopiert…"
+          }
+        }
+      }
+    },
+    "%@ %@ files…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %@ files…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@ Dateien…"
+          }
+        }
+      }
+    },
+    "Organizer Needs Attention": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organizer Needs Attention"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organisieren benötigt Aufmerksamkeit"
+          }
+        }
+      }
+    },
+    "%lld file copied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld file copied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Datei kopiert"
+          }
+        }
+      }
+    },
+    "%lld files copied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld files copied"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Dateien kopiert"
+          }
+        }
+      }
+    },
+    "Preview complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview complete"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorschau abgeschlossen"
+          }
+        }
+      }
+    },
+    "%lld file planned": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld file planned"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Datei geplant"
+          }
+        }
+      }
+    },
+    "%lld files planned": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld files planned"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Dateien geplant"
+          }
+        }
+      }
+    },
+    "Nothing left to copy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing left to copy"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts mehr zu kopieren"
+          }
+        }
+      }
+    },
+    "The files in that batch have moved or changed, so nothing was copied.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The files in that batch have moved or changed, so nothing was copied."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Dateien in diesem Testlauf wurden verschoben oder verändert. Deshalb wurde nichts kopiert."
+          }
+        }
+      }
+    },
+    "Already up to date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Already up to date"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereits aktuell"
+          }
+        }
+      }
+    },
+    "Failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehlgeschlagen"
+          }
+        }
+      }
+    },
+    "%@ of %@ files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ of %@ files"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ von %2$@ Dateien"
+          }
+        }
+      }
+    },
+    "%@ %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@"
+          }
+        }
+      }
+    },
+    "%@ %@ · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ %@ · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$@ · %3$@"
+          }
+        }
+      }
+    },
+    "less than 1m remaining": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "less than 1m remaining"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "weniger als 1 Min. verbleibend"
+          }
+        }
+      }
+    },
+    "%lldm remaining": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldm remaining"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Min. verbleibend"
+          }
+        }
+      }
+    },
+    "%lldh %lldm remaining": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lldh %lldm remaining"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld Std. %2$lld Min. verbleibend"
+          }
+        }
+      }
+    },
+    "%@ file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Datei aus einem früheren, unterbrochenen Kopiervorgang wartet noch. Starte das Kopieren, um sie fortzusetzen oder zu verwerfen, und führe danach den kostenlosen Testlauf aus. Es wurde nichts kopiert und deine Originale wurden nicht verändert."
+          }
+        }
+      }
+    },
+    "%@ files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Dateien aus einem früheren, unterbrochenen Kopiervorgang warten noch. Starte das Kopieren, um sie fortzusetzen oder zu verwerfen, und führe danach den kostenlosen Testlauf aus. Es wurde nichts kopiert und deine Originale wurden nicht verändert."
+          }
+        }
+      }
+    },
+    "%@ file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ file from an earlier copy is still waiting. Resume to finish them, or start over with the current plan."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Datei aus einem früheren Kopiervorgang wartet noch. Setze fort, um sie fertigzustellen, oder beginne mit dem aktuellen Plan neu."
+          }
+        }
+      }
+    },
+    "%@ files from an earlier copy are still waiting. Resume to finish them, or start over with the current plan.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ files from an earlier copy are still waiting. Resume to finish them, or start over with the current plan."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ Dateien aus einem früheren Kopiervorgang warten noch. Setze fort, um sie fertigzustellen, oder beginne mit dem aktuellen Plan neu."
+          }
+        }
+      }
+    },
+    "%lld file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld file"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Datei"
+          }
+        }
+      }
+    },
+    "%lld files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld files"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Dateien"
+          }
+        }
+      }
+    },
+    "%lld duplicate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld duplicate"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Duplikat"
+          }
+        }
+      }
+    },
+    "%lld duplicates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld duplicates"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Duplikate"
+          }
+        }
+      }
+    },
+    "Chronoframe could not open its trial records. Check that your startup disk is available, then try again. Details: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not open its trial records. Check that your startup disk is available, then try again. Details: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte seine Testnutzungsdaten nicht öffnen. Prüfe, ob dein Startvolume verfügbar ist, und versuche es erneut. Details: %@"
+          }
+        }
+      }
+    },
+    "Chronoframe could not read its trial records, so it cannot confirm how much of the free allowance is left. Purchasing the unlock removes the limit entirely. Details: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read its trial records, so it cannot confirm how much of the free allowance is left. Purchasing the unlock removes the limit entirely. Details: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte seine Testnutzungsdaten nicht lesen. Deshalb kann es das verbleibende kostenlose Kontingent nicht bestätigen. Durch die Freischaltung entfällt die Begrenzung vollständig. Details: %@"
+          }
+        }
+      }
+    },
+    "Chronoframe could not update its trial records. Details: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not update its trial records. Details: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte seine Testnutzungsdaten nicht aktualisieren. Details: %@"
+          }
+        }
+      }
+    },
+    "Chronoframe lost access to its trial records. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe lost access to its trial records. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat den Zugriff auf seine Testnutzungsdaten verloren. Versuche es erneut."
+          }
+        }
+      }
+    },
+    "Preview": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preview"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorschau"
+          }
+        }
+      }
+    },
+    "This destination is on a network drive. Chronoframe can't guarantee safe results if it runs from more than one Mac at the same time — keep it to a single machine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This destination is on a network drive. Chronoframe can't guarantee safe results if it runs from more than one Mac at the same time — keep it to a single machine."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Ziel liegt auf einem Netzlaufwerk. Chronoframe kann keine sicheren Ergebnisse garantieren, wenn es gleichzeitig auf mehreren Macs ausgeführt wird. Verwende dafür immer nur einen Mac."
+          }
+        }
+      }
+    },
+    "The %@ folder is no longer available. Reconnect the drive or choose the %@ folder again. Path: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The %@ folder is no longer available. Reconnect the drive or choose the %@ folder again. Path: %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der %1$@-Ordner ist nicht mehr verfügbar. Verbinde das Laufwerk erneut oder wähle den %2$@-Ordner erneut aus. Pfad: %3$@."
+          }
+        }
+      }
+    },
+    "The selected %@ item is not a folder. Choose a folder instead. Path: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected %@ item is not a folder. Choose a folder instead. Path: %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das ausgewählte %1$@-Objekt ist kein Ordner. Wähle stattdessen einen Ordner. Pfad: %2$@."
+          }
+        }
+      }
+    },
+    "Chronoframe cannot read the %@ folder. Choose it again to grant access, or pick a folder you have permission to open. Path: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe cannot read the %@ folder. Choose it again to grant access, or pick a folder you have permission to open. Path: %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe kann den %1$@-Ordner nicht lesen. Wähle ihn erneut, um Zugriff zu gewähren, oder wähle einen Ordner, den du öffnen darfst. Pfad: %2$@."
+          }
+        }
+      }
+    },
+    "Chronoframe cannot write to the %@ folder. Choose it again to grant access, pick a writable folder, or check that the drive is not read-only. Path: %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe cannot write to the %@ folder. Choose it again to grant access, pick a writable folder, or check that the drive is not read-only. Path: %@."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe kann nicht in den %1$@-Ordner schreiben. Wähle ihn erneut, um Zugriff zu gewähren, wähle einen beschreibbaren Ordner oder prüfe, ob das Laufwerk schreibgeschützt ist. Pfad: %2$@."
+          }
+        }
+      }
+    },
+    "source": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "source"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quell"
+          }
+        }
+      }
+    },
+    "destination": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "destination"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ziel"
+          }
+        }
+      }
+    },
+    "Chronoframe could not use the dropped items. Drag files or folders from Finder, or choose a source folder instead.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not use the dropped items. Drag files or folders from Finder, or choose a source folder instead."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die abgelegten Objekte nicht verwenden. Ziehe Dateien oder Ordner aus dem Finder hierher oder wähle stattdessen einen Quellordner."
+          }
+        }
+      }
+    },
+    "Chronoframe could not prepare those dropped items. Choose the source folder with the picker instead.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not prepare those dropped items. Choose the source folder with the picker instead."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die abgelegten Objekte nicht vorbereiten. Wähle stattdessen den Quellordner über die Ordnerauswahl."
+          }
+        }
+      }
+    },
+    "Drag-and-drop · %lld item · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag-and-drop · %lld item · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag-and-drop · %1$lld Objekt · %2$@"
+          }
+        }
+      }
+    },
+    "Drag-and-drop · %lld items · %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag-and-drop · %lld items · %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag-and-drop · %1$lld Objekte · %2$@"
+          }
+        }
+      }
+    },
+    "“%@” is already covered because it is inside “%@”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” is already covered because it is inside “%@”."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%1$@“ ist bereits enthalten, weil es in „%2$@“ liegt."
+          }
+        }
+      }
+    },
+    "“%@” and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“%@” and the destination overlap. Choose a destination outside the folders you are organizing; nothing was changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ und das Ziel überschneiden sich. Wähle ein Ziel außerhalb der zu organisierenden Ordner. Es wurde nichts geändert."
+          }
+        }
+      }
+    },
+    "Chronoframe can't find “%@” any more. Reconnect the drive or add the folder again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe can't find “%@” any more. Reconnect the drive or add the folder again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe kann „%@“ nicht mehr finden. Verbinde das Laufwerk erneut oder füge den Ordner erneut hinzu."
+          }
+        }
+      }
+    },
+    "%@ folders": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ folders"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Ordner"
+          }
+        }
+      }
+    },
+    "The saved profile \"%@\" no longer exists. Choose another profile or save it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The saved profile \"%@\" no longer exists. Choose another profile or save it again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das gespeicherte Profil „%@“ ist nicht mehr vorhanden. Wähle ein anderes Profil oder speichere es erneut."
+          }
+        }
+      }
+    },
+    "Chronoframe can't read the list of folders you chose to organize, so it can't check them against the destination. Add the folders again. No files were changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe can't read the list of folders you chose to organize, so it can't check them against the destination. Add the folders again. No files were changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe kann die Liste der zu organisierenden Ordner nicht lesen und sie deshalb nicht mit dem Ziel vergleichen. Füge die Ordner erneut hinzu. Es wurden keine Dateien geändert."
+          }
+        }
+      }
+    },
+    "Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not start the organizer. Try again; if it keeps happening, restart or reinstall Chronoframe."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte das Organisieren nicht starten. Versuche es erneut. Wenn das Problem bestehen bleibt, starte Chronoframe neu oder installiere es erneut."
+          }
+        }
+      }
+    },
+    "Chronoframe could not validate the run settings. Review the source and destination, then try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not validate the run settings. Review the source and destination, then try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die Einstellungen dieses Durchlaufs nicht prüfen. Prüfe Quelle und Ziel und versuche es erneut."
+          }
+        }
+      }
+    },
+    "Chronoframe received an unexpected response from its helper. Try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe received an unexpected response from its helper. Try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat eine unerwartete Antwort von seinem Hilfsprogramm erhalten. Versuche es erneut."
+          }
+        }
+      }
+    },
+    "This engine cannot run a free test batch.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This engine cannot run a free test batch."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Engine kann keinen kostenlosen Testlauf ausführen."
+          }
+        }
+      }
+    },
+    "Revert is not supported by this engine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert is not supported by this engine."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Engine unterstützt das Rückgängigmachen nicht."
+          }
+        }
+      }
+    },
+    "Reorganize is not supported by this engine.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorganize is not supported by this engine."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Engine unterstützt die Neuorganisation nicht."
+          }
+        }
+      }
+    },
+    "Your purchase needs approval before it can finish. Chronoframe will unlock automatically once it's approved.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your purchase needs approval before it can finish. Chronoframe will unlock automatically once it's approved."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Kauf muss genehmigt werden, bevor er abgeschlossen werden kann. Chronoframe wird nach der Genehmigung automatisch freigeschaltet."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't verify that purchase on this Mac. Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't verify that purchase on this Mac. Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte diesen Kauf auf diesem Mac nicht bestätigen. Kaufe nicht erneut. Wähle zuerst „Käufe wiederherstellen“ und kontaktiere den Support, falls die Freischaltung weiterhin ausbleibt."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't load the unlock from the App Store. Check your connection and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't load the unlock from the App Store. Check your connection and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die Freischaltung nicht aus dem App Store laden. Prüfe deine Verbindung und versuche es erneut."
+          }
+        }
+      }
+    },
+    "That purchase couldn't be completed. Check your connection and try again, or use Restore Purchases if you've already bought the unlock.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "That purchase couldn't be completed. Check your connection and try again, or use Restore Purchases if you've already bought the unlock."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Kauf konnte nicht abgeschlossen werden. Prüfe deine Verbindung und versuche es erneut oder verwende „Käufe wiederherstellen“, wenn du die Freischaltung bereits gekauft hast."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't reach the App Store to restore your purchase. Check your connection and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't reach the App Store to restore your purchase. Check your connection and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den App Store nicht erreichen, um deinen Kauf wiederherzustellen. Prüfe deine Verbindung und versuche es erneut."
+          }
+        }
+      }
+    },
+    "No previous purchase was found for this Apple Account. If you bought Chronoframe with a different account, sign in with that one.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No previous purchase was found for this Apple Account. If you bought Chronoframe with a different account, sign in with that one."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diesen Apple Account wurde kein früherer Kauf gefunden. Wenn du Chronoframe mit einem anderen Account gekauft hast, melde dich mit diesem an."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't reach the App Store to check your purchase. Your access is unchanged — try again once you're back online.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't reach the App Store to check your purchase. Your access is unchanged — try again once you're back online."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den App Store nicht erreichen, um deinen Kauf zu prüfen. Dein Zugriff bleibt unverändert. Versuche es erneut, sobald du wieder online bist."
+          }
+        }
+      }
+    },
+    "The App Store's response couldn't be verified on this Mac. Try again, and contact support if it keeps happening.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The App Store's response couldn't be verified on this Mac. Try again, and contact support if it keeps happening."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Antwort des App Store konnte auf diesem Mac nicht bestätigt werden. Versuche es erneut und kontaktiere den Support, falls das Problem bestehen bleibt."
+          }
+        }
+      }
+    },
+    "The library or mirror folder changed since this action started, so Chronoframe stopped to avoid working on the wrong folder. Nothing was changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The library or mirror folder changed since this action started, so Chronoframe stopped to avoid working on the wrong folder. Nothing was changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Mediathek- oder Spiegelordner hat sich seit Beginn dieser Aktion geändert. Chronoframe hat gestoppt, um nicht im falschen Ordner zu arbeiten. Es wurde nichts geändert."
+          }
+        }
+      }
+    },
+    "The mirror drive isn't connected right now. Reconnect it and try again. Nothing was changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The mirror drive isn't connected right now. Reconnect it and try again. Nothing was changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Laufwerk mit der Spiegelkopie ist derzeit nicht verbunden. Verbinde es erneut und versuche es noch einmal. Es wurde nichts geändert."
+          }
+        }
+      }
+    },
+    "Choose a destination folder before running a deduplicate scan.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose a destination folder before running a deduplicate scan."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wähle vor der Duplikatsuche einen Zielordner."
+          }
+        }
+      }
+    },
+    "Chronoframe could not reserve exclusive access to the destination folder. Try the cleanup again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not reserve exclusive access to the destination folder. Try the cleanup again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte keinen exklusiven Zugriff auf den Zielordner reservieren. Versuche die Bereinigung erneut."
+          }
+        }
+      }
+    },
+    "No original photo or video was available to import for this item.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No original photo or video was available to import for this item."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für dieses Objekt war kein Originalfoto oder -video zum Importieren verfügbar."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't find a free file name for this item, so it was skipped. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't find a free file name for this item, so it was skipped. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte keinen freien Dateinamen für dieses Objekt finden. Deshalb wurde es übersprungen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe couldn't read this item from Photos, so it was skipped. Your Photos library was not changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe couldn't read this item from Photos, so it was skipped. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte dieses Objekt aus Fotos nicht lesen. Deshalb wurde es übersprungen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe could not reach the App Store to check the price. Check your internet connection and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not reach the App Store to check the price. Check your internet connection and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den App Store nicht erreichen, um den Preis zu prüfen. Prüfe deine Internetverbindung und versuche es erneut."
+          }
+        }
+      }
+    },
+    "Copies %@ now and leaves %lld for later.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copies %@ now and leaves %lld for later."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiert jetzt %1$@ und lässt %2$lld für später übrig."
+          }
+        }
+      }
+    },
+    "%@ to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ to %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ bis %2$@"
+          }
+        }
+      }
+    },
+    "Copies the earliest %@, %@, and leaves %lld for later.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copies the earliest %@, %@, and leaves %lld for later."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiert die frühesten %1$@, %2$@, und lässt %3$lld für später übrig."
+          }
+        }
+      }
+    },
+    "Unlock Chronoframe": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlock Chronoframe"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe freischalten"
+          }
+        }
+      }
+    },
+    "Purchase Not Confirmed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Purchase Not Confirmed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kauf nicht bestätigt"
+          }
+        }
+      }
+    },
+    "A one-time lifetime unlock removes the organizing and duplicate cleanup limits and includes Reorganize, with Family Sharing. No subscription.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A one-time lifetime unlock removes the organizing and duplicate cleanup limits and includes Reorganize, with Family Sharing. No subscription."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die einmalige, dauerhafte Freischaltung hebt die Begrenzungen beim Organisieren und Entfernen von Duplikaten auf und umfasst die Neuorganisation sowie die Familienfreigabe. Kein Abo."
+          }
+        }
+      }
+    },
+    "Chronoframe could not confirm your purchase, so this run did not start. Restoring purchases usually fixes it. Nothing was changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not confirm your purchase, so this run did not start. Restoring purchases usually fixes it. Nothing was changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte deinen Kauf nicht bestätigen. Deshalb wurde dieser Durchlauf nicht gestartet. „Käufe wiederherstellen“ behebt dies normalerweise. Es wurde nichts geändert."
+          }
+        }
+      }
+    },
+    "Reorganize is available once Chronoframe is unlocked. Nothing was changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorganize is available once Chronoframe is unlocked. Nothing was changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Neuorganisation ist nach der Freischaltung von Chronoframe verfügbar. Es wurde nichts geändert."
+          }
+        }
+      }
+    },
+    "copy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "copy"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kopieren"
+          }
+        }
+      }
+    },
+    "remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "remove"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "entfernen"
+          }
+        }
+      }
+    },
+    "Nothing was copied and your originals were left untouched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing was copied and your originals were left untouched."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es wurde nichts kopiert und deine Originale blieben unangetastet."
+          }
+        }
+      }
+    },
+    "Nothing was moved to the Trash.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing was moved to the Trash."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es wurde nichts in den Papierkorb gelegt."
+          }
+        }
+      }
+    },
+    "Your free allowance is used up, and this run would %@ %@. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your free allowance is used up, and this run would %@ %@. %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein kostenloses Kontingent ist aufgebraucht. Dieser Durchlauf würde %2$@ %1$@. %3$@"
+          }
+        }
+      }
+    },
+    "Your free allowance has %@ left, and this run would %@ %lld. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your free allowance has %@ left, and this run would %@ %lld. %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein kostenloses Kontingent umfasst noch %1$@. Dieser Durchlauf würde %3$lld davon %2$@. %4$@"
+          }
+        }
+      }
+    },
+    "All Photos": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Photos"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Fotos"
+          }
+        }
+      }
+    },
+    "Chronoframe could not confirm your purchase, so this run was not started. Check your internet connection and try again, or use Restore Purchases in Settings. ": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not confirm your purchase, so this run was not started. Check your internet connection and try again, or use Restore Purchases in Settings. "
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte deinen Kauf nicht bestätigen. Deshalb wurde dieser Durchlauf nicht gestartet. Prüfe deine Internetverbindung und versuche es erneut oder verwende „Käufe wiederherstellen“ in den Einstellungen. "
+          }
+        }
+      }
+    },
+    "This action is available once Chronoframe is unlocked. Nothing was changed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This action is available once Chronoframe is unlocked. Nothing was changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Aktion ist nach der Freischaltung von Chronoframe verfügbar. Es wurde nichts geändert."
+          }
+        }
+      }
+    },
+    "this run would copy %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "this run would copy %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dieser Durchlauf würde %lld kopieren"
+          }
+        }
+      }
+    },
+    "this cleanup would remove %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "this cleanup would remove %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "diese Bereinigung würde %lld entfernen"
+          }
+        }
+      }
+    },
+    "no files left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no files left"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine Dateien mehr"
+          }
+        }
+      }
+    },
+    "no duplicates left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no duplicates left"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "keine Duplikate mehr"
+          }
+        }
+      }
+    },
+    "%@ left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ left"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "noch %@"
+          }
+        }
+      }
+    },
+    "Your free allowance has %@, and %@. Unlock Chronoframe to finish the job. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your free allowance has %@, and %@. Unlock Chronoframe to finish the job. %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein kostenloses Kontingent umfasst %1$@, und %2$@. Schalte Chronoframe frei, um den Vorgang abzuschließen. %3$@"
+          }
+        }
+      }
+    },
+    "Nothing to revert": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nothing to revert"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts rückgängig zu machen"
+          }
+        }
+      }
+    },
+    "Revert complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revert complete"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rückgängigmachen abgeschlossen"
+          }
+        }
+      }
+    },
+    "Layout already correct": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Layout already correct"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordnerstruktur bereits korrekt"
+          }
+        }
+      }
+    },
+    "Reorganize complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reorganize complete"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuorganisation abgeschlossen"
+          }
+        }
+      }
+    },
+    "%@ 1 file…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 1 file…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ 1 Datei…"
+          }
+        }
+      }
+    },
+    "%@ of 1 file": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ of 1 file"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ von 1 Datei"
+          }
+        }
+      }
+    },
+    "Cleaned 1 orphaned .tmp file": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleaned 1 orphaned .tmp file"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 verwaiste .tmp-Datei bereinigt"
+          }
+        }
+      }
+    },
+    "Chronoframe could not read 1 source file, so nothing was copied. Originals were left untouched; check file access and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read 1 source file, so nothing was copied. Originals were left untouched; check file access and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte 1 Quelldatei nicht lesen. Deshalb wurde nichts kopiert. Die Originale blieben unangetastet. Prüfe den Dateizugriff und versuche es erneut."
+          }
+        }
+      }
+    },
+    "Chronoframe could not read %lld source files, so nothing was copied. Originals were left untouched; check file access and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read %lld source files, so nothing was copied. Originals were left untouched; check file access and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte %lld Quelldateien nicht lesen. Deshalb wurde nichts kopiert. Die Originale blieben unangetastet. Prüfe den Dateizugriff und versuche es erneut."
+          }
+        }
+      }
+    },
+    "1 item couldn't be read and was skipped. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 item couldn't be read and was skipped. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 Objekt konnte nicht gelesen werden und wurde übersprungen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "%lld items couldn't be read and were skipped. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld items couldn't be read and were skipped. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Objekte konnten nicht gelesen werden und wurden übersprungen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Import stopped. %@ of 1 item is ready and was kept. Resume whenever you like. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import stopped. %@ of 1 item is ready and was kept. Resume whenever you like. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import gestoppt. %@ von 1 Objekt ist bereit und wurde aufbewahrt. Du kannst jederzeit fortsetzen. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe paused the import because the drive holding its staging folder is almost full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe paused the import because the drive holding its staging folder is almost full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat den Import pausiert, weil das Laufwerk mit dem Zwischenordner fast voll ist. %@ von 1 Objekt ist bereit und wurde aufbewahrt. Schaffe Speicherplatz und setze dann fort. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe stopped the import because it couldn't save its progress. The drive holding its staging folder may be full. %@ of 1 item is ready and was kept. Free up space, then resume. Your Photos library was not changed."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe hat den Import gestoppt, weil der Fortschritt nicht gespeichert werden konnte. Das Laufwerk mit dem Zwischenordner ist möglicherweise voll. %@ von 1 Objekt ist bereit und wurde aufbewahrt. Schaffe Speicherplatz und setze dann fort. Deine Fotos-Mediathek wurde nicht verändert."
+          }
+        }
+      }
+    },
+    "Cleaned %lld orphaned .tmp files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cleaned %lld orphaned .tmp files"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld verwaiste .tmp-Dateien bereinigt"
+          }
+        }
+      }
+    },
+    "Recovered %lld interrupted copy from an earlier session. It appears in History and can be undone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovered %lld interrupted copy from an earlier session. It appears in History and can be undone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld unterbrochener Kopiervorgang aus einer früheren Sitzung wiederhergestellt. Er erscheint im Verlauf und kann rückgängig gemacht werden."
+          }
+        }
+      }
+    },
+    "Recovered %lld interrupted copies from an earlier session. They appear in History and can be undone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovered %lld interrupted copies from an earlier session. They appear in History and can be undone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld unterbrochene Kopiervorgänge aus einer früheren Sitzung wiederhergestellt. Sie erscheinen im Verlauf und können rückgängig gemacht werden."
+          }
+        }
+      }
+    },
+    "Recovered %lld interrupted duplicate cleanup from an earlier session. It appears in History and can be undone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovered %lld interrupted duplicate cleanup from an earlier session. It appears in History and can be undone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld unterbrochene Duplikatbereinigung aus einer früheren Sitzung wiederhergestellt. Sie erscheint im Verlauf und kann rückgängig gemacht werden."
+          }
+        }
+      }
+    },
+    "Recovered %lld interrupted duplicate cleanups from an earlier session. They appear in History and can be undone.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recovered %lld interrupted duplicate cleanups from an earlier session. They appear in History and can be undone."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld unterbrochene Duplikatbereinigungen aus einer früheren Sitzung wiederhergestellt. Sie erscheinen im Verlauf und können rückgängig gemacht werden."
+          }
+        }
+      }
+    },
+    "None of the files in that batch are still where they were when you confirmed it, so nothing was copied. Your originals were left untouched. Run a preview to see what is there now.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "None of the files in that batch are still where they were when you confirmed it, so nothing was copied. Your originals were left untouched. Run a preview to see what is there now."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine der Dateien dieses Testlaufs befindet sich noch dort, wo sie bei deiner Bestätigung war. Deshalb wurde nichts kopiert. Deine Originale blieben unangetastet. Erstelle eine Vorschau, um den aktuellen Stand zu sehen."
+          }
+        }
+      }
+    },
+    "Some files couldn't be read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some files couldn't be read"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Dateien konnten nicht gelesen werden"
+          }
+        }
+      }
+    },
+    "Chronoframe could not read %lld source file(s), so nothing was copied. Originals were left untouched; check file access and try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read %lld source file(s), so nothing was copied. Originals were left untouched; check file access and try again."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte %lld Quelldateien nicht lesen. Deshalb wurde nichts kopiert. Die Originale blieben unangetastet. Prüfe den Dateizugriff und versuche es erneut."
+          }
+        }
+      }
+    },
+    "Transfer stopped": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer stopped"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiervorgang gestoppt"
+          }
+        }
+      }
+    },
+    "Transfer incomplete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transfer incomplete"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiervorgang unvollständig"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        }
+      }
+    },
+    "The transfer did not finish: %lld failed and %lld were skipped. Originals were left untouched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The transfer did not finish: %lld failed and %lld were skipped. Originals were left untouched."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Kopiervorgang wurde nicht abgeschlossen: %1$lld fehlgeschlagen und %2$lld übersprungen. Die Originale blieben unangetastet."
+          }
+        }
+      }
+    },
+    "The resumed transfer did not finish: %lld failed and %lld were skipped. Originals were left untouched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The resumed transfer did not finish: %lld failed and %lld were skipped. Originals were left untouched."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der fortgesetzte Kopiervorgang wurde nicht abgeschlossen: %1$lld fehlgeschlagen und %2$lld übersprungen. Die Originale blieben unangetastet."
+          }
+        }
+      }
+    },
+    "Chronoframe run receipt: %@ (%@)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe run receipt: %@ (%@)"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe-Durchlaufbeleg: %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "Unlocked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlocked"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Freigeschaltet"
+          }
+        }
+      }
+    },
+    "This build is not distributed through the App Store, so it has no purchase to check. Every feature is available, with no limits.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This build is not distributed through the App Store, so it has no purchase to check. Every feature is available, with no limits."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Version wird nicht über den App Store vertrieben. Deshalb gibt es keinen Kauf zu prüfen. Alle Funktionen sind ohne Begrenzungen verfügbar."
+          }
+        }
+      }
+    },
+    "Checking your purchase…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking your purchase…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein Kauf wird geprüft…"
+          }
+        }
+      }
+    },
+    "Free trial": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free trial"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kostenlos testen"
+          }
+        }
+      }
+    },
+    "Chronoframe could not read its record of how much of the free trial you have used, so it cannot show what is left. Unlocking Chronoframe removes the limit entirely.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not read its record of how much of the free trial you have used, so it cannot show what is left. Unlocking Chronoframe removes the limit entirely."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte die Daten zu deiner bisherigen kostenlosen Nutzung nicht lesen und kann deshalb das verbleibende Kontingent nicht anzeigen. Mit der Freischaltung entfällt die Begrenzung vollständig."
+          }
+        }
+      }
+    },
+    "Your free allowance is used up. Unlock Chronoframe to keep organizing.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your free allowance is used up. Unlock Chronoframe to keep organizing."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dein kostenloses Kontingent ist aufgebraucht. Schalte Chronoframe frei, um weiter zu organisieren."
+          }
+        }
+      }
+    },
+    "Files organized": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files organized"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien organisiert"
+          }
+        }
+      }
+    },
+    "%lld of %lld left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld of %lld left"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld von %2$lld übrig"
+          }
+        }
+      }
+    },
+    "Duplicates removed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplicates removed"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplikate entfernt"
+          }
+        }
+      }
+    },
+    "Thank you. Every feature is available, with no limits.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thank you. Every feature is available, with no limits."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vielen Dank. Alle Funktionen sind ohne Begrenzungen verfügbar."
+          }
+        }
+      }
+    },
+    "Thank you. Chronoframe is unlocked permanently for this Apple Account, with no limits.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thank you. Chronoframe is unlocked permanently for this Apple Account, with no limits."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vielen Dank. Chronoframe ist für diesen Apple Account dauerhaft und ohne Begrenzungen freigeschaltet."
+          }
+        }
+      }
+    },
+    "Chronoframe could not reach the App Store to check your purchase, so it is using the free allowance for now. Your access is unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not reach the App Store to check your purchase, so it is using the free allowance for now. Your access is unchanged."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den App Store nicht erreichen, um deinen Kauf zu prüfen. Deshalb wird vorerst das kostenlose Kontingent verwendet. Dein Zugriff bleibt unverändert."
+          }
+        }
+      }
+    },
+    "Chronoframe could not verify your purchase on this Mac. Try Restore Purchases, and contact support if it keeps happening.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not verify your purchase on this Mac. Try Restore Purchases, and contact support if it keeps happening."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte deinen Kauf auf diesem Mac nicht bestätigen. Versuche „Käufe wiederherstellen“ und kontaktiere den Support, falls das Problem bestehen bleibt."
+          }
+        }
+      }
+    },
+    "%lld of %lld %@ left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld of %lld %@ left"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld von %2$lld %3$@ übrig"
+          }
+        }
+      }
+    },
+    "file": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "file"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datei"
+          }
+        }
+      }
+    },
+    "files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "files"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dateien"
+          }
+        }
+      }
+    },
+    "duplicate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "duplicate"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplikat"
+          }
+        }
+      }
+    },
+    "duplicates": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "duplicates"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Duplikate"
+          }
+        }
+      }
+    },
+    "Keep This Date": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep This Date"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieses Datum beibehalten"
+          }
+        }
+      }
+    },
+    "Accept Event Name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accept Event Name"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ereignisnamen übernehmen"
+          }
+        }
+      }
+    },
+    "Choose Folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose Folder"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner auswählen"
+          }
+        }
+      }
+    },
+    "Edit Review Item": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Review Item"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfeintrag bearbeiten"
+          }
+        }
+      }
+    },
+    "Untitled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untitled"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ohne Titel"
+          }
+        }
+      }
+    },
+    "Chronoframe could not update your watched folders. Check that the folder is available, then try again. No photos were touched.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not update your watched folders. Check that the folder is available, then try again. No photos were touched."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte deine überwachten Ordner nicht aktualisieren. Prüfe, ob der Ordner verfügbar ist, und versuche es erneut. Es wurden keine Fotos verändert."
+          }
+        }
+      }
+    },
+    "Add Folders": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner hinzufügen"
+          }
+        }
+      }
+    },
+    "Choose Destination Folder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zielordner wählen"
+          }
+        }
+      }
+    },
+    "Watch Folder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner überwachen"
+          }
+        }
+      }
+    },
+    "Choose Watched Folder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überwachten Ordner wählen"
+          }
+        }
+      }
+    },
+    "Choose Deduplicate Folder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ordner für die Duplikatsuche wählen"
+          }
+        }
+      }
+    },
+    "Reconnect Archive Folder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Archivordner erneut verbinden"
+          }
+        }
+      }
+    },
+    "Choose Mirror Folder": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spiegelungsordner wählen"
+          }
+        }
+      }
+    },
+    "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe no pudo actualizar el Historial de ejecuciones. Verifica que la unidad de destino esté conectada, luego inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe n'a pas pu actualiser l'historique des exécutions. Vérifiez que le lecteur de destination est connecté, puis réessayez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe konnte den Verlauf nicht aktualisieren. Prüfe, ob das Ziellaufwerk angeschlossen ist, und versuche es erneut."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframeは実行履歴を更新できませんでした。同期先のドライブが接続されていることを確認し、もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe 无法刷新运行历史记录。请检查目标驱动器是否已连接，然后重试。"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronoframe non ha potuto aggiornare la cronologia delle esecuzioni. Verifica che l'unità di destinazione sia connessa, quindi riprova."
+          }
+        },
+        "pt-BR": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Chronoframe não pôde atualizar o Histórico de Execuções. Verifique se o disco de destino está conectado e tente novamente."
           }
         }
       }

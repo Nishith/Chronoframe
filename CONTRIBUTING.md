@@ -25,7 +25,7 @@ Useful bug reports include:
 
 ## Pull Requests
 
-Open a discussion or issue before larger changes. Small documentation fixes are welcome directly.
+Open an issue before larger changes. Small documentation fixes are welcome directly.
 
 By opening a pull request, you confirm that you wrote the contribution or have the right to submit it, and you grant the project owner permission to use, modify, and distribute that contribution as part of Chronoframe under Chronoframe's current and future licensing terms.
 

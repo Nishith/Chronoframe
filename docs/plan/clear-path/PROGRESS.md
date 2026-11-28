@@ -1,5 +1,7 @@
 # Clear path — progress
 
+Status: shipped in PR #269 (including WP-15 and WP-16) with follow-up PR #274. Not verified in the running app (B-5 open); hardware rows H-CLP-1 to H-CLP-7 are `todo-hardware`.
+
 Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" requires the Done-when commands with exit 0 recorded in Notes. Report compiled, tested and verified separately.
 
 ## Baseline
@@ -27,27 +29,12 @@ Prefix `CLP`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-14 | Documentation | done | n/a (docs) | git diff --check 0 | approved | daed52e |  |
 | G2 | Final gate | done | build 0; cf_swift.sh xcode 0; ui/build.sh 0 | suite 0; coverage 0; guards feature/photos-import-resume 0 (14 guards); git diff --check 0 | n/a | a68d3ca | verified: |
 
-## Log
-(one line per step: date, WP, what ran, exit codes, failing-first evidence, reviewer verdict)
-- 2026-11-12 WP-00: branch created, plan committed c3f23b4, build exit 0, suite exit 0. Owner answers: app launch for G2 smoke allowed; local XCUITest lane allowed.
-- 2026-11-12 WP-01: failing-first: compile error (no member displayOrder); Done-when all exit 0; reviewer approved; existing tests updated: DeduplicateAccessibilityTextTests:215, DeduplicateStatusViewTests:466 (Near duplicates → Look-alikes).
-- 2026-11-12 WP-02: failing-first: 4 tests ran, 5 failures (staged overlap let start write .organize_cache.db into the destination) — real INV-21 gap, production change made; AGENTS.md bullet extension due at G2. Orchestrator read the full diff of MediaDiscovery.swift, SourceDestinationDisjointness.swift, SwiftOrganizerEngine.swift (+31 lines, 0 deletions): every line traces to C-03. D-CLP-101 logged. Reviewer approved; all entry points (preflight/start/batch/resume) go through resolvedConfiguration.
-- 2026-11-12 WP-03: failing-first: compile errors (no member sourceItems, SourceItemList missing); conformers updated: FolderAccessService, MockFolderAccessService, NASViewTestFolderAccess, MockNASFolderAccess; D-CLP-102/103 logged; reviewer approved.
-- 2026-11-12 WP-04: failing-first: compile errors, then 3 round-1 tests and 1 follow-up test each failed before its fix. Review round 1: changes required (profile-at-launch restage; loose-file drop refused) → fixed; round 2 approved; follow-up stale-rows fix read by orchestrator. D-CLP-104/105/106 logged. TestSupport seam: watchedSourcesStore parameter on makeAppState.
-- 2026-11-12 G1: SourceItemList added to MEANINGFUL_BASENAMES; cf_swift.sh suite exit 0; cf_swift.sh coverage exit 0; check_agents_invariants_have_tests exit 0; git diff --check exit 0.
-- 2026-11-12 WP-05: failing-first: compile errors (SetupSourceItemRow missing). Existing tests updated: testPrimaryActionAndReadinessTrackManualSetupState, testProfileContextProducesPreviewReadySummary. XCUITest expects 'Setup' hero/nav title at ChronoframeUITests.swift:550,565,587,602 → WP-13. D-CLP-107/108 logged.
-- 2026-11-12 WP-06: failing-first: compile error (FolderLayoutPresentation not in scope). D-CLP-109 logged. Reviewer: binding the same preference from Setup bypasses nothing in Settings.
-- 2026-11-12 WP-07: failing-first: compile error (OrganizeContainerView.tabs) and 3 RunSessionStore prompt tests failed on old wording. Reviewer confirmed RunSessionStore diff is literals only (+ .formatted()). Blocking finding (Undo label on non-copy receipts) fixed by orchestrator with the reviewer's suggested neutral 'Undo…'. XCUITest labels for WP-13: tab 'Run' :548-549, 'Run History' :553, 'Artifacts' :729/:741, 'Reusable Sources' :737, 'Actions for source' :518. D-CLP-110/111 logged.
-- 2026-11-12 WP-08: failing-first: compile error (RunPreviewHeadline not in scope). Implementer sweeps: AppTests 404/0 failures, AppCoreTests 1706/0 failures. Blocking finding (NowCopyingCard strip mislabelled 'Copies Waiting') fixed by orchestrator with the reviewer's text. XCUITest labels for WP-13: 'Return to Setup' :937/:939/:1189, 'Artifacts' :729/:741; A11yBaseline.json:8 'Idle'. D-CLP-112/113 logged.
-- 2026-11-12 WP-09: failing-first: compile error (no member nextStep). Implementer sweep: AppTests 408/0 failures. D-CLP-114 logged.
-- 2026-11-12 WP-10: failing-first: compile error (lane identifiers/type missing); cluster-vocabulary scan seen failing on a reintroduced literal. No Core/AppCore diff (git diff --stat empty). Reviewer: lane buttons call only acceptAllSuggestions() and the sheet flag; 'safe matches' accurate. B-1/B-2 logged (store follow-ups, not blocking). D-CLP-115 logged.
-- 2026-11-12 WP-11: failing-first: compile error (no member hasOrganizedHistory). Implementer sweeps: AppTests 416/0, AppCoreTests 1712/0. Reviewer confirmed dial renders only under hasOrganizedHistory and cards always render. D-CLP-116/117 logged; added card WP-11b next.
-- 2026-11-12 WP-11b: failing-first: both new tests failed on old titles. Implementer sweeps: AppTests 416/0, AppCoreTests 1714/0, CLIKit 46/0, Packaging 37/0. Reviewer: literals only; changed Core titles not printed/persisted/compared. D-CLP-118 and B-3 logged.
-- 2026-11-12 WP-12: Scenarios by cf-implementer; string lists by a Sonnet agent (every catalogue-bound line verified verbatim in ui/Sources; reviewer re-checked every line). Reviewer approved; 3 omitted literals added. D-CLP-119 logged.
-- 2026-11-12 WP-13: Steps 1–3 exit 0; step 4 logged as B-4, H-CLP-4 stays todo-hardware. D-CLP-120 logged.
-- 2026-11-12 WP-14: Reviewer grepped every quoted label and read the code behind every claim; no blocking findings; one precision note applied by orchestrator. D-CLP-121 logged.
-- 2026-11-12 G2: First run: suite 1 and coverage 1 (string-symbol collisions from the catalog step), fixed (D-CLP-122), re-run all exit 0. Banned-word sweep: 11 hits, all the Swift parameter name 'cluster' inside interpolation in DeduplicateAccessibilityText.swift (10) and ClusterListPane.swift:252 (1) — no visible text. App smoke not done: B-5 (no screen access). verified: not claimed.
-- 2026-11-12 Merged `feature/photos-import-resume` (which carries DDP WP-05, c671887) into this branch: 2c307af, no conflicts.
-- 2026-11-12 WP-15 (added, D-CLP-123; B-1, B-2): failing-first: 3 new store tests failed on the overwritten choices. One existing expectation changed (`testAcceptAllHighConfidenceOnlyAppliesHighBucketSuggestions` now expects the reviewed choice to be kept). Orchestrator read of the `DeduplicateSessionStore.swift` diff: two filter conditions and two comment lines. No reviewer subagent. `cf_swift.sh test` DeduplicateSessionStoreTests 0 (32), DeduplicateReviewLanesTests 0 (7), DeduplicateReviewPersistenceTests 0 (15), DeduplicateStatusViewTests 0 (30); invariants 0; build 0. Commit 1e4928d.
-- 2026-11-12 WP-16 (added, D-CLP-124; B-3): failing-first: compile error (`RunPhase` has no member `displayTitle`). Seven existing assertions updated to the new strings (list in the implementer report: RunSessionStoreTests :660, :1133, :1158; FreeTestBatchRunTests :158; SwiftOrganizerEngineIntegrationTests :1759; RunAnnouncementPlannerTests :62; ChronoframeCorePreviewReviewModelsTests :17). Orchestrator read of `RunSessionStore.swift`, `OrganizerEngine.swift`, `AppState.swift` diffs: property names and literals only. Orchestrator also fixed `docs/QUICK_START.md:44` ("Run" menu → "Organize") and added catalog keys with a round-trip-checked script: 5 App keys, 19 Core keys, no `extractionState` (no generated symbol, so no collision), existing entries byte-identical. No reviewer subagent. XCUITest lane still not run (B-4).
-- 2026-11-12 Gate after WP-15 and WP-16: `cf_swift.sh suite` 0; `coverage` 0 (meaningful 96.04%, 20041/20868); `guards feature/photos-import-resume` 0 (14/14); `xcode` 0; `git diff --check` 0. Not verified in the running app.
+## Outcome
+- Baseline 2026-11-12: branch from `feature/photos-import-resume` @ 5c72052, plan commit c3f23b4, build 0, suite 0. `feature/photos-import-resume` (with DDP WP-05) was merged in at 2c307af.
+- WP-02 found a real INV-21 gap (a staged overlap let a run write `.organize_cache.db` into the destination); production change made and `AGENTS.md` INV-21 extended at G2.
+- G2 (after the first run's string-symbol collisions were fixed, D-CLP-122): `suite` 0, `coverage` 0, `guards` 0 (14/14), `xcode` 0, `ui/build.sh` 0. After WP-15 and WP-16: `suite` 0, `coverage` 0 (meaningful 96.04%, 20041/20868), `guards` 0, `xcode` 0.
+- WP-15 (D-CLP-123) made "Accept All Safe" skip groups already reviewed; WP-16 (D-CLP-124) replaced leftover engine words on screen. Remaining engine words are listed under B-3 in `BLOCKED.md`.
+- Banned-word sweep at G2: 11 hits, all the Swift parameter name `cluster`, no visible text.
+- UI-test lane: ran 28/28 plus the strict accessibility audit on 2026-11-13 (D-CLP-125, D-CLP-133).
+
+Per-step log condensed 2026-11-21 (failing-first output, reviewer rounds, Done-when commands are in git history before the docs cleanup).

@@ -125,7 +125,7 @@ final class AppState: ObservableObject {
         let startImportPreview: @MainActor (WatchedImportContext) async -> Void = { [weak self] context in
             guard let self else { return }
             guard !self.deduplicateSessionStore.isWorking else {
-                self.transientErrorMessage = "Finish the duplicate cleanup before organizing."
+                self.transientErrorMessage = String(localized: "Finish the duplicate cleanup before organizing.", bundle: .module)
                 return
             }
             self.previewReviewStore.reset()
@@ -452,7 +452,7 @@ final class AppState: ObservableObject {
         // they must never run concurrently. Reject an organize run while a
         // deduplicate scan/commit is in flight.
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before organizing."
+            transientErrorMessage = String(localized: "Finish the duplicate cleanup before organizing.", bundle: .module)
             return
         }
         previewReviewStore.reset()
@@ -461,11 +461,11 @@ final class AppState: ObservableObject {
 
     func startTransfer() async {
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before organizing."
+            transientErrorMessage = String(localized: "Finish the duplicate cleanup before organizing.", bundle: .module)
             return
         }
         if previewReviewStore.isStale {
-            transientErrorMessage = "Rebuild the preview before copying so Chronoframe copies exactly the corrected plan."
+            transientErrorMessage = String(localized: "Rebuild the preview before copying so Chronoframe copies exactly the corrected plan.", bundle: .module)
             return
         }
         await runCoordinator.startTransfer()
@@ -629,12 +629,12 @@ final class AppState: ObservableObject {
 
     var deduplicateDestinationHelper: String {
         if hasDedicatedDeduplicateDestinationPath {
-            return "Only this folder is scanned for duplicates."
+            return String(localized: "Only this folder is scanned for duplicates.", bundle: .module)
         }
         if deduplicateDestinationPath.isEmpty {
-            return "Choose the folder to scan for duplicate photos."
+            return String(localized: "Choose the folder to scan for duplicate photos.", bundle: .module)
         }
-        return "Using the Organize destination until you choose a Deduplicate folder."
+        return String(localized: "Using the Organize destination until you choose a Deduplicate folder.", bundle: .module)
     }
 
     func chooseDeduplicateDestinationFolder() async {
@@ -686,7 +686,7 @@ final class AppState: ObservableObject {
         do {
             try folderAccessService.validateFolder(url, role: .destination)
         } catch {
-            transientErrorMessage = "That Deduplicate folder is no longer available. Choose it again to continue."
+            transientErrorMessage = String(localized: "That Deduplicate folder is no longer available. Choose it again to continue.", bundle: .module)
             return
         }
 
@@ -717,7 +717,7 @@ final class AppState: ObservableObject {
     func openDeduplicateRunHistory() async {
         let destination = deduplicateDestinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !destination.isEmpty else {
-            transientErrorMessage = "Choose a Deduplicate folder before opening its run history."
+            transientErrorMessage = String(localized: "Choose a Deduplicate folder before opening its run history.", bundle: .module)
             return
         }
 
@@ -731,12 +731,12 @@ final class AppState: ObservableObject {
         // Finding #7: don't scan for duplicates while an organize run (including
         // its preflight) is mutating or about to mutate the destination.
         guard !runSessionStore.isRunning else {
-            transientErrorMessage = "Finish the current organize run before scanning for duplicates."
+            transientErrorMessage = String(localized: "Finish the current organize run before scanning for duplicates.", bundle: .module)
             return
         }
         let destination = deduplicateDestinationPath
         guard !destination.isEmpty else {
-            transientErrorMessage = "Choose a destination folder before running a deduplicate scan."
+            transientErrorMessage = String(localized: "Choose a destination folder before running a deduplicate scan.", bundle: .module)
             return
         }
         if let refusal = NASDeduplicateFolderRefusal.refusal(
@@ -755,7 +755,7 @@ final class AppState: ObservableObject {
 
     func commitDeduplicateDecisions() {
         guard !runSessionStore.isRunning else {
-            transientErrorMessage = "Finish the current organize run before deleting duplicates."
+            transientErrorMessage = String(localized: "Finish the current organize run before deleting duplicates.", bundle: .module)
             return
         }
         let destination = deduplicateDestinationPath
@@ -932,7 +932,7 @@ final class AppState: ObservableObject {
     /// preferred `FolderStructure`. Streams progress through the Run workspace.
     func reorganizeDestination(targetStructure: FolderStructure) {
         guard !runSessionStore.isRunning, !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Stop the current run before reorganizing."
+            transientErrorMessage = String(localized: "Stop the current run before reorganizing.", bundle: .module)
             return
         }
 
@@ -940,7 +940,7 @@ final class AppState: ObservableObject {
             ? setupStore.destinationPath
             : historyStore.destinationRoot
         guard !destination.isEmpty else {
-            transientErrorMessage = "Choose a destination folder before reorganizing."
+            transientErrorMessage = String(localized: "Choose a destination folder before reorganizing.", bundle: .module)
             return
         }
         navigate(to: .organize(.run))
@@ -1247,7 +1247,7 @@ final class AppState: ObservableObject {
             return
         }
         if guardianRootsOverlap(url.path, guardianLibraryPath) {
-            transientErrorMessage = "Choose a mirror folder outside your library. The mirror must be a separate location so it never writes into the library it protects."
+            transientErrorMessage = String(localized: "Choose a mirror folder outside your library. The mirror must be a separate location so it never writes into the library it protects.", bundle: .module)
             return
         }
         do {
@@ -1265,7 +1265,7 @@ final class AppState: ObservableObject {
         // Guard against the library having changed to now contain (or sit inside)
         // the previously-chosen mirror — mirroring would then write into the library.
         if guardianRootsOverlap(mirrorPath, libraryPath) {
-            transientErrorMessage = "The mirror folder is inside your library. Choose a mirror outside the library before mirroring."
+            transientErrorMessage = String(localized: "The mirror folder is inside your library. Choose a mirror outside the library before mirroring.", bundle: .module)
             return
         }
         let context = GuardianMirrorContext(
@@ -1308,7 +1308,7 @@ final class AppState: ObservableObject {
            plan.libraryRoot != URL(fileURLWithPath: libraryPath, isDirectory: true).path
             || plan.mirrorRoot != URL(fileURLWithPath: mirrorPath, isDirectory: true).path {
             guardianStore.discardRestorePlan()
-            transientErrorMessage = "The library or mirror changed since this restore was reviewed. Review the restore again before running it."
+            transientErrorMessage = String(localized: "The library or mirror changed since this restore was reviewed. Review the restore again before running it.", bundle: .module)
             return
         }
         guard let context = guardianStore.makeRestoreContext(
@@ -1345,7 +1345,7 @@ final class AppState: ObservableObject {
     func reviewAndImportSelectedPhotos() async {
         guard !runSessionStore.isRunning else { return }
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before importing from Photos."
+            transientErrorMessage = String(localized: "Finish the duplicate cleanup before importing from Photos.", bundle: .module)
             return
         }
         guard let context = await photosImportStore.prepareImport(destination: currentDestinationCapture()) else {
@@ -1372,7 +1372,7 @@ final class AppState: ObservableObject {
     func resumeInterruptedPhotosImport() async {
         guard !runSessionStore.isRunning else { return }
         guard !deduplicateSessionStore.isWorking else {
-            transientErrorMessage = "Finish the duplicate cleanup before importing from Photos."
+            transientErrorMessage = String(localized: "Finish the duplicate cleanup before importing from Photos.", bundle: .module)
             return
         }
         guard let context = await photosImportStore.resumeImport(destination: currentDestinationCapture()) else {
@@ -1450,15 +1450,15 @@ final class MenuBarStatusManager: NSObject {
         if runStatus == .running {
             let progressStr = String(format: "%.0f%%", appState.runSessionStore.progress * 100)
             button.title = " ⚬ \(progressStr)"
-            button.image = NSImage(systemSymbolName: "circle.dashed", accessibilityDescription: "Chronoframe Running")
+            button.image = NSImage(systemSymbolName: "circle.dashed", accessibilityDescription: String(localized: "Chronoframe Running", bundle: .module))
             DockProgressRenderer.update(progress: appState.runSessionStore.progress, isRunning: true)
         } else if deduplicateStatus == .committing {
-            button.title = " ⚬ Trashing"
-            button.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: "Chronoframe Deduplicating")
+            button.title = String(localized: " ⚬ Trashing", bundle: .module)
+            button.image = NSImage(systemSymbolName: "trash.fill", accessibilityDescription: String(localized: "Chronoframe Deduplicating", bundle: .module))
             DockProgressRenderer.update(progress: 0, isRunning: false)
         } else {
             button.title = ""
-            button.image = NSImage(systemSymbolName: "circle", accessibilityDescription: "Chronoframe Idle")
+            button.image = NSImage(systemSymbolName: "circle", accessibilityDescription: String(localized: "Chronoframe Idle", bundle: .module))
             button.image?.isTemplate = true
             DockProgressRenderer.update(progress: 0, isRunning: false)
         }
@@ -1467,27 +1467,27 @@ final class MenuBarStatusManager: NSObject {
         menu.autoenablesItems = false
 
         if runStatus == .running {
-            let item = NSMenuItem(title: "Chronoframe: Organizing...", action: nil, keyEquivalent: "")
+            let item = NSMenuItem(title: String(localized: "Chronoframe: Organizing...", bundle: .module), action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
 
-            let phaseTitle = appState.runSessionStore.currentPhase?.displayTitle ?? "Processing"
-            let detailItem = NSMenuItem(title: "Phase: \(phaseTitle)", action: nil, keyEquivalent: "")
+            let phaseTitle = appState.runSessionStore.currentPhase?.displayTitle ?? String(localized: "Processing", bundle: .module)
+            let detailItem = NSMenuItem(title: String(localized: "Phase: \(phaseTitle)", bundle: .module), action: nil, keyEquivalent: "")
             detailItem.isEnabled = false
             menu.addItem(detailItem)
         } else if deduplicateStatus == .committing {
-            let item = NSMenuItem(title: "Chronoframe: Trashing duplicates...", action: nil, keyEquivalent: "")
+            let item = NSMenuItem(title: String(localized: "Chronoframe: Trashing duplicates...", bundle: .module), action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
         } else {
-            let item = NSMenuItem(title: "Chronoframe is Idle", action: nil, keyEquivalent: "")
+            let item = NSMenuItem(title: String(localized: "Chronoframe is Idle", bundle: .module), action: nil, keyEquivalent: "")
             item.isEnabled = false
             menu.addItem(item)
 
             let pendingEstimate = appState.watchedSourcesStore.totalPendingEstimate
             if pendingEstimate > 0 {
                 let pendingItem = NSMenuItem(
-                    title: "New items in watched folders: \(pendingEstimate)",
+                    title: String(localized: "New items in watched folders: \(pendingEstimate)", bundle: .module),
                     action: nil,
                     keyEquivalent: ""
                 )
@@ -1499,22 +1499,22 @@ final class MenuBarStatusManager: NSObject {
         menu.addItem(NSMenuItem.separator())
 
         if runStatus == .running {
-            let pauseCancelItem = NSMenuItem(title: "Cancel Transfer", action: #selector(cancelTransferAction), keyEquivalent: "")
+            let pauseCancelItem = NSMenuItem(title: String(localized: "Cancel Transfer", bundle: .module), action: #selector(cancelTransferAction), keyEquivalent: "")
             pauseCancelItem.target = self
             menu.addItem(pauseCancelItem)
         } else if deduplicateStatus == .committing {
-            let cancelItem = NSMenuItem(title: "Cancel Commit", action: #selector(cancelDedupeAction), keyEquivalent: "")
+            let cancelItem = NSMenuItem(title: String(localized: "Cancel Commit", bundle: .module), action: #selector(cancelDedupeAction), keyEquivalent: "")
             cancelItem.target = self
             menu.addItem(cancelItem)
         }
 
-        let openAppItem = NSMenuItem(title: "Open Chronoframe", action: #selector(openAppAction), keyEquivalent: "o")
+        let openAppItem = NSMenuItem(title: String(localized: "Open Chronoframe", bundle: .module), action: #selector(openAppAction), keyEquivalent: "o")
         openAppItem.target = self
         menu.addItem(openAppItem)
 
         menu.addItem(NSMenuItem.separator())
 
-        let quitItem = NSMenuItem(title: "Quit Chronoframe", action: #selector(quitAction), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: String(localized: "Quit Chronoframe", bundle: .module), action: #selector(quitAction), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 

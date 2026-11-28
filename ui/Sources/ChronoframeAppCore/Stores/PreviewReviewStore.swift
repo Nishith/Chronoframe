@@ -19,21 +19,21 @@ public enum PreviewReviewFilter: String, CaseIterable, Identifiable, Sendable {
     public var title: String {
         switch self {
         case .needsAttention:
-            return "Needs Attention"
+            return CoreL10n.text("Needs Attention")
         case .unknownDate:
-            return "Unknown Date"
+            return CoreL10n.text("Unknown Date")
         case .lowConfidenceDate:
-            return "Low Confidence"
+            return CoreL10n.text("Low Confidence")
         case .conflictingDates:
-            return "Conflicting Dates"
+            return CoreL10n.text("Conflicting Dates")
         case .duplicates:
-            return "Duplicates"
+            return CoreL10n.text("Duplicates")
         case .collisions:
-            return "Skipped"
+            return CoreL10n.text("Skipped")
         case .ready:
-            return "Ready"
+            return CoreL10n.text("Ready")
         case .all:
-            return "All"
+            return CoreL10n.text("All")
         }
     }
 }
@@ -157,7 +157,7 @@ public final class PreviewReviewStore: ObservableObject {
         guard let identityRawValue = item.identityRawValue,
               let identity = FileIdentity(rawValue: identityRawValue),
               let destinationRoot else {
-            errorMessage = "Chronoframe needs a readable preview item before it can save that correction."
+            errorMessage = CoreL10n.text("Chronoframe needs a readable preview item before it can save that correction.")
             return
         }
 
@@ -210,7 +210,7 @@ public final class PreviewReviewStore: ObservableObject {
         guard let identityRawValue = previous.identityRawValue,
               let identity = FileIdentity(rawValue: identityRawValue),
               let destinationRoot else {
-            errorMessage = "Chronoframe needs a readable preview item before it can save that correction."
+            errorMessage = CoreL10n.text("Chronoframe needs a readable preview item before it can save that correction.")
             return
         }
 
@@ -232,7 +232,7 @@ public final class PreviewReviewStore: ObservableObject {
         }
         isStale = true
         errorMessage = nil
-        registerUndo(restoring: previous, actionName: "Keep This Date")
+        registerUndo(restoring: previous, actionName: CoreL10n.text("Keep This Date"))
     }
 
     public func acceptSuggestion(for item: PreviewReviewItem) async {
@@ -243,7 +243,7 @@ public final class PreviewReviewStore: ObservableObject {
             for: item,
             captureDate: item.dateSource == .userOverride ? item.resolvedDate : nil,
             eventName: suggestedName,
-            actionName: "Accept Event Name"
+            actionName: CoreL10n.text("Accept Event Name")
         )
     }
 
@@ -265,7 +265,7 @@ public final class PreviewReviewStore: ObservableObject {
                 target.applyRestore(snapshot, actionName: actionName)
             }
         }
-        undoManager.setActionName(actionName)
+        undoManager.setActionName(CoreL10n.text(String.LocalizationValue(actionName)))
     }
 
     /// Restores a previously-captured item snapshot, registers the inverse for

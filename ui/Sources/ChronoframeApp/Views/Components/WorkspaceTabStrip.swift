@@ -53,7 +53,7 @@ struct WorkspaceTabStrip<Tab: Hashable & Identifiable>: View {
                 HStack(spacing: 6) {
                     Image(systemName: systemImage(tab))
                         .font(.system(size: 12, weight: .medium))
-                    Text(LocalizedStringKey(title(tab)))
+                    Text(LocalizedStringKey(title(tab)), bundle: .module)
                         .font(.subheadline.weight(isSelected ? .semibold : .regular))
                 }
                 .foregroundStyle(isSelected
@@ -80,7 +80,7 @@ struct WorkspaceTabStrip<Tab: Hashable & Identifiable>: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier(tab) ?? "")
-        .accessibilityLabel(title(tab))
+        .accessibilityLabel(Text(LocalizedStringKey(title(tab)), bundle: .module))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

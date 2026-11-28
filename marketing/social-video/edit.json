@@ -1,0 +1,248 @@
+{
+  "youtube": [
+    {
+      "name": "scattered",
+      "file": "hero-source-finder-raw.mov",
+      "duration": 3.6,
+      "chapter": "A FAMILIAR STORY",
+      "title": "Years of photos.\nFolders everywhere.",
+      "body": "Phone backups. Camera cards.\nThat old external drive.",
+      "kind": "finder",
+      "start": 0.1,
+      "crop": null
+    },
+    {
+      "name": "ordered",
+      "file": "hero-organized-finder-raw.mov",
+      "duration": 3.6,
+      "chapter": "MEET CHRONOFRAME",
+      "title": "A clearer home\nfor your memories.",
+      "body": "Photos and videos,\norganized into dated folders.",
+      "kind": "finder",
+      "start": 0.1,
+      "crop": null
+    },
+    {
+      "name": "preview",
+      "file": "01-mas-opening-preview-raw.mov",
+      "duration": 6.4,
+      "chapter": "01 / ORGANIZE",
+      "title": "See the plan.\nThen say go.",
+      "body": "Review your library\nbefore a single file is copied.",
+      "kind": "app",
+      "start": 0.1,
+      "crop": "3072:1728:400:180"
+    },
+    {
+      "name": "timeline",
+      "file": "01-mas-opening-preview-raw.mov",
+      "duration": 4.0,
+      "chapter": "01 / ORGANIZE",
+      "title": "Years of memories.\nOne clear timeline.",
+      "body": "4,000 photos in this demo.\nA view of what belongs where.",
+      "kind": "detail",
+      "start": 0.1,
+      "crop": "1800:840:1360:980"
+    },
+    {
+      "name": "verified",
+      "file": "02-mas-transfer-complete-raw.mov",
+      "duration": 6.0,
+      "chapter": "01 / ORGANIZE",
+      "title": "Copies verified.\nOriginals untouched.",
+      "body": "Build your organized library.\nKeep your source just as it was.",
+      "kind": "app",
+      "start": 0.1,
+      "crop": "3072:1728:400:180"
+    },
+    {
+      "name": "compare",
+      "file": "03-mas-sandboarding-choice-raw.mov",
+      "duration": 6.0,
+      "chapter": "02 / DEDUPLICATE",
+      "title": "Keep the moments.\nLose the extras.",
+      "body": "Find duplicate photos and videos.\nCompare similar shots.",
+      "kind": "photo",
+      "start": 0.1,
+      "crop": null
+    },
+    {
+      "name": "choose",
+      "file": "03b-mas-sandboarding-keeper-raw.mov",
+      "duration": 3.8,
+      "chapter": "02 / DEDUPLICATE",
+      "title": "Your photos.\nYour choice.",
+      "body": "See the difference.\nChoose the version to keep.",
+      "kind": "photo",
+      "start": 0,
+      "crop": null
+    },
+    {
+      "name": "review",
+      "file": "04a-mas-trash-review-raw.mov",
+      "duration": 3.6,
+      "chapter": "02 / DEDUPLICATE",
+      "title": "You decide\nwhat goes.",
+      "body": "Review the selected extras\nbefore approving removal.",
+      "kind": "photo",
+      "start": 0.1,
+      "crop": null
+    },
+    {
+      "name": "trash",
+      "file": "04b-mas-trash-confirmation-raw.mov",
+      "duration": 2.8,
+      "chapter": "02 / DEDUPLICATE",
+      "title": "To Trash.\nWith your approval.",
+      "body": "Selected extras go to macOS Trash.",
+      "kind": "photo",
+      "start": 0,
+      "crop": "2048:1152:720:552"
+    },
+    {
+      "name": "history",
+      "file": "05a-mas-history-before-revert-raw.mov",
+      "duration": 3.6,
+      "chapter": "03 / RESTORE",
+      "title": "Changed\nyour mind?",
+      "body": "Use the receipt in Run History\nto restore a trashed file.",
+      "kind": "app",
+      "start": 0.1,
+      "crop": "3072:1728:380:150"
+    },
+    {
+      "name": "confirm",
+      "file": "05b-mas-revert-confirmation-raw.mov",
+      "duration": 2.8,
+      "chapter": "03 / RESTORE",
+      "title": "Changed\nyour mind?",
+      "body": "Use the receipt in Run History\nto restore a trashed file.",
+      "kind": "app",
+      "start": 0,
+      "crop": "2048:1152:720:552"
+    },
+    {
+      "name": "restored",
+      "file": "05c-mas-revert-complete-raw.mov",
+      "duration": 3.6,
+      "chapter": "03 / RESTORE",
+      "title": "Back where\nit belongs.",
+      "body": "A choice you can revisit.\nA library you can trust.",
+      "kind": "app",
+      "start": 0.1,
+      "crop": "2048:1152:930:552"
+    },
+    {
+      "name": "private",
+      "file": "02-mas-transfer-complete-raw.mov",
+      "duration": 4.6,
+      "chapter": "BUILT FOR PEACE OF MIND",
+      "title": "All on your Mac.\nNo photo uploads.",
+      "body": "Your library stays with you.",
+      "kind": "detail",
+      "start": 0.1,
+      "crop": "1780:900:1350:210"
+    },
+    {
+      "name": "closing",
+      "file": "03-mas-sandboarding-choice-raw.mov",
+      "duration": 5.6,
+      "chapter": "CHRONOFRAME FOR MAC",
+      "title": "Your memories.\nFinally in order.",
+      "body": "Discover Chronoframe\nchronoframe.app",
+      "kind": "closing",
+      "start": 1,
+      "crop": null
+    }
+  ],
+  "vertical": [
+    {
+      "name": "hook",
+      "file": "03-mas-sandboarding-choice-raw.mov",
+      "duration": 3.0,
+      "chapter": "CHRONOFRAME FOR MAC",
+      "title": "Less clutter.\nMore memories.",
+      "body": "Bring order to your photo library.",
+      "kind": "photo",
+      "start": 0.1,
+      "crop": null
+    },
+    {
+      "name": "folders",
+      "file": "hero-organized-finder-raw.mov",
+      "duration": 3.5,
+      "chapter": "01 / ORGANIZE",
+      "title": "A home for\nevery memory.",
+      "body": "Photos and videos, organized by date.",
+      "kind": "finder",
+      "start": 0,
+      "crop": null
+    },
+    {
+      "name": "timeline",
+      "file": "01-mas-opening-preview-raw.mov",
+      "duration": 3.5,
+      "chapter": "01 / ORGANIZE",
+      "title": "See the plan.\nBefore you copy.",
+      "body": "Preview years of photos in one timeline.",
+      "kind": "detail",
+      "start": 0.1,
+      "crop": "1800:840:1360:980"
+    },
+    {
+      "name": "verified",
+      "file": "02-mas-transfer-complete-raw.mov",
+      "duration": 4.0,
+      "chapter": "01 / ORGANIZE",
+      "title": "Copies verified.\nOriginals safe.",
+      "body": "Your source files stay untouched.",
+      "kind": "detail",
+      "start": 0.1,
+      "crop": "1780:1020:1350:210"
+    },
+    {
+      "name": "compare",
+      "file": "03b-mas-sandboarding-keeper-raw.mov",
+      "duration": 3.5,
+      "chapter": "02 / DEDUPLICATE",
+      "title": "Your photos.\nYour choice.",
+      "body": "Compare duplicates. Choose what to keep.",
+      "kind": "photo",
+      "start": 0,
+      "crop": null
+    },
+    {
+      "name": "trash",
+      "file": "04b-mas-trash-confirmation-raw.mov",
+      "duration": 2.5,
+      "chapter": "02 / DEDUPLICATE",
+      "title": "Only the extras.\nOnly with approval.",
+      "body": "Selected files move to macOS Trash.",
+      "kind": "dialog",
+      "start": 0.1,
+      "crop": "620:660:1738:798"
+    },
+    {
+      "name": "restored",
+      "file": "05c-mas-revert-complete-raw.mov",
+      "duration": 3.5,
+      "chapter": "03 / RESTORE",
+      "title": "Changed your mind?\nBring it back.",
+      "body": "Restore a trashed file from Run History.",
+      "kind": "detail",
+      "start": 0.1,
+      "crop": "820:480:1840:950"
+    },
+    {
+      "name": "closing",
+      "file": "03-mas-sandboarding-choice-raw.mov",
+      "duration": 6.5,
+      "chapter": "CHRONOFRAME FOR MAC",
+      "title": "Your memories.\nFinally in order.",
+      "body": "Discover Chronoframe\nchronoframe.app",
+      "kind": "closing",
+      "start": 0.2,
+      "crop": null
+    }
+  ]
+}

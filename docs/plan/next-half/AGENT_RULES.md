@@ -1,5 +1,7 @@
 # Next-half agent rules
 
+Status: canonical shared rules for every plan under `docs/plan/` (nas-v1 points here; see its `NAS_AGENT_RULES.md` for NAS-specific differences). Plans 1 to 3a have shipped; plans 4 and 5 are still to run.
+
 Shared by the orchestrator and every subagent working on any plan under `docs/plan/` that names this file. The root `AGENTS.md` (safety invariants) and `CLAUDE.md` (commands, change discipline) still apply and win on conflict. Each plan folder (`PLAN_DIR`, for example `docs/plan/dedupe-persistence`) holds `CONTRACTS.md`, `DECISIONS.md`, `IMPLEMENTATION_PLAN.md`, `PROGRESS.md`, `ACCEPTANCE_MATRIX.md`, `BLOCKED.md` and `EVIDENCE_LEDGER.md`. The orchestrator's brief names `PLAN_DIR` and the work package (WP).
 
 ## Reading order
@@ -31,6 +33,20 @@ Never write "done", "works" or "passes" without the command and its exit code.
 - User-facing text: plain, specific, reassuring; says what stayed unchanged; never shows raw errno, POSIX, SQLite or Swift decoding text. Add new strings through `UserFacingErrorMessage` or the view's `Text("…")` literal; the orchestrator adds `.xcstrings` keys at the plan's documentation WP.
 - Tests use temp directories under `FileManager.default.temporaryDirectory` and remove only what they created, in `tearDown`, via `FileManager.removeItem`. Tests restore any permissions they changed.
 - Never touch a real NAS, `/Volumes/*`, the user's Photos library, or the user's photo folders from tests or tools you run.
+
+## Blocked items
+Log a blocker in `PLAN_DIR/BLOCKED.md` and continue with the next independent WP. Entry format:
+```
+### B-<n> — <short title>
+- **WP:** <id>
+- **Command:** `<exact command>`
+- **Error:** <exact text>
+- **Tried:** <what, in order>
+- **Options:** 1) … 2) …
+- **Recommendation:** <one option, one sentence>
+- **Status:** open | resolved (<commit or decision>)
+```
+Only Nishith marks an item resolved.
 
 ## Never (subagents)
 `git` anything except `git status`, `git diff` and `git log`; `swift package` mutation, `brew`, `pip`, `npm`, any install; `rm`, `rm -rf`, `mv` on files outside your owned paths; `sudo`; network access; editing `project.pbxproj`, `.xcstrings`, `Package.swift`, `AGENTS.md`, `CLAUDE.md`, or files under `ui/Xcode/UITests/`. The orchestrator commits.

@@ -22,9 +22,9 @@ enum PhotosImportAccessibilityText {
     /// Singular media noun for an asset.
     static func mediaNoun(_ asset: PhotosAssetSummary) -> String {
         switch asset.mediaKind {
-        case .video: return "Video"
-        case .photo: return "Photo"
-        case .unsupported: return "Item"
+        case .video: return String(localized: "Video", bundle: .module)
+        case .photo: return String(localized: "Photo", bundle: .module)
+        case .unsupported: return String(localized: "Item", bundle: .module)
         }
     }
 
@@ -36,18 +36,18 @@ enum PhotosImportAccessibilityText {
             parts.append(formattedDate(date))
         }
         if asset.isFavorite {
-            parts.append("Favorite")
+            parts.append(String(localized: "Favorite", bundle: .module))
         }
         if asset.isCloudStoredOnly {
-            parts.append("Stored in iCloud")
+            parts.append(String(localized: "Stored in iCloud", bundle: .module))
         }
-        parts.append(isSelected ? "Selected" : "Not selected")
+        parts.append(isSelected ? String(localized: "Selected", bundle: .module) : String(localized: "Not selected", bundle: .module))
         return parts.joined(separator: ", ")
     }
 
     /// Spoken label for an album row in the picker.
     static func albumLabel(_ album: PhotosAlbumSummary) -> String {
-        let noun = album.approximateCount == 1 ? "item" : "items"
+        let noun = album.approximateCount == 1 ? String(localized: "item", bundle: .module) : String(localized: "items", bundle: .module)
         return "\(album.title), \(album.approximateCount) \(noun)"
     }
 
@@ -55,11 +55,11 @@ enum PhotosImportAccessibilityText {
     static func importButtonLabel(selectedCount: Int) -> String {
         switch selectedCount {
         case 0:
-            return "Review and import. Select photos or videos first."
+            return String(localized: "Review and import. Select photos or videos first.", bundle: .module)
         case 1:
-            return "Review and import 1 selected item"
+            return String(localized: "Review and import 1 selected item", bundle: .module)
         default:
-            return "Review and import \(selectedCount) selected items"
+            return String(localized: "Review and import \(String(selectedCount)) selected items", bundle: .module)
         }
     }
 
@@ -68,11 +68,11 @@ enum PhotosImportAccessibilityText {
     static func authorizationGateLabel(_ status: PhotosAuthorizationStatus) -> String {
         switch status {
         case .notDetermined:
-            return "Chronoframe needs permission to read your Photos library."
+            return String(localized: "Chronoframe needs permission to read your Photos library.", bundle: .module)
         case .denied:
-            return "Photos access is turned off. Turn it on in System Settings to import."
+            return String(localized: "Photos access is turned off. Turn it on in System Settings to import.", bundle: .module)
         case .restricted:
-            return "Photos access is restricted on this Mac and can't be changed here."
+            return String(localized: "Photos access is restricted on this Mac and can't be changed here.", bundle: .module)
         case .authorized, .limited:
             return ""
         }

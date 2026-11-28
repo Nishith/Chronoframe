@@ -27,7 +27,7 @@ public enum UserFacingErrorContext: Sendable {
         case .run:
             return String(localized: "Chronoframe could not finish this run. Your source files were left untouched. Check that both folders are available, then try again.", bundle: Bundle.module)
         case .history:
-            return String(localized: "Chronoframe could not refresh Run History. Check that the destination drive is connected, then try again.", bundle: Bundle.module)
+            return String(localized: "Chronoframe could not refresh History. Check that the destination drive is connected, then try again.", bundle: Bundle.module)
         }
     }
 }

@@ -1,5 +1,7 @@
 # Chronoframe NAS requirements
 
+> **Status as of 2026-11-21 (living requirements and release-gate document).** Scope approved v1.0 on 2026-11-07. Implementation shipped behind the disabled `NASCapability.isEnabled` flag in PR #266 (WP-00 to WP-12, gates G2 and G3; see [NAS v1 progress](plan/nas-v1/PROGRESS.md)), followed by PR #275 (NAS scan refuses a symbolic link anywhere in a path). The section 17.1 gates that need an authorized real Synology share (slice 0 copy probes, SMB Trash probe, T01 to T21 hardware rows) and owner Go (gate 7) are still open, so the feature stays off in release builds. Requirement IDs, T-numbers and ADR-NAS-NN are cited by code and plan docs; do not renumber. Review dispositions are in the [review log](NAS_REQUIREMENTS_REVIEW_LOG.md).
+
 **Status:** approved, v1.0 — owner approved scope on November 7, 2026 (section 17.1, gate 1). Release Go (gate 7) still requires the evidence in section 17.  
 **Date:** November 7, 2026.  
 **Primary customer:** a Mac owner whose large photo/video collection already lives on a NAS, distributed across many folders.  
@@ -8,7 +10,7 @@
 **Related proposal:** [next-half product review](next-half-product-review-2026-11-07.md).  
 **Review history:** [appendix: dispositions by revision](NAS_REQUIREMENTS_REVIEW_LOG.md).  
 **Implementation plan:** [NAS v1 plan](plan/nas-v1/IMPLEMENTATION_PLAN.md) (slices 0, 1a, 1b, 1c).  
-**Separate review prerequisite:** permanent invariant IDs and their coverage guard are isolated on `codex/stable-invariant-ids`; they are not a merged change to the current checkout.
+**Invariant IDs:** permanent `INV-NN` labels and the tag-based coverage guard are merged (`AGENTS.md` `## Safety Invariants`, `script/check_agents_invariants_have_tests.sh`). The earlier `codex/stable-invariant-ids` branch is no longer needed.
 
 This document specifies intended behavior and release evidence. It does not assert that the requirements are implemented, that NAS behavior has been verified, or that a particular Synology configuration is currently supported. Existing safety invariants remain binding. Conflicts require an explicit product decision; implementation must not silently reinterpret them.
 

@@ -65,13 +65,13 @@ public enum WatchedSourceRegistrationError: LocalizedError, Equatable, Sendable 
     public var errorDescription: String? {
         switch self {
         case .overlapsDestination(.sourceInsideDestination):
-            return "That folder is inside your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder outside the destination."
+            return CoreL10n.text("That folder is inside your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder outside the destination.")
         case .overlapsDestination(.destinationInsideSource):
-            return "That folder contains your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder that doesn't contain the destination."
+            return CoreL10n.text("That folder contains your destination folder. Watching it would make Chronoframe see its own copies as new items. Choose a folder that doesn't contain the destination.")
         case .overlapsWatchedFolder:
-            return "That folder overlaps a folder Chronoframe is already watching. Watching both would count the same photos twice."
+            return CoreL10n.text("That folder overlaps a folder Chronoframe is already watching. Watching both would count the same photos twice.")
         case .alreadyWatched:
-            return "Chronoframe is already watching that folder."
+            return CoreL10n.text("Chronoframe is already watching that folder.")
         }
     }
 }

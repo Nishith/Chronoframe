@@ -152,13 +152,13 @@ struct ContactSheetView: View {
 
     private var accessibilityLabelText: String {
         if sourcePath.isEmpty {
-            return "Contact sheet preview — no source selected."
+            return String(localized: "Contact sheet preview — no source selected.", bundle: .module)
         }
         if loader.didFinishLoading && loader.loadedThumbnailCount == 0 {
-            return "Contact sheet preview — \(ContactSheetLayout.emptyResultMessage(foundMediaCount: loader.foundMediaCount))"
+            return String(localized: "Contact sheet preview — \(ContactSheetLayout.emptyResultMessage(foundMediaCount: loader.foundMediaCount))", bundle: .module)
         }
         let visible = min(loader.loadedThumbnailCount, displayedTileCount)
-        return "Contact sheet showing \(visible) preview frames from the source."
+        return PluralPhrases.contactSheetShowing(visible)
     }
 
     private var shouldShowHeroCell: Bool {
@@ -196,9 +196,11 @@ enum ContactSheetLayout {
     /// second is a signal worth surfacing, not hiding behind a generic line.
     static func emptyResultMessage(foundMediaCount: Int) -> String {
         if foundMediaCount > 0 {
-            return "Found \(foundMediaCount) media file\(foundMediaCount == 1 ? "" : "s"), but previews couldn't be created for them."
+            return foundMediaCount == 1
+                ? String(localized: "Found 1 media file, but previews couldn't be created for them.", bundle: .module)
+                : String(localized: "Found \(String(foundMediaCount)) media files, but previews couldn't be created for them.", bundle: .module)
         }
-        return "No photos or videos in this folder yet. Frames appear here as soon as Chronoframe can see them."
+        return String(localized: "No photos or videos in this folder yet. Frames appear here as soon as Chronoframe can see them.", bundle: .module)
     }
 }
 

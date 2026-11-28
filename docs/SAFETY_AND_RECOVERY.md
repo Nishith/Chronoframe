@@ -211,7 +211,8 @@ are not touched.
 ## Library Guardian: Scrub, Mirror, Restore
 
 Library Guardian protects an already-organized library from silent bit rot. It
-is built on one load-bearing rule: Guardian never creates or advances trust
+ships behind the disabled `GuardianCapability.isEnabled` flag and is not
+available in any build yet. It is built on one load-bearing rule: Guardian never creates or advances trust
 automatically from an unexplained filesystem change, never replaces either copy
 unless the other copy verifies against an already-trusted identity, and never
 propagates a deletion without retaining a recoverable copy.
@@ -237,7 +238,9 @@ explicit intent:
 
 A scrub re-hashes every file and reports `verified`, `corrupt` (bytes differ
 while size/mtime match — the classic silent rot), `modified`, `missing`, `new`,
-`dataless` (iCloud-evicted, skipped, not corrupt), or `unreadable`. A scan that
+`dataless` (iCloud-evicted, skipped, not corrupt), `unreadable`, or
+`changedDuringScan` (size or mtime changed while hashing; never reported as
+corruption). A scan that
 couldn't fully read a subtree is conservative: it reports an incomplete check
 rather than false "missing" or "corrupt" results, and changes no trust.
 

@@ -70,7 +70,7 @@ struct PhotosImportView: View {
             maxHeight: .infinity,
             alignment: .topLeading
         )
-        .navigationTitle(Self.navigationTitle)
+        .navigationTitle(Text(LocalizedStringKey(Self.navigationTitle), bundle: .module))
         .onAppear {
             appState.preparePhotosWorkspace()
             store.refreshResumableImport(destination: currentDestination())
@@ -291,7 +291,7 @@ struct PhotosImportView: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if destinationPath.isEmpty {
-                    Text("Set an organize destination in Organize › Setup first — imports go there.", bundle: .module)
+                    Text("Set an organize destination in Organize › Choose Folders first — imports go there.", bundle: .module)
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 } else {

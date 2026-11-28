@@ -22,7 +22,7 @@ enum AboutPanel {
     }
 
     private static var copyrightString: String {
-        "© 2026 Nishith Nand. All rights reserved."
+        String(localized: "© 2026 Nishith Nand. All rights reserved.", bundle: .module)
     }
 
     private static var creditsAttributedString: NSAttributedString {
@@ -43,10 +43,10 @@ enum AboutPanel {
 
         let out = NSMutableAttributedString()
         func appendHeader(_ text: String) {
-            out.append(NSAttributedString(string: text + "\n", attributes: header))
+            out.append(NSAttributedString(string: AppLocalization.string(text) + "\n", attributes: header))
         }
         func appendBody(_ text: String) {
-            out.append(NSAttributedString(string: text + "\n\n", attributes: body))
+            out.append(NSAttributedString(string: AppLocalization.string(text) + "\n\n", attributes: body))
         }
 
         appendHeader("License")
@@ -71,7 +71,7 @@ enum AboutPanel {
 
         appendHeader("Trademarks")
         let trademarks = "Chronoframe and the Chronoframe logo are trademarks of Nishith Nand. Apple, the Apple logo, macOS, and App Store are trademarks of Apple Inc., registered in the U.S. and other countries and regions. All other trademarks are the property of their respective owners."
-        out.append(NSAttributedString(string: trademarks, attributes: body))
+        out.append(NSAttributedString(string: AppLocalization.string(trademarks), attributes: body))
 
         return out
     }

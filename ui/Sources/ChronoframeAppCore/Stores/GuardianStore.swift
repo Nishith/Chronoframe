@@ -162,7 +162,7 @@ public final class GuardianStore: ObservableObject {
             lastScanSummary = Self.summarize(outcome.report)
 
             if outcome.report.partialScan {
-                statusMessage = "Chronoframe couldn't fully check this library. Some folders couldn't be read, so the results are incomplete."
+                statusMessage = CoreL10n.text("Chronoframe couldn't fully check this library. Some folders couldn't be read, so the results are incomplete.")
             }
             if outcome.report.hasCorruption, let notifier {
                 notifier.notifyBitRotDetected(
@@ -171,7 +171,7 @@ public final class GuardianStore: ObservableObject {
                 )
             }
         } catch {
-            statusMessage = "Chronoframe couldn't complete the integrity scan. Your files were not changed."
+            statusMessage = CoreL10n.text("Chronoframe couldn't complete the integrity scan. Your files were not changed.")
         }
     }
 
@@ -195,7 +195,7 @@ public final class GuardianStore: ObservableObject {
             selectedTrustPaths = []
             await scan()
         } catch {
-            statusMessage = "Chronoframe couldn't update the trusted baseline. Your files were not changed."
+            statusMessage = CoreL10n.text("Chronoframe couldn't update the trusted baseline. Your files were not changed.")
         }
     }
 
@@ -208,7 +208,7 @@ public final class GuardianStore: ObservableObject {
             selectedTrustPaths = []
             await scan()
         } catch {
-            statusMessage = "Chronoframe couldn't update the trusted baseline. Your files were not changed."
+            statusMessage = CoreL10n.text("Chronoframe couldn't update the trusted baseline. Your files were not changed.")
         }
     }
 
@@ -346,7 +346,7 @@ public final class GuardianStore: ObservableObject {
                 )
             }
         } catch {
-            statusMessage = "Chronoframe couldn't complete the scheduled integrity scan. Your files were not changed."
+            statusMessage = CoreL10n.text("Chronoframe couldn't complete the scheduled integrity scan. Your files were not changed.")
         }
         isScanning = false
         activeToken = nil
@@ -379,6 +379,6 @@ public final class GuardianStore: ObservableObject {
         if let engineError = error as? GuardianEngineError, let description = engineError.errorDescription {
             return description
         }
-        return "Chronoframe couldn't complete the Guardian operation. Your files were not changed."
+        return CoreL10n.text("Chronoframe couldn't complete the Guardian operation. Your files were not changed.")
     }
 }

@@ -12,11 +12,11 @@ import Foundation
 enum FolderLayoutPresentation {
     static func title(_ structure: FolderStructure) -> String {
         switch structure {
-        case .yyyyMMDD: "Year / Month / Day"
-        case .yyyyMM: "Year / Month"
-        case .yyyy: "Year"
-        case .yyyyMonEvent: "Year / Month / Event"
-        case .flat: "One folder"
+        case .yyyyMMDD: String(localized: "Year / Month / Day", bundle: .module)
+        case .yyyyMM: String(localized: "Year / Month", bundle: .module)
+        case .yyyy: String(localized: "Year", bundle: .module)
+        case .yyyyMonEvent: String(localized: "Year / Month / Event", bundle: .module)
+        case .flat: String(localized: "One folder", bundle: .module)
         }
     }
 
@@ -43,6 +43,6 @@ enum FolderLayoutPresentation {
     }
 
     static func accessibilityExample(_ structure: FolderStructure) -> String {
-        "Example: \(exampleRelativePath(structure))"
+        String(localized: "Example: \(String(exampleRelativePath(structure)))", bundle: .module)
     }
 }

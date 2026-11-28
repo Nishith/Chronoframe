@@ -354,8 +354,7 @@ public final class EntitlementStore: ObservableObject {
             await refresh()
         case .pending:
             setStatusMessageUnlessUnlocked(
-                "Your purchase needs approval before it can finish. "
-                    + "Chronoframe will unlock automatically once it's approved.",
+                CoreL10n.text("Your purchase needs approval before it can finish. Chronoframe will unlock automatically once it's approved."),
                 survivesDismissal: true
             )
         case .userCancelled:
@@ -365,21 +364,18 @@ public final class EntitlementStore: ObservableObject {
             // failed. Saying "nothing was charged" would be false, and would
             // push someone toward paying a second time.
             setStatusMessageUnlessUnlocked(
-                "Chronoframe couldn't verify that purchase on this Mac. "
-                    + "Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock.",
+                CoreL10n.text("Chronoframe couldn't verify that purchase on this Mac. Don't buy again — choose Restore Purchases first, and contact support if it still doesn't unlock."),
                 survivesDismissal: true
             )
         case .productUnavailable:
             setStatusMessageUnlessUnlocked(
-                "Chronoframe couldn't load the unlock from the App Store. "
-                    + "Check your connection and try again."
+                CoreL10n.text("Chronoframe couldn't load the unlock from the App Store. Check your connection and try again.")
             )
         case .failed:
             // The diagnostic stays out of the UI by design; raw StoreKit and
             // NSError wording is never shown to the user.
             setStatusMessageUnlessUnlocked(
-                "That purchase couldn't be completed. "
-                    + "Check your connection and try again, or use Restore Purchases if you've already bought the unlock."
+                CoreL10n.text("That purchase couldn't be completed. Check your connection and try again, or use Restore Purchases if you've already bought the unlock.")
             )
         }
     }
@@ -413,8 +409,7 @@ public final class EntitlementStore: ObservableObject {
             try await storeKit.sync()
         } catch {
             setStatusMessageUnlessUnlocked(
-                "Chronoframe couldn't reach the App Store to restore your purchase. "
-                    + "Check your connection and try again."
+                CoreL10n.text("Chronoframe couldn't reach the App Store to restore your purchase. Check your connection and try again.")
             )
             return
         }
@@ -432,20 +427,17 @@ public final class EntitlementStore: ObservableObject {
             // not a repair path for someone who has never bought the unlock,
             // and implying otherwise sends people round in circles.
             setStatusMessageUnlessUnlocked(
-                "No previous purchase was found for this Apple Account. "
-                    + "If you bought Chronoframe with a different account, sign in with that one."
+                CoreL10n.text("No previous purchase was found for this Apple Account. If you bought Chronoframe with a different account, sign in with that one.")
             )
         case .verificationUnavailable:
             // Emphatically not the same as "you never paid". Diagnosing a
             // missing account to someone who did pay is the worse error.
             setStatusMessageUnlessUnlocked(
-                "Chronoframe couldn't reach the App Store to check your purchase. "
-                    + "Your access is unchanged — try again once you're back online."
+                CoreL10n.text("Chronoframe couldn't reach the App Store to check your purchase. Your access is unchanged — try again once you're back online.")
             )
         case .unverified:
             setStatusMessageUnlessUnlocked(
-                "The App Store's response couldn't be verified on this Mac. "
-                    + "Try again, and contact support if it keeps happening."
+                CoreL10n.text("The App Store's response couldn't be verified on this Mac. Try again, and contact support if it keeps happening.")
             )
         case .unlocked, .loading:
             break

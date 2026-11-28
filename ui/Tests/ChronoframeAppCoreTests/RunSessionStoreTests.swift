@@ -901,8 +901,8 @@ final class RunSessionStoreTests: XCTestCase {
         ])
 
         for (count, expected) in [
-            (1, "1 file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
-            (3, "3 files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then run the free test batch. Nothing was copied and your originals were not changed."),
+            (1, "1 file from an earlier copy that was interrupted is still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed."),
+            (3, "3 files from an earlier copy that was interrupted are still waiting. Start copying to resume or discard them, then try the free test batch. Nothing was copied and your originals were not changed."),
         ] {
             let preflight = RunPreflight(
                 configuration: configuration,
@@ -1292,11 +1292,11 @@ final class RunSessionStoreTests: XCTestCase {
     /// C-16 item 3: the completion notification says "copy", not "transfer", and
     /// calls the folders "your folders", not "source".
     func testNotificationCopyMatchesContract() {
-        func summary(_ status: RunStatus) -> RunSummary {
+        func summary(_ status: RunStatus, alreadyInDestination: Int = 0) -> RunSummary {
             RunSummary(
                 status: status,
                 title: "Title",
-                metrics: RunMetrics(discoveredCount: 4, plannedCount: 0, copiedCount: 2),
+                metrics: RunMetrics(discoveredCount: 4, plannedCount: 0, alreadyInDestinationCount: alreadyInDestination, copiedCount: 2),
                 artifacts: RunArtifactPaths()
             )
         }
@@ -1306,13 +1306,57 @@ final class RunSessionStoreTests: XCTestCase {
             "Copy complete"
         )
         XCTAssertEqual(
-            RunSessionStore.completionNotificationText(summary: summary(.nothingToCopy), usedFreeTestBatch: false)?.body,
+            RunSessionStore.completionNotificationText(summary: summary(.nothingToCopy, alreadyInDestination: 4), usedFreeTestBatch: false)?.body,
             "Everything in your folders is already in the destination."
         )
         XCTAssertEqual(
             RunSessionStore.completionNotificationText(summary: summary(.failed), usedFreeTestBatch: false)?.title,
             "Copy failed"
         )
+    }
+
+    /// "Already up to date" is a claim about the destination, so it needs
+    /// files actually found there and no problems. An empty source, a resumed
+    /// run with nothing pending, or a run that could not read files says so.
+    func testNothingToCopyNotificationOnlyClaimsUpToDateWhenFilesWereFoundThere() {
+        func text(_ metrics: RunMetrics, failure: String? = nil) -> (title: String, body: String)? {
+            RunSessionStore.completionNotificationText(
+                summary: RunSummary(
+                    status: .nothingToCopy,
+                    title: "Title",
+                    metrics: metrics,
+                    artifacts: RunArtifactPaths(),
+                    failureMessage: failure
+                ),
+                usedFreeTestBatch: false
+            )
+        }
+
+        XCTAssertEqual(text(RunMetrics(alreadyInDestinationCount: 3))?.title, "Already up to date")
+
+        let empty = text(RunMetrics())
+        XCTAssertEqual(empty?.title, "Nothing was copied")
+        XCTAssertEqual(empty?.body, "Chronoframe found nothing to copy. Your originals were not changed.")
+
+        let unreadable = text(RunMetrics(alreadyInDestinationCount: 3, hashErrorCount: 2))
+        XCTAssertEqual(unreadable?.title, "Nothing was copied")
+        XCTAssertEqual(unreadable?.body, "Chronoframe copied nothing. Your originals were not changed. Open Chronoframe to see why.")
+
+        XCTAssertEqual(text(RunMetrics(alreadyInDestinationCount: 3), failure: "Could not read files")?.title, "Nothing was copied")
+    }
+
+    func testFinishedNotificationDoesNotSayCompleteWhenFilesFailed() {
+        let text = RunSessionStore.completionNotificationText(
+            summary: RunSummary(
+                status: .finished,
+                title: "Title",
+                metrics: RunMetrics(copiedCount: 5, failedCount: 2),
+                artifacts: RunArtifactPaths()
+            ),
+            usedFreeTestBatch: false
+        )
+        XCTAssertEqual(text?.title, "Copy finished with problems")
+        XCTAssertEqual(text?.body, "5 copied, 2 could not be copied.")
     }
 }
 

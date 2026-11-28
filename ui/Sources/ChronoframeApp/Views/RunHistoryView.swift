@@ -18,15 +18,15 @@ enum HistoryFilter: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .all:
-            return "All"
+            return String(localized: "All", bundle: .module)
         case .reports:
-            return "Reports"
+            return String(localized: "Reports", bundle: .module)
         case .receipts:
-            return "Receipts"
+            return String(localized: "Receipts", bundle: .module)
         case .logs:
-            return "Logs"
+            return String(localized: "Logs", bundle: .module)
         case .other:
-            return "Other"
+            return String(localized: "Other", bundle: .module)
         }
     }
 
@@ -160,17 +160,17 @@ struct RunHistoryView: View {
     /// rendering SwiftUI.
     static func confirmationTitle(for entry: RunHistoryEntry?) -> String {
         switch entry?.kind {
-        case .dedupeAuditReceipt: return "Restore deduplicated files?"
-        case .reorganizeAuditReceipt: return "Undo this reorganize?"
-        default: return "Undo this copy?"
+        case .dedupeAuditReceipt: return String(localized: "Restore deduplicated files?", bundle: .module)
+        case .reorganizeAuditReceipt: return String(localized: "Undo this reorganize?", bundle: .module)
+        default: return String(localized: "Undo this copy?", bundle: .module)
         }
     }
 
     static func confirmationActionLabel(for entry: RunHistoryEntry) -> String {
         switch entry.kind {
-        case .dedupeAuditReceipt: return "Restore"
-        case .reorganizeAuditReceipt: return "Undo"
-        default: return "Undo"
+        case .dedupeAuditReceipt: return String(localized: "Restore", bundle: .module)
+        case .reorganizeAuditReceipt: return String(localized: "Undo", bundle: .module)
+        default: return String(localized: "Undo", bundle: .module)
         }
     }
 
@@ -184,11 +184,11 @@ struct RunHistoryView: View {
     static func confirmationMessage(for entry: RunHistoryEntry) -> String {
         switch entry.kind {
         case .dedupeAuditReceipt:
-            return "Chronoframe will move the files that duplicate cleanup sent to the Trash back to their original locations. Files that have since been emptied from the Trash cannot be restored.\n\nReceipt: \(entry.relativePath)"
+            return String(localized: "Chronoframe will move the files that duplicate cleanup sent to the Trash back to their original locations. Files that have since been emptied from the Trash cannot be restored.\n\nReceipt: \(entry.relativePath)", bundle: .module)
         case .reorganizeAuditReceipt:
-            return "Chronoframe will move the files this reorganize changed back to their previous locations, but only if their contents still match the receipt.\n\nReceipt: \(entry.relativePath)"
+            return String(localized: "Chronoframe will move the files this reorganize changed back to their previous locations, but only if their contents still match the receipt.\n\nReceipt: \(entry.relativePath)", bundle: .module)
         default:
-            return "Chronoframe will remove the files this receipt copied, but only if their contents still match the original copy. Files modified after the original copy will be preserved.\n\nReceipt: \(entry.relativePath)"
+            return String(localized: "Chronoframe will remove the files this receipt copied, but only if their contents still match the original copy. Files modified after the original copy will be preserved.\n\nReceipt: \(entry.relativePath)", bundle: .module)
         }
     }
 
@@ -224,15 +224,15 @@ struct RunHistoryView: View {
     private var headerMessage: String {
         if historyUnavailable {
             return historyStore.entries.isEmpty
-                ? "History could not be loaded."
-                : "Access unavailable. Previously loaded entries may be out of date."
+                ? String(localized: "History could not be loaded.", bundle: .module)
+                : String(localized: "Access unavailable. Previously loaded entries may be out of date.", bundle: .module)
         }
         if historyStore.entries.isEmpty {
             return historyStore.destinationRoot.isEmpty
-                ? "Choose a destination in Setup, then a preview will create the first report here."
-                : "Start a preview or copy to build the first entries in this archive."
+                ? String(localized: "Choose a destination in Setup, then a preview will create the first report here.", bundle: .module)
+                : String(localized: "Start a preview or copy to build the first entries in this archive.", bundle: .module)
         }
-        return "\(historyStore.entries.count) reports and logs · \(historyStore.transferredSources.count) reusable folders."
+        return PluralPhrases.historySummary(reports: historyStore.entries.count, folders: historyStore.transferredSources.count)
     }
 
     // MARK: - Hero strip (P1.3)
@@ -266,7 +266,7 @@ struct RunHistoryView: View {
                 }
                 .frame(maxWidth: 220, alignment: .leading)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Archive overview: \(totalFramesArchived) frames archived across \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? "copy" : "copies").")
+                .accessibilityLabel(PluralPhrases.archiveOverview(frames: totalFramesArchived, copies: archiveOverviewReceiptEntries.count))
 
                 Divider()
                     .frame(height: 120)
@@ -293,7 +293,7 @@ struct RunHistoryView: View {
         }
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
-        return "Since \(formatter.string(from: earliest)) · \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? "copy" : "copies")"
+        return String(localized: "Since \(formatter.string(from: earliest)) · \(archiveOverviewReceiptEntries.count) \(archiveOverviewReceiptEntries.count == 1 ? String(localized: "copy", bundle: .module) : String(localized: "copies", bundle: .module))", bundle: .module)
     }
 
     private var archiveOverviewReceiptEntries: [RunHistoryEntry] {
@@ -337,15 +337,15 @@ struct RunHistoryView: View {
         if let key = selectedTimelineMonth {
             let matchingBucket = timelineBuckets.first { $0.key == key }
             let count = matchingBucket?.plannedCount ?? 0
-            return "Selected month: \(formatMonthYear(key)), \(count) \(count == 1 ? "copy" : "copies"). Timeline contains \(timelineBuckets.count) months."
+            return PluralPhrases.timelineSelectedValue(month: formatMonthYear(key), countPhrase: PluralPhrases.copies(count), monthCount: timelineBuckets.count)
         }
         let total = timelineBuckets.reduce(0) { $0 + $1.plannedCount }
-        return "Timeline containing \(total) \(total == 1 ? "copy" : "copies") across \(timelineBuckets.count) months. Unselected."
+        return PluralPhrases.timelineUnselectedValue(countPhrase: PluralPhrases.copies(total), monthCount: timelineBuckets.count)
     }
 
     private func formatMonthYear(_ key: String) -> String {
         guard key != "Unknown", key.count >= 7 else {
-            return key == "Unknown" ? "Unknown Date" : key
+            return key == "Unknown" ? String(localized: "Unknown Date", bundle: .module) : key
         }
         let yearPart = key.prefix(4)
         let monthPart = key.dropFirst(5).prefix(2)
@@ -361,7 +361,7 @@ struct RunHistoryView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-                Text(historyStore.needsFolderAccess ? "Reconnect your archive folder" : "History unavailable")
+                Text(LocalizedStringKey(historyStore.needsFolderAccess ? "Reconnect your archive folder" : "History unavailable"), bundle: .module)
                     .font(.headline)
                 Text(historyStore.needsFolderAccess
                      ? "Chronoframe can’t currently access “\(URL(fileURLWithPath: historyStore.destinationRoot).lastPathComponent)”. Choose this same folder again to restore access and load History. Reconnecting does not change your media files."
@@ -498,11 +498,11 @@ struct RunHistoryView: View {
     private func recoveryTitle(for entry: RunHistoryEntry) -> String {
         switch entry.kind {
         case .dedupeAuditReceipt:
-            return "Duplicate cleanup can be restored"
+            return String(localized: "Duplicate cleanup can be restored", bundle: .module)
         case .reorganizeAuditReceipt:
-            return "Reorganize can be undone"
+            return String(localized: "Reorganize can be undone", bundle: .module)
         default:
-            return "Copy can be undone"
+            return String(localized: "Copy can be undone", bundle: .module)
         }
     }
 
@@ -565,7 +565,7 @@ struct RunHistoryView: View {
                         .fill(DesignTokens.ColorSystem.separatorText)
                         .frame(width: 3, height: 3)
                         .accessibilityHidden(true)
-                    Text("\(record.runCount) \(record.runCount == 1 ? "copy" : "copies")")
+                    Text("\(record.runCount) \(record.runCount == 1 ? String(localized: "copy", bundle: .module) : String(localized: "copies", bundle: .module))")
                     Circle()
                         .fill(DesignTokens.ColorSystem.separatorText)
                         .frame(width: 3, height: 3)
@@ -650,7 +650,9 @@ struct RunHistoryView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(maxWidth: 320)
+                // German segment titles ("Protokolle", "Sonstige") need more
+                // room than English; at 320 the last segment clipped.
+                .frame(maxWidth: 440)
                 .accessibilityLabel("Filter reports and logs")
                 .accessibilityIdentifier(AccessibilityIdentifiers.historyFilterControl)
             }
@@ -727,14 +729,14 @@ struct RunHistoryView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if let badge = RecoveryBadgeFormatter.title(for: entry.recoveryState) {
-                    Text(badge)
+                    Text(LocalizedStringKey(badge), bundle: .module)
                         .scaledFont(.label)
                         .fontWeight(.semibold)
                         .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
                 }
 
                 HStack(spacing: DesignTokens.Spacing.sm) {
-                    Text(entry.kind.title)
+                    Text(LocalizedStringKey(entry.kind.title), bundle: .module)
                     Circle()
                         .fill(DesignTokens.ColorSystem.separatorText)
                         .frame(width: 3, height: 3)
@@ -806,7 +808,8 @@ struct RunHistoryView: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityActionsMenu(
-                label: "Actions for \(entry.title)",
+                labelTemplate: "Actions for %@",
+                subject: entry.title,
                 hint: "Reveal, undo, or move this file to Trash."
             )
         }
@@ -945,18 +948,18 @@ struct ReceiptDetailSheet: View {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(metadata?.title ?? entry.kind.title)
+                    Text(LocalizedStringKey(metadata?.title ?? entry.kind.title), bundle: .module)
                         .font(.title2.weight(.bold))
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                     if let meta = metadata {
-                        Text("Date: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(meta.status)")
+                        Text("Date: \(meta.timestamp.formatted(date: .abbreviated, time: .shortened)) · Status: \(AppLocalization.string(meta.status))")
                             .font(.subheadline)
                             .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
-                        Text("\(meta.totalFiles.formatted()) files")
+                        Text(verbatim: PluralPhrases.files(meta.totalFiles))
                             .font(.caption)
                             .accessibilityIdentifier(AccessibilityIdentifiers.receiptFileCount)
                         if let badge = RecoveryBadgeFormatter.title(for: meta.recoveryState) {
-                            Text(badge)
+                            Text(LocalizedStringKey(badge), bundle: .module)
                                 .scaledFont(.label)
                                 .fontWeight(.semibold)
                                 .foregroundStyle(DesignTokens.ColorSystem.statusWarning)
@@ -1088,7 +1091,7 @@ struct ReceiptDetailSheet: View {
             Circle()
                 .fill(statusColor(status))
                 .frame(width: 6, height: 6)
-            Text(status.rawValue)
+            Text(LocalizedStringKey(status.rawValue), bundle: .module)
                 .font(.caption)
                 .foregroundStyle(statusColor(status))
         }

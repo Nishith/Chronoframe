@@ -1,5 +1,7 @@
 # Next-half orchestrator kickoff
 
+Status: canonical kickoff and resume prompts; reusable for the two plans still to run (`find-and-account`, `first-ten-minutes`). The four shipped plans used it; NAS v1 used its own copy (`docs/plan/nas-v1/ORCHESTRATOR_KICKOFF.md`, now a pointer here).
+
 One kickoff prompt serves every plan folder. Replace `<PLAN_DIR>` with the folder (for example `docs/plan/dedupe-persistence`) and `<BRANCH>` with the branch its `DECISIONS.md` D-01 names. Run the plans in the order `docs/plan/next-half/README.md` gives. One plan at a time; never two orchestrators in one checkout.
 
 ## Before you start (owner, once per plan)

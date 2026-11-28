@@ -1,5 +1,7 @@
 # First ten minutes — acceptance matrix
 
+Status: not started (verified 2026-11-22 on main 8308aac: `git grep` finds no `RunPreflightAssessment`, `PreflightService`, `FirstRunTestBatch` or `RunProofModel` in `ui/`). No row is built.
+
 | ID | Requirement (Round 3 #5) | Automated coverage | Hardware row | Auto status | Hardware status |
 |---|---|---|---|---|---|
 | A-FTM-01 | Capacity and access are checked before a run, with labeled estimates | RunPreflightAssessmentTests/*; PreflightServiceTests/*; SetupScreenModelTests (2 new); SetupCoordinatorTests (2 new) | H-FTM-1, H-FTM-2 | todo | todo-hardware |

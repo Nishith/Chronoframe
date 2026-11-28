@@ -204,9 +204,9 @@ struct InteractiveTimelineView: View {
     private var accessibilityValue: String {
         if let key = selectedBucketKey, let matchingBucket = buckets.first(where: { $0.key == key }) {
             let count = matchingBucket.plannedCount
-            return "Selected month: \(key), \(count) files planned. Timeline contains \(buckets.count) months."
+            return PluralPhrases.timelineSelectedValue(month: key, countPhrase: TimelinePlurals.plannedFiles(count), monthCount: buckets.count)
         }
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
-        return "Timeline containing \(total) files across \(buckets.count) months. Unselected."
+        return PluralPhrases.timelineUnselectedValue(countPhrase: TimelinePlurals.plannedFiles(total), monthCount: buckets.count)
     }
 }

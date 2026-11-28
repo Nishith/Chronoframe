@@ -16,21 +16,21 @@ struct WatchedSourceRowModel: Equatable {
         switch state.availability {
         case .available:
             if state.isChecking && state.pendingEstimate == nil {
-                return "Checking…"
+                return String(localized: "Checking…", bundle: .module)
             }
             guard let estimate = state.pendingEstimate else {
-                return "Checking…"
+                return String(localized: "Checking…", bundle: .module)
             }
             if estimate == 0 {
-                return "Caught up"
+                return String(localized: "Caught up", bundle: .module)
             }
-            return estimate == 1 ? "About 1 new item" : "About \(estimate) new items"
+            return estimate == 1 ? String(localized: "About 1 new item", bundle: .module) : String(localized: "About \(estimate) new items", bundle: .module)
         case .unavailable:
-            return "Offline — reconnect the drive to keep watching."
+            return String(localized: "Offline — reconnect the drive to keep watching.", bundle: .module)
         case .accessLost:
-            return "Access lost — choose this folder again."
+            return String(localized: "Access lost — choose this folder again.", bundle: .module)
         case .pausedConflict:
-            return "Paused — this folder overlaps your destination."
+            return String(localized: "Paused — this folder overlaps your destination.", bundle: .module)
         }
     }
 
@@ -38,13 +38,13 @@ struct WatchedSourceRowModel: Equatable {
     var detailText: String? {
         guard state.availability == .available else { return nil }
         if state.lastScanWasPartial {
-            return "Couldn't fully check this folder."
+            return String(localized: "Couldn't fully check this folder.", bundle: .module)
         }
         if let estimate = state.pendingEstimate, estimate > 0 {
-            return "Some may already be in your library — Review & Import shows the exact plan."
+            return String(localized: "Some may already be in your library — Review & Import shows the exact plan.", bundle: .module)
         }
         if state.isDegradedWatch {
-            return "Watching with reduced detail."
+            return String(localized: "Watching with reduced detail.", bundle: .module)
         }
         return nil
     }

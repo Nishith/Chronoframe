@@ -12,7 +12,7 @@ final class UserFacingErrorMessageTests: XCTestCase {
             (.droppedItems, "could not use the dropped items"),
             (.profiles, "could not update saved profiles"),
             (.run, "Your source files were left untouched"),
-            (.history, "could not refresh Run History"),
+            (.history, "could not refresh History"),
         ]
 
         for (context, expectedText) in cases {

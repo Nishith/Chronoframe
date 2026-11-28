@@ -28,22 +28,22 @@ enum TipCopy {
 
 /// Shown on the run timeline the first time a finished/active timeline appears.
 struct TimelineScrubbingTip: Tip {
-    var title: Text { Text(TipCopy.TimelineScrubbing.title) }
-    var message: Text? { Text(TipCopy.TimelineScrubbing.message) }
+    var title: Text { Text(LocalizedStringKey(TipCopy.TimelineScrubbing.title), bundle: .module) }
+    var message: Text? { Text(LocalizedStringKey(TipCopy.TimelineScrubbing.message), bundle: .module) }
     var image: Image? { Image(systemName: TipCopy.TimelineScrubbing.symbol) }
 }
 
 /// Shown next to the "accept safe / high-confidence" control in Deduplicate.
 struct AcceptSafeSuggestionsTip: Tip {
-    var title: Text { Text(TipCopy.AcceptSafeSuggestions.title) }
-    var message: Text? { Text(TipCopy.AcceptSafeSuggestions.message) }
+    var title: Text { Text(LocalizedStringKey(TipCopy.AcceptSafeSuggestions.title), bundle: .module) }
+    var message: Text? { Text(LocalizedStringKey(TipCopy.AcceptSafeSuggestions.message), bundle: .module) }
     var image: Image? { Image(systemName: TipCopy.AcceptSafeSuggestions.symbol) }
 }
 
 /// Shown on the Deduplicate workspace entry point.
 struct DeduplicateWorkspaceTip: Tip {
-    var title: Text { Text(TipCopy.DeduplicateWorkspace.title) }
-    var message: Text? { Text(TipCopy.DeduplicateWorkspace.message) }
+    var title: Text { Text(LocalizedStringKey(TipCopy.DeduplicateWorkspace.title), bundle: .module) }
+    var message: Text? { Text(LocalizedStringKey(TipCopy.DeduplicateWorkspace.message), bundle: .module) }
     var image: Image? { Image(systemName: TipCopy.DeduplicateWorkspace.symbol) }
 }
 

@@ -48,9 +48,9 @@ struct ComparisonOverlayView: View {
 
         var label: String {
             switch self {
-            case .slider: return "Slider"
-            case .difference: return "Difference"
-            case .flicker: return "Flicker"
+            case .slider: return String(localized: "Slider", bundle: .module)
+            case .difference: return String(localized: "Difference", bundle: .module)
+            case .flicker: return String(localized: "Flicker", bundle: .module)
             }
         }
 
@@ -278,7 +278,11 @@ private struct SliderComparisonView: View {
     }
 
     private func comparisonLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
+        Label {
+            Text(LocalizedStringKey(title), bundle: .module)
+        } icon: {
+            Image(systemName: systemImage)
+        }
             .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 9)
@@ -287,7 +291,11 @@ private struct SliderComparisonView: View {
     }
 
     private func comparisonStatusLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
+        Label {
+            Text(LocalizedStringKey(title), bundle: .module)
+        } icon: {
+            Image(systemName: systemImage)
+        }
             .font(.caption.weight(.semibold))
             .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             .padding(.horizontal, 10)
@@ -335,7 +343,7 @@ private struct DifferenceComparisonView: View {
         .padding(DesignTokens.Spacing.lg)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Difference comparison")
-        .accessibilityValue(loading ? "Computing difference image" : (differenceImage == nil ? "Difference image unavailable" : "Difference image ready"))
+        .accessibilityValue(Text(LocalizedStringKey(loading ? "Computing difference image" : (differenceImage == nil ? "Difference image unavailable" : "Difference image ready")), bundle: .module))
         .task {
             differenceImage = await DifferenceImageGenerator.generate(
                 leftURL: URL(fileURLWithPath: leftPath),
@@ -409,7 +417,7 @@ private struct FlickerComparisonView: View {
                 .controlSize(.small)
                 .keyboardShortcut(.leftArrow, modifiers: [])
 
-                Text(showingLeft ? "A (Keeper)" : "B")
+                Text(LocalizedStringKey(showingLeft ? "A (Keeper)" : "B"), bundle: .module)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
@@ -429,13 +437,17 @@ private struct FlickerComparisonView: View {
                     wantsPlayback.toggle()
                     updateFlickerTask()
                 } label: {
-                    Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                    Label {
+                        Text(LocalizedStringKey(isPlaying ? "Pause" : "Play"), bundle: .module)
+                    } icon: {
+                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(reduceMotion)
                 .keyboardShortcut(.space, modifiers: [])
-                .accessibilityHint(reduceMotion ? "Automatic flicker is disabled because Reduce Motion is on" : "Starts or pauses automatic comparison flicker")
+                .accessibilityHint(Text(LocalizedStringKey(reduceMotion ? "Automatic flicker is disabled because Reduce Motion is on" : "Starts or pauses automatic comparison flicker"), bundle: .module))
             }
             .padding(.bottom, 12)
         }
@@ -458,7 +470,7 @@ private struct FlickerComparisonView: View {
             isShowingKeeper: showingLeft,
             isPlaying: isPlaying
         ))
-        .accessibilityHint(reduceMotion ? "Automatic flicker is disabled because Reduce Motion is on" : "Use Play to start automatic flicker, or use the Keeper and Compare buttons manually")
+        .accessibilityHint(Text(LocalizedStringKey(reduceMotion ? "Automatic flicker is disabled because Reduce Motion is on" : "Use Play to start automatic flicker, or use the Keeper and Compare buttons manually"), bundle: .module))
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment:
@@ -503,7 +515,7 @@ private struct ComparisonUnavailableView: View {
             Image(systemName: "photo.badge.exclamationmark")
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
-            Text(title)
+            Text(LocalizedStringKey(title), bundle: .module)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
                 .multilineTextAlignment(.center)

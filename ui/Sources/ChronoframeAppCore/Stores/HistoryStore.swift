@@ -185,7 +185,7 @@ public final class HistoryStore: ObservableObject {
             }
         } catch {
             lastRefreshError = UserFacingErrorMessage.withDetails(
-                "Chronoframe could not move this history item to Trash. Open it in Finder and remove it manually.",
+                CoreL10n.text("Chronoframe could not move this history item to Trash. Open it in Finder and remove it manually."),
                 details: error.localizedDescription
             )
         }
@@ -213,7 +213,9 @@ public final class HistoryStore: ObservableObject {
         entries.removeAll { removedIDs.contains($0.id) }
 
         if failedCount > 0 {
-            lastRefreshError = "Chronoframe could not move \(failedCount) history item\(failedCount == 1 ? "" : "s") to Trash. Open the destination in Finder and remove them manually."
+            lastRefreshError = failedCount == 1
+                ? CoreL10n.text("Chronoframe could not move \(failedCount) history item to Trash. Open the destination in Finder and remove them manually.")
+                : CoreL10n.text("Chronoframe could not move \(failedCount) history items to Trash. Open the destination in Finder and remove them manually.")
         }
     }
 }

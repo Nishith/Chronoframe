@@ -62,9 +62,10 @@ Important SQLite tables:
 | `CopyJobs` | Persisted copy queue for resume |
 | `DedupeFeatures` | Cached Vision feature prints, dHash, dimensions, dates, and quality scores |
 | `DedupeVideoFeatures` | Versioned sampled-frame hashes, decode outcomes, dimensions, and keeper metadata for perceptual video matching |
-| `ReviewOverrides` | User date and event corrections for future preview and transfer planning |
+| `DedupeMutationIdentities` | Path, size, mtime, and content identity recorded for dedupe mutation targets |
+| `ReviewOverrides` | User date and event corrections (including `date_conflict_accepted` for conflicting-date review) for future preview and transfer planning |
 
-State kept outside the destination is listed under [Saved Deduplicate Reviews](#saved-deduplicate-reviews) and, for NAS assessment, [Application Support Layout](#application-support-layout).
+State kept outside the destination: [Saved Deduplicate Reviews](#saved-deduplicate-reviews), NAS assessment ([Application Support Layout](#application-support-layout)), Apple Photos import staging (see [Apple Photos Import](#apple-photos-import)), and Watched Sources, which keep their SQLite store (`WatchedSources` and `Checkpoint` tables) at `watched_sources.db` in Application Support.
 
 ### Saved Deduplicate Reviews
 
@@ -74,7 +75,7 @@ Deduplicate review state lives outside the folder being reviewed, under the app'
 | :--- | :--- |
 | `dedupe_reviews/<key>.json` | Saved review for one dedupe folder: Keep/Delete choices with the content identity of each file, reviewed groups keyed by their members' sorted identities, the focused group, a settings fingerprint, and the save time. `<key>` is the folder's standardized path, base64url-encoded without padding. Sorted-key JSON with ISO-8601 dates, replaced atomically; format version 1 |
 
-A save with no choices and no reviewed groups removes the file instead of writing it. A file that is missing, unreadable, or a different version loads as no saved review. On restore, a choice applies only when the scanned file at that path has the same content identity, and a group is restored as reviewed only when its members' identities match and every member's own choice was restored; the rest are dropped and counted in the restored-review banner. Restore sets review state only: it builds no plan and approves no commit. The file is written after a user change (debounced by half a second), on pause, cancel, reset, rescan and app termination, and removed when a commit for that folder finishes or by **Discard Saved Review**. Cancelling during a scan writes nothing, and a crash or force-quit can lose the last half second of changes.
+A save with no choices and no reviewed groups removes the file instead of writing it. A file that is missing, unreadable, or a different version loads as no saved review. Restore sets review state only: it builds no plan and approves no commit. The file is written after a user change (debounced by half a second), on pause, cancel, reset, rescan and app termination, and removed when a commit for that folder finishes or by **Discard Saved Review**. Restore and drop rules are in [Safety and Recovery](SAFETY_AND_RECOVERY.md#saved-deduplicate-reviews).
 
 ## Architecture
 
@@ -89,6 +90,10 @@ Chronoframe/
       ChronoframeApp/       # SwiftUI app and views
       ChronoframeCLIKit/    # Swift CLI parser and runner
       ChronoframeCLI/       # Swift CLI executable
+      ChronoframePackaging/ChronoframePackagingTool/  # Bundle validation
+      ChronoframeIconTool/  # Retired hexagon icon renderer
+      ChronoframeVideoCalibrationTool/  # Video dedupe calibration
+      ChronoframeNASProbeTool/  # Real-share NAS qualification
     Tests/
     Chronoframe.xcodeproj
   docs/screenshots/
@@ -114,6 +119,8 @@ Native Swift core modules include:
 | `MutationRecoveryCoordinator` | Idempotent reconciliation of pending organize, dedupe, and reorganize state |
 | `LivePhotoMetadataLoader` | Bounded and cancellable Live Photo movie metadata loading |
 | `LibraryHealthScanner` | On-demand destination health checks |
+| `Guardian*` (probe, classifier, manifest, mirror, restore) | Library Guardian engine; ships behind the disabled `GuardianCapability.isEnabled` flag |
+| `NAS*` | NAS assessment, copy-destination qualification, remote copy policy, volume classification |
 
 The app and CLI use the Swift engine for preview, transfer, revert, and reorganize. The old backend and hybrid adapter have been retired.
 
@@ -145,7 +152,7 @@ NAS assessment state lives outside the assessed library, under the app's Applica
 | `nas/libraries/<uuid>/assessment.db` | SQLite assessment store for one library: `Meta`, `Scans`, `Directories`, `Items`, `Issues`, `ReviewChoices`, `ReviewState` |
 | `nas/leases/<key>.lock` | Per-share lease file. `<key>` is 32 hex characters derived from file system type, share name (or `fsid:<id>` when the share name is unknown), and the share root's file ID. The server host is left out so DNS and IP aliases of one share are designed to collide. |
 
-A scan keeps its latest two generations; review choices and review state are not pruned. The app points the lease directory at `nas/leases` at launch (`NASStartup.configure()`); the CLI never sets it. If the lease folder can't be created, the app can't take the lease and the change does not start.
+A scan keeps its latest two generations; review choices and review state are not pruned. The app points the lease directory at `nas/leases` at launch (`NASStartup.configureForApp()`); the CLI never sets it. If the lease folder can't be created, the app can't take the lease and the change does not start.
 
 ### Journal Policy
 
@@ -158,7 +165,7 @@ Read-only opens ignore the policy.
 
 ### Probe Tool
 
-`ChronoframeNASProbeTool` is a local-only SwiftPM executable for real-share qualification evidence. CI builds it but never runs it. Run it only against an empty, disposable folder you created on the share. Run from the repo root after `docs/plan/nas-v1/bin/nas_swift.sh build`:
+`ChronoframeNASProbeTool` is a local-only SwiftPM executable for real-share qualification evidence. CI builds it but never runs it. Run it only against an empty, disposable folder you created on the share. Run from the repo root after `docs/plan/next-half/bin/cf_swift.sh build`:
 
 ```bash
 ui/.build/debug/ChronoframeNASProbeTool probe --test-dir "/Volumes/<share>/<empty-test-folder>" > probe.json
@@ -248,9 +255,9 @@ Commit preflights the receipt directory, writes a pending receipt and recovery j
 
 The **Photos** sidebar destination imports copies of photos and videos out of the Apple Photos library into the active organize destination. It is read-only, one-directional, and review-gated.
 
-Chronoframe never mutates the Photos library. Authorization, album/asset enumeration, and export all go through read-only PhotoKit APIs; the export seam has no mutating method, and `script/check_photos_import_readonly.sh` fails CI if a mutating PhotoKit symbol (`performChanges`, any change request) appears in a file that imports Photos (safety invariant #22).
+Chronoframe never mutates the Photos library. Authorization, album/asset enumeration, and export all go through read-only PhotoKit APIs; the export seam has no mutating method, and `script/check_photos_import_readonly.sh` fails CI if a mutating PhotoKit symbol (`performChanges`, any change request) appears in a file that imports Photos (INV-22).
 
-Import runs in two stages. First, the selected assets' **original** (unedited) resources are exported with `PHAssetResourceManager` into a per-import staging directory under Application Support (`photos_import_staging/<uuid>/`); a Live Photo's still and paired movie share a basename, and export is transactional per asset (a partial write is rolled back so an incomplete pair never reaches the pipeline). Second, that staging directory is fed to the normal verified-transfer pipeline as the run source, so preview, consent, verification, receipts, and interruption recovery are identical to any other organize run. The destination is captured when the user clicks Import and revalidated before the transfer; a change cancels rather than retargets. Staging is deleted when a transfer run consumes it (a preview that fails or is cancelled counts), when the user discards an interrupted import or starts a new one, or when a prepare produced nothing. A prepare that finished but whose run never started or finished is not resumable: the launch refresh removes its staging folder, because only stopped, paused or crashed prepares are resumable. A stopped, paused, or crashed prepare keeps its completely exported assets with a checkpoint, `photos_import_staging/<uuid>/.chronoframe_photos_checkpoint.json` (versioned JSON, rewritten atomically after every asset), so the import can resume; a partially written asset is rolled back. The export pauses below a 2 GiB free-space floor on the volume holding the staging folder. Resume revalidates the destination path, Photos authorization, and that each completed file exists at its recorded size; it removes any staging file the checkpoint does not record before exporting the remaining assets, and the planner's `SourceDateHint` check remains the content gate. Failed assets are recorded in the checkpoint and skipped, not retried. See [Safety and Recovery](SAFETY_AND_RECOVERY.md).
+Import runs in two stages. First, the selected assets' **original** (unedited) resources are exported with `PHAssetResourceManager` into a per-import staging directory under Application Support (`photos_import_staging/<uuid>/`); a Live Photo's still and paired movie share a basename, and export is transactional per asset (a partial write is rolled back so an incomplete pair never reaches the pipeline). Second, that staging directory is fed to the normal verified-transfer pipeline as the run source, so preview, consent, verification, receipts, and interruption recovery are identical to any other organize run. The destination is captured when the user clicks Import and revalidated before the transfer; a change cancels rather than retargets. Staging is deleted when a transfer run consumes it, when the user discards an interrupted import or starts a new one, or when a prepare produced nothing. A stopped, paused, or crashed prepare keeps its completely exported assets with a versioned checkpoint, `photos_import_staging/<uuid>/.chronoframe_photos_checkpoint.json`, so the import can resume; the planner's `SourceDateHint` check remains the content gate. Low-space pause (2 GiB floor), resume validation, failed-asset handling, and the one-interrupted-import rule are specified in [Safety and Recovery](SAFETY_AND_RECOVERY.md#photos-import-checkpoints).
 
 iCloud-only originals are downloaded on demand during export. `.limited` authorization is honored — the browser imports whatever subset the user has granted.
 

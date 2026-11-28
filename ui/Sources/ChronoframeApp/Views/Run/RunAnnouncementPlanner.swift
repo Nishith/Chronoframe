@@ -19,11 +19,23 @@ enum RunAnnouncementPlanner {
         var status: RunStatus
         var phase: RunPhase?
         var progress: Double
+        /// The user asked to stop and the run has not stopped yet.
+        var isCancelling: Bool
+        /// The finished run reported failed, errored or unreadable files.
+        var hasOutcomeIssues: Bool
 
-        init(status: RunStatus, phase: RunPhase?, progress: Double) {
+        init(
+            status: RunStatus,
+            phase: RunPhase?,
+            progress: Double,
+            isCancelling: Bool = false,
+            hasOutcomeIssues: Bool = false
+        ) {
             self.status = status
             self.phase = phase
             self.progress = progress
+            self.isCancelling = isCancelling
+            self.hasOutcomeIssues = hasOutcomeIssues
         }
     }
 
@@ -65,7 +77,19 @@ enum RunAnnouncementPlanner {
         // 1. Terminal status changes win — they're the most important to hear,
         //    and the only ones important enough to interrupt the user.
         if new.status != old.status, let message = terminalMessage(for: new.status) {
+            if new.status == .finished, new.hasOutcomeIssues {
+                return Announcement(
+                    message: String(localized: "Copy finished with problems. Your original files were left untouched.", bundle: .module),
+                    priority: .high
+                )
+            }
             return Announcement(message: message, priority: .high)
+        }
+
+        // 1b. Stop requested: say so once, so the silence while the engine
+        //     finishes its receipt is not mistaken for a hang.
+        if new.status == .running, new.isCancelling, !old.isCancelling {
+            return Announcement(message: String(localized: "Stopping…", bundle: .module), priority: .medium)
         }
 
         // 2. Phase changes during an active run.
@@ -79,7 +103,7 @@ enum RunAnnouncementPlanner {
             let oldBucket = bucket(for: old.progress)
             let newBucket = bucket(for: new.progress)
             if newBucket > oldBucket, newBucket > 0, newBucket < bucketsPerWhole {
-                return Announcement(message: "\(newBucket * progressBucketPercent) percent copied", priority: .low)
+                return Announcement(message: String(localized: "\(String(newBucket * progressBucketPercent)) percent copied", bundle: .module), priority: .low)
             }
         }
 
@@ -98,23 +122,23 @@ enum RunAnnouncementPlanner {
     private static func terminalMessage(for status: RunStatus) -> String? {
         switch status {
         case .finished:
-            return "Copy complete."
+            return String(localized: "Copy complete.", bundle: .module)
         case .dryRunFinished:
-            return "Preview ready for review."
+            return String(localized: "Preview ready for review.", bundle: .module)
         case .nothingToCopy:
-            return "Nothing new to copy."
+            return String(localized: "Nothing new to copy.", bundle: .module)
         case .failed:
-            return "Chronoframe could not finish. Your original files were left untouched."
+            return String(localized: "Chronoframe could not finish. Your original files were left untouched.", bundle: .module)
         case .cancelled:
-            return "Stopped. Your original files were left untouched."
+            return String(localized: "Stopped. Your original files were left untouched.", bundle: .module)
         case .reverted:
-            return "Undo complete."
+            return String(localized: "Undo complete.", bundle: .module)
         case .revertEmpty:
-            return "Nothing to undo."
+            return String(localized: "Nothing to undo.", bundle: .module)
         case .reorganized:
-            return "Layout updated."
+            return String(localized: "Layout updated.", bundle: .module)
         case .nothingToReorganize:
-            return "Layout already matches."
+            return String(localized: "Layout already matches.", bundle: .module)
         case .idle, .preflighting, .running:
             return nil
         }

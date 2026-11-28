@@ -256,7 +256,7 @@ struct NASLibraryView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle(Self.navigationTitle)
+        .navigationTitle(Text(LocalizedStringKey(Self.navigationTitle), bundle: .module))
         .task { await viewModel.viewDidAppear() }
     }
 
@@ -322,7 +322,7 @@ struct NASLibraryView: View {
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 } else {
                     ProgressView().controlSize(.small)
-                    Text(verbatim: "\(store.progress.directories) folders, \(store.progress.files) files")
+                    Text(verbatim: PluralPhrases.scanProgress(folders: store.progress.directories, files: store.progress.files))
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }

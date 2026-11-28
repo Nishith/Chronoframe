@@ -1,5 +1,7 @@
 # Photos import resume — acceptance matrix
 
+Status: shipped in PR #268. Automated rows are pass; hardware rows are still owner-only.
+
 Status values: `todo`, `pass (<commit>)`, `fail`, `todo-hardware`, `pass-hardware (<date>, Nishith)`. Only Nishith sets `pass-hardware`.
 
 | ID | Requirement (Round 3 #3) | Automated coverage (class/method) | Hardware row | Auto status | Hardware status |

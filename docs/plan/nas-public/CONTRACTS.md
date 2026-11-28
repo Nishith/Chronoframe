@@ -1,5 +1,7 @@
 # NAS public — contracts
 
+Status: shipped in PR #266 behind the disabled NAS flag. Durable design contract; code and other docs refer to its C-numbers. The `strings-app.txt` / `strings-core.txt` working lists this plan mentions were removed 2026-11-23 (every key is in the catalogs; see git history).
+
 Plan prefix `NASP`. Branch `feature/nas-v1` (existing). Read `docs/plan/next-half/AGENT_RULES.md` first; `docs/plan/nas-v1/` remains the record of the v1 build and its contracts C-01…C-14 still bind. Line numbers refer to `feature/nas-v1` at `4b992a4`.
 
 Goal: close the owner decisions in `docs/plan/nas-v1/FINAL_REPORT.md` that are agent work (items 1–5), so the branch is ready for the owner's hardware checks and release flag flip. Nothing here touches the flag's release value, StoreKit, or App Review.

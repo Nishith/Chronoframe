@@ -332,7 +332,7 @@ struct ClusterDetailPane: View {
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(role.label): \(AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent))")
+        .accessibilityLabel("\(AppLocalization.string(role.label)): \(AccessibilityPathFormatter.formatFilename(URL(fileURLWithPath: member.path).lastPathComponent))")
         .accessibilityHint(DeduplicateAccessibilityText.selectsForKeyboardActionsHint(member))
         .accessibilityAddTraits(isFocused ? .isSelected : [])
     }
@@ -342,7 +342,7 @@ struct ClusterDetailPane: View {
             Image(systemName: role.systemImage)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(role.tint)
-            Text(role.label)
+            Text(LocalizedStringKey(role.label), bundle: .module)
                 .scaledFont(.label, weight: .semibold)
                 .foregroundStyle(.white)
             if differentiateWithoutColor {
@@ -481,7 +481,7 @@ struct ClusterDetailPane: View {
 
     private func metaRow(_ label: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
@@ -495,45 +495,48 @@ struct ClusterDetailPane: View {
     private func qualityRow(_ label: String, score: Double) -> some View {
         let (filled, text) = Self.qualityLabel(score)
         return HStack(alignment: .firstTextBaseline) {
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
-            HStack(spacing: 3) {
-                ForEach(0..<5, id: \.self) { i in
-                    Circle()
-                        .fill(i < filled ? DesignTokens.ColorSystem.accentAction : DesignTokens.ColorSystem.hairline)
-                        .frame(width: 5, height: 5)
+            VStack(alignment: .trailing, spacing: 3) {
+                HStack(spacing: 3) {
+                    ForEach(0..<5, id: \.self) { i in
+                        Circle()
+                            .fill(i < filled ? DesignTokens.ColorSystem.accentAction : DesignTokens.ColorSystem.hairline)
+                            .frame(width: 5, height: 5)
+                    }
                 }
+                Text(LocalizedStringKey(text), bundle: .module)
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text(text)
-                .scaledFont(.label)
-                .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
-        .help(String(format: "Match score: %.2f", score))
+        .help(String(localized: "Match score: \(score.formatted(.number.precision(.fractionLength(2))))", bundle: .module))
     }
 
     private func sharpnessRow(_ label: String, score: Double) -> some View {
         let text = Self.sharpnessLabel(score)
         return HStack(alignment: .firstTextBaseline) {
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
-            Text(text)
+            Text(LocalizedStringKey(text), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
-        .help(String(format: "Match score: %.2f", score))
+        .help(String(localized: "Match score: \(score.formatted(.number.precision(.fractionLength(2))))", bundle: .module))
     }
 
     private func faceRow(_ label: String, detected: Bool) -> some View {
         HStack(alignment: .firstTextBaseline) {
-            Text(label)
+            Text(LocalizedStringKey(label), bundle: .module)
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
             Spacer()
-            Label(detected ? "Detected" : "None", systemImage: detected ? "person.fill" : "person.slash")
+            Label(LocalizedStringKey(detected ? "Detected" : "None"), systemImage: detected ? "person.fill" : "person.slash")
                 .scaledFont(.label)
                 .foregroundStyle(DesignTokens.ColorSystem.textOnImageStage)
         }
@@ -564,28 +567,30 @@ struct ClusterDetailPane: View {
     private func metadataAccessibilityValue(for member: PhotoCandidate, cluster: DuplicateCluster) -> String {
         var parts: [String] = [
             DeduplicateInspectorText.title(forCaptureDate: member.captureDate),
-            "File \(DeduplicateInspectorText.fileName(forPath: member.path))",
-            "Size \(byteCountFormatter.string(fromByteCount: member.size))"
+            String(localized: "File \(DeduplicateInspectorText.fileName(forPath: member.path))", bundle: .module),
+            String(localized: "Size \(byteCountFormatter.string(fromByteCount: member.size))", bundle: .module)
         ]
         if let width = member.pixelWidth, let height = member.pixelHeight {
-            parts.append("Dimensions \(width) by \(height)")
+            parts.append(String(localized: "Dimensions \(String(width)) by \(String(height))", bundle: .module))
         }
         if member.mediaKind == .video {
             if let rate = member.videoEstimatedDataRate, rate > 0 {
-                parts.append("Data rate \(Self.formattedDataRate(rate))")
+                parts.append(String(localized: "Data rate \(Self.formattedDataRate(rate))", bundle: .module))
             }
         } else {
-            parts.append("Quality \(Self.qualityLabel(member.qualityScore).1)")
-            parts.append("Sharpness \(Self.sharpnessLabel(member.sharpness))")
+            let quality = String(localized: String.LocalizationValue(Self.qualityLabel(member.qualityScore).1), bundle: .module)
+            let sharpness = String(localized: String.LocalizationValue(Self.sharpnessLabel(member.sharpness)), bundle: .module)
+            parts.append(String(localized: "Quality \(quality)", bundle: .module))
+            parts.append(String(localized: "Sharpness \(sharpness)", bundle: .module))
             if let face = member.faceScore {
-                parts.append(face > 0.5 ? "Face detected" : "No face detected")
+                parts.append(face > 0.5 ? String(localized: "Face detected", bundle: .module) : String(localized: "No face detected", bundle: .module))
             }
             if member.isRaw {
                 parts.append("RAW")
             }
         }
         if let pairedPath = member.pairedPath {
-            parts.append("Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)")
+            parts.append(String(localized: "Paired with \(URL(fileURLWithPath: pairedPath).lastPathComponent)", bundle: .module))
         }
         if let annotation = cluster.annotation {
             parts.append(MatchReasonFormatter.oneLiner(annotation))
@@ -743,13 +748,27 @@ struct ClusterDetailPane: View {
                     showingReasonDetail.toggle()
                 }
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: showingReasonDetail ? "chevron.down" : "chevron.right")
-                        .font(.caption2)
-                    Text("Why matched")
-                        .scaledFont(.label, weight: .medium)
-                    Spacer()
-                    confidenceBadge(annotation.confidence)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 4) {
+                        Image(systemName: showingReasonDetail ? "chevron.down" : "chevron.right")
+                            .font(.caption2)
+                        Text("Why matched")
+                            .scaledFont(.label, weight: .medium)
+                            .fixedSize()
+                        Spacer()
+                        confidenceBadge(annotation.confidence)
+                            .fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: showingReasonDetail ? "chevron.down" : "chevron.right")
+                                .font(.caption2)
+                            Text("Why matched")
+                                .scaledFont(.label, weight: .medium)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        confidenceBadge(annotation.confidence)
+                    }
                 }
                 .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 .contentShape(Rectangle())
@@ -864,7 +883,7 @@ enum DeduplicateInspectorText {
         locale: Locale = .current,
         timeZone: TimeZone = .current
     ) -> String {
-        guard let captureDate else { return "Capture date unknown" }
+        guard let captureDate else { return String(localized: "Capture date unknown", bundle: .module) }
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.timeZone = timeZone

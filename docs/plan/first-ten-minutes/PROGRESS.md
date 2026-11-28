@@ -1,5 +1,7 @@
 # First ten minutes — progress
 
+Status: not started (verified 2026-11-22 on main 8308aac: `git grep` finds no `RunPreflightAssessment`, `PreflightService`, `FirstRunTestBatch` or `RunProofModel` in `ui/`). Every WP is `todo`.
+
 Prefix `FTM`. Status values: todo, in-progress, review, done, blocked.
 
 ## Baseline

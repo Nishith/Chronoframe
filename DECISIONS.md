@@ -1,5 +1,13 @@
 # Decisions
 
+## German translation import (2026-11-15)
+
+- Merge only German translations for existing keys from `/Users/nishithnand/Downloads/Translation DE`; preserve current keys, English, other languages and extraction metadata. The supplied catalogs predate newer app copy, which continues to fall back to English. Omit the unused incoming `%d duplicates found` key.
+- Repair the supplied app catalog's trailing comma and move its misplaced `Nicht ausgewählt` translation to `Not selected`; retain the existing correct `Nichts zu bereinigen` translation for `Nothing to deduplicate`. Do not modify the supplied files.
+- Register German in the Xcode project's known regions; continue using the existing system language selection and localization bundles.
+- Follow-up UI check: complete German coverage for newer catalog/UI strings and repair plain-String presentation paths that bypass localization. Use informal German consistent with the supplied translations. Preserve filenames, folder names, paths, persisted identifiers and on-disk formats verbatim. Verify with the existing synthetic UI scenarios in an isolated German launch; do not change the user's app language preferences or operate on their library.
+- App views consume some native Core model titles/messages through generic components, so their missing German keys are also present in the App table; existing App translations take precedence. Library Health's dynamic byte/count messages carry optional typed `messageDetails` to the App formatter rather than parsing English. Existing English messages and legacy decoding remain compatible.
+
 ## Conflicting capture dates (2026-11-06)
 
 - Compare the metadata date's calendar day after applying its EXIF UTC offset with the parsed filename calendar day. Flag only when the two calendar days are more than one day apart; this avoids noise from timezone crossings and near-midnight photos. The metadata instant and its offset remain unchanged for sorting and bucketing.

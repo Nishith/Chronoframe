@@ -374,6 +374,31 @@ final class SetupScreenModelTests: XCTestCase {
         XCTAssertEqual(itemsNoVerify[2].tone, .warning)
     }
 
+    /// The preview reassurance must not claim zero disk writes: planning
+    /// writes `.organize_logs/dry_run_report_*.csv`,
+    /// `.organize_logs/preview_review_*.jsonl` and `.organize_cache.db` rows.
+    /// What a preview does promise is that no media lands in the destination
+    /// and that the source is left untouched.
+    // AGENTS-INVARIANT: 10
+    func testPreviewSafetySummaryPromisesNoDestinationMediaWithoutClaimingNoWrites() throws {
+        let preview = TrustProofModel.runSafetySummary(isTransfer: false)
+        let item = try XCTUnwrap(preview.first)
+
+        XCTAssertEqual(item.id, "active_run")
+        XCTAssertEqual(
+            item.message,
+            "Reading and planning the copy only. No photos or videos are added to the destination, and your original files stay untouched."
+        )
+        XCTAssertEqual(
+            item.accessibilityLabel,
+            "Active preview. Nothing is added to the destination, and originals stay untouched."
+        )
+        XCTAssertFalse(item.message.contains("No files are modified or written"))
+
+        let transfer = try XCTUnwrap(TrustProofModel.runSafetySummary(isTransfer: true).first)
+        XCTAssertEqual(transfer.message, "Writing copies to the destination. Your original files stay untouched.")
+    }
+
     func testTrustProofModelDeduplicateSummary() {
         let items = TrustProofModel.deduplicateSafetySummary(reviewedGroups: 5, unreviewedGroups: 2, willDeleteCount: 10)
         XCTAssertEqual(items.count, 3)

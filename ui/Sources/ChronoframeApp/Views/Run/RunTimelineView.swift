@@ -6,8 +6,11 @@ import SwiftUI
 import TipKit
 
 /// The emotional centerpiece of the Run view: a chronological histogram of
-/// the photos and videos found in the source. Each bar is one year-month;
-/// height scales with the file count for that month.
+/// the transfers planned for this run. Each bar is one year-month; height
+/// scales with the number of planned files for that month. It is a
+/// distribution, not a progress meter — the engine reports copies for the run
+/// as a whole, never per month, so aggregate progress is reported separately
+/// in `progressCaption`.
 ///
 /// Supports visual scrubbing and selection to inspect files planned for each month.
 struct RunTimelineView: View {
@@ -31,7 +34,8 @@ struct RunTimelineView: View {
                         buckets: buckets,
                         barFills: barFills,
                         selectedBucketKey: $selectedBucketKey,
-                        isScrubbing: $isScrubbing
+                        isScrubbing: $isScrubbing,
+                        customAccessibilityValue: accessibilityValue(selectedKey: selectedBucketKey)
                     )
 
                     if let selectedBucketKey, let bucket = buckets.first(where: { $0.key == selectedBucketKey }) {
@@ -43,7 +47,16 @@ struct RunTimelineView: View {
                     }
                 }
 
-                Text(subtitle)
+                if let progressCaption {
+                    Text(progressCaption)
+                        .scaledFont(.label)
+                        .foregroundStyle(DesignTokens.ColorSystem.captionText)
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .accessibilityIdentifier("RunTimelineProgressCaption")
+                }
+
+                Text(LocalizedStringKey(subtitle), bundle: .module)
                     .scaledFont(.body)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -78,7 +91,7 @@ struct RunTimelineView: View {
                     Text(formatMonthYear(bucket.key))
                         .scaledFont(.subtitle, weight: .bold)
                         .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
-                    Text("\(bucket.plannedCount.formatted(.number)) files to copy")
+                    Text(TimelinePlurals.filesToCopy(bucket.plannedCount))
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.captionText)
                 }
@@ -153,11 +166,11 @@ struct RunTimelineView: View {
     private var emptyStateMessage: String {
         switch model.context.status {
         case .idle:
-            return "Preview the plan to see the timeline of your folders."
+            return String(localized: "Preview the plan to see the timeline of your folders.", bundle: .module)
         case .preflighting, .running:
-            return "Scanning your folders — bars will appear as files are dated."
+            return String(localized: "Scanning your folders — bars will appear as files are dated.", bundle: .module)
         default:
-            return "No dated files found in these folders."
+            return String(localized: "No dated files found in these folders.", bundle: .module)
         }
     }
 
@@ -167,77 +180,87 @@ struct RunTimelineView: View {
         model.context.metrics.dateHistogram
     }
 
-    /// Distributes `copiedCount` across buckets left-to-right. Each bucket gets
-    /// a fill ratio in [0, 1].
-    private var barFills: [Double] {
+    /// No bar claims completion. `copiedCount` is a run-wide total that says
+    /// nothing about which months those files came from, so draining it across
+    /// buckets — or saturating every bar on `.finished` — would assert a
+    /// per-month outcome the engine never reported. Aggregate progress is
+    /// shown as text in `progressCaption` instead.
+    var barFills: [Double] {
+        Array(repeating: 0, count: buckets.count)
+    }
+
+    /// Run-wide copy progress, stated as a total rather than drawn onto the
+    /// distribution. `nil` wherever no copying has been attempted yet.
+    var progressCaption: String? {
+        let planned = model.context.metrics.plannedCount
+        guard planned > 0 else { return nil }
         let copied = model.context.metrics.copiedCount
-        var remaining = copied
-        return buckets.map { bucket in
-            guard bucket.plannedCount > 0 else { return 0 }
-            let used = min(remaining, bucket.plannedCount)
-            remaining -= used
-            let ratio = Double(used) / Double(bucket.plannedCount)
-            if model.context.status == .finished || model.context.status == .nothingToCopy {
-                return 1.0
-            }
-            return ratio
+        switch model.context.status {
+        case .running where model.context.currentPhase == .copy:
+            return String(localized: "\(copied.formatted(.number)) \(TimelinePlurals.ofPlannedFiles(planned)) copied so far", bundle: .module)
+        case .finished:
+            return String(localized: "\(copied.formatted(.number)) \(TimelinePlurals.ofPlannedFiles(planned)) copied", bundle: .module)
+        case .failed, .cancelled:
+            return String(localized: "\(copied.formatted(.number)) \(TimelinePlurals.ofPlannedFiles(planned)) copied before the run stopped", bundle: .module)
+        default:
+            return nil
         }
     }
 
-    private var rangeCaption: String {
+    var rangeCaption: String {
         let dated = buckets.filter { $0.key != "Unknown" }
         guard let first = dated.first, let last = dated.last else {
             let total = buckets.reduce(0) { $0 + $1.plannedCount }
-            return total > 0 ? "\(total.formatted()) files" : "—"
+            return total > 0 ? TimelinePlurals.plannedFiles(total) : "—"
         }
         let firstYear = String(first.key.prefix(4))
         let lastYear = String(last.key.prefix(4))
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
         if firstYear == lastYear {
-            return "\(firstYear) · \(total.formatted()) files"
+            return "\(firstYear) · \(TimelinePlurals.plannedFiles(total))"
         }
-        return "\(firstYear)–\(lastYear) · \(total.formatted()) files"
+        return "\(firstYear)–\(lastYear) · \(TimelinePlurals.plannedFiles(total))"
     }
 
-    private var subtitle: String {
+    var subtitle: String {
         switch model.context.status {
         case .running:
             if model.context.currentPhase == .copy {
-                return "Each bar fills as those frames find their place."
+                return String(localized: "Every bar is a month of planned transfers. Progress is counted for the run as a whole.", bundle: .module)
             }
-            return "Reading dates from your folders."
+            return String(localized: "Reading dates from your folders.", bundle: .module)
         case .dryRunFinished:
-            return "Here's the shape of your folders — every bar a month of frames waiting to land."
+            return String(localized: "Every bar is a month of planned transfers waiting to land.", bundle: .module)
         case .finished:
-            return "Every frame is home."
+            return String(localized: "Every frame is home.", bundle: .module)
         case .nothingToCopy:
-            return "Your organized library already has everything it needs."
+            return String(localized: "Your organized library already has everything it needs.", bundle: .module)
         case .failed:
-            return "Chronoframe stopped early. Your originals were not changed. See Problems to continue."
+            return String(localized: "Chronoframe stopped early. Your originals were not changed. See Problems to continue.", bundle: .module)
         case .cancelled:
-            return "Stopped. Your originals were not changed. Preview again when ready."
+            return String(localized: "Stopped. Your originals were not changed. Preview again when ready.", bundle: .module)
         case .preflighting:
-            return "Getting ready."
+            return String(localized: "Getting ready.", bundle: .module)
         case .idle:
-            return "Preview the plan to see the timeline of your folders."
+            return String(localized: "Preview the plan to see the timeline of your folders.", bundle: .module)
         case .reverted:
-            return "Files restored to their original state."
+            return String(localized: "Files restored to their original state.", bundle: .module)
         case .revertEmpty:
-            return "That receipt lists no copies."
+            return String(localized: "That receipt lists no copies.", bundle: .module)
         case .reorganized:
-            return "Layout updated in place."
+            return String(localized: "Layout updated in place.", bundle: .module)
         case .nothingToReorganize:
-            return "The library already matches this layout."
+            return String(localized: "The library already matches this layout.", bundle: .module)
         }
     }
 
-    private var accessibilityValue: String {
+    func accessibilityValue(selectedKey: String?) -> String {
         let total = buckets.reduce(0) { $0 + $1.plannedCount }
         let copied = model.context.metrics.copiedCount
-        if let selected = selectedBucketKey {
-            return "Selected month: \(selected). \(copied) of \(total) frames placed across \(buckets.count) months."
+        if let selected = selectedKey {
+            return String(localized: "Selected month: \(selected). \(TimelinePlurals.plannedFiles(total)) \(TimelinePlurals.acrossMonths(buckets.count)). \(copied) copied so far for the run as a whole.", bundle: .module)
         }
-        return "\(copied) of \(total) frames placed across \(buckets.count) months. Unselected."
+        return String(localized: "\(TimelinePlurals.plannedFiles(total)) \(TimelinePlurals.acrossMonths(buckets.count)). \(copied) copied so far for the run as a whole. Unselected.", bundle: .module)
     }
 }
 
@@ -373,7 +396,7 @@ struct RunPhaseStrip: View {
     private var phasesAccessibilityValue: String {
         let completed = model.phaseEntries.filter { $0.state == .complete }.count
         let total = model.phaseEntries.count
-        return "\(completed) of \(total) phases complete"
+        return TimelinePlurals.phasesComplete(completed, of: total)
     }
 
     private var currentIndex: Int? {
