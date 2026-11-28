@@ -132,6 +132,16 @@ enum PluralPhrases {
         phrase(count, one: "Copy This File", other: "Copy These %@ Files", bundle: bundle)
     }
 
+    // MARK: Photos import
+
+    static func editedPhotosWillAlsoBeSaved(_ count: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        phrase(count, one: "1 edited photo will also be saved", other: "%@ edited photos will also be saved", locale: locale, bundle: bundle)
+    }
+
+    static func editedVideosNotIncluded(_ count: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        phrase(count, one: "1 edited video or Live Photo not included", other: "%@ edited videos and Live Photos not included", locale: locale, bundle: bundle)
+    }
+
     // MARK: NAS
 
     static func foldersChecked(_ count: Int, bundle: Bundle = .module) -> String {

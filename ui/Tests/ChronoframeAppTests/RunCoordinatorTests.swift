@@ -1,5 +1,5 @@
 #if canImport(ChronoframeAppCore)
-import ChronoframeAppCore
+@testable import ChronoframeAppCore
 #endif
 import Foundation
 import XCTest
@@ -432,6 +432,32 @@ final class RunCoordinatorTests: XCTestCase {
         XCTAssertEqual(reportedErrors.count, 1)
         XCTAssertTrue(reportedErrors[0].contains("destination changed"),
                       "Message must explain why the import did not start: \(reportedErrors)")
+    }
+
+    @MainActor
+    func testPhotosImportEditedCountsFollowThePhotosRunOnly() async throws {
+        let harness = AppStateHarness()
+        harness.setupStore.sourcePath = "/tmp/source"
+        harness.setupStore.destinationPath = "/tmp/destination"
+        let coordinator = makePhotosCoordinator(harness: harness, cleanupPhotosStaging: {
+            try? FileManager.default.removeItem(at: $0.stagingDirectoryURL)
+        })
+        let context = try makePhotosContext(destinationPath: "/tmp/destination")
+        XCTAssertNil(coordinator.photosImportEditedVersionCounts)
+
+        await coordinator.startPreview(photosImportContext: context, editedVersionCounts: nil)
+        XCTAssertNil(coordinator.photosImportEditedVersionCounts, "Edited versions off: nothing to show")
+        _ = await waitForCondition { harness.runSessionStore.summary != nil }
+
+        let counts = PhotosImportEditedVersionCounts(
+            includedEditedVersions: true, originals: 1, editedVersions: 1, couldNotSave: 0, notIncluded: 0
+        )
+        await coordinator.startPreview(photosImportContext: context, editedVersionCounts: counts)
+        XCTAssertEqual(coordinator.photosImportEditedVersionCounts, counts)
+
+        _ = await waitForCondition { harness.runSessionStore.summary != nil }
+        await coordinator.startPreview()
+        XCTAssertNil(coordinator.photosImportEditedVersionCounts, "A run from another source never shows them")
     }
 
     @MainActor

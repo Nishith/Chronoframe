@@ -27,7 +27,8 @@ struct CurrentRunView: View {
             runLogStore: runLogStore,
             historyStore: historyStore,
             canStartRun: appState.canStartRun,
-            previewReviewStore: previewReviewStore
+            previewReviewStore: previewReviewStore,
+            photosEditedVersionCounts: appState.photosImportEditedVersionCounts
         )
     }
 
@@ -145,6 +146,12 @@ private struct RunOutcomeSummaryCard: View {
                         summaryMetric("Not copied", value: model.outcomeMetrics.failedCount.formatted(), tint: DesignTokens.Color.danger)
                     }
                     summaryMetric("Problems", value: "\(model.problemCount)", tint: model.issueTone.color)
+                }
+
+                ForEach(model.photosEditedSummaryLines, id: \.self) { line in
+                    Text(verbatim: line)
+                        .font(.caption)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
 
                 Text(model.outcomeSummaryMessage)

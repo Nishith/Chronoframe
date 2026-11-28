@@ -24,6 +24,21 @@ public struct PhotosResumableImport: Equatable, Sendable {
     public let destinationMatches: Bool
 }
 
+/// What a prepared import holds beyond its originals, for the import summary.
+/// Counts come from the checkpoint, so a resumed import reports every asset.
+public struct PhotosImportEditedVersionCounts: Equatable, Sendable {
+    /// Whether the import ran with "Include edited versions" on.
+    public let includedEditedVersions: Bool
+    /// Completed assets.
+    public let originals: Int
+    /// Completed assets that also have an edited file.
+    public let editedVersions: Int
+    /// Assets whose edited render could not be saved.
+    public let couldNotSave: Int
+    /// Assets whose edit (video or Live Photo) is not exported.
+    public let notIncluded: Int
+}
+
 /// Thread-safe flag the export's `isCancelled` closure reads.
 private final class PhotosPreparationCancellation: @unchecked Sendable {
     private let lock = NSLock()
@@ -67,6 +82,11 @@ public final class PhotosImportStore: ObservableObject {
     @Published public private(set) var resumable: PhotosResumableImport?
     /// A plain, reassuring status/error line for the UI. Never raw error text.
     @Published public private(set) var statusMessage: String?
+    /// "Include edited versions" for the next import. Held only here, never
+    /// persisted; it returns to off when the import it belongs to ends.
+    @Published public var includeEditedVersions: Bool = false
+    /// Counts of the most recently prepared import, for the import summary.
+    @Published public private(set) var editedVersionCounts: PhotosImportEditedVersionCounts?
 
     private let access: any PhotosLibraryAccessing
     private let catalog: any PhotosCatalogReading
@@ -90,6 +110,7 @@ public final class PhotosImportStore: ObservableObject {
     /// write, so a rolled-back asset leaves nothing behind.
     private var pendingEditedFile: PhotosExportedFile?
     private var pendingEditedFailure = false
+    private var pendingEditedNotIncluded = false
     /// Staging directories handed out in a context whose run has not yet
     /// called `cleanupStaging(for:)`. A refresh must never treat these as
     /// consumed.
@@ -231,7 +252,8 @@ public final class PhotosImportStore: ObservableObject {
     /// `statusMessage`) if there is nothing to import or the export failed.
     /// The Photos library is never modified. A new prepare supersedes any
     /// interrupted import (the UI confirms first).
-    public func prepareImport(destination: DestinationCapture?, includeEditedVersions: Bool = false) async -> PhotosImportContext? {
+    /// `includeEditedVersions` defaults to the store's toggle.
+    public func prepareImport(destination: DestinationCapture?, includeEditedVersions: Bool? = nil) async -> PhotosImportContext? {
         guard !isPreparingImport else { return nil }
         guard let destination, !destination.path.isEmpty else {
             statusMessage = CoreL10n.text("Choose an organize destination before importing from Photos.")
@@ -263,7 +285,7 @@ public final class PhotosImportStore: ObservableObject {
             destinationPath: destination.path,
             destinationBookmarkKeys: destination.bookmarkKeys,
             plan: plan,
-            includeEditedVersions: includeEditedVersions
+            includeEditedVersions: includeEditedVersions ?? self.includeEditedVersions
         )
         return await runExport(
             checkpoint: checkpoint,
@@ -323,6 +345,7 @@ public final class PhotosImportStore: ObservableObject {
         guard !isPreparingImport, let resumable else { return }
         try? FileManager.default.removeItem(at: resumable.stagingDirectoryURL)
         self.resumable = nil
+        includeEditedVersions = false
     }
 
     /// Finds the interrupted import to offer, if any. Looks at the staging
@@ -394,6 +417,7 @@ public final class PhotosImportStore: ObservableObject {
     public func cleanupStaging(for context: PhotosImportContext) {
         preparedStagingPaths.remove(context.stagingDirectoryURL.standardizedFileURL.path)
         try? FileManager.default.removeItem(at: context.stagingDirectoryURL)
+        includeEditedVersions = false
     }
 
     // MARK: - Export driver
@@ -406,6 +430,7 @@ public final class PhotosImportStore: ObservableObject {
     ) async -> PhotosImportContext? {
         cancellation.reset()
         checkpointSaveFailed = false
+        editedVersionCounts = nil
         var checkpoint = initial
         checkpoint.setState(.inProgress, at: now())
         activeCheckpoint = checkpoint
@@ -468,6 +493,7 @@ public final class PhotosImportStore: ObservableObject {
             try? checkpointStore.save(finished, in: stagingDirectory)
             finishExport()
             resumable = nil
+            editedVersionCounts = Self.editedVersionCounts(of: finished)
 
             guard !finished.completed.isEmpty else {
                 removeEmptyImportDirectory(stagingDirectory)
@@ -598,6 +624,7 @@ public final class PhotosImportStore: ObservableObject {
         case .assetStarted(let assetID, _, _):
             pendingEditedFile = nil
             pendingEditedFailure = false
+            pendingEditedNotIncluded = false
             let label = selectedSummaries.first { $0.id == assetID }?.originalFilename
             preparation = updated(label: label, waiting: false)
         case .resourceProgress(_, let fraction):
@@ -609,7 +636,7 @@ public final class PhotosImportStore: ObservableObject {
         case .editedVersionFailed:
             pendingEditedFailure = true
         case .editedVersionNotIncluded:
-            break
+            pendingEditedNotIncluded = true
         case .assetCompleted(let assetID, let files, let hints):
             checkpoint.recordCompleted(
                 PhotosCompletedAssetRecord(assetID: assetID, files: files, sourceDateHints: hints, editedFile: pendingEditedFile),
@@ -618,8 +645,12 @@ public final class PhotosImportStore: ObservableObject {
             if pendingEditedFailure {
                 checkpoint.recordVariantFailure(PhotosVariantFailure(assetID: assetID, reason: .editedRenderUnavailable), at: now())
             }
+            if pendingEditedNotIncluded {
+                checkpoint.recordEditedNotIncluded(assetID: assetID, at: now())
+            }
             pendingEditedFile = nil
             pendingEditedFailure = false
+            pendingEditedNotIncluded = false
             guard saveProgress(checkpoint, in: stagingDirectory) else {
                 cancellation.cancel()
                 return
@@ -674,6 +705,16 @@ public final class PhotosImportStore: ObservableObject {
     }
 
     // MARK: - Helpers
+
+    private static func editedVersionCounts(of checkpoint: PhotosImportCheckpoint) -> PhotosImportEditedVersionCounts {
+        PhotosImportEditedVersionCounts(
+            includedEditedVersions: checkpoint.includeEditedVersions,
+            originals: checkpoint.completed.count,
+            editedVersions: checkpoint.completed.filter { $0.editedFile != nil }.count,
+            couldNotSave: Set(checkpoint.variantFailures.map(\.assetID)).count,
+            notIncluded: Set(checkpoint.editedNotIncludedAssetIDs).count
+        )
+    }
 
     private static let destinationMismatchMessage =
         CoreL10n.text("This import was prepared for a different destination. Choose that destination again to resume, or discard it.")

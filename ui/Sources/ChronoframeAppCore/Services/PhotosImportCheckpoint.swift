@@ -77,6 +77,9 @@ public struct PhotosImportCheckpoint: Equatable, Codable, Sendable {
     /// The "Include edited versions" choice for this import, repeated on Resume.
     public let includeEditedVersions: Bool
     public private(set) var variantFailures: [PhotosVariantFailure]
+    /// Completed assets whose edit (video or Live Photo) is not exported, so the
+    /// "not included" count survives a Resume.
+    public private(set) var editedNotIncludedAssetIDs: [String]
 
     public init(
         importID: UUID,
@@ -98,11 +101,12 @@ public struct PhotosImportCheckpoint: Equatable, Codable, Sendable {
         self.state = .inProgress
         self.includeEditedVersions = includeEditedVersions
         self.variantFailures = []
+        self.editedNotIncludedAssetIDs = []
     }
 
     private enum CodingKeys: String, CodingKey {
         case version, importID, createdAt, updatedAt, destinationPath, destinationBookmarkKeys
-        case plan, completed, failures, state, includeEditedVersions, variantFailures
+        case plan, completed, failures, state, includeEditedVersions, variantFailures, editedNotIncludedAssetIDs
     }
 
     public init(from decoder: Decoder) throws {
@@ -119,6 +123,7 @@ public struct PhotosImportCheckpoint: Equatable, Codable, Sendable {
         state = try container.decode(PhotosImportCheckpointState.self, forKey: .state)
         includeEditedVersions = try container.decodeIfPresent(Bool.self, forKey: .includeEditedVersions) ?? false
         variantFailures = try container.decodeIfPresent([PhotosVariantFailure].self, forKey: .variantFailures) ?? []
+        editedNotIncludedAssetIDs = try container.decodeIfPresent([String].self, forKey: .editedNotIncludedAssetIDs) ?? []
     }
 
     public var completedAssetIDs: Set<String> {
@@ -164,6 +169,8 @@ public struct PhotosImportCheckpoint: Equatable, Codable, Sendable {
     /// remaining and are exported again.
     public mutating func discardCompleted(assetIDs: Set<String>) {
         completed.removeAll { assetIDs.contains($0.assetID) }
+        variantFailures.removeAll { assetIDs.contains($0.assetID) }
+        editedNotIncludedAssetIDs.removeAll { assetIDs.contains($0) }
     }
 
     public mutating func recordFailure(_ failure: PhotosAssetExportFailure, at date: Date) {
@@ -173,6 +180,11 @@ public struct PhotosImportCheckpoint: Equatable, Codable, Sendable {
 
     public mutating func recordVariantFailure(_ failure: PhotosVariantFailure, at date: Date) {
         variantFailures.append(failure)
+        updatedAt = date
+    }
+
+    public mutating func recordEditedNotIncluded(assetID: String, at date: Date) {
+        editedNotIncludedAssetIDs.append(assetID)
         updatedAt = date
     }
 

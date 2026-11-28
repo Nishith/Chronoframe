@@ -344,6 +344,53 @@ final class PhotosImportCheckpointTests: XCTestCase {
         XCTAssertTrue(loaded.remainingEntries.isEmpty)
     }
 
+    /// D-EPR-119: the "edited video or Live Photo not included" count lives in
+    /// the checkpoint, so it survives a Resume. No version change; older files
+    /// decode with none.
+    func testNotIncludedAssetIDsRoundTripAndOldCheckpointsHaveNone() throws {
+        var checkpoint = PhotosImportCheckpoint(
+            importID: UUID(), createdAt: t0, destinationPath: "/tmp/dest", destinationBookmarkKeys: [],
+            plan: plan(["A", "B"]), includeEditedVersions: true
+        )
+        XCTAssertTrue(checkpoint.editedNotIncludedAssetIDs.isEmpty)
+        checkpoint.recordCompleted(record("A", names: ["IMG_A.HEIC"]), at: t0.addingTimeInterval(1))
+        checkpoint.recordEditedNotIncluded(assetID: "A", at: t0.addingTimeInterval(2))
+
+        let store = PhotosImportFileCheckpointStore()
+        try store.save(checkpoint, in: tempRoot)
+        let loaded = try XCTUnwrap(store.load(in: tempRoot))
+
+        XCTAssertEqual(PhotosImportCheckpoint.version, 2)
+        XCTAssertEqual(loaded, checkpoint)
+        XCTAssertEqual(loaded.editedNotIncludedAssetIDs, ["A"])
+        XCTAssertEqual(loaded.updatedAt.timeIntervalSince1970, t0.addingTimeInterval(2).timeIntervalSince1970, accuracy: 1)
+
+        try Data(versionOneJSON.utf8).write(to: tempRoot.appendingPathComponent(PhotosImportCheckpoint.filename))
+        XCTAssertEqual(try XCTUnwrap(store.load(in: tempRoot)).editedNotIncludedAssetIDs, [])
+    }
+
+    /// D-EPR-119: an asset that resume validation drops is exported again, so
+    /// its earlier variant failure and not-included entry are stale.
+    func testDiscardCompletedClearsStaleVariantFailure() {
+        var checkpoint = PhotosImportCheckpoint(
+            importID: UUID(), createdAt: t0, destinationPath: "/tmp/dest", destinationBookmarkKeys: [],
+            plan: plan(["A", "B", "C"]), includeEditedVersions: true
+        )
+        for id in ["A", "B", "C"] {
+            checkpoint.recordCompleted(record(id, names: ["IMG_\(id).HEIC"]), at: t0)
+        }
+        checkpoint.recordVariantFailure(PhotosVariantFailure(assetID: "A", reason: .editedRenderUnavailable), at: t0)
+        checkpoint.recordVariantFailure(PhotosVariantFailure(assetID: "C", reason: .editedRenderUnavailable), at: t0)
+        checkpoint.recordEditedNotIncluded(assetID: "B", at: t0)
+        checkpoint.recordEditedNotIncluded(assetID: "C", at: t0)
+
+        checkpoint.discardCompleted(assetIDs: ["A", "B"])
+
+        XCTAssertEqual(checkpoint.completedAssetIDs, ["C"])
+        XCTAssertEqual(checkpoint.variantFailures.map(\.assetID), ["C"], "Only the discarded assets' failures are dropped")
+        XCTAssertEqual(checkpoint.editedNotIncludedAssetIDs, ["C"])
+    }
+
     func testCheckpointLoaderRejectsUnknownVersion() throws {
         let url = tempRoot.appendingPathComponent(PhotosImportCheckpoint.filename)
         let store = PhotosImportFileCheckpointStore()

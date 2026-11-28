@@ -268,6 +268,14 @@ struct RunPreviewSummarySection: View {
                     .scaledFont(.cardTitle)
                     .foregroundStyle(DesignTokens.Color.inkPrimary)
 
+                if let editedLine = model.photosEditedPreviewLine {
+                    Label(editedLine, systemImage: "photo.badge.plus")
+                        .scaledFont(.body)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 let exceptions = model.previewHeadline.exceptions
                 if exceptions.isEmpty {
                     Text("No problems found.")

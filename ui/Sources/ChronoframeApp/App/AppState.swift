@@ -368,6 +368,12 @@ final class AppState: ObservableObject {
         runCoordinator.activePhotosImportContext != nil
     }
 
+    /// Edited-version counts of the Photos import the current or last run
+    /// belongs to; nil for every other run.
+    var photosImportEditedVersionCounts: PhotosImportEditedVersionCounts? {
+        runCoordinator.photosImportEditedVersionCounts
+    }
+
     /// Single navigation entry point. Setting both sidebar selection and the
     /// nested Organize sub-section in one place keeps the two-axis routing
     /// consistent across coordinators and views.
@@ -1355,7 +1361,10 @@ final class AppState: ObservableObject {
             return
         }
         previewReviewStore.reset()
-        await runCoordinator.startPreview(photosImportContext: context)
+        await runCoordinator.startPreview(
+            photosImportContext: context,
+            editedVersionCounts: photosImportStore.editedVersionCounts
+        )
     }
 
     /// The destination active right now, pinned by Photos prepare and resume.
@@ -1382,7 +1391,10 @@ final class AppState: ObservableObject {
             return
         }
         previewReviewStore.reset()
-        await runCoordinator.startPreview(photosImportContext: context)
+        await runCoordinator.startPreview(
+            photosImportContext: context,
+            editedVersionCounts: photosImportStore.editedVersionCounts
+        )
     }
 
     func revealTransferredSource(_ record: TransferredSourceRecord) {

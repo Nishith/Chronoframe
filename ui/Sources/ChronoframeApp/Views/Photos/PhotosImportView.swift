@@ -78,6 +78,18 @@ struct PhotosImportView: View {
         .onDisappear { thumbnailLoader.purgeCache() }
     }
 
+    /// The caption under the header follows the "Include edited versions" toggle.
+    static func headerCaption(for store: PhotosImportStore) -> String {
+        PhotosImportEditsCaption.text(includeEditedVersions: store.includeEditedVersions)
+    }
+
+    private var includeEditedVersionsBinding: Binding<Bool> {
+        Binding(
+            get: { store.includeEditedVersions },
+            set: { store.includeEditedVersions = $0 }
+        )
+    }
+
     // MARK: - Header
 
     private var header: some View {
@@ -90,10 +102,17 @@ struct PhotosImportView: View {
                     .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(PhotosImportEditsCaption.text(includeEditedVersions: false))
+                Text(Self.headerCaption(for: store))
                     .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Toggle(isOn: includeEditedVersionsBinding) {
+                    Text("Include edited versions", bundle: .module)
+                }
+                .toggleStyle(.checkbox)
+                .scaledFont(.label)
+                .disabled(store.isPreparingImport)
+                .padding(.top, 2)
             }
             Spacer()
         }
@@ -303,6 +322,17 @@ struct PhotosImportView: View {
                         .scaledFont(.label)
                         .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                 }
+                if let previewLine = editedPreviewLine {
+                    Text(verbatim: previewLine)
+                        .scaledFont(.label)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                }
+                ForEach(editedSummaryLines, id: \.self) { line in
+                    Text(verbatim: line)
+                        .scaledFont(.label)
+                        .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Spacer()
@@ -357,6 +387,22 @@ struct PhotosImportView: View {
         case 1: return "1 item selected."
         default: return "\(store.selectedCount) items selected."
         }
+    }
+
+    /// Before the transfer, while the prepared import is waiting for review.
+    private var editedPreviewLine: String? {
+        guard appState.hasActivePhotosImport else { return nil }
+        return PhotosImportEditsSummaryText.previewLine(for: store.editedVersionCounts)
+    }
+
+    /// Counts of the prepared import, only while it is still pending; the Run
+    /// view shows the finished summary.
+    private var editedSummaryLines: [String] {
+        Self.editedSummaryLines(counts: store.editedVersionCounts, hasActiveImport: appState.hasActivePhotosImport)
+    }
+
+    static func editedSummaryLines(counts: PhotosImportEditedVersionCounts?, hasActiveImport: Bool) -> [String] {
+        hasActiveImport ? PhotosImportEditsSummaryText.lines(for: counts) : []
     }
 
     private var destinationPath: String {
