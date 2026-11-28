@@ -13,7 +13,7 @@ Same as every next-half plan: one implementer at a time in this checkout; review
 | 2 | WP-03 (spike), then WP-04 (companions) | WP-02 |
 | G1 | gate | WP-04 |
 | 3 | WP-05 (export model), then WP-06 (executor), then WP-07 (UI) | G1 |
-| 4 | WP-08 (dedupe INV-30) | WP-06 |
+| 4 | WP-08 (dedupe INV-31) | WP-06 |
 | G2 | final gate | all |
 
 Run order: WP-00 → WP-01 → WP-02 → WP-03 → WP-04 → G1 → WP-05 → WP-06 → WP-07 → WP-08 → G2. WP-04 and WP-06 both touch the staging and transfer path, so they never run concurrently. WP-01 and WP-02 touch disjoint files and may be split across implementers only if the orchestrator wants; the default is sequential.
@@ -117,12 +117,12 @@ Read-only investigation, no production change. Answer in `DECISIONS.md` as `D-EP
   - `testPreviewShowsEditedPhotoCountWithoutByteTotal`
 - **Done when:** build 0; named tests pass; `check_app_layer_changes_have_tests.sh main` 0.
 
-## WP-08 — Dedupe protects edited variants (INV-30, safety-critical)
+## WP-08 — Dedupe protects edited variants (INV-31, safety-critical)
 - **Model:** cf-implementer; reviewer reads the full diff.
-- **Owned paths:** `DeduplicatePairDetector.swift` (`Kind.editedVariant`, detection), `DeduplicationPlanner.swift` (protected-variant handling only), commit-footer text, AGENTS.md INV-30 bullet, `docs/SAFETY_AND_RECOVERY.md`, `docs/FAQ.md`, `ui/Tests/ChronoframeAppCoreTests/DeduplicatePairDetectorTests.swift`, `DeduplicateTests.swift`, `DeduplicateExecutorQuarantineTests.swift` if executor identity paths need a case.
+- **Owned paths:** `DeduplicatePairDetector.swift` (`Kind.editedVariant`, detection), `DeduplicationPlanner.swift` (protected-variant handling only), commit-footer text, AGENTS.md INV-31 bullet, `docs/SAFETY_AND_RECOVERY.md`, `docs/FAQ.md`, `ui/Tests/ChronoframeAppCoreTests/DeduplicatePairDetectorTests.swift`, `DeduplicateTests.swift`, `DeduplicateExecutorQuarantineTests.swift` if executor identity paths need a case.
 - **Contracts:** C-06. **Decisions:** D-EPR-04, D-EPR-06.
-- **Process (CLAUDE.md goal-driven):** write each INV-30 test and see it fail first; make the change; run `check_agents_invariants_have_tests.sh`.
-- **Acceptance (all `// AGENTS-INVARIANT: 30`):**
+- **Process (CLAUDE.md goal-driven):** write each INV-31 test and see it fail first; make the change; run `check_agents_invariants_have_tests.sh`.
+- **Acceptance (all `// AGENTS-INVARIANT: 31`):**
   - `testEditedVariantDetectedByStemSameDirectoryCaseInsensitive` and `testDifferentDirectoryIsNotAVariant`
   - `testHighConfidenceClusterNeverAutoSelectsEditedVariant`
   - `testDeletingOriginalDoesNotFanOutToEditedVariant`
@@ -135,7 +135,7 @@ Read-only investigation, no production change. Answer in `DECISIONS.md` as `D-EP
 
 ## G2 — Final gate (orchestrator)
 1. `cf_swift.sh suite`, `coverage`, `guards main`, `xcode`; `script/check_agents_invariants_have_tests.sh`; `script/check_photos_import_readonly.sh`; `git diff --check`. All exit 0, recorded.
-2. Docs reread: AGENTS.md (INV-14, INV-22, :130, INV-30), TECHNICAL.md, SAFETY_AND_RECOVERY.md, FAQ.md agree with each other.
+2. Docs reread: AGENTS.md (INV-14, INV-22, :130, INV-31), TECHNICAL.md, SAFETY_AND_RECOVERY.md, FAQ.md agree with each other.
 3. If the app can be launched: `script/build_and_run.sh`, screenshot the Photos import options and an Organize preview with an unresolved-companion line; record the paths. Otherwise log BLOCKED and leave Verified unclaimed.
 4. Ledger rows H-EPR-1…6 stay `todo-hardware`. Never push.
 - **Done when:** PROGRESS.md shows every WP done with exit codes; the owner has the branch to review.

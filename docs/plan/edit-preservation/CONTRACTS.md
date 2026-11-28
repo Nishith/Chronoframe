@@ -51,17 +51,17 @@ Model changes (`ChronoframeAppCore/Services/PhotosExportExecutor.swift`, `Photos
 - Toggle `Include edited versions` in the Photos import options, default off, with the C-01 caption. Persisted only for the current import (not an app-wide setting).
 - Run summary and history show `Originals: N · Edited versions: M · Could not save: K`.
 
-## C-06 Edited-variant protection, INV-30 (EPR-5)
+## C-06 Edited-variant protection, INV-31 (EPR-5)
 Text for AGENTS.md `## Safety Invariants` (number 30):
 
-> **INV-30:** An edited variant exported from Apple Photos (`<stem>-edited.<ext>` beside `<stem>.<ext>` in one folder, matched case-insensitively) is never Trashed unless the user explicitly marks that file Delete. It is never selected by a cluster's automatic suggestion, never added by pair, sidecar or fanout rules, and is never a deletion consequence of its original being Deleted. Deleting the original leaves the variant in place.
+> **INV-31:** An edited variant exported from Apple Photos (`<stem>-edited.<ext>` beside `<stem>.<ext>` in one folder, matched case-insensitively) is never Trashed unless the user explicitly marks that file Delete. It is never selected by a cluster's automatic suggestion, never added by pair, sidecar or fanout rules, and is never a deletion consequence of its original being Deleted. Deleting the original leaves the variant in place.
 
 Implementation constraints:
 - `DeduplicatePairDetector` gets `Pair.Kind.editedVariant` (stem rule above, same directory). The planner treats the variant side as **protected**: it contributes `Keep` to its unit, and the only way it appears as a Delete target is an explicit user Delete on that exact path.
 - A variant is still a normal photo in clusters, so a user can review it. Only automatic selection and fanout are blocked.
 - Commit footer counts `N edited versions kept`.
 - Plans stay derived from immutable scan snapshots with expected identity; `DeduplicationPlanner.plan` remains the single source (CLAUDE.md).
-- Tag tests `// AGENTS-INVARIANT: 30`; add the bullet to AGENTS.md; `script/check_agents_invariants_have_tests.sh` must pass.
+- Tag tests `// AGENTS-INVARIANT: 31`; add the bullet to AGENTS.md; `script/check_agents_invariants_have_tests.sh` must pass.
 
 ## C-07 Docs
-`docs/SAFETY_AND_RECOVERY.md`, `docs/TECHNICAL.md` (Photos import paragraph, Organize and Deduplicate sections), `docs/FAQ.md`, `AGENTS.md` (INV-22 wording, INV-14 `.aae`, INV-30, :130) updated in the WP that changes the behavior, not at the end.
+`docs/SAFETY_AND_RECOVERY.md`, `docs/TECHNICAL.md` (Photos import paragraph, Organize and Deduplicate sections), `docs/FAQ.md`, `AGENTS.md` (INV-22 wording, INV-14 `.aae`, INV-31, :130) updated in the WP that changes the behavior, not at the end.

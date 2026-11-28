@@ -20,8 +20,9 @@ Prefix `EPR`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-05 | Export model, role, checkpoint fields | todo | | | | | |
 | WP-06 | Executor and service export edited still | todo | | | | | safety-critical; INV-22 wording |
 | WP-07 | Import UI, summary, history copy | todo | | | | | |
-| WP-08 | Dedupe protects edited variants (INV-30) | todo | | | | | safety-critical |
+| WP-08 | Dedupe protects edited variants (INV-31) | todo | | | | | safety-critical |
 | G2 | Final gate | todo | | | n/a | | |
 
 ## Log
-- 2026-11-15 plan written; owner approved INV-22 widening and INV-30. D-EPR-06 (stem link) defaulted pending owner answer.
+- 2026-11-15 plan written; owner approved INV-22 widening and INV-31. D-EPR-06 (stem link) defaulted pending owner answer.
+- 2026-11-27 merged `origin/main` @ 4cabd27 (#297) into the branch; baseline above is from 5eee91f, so re-run the WP-00 commands at kickoff. Invariant renumbered INV-30 → INV-31 (D-EPR-07).

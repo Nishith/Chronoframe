@@ -1,6 +1,6 @@
 # Edit preservation — scope
 
-Status: **approved in part 2026-11-15** (owner approved widening INV-22 and a new INV-30; stem-based variant link, D-EPR-06, not yet answered and defaulted). Superseded by the plan files in this folder; this file is kept as the rationale. Builds on the review's "Follow-up challenge — edited photos" (`docs/next-half-product-review-2026-11-07.md:182`) and backlog card B8 (`docs/plan/next-half/README.md:59`). Verified by reading code only; no builds or tests were run.
+Status: **approved in part 2026-11-15** (owner approved widening INV-22 and a new INV-31; stem-based variant link, D-EPR-06, not yet answered and defaulted). Superseded by the plan files in this folder; this file is kept as the rationale. Builds on the review's "Follow-up challenge — edited photos" (`docs/next-half-product-review-2026-11-07.md:182`) and backlog card B8 (`docs/plan/next-half/README.md:59`). Verified by reading code only; no builds or tests were run.
 
 ## Current state (read from code)
 
@@ -49,7 +49,7 @@ Needs explicit owner approval, since it widens the original-only contract.
 ### EP-5 — Dedupe knows an edited variant from a duplicate (M, ~1 week; depends on EP-4)
 - Recognize the `-edited` stem convention as a related-variant pair: never cluster as high-confidence duplicates, and never auto-select the edited variant for Delete. Keep-wins style: either half kept keeps both.
 - Preferable alternative: record the variant link in the organize receipt or `.organize_cache.db` rather than inferring from a filename. Decision needed (see below).
-- New invariant candidate: INV-30, "an intentional edited variant is never auto-trashed". Needs a `// AGENTS-INVARIANT: 27` test and a bullet under `## Safety Invariants`.
+- New invariant candidate: INV-31, "an intentional edited variant is never auto-trashed". Needs a `// AGENTS-INVARIANT: 31` test and a bullet under `## Safety Invariants`.
 - Done when: planner tests cover variant kept/trashed/shared; invariant script passes; commit footer counts variants.
 
 ## Decisions logged (picked defaults; flip any one)
@@ -65,7 +65,7 @@ Needs explicit owner approval, since it widens the original-only contract.
 
 ## Dependencies and order
 
-EP-1 → EP-2 → EP-3 can run in that order, or EP-1 and EP-2 in parallel (different files). EP-4 → EP-5 follow and need owner approval of the INV-22 wording change plus a new INV-30. EP-3 and EP-4 both touch the staging and transfer path, so run them one at a time.
+EP-1 → EP-2 → EP-3 can run in that order, or EP-1 and EP-2 in parallel (different files). EP-4 → EP-5 follow and need owner approval of the INV-22 wording change plus a new INV-31. EP-3 and EP-4 both touch the staging and transfer path, so run them one at a time.
 
 Total: ~3.5 weeks sequential; the first three (~1 week) close the sidecar gaps with no invariant widening beyond INV-14.
 
@@ -79,6 +79,6 @@ Total: ~3.5 weeks sequential; the first three (~1 week) close the sidecar gaps w
 ## Open questions for the owner
 
 1. Approve widening INV-22 to allow exporting edited renders (EP-4)?
-2. Approve a new INV-30 (edited variants never auto-trashed)?
+2. Approve a new INV-31 (edited variants never auto-trashed)?
 3. Should edited export default to off (recommended) or on?
 4. Is a stem convention (`-edited`) acceptable, or must the link live in the receipt?

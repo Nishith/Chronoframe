@@ -9,7 +9,7 @@ Choose the option that, in order: (1) keeps every `AGENTS.md` safety invariant; 
 - **D-EPR-01 Branch (default).** `feature/edit-preservation` from `main`. `main` already contains Photos import resume (#268), so no stacking. Never push; the owner opens the PR. WP-00 stops with a BLOCKED entry if tracked files are modified (the checkout had many modified tracked files on 2026-11-15; see B-1).
 - **D-EPR-02 Plan location (default).** `docs/plan/edit-preservation/`. Shared rules: `docs/plan/next-half/AGENT_RULES.md`.
 - **D-EPR-03 Test placement (default).** Core and AppCore tests in `ui/Tests/ChronoframeAppCoreTests/`; App tests in `ui/Tests/ChronoframeAppTests/`. No XCUITests; `project.pbxproj` is never edited.
-- **D-EPR-04 Invariants (approved 2026-11-15).** INV-22 is widened (EPR-4, wording in C-04). A new **INV-30** is added (C-06). INV-14 is extended to `.aae` (C-02). `INV-27…29` are already taken (NAS assessment, NAS destinations, saved Deduplicate review), so the number is 30, not the 27 used in SCOPE.md.
+- **D-EPR-04 Invariants (approved 2026-11-15).** INV-22 is widened (EPR-4, wording in C-04). A new **INV-31** is added (C-06). INV-14 is extended to `.aae` (C-02). `INV-27…29` are already taken (NAS assessment, NAS destinations, saved Deduplicate review), so the number was 30 at approval; renumbered to **31** on 2026-11-27 (D-EPR-07).
 
 ## Product decisions
 - **D-EPR-05 Edited export is opt-in, default off (default).** Off keeps today's behavior and today's storage footprint.
@@ -22,3 +22,4 @@ Choose the option that, in order: (1) keeps every `AGENTS.md` safety invariant; 
 
 ## Runtime decisions
 (Appended by the orchestrator as `D-EPR-1NN`.)
+- **D-EPR-07 Invariant number (2026-11-27).** `find-and-account` claims INV-30 (evidence-bound completion accounting) and comes first in the plan sequence, so this plan's edited-variant invariant is INV-31 and its tests are tagged `// AGENTS-INVARIANT: 31`. Ids are permanent: if this plan lands first, it still takes 31 and leaves 30 to find-and-account. Same rule, same owner approval as D-EPR-04.
