@@ -932,6 +932,99 @@ final class DeduplicateTests: XCTestCase {
         )
     }
 
+    /// Builds a real directory with `IMG_1234.HEIC` and `IMG_1234.JPG`, which
+    /// both own the iPhone edit sidecar `IMG_E1234.AAE`, and returns the
+    /// detected sidecar paths (so the cases fail until `.aae` is a sidecar).
+    private func makeSharedAAEFixture() throws -> (heic: String, jpg: String, other: String, sidecar: String, sidecarPaths: [String: [String]]) {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DeduplicateAAETests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let names = ["IMG_1234.HEIC", "IMG_1234.JPG", "OTHER.JPG", "IMG_E1234.AAE"]
+        for name in names {
+            XCTAssertTrue(FileManager.default.createFile(
+                atPath: directory.appendingPathComponent(name).path,
+                contents: Data(name.utf8)
+            ))
+        }
+        let heic = directory.appendingPathComponent("IMG_1234.HEIC").path
+        let jpg = directory.appendingPathComponent("IMG_1234.JPG").path
+        let other = directory.appendingPathComponent("OTHER.JPG").path
+        let sidecar = directory.appendingPathComponent("IMG_E1234.AAE").path
+        return (heic, jpg, other, sidecar, DeduplicatePairDetector.detectSidecars(for: [heic, jpg, other]))
+    }
+
+    /// An `.aae` edit sidecar shared by two photos survives while either owner is kept.
+    // AGENTS-INVARIANT: 14
+    func testAAEOwnedByTwoPhotosSurvivesWhenEitherIsKept() throws {
+        let fixture = try makeSharedAAEFixture()
+        XCTAssertEqual(fixture.sidecarPaths[fixture.heic], [fixture.sidecar])
+        XCTAssertEqual(fixture.sidecarPaths[fixture.jpg], [fixture.sidecar])
+
+        for (kept, deleted) in [(fixture.heic, fixture.jpg), (fixture.jpg, fixture.heic)] {
+            let keptCandidate = candidate(path: kept, sidecarPaths: fixture.sidecarPaths[kept] ?? [])
+            let deletedCandidate = candidate(path: deleted, sidecarPaths: fixture.sidecarPaths[deleted] ?? [])
+            let cluster = DuplicateCluster(
+                kind: .exactDuplicate,
+                members: [keptCandidate, deletedCandidate],
+                suggestedKeeperIDs: [kept],
+                bytesIfPruned: 100
+            )
+            let decisions = DedupeDecisions(byPath: [kept: .keep, deleted: .delete])
+            let config = DeduplicateConfiguration(
+                destinationPath: (fixture.heic as NSString).deletingLastPathComponent,
+                treatRawJpegPairsAsUnit: false
+            )
+
+            let plan = DeduplicationPlanner.plan(
+                decisions: decisions,
+                clusters: [cluster],
+                configuration: config,
+                snapshot: testScanSnapshot(for: [cluster])
+            )
+            let paths = Set(plan.pathsToDelete)
+            XCTAssertTrue(paths.contains(deleted))
+            XCTAssertFalse(paths.contains(fixture.sidecar), "Shared .aae must survive while \(kept) is kept")
+        }
+    }
+
+    /// The shared `.aae` is trashed only when every owner is trashed.
+    // AGENTS-INVARIANT: 14
+    func testAAETrashedOnlyWhenEveryOwnerIsTrashed() throws {
+        let fixture = try makeSharedAAEFixture()
+        XCTAssertEqual(fixture.sidecarPaths[fixture.heic], [fixture.sidecar])
+        XCTAssertEqual(fixture.sidecarPaths[fixture.jpg], [fixture.sidecar])
+
+        let heic = candidate(path: fixture.heic, sidecarPaths: fixture.sidecarPaths[fixture.heic] ?? [])
+        let jpg = candidate(path: fixture.jpg, sidecarPaths: fixture.sidecarPaths[fixture.jpg] ?? [])
+        let other = candidate(path: fixture.other)
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [heic, jpg, other],
+            suggestedKeeperIDs: [fixture.other],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            fixture.heic: .delete,
+            fixture.jpg: .delete,
+            fixture.other: .keep,
+        ])
+        let config = DeduplicateConfiguration(
+            destinationPath: (fixture.heic as NSString).deletingLastPathComponent,
+            treatRawJpegPairsAsUnit: false
+        )
+
+        let plan = DeduplicationPlanner.plan(
+            decisions: decisions,
+            clusters: [cluster],
+            configuration: config,
+            snapshot: testScanSnapshot(for: [cluster])
+        )
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertTrue(paths.contains(fixture.sidecar), "Every owner is trashed, so the shared .aae goes with them")
+        XCTAssertEqual(plan.items.first { $0.path == fixture.sidecar }?.pairOrigin, .sidecar)
+    }
+
     /// Finding #2: a sidecar shared with an owner that is **not** a
     /// duplicate-cluster member (a surviving singleton, e.g. `A.heic` next to
     /// a clustered `A.jpg`) must survive. The planner only ever saw the

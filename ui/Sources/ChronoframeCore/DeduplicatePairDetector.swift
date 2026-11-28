@@ -30,7 +30,7 @@ public enum DeduplicatePairDetector {
     /// Metadata sidecar extensions. A sidecar carries edits/ratings for a photo
     /// and is not itself a dedup candidate (never hashed or clustered) — it must
     /// travel with its parent photo as a unit.
-    public static let sidecarExtensions: Set<String> = [".xmp"]
+    public static let sidecarExtensions: Set<String> = [".xmp", ".aae"]
 
     /// Injection seam for sidecar existence checks so `detectSidecars` is
     /// unit-testable without a real filesystem. Production hits disk.
@@ -129,18 +129,41 @@ public enum DeduplicatePairDetector {
     /// appended to the full filename (`photo.jpg.xmp`); both forms are matched
     /// in the same directory. Sidecars are deduplicated per media path.
     ///
+    /// `.aae` (iPhone edit instructions) uses both forms too, plus
+    /// `IMG_<digits>.<ext>` owning `IMG_E<digits>.aae` (exact digits). Because
+    /// iPhones write `.AAE`, `.aae` matches are returned with their on-disk
+    /// spelling, resolved against the directory's entries.
+    ///
     /// Note both `photo.raw` and `photo.jpg` resolve `photo.xmp` to the same
     /// shared sidecar — so a sidecar can have multiple owners, which is why
     /// deletion fanout is gated on *every* owner being deleted (Keep-wins).
     public static func detectSidecars(for mediaPaths: [String]) -> [String: [String]] {
         var result: [String: [String]] = [:]
+        var directoryListings: [String: [String: [String]]] = [:]
         for path in mediaPaths {
             let url = URL(fileURLWithPath: path)
             let directory = url.deletingLastPathComponent()
             let stem = url.deletingPathExtension().lastPathComponent
             let fullName = url.lastPathComponent
             var found: [String] = []
-            for ext in sidecarExtensions {
+            for ext in [".xmp", ".aae"].filter(sidecarExtensions.contains) {
+                if ext == ".aae" {
+                    var candidateNames = [stem + ext, fullName + ext]
+                    // iOS edit form: IMG_<digits>.<ext> owns IMG_E<digits>.aae.
+                    let digits = String(stem.dropFirst(4))
+                    if stem.count > 4, stem.prefix(4).uppercased() == "IMG_",
+                       digits.allSatisfy({ $0.isASCII && $0.isNumber }) {
+                        candidateNames.append("IMG_E" + digits + ext)
+                    }
+                    for resolved in onDiskSidecarPaths(
+                        named: candidateNames,
+                        in: directory,
+                        listings: &directoryListings
+                    ) where !found.contains(resolved) {
+                        found.append(resolved)
+                    }
+                    continue
+                }
                 // Replaced-extension form: photo.xmp
                 let replaced = directory.appendingPathComponent(stem + ext).path
                 if sidecarFileExists(replaced) {
@@ -157,6 +180,37 @@ public enum DeduplicatePairDetector {
             }
         }
         return result
+    }
+
+    /// Resolves each candidate name against the directory's real entries
+    /// (case-insensitive), so the returned paths use the on-disk spelling and
+    /// work on case-sensitive volumes. Each directory is listed at most once
+    /// per `detectSidecars` call. Existence is still confirmed through
+    /// `sidecarFileExists`.
+    private static func onDiskSidecarPaths(
+        named candidateNames: [String],
+        in directory: URL,
+        listings: inout [String: [String: [String]]]
+    ) -> [String] {
+        let directoryPath = directory.path
+        if listings[directoryPath] == nil {
+            var entriesByLowercasedName: [String: [String]] = [:]
+            let entries = ((try? FileManager.default.contentsOfDirectory(atPath: directoryPath)) ?? []).sorted()
+            for entry in entries {
+                entriesByLowercasedName[entry.lowercased(), default: []].append(entry)
+            }
+            listings[directoryPath] = entriesByLowercasedName
+        }
+        var resolved: [String] = []
+        for lowercasedName in Set(candidateNames.map { $0.lowercased() }).sorted() {
+            for entry in listings[directoryPath]?[lowercasedName] ?? [] {
+                let entryPath = directory.appendingPathComponent(entry).path
+                if sidecarFileExists(entryPath) {
+                    resolved.append(entryPath)
+                }
+            }
+        }
+        return resolved
     }
 
     static func groupByBasename(_ paths: [String]) -> [String: [String]] {
