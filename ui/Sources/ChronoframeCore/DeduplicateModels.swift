@@ -260,6 +260,11 @@ public struct PhotoCandidate: Sendable, Identifiable, Equatable {
     /// them is also deleted (Keep-wins). Populated fresh each scan, never
     /// cached.
     public var sidecarPaths: [String]
+    /// `<stem>-edited.<ext>` beside an original in the same folder (INV-31).
+    /// Set by the scanner each scan, never cached. The planner never adds
+    /// such a path as a deletion target unless the user explicitly marks that
+    /// exact file Delete.
+    public var isProtectedEditedVariant: Bool = false
 
     // MARK: Expression analysis (Phase 1 — Feature 2)
 
@@ -705,9 +710,13 @@ public struct DeduplicationPlan: Sendable, Equatable {
     }
 
     public let items: [Item]
+    /// Protected edited variants (INV-31) that stay while their original is a
+    /// deletion target. Drives the commit footer's "edited versions kept".
+    public let editedVariantsKeptCount: Int
 
-    public init(items: [Item]) {
+    public init(items: [Item], editedVariantsKeptCount: Int = 0) {
         self.items = items
+        self.editedVariantsKeptCount = editedVariantsKeptCount
     }
 
     public var pathsToDelete: [String] { items.map(\.path) }

@@ -30,3 +30,12 @@ Rule: log it, then continue with the next independent WP. Only Nishith marks an 
 - **Options:** 1) Follow-up PR: widen the tmp regex to `\.[a-zA-Z0-9]+(?:\.[a-zA-Z0-9]+)?` before the UUID, and teach `parseFileBucket` to strip a known companion extension first. 2) Map appended-form companions to stem form in the destination (contradicts C-03.4 and breaks darktable's naming).
 - **Recommendation:** Option 1 as a small follow-up PR with tests, since both are one-line pattern changes in safety-adjacent files that deserve their own review.
 - **Status:** open
+
+### B-3 — Review panes can label a protected edited variant "Suggested for removal" (non-blocking)
+- **WP:** WP-08
+- **Command:** cf-reviewer read of `ClusterListPane.swift:391`, `ClusterDetailPane.swift:302/390/602/618`, `RapidTriageView.swift:168-169`
+- **Error:** none at runtime. These views fall back to `.delete` for any non-keeper with no explicit decision. After a scan the store pre-sets `.keep` for protected variants, so the label only shows after `resetReview`. Display-only: the planner (INV-31) still keeps the file and the commit footer is correct.
+- **Tried:** confirmed outside WP-08's owned paths (D-EPR-122 covers the store only); not folded in.
+- **Options:** 1) Follow-up PR routing those panes through `DedupeDecisions.keepersForCluster` (or a shared effective-decision helper) with an App test. 2) Leave as is.
+- **Recommendation:** Option 1, a small follow-up so the review UI never contradicts the plan.
+- **Status:** open

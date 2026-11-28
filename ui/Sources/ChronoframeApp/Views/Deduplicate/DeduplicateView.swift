@@ -512,6 +512,7 @@ struct DeduplicateView: View {
         let toDelete = plan.count
         let bytes = plan.totalBytes
         let hardDelete = false
+        let editedVersionsKept = plan.editedVariantsKeptCount
 
         let reviewedCount = sessionStore.reviewedClusters.count
         let unreviewedCount = max(0, sessionStore.clusters.count - reviewedCount)
@@ -528,9 +529,9 @@ struct DeduplicateView: View {
                 .foregroundStyle(DesignTokens.ColorSystem.hairline)
 
             ViewThatFits(in: .horizontal) {
-                commitFooterWide(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
-                commitFooterMedium(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
-                commitFooterCompact(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+                commitFooterWide(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete, editedVersionsKept: editedVersionsKept)
+                commitFooterMedium(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete, editedVersionsKept: editedVersionsKept)
+                commitFooterCompact(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete, editedVersionsKept: editedVersionsKept)
             }
         }
         .accessibilityElement(children: .contain)
@@ -593,17 +594,17 @@ struct DeduplicateView: View {
             .volumeAvailableCapacityForImportantUsage
     }
 
-    private func commitFooterWide(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
+    private func commitFooterWide(toDelete: Int, bytes: Int64, hardDelete: Bool, editedVersionsKept: Int) -> some View {
         HStack(spacing: DesignTokens.Spacing.md) {
-            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete, editedVersionsKept: editedVersionsKept)
             Spacer()
             commitFooterButtons(toDelete: toDelete, density: .full)
         }
     }
 
-    private func commitFooterMedium(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
+    private func commitFooterMedium(toDelete: Int, bytes: Int64, hardDelete: Bool, editedVersionsKept: Int) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete, editedVersionsKept: editedVersionsKept)
             HStack {
                 Spacer(minLength: 0)
                 commitFooterButtons(toDelete: toDelete, density: .full)
@@ -611,9 +612,9 @@ struct DeduplicateView: View {
         }
     }
 
-    private func commitFooterCompact(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
+    private func commitFooterCompact(toDelete: Int, bytes: Int64, hardDelete: Bool, editedVersionsKept: Int) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete)
+            commitFooterStatus(toDelete: toDelete, bytes: bytes, hardDelete: hardDelete, editedVersionsKept: editedVersionsKept)
             HStack(spacing: DesignTokens.Spacing.sm) {
                 Spacer(minLength: 0)
                 commitFooterButtons(toDelete: toDelete, density: .compact)
@@ -622,7 +623,7 @@ struct DeduplicateView: View {
     }
 
     @ViewBuilder
-    private func commitFooterStatus(toDelete: Int, bytes: Int64, hardDelete: Bool) -> some View {
+    private func commitFooterStatus(toDelete: Int, bytes: Int64, hardDelete: Bool, editedVersionsKept: Int) -> some View {
         let reviewedCount = sessionStore.reviewedClusters.count
         let suggestedCount = max(0, sessionStore.clusters.count - reviewedCount)
         let title = Self.commitFooterTitle(fileCount: toDelete, hardDelete: hardDelete)
@@ -640,6 +641,12 @@ struct DeduplicateView: View {
                 .font(.body.weight(.medium))
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
                 .lineLimit(2)
+            if let editedKept = Self.editedVersionsKeptLine(count: editedVersionsKept) {
+                Text(editedKept)
+                    .font(.caption)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
+                    .lineLimit(1)
+            }
             Text(reviewProgress)
                 .font(.caption)
                 .foregroundStyle(DesignTokens.ColorSystem.inkPrimary)
@@ -1094,6 +1101,15 @@ extension DeduplicateView {
         return fileCount == 1
             ? String(localized: "1 file will be moved to Trash", bundle: .module)
             : String(localized: "\(fileCount) files will be moved to Trash", bundle: .module)
+    }
+
+    /// Footer line for INV-31: edited versions that stay while their original
+    /// goes to Trash. `nil` when there are none.
+    static func editedVersionsKeptLine(count: Int) -> String? {
+        guard count > 0 else { return nil }
+        return count == 1
+            ? AppLocalization.string("1 edited version kept", bundle: .module)
+            : AppLocalization.format("%@ edited versions kept", count.formatted(), bundle: .module)
     }
 
     static func commitFooterDetail(byteCount: Int64, hardDelete: Bool) -> String {

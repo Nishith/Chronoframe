@@ -141,6 +141,28 @@ RAW+JPEG pairs, Live Photo pairs, and owned metadata sidecars are validated as a
 unit. If one member changes or a journal update fails, Chronoframe restores the
 unit where it safely can and stops before touching more files.
 
+### Edited versions are protected
+
+When Apple Photos import saves an edited version, it is named
+`<name>-edited.<ext>` and sits beside the original `<name>.<ext>` in the same
+folder. Deduplicate treats any file with that name beside a file with the same
+name (ignoring upper and lower case, and whatever the other file's extension is)
+as an edited version and protects it:
+
+- It is never selected for the Trash by a group's suggestion or by Accept All,
+  and never pulled in because a RAW+JPEG or Live Photo partner, a sidecar, or its
+  original is being deleted.
+- Deleting the original leaves the edited version in place. The commit footer
+  says how many edited versions stay (for example "2 edited versions kept").
+- It is a normal photo in the review, so you can still look at it. The only way
+  it goes to the Trash is you marking that exact file Delete. That Delete is
+  checked like any other: if its content no longer matches the scan, nothing is
+  moved.
+
+The link is the file name, nothing more. A file you named `holiday-edited.jpg`
+yourself, beside `holiday.jpg`, is protected the same way. That errs on the safe
+side: the file is never moved to the Trash on Chronoframe's own initiative.
+
 ### Saved Deduplicate reviews
 
 Reviewing a large library can take longer than one sitting, so Chronoframe

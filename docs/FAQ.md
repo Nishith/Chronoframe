@@ -108,6 +108,10 @@ A: Yes. Use the **Deduplicate** workspace:
 
 Visual video matching is off by default. Enable it in **Settings → Deduplicate** with the Balanced or Similar Shots preset. These groups are always review-only and never accepted automatically.
 
+**Q: Will Deduplicate remove the edited versions Photos import saved?**
+
+A: No. An edited version is saved as `<name>-edited.<ext>` beside the original, and Deduplicate never selects it on its own. It stays when its original is deleted, and the commit footer says how many edited versions were kept. It moves to the Trash only if you mark that exact file Delete. A file you named that way yourself, beside one with the same name, is protected too.
+
 **Q: Can I deduplicate a folder on my NAS?**
 
 A: No, not for now. Deduplicate moves files to the macOS Trash, and Chronoframe has not verified that files moved to the Trash from a network share can be put back, so it refuses any folder that isn't on this Mac or an attached drive. Nothing is changed. NAS Library, which only reads your library, isn't available in release builds yet. See [Troubleshooting](./TROUBLESHOOTING.md#choose-a-folder-on-this-mac-or-an-attached-drive).

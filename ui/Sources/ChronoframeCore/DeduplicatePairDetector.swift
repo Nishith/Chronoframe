@@ -14,10 +14,19 @@ public enum DeduplicatePairDetector {
     public struct DetectionResult: Sendable, Equatable {
         public var pairs: [String: Pair]
         public var unsupportedMoviePaths: Set<String>
+        /// Edited variant path → original path (INV-31). Kept apart from
+        /// `pairs`, which holds one `Pair` per path, so a variant link can
+        /// never overwrite a RAW+JPEG or Live Photo pair.
+        public var editedVariantOriginals: [String: String]
 
-        public init(pairs: [String: Pair] = [:], unsupportedMoviePaths: Set<String> = []) {
+        public init(
+            pairs: [String: Pair] = [:],
+            unsupportedMoviePaths: Set<String> = [],
+            editedVariantOriginals: [String: String] = [:]
+        ) {
             self.pairs = pairs
             self.unsupportedMoviePaths = unsupportedMoviePaths
+            self.editedVariantOriginals = editedVariantOriginals
         }
     }
     public static let rawExtensions: Set<String> = [
@@ -46,6 +55,10 @@ public enum DeduplicatePairDetector {
         public enum Kind: String, Sendable, Equatable {
             case rawJpeg
             case livePhoto
+            /// `<stem>-edited.<ext>` beside `<stem>.<ext>` (INV-31). Reported
+            /// through `DetectionResult.editedVariantOriginals`, never as an
+            /// entry in `pairs`.
+            case editedVariant
         }
     }
 
@@ -70,6 +83,7 @@ public enum DeduplicatePairDetector {
         movieMetadataLoader: any LivePhotoMetadataLoading = BoundedLivePhotoMetadataLoader()
     ) async -> DetectionResult {
         var pairs: [String: Pair] = [:]
+        let editedVariantOriginals = detectEditedVariants(in: paths)
 
         let rawJpegByBasename = groupByBasename(paths)
         for (_, group) in rawJpegByBasename where group.count > 1 {
@@ -88,7 +102,9 @@ public enum DeduplicatePairDetector {
             }
         }
 
-        guard includeLivePhotos, !Task.isCancelled else { return DetectionResult(pairs: pairs) }
+        guard includeLivePhotos, !Task.isCancelled else {
+            return DetectionResult(pairs: pairs, editedVariantOriginals: editedVariantOriginals)
+        }
 
         // Live Photo: read content identifier from each HEIC and from each
         // sibling MOV; match within the same parent directory.
@@ -120,8 +136,46 @@ public enum DeduplicatePairDetector {
 
         return DetectionResult(
             pairs: pairs,
-            unsupportedMoviePaths: allMovieMetadata.unsupportedPaths
+            unsupportedMoviePaths: allMovieMetadata.unsupportedPaths,
+            editedVariantOriginals: editedVariantOriginals
         )
+    }
+
+    /// Edited variants (INV-31): `<stem>-edited.<ext>` beside `<stem>.<anyExt>`
+    /// in the same directory, stem compared case-insensitively. When several
+    /// originals match (`x.jpg`, `x.dng`) the variant is still a variant and
+    /// the lexicographically first original is recorded.
+    static func detectEditedVariants(in paths: [String]) -> [String: String] {
+        var pathsByDirectoryAndStem: [String: [String]] = [:]
+        for path in paths {
+            pathsByDirectoryAndStem[editedVariantOriginalKey(forOriginalPath: path), default: []].append(path)
+        }
+        var result: [String: String] = [:]
+        for path in paths {
+            guard let key = editedVariantOriginalKey(forVariantPath: path),
+                  let original = pathsByDirectoryAndStem[key]?.filter({ $0 != path }).min()
+            else { continue }
+            result[path] = original
+        }
+        return result
+    }
+
+    /// The directory-and-stem key an original must have for `path` to be an
+    /// edited variant, or `nil` when the file name does not end in `-edited`.
+    /// Shared with `DeduplicationPlanner` so both agree on the convention.
+    static func editedVariantOriginalKey(forVariantPath path: String) -> String? {
+        let url = URL(fileURLWithPath: path)
+        let stem = url.deletingPathExtension().lastPathComponent.lowercased()
+        let suffix = "-edited"
+        guard stem.hasSuffix(suffix), stem.count > suffix.count else { return nil }
+        return url.deletingLastPathComponent().path + "\u{0}" + String(stem.dropLast(suffix.count))
+    }
+
+    /// Key for an arbitrary path as a potential original; matches
+    /// `editedVariantOriginalKey` for its variant.
+    static func editedVariantOriginalKey(forOriginalPath path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        return url.deletingLastPathComponent().path + "\u{0}" + url.deletingPathExtension().lastPathComponent.lowercased()
     }
 
     /// Maps each media path to any co-located sidecar files that share its

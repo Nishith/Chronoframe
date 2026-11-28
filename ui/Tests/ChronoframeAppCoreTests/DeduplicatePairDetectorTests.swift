@@ -213,6 +213,62 @@ final class DeduplicatePairDetectorTests: XCTestCase {
         )
     }
 
+    // MARK: - Edited variants (edit preservation WP-08, INV-31)
+
+    // AGENTS-INVARIANT: 31
+    func testEditedVariantDetectedByStemSameDirectoryCaseInsensitive() async {
+        let paths = [
+            "/dest/IMG_0001.HEIC",
+            "/dest/img_0001-EDITED.jpeg",
+            "/dest/IMG_0002-edited.jpg",   // no original beside it
+            "/dest/IMG_0003.dng",
+            "/dest/IMG_0003.jpg",
+            "/dest/IMG_0003-edited.jpg",   // two originals: lexicographically first is recorded
+        ]
+
+        let result = await DeduplicatePairDetector.detectPairResult(in: paths, includeLivePhotos: false)
+
+        XCTAssertEqual(result.editedVariantOriginals, [
+            "/dest/img_0001-EDITED.jpeg": "/dest/IMG_0001.HEIC",
+            "/dest/IMG_0003-edited.jpg": "/dest/IMG_0003.dng",
+        ])
+        XCTAssertNil(result.editedVariantOriginals["/dest/IMG_0002-edited.jpg"])
+    }
+
+    // AGENTS-INVARIANT: 31
+    func testDifferentDirectoryIsNotAVariant() async {
+        let paths = [
+            "/dest/a/IMG_0001.HEIC",
+            "/dest/b/IMG_0001-edited.jpeg",
+        ]
+
+        let result = await DeduplicatePairDetector.detectPairResult(in: paths, includeLivePhotos: false)
+
+        XCTAssertTrue(result.editedVariantOriginals.isEmpty)
+    }
+
+    // AGENTS-INVARIANT: 14
+    // AGENTS-INVARIANT: 31
+    func testEditedVariantNeverOverwritesRawJpegOrLivePhotoPair() async {
+        let paths = [
+            "/dest/x.dng",
+            "/dest/x.jpg",
+            "/dest/x-edited.jpg",
+        ]
+
+        let result = await DeduplicatePairDetector.detectPairResult(in: paths, includeLivePhotos: false)
+
+        // The RAW+JPEG pair is exactly what it was without the variant.
+        XCTAssertEqual(result.pairs.count, 2)
+        XCTAssertEqual(result.pairs["/dest/x.dng"]?.kind, .rawJpeg)
+        XCTAssertEqual(result.pairs["/dest/x.dng"]?.primaryPath, "/dest/x.dng")
+        XCTAssertEqual(result.pairs["/dest/x.dng"]?.secondaryPath, "/dest/x.jpg")
+        XCTAssertEqual(result.pairs["/dest/x.jpg"]?.primaryPath, "/dest/x.dng")
+        XCTAssertNil(result.pairs["/dest/x-edited.jpg"])
+        // The variant is still recorded, apart from the pairs.
+        XCTAssertEqual(result.editedVariantOriginals, ["/dest/x-edited.jpg": "/dest/x.dng"])
+    }
+
     private final class LockedProbeLog: @unchecked Sendable {
         private let lock = NSLock()
         private var storage: [String] = []
