@@ -29,6 +29,10 @@ final class RunCoordinator {
     /// Set while an Apple Photos Review & Import flow is in flight. Mirrors
     /// the watched context; the pinned source is the export staging directory.
     private(set) var activePhotosImportContext: PhotosImportContext?
+    /// The edited-version counts of the Photos import the current or last run
+    /// belongs to. Display only: kept after the run so its summary can show
+    /// them, and cleared whenever a run from any other source starts.
+    private(set) var photosImportEditedVersionCounts: PhotosImportEditedVersionCounts?
     private var completionCancellable: AnyCancellable?
 
     init(
@@ -118,10 +122,14 @@ final class RunCoordinator {
     /// Apple Photos Review & Import entry point. Like the watched entry point
     /// it does NOT gate on `canStartRun()` (Setup paths are irrelevant); the
     /// context carries its own validated staging source and destination.
-    func startPreview(photosImportContext: PhotosImportContext) async {
+    func startPreview(
+        photosImportContext: PhotosImportContext,
+        editedVersionCounts: PhotosImportEditedVersionCounts? = nil
+    ) async {
         guard !runSessionStore.isRunning else { return }
         activeWatchedImportContext = nil
         activePhotosImportContext = photosImportContext
+        photosImportEditedVersionCounts = editedVersionCounts
         navigate(.organize(.run))
         let configuration = makeConfiguration(from: photosImportContext, mode: .preview)
         await runSessionStore.requestRun(
@@ -145,6 +153,7 @@ final class RunCoordinator {
             return
         }
         guard canStartRun() else { return }
+        photosImportEditedVersionCounts = nil
         navigate(.organize(.run))
         let configuration = setupStore.makeConfiguration(preferences: preferencesStore, mode: .transfer)
         await runSessionStore.requestRun(
@@ -247,6 +256,7 @@ final class RunCoordinator {
     /// Drops the pending Photos context and cleans up its staging directory so
     /// abandoned exports never accumulate on disk.
     private func discardPhotosImportContext() {
+        photosImportEditedVersionCounts = nil
         guard let context = activePhotosImportContext else { return }
         cleanupPhotosStaging(context)
         activePhotosImportContext = nil

@@ -538,7 +538,9 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         alreadyInDestinationCount: result.counts.alreadyInDestinationCount,
                         duplicateCount: result.counts.duplicateCount,
                         hashErrorCount: result.counts.hashErrorCount,
-                        dateHistogram: result.dateHistogram
+                        dateHistogram: result.dateHistogram,
+                        plannedCompanionCount: result.companionOwners.count,
+                        unresolvedCompanionCount: result.copyPlan.unresolvedCompanions.count
                     )
 
                     Self.emitPostPlanningEvents(for: result, into: continuation)
@@ -1010,7 +1012,15 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
                         bytesCopied: executionResult.bytesCopied,
                         bytesTotal: executionResult.bytesTotal,
                         skippedCount: executionResult.skippedCount,
-                        dateHistogram: result.dateHistogram
+                        dateHistogram: result.dateHistogram,
+                        plannedCompanionCount: result.companionOwners.count,
+                        copiedCompanionCount: copiedCompanionCount(
+                            plannedCompanionCount: result.companionOwners.count,
+                            executionResult: executionResult,
+                            plannedTransferCount: result.transferCount,
+                            runID: runID
+                        ),
+                        unresolvedCompanionCount: result.copyPlan.unresolvedCompanions.count
                     ),
                     artifacts: executionResult.artifacts,
                     failureMessage: completedStatus == .failed
@@ -1306,7 +1316,59 @@ public final class SwiftOrganizerEngine: OrganizerEngine {
         for warning in result.warningMessages {
             continuation.yield(.issue(RunIssue(severity: .warning, message: warning)))
         }
+        for companion in result.copyPlan.unresolvedCompanions {
+            continuation.yield(.issue(RunIssue(severity: .warning, message: unresolvedCompanionMessage(companion))))
+        }
         continuation.yield(.copyPlanReady(count: result.transferCount))
+    }
+
+    /// `Not copied: <file name> (<reason>)`. The template is looked up first and
+    /// the file name filled in afterwards, so the catalog key never contains a
+    /// user's file name.
+    nonisolated static func unresolvedCompanionMessage(_ companion: UnresolvedCompanion) -> String {
+        let template: String
+        switch companion.reason {
+        case .multipleOwners:
+            template = CoreL10n.text(String.LocalizationValue("Not copied: %@ (matches more than one photo)"))
+        case .noOwner:
+            template = CoreL10n.text(String.LocalizationValue("Not copied: %@ (no matching photo)"))
+        case .nameTaken:
+            template = CoreL10n.text(String.LocalizationValue("Not copied: %@ (that name is already taken in the destination)"))
+        case .unreadable:
+            template = CoreL10n.text(String.LocalizationValue("Not copied: %@ (could not be read)"))
+        }
+        let fileName = URL(fileURLWithPath: companion.sourcePath).lastPathComponent
+        return String(format: template, fileName)
+    }
+
+    /// How many of this run's copied files are sidecar companions, read from the
+    /// run's finalized audit receipt (the record of what actually landed). When
+    /// the receipt cannot be matched, a run that copied everything it planned
+    /// (no failed or skipped file, copied count equal to the plan) counts every
+    /// planned companion, and any other run leaves the split off.
+    private nonisolated static func copiedCompanionCount(
+        plannedCompanionCount: Int,
+        executionResult: TransferExecutionResult,
+        plannedTransferCount: Int,
+        runID: UUID
+    ) -> Int {
+        guard plannedCompanionCount > 0 else { return 0 }
+
+        if let logsPath = executionResult.artifacts.logsDirectoryPath {
+            let logsURL = URL(fileURLWithPath: logsPath, isDirectory: true)
+            let prefix = EngineArtifactLayout.chronoframeDefault.auditReceiptPrefix
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: logsURL.path)) ?? []
+            if let name = names.sorted().last(where: {
+                $0.hasPrefix(prefix) && $0.hasSuffix(".json") && $0.contains(runID.uuidString)
+            }),
+               let receipt = try? RevertExecutor().loadReceipt(at: logsURL.appendingPathComponent(name)) {
+                return receipt.transfers.filter { MediaLibraryRules.isCompanionFile(path: $0.dest) }.count
+            }
+        }
+
+        return executionResult.failedCount == 0
+            && executionResult.skippedCount == 0
+            && executionResult.copiedCount == plannedTransferCount ? plannedCompanionCount : 0
     }
 
     nonisolated private static func writeDryRunArtifacts(

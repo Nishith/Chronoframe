@@ -14,6 +14,7 @@ import Photos
 /// `PHAssetResourceManager` — which reads. It never calls
 /// `PHPhotoLibrary.performChanges` or any `PHAssetChangeRequest`, so importing
 /// cannot modify, move, favorite, or delete anything in the user's library.
+/// Only when the user opts in, it also reads an edited still's `.fullSizePhoto`.
 /// (See the Apple Photos read-only safety invariant and
 /// `script/check_photos_import_readonly.sh`.)
 public final class PhotosResourceExportService: PhotosResourceExporting {
@@ -33,6 +34,30 @@ public final class PhotosResourceExportService: PhotosResourceExporting {
                 fileSize: nil // PhotoKit has no public resource size; see D-PIR-128
             )
         }
+    }
+
+    /// The asset's current edited still render (`.fullSizePhoto`), only for a
+    /// still: an edited video or Live Photo is never returned (see
+    /// `hasUnsupportedEditedRender`). Read-only, like `originalResources`.
+    public func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource? {
+        guard let asset = Self.fetchAsset(localIdentifier: id) else { return nil }
+        let phResources = PHAssetResource.assetResources(for: asset)
+        guard !Self.hasUnsupportedEditedRender(types: phResources.map(\.type)) else { return nil }
+        guard let index = phResources.firstIndex(where: { Self.isEditedStillType($0.type) }) else { return nil }
+        let resource = phResources[index]
+        return PhotosExportableResource(
+            assetID: id,
+            resourceIndex: index,
+            fileExtension: (resource.originalFilename as NSString).pathExtension,
+            originalFilename: resource.originalFilename,
+            fileSize: nil, // PhotoKit has no public resource size; see D-PIR-128
+            role: .editedRender
+        )
+    }
+
+    public func hasUnsupportedEditedRender(forAssetID id: String) async throws -> Bool {
+        guard let asset = Self.fetchAsset(localIdentifier: id) else { return false }
+        return Self.hasUnsupportedEditedRender(types: PHAssetResource.assetResources(for: asset).map(\.type))
     }
 
     public func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
@@ -101,6 +126,20 @@ public final class PhotosResourceExportService: PhotosResourceExporting {
         default:
             return false
         }
+    }
+
+    /// Only the edited still render. `.fullSizeVideo`, `.fullSizePairedVideo`,
+    /// adjustment data and everything else stay excluded.
+    static func isEditedStillType(_ type: PHAssetResourceType) -> Bool {
+        type == .fullSizePhoto
+    }
+
+    /// An edit this import does not export: an edited video, or an edited Live
+    /// Photo (a paired movie with an edited still or edited movie).
+    static func hasUnsupportedEditedRender(types: [PHAssetResourceType]) -> Bool {
+        if types.contains(.fullSizeVideo) { return true }
+        return types.contains(.pairedVideo)
+            && (types.contains(.fullSizePhoto) || types.contains(.fullSizePairedVideo))
     }
 }
 

@@ -27,6 +27,39 @@ private final class StubAccess: PhotosLibraryAccessing, @unchecked Sendable {
 
 private final class StubExporter: PhotosResourceExporting, @unchecked Sendable {
     var listFailure = false
+    private let lock = NSLock()
+    private var _editedAssets: Set<String> = []
+    private var _unsupportedEditedAssets: Set<String> = []
+    private var _editedLookups: [String] = []
+    private var _beforeWrite: (@Sendable (String) async -> Void)?
+
+    /// Assets that have an edited still render.
+    var editedAssets: Set<String> {
+        get { lock.withLock { _editedAssets } }
+        set { lock.withLock { _editedAssets = newValue } }
+    }
+    /// Assets whose edit (video or Live Photo) is not exported.
+    var unsupportedEditedAssets: Set<String> {
+        get { lock.withLock { _unsupportedEditedAssets } }
+        set { lock.withLock { _unsupportedEditedAssets = newValue } }
+    }
+    var editedLookups: [String] { lock.withLock { _editedLookups } }
+    var beforeWrite: (@Sendable (String) async -> Void)? {
+        get { lock.withLock { _beforeWrite } }
+        set { lock.withLock { _beforeWrite = newValue } }
+    }
+
+    func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource? {
+        lock.withLock { _editedLookups.append(id) }
+        guard editedAssets.contains(id) else { return nil }
+        return PhotosExportableResource(
+            assetID: id, resourceIndex: 1, fileExtension: "jpg", originalFilename: "FullSizeRender.jpg", role: .editedRender
+        )
+    }
+
+    func hasUnsupportedEditedRender(forAssetID id: String) async throws -> Bool {
+        unsupportedEditedAssets.contains(id)
+    }
 
     func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource] {
         if listFailure { throw StoreTestError.boom }
@@ -34,7 +67,8 @@ private final class StubExporter: PhotosResourceExporting, @unchecked Sendable {
     }
 
     func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
-        try Data("bytes".utf8).write(to: destinationURL)
+        if let hook = beforeWrite { await hook(resource.assetID) }
+        try Data("bytes-\(resource.role == .editedRender ? "edited-" : "")\(resource.assetID)".utf8).write(to: destinationURL)
     }
 }
 
@@ -394,5 +428,132 @@ final class PhotosImportStoreTests: XCTestCase {
 
         store.cleanupStaging(for: unwrapped)
         XCTAssertFalse(FileManager.default.fileExists(atPath: unwrapped.stagingDirectoryURL.path))
+    }
+
+    // MARK: - Include edited versions (WP-07)
+
+    @MainActor
+    private func selectedStore(
+        ids: [String],
+        exporter: StubExporter,
+        staging: URL
+    ) -> PhotosImportStore {
+        let store = makeStore(
+            albums: [album("all", count: ids.count)],
+            assetsByAlbum: ["all": ids.map { asset($0) }],
+            exporter: exporter,
+            staging: staging,
+            pageSize: 10
+        )
+        store.loadAlbumsIfAuthorized()
+        for id in ids { store.toggleSelection(id) }
+        return store
+    }
+
+    private let destination = PhotosImportStore.DestinationCapture(path: "/tmp/dest", bookmarkKeys: ["k"])
+
+    @MainActor
+    func testToggleDefaultsOffAndPersistsOnlyForCurrentImport() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let defaultsBefore = Set(UserDefaults.standard.dictionaryRepresentation().keys)
+        let exporter = StubExporter()
+        exporter.editedAssets = ["a"]
+        let store = selectedStore(ids: ["a"], exporter: exporter, staging: staging)
+        XCTAssertFalse(store.includeEditedVersions, "Off by default")
+
+        store.includeEditedVersions = true
+        let contextRaw = await store.prepareImport(destination: destination)
+        let context = try XCTUnwrap(contextRaw)
+        XCTAssertTrue(store.includeEditedVersions, "Held while the import is current")
+
+        store.cleanupStaging(for: context)
+        XCTAssertFalse(store.includeEditedVersions, "The choice ends with the import")
+
+        let fresh = selectedStore(ids: ["a"], exporter: exporter, staging: staging)
+        XCTAssertFalse(fresh.includeEditedVersions, "A new store never inherits the choice")
+        XCTAssertEqual(Set(UserDefaults.standard.dictionaryRepresentation().keys), defaultsBefore,
+                       "The choice is never written to UserDefaults")
+    }
+
+    @MainActor
+    func testDiscardingTheInterruptedImportResetsTheToggle() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let exporter = StubExporter()
+        let store = selectedStore(ids: ["a", "b"], exporter: exporter, staging: staging)
+        exporter.beforeWrite = { id in
+            if id == "b" { await MainActor.run { store.cancelPreparation() } }
+        }
+        store.includeEditedVersions = true
+        _ = await store.prepareImport(destination: destination)
+        XCTAssertNotNil(store.resumable)
+
+        store.discardResumableImport()
+
+        XCTAssertFalse(store.includeEditedVersions)
+    }
+
+    @MainActor
+    func testStoreForwardsIncludeEditedVersionsToExecutor() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let exporter = StubExporter()
+        exporter.editedAssets = ["a", "b"]
+        let store = selectedStore(ids: ["a", "b"], exporter: exporter, staging: staging)
+
+        store.includeEditedVersions = true
+        let contextRaw = await store.prepareImport(destination: destination)
+        let context = try XCTUnwrap(contextRaw)
+
+        XCTAssertEqual(exporter.editedLookups, ["a", "b"], "The toggle reaches the executor")
+        let checkpoint = try XCTUnwrap(PhotosImportFileCheckpointStore().load(in: context.stagingDirectoryURL))
+        XCTAssertTrue(checkpoint.includeEditedVersions, "The choice is recorded for Resume")
+        let counts = try XCTUnwrap(store.editedVersionCounts)
+        XCTAssertEqual(counts, PhotosImportEditedVersionCounts(
+            includedEditedVersions: true, originals: 2, editedVersions: 2, couldNotSave: 0, notIncluded: 0
+        ))
+
+        // Off stays off: the executor is never asked about edits.
+        exporter.editedAssets = []
+        let offStore = selectedStore(ids: ["a"], exporter: exporter, staging: staging)
+        let before = exporter.editedLookups.count
+        let offContextRaw = await offStore.prepareImport(destination: destination)
+        let offContext = try XCTUnwrap(offContextRaw)
+        XCTAssertEqual(exporter.editedLookups.count, before)
+        XCTAssertFalse(try XCTUnwrap(PhotosImportFileCheckpointStore().load(in: offContext.stagingDirectoryURL)).includeEditedVersions)
+        XCTAssertEqual(offStore.editedVersionCounts?.includedEditedVersions, false)
+    }
+
+    /// D-EPR-119: not-included edits are recorded in the checkpoint, so the
+    /// count a Resume reports covers the assets prepared before the stop.
+    @MainActor
+    func testNotIncludedCountSurvivesResume() async throws {
+        let staging = stagingParent()
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let exporter = StubExporter()
+        exporter.unsupportedEditedAssets = ["a"]
+        exporter.editedAssets = ["b", "c"]
+        let store = selectedStore(ids: ["a", "b", "c"], exporter: exporter, staging: staging)
+        exporter.beforeWrite = { id in
+            if id == "c" { await MainActor.run { store.cancelPreparation() } }
+        }
+        store.includeEditedVersions = true
+
+        _ = await store.prepareImport(destination: destination)
+
+        let dir = try XCTUnwrap(store.resumable?.stagingDirectoryURL)
+        let stopped = try XCTUnwrap(PhotosImportFileCheckpointStore().load(in: dir))
+        XCTAssertEqual(stopped.completed.map(\.assetID), ["a", "b"])
+        XCTAssertEqual(stopped.editedNotIncludedAssetIDs, ["a"])
+        exporter.beforeWrite = nil
+
+        let resumed = await store.resumeImport(destination: destination)
+
+        XCTAssertNotNil(resumed)
+        XCTAssertEqual(try XCTUnwrap(PhotosImportFileCheckpointStore().load(in: dir)).editedNotIncludedAssetIDs, ["a"])
+        XCTAssertEqual(store.editedVersionCounts, PhotosImportEditedVersionCounts(
+            includedEditedVersions: true, originals: 3, editedVersions: 2, couldNotSave: 0, notIncluded: 1
+        ), "Resume ignores the toggle and counts the earlier assets too")
     }
 }

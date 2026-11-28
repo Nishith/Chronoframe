@@ -932,6 +932,99 @@ final class DeduplicateTests: XCTestCase {
         )
     }
 
+    /// Builds a real directory with `IMG_1234.HEIC` and `IMG_1234.JPG`, which
+    /// both own the iPhone edit sidecar `IMG_E1234.AAE`, and returns the
+    /// detected sidecar paths (so the cases fail until `.aae` is a sidecar).
+    private func makeSharedAAEFixture() throws -> (heic: String, jpg: String, other: String, sidecar: String, sidecarPaths: [String: [String]]) {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DeduplicateAAETests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let names = ["IMG_1234.HEIC", "IMG_1234.JPG", "OTHER.JPG", "IMG_E1234.AAE"]
+        for name in names {
+            XCTAssertTrue(FileManager.default.createFile(
+                atPath: directory.appendingPathComponent(name).path,
+                contents: Data(name.utf8)
+            ))
+        }
+        let heic = directory.appendingPathComponent("IMG_1234.HEIC").path
+        let jpg = directory.appendingPathComponent("IMG_1234.JPG").path
+        let other = directory.appendingPathComponent("OTHER.JPG").path
+        let sidecar = directory.appendingPathComponent("IMG_E1234.AAE").path
+        return (heic, jpg, other, sidecar, DeduplicatePairDetector.detectSidecars(for: [heic, jpg, other]))
+    }
+
+    /// An `.aae` edit sidecar shared by two photos survives while either owner is kept.
+    // AGENTS-INVARIANT: 14
+    func testAAEOwnedByTwoPhotosSurvivesWhenEitherIsKept() throws {
+        let fixture = try makeSharedAAEFixture()
+        XCTAssertEqual(fixture.sidecarPaths[fixture.heic], [fixture.sidecar])
+        XCTAssertEqual(fixture.sidecarPaths[fixture.jpg], [fixture.sidecar])
+
+        for (kept, deleted) in [(fixture.heic, fixture.jpg), (fixture.jpg, fixture.heic)] {
+            let keptCandidate = candidate(path: kept, sidecarPaths: fixture.sidecarPaths[kept] ?? [])
+            let deletedCandidate = candidate(path: deleted, sidecarPaths: fixture.sidecarPaths[deleted] ?? [])
+            let cluster = DuplicateCluster(
+                kind: .exactDuplicate,
+                members: [keptCandidate, deletedCandidate],
+                suggestedKeeperIDs: [kept],
+                bytesIfPruned: 100
+            )
+            let decisions = DedupeDecisions(byPath: [kept: .keep, deleted: .delete])
+            let config = DeduplicateConfiguration(
+                destinationPath: (fixture.heic as NSString).deletingLastPathComponent,
+                treatRawJpegPairsAsUnit: false
+            )
+
+            let plan = DeduplicationPlanner.plan(
+                decisions: decisions,
+                clusters: [cluster],
+                configuration: config,
+                snapshot: testScanSnapshot(for: [cluster])
+            )
+            let paths = Set(plan.pathsToDelete)
+            XCTAssertTrue(paths.contains(deleted))
+            XCTAssertFalse(paths.contains(fixture.sidecar), "Shared .aae must survive while \(kept) is kept")
+        }
+    }
+
+    /// The shared `.aae` is trashed only when every owner is trashed.
+    // AGENTS-INVARIANT: 14
+    func testAAETrashedOnlyWhenEveryOwnerIsTrashed() throws {
+        let fixture = try makeSharedAAEFixture()
+        XCTAssertEqual(fixture.sidecarPaths[fixture.heic], [fixture.sidecar])
+        XCTAssertEqual(fixture.sidecarPaths[fixture.jpg], [fixture.sidecar])
+
+        let heic = candidate(path: fixture.heic, sidecarPaths: fixture.sidecarPaths[fixture.heic] ?? [])
+        let jpg = candidate(path: fixture.jpg, sidecarPaths: fixture.sidecarPaths[fixture.jpg] ?? [])
+        let other = candidate(path: fixture.other)
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [heic, jpg, other],
+            suggestedKeeperIDs: [fixture.other],
+            bytesIfPruned: 100
+        )
+        let decisions = DedupeDecisions(byPath: [
+            fixture.heic: .delete,
+            fixture.jpg: .delete,
+            fixture.other: .keep,
+        ])
+        let config = DeduplicateConfiguration(
+            destinationPath: (fixture.heic as NSString).deletingLastPathComponent,
+            treatRawJpegPairsAsUnit: false
+        )
+
+        let plan = DeduplicationPlanner.plan(
+            decisions: decisions,
+            clusters: [cluster],
+            configuration: config,
+            snapshot: testScanSnapshot(for: [cluster])
+        )
+        let paths = Set(plan.pathsToDelete)
+        XCTAssertTrue(paths.contains(fixture.sidecar), "Every owner is trashed, so the shared .aae goes with them")
+        XCTAssertEqual(plan.items.first { $0.path == fixture.sidecar }?.pairOrigin, .sidecar)
+    }
+
     /// Finding #2: a sidecar shared with an owner that is **not** a
     /// duplicate-cluster member (a surviving singleton, e.g. `A.heic` next to
     /// a clustered `A.jpg`) must survive. The planner only ever saw the
@@ -2745,6 +2838,229 @@ final class DeduplicateTests: XCTestCase {
         }
     }
 
+    // MARK: - Edited variants (edit preservation WP-08, INV-31)
+
+    private func editedVariantCluster(
+        members: [PhotoCandidate],
+        keeper: String,
+        high: Bool = true
+    ) -> DuplicateCluster {
+        DuplicateCluster(
+            kind: .exactDuplicate,
+            members: members,
+            suggestedKeeperIDs: [keeper],
+            bytesIfPruned: 100,
+            annotation: high
+                ? ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .exactDuplicate))
+                : nil
+        )
+    }
+
+    // AGENTS-INVARIANT: 31
+    func testHighConfidenceClusterNeverAutoSelectsEditedVariant() {
+        let keeper = candidate(path: "/dest/OTHER.jpg")
+        let original = candidate(path: "/dest/x.jpg")
+        let variant = candidate(path: "/dest/x-edited.jpg", isProtectedEditedVariant: true)
+        let cluster = editedVariantCluster(members: [keeper, original, variant], keeper: "/dest/OTHER.jpg")
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+        let snapshot = testScanSnapshot(for: [cluster])
+
+        // Implicit defaults: the cluster is high confidence, so the original
+        // is auto-selected for Delete, but the variant never is.
+        let defaultPlan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(), clusters: [cluster], configuration: config, snapshot: snapshot
+        )
+        XCTAssertEqual(defaultPlan.pathsToDelete, ["/dest/x.jpg"])
+
+        // The suggestion helpers the review UI stores as decisions never mark it Delete.
+        let suggested = DeduplicationPlanner.suggestedDecisions(for: [cluster], configuration: config)
+        XCTAssertEqual(suggested.byPath["/dest/x-edited.jpg"], .keep)
+        XCTAssertEqual(suggested.byPath["/dest/x.jpg"], .delete)
+        let automatic = DeduplicationPlanner.automaticDecisions(for: [cluster], configuration: config)
+        XCTAssertEqual(automatic.byPath["/dest/x-edited.jpg"], .keep)
+
+        let suggestedPlan = DeduplicationPlanner.plan(
+            decisions: suggested, clusters: [cluster], configuration: config, snapshot: snapshot
+        )
+        XCTAssertEqual(suggestedPlan.pathsToDelete, ["/dest/x.jpg"])
+    }
+
+    // AGENTS-INVARIANT: 31
+    func testDeletingOriginalDoesNotFanOutToEditedVariant() {
+        // The variant is a singleton outside every cluster, and its identity is
+        // in the snapshot, so only the rules (not a missing identity) keep it.
+        let original = candidate(path: "/dest/x.jpg", sidecarPaths: ["/dest/x.xmp"])
+        let twin = candidate(path: "/dest/x2.jpg")
+        let cluster = editedVariantCluster(members: [original, twin], keeper: "/dest/x2.jpg", high: false)
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+        let variantIdentity = FileIdentity(size: 100, digest: "variant")
+        let snapshot = testScanSnapshot(
+            for: [cluster],
+            sidecarOwners: ["/dest/x.xmp": ["/dest/x.jpg", "/dest/x-edited.jpg"]],
+            additionalIdentities: ["/dest/x-edited.jpg": variantIdentity]
+        )
+
+        let plan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(byPath: ["/dest/x.jpg": .delete, "/dest/x2.jpg": .keep]),
+            clusters: [cluster],
+            configuration: config,
+            snapshot: snapshot
+        )
+
+        XCTAssertEqual(plan.pathsToDelete, ["/dest/x.jpg"], "A shared sidecar and the variant both survive")
+
+        // Pair fanout: an edited-named RAW+JPEG partner outside every cluster
+        // is never pulled in when the other half is explicitly deleted.
+        let raw = candidate(path: "/dest/y-edited.dng", pairedPath: "/dest/y-edited.jpg", isRaw: true)
+        let rawTwin = candidate(path: "/dest/y2.dng")
+        let pairCluster = editedVariantCluster(members: [raw, rawTwin], keeper: "/dest/y2.dng", high: false)
+        let pairPlan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(byPath: ["/dest/y-edited.dng": .delete, "/dest/y2.dng": .keep]),
+            clusters: [pairCluster],
+            configuration: config,
+            snapshot: testScanSnapshot(for: [pairCluster])
+        )
+        XCTAssertEqual(pairPlan.pathsToDelete, ["/dest/y-edited.dng"])
+    }
+
+    // AGENTS-INVARIANT: 31
+    func testExplicitUserDeleteOfVariantIsHonored() {
+        let original = candidate(path: "/dest/x.jpg")
+        let variant = candidate(path: "/dest/x-edited.jpg", isProtectedEditedVariant: true)
+        let cluster = editedVariantCluster(members: [original, variant], keeper: "/dest/x.jpg", high: false)
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+
+        let plan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(byPath: ["/dest/x.jpg": .keep, "/dest/x-edited.jpg": .delete]),
+            clusters: [cluster],
+            configuration: config,
+            snapshot: testScanSnapshot(for: [cluster])
+        )
+
+        XCTAssertEqual(plan.pathsToDelete, ["/dest/x-edited.jpg"])
+        XCTAssertEqual(plan.editedVariantsKeptCount, 0, "A variant the user deleted is not counted as kept")
+    }
+
+    // AGENTS-INVARIANT: 31
+    func testVariantKeptWhenOriginalDeletedAndFooterCountsIt() {
+        let original = candidate(path: "/dest/x.jpg")
+        let variant = candidate(path: "/dest/x-edited.jpg", isProtectedEditedVariant: true)
+        let other = candidate(path: "/dest/z.jpg")
+        let cluster = editedVariantCluster(members: [original, variant, other], keeper: "/dest/z.jpg", high: false)
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+        let snapshot = testScanSnapshot(for: [cluster])
+
+        // The variant's Keep (implicit here) does not block deleting its original.
+        let plan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(byPath: ["/dest/x.jpg": .delete, "/dest/z.jpg": .keep]),
+            clusters: [cluster],
+            configuration: config,
+            snapshot: snapshot
+        )
+        XCTAssertEqual(plan.pathsToDelete, ["/dest/x.jpg"])
+        XCTAssertEqual(plan.editedVariantsKeptCount, 1)
+
+        // Original kept: nothing to count.
+        let keptPlan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(byPath: ["/dest/x.jpg": .keep, "/dest/z.jpg": .delete]),
+            clusters: [cluster],
+            configuration: config,
+            snapshot: snapshot
+        )
+        XCTAssertEqual(keptPlan.pathsToDelete, ["/dest/z.jpg"])
+        XCTAssertEqual(keptPlan.editedVariantsKeptCount, 0)
+    }
+
+    // AGENTS-INVARIANT: 31
+    // AGENTS-INVARIANT: 17
+    func testPlanIntegrityExpectedIdentityStillRequiredForVariant() {
+        let original = candidate(path: "/dest/x.jpg")
+        let variant = candidate(path: "/dest/x-edited.jpg", isProtectedEditedVariant: true)
+        let cluster = editedVariantCluster(members: [original, variant], keeper: "/dest/x.jpg", high: false)
+        let config = DeduplicateConfiguration(destinationPath: "/dest")
+        var identities = testScanSnapshot(for: [cluster]).identitiesByPath
+        identities["/dest/x-edited.jpg"] = nil
+        let snapshot = DeduplicateScanSnapshot(identitiesByPath: identities)
+
+        let plan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(byPath: ["/dest/x.jpg": .keep, "/dest/x-edited.jpg": .delete]),
+            clusters: [cluster],
+            configuration: config,
+            snapshot: snapshot
+        )
+
+        XCTAssertTrue(plan.items.isEmpty, "An explicit Delete without a captured identity still fails closed")
+    }
+
+    // AGENTS-INVARIANT: 31
+    func testFalsePositiveUserNamedEditedFileIsStillProtected() async {
+        // D-EPR-06: a user's own `holiday-edited.jpg` beside `holiday.jpg` is
+        // treated as an edited variant; the rule fails closed.
+        let detection = await DeduplicatePairDetector.detectPairResult(
+            in: ["/dest/holiday.jpg", "/dest/holiday-edited.jpg"],
+            includeLivePhotos: false
+        )
+        XCTAssertEqual(detection.editedVariantOriginals, ["/dest/holiday-edited.jpg": "/dest/holiday.jpg"])
+
+        let original = candidate(path: "/dest/holiday.jpg")
+        let named = candidate(path: "/dest/holiday-edited.jpg", isProtectedEditedVariant: true)
+        let cluster = editedVariantCluster(members: [original, named], keeper: "/dest/holiday.jpg")
+        let plan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(),
+            clusters: [cluster],
+            configuration: DeduplicateConfiguration(destinationPath: "/dest"),
+            snapshot: testScanSnapshot(for: [cluster])
+        )
+        XCTAssertFalse(plan.pathsToDelete.contains("/dest/holiday-edited.jpg"))
+    }
+
+    // AGENTS-INVARIANT: 31
+    func testScannerFlagsEditedVariantAndDefaultPlanNeverTrashesIt() async throws {
+        let temporaryDirectory = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ScannerEditedVariant-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let original = temporaryDirectory.appendingPathComponent("IMG_0001.jpg")
+        let variant = temporaryDirectory.appendingPathComponent("IMG_0001-edited.jpg")
+        try Data(repeating: 0x22, count: 100).write(to: original)
+        try Data(repeating: 0x22, count: 100).write(to: variant)
+
+        let config = DeduplicateConfiguration(
+            destinationPath: temporaryDirectory.path,
+            timeWindowSeconds: 30,
+            similarityThreshold: 1.0,
+            dhashHammingThreshold: 5,
+            treatRawJpegPairsAsUnit: true,
+            treatLivePhotoPairsAsUnit: true
+        )
+
+        var clusters: [DuplicateCluster] = []
+        var finalSummary: DeduplicateSummary?
+        for try await event in DeduplicateScanner().scan(configuration: config) {
+            switch event {
+            case let .clusterDiscovered(cluster): clusters.append(cluster)
+            case let .complete(summary): finalSummary = summary
+            default: break
+            }
+        }
+
+        let summary = try XCTUnwrap(finalSummary)
+        let members = clusters.flatMap(\.members)
+        let variantMember = try XCTUnwrap(members.first { $0.path.hasSuffix("IMG_0001-edited.jpg") })
+        let originalMember = try XCTUnwrap(members.first { $0.path.hasSuffix("IMG_0001.jpg") })
+        XCTAssertTrue(variantMember.isProtectedEditedVariant)
+        XCTAssertFalse(originalMember.isProtectedEditedVariant)
+
+        let plan = DeduplicationPlanner.plan(
+            decisions: DedupeDecisions(),
+            clusters: clusters,
+            configuration: config,
+            snapshot: summary.scanSnapshot
+        )
+        XCTAssertFalse(plan.pathsToDelete.contains { $0.hasSuffix("IMG_0001-edited.jpg") })
+    }
+
     // MARK: - Helpers
 
     private func candidate(
@@ -2767,9 +3083,10 @@ final class DeduplicateTests: XCTestCase {
         subjectMotionBlur: Double? = nil,
         folderRoot: String? = nil,
         sidecarPaths: [String] = [],
-        modificationTime: TimeInterval = 0
+        modificationTime: TimeInterval = 0,
+        isProtectedEditedVariant: Bool = false
     ) -> PhotoCandidate {
-        PhotoCandidate(
+        var built = PhotoCandidate(
             path: path,
             size: size,
             modificationTime: modificationTime,
@@ -2791,6 +3108,8 @@ final class DeduplicateTests: XCTestCase {
             folderRoot: folderRoot,
             sidecarPaths: sidecarPaths
         )
+        built.isProtectedEditedVariant = isProtectedEditedVariant
+        return built
     }
 
     private func makeGradientImage(reversed: Bool) -> CGImage {

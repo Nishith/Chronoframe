@@ -17,13 +17,28 @@ public struct PhotosExportableResource: Equatable, Sendable {
     public let originalFilename: String
     /// Size in bytes of the original resource when Photos reports it; nil when unknown.
     public let fileSize: Int64?
+    /// Which resource of the asset this is. Defaults to `.original`.
+    public let role: Role
 
-    public init(assetID: String, resourceIndex: Int, fileExtension: String, originalFilename: String, fileSize: Int64? = nil) {
+    public enum Role: String, Equatable, Sendable {
+        case original
+        case editedRender
+    }
+
+    public init(
+        assetID: String,
+        resourceIndex: Int,
+        fileExtension: String,
+        originalFilename: String,
+        fileSize: Int64? = nil,
+        role: Role = .original
+    ) {
         self.assetID = assetID
         self.resourceIndex = resourceIndex
         self.fileExtension = fileExtension
         self.originalFilename = originalFilename
         self.fileSize = fileSize
+        self.role = role
     }
 }
 
@@ -39,6 +54,13 @@ public protocol PhotosResourceExporting: Sendable {
     /// order they should be written. Read-only: implemented with
     /// `PHAssetResource.assetResources(for:)`.
     func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource]
+    /// The asset's current edited still render (`.fullSizePhoto`), or nil when
+    /// the asset has none. Read-only, like `originalResources(forAssetID:)`.
+    func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource?
+    /// True when the asset has an edit this import does not export: an edited
+    /// video, or an edited Live Photo. Read-only, implemented with
+    /// `PHAssetResource.assetResources(for:)` only.
+    func hasUnsupportedEditedRender(forAssetID id: String) async throws -> Bool
     /// Copies one resource's original bytes to `destinationURL`. Read-only
     /// against the library: implemented with `PHAssetResourceManager`, which
     /// only reads. Never calls `PHPhotoLibrary.performChanges`.
@@ -54,6 +76,16 @@ public protocol PhotosResourceExporting: Sendable {
 }
 
 public extension PhotosResourceExporting {
+    /// Default keeps every existing test double compiling: no edited render.
+    func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource? {
+        nil
+    }
+
+    /// Default keeps every existing test double compiling: no unsupported edit.
+    func hasUnsupportedEditedRender(forAssetID id: String) async throws -> Bool {
+        false
+    }
+
     /// Default keeps every existing test double compiling: ignores progress.
     func writeResource(
         _ resource: PhotosExportableResource,
@@ -94,11 +126,27 @@ public struct PhotosExportReceipt: Equatable, Sendable {
     public let exportedFiles: [PhotosExportedFile]
     public let failures: [PhotosAssetExportFailure]
     public let sourceDateHints: [String: SourceDateHint]
+    /// The edited renders staged (also present in `exportedFiles`).
+    public let editedFiles: [PhotosExportedFile]
+    /// Assets whose edited render could not be saved; their originals were exported.
+    public let variantFailures: [PhotosVariantFailure]
+    /// Assets with an edited video or Live Photo, which are not exported.
+    public let editedNotIncludedCount: Int
 
-    public init(exportedFiles: [PhotosExportedFile], failures: [PhotosAssetExportFailure], sourceDateHints: [String: SourceDateHint] = [:]) {
+    public init(
+        exportedFiles: [PhotosExportedFile],
+        failures: [PhotosAssetExportFailure],
+        sourceDateHints: [String: SourceDateHint] = [:],
+        editedFiles: [PhotosExportedFile] = [],
+        variantFailures: [PhotosVariantFailure] = [],
+        editedNotIncludedCount: Int = 0
+    ) {
         self.exportedFiles = exportedFiles
         self.failures = failures
         self.sourceDateHints = sourceDateHints
+        self.editedFiles = editedFiles
+        self.variantFailures = variantFailures
+        self.editedNotIncludedCount = editedNotIncludedCount
     }
 
     public var stagedFileCount: Int { exportedFiles.count }
@@ -122,6 +170,12 @@ public enum PhotosExportEvent: Equatable, Sendable {
     case resourceProgress(assetID: String, fraction: Double)
     case assetCompleted(assetID: String, files: [PhotosExportedFile], sourceDateHints: [String: SourceDateHint])
     case assetFailed(assetID: String, message: String)
+    /// The asset's edited still was staged; sent just before its `.assetCompleted`.
+    case editedVersionSaved(assetID: String, file: PhotosExportedFile)
+    /// The edited still could not be saved; the originals still complete.
+    case editedVersionFailed(assetID: String)
+    /// The asset's edit (video or Live Photo) is not exported.
+    case editedVersionNotIncluded(assetID: String)
 }
 
 /// Thrown before any write of the next asset when staging space is below the floor.
@@ -170,6 +224,7 @@ public struct PhotosExportExecutor {
         plan: PhotosExportPlan,
         to stagingDirectory: URL,
         reservedFilenames: Set<String> = [],
+        includeEditedVersions: Bool = false,
         isCancelled: @escaping @Sendable () -> Bool = { false },
         onEvent: @escaping @Sendable (PhotosExportEvent) -> Void = { _ in }
     ) async throws -> PhotosExportReceipt {
@@ -183,6 +238,9 @@ public struct PhotosExportExecutor {
         // a case-insensitive, normalization-insensitive APFS volume.
         var usedFilenames = Set(reservedFilenames.map(Self.nameKey))
         var sourceDateHints: [String: SourceDateHint] = [:]
+        var editedFiles: [PhotosExportedFile] = []
+        var variantFailures: [PhotosVariantFailure] = []
+        var editedNotIncludedCount = 0
 
         for (entryIndex, entry) in plan.entries.enumerated() {
             try throwIfCancelled(isCancelled)
@@ -248,6 +306,42 @@ public struct PhotosExportExecutor {
                         )
                     )
                 }
+                // Edited still, only when the user opted in. Every failure here
+                // costs just the edited file; the originals above still complete.
+                var editedURL: URL?
+                var editedNotIncluded = false
+                var editedFailed = false
+                if includeEditedVersions {
+                    try throwIfCancelled(isCancelled)
+                    if (try? await exporter.hasUnsupportedEditedRender(forAssetID: entry.assetID)) == true {
+                        editedNotIncluded = true
+                    } else {
+                        do {
+                            if let edited = try await exporter.editedStillResource(forAssetID: entry.assetID) {
+                                let ext = edited.fileExtension.isEmpty
+                                    ? (edited.originalFilename as NSString).pathExtension
+                                    : edited.fileExtension
+                                let destination = try claimDestination(
+                                    in: stagingRoot,
+                                    stem: "\(entry.stagingStem)-edited",
+                                    fileExtension: ext,
+                                    resourceIndex: edited.resourceIndex,
+                                    used: &usedFilenames
+                                )
+                                writtenURLs.append(destination)
+                                editedURL = destination
+                                try await exporter.writeResource(edited, to: destination) { fraction in
+                                    onEvent(.resourceProgress(assetID: entry.assetID, fraction: fraction))
+                                }
+                            }
+                        } catch is CancellationError {
+                            throw CancellationError()
+                        } catch {
+                            discardEditedFile(&editedURL, from: &writtenURLs)
+                            editedFailed = true
+                        }
+                    }
+                }
                 try throwIfCancelled(isCancelled)
                 let captureDate = resolveAssetDate(entry: entry, paths: assetFiles.map(\.path), isCancelled: { isCancelled() || Task.isCancelled })
                 var assetHints: [String: SourceDateHint] = [:]
@@ -258,9 +352,35 @@ public struct PhotosExportExecutor {
                         resolvedDate: captureDate
                     )
                 }
+                // The edited file shares the capture date resolved from the
+                // originals, so both land in the same date folder.
+                var editedFile: PhotosExportedFile?
+                if let url = editedURL {
+                    do {
+                        assetHints[SourceDateHint.pathKey(for: url.path)] = SourceDateHint(
+                            identity: try FileIdentityHasher().hashIdentity(at: url),
+                            resolvedDate: captureDate
+                        )
+                        editedFile = PhotosExportedFile(assetID: entry.assetID, stagingStem: entry.stagingStem, path: url.path)
+                    } catch {
+                        discardEditedFile(&editedURL, from: &writtenURLs)
+                        editedFailed = true
+                    }
+                }
                 try throwIfCancelled(isCancelled)
+                if let editedFile { assetFiles.append(editedFile) }
                 exported.append(contentsOf: assetFiles)
                 sourceDateHints.merge(assetHints) { _, new in new }
+                if let editedFile {
+                    editedFiles.append(editedFile)
+                    onEvent(.editedVersionSaved(assetID: entry.assetID, file: editedFile))
+                } else if editedFailed {
+                    variantFailures.append(PhotosVariantFailure(assetID: entry.assetID, reason: .editedRenderUnavailable))
+                    onEvent(.editedVersionFailed(assetID: entry.assetID))
+                } else if editedNotIncluded {
+                    editedNotIncludedCount += 1
+                    onEvent(.editedVersionNotIncluded(assetID: entry.assetID))
+                }
                 onEvent(.assetCompleted(assetID: entry.assetID, files: assetFiles, sourceDateHints: assetHints))
             } catch is CancellationError {
                 rollBack(writtenURLs)
@@ -283,7 +403,14 @@ public struct PhotosExportExecutor {
             }
         }
 
-        return PhotosExportReceipt(exportedFiles: exported, failures: failures, sourceDateHints: sourceDateHints)
+        return PhotosExportReceipt(
+            exportedFiles: exported,
+            failures: failures,
+            sourceDateHints: sourceDateHints,
+            editedFiles: editedFiles,
+            variantFailures: variantFailures,
+            editedNotIncludedCount: editedNotIncludedCount
+        )
     }
 
     /// One date per asset: still metadata wins over the paired movie (whose
@@ -317,6 +444,15 @@ public struct PhotosExportExecutor {
         for url in urls {
             try? FileManager.default.removeItem(at: url)
         }
+    }
+
+    /// Removes only the edited file (a failed edit never costs the originals)
+    /// and forgets it, so a later rollback does not list it again.
+    private func discardEditedFile(_ editedURL: inout URL?, from writtenURLs: inout [URL]) {
+        guard let url = editedURL else { return }
+        rollBack([url])
+        writtenURLs.removeAll { $0 == url }
+        editedURL = nil
     }
 
     private func throwIfCancelled(_ isCancelled: @Sendable () -> Bool) throws {

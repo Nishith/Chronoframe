@@ -9,6 +9,10 @@ public struct DryRunPlanningResult: Equatable, Sendable {
     public var previewReviewSummary: PreviewReviewSummary
     public var phaseSequence: [String]
     public var completeStatus: String
+    /// Companion source path to owner source path for planned companion
+    /// transfers. In memory only; used to keep companions with their owner
+    /// when a plan is reduced.
+    public var companionOwners: [String: String]
 
     public init(
         discoveredSourceCount: Int,
@@ -17,8 +21,10 @@ public struct DryRunPlanningResult: Equatable, Sendable {
         copyPlan: CopyPlanResult,
         previewReviewItems: [PreviewReviewItem] = [],
         phaseSequence: [String] = Self.defaultPhaseSequence,
-        completeStatus: String = Self.dryRunFinishedStatus
+        completeStatus: String = Self.dryRunFinishedStatus,
+        companionOwners: [String: String] = [:]
     ) {
+        self.companionOwners = companionOwners
         self.discoveredSourceCount = discoveredSourceCount
         self.destinationIndexedCount = destinationIndexedCount
         self.sourceHashedCount = sourceHashedCount
@@ -137,13 +143,15 @@ public struct DryRunPlanner: Sendable {
 
         try Self.throwIfCancelled(isCancelled)
         onEvent?(.phaseStarted(phase: .discovery, total: nil))
-        let sourcePaths = try MediaDiscovery.discoverMediaFiles(
+        let sourceDiscovery = try MediaDiscovery.discoverMediaAndCompanions(
             at: sourceRoot,
             isCancelled: isCancelled,
             onDirectoryIssue: { issue in
                 onEvent?(.issue(RunIssue(severity: .warning, message: issue.message)))
             }
         )
+        let sourcePaths = sourceDiscovery.media
+        let companionSourcePaths = sourceDiscovery.companions
         try Self.requireEveryHintedFile(in: sourcePaths, hints: sourceDateHints)
         let discoveredSourceCount = sourcePaths.count
         onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
@@ -463,6 +471,32 @@ public struct DryRunPlanner: Sendable {
 
         let reviewItems = sourcePaths.compactMap { reviewItemsBySourcePath[$0] }
 
+        // Histogram describes owners only; companions are appended afterwards.
+        let dateHistogram = CopyPlanBuilder.dateHistogram(from: transfers, namingRules: namingRules)
+        let companionResolution = CompanionResolver.resolve(
+            companionPaths: companionSourcePaths,
+            mediaPaths: sourcePaths
+        )
+        let companionCandidates = Self.companionCandidatePaths(resolution: companionResolution, ownerTransfers: transfers)
+        try Self.throwIfCancelled(isCancelled)
+        let companionResults = try processFilesSync(
+            companionCandidates,
+            database: database,
+            workerCount: workerCount,
+            phase: .sourceHashing,
+            total: companionCandidates.count,
+            checkpoint: FileCacheCheckpointWriter(namespace: .source, database: database),
+            isCancelled: isCancelled,
+            onEvent: nil
+        )
+        let plannedCompanions = Self.planCompanions(
+            resolution: companionResolution,
+            ownerTransfers: transfers,
+            candidatePaths: companionCandidates,
+            results: companionResults
+        )
+        transfers.append(contentsOf: plannedCompanions.transfers)
+
         return DryRunPlanningResult(
             discoveredSourceCount: discoveredSourceCount,
             destinationIndexedCount: destinationIndex.indexedFileCount,
@@ -476,9 +510,11 @@ public struct DryRunPlanner: Sendable {
                     duplicatesByDate: duplicateSequences
                 ),
                 infoMessages: infoMessages,
-                dateHistogram: CopyPlanBuilder.dateHistogram(from: transfers, namingRules: namingRules)
+                dateHistogram: dateHistogram,
+                unresolvedCompanions: plannedCompanions.unresolved
             ),
-            previewReviewItems: reviewItems
+            previewReviewItems: reviewItems,
+            companionOwners: plannedCompanions.companionOwners
         )
     }
 
@@ -501,13 +537,15 @@ public struct DryRunPlanner: Sendable {
 
         try Self.throwIfCancelled(isCancelled)
         onEvent?(.phaseStarted(phase: .discovery, total: nil))
-        let sourcePaths = try MediaDiscovery.discoverMediaFiles(
+        let sourceDiscovery = try MediaDiscovery.discoverMediaAndCompanions(
             at: sourceRoot,
             isCancelled: isCancelled,
             onDirectoryIssue: { issue in
                 onEvent?(.issue(RunIssue(severity: .warning, message: issue.message)))
             }
         )
+        let sourcePaths = sourceDiscovery.media
+        let companionSourcePaths = sourceDiscovery.companions
         try Self.requireEveryHintedFile(in: sourcePaths, hints: sourceDateHints)
         let discoveredSourceCount = sourcePaths.count
         onEvent?(.phaseCompleted(phase: .discovery, result: RunPhaseResult(found: discoveredSourceCount)))
@@ -827,6 +865,32 @@ public struct DryRunPlanner: Sendable {
 
         let reviewItems = sourcePaths.compactMap { reviewItemsBySourcePath[$0] }
 
+        // Histogram describes owners only; companions are appended afterwards.
+        let dateHistogram = CopyPlanBuilder.dateHistogram(from: transfers, namingRules: namingRules)
+        let companionResolution = CompanionResolver.resolve(
+            companionPaths: companionSourcePaths,
+            mediaPaths: sourcePaths
+        )
+        let companionCandidates = Self.companionCandidatePaths(resolution: companionResolution, ownerTransfers: transfers)
+        try Self.throwIfCancelled(isCancelled)
+        let companionResults = try await processFiles(
+            companionCandidates,
+            database: database,
+            workerCount: workerCount,
+            phase: .sourceHashing,
+            total: companionCandidates.count,
+            checkpoint: FileCacheCheckpointWriter(namespace: .source, database: database),
+            isCancelled: isCancelled,
+            onEvent: nil
+        )
+        let plannedCompanions = Self.planCompanions(
+            resolution: companionResolution,
+            ownerTransfers: transfers,
+            candidatePaths: companionCandidates,
+            results: companionResults
+        )
+        transfers.append(contentsOf: plannedCompanions.transfers)
+
         return DryRunPlanningResult(
             discoveredSourceCount: discoveredSourceCount,
             destinationIndexedCount: destinationIndex.indexedFileCount,
@@ -840,9 +904,45 @@ public struct DryRunPlanner: Sendable {
                     duplicatesByDate: duplicateSequences
                 ),
                 infoMessages: infoMessages,
-                dateHistogram: CopyPlanBuilder.dateHistogram(from: transfers, namingRules: namingRules)
+                dateHistogram: dateHistogram,
+                unresolvedCompanions: plannedCompanions.unresolved
             ),
-            previewReviewItems: reviewItems
+            previewReviewItems: reviewItems,
+            companionOwners: plannedCompanions.companionOwners
+        )
+    }
+
+    /// Resolved companions whose owner is among the final owner transfers, in
+    /// source-path order. Companions of skipped owners are never hashed.
+    private static func companionCandidatePaths(
+        resolution: CompanionResolver.Resolution,
+        ownerTransfers: [PlannedTransfer]
+    ) -> [String] {
+        let ownerSources = Set(ownerTransfers.map(\.sourcePath))
+        return resolution.ownersByCompanion
+            .filter { ownerSources.contains($0.value) }
+            .keys
+            .sorted()
+    }
+
+    private static func planCompanions(
+        resolution: CompanionResolver.Resolution,
+        ownerTransfers: [PlannedTransfer],
+        candidatePaths: [String],
+        results: [ProcessedFileIdentity]
+    ) -> CompanionResolver.PlannedCompanions {
+        var identities: [String: FileIdentity] = [:]
+        for (index, path) in candidatePaths.enumerated() where index < results.count {
+            if let identity = results[index].identity {
+                identities[path] = identity
+            }
+        }
+        return CompanionResolver.plan(
+            ownerTransfers: ownerTransfers,
+            resolution: resolution,
+            identity: { identities[$0] },
+            // lstat-based, so a dangling symlink at the name still counts as taken.
+            fileExists: { (try? FileManager.default.attributesOfItem(atPath: $0)) != nil }
         )
     }
 

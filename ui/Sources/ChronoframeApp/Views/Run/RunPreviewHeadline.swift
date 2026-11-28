@@ -35,9 +35,19 @@ struct RunPreviewHeadline: Equatable {
             sentence = String(localized: "Everything here is already in your organized library. Nothing needs copying.", bundle: localizationBundle)
         } else {
             let planned = metrics.plannedCount
-            let subject = planned == 1 ? String(localized: "1 photo or video", bundle: localizationBundle) : String(localized: "\(String(number(planned))) photos and videos", bundle: localizationBundle)
+            let sidecars = min(max(0, metrics.plannedCompanionCount), planned)
             let span = Self.span(from: metrics.dateHistogram, locale: locale, localizationBundle: localizationBundle)
-            sentence = String(localized: "\(String(subject)) will be copied\(String(span)). Nothing has been copied yet.", bundle: localizationBundle)
+            if sidecars > 0 {
+                sentence = String(
+                    format: AppLocalization.string("%1$@, %2$@ will be copied%3$@. Nothing has been copied yet.", bundle: localizationBundle),
+                    PluralPhrases.photosAndVideos(planned - sidecars, locale: locale, bundle: localizationBundle),
+                    PluralPhrases.sidecarFiles(sidecars, locale: locale, bundle: localizationBundle),
+                    span
+                )
+            } else {
+                let subject = planned == 1 ? String(localized: "1 photo or video", bundle: localizationBundle) : String(localized: "\(String(number(planned))) photos and videos", bundle: localizationBundle)
+                sentence = String(localized: "\(String(subject)) will be copied\(String(span)). Nothing has been copied yet.", bundle: localizationBundle)
+            }
         }
 
         var found: [Exception] = []
@@ -97,6 +107,15 @@ struct RunPreviewHeadline: Equatable {
                 text: String(localized: "\(String(number(n))) could not be read and will be skipped.", bundle: localizationBundle),
                 systemImage: "exclamationmark.triangle",
                 opensReview: true
+            ))
+        }
+        if metrics.unresolvedCompanionCount > 0 {
+            found.append(Exception(
+                id: "sidecarsNotCopied",
+                count: metrics.unresolvedCompanionCount,
+                text: PluralPhrases.sidecarFilesNotCopied(metrics.unresolvedCompanionCount, locale: locale, bundle: localizationBundle),
+                systemImage: "exclamationmark.circle",
+                opensReview: false
             ))
         }
         exceptions = found

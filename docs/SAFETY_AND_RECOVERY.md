@@ -141,6 +141,28 @@ RAW+JPEG pairs, Live Photo pairs, and owned metadata sidecars are validated as a
 unit. If one member changes or a journal update fails, Chronoframe restores the
 unit where it safely can and stops before touching more files.
 
+### Edited versions are protected
+
+When Apple Photos import saves an edited version, it is named
+`<name>-edited.<ext>` and sits beside the original `<name>.<ext>` in the same
+folder. Deduplicate treats any file with that name beside a file with the same
+name (ignoring upper and lower case, and whatever the other file's extension is)
+as an edited version and protects it:
+
+- It is never selected for the Trash by a group's suggestion or by Accept All,
+  and never pulled in because a RAW+JPEG or Live Photo partner, a sidecar, or its
+  original is being deleted.
+- Deleting the original leaves the edited version in place. The commit footer
+  says how many edited versions stay (for example "2 edited versions kept").
+- It is a normal photo in the review, so you can still look at it. The only way
+  it goes to the Trash is you marking that exact file Delete. That Delete is
+  checked like any other: if its content no longer matches the scan, nothing is
+  moved.
+
+The link is the file name, nothing more. A file you named `holiday-edited.jpg`
+yourself, beside `holiday.jpg`, is protected the same way. That errs on the safe
+side: the file is never moved to the Trash on Chronoframe's own initiative.
+
 ### Saved Deduplicate reviews
 
 Reviewing a large library can take longer than one sitting, so Chronoframe
@@ -298,6 +320,39 @@ Recovery distinguishes three situations:
 A permission denial is never treated as proof that a file is missing. Recovery
 is idempotent: retrying it after reconnecting a drive or restoring permission
 does not repeat a completed mutation.
+
+### Sidecar companions (`.xmp`, `.aae`)
+
+Organize copies edit sidecars with the photo they belong to. A companion is an
+ordinary copy job, so it follows every Organize safeguard: it is queued before
+it is copied, copied to a temporary name and verified by content hash, recorded
+in the audit receipt, and never overwrites an existing file. Revert removes a
+companion alongside its photo only when the companion's own content still
+matches the receipt; each file is checked on its own, so a companion you have
+edited since the copy is kept even when its photo is removed. Revert removes a
+companion in no other way. The source folder is only read.
+
+A companion with no single matching photo, or whose destination name is already
+taken, is not copied. The preview lists each one (`Not copied: <file name>
+(<reason>)`) and the run is not blocked. Nothing is guessed and nothing is
+deleted.
+
+Known gaps, none of which overwrites or deletes a file:
+
+- If an outside program creates a file at a companion's planned name between
+  the preview and the copy (Chronoframe itself is locked out by the destination
+  lock), the copy takes a `_collision_N` name and the companion can end up apart
+  from its photo.
+- If a photo fails verification while its companion copies, the companion sits
+  alone at the photo's planned name, and a later run may give the photo another
+  sequence number.
+- A crash in the middle of copying a `photo.jpg.xmp`-style companion leaves a
+  temporary file that startup cleanup does not recognize.
+- Reorganize does not recognize a `…_007.jpg.xmp` companion, so it stays where
+  it is when its photo moves.
+
+These are tracked as follow-ups to the executor and Reorganize code, which this
+change leaves untouched.
 
 ### Photos import checkpoints
 

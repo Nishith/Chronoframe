@@ -120,6 +120,9 @@ struct RunWorkspaceContext {
     var currentFileURL: URL?
     /// The user asked to stop and the engine has not finished stopping yet.
     var isCancelling: Bool
+    /// Edited-version counts when this run belongs to a Photos import that ran
+    /// with "Include edited versions"; nil for every other run.
+    var photosEditedVersionCounts: PhotosImportEditedVersionCounts?
 
     init(
         status: RunStatus,
@@ -141,7 +144,8 @@ struct RunWorkspaceContext {
         previewReviewSummary: PreviewReviewSummary = PreviewReviewSummary(),
         previewReviewPath: String? = nil,
         currentFileURL: URL? = nil,
-        isCancelling: Bool = false
+        isCancelling: Bool = false,
+        photosEditedVersionCounts: PhotosImportEditedVersionCounts? = nil
     ) {
         self.status = status
         self.currentMode = currentMode
@@ -163,6 +167,7 @@ struct RunWorkspaceContext {
         self.previewReviewPath = previewReviewPath
         self.currentFileURL = currentFileURL
         self.isCancelling = isCancelling
+        self.photosEditedVersionCounts = photosEditedVersionCounts
     }
 }
 
@@ -179,7 +184,8 @@ struct RunWorkspaceModel {
         runLogStore: RunLogStore,
         historyStore: HistoryStore,
         canStartRun: Bool,
-        previewReviewStore: PreviewReviewStore? = nil
+        previewReviewStore: PreviewReviewStore? = nil,
+        photosEditedVersionCounts: PhotosImportEditedVersionCounts? = nil
     ) {
         self.init(
             context: RunWorkspaceContext(
@@ -206,7 +212,8 @@ struct RunWorkspaceModel {
                 previewReviewSummary: previewReviewStore?.summary ?? PreviewReviewSummary(),
                 previewReviewPath: runSessionStore.summary?.artifacts.previewReviewPath,
                 currentFileURL: runSessionStore.currentFileURL,
-                isCancelling: runSessionStore.isCancelling
+                isCancelling: runSessionStore.isCancelling,
+                photosEditedVersionCounts: photosEditedVersionCounts
             )
         )
     }
@@ -221,6 +228,19 @@ struct RunWorkspaceModel {
             review: context.previewReviewSummary,
             isStale: context.previewReviewIsStale
         )
+    }
+
+    /// "N edited photos will also be saved", in the preview of a Photos import.
+    var photosEditedPreviewLine: String? {
+        guard context.status == .dryRunFinished else { return nil }
+        return PhotosImportEditsSummaryText.previewLine(for: context.photosEditedVersionCounts)
+    }
+
+    /// Originals / edited versions / could-not-save lines, in the summary of a
+    /// finished Photos import run.
+    var photosEditedSummaryLines: [String] {
+        guard context.status == .finished else { return [] }
+        return PhotosImportEditsSummaryText.lines(for: context.photosEditedVersionCounts)
     }
 
     /// Final totals outrank the last progress sample: the engine's summary is
@@ -313,10 +333,21 @@ struct RunWorkspaceModel {
 
         case .finished:
             let copied = context.metrics.copiedCount
-            let subject = copied == 1 ? String(localized: "1 photo or video is", bundle: .module) : String(localized: "\(String(copied.formatted())) photos and videos are", bundle: .module)
+            let sidecars = min(max(0, context.metrics.copiedCompanionCount), copied)
+            let message: String
+            if sidecars > 0 {
+                message = String(
+                    format: AppLocalization.string("%1$@, %2$@ are in your organized library. Your originals were not changed.", bundle: .module),
+                    PluralPhrases.photosAndVideos(copied - sidecars),
+                    PluralPhrases.sidecarFiles(sidecars)
+                )
+            } else {
+                let subject = copied == 1 ? String(localized: "1 photo or video is", bundle: .module) : String(localized: "\(String(copied.formatted())) photos and videos are", bundle: .module)
+                message = String(localized: "\(String(subject)) in your organized library. Your originals were not changed.", bundle: .module)
+            }
             return RunHeroState(
                 title: String(localized: "Copy complete", bundle: .module),
-                message: String(localized: "\(String(subject)) in your organized library. Your originals were not changed.", bundle: .module),
+                message: message,
                 badgeTitle: String(localized: "Done", bundle: .module),
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "checkmark.circle.fill",

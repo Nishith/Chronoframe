@@ -14,10 +14,19 @@ public enum DeduplicatePairDetector {
     public struct DetectionResult: Sendable, Equatable {
         public var pairs: [String: Pair]
         public var unsupportedMoviePaths: Set<String>
+        /// Edited variant path → original path (INV-31). Kept apart from
+        /// `pairs`, which holds one `Pair` per path, so a variant link can
+        /// never overwrite a RAW+JPEG or Live Photo pair.
+        public var editedVariantOriginals: [String: String]
 
-        public init(pairs: [String: Pair] = [:], unsupportedMoviePaths: Set<String> = []) {
+        public init(
+            pairs: [String: Pair] = [:],
+            unsupportedMoviePaths: Set<String> = [],
+            editedVariantOriginals: [String: String] = [:]
+        ) {
             self.pairs = pairs
             self.unsupportedMoviePaths = unsupportedMoviePaths
+            self.editedVariantOriginals = editedVariantOriginals
         }
     }
     public static let rawExtensions: Set<String> = [
@@ -30,7 +39,7 @@ public enum DeduplicatePairDetector {
     /// Metadata sidecar extensions. A sidecar carries edits/ratings for a photo
     /// and is not itself a dedup candidate (never hashed or clustered) — it must
     /// travel with its parent photo as a unit.
-    public static let sidecarExtensions: Set<String> = [".xmp"]
+    public static let sidecarExtensions: Set<String> = [".xmp", ".aae"]
 
     /// Injection seam for sidecar existence checks so `detectSidecars` is
     /// unit-testable without a real filesystem. Production hits disk.
@@ -46,6 +55,10 @@ public enum DeduplicatePairDetector {
         public enum Kind: String, Sendable, Equatable {
             case rawJpeg
             case livePhoto
+            /// `<stem>-edited.<ext>` beside `<stem>.<ext>` (INV-31). Reported
+            /// through `DetectionResult.editedVariantOriginals`, never as an
+            /// entry in `pairs`.
+            case editedVariant
         }
     }
 
@@ -70,6 +83,7 @@ public enum DeduplicatePairDetector {
         movieMetadataLoader: any LivePhotoMetadataLoading = BoundedLivePhotoMetadataLoader()
     ) async -> DetectionResult {
         var pairs: [String: Pair] = [:]
+        let editedVariantOriginals = detectEditedVariants(in: paths)
 
         let rawJpegByBasename = groupByBasename(paths)
         for (_, group) in rawJpegByBasename where group.count > 1 {
@@ -88,7 +102,9 @@ public enum DeduplicatePairDetector {
             }
         }
 
-        guard includeLivePhotos, !Task.isCancelled else { return DetectionResult(pairs: pairs) }
+        guard includeLivePhotos, !Task.isCancelled else {
+            return DetectionResult(pairs: pairs, editedVariantOriginals: editedVariantOriginals)
+        }
 
         // Live Photo: read content identifier from each HEIC and from each
         // sibling MOV; match within the same parent directory.
@@ -120,8 +136,46 @@ public enum DeduplicatePairDetector {
 
         return DetectionResult(
             pairs: pairs,
-            unsupportedMoviePaths: allMovieMetadata.unsupportedPaths
+            unsupportedMoviePaths: allMovieMetadata.unsupportedPaths,
+            editedVariantOriginals: editedVariantOriginals
         )
+    }
+
+    /// Edited variants (INV-31): `<stem>-edited.<ext>` beside `<stem>.<anyExt>`
+    /// in the same directory, stem compared case-insensitively. When several
+    /// originals match (`x.jpg`, `x.dng`) the variant is still a variant and
+    /// the lexicographically first original is recorded.
+    static func detectEditedVariants(in paths: [String]) -> [String: String] {
+        var pathsByDirectoryAndStem: [String: [String]] = [:]
+        for path in paths {
+            pathsByDirectoryAndStem[editedVariantOriginalKey(forOriginalPath: path), default: []].append(path)
+        }
+        var result: [String: String] = [:]
+        for path in paths {
+            guard let key = editedVariantOriginalKey(forVariantPath: path),
+                  let original = pathsByDirectoryAndStem[key]?.filter({ $0 != path }).min()
+            else { continue }
+            result[path] = original
+        }
+        return result
+    }
+
+    /// The directory-and-stem key an original must have for `path` to be an
+    /// edited variant, or `nil` when the file name does not end in `-edited`.
+    /// Shared with `DeduplicationPlanner` so both agree on the convention.
+    static func editedVariantOriginalKey(forVariantPath path: String) -> String? {
+        let url = URL(fileURLWithPath: path)
+        let stem = url.deletingPathExtension().lastPathComponent.lowercased()
+        let suffix = "-edited"
+        guard stem.hasSuffix(suffix), stem.count > suffix.count else { return nil }
+        return url.deletingLastPathComponent().path + "\u{0}" + String(stem.dropLast(suffix.count))
+    }
+
+    /// Key for an arbitrary path as a potential original; matches
+    /// `editedVariantOriginalKey` for its variant.
+    static func editedVariantOriginalKey(forOriginalPath path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        return url.deletingLastPathComponent().path + "\u{0}" + url.deletingPathExtension().lastPathComponent.lowercased()
     }
 
     /// Maps each media path to any co-located sidecar files that share its
@@ -129,18 +183,41 @@ public enum DeduplicatePairDetector {
     /// appended to the full filename (`photo.jpg.xmp`); both forms are matched
     /// in the same directory. Sidecars are deduplicated per media path.
     ///
+    /// `.aae` (iPhone edit instructions) uses both forms too, plus
+    /// `IMG_<digits>.<ext>` owning `IMG_E<digits>.aae` (exact digits). Because
+    /// iPhones write `.AAE`, `.aae` matches are returned with their on-disk
+    /// spelling, resolved against the directory's entries.
+    ///
     /// Note both `photo.raw` and `photo.jpg` resolve `photo.xmp` to the same
     /// shared sidecar — so a sidecar can have multiple owners, which is why
     /// deletion fanout is gated on *every* owner being deleted (Keep-wins).
     public static func detectSidecars(for mediaPaths: [String]) -> [String: [String]] {
         var result: [String: [String]] = [:]
+        var directoryListings: [String: [String: [String]]] = [:]
         for path in mediaPaths {
             let url = URL(fileURLWithPath: path)
             let directory = url.deletingLastPathComponent()
             let stem = url.deletingPathExtension().lastPathComponent
             let fullName = url.lastPathComponent
             var found: [String] = []
-            for ext in sidecarExtensions {
+            for ext in [".xmp", ".aae"].filter(sidecarExtensions.contains) {
+                if ext == ".aae" {
+                    var candidateNames = [stem + ext, fullName + ext]
+                    // iOS edit form: IMG_<digits>.<ext> owns IMG_E<digits>.aae.
+                    let digits = String(stem.dropFirst(4))
+                    if stem.count > 4, stem.prefix(4).uppercased() == "IMG_",
+                       digits.allSatisfy({ $0.isASCII && $0.isNumber }) {
+                        candidateNames.append("IMG_E" + digits + ext)
+                    }
+                    for resolved in onDiskSidecarPaths(
+                        named: candidateNames,
+                        in: directory,
+                        listings: &directoryListings
+                    ) where !found.contains(resolved) {
+                        found.append(resolved)
+                    }
+                    continue
+                }
                 // Replaced-extension form: photo.xmp
                 let replaced = directory.appendingPathComponent(stem + ext).path
                 if sidecarFileExists(replaced) {
@@ -157,6 +234,37 @@ public enum DeduplicatePairDetector {
             }
         }
         return result
+    }
+
+    /// Resolves each candidate name against the directory's real entries
+    /// (case-insensitive), so the returned paths use the on-disk spelling and
+    /// work on case-sensitive volumes. Each directory is listed at most once
+    /// per `detectSidecars` call. Existence is still confirmed through
+    /// `sidecarFileExists`.
+    private static func onDiskSidecarPaths(
+        named candidateNames: [String],
+        in directory: URL,
+        listings: inout [String: [String: [String]]]
+    ) -> [String] {
+        let directoryPath = directory.path
+        if listings[directoryPath] == nil {
+            var entriesByLowercasedName: [String: [String]] = [:]
+            let entries = ((try? FileManager.default.contentsOfDirectory(atPath: directoryPath)) ?? []).sorted()
+            for entry in entries {
+                entriesByLowercasedName[entry.lowercased(), default: []].append(entry)
+            }
+            listings[directoryPath] = entriesByLowercasedName
+        }
+        var resolved: [String] = []
+        for lowercasedName in Set(candidateNames.map { $0.lowercased() }).sorted() {
+            for entry in listings[directoryPath]?[lowercasedName] ?? [] {
+                let entryPath = directory.appendingPathComponent(entry).path
+                if sidecarFileExists(entryPath) {
+                    resolved.append(entryPath)
+                }
+            }
+        }
+        return resolved
     }
 
     static func groupByBasename(_ paths: [String]) -> [String: [String]] {

@@ -462,7 +462,8 @@ public final class DeduplicateSessionStore: ObservableObject {
         let oldApproved = approvedClusterIDs
         var byPath = decisions.byPath
         for member in cluster.members {
-            byPath[member.path] = .delete
+            // INV-31: a bulk Delete never marks a protected edited variant.
+            byPath[member.path] = member.isProtectedEditedVariant ? .keep : .delete
         }
         decisions = DedupeDecisions(byPath: byPath)
         approvedClusterIDs.insert(cluster.id)
@@ -785,7 +786,8 @@ public final class DeduplicateSessionStore: ObservableObject {
             for cluster in clusters {
                 let keepers = Set(cluster.suggestedKeeperIDs.prefix(1))
                 for member in cluster.members {
-                    byPath[member.path] = keepers.contains(member.id) ? .keep : .delete
+                    // INV-31: a suggestion never marks an edited variant Delete.
+                    byPath[member.path] = keepers.contains(member.id) || member.isProtectedEditedVariant ? .keep : .delete
                 }
             }
             return DedupeDecisions(byPath: byPath)
@@ -815,8 +817,9 @@ extension DedupeDecisions {
         let suggestedKeepers = Set(cluster.suggestedKeeperIDs.prefix(1))
         let autoSelectable = DeduplicationPlanner.isAutomaticCommitEligible(cluster)
         return cluster.members.compactMap { member in
+            // INV-31: without an explicit decision a protected variant is Keep.
             let decision = byPath[member.path]
-                ?? (autoSelectable
+                ?? (autoSelectable && !member.isProtectedEditedVariant
                     ? (suggestedKeepers.contains(member.id) ? .keep : .delete)
                     : .keep)
             return decision == .keep ? member.path : nil

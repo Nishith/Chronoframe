@@ -1,3 +1,6 @@
+#if canImport(Photos)
+import Photos
+#endif
 import XCTest
 @testable import ChronoframeAppCore
 @testable import ChronoframeCore
@@ -8,7 +11,7 @@ private enum ExporterTestError: Error { case boom }
 /// which seam methods ran — and, crucially, the seam itself has NO mutating
 /// method, so an "import writes back to the library" bug is unrepresentable.
 private final class RecordingExporter: PhotosResourceExporting, @unchecked Sendable {
-    enum CallKind: Equatable { case list, write }
+    enum CallKind: Equatable { case list, write, editedList, unsupportedCheck }
     struct Call: Equatable {
         let kind: CallKind
         let assetID: String
@@ -28,6 +31,13 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
     var progressFractions: [Double] = []
     /// Runs after each successful write; lets a test flip cancellation mid-asset.
     var afterWrite: (@Sendable (PhotosExportableResource) -> Void)?
+    /// Edited still renders by asset (edit-preservation).
+    var editedByAsset: [String: PhotosExportableResource] = [:]
+    var editedListFailures: Set<String> = []
+    var editedWriteFailures: Set<String> = []
+    var unsupportedEditedAssets: Set<String> = []
+    /// Roles of every resource written, in order.
+    private(set) var writtenRoles: [PhotosExportableResource.Role] = []
 
     init(resourcesByAsset: [String: [PhotosExportableResource]]) {
         self.resourcesByAsset = resourcesByAsset
@@ -54,9 +64,24 @@ private final class RecordingExporter: PhotosResourceExporting, @unchecked Senda
         return resourcesByAsset[id] ?? []
     }
 
+    func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource? {
+        calls.append(Call(kind: .editedList, assetID: id))
+        if editedListFailures.contains(id) { throw ExporterTestError.boom }
+        return editedByAsset[id]
+    }
+
+    func hasUnsupportedEditedRender(forAssetID id: String) async throws -> Bool {
+        calls.append(Call(kind: .unsupportedCheck, assetID: id))
+        return unsupportedEditedAssets.contains(id)
+    }
+
     func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {
         calls.append(Call(kind: .write, assetID: resource.assetID))
-        if writeFailures.contains(resource.assetID) || writeFailureExtensions.contains(resource.fileExtension) {
+        writtenRoles.append(resource.role)
+        if resource.role == .editedRender, editedWriteFailures.contains(resource.assetID) {
+            throw ExporterTestError.boom
+        }
+        if resource.role == .original, writeFailures.contains(resource.assetID) || writeFailureExtensions.contains(resource.fileExtension) {
             throw ExporterTestError.boom
         }
         try Data(Self.bytes(for: resource).utf8).write(to: destinationURL)
@@ -377,6 +402,9 @@ final class PhotosExportExecutorTests: XCTestCase {
         case let .resourceProgress(id, fraction): return "progress:\(id):\(fraction)"
         case let .assetCompleted(id, files, _): return "completed:\(id):\(files.count)"
         case let .assetFailed(id, _): return "failed:\(id)"
+        case let .editedVersionSaved(id, _): return "editedSaved:\(id)"
+        case let .editedVersionFailed(id): return "editedFailed:\(id)"
+        case let .editedVersionNotIncluded(id): return "editedNotIncluded:\(id)"
         }
     }
 
@@ -827,6 +855,302 @@ final class PhotosExportExecutorTests: XCTestCase {
         XCTAssertEqual(try stagedNames(), ["A.jpg"], "Completed asset a stays; in-flight asset b is rolled back")
         XCTAssertEqual(log.events.map(shape), ["started:a:0/2", "completed:a:1", "started:b:1/2"])
     }
+
+    // MARK: - Edited still export (edit-preservation C-04)
+
+    private func editedResource(_ assetID: String, index: Int = 3, ext: String = "jpg", filename: String? = nil) -> PhotosExportableResource {
+        PhotosExportableResource(
+            assetID: assetID,
+            resourceIndex: index,
+            fileExtension: ext,
+            originalFilename: filename ?? "FullSizeRender.\(ext)",
+            role: .editedRender
+        )
+    }
+
+    private func stagedBytes(_ path: String) throws -> Data {
+        try Data(contentsOf: URL(fileURLWithPath: path))
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testOriginalsOnlyWhenOptionOffMatchesPreviousBehavior() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "heic")],
+            "b": [resource("b", index: 0, ext: "heic"), resource("b", index: 1, ext: "mov")],
+        ])
+        // An edit and an unsupported edit exist, but the option is off.
+        exporter.editedByAsset = ["a": editedResource("a")]
+        exporter.unsupportedEditedAssets = ["b"]
+        let plan = PhotosExportPlan(entries: [entry("a", stem: "A"), entry("b", stem: "B")])
+        let log = EventLog()
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: plan,
+            to: stagingRoot,
+            onEvent: { log.append($0) }
+        )
+
+        XCTAssertEqual(try stagedNames(), ["A.heic", "B.heic", "B.mov"])
+        XCTAssertEqual(exporter.calls.filter { $0.kind == .editedList || $0.kind == .unsupportedCheck }, [],
+                       "With the option off the exporter is never asked about edits")
+        XCTAssertEqual(exporter.writtenRoles, [.original, .original, .original])
+        XCTAssertEqual(receipt.editedFiles, [])
+        XCTAssertEqual(receipt.variantFailures, [])
+        XCTAssertEqual(receipt.editedNotIncludedCount, 0)
+        XCTAssertEqual(log.events.map(shape), [
+            "started:a:0/2", "completed:a:1", "started:b:1/2", "completed:b:2",
+        ])
+    }
+
+    func testEditedStillExportedAsSeparateDistinctlyNamedFile() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "heic")],
+        ])
+        exporter.editedByAsset = ["a": editedResource("a", ext: "jpg")]
+        let plan = PhotosExportPlan(entries: [entry("a", stem: "IMG_0001")])
+        let log = EventLog()
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: plan,
+            to: stagingRoot,
+            includeEditedVersions: true,
+            onEvent: { log.append($0) }
+        )
+
+        XCTAssertEqual(try stagedNames(), ["IMG_0001-edited.jpg", "IMG_0001.heic"])
+        XCTAssertEqual(receipt.exportedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }, ["IMG_0001.heic", "IMG_0001-edited.jpg"])
+        XCTAssertEqual(receipt.editedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }, ["IMG_0001-edited.jpg"])
+        XCTAssertEqual(receipt.editedFiles.first?.assetID, "a")
+        XCTAssertEqual(receipt.editedFiles.first?.stagingStem, "IMG_0001")
+        XCTAssertEqual(receipt.variantFailures, [])
+        XCTAssertEqual(receipt.sourceDateHints.count, 2, "The edited file has its own content-bound hint")
+        XCTAssertEqual(log.events.map(shape), ["started:a:0/1", "editedSaved:a", "completed:a:2"])
+        XCTAssertEqual(exporter.writtenRoles, [.original, .editedRender])
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testOriginalBytesAndNameUnchangedWhenEditedExported() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "heic")],
+        ])
+        let original = resource("a", index: 0, ext: "heic")
+        exporter.editedByAsset = ["a": editedResource("a")]
+        let plan = PhotosExportPlan(entries: [entry("a", stem: "IMG_0001")])
+
+        let off = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot)
+        let offBytes = try stagedBytes(try XCTUnwrap(off.exportedFiles.first).path)
+        try FileManager.default.removeItem(at: stagingRoot)
+
+        let on = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot, includeEditedVersions: true)
+
+        let originalFile = try XCTUnwrap(on.exportedFiles.first)
+        XCTAssertEqual(URL(fileURLWithPath: originalFile.path).lastPathComponent, "IMG_0001.heic")
+        XCTAssertEqual(try stagedBytes(originalFile.path), offBytes)
+        XCTAssertEqual(String(decoding: offBytes, as: UTF8.self), RecordingExporter.bytes(for: original))
+        let edited = try XCTUnwrap(on.editedFiles.first)
+        XCTAssertEqual(String(decoding: try stagedBytes(edited.path), as: UTF8.self), RecordingExporter.bytes(for: editedResource("a")))
+        XCTAssertNotEqual(edited.path, originalFile.path)
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testEditedStemClaimedThroughSharedUniqueSet() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "heic")],
+            "b": [resource("b", index: 0, ext: "heic")],
+        ])
+        exporter.editedByAsset = ["a": editedResource("a", index: 3, ext: "JPG"), "b": editedResource("b", index: 3, ext: "jpg")]
+        // Another asset already owns the name, differing only in case, and a
+        // reserved name (a resumed import's file) takes the other.
+        let plan = PhotosExportPlan(entries: [entry("a", stem: "x"), entry("b", stem: "y")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: plan,
+            to: stagingRoot,
+            reservedFilenames: ["X-EDITED.jpg", "y-edited.JPG"],
+            includeEditedVersions: true
+        )
+
+        let names = receipt.editedFiles.map { URL(fileURLWithPath: $0.path).lastPathComponent }
+        XCTAssertEqual(names, ["x-edited-3.jpg", "y-edited-3.jpg"], "Disambiguated, never the reserved name or a case variant of it")
+        XCTAssertEqual(Set(try stagedNames().map(PhotosExportExecutor.nameKey)).count, 4, "No two staged files share a name key")
+        try assertStagedBytesBelongToOwnAssets(receipt)
+    }
+
+    func testEditedNameDoesNotCollideWithAnotherAssetsOriginal() async throws {
+        // Asset b's original is literally named like a's edited file.
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "heic")],
+            "b": [resource("b", index: 0, ext: "jpg")],
+        ])
+        exporter.editedByAsset = ["a": editedResource("a", ext: "jpg")]
+        let plan = PhotosExportPlan(entries: [entry("a", stem: "x"), entry("b", stem: "X-Edited")])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot, includeEditedVersions: true)
+
+        XCTAssertEqual(receipt.failures, [])
+        XCTAssertEqual(Set(receipt.exportedFiles.map { PhotosExportExecutor.nameKey(URL(fileURLWithPath: $0.path).lastPathComponent) }).count, 3)
+        try assertStagedBytesBelongToOwnAssets(receipt)
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testEditedRenderFailureRecordedAndOriginalStillCompleted() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "list": [resource("list", index: 0, ext: "heic")],
+            "write": [resource("write", index: 0, ext: "heic")],
+            "ok": [resource("ok", index: 0, ext: "heic")],
+        ])
+        exporter.editedListFailures = ["list"]
+        exporter.editedByAsset = ["write": editedResource("write"), "ok": editedResource("ok")]
+        exporter.editedWriteFailures = ["write"]
+        let plan = PhotosExportPlan(entries: [entry("list", stem: "L"), entry("write", stem: "W"), entry("ok", stem: "O")])
+        let log = EventLog()
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: plan,
+            to: stagingRoot,
+            includeEditedVersions: true,
+            onEvent: { log.append($0) }
+        )
+
+        XCTAssertEqual(receipt.failures, [], "A lost edit never fails the asset")
+        XCTAssertEqual(receipt.exportedAssetIDs, ["list", "write", "ok"])
+        XCTAssertEqual(try stagedNames(), ["L.heic", "O-edited.jpg", "O.heic", "W.heic"],
+                       "Only the edited file is rolled back; originals and the good edit stay")
+        XCTAssertEqual(receipt.variantFailures, [
+            PhotosVariantFailure(assetID: "list", reason: .editedRenderUnavailable),
+            PhotosVariantFailure(assetID: "write", reason: .editedRenderUnavailable),
+        ])
+        XCTAssertEqual(receipt.editedFiles.map(\.assetID), ["ok"])
+        XCTAssertEqual(log.events.map(shape), [
+            "started:list:0/3", "editedFailed:list", "completed:list:1",
+            "started:write:1/3", "editedFailed:write", "completed:write:1",
+            "started:ok:2/3", "editedSaved:ok", "completed:ok:2",
+        ])
+    }
+
+    func testVideoAndLivePhotoEditedRendersNotExported() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "live": [resource("live", index: 0, ext: "heic"), resource("live", index: 1, ext: "mov")],
+            "clip": [resource("clip", index: 0, ext: "mov")],
+        ])
+        // Even a (wrongly) returned render is not exported when the asset's
+        // edit is unsupported.
+        exporter.editedByAsset = ["live": editedResource("live")]
+        exporter.unsupportedEditedAssets = ["live", "clip"]
+        let plan = PhotosExportPlan(entries: [entry("live", stem: "L"), entry("clip", stem: "C", kind: .video)])
+        let log = EventLog()
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(
+            plan: plan,
+            to: stagingRoot,
+            includeEditedVersions: true,
+            onEvent: { log.append($0) }
+        )
+
+        XCTAssertEqual(try stagedNames(), ["C.mov", "L.heic", "L.mov"])
+        XCTAssertEqual(receipt.editedFiles, [])
+        XCTAssertEqual(receipt.variantFailures, [])
+        XCTAssertEqual(exporter.writtenRoles.filter { $0 == .editedRender }, [])
+        XCTAssertEqual(log.events.map(shape), [
+            "started:live:0/2", "editedNotIncluded:live", "completed:live:2",
+            "started:clip:1/2", "editedNotIncluded:clip", "completed:clip:1",
+        ])
+    }
+
+    func testSummaryCountsUnsupportedEditedVideos() async throws {
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "live": [resource("live", index: 0, ext: "heic"), resource("live", index: 1, ext: "mov")],
+            "clip": [resource("clip", index: 0, ext: "mov")],
+            "still": [resource("still", index: 0, ext: "heic")],
+            "plain": [resource("plain", index: 0, ext: "heic")],
+        ])
+        exporter.unsupportedEditedAssets = ["live", "clip"]
+        exporter.editedByAsset = ["still": editedResource("still")]
+        let plan = PhotosExportPlan(entries: [
+            entry("live", stem: "L"), entry("clip", stem: "C", kind: .video), entry("still", stem: "S"), entry("plain", stem: "P"),
+        ])
+
+        let receipt = try await PhotosExportExecutor(exporter: exporter).export(plan: plan, to: stagingRoot, includeEditedVersions: true)
+
+        XCTAssertEqual(receipt.editedNotIncludedCount, 2)
+        XCTAssertEqual(receipt.editedFiles.map(\.assetID), ["still"])
+        XCTAssertEqual(receipt.variantFailures, [])
+    }
+
+    func testEditedFileInheritsOriginalDateHint() async throws {
+        let capture = Date(timeIntervalSince1970: 1_500_000_000)
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "heic")],
+        ])
+        exporter.editedByAsset = ["a": editedResource("a")]
+        let plan = PhotosExportPlan(entries: [
+            PhotosAssetExportEntry(assetID: "a", mediaKind: .photo, stagingStem: "A", creationDate: capture),
+        ])
+
+        let receipt = try await PhotosExportExecutor(
+            exporter: exporter,
+            timeZone: TimeZone(secondsFromGMT: 0) ?? .current
+        ).export(plan: plan, to: stagingRoot, includeEditedVersions: true)
+
+        let original = try XCTUnwrap(receipt.exportedFiles.first { !$0.path.contains("-edited") })
+        let edited = try XCTUnwrap(receipt.editedFiles.first)
+        let originalHint = try XCTUnwrap(receipt.sourceDateHints[SourceDateHint.pathKey(for: original.path)])
+        let editedHint = try XCTUnwrap(receipt.sourceDateHints[SourceDateHint.pathKey(for: edited.path)])
+        XCTAssertEqual(originalHint.resolvedDate.date, capture)
+        XCTAssertEqual(editedHint.resolvedDate, originalHint.resolvedDate, "Both land in the same date folder")
+        XCTAssertNotEqual(editedHint.identity, originalHint.identity, "The hint is bound to the edited file's own bytes")
+    }
+
+    // AGENTS-INVARIANT: 22
+    func testCancellationRollsBackEditedFileWithItsAsset() async throws {
+        let cancelFlag = CancelFlag()
+        let exporter = RecordingExporter(resourcesByAsset: [
+            "a": [resource("a", index: 0, ext: "heic")],
+            "b": [resource("b", index: 0, ext: "heic")],
+        ])
+        exporter.editedByAsset = ["a": editedResource("a"), "b": editedResource("b")]
+        // Cancel right after b's edited file is written: b is in flight.
+        exporter.afterWrite = { resource in
+            if resource.assetID == "b", resource.role == .editedRender { cancelFlag.set() }
+        }
+        let plan = PhotosExportPlan(entries: [entry("a", stem: "A"), entry("b", stem: "B")])
+        let log = EventLog()
+
+        do {
+            _ = try await PhotosExportExecutor(exporter: exporter).export(
+                plan: plan,
+                to: stagingRoot,
+                includeEditedVersions: true,
+                isCancelled: { cancelFlag.isSet },
+                onEvent: { log.append($0) }
+            )
+            XCTFail("expected cancellation")
+        } catch is CancellationError {
+            // expected
+        } catch {
+            XCTFail("expected CancellationError, got \(error)")
+        }
+
+        XCTAssertEqual(try stagedNames(), ["A-edited.jpg", "A.heic"], "Asset a and its edit stay; asset b, original and edit, is rolled back")
+        XCTAssertEqual(log.events.map(shape), ["started:a:0/2", "editedSaved:a", "completed:a:2", "started:b:1/2"])
+    }
+
+    #if canImport(Photos)
+    // AGENTS-INVARIANT: 22
+    func testEditedStillTypeAcceptsOnlyFullSizePhotoAndClassifiesUnsupportedEdits() {
+        XCTAssertTrue(PhotosResourceExportService.isEditedStillType(.fullSizePhoto))
+        for type: PHAssetResourceType in [.photo, .video, .pairedVideo, .fullSizeVideo, .fullSizePairedVideo, .adjustmentData, .alternatePhoto] {
+            XCTAssertFalse(PhotosResourceExportService.isEditedStillType(type), "\(type.rawValue)")
+        }
+        // An edited still alone is exportable; edited videos and Live Photos are not.
+        XCTAssertFalse(PhotosResourceExportService.hasUnsupportedEditedRender(types: [.photo, .fullSizePhoto, .adjustmentData]))
+        XCTAssertFalse(PhotosResourceExportService.hasUnsupportedEditedRender(types: [.photo]))
+        XCTAssertTrue(PhotosResourceExportService.hasUnsupportedEditedRender(types: [.video, .fullSizeVideo, .adjustmentData]))
+        XCTAssertTrue(PhotosResourceExportService.hasUnsupportedEditedRender(types: [.photo, .pairedVideo, .fullSizePhoto]))
+        XCTAssertTrue(PhotosResourceExportService.hasUnsupportedEditedRender(types: [.photo, .pairedVideo, .fullSizePairedVideo]))
+        XCTAssertFalse(PhotosResourceExportService.hasUnsupportedEditedRender(types: [.photo, .pairedVideo]), "An unedited Live Photo has nothing unsupported")
+    }
+    #endif
 
     func testDefaultProtocolProgressMethodForwardsToTwoArgumentWrite() async throws {
         let exporter = TwoArgumentOnlyExporter()

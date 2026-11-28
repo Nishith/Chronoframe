@@ -29,6 +29,18 @@ enum PluralPhrases {
         phrase(count, one: "1 month", other: "%@ months", bundle: bundle)
     }
 
+    static func photosAndVideos(_ count: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        phrase(count, one: "1 photo or video", other: "%@ photos and videos", locale: locale, bundle: bundle)
+    }
+
+    static func sidecarFiles(_ count: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        phrase(count, one: "1 sidecar file", other: "%@ sidecar files", locale: locale, bundle: bundle)
+    }
+
+    static func sidecarFilesNotCopied(_ count: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        phrase(count, one: "1 sidecar file not copied", other: "%@ sidecar files not copied", locale: locale, bundle: bundle)
+    }
+
     static func workers(_ count: Int, bundle: Bundle = .module) -> String {
         phrase(count, one: "1 worker", other: "%@ workers", bundle: bundle)
     }
@@ -120,6 +132,16 @@ enum PluralPhrases {
         phrase(count, one: "Copy This File", other: "Copy These %@ Files", bundle: bundle)
     }
 
+    // MARK: Photos import
+
+    static func editedPhotosWillAlsoBeSaved(_ count: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        phrase(count, one: "1 edited photo will also be saved", other: "%@ edited photos will also be saved", locale: locale, bundle: bundle)
+    }
+
+    static func editedVideosNotIncluded(_ count: Int, locale: Locale = .current, bundle: Bundle = .module) -> String {
+        phrase(count, one: "1 edited video or Live Photo not included", other: "%@ edited videos and Live Photos not included", locale: locale, bundle: bundle)
+    }
+
     // MARK: NAS
 
     static func foldersChecked(_ count: Int, bundle: Bundle = .module) -> String {
@@ -152,9 +174,9 @@ enum PluralPhrases {
         )
     }
 
-    private static func phrase(_ count: Int, one: String, other: String, bundle: Bundle) -> String {
+    private static func phrase(_ count: Int, one: String, other: String, locale: Locale? = nil, bundle: Bundle) -> String {
         count == 1
             ? AppLocalization.string(one, bundle: bundle)
-            : AppLocalization.format(other, count.formatted(), bundle: bundle)
+            : AppLocalization.format(other, count.formatted(.number.locale(locale ?? .current)), bundle: bundle)
     }
 }

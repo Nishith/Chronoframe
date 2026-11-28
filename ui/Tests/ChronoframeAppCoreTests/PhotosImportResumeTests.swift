@@ -23,6 +23,21 @@ private final class ScriptedExporter: PhotosResourceExporting, @unchecked Sendab
     private var _beforeWrite: (@Sendable (String) async -> Void)?
     private var _writes: [String] = []
     private var _listed: [String] = []
+    private var _editedAssets: Set<String> = []
+    private var _editedLookups: [String] = []
+    private var _failingEditedWrites: Set<String> = []
+
+    var failingEditedWrites: Set<String> {
+        get { lock.withLock { _failingEditedWrites } }
+        set { lock.withLock { _failingEditedWrites = newValue } }
+    }
+
+    /// Assets that have an edited still render; the render's bytes name its asset.
+    var editedAssets: Set<String> {
+        get { lock.withLock { _editedAssets } }
+        set { lock.withLock { _editedAssets = newValue } }
+    }
+    var editedLookups: [String] { lock.withLock { _editedLookups } }
 
     var failingWrites: Set<String> {
         get { lock.withLock { _failingWrites } }
@@ -51,7 +66,16 @@ private final class ScriptedExporter: PhotosResourceExporting, @unchecked Sendab
         lock.withLock {
             _writes = []
             _listed = []
+            _editedLookups = []
         }
+    }
+
+    func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource? {
+        lock.withLock { _editedLookups.append(id) }
+        guard editedAssets.contains(id) else { return nil }
+        return PhotosExportableResource(
+            assetID: id, resourceIndex: 1, fileExtension: "jpg", originalFilename: "FullSizeRender.jpg", role: .editedRender
+        )
     }
 
     func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource] {
@@ -73,8 +97,10 @@ private final class ScriptedExporter: PhotosResourceExporting, @unchecked Sendab
         lock.withLock { _writes.append(resource.assetID) }
         for fraction in progress { onProgress(fraction) }
         if let hook = beforeWrite { await hook(resource.assetID) }
-        if failingWrites.contains(resource.assetID) { throw ScriptedError.boom }
-        try Data("bytes-\(resource.assetID)".utf8).write(to: destinationURL)
+        if failingWrites.contains(resource.assetID), resource.role == .original { throw ScriptedError.boom }
+        if failingEditedWrites.contains(resource.assetID), resource.role == .editedRender { throw ScriptedError.boom }
+        let prefix = resource.role == .editedRender ? "edited-" : "bytes-"
+        try Data("\(prefix)\(resource.assetID)".utf8).write(to: destinationURL)
     }
 }
 
@@ -217,7 +243,9 @@ final class PhotosImportResumeTests: XCTestCase {
         updatedAt: Date,
         destinationPath: String = "/tmp/pir-dest-a",
         omitHintFor: Set<String> = [],
-        recordedPathOverride: [String: String] = [:]
+        recordedPathOverride: [String: String] = [:],
+        editedAssetIDs: Set<String> = [],
+        includeEditedVersions: Bool = false
     ) throws -> URL {
         let dir = parent.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -226,24 +254,35 @@ final class PhotosImportResumeTests: XCTestCase {
         })
         var checkpoint = PhotosImportCheckpoint(
             importID: UUID(), createdAt: updatedAt, destinationPath: destinationPath,
-            destinationBookmarkKeys: ["k"], plan: plan
+            destinationBookmarkKeys: ["k"], plan: plan, includeEditedVersions: includeEditedVersions
         )
         for id in assetIDs {
             let data = Data("bytes-\(id)".utf8)
             let fileURL = dir.appendingPathComponent("\(id).jpg")
             try data.write(to: fileURL)
             let recordedPath = recordedPathOverride[id] ?? fileURL.path
+            var files = [PhotosExportedFile(assetID: id, stagingStem: id, path: recordedPath)]
+            var hints: [String: SourceDateHint] = omitHintFor.contains(id) ? [:] : [
+                SourceDateHint.pathKey(for: recordedPath): SourceDateHint(
+                    identity: FileIdentity(size: Int64(data.count), digest: "digest-\(id)"),
+                    resolvedDate: .unknown
+                )
+            ]
+            var editedFile: PhotosExportedFile?
+            if editedAssetIDs.contains(id) {
+                let editedData = Data("edited-\(id)".utf8)
+                let editedURL = dir.appendingPathComponent("\(id)-edited.jpg")
+                try editedData.write(to: editedURL)
+                let edited = PhotosExportedFile(assetID: id, stagingStem: id, path: editedURL.path)
+                files.append(edited)
+                editedFile = edited
+                hints[SourceDateHint.pathKey(for: editedURL.path)] = SourceDateHint(
+                    identity: FileIdentity(size: Int64(editedData.count), digest: "digest-edited-\(id)"),
+                    resolvedDate: .unknown
+                )
+            }
             checkpoint.recordCompleted(
-                PhotosCompletedAssetRecord(
-                    assetID: id,
-                    files: [PhotosExportedFile(assetID: id, stagingStem: id, path: recordedPath)],
-                    sourceDateHints: omitHintFor.contains(id) ? [:] : [
-                        SourceDateHint.pathKey(for: recordedPath): SourceDateHint(
-                            identity: FileIdentity(size: Int64(data.count), digest: "digest-\(id)"),
-                            resolvedDate: .unknown
-                        )
-                    ]
-                ),
+                PhotosCompletedAssetRecord(assetID: id, files: files, sourceDateHints: hints, editedFile: editedFile),
                 at: updatedAt
             )
         }
@@ -980,6 +1019,129 @@ final class PhotosImportResumeTests: XCTestCase {
         XCTAssertEqual(exporter.writes, ["b", "c"], "The earlier failure is tried again, then the unfinished asset")
         XCTAssertEqual(context.assetIDs, ["a", "b", "c"])
         XCTAssertTrue(try XCTUnwrap(fileStore.load(in: dir)).failures.isEmpty)
+    }
+
+    @MainActor
+    func testResumeRepeatsRecordedIncludeEditedChoice() async throws {
+        let staging = makeTempParent()
+        let exporter = ScriptedExporter()
+        exporter.editedAssets = ["a", "b", "c"]
+        let store = makeStore(ids: ["a", "b", "c"], exporter: exporter, staging: staging)
+        exporter.beforeWrite = { id in
+            if id == "c" { await MainActor.run { store.cancelPreparation() } }
+        }
+
+        _ = await store.prepareImport(destination: destinationA, includeEditedVersions: true)
+
+        let dir = onlyImportDirectory(in: staging)
+        let stopped = try XCTUnwrap(fileStore.load(in: dir))
+        XCTAssertTrue(stopped.includeEditedVersions, "A new import records its choice")
+        XCTAssertEqual(stopped.completed.map(\.assetID), ["a", "b"])
+        XCTAssertEqual(
+            stopped.completed.compactMap { $0.editedFile.map { URL(fileURLWithPath: $0.path).lastPathComponent } },
+            ["a-edited.jpg", "b-edited.jpg"]
+        )
+        for record in stopped.completed {
+            XCTAssertEqual(record.files.count, 2, "The edited file is also a staged file of the asset")
+            XCTAssertTrue(record.files.contains(try XCTUnwrap(record.editedFile)))
+        }
+        exporter.beforeWrite = nil
+        exporter.resetRecording()
+
+        // The caller passes nothing on Resume: the checkpoint's choice is used.
+        let resumed = await store.resumeImport(destination: destinationA)
+        let context = try XCTUnwrap(resumed)
+
+        XCTAssertEqual(exporter.editedLookups, ["c"], "Resume repeats the recorded choice for the remaining asset")
+        let finished = try XCTUnwrap(fileStore.load(in: dir))
+        XCTAssertTrue(finished.includeEditedVersions)
+        XCTAssertEqual(finished.completed.map(\.assetID), ["a", "b", "c"])
+        XCTAssertEqual(finished.completed.last?.editedFile.map { URL(fileURLWithPath: $0.path).lastPathComponent }, "c-edited.jpg")
+        XCTAssertEqual(context.sourceDateHints.count, 6)
+        XCTAssertTrue(finished.variantFailures.isEmpty)
+    }
+
+    @MainActor
+    func testNewImportDefaultsToOriginalsOnlyAndResumeKeepsThat() async throws {
+        let staging = makeTempParent()
+        let exporter = ScriptedExporter()
+        exporter.editedAssets = ["a", "b", "c"]
+        let store = makeStore(ids: ["a", "b", "c"], exporter: exporter, staging: staging)
+        exporter.beforeWrite = { id in
+            if id == "c" { await MainActor.run { store.cancelPreparation() } }
+        }
+
+        _ = await store.prepareImport(destination: destinationA)
+
+        let dir = onlyImportDirectory(in: staging)
+        XCTAssertFalse(try XCTUnwrap(fileStore.load(in: dir)).includeEditedVersions)
+        exporter.beforeWrite = nil
+        exporter.resetRecording()
+
+        _ = await store.resumeImport(destination: destinationA)
+
+        XCTAssertEqual(exporter.editedLookups, [], "Off stays off: the exporter is never asked about edits")
+        XCTAssertTrue(try XCTUnwrap(fileStore.load(in: dir)).completed.allSatisfy { $0.editedFile == nil && $0.files.count == 1 })
+    }
+
+    @MainActor
+    func testEditedRenderFailureIsRecordedInTheCheckpointAndNotRetriedOnResume() async throws {
+        let staging = makeTempParent()
+        let exporter = ScriptedExporter()
+        exporter.editedAssets = ["a", "b"]
+        exporter.failingEditedWrites = ["a"]
+        let store = makeStore(ids: ["a", "b", "c"], exporter: exporter, staging: staging)
+        exporter.beforeWrite = { id in
+            if id == "c" { await MainActor.run { store.cancelPreparation() } }
+        }
+
+        _ = await store.prepareImport(destination: destinationA, includeEditedVersions: true)
+
+        let dir = onlyImportDirectory(in: staging)
+        let stopped = try XCTUnwrap(fileStore.load(in: dir))
+        XCTAssertEqual(stopped.completed.map(\.assetID), ["a", "b"], "A lost edit never fails the asset")
+        XCTAssertNil(stopped.completed.first?.editedFile)
+        XCTAssertEqual(stopped.variantFailures, [PhotosVariantFailure(assetID: "a", reason: .editedRenderUnavailable)])
+        exporter.beforeWrite = nil
+        exporter.failingEditedWrites = []
+        exporter.resetRecording()
+
+        _ = await store.resumeImport(destination: destinationA)
+
+        XCTAssertEqual(exporter.editedLookups, ["c"], "Completed assets, including a, are not retried")
+        let finished = try XCTUnwrap(fileStore.load(in: dir))
+        XCTAssertEqual(finished.variantFailures.map(\.assetID), ["a"])
+        XCTAssertNil(finished.completed.first { $0.assetID == "a" }?.editedFile)
+    }
+
+    // AGENTS-INVARIANT: 22
+    @MainActor
+    func testResumeReservesEditedFileNames() async throws {
+        let staging = makeTempParent()
+        // Asset "a" was staged with a-edited.jpg. Asset "A-Edited" (stem
+        // "A-Edited", differing only in case) is still to export: its original
+        // must not take the recorded edited file's name.
+        let dir = try seedCheckpoint(
+            parent: staging, name: "edited-names", state: .stopped, assetIDs: ["a"],
+            planAssetIDs: ["a", "A-Edited"], updatedAt: fixedDate(10),
+            editedAssetIDs: ["a"], includeEditedVersions: true
+        )
+        let exporter = ScriptedExporter()
+        let store = makeStore(ids: ["a", "A-Edited"], exporter: exporter, staging: staging)
+        store.refreshResumableImport(destination: destinationA)
+        XCTAssertNotNil(store.resumable)
+        let recordedBefore = try Data(contentsOf: dir.appendingPathComponent("a-edited.jpg"))
+
+        let resumed = await store.resumeImport(destination: destinationA)
+        let context = try XCTUnwrap(resumed)
+
+        let finished = try XCTUnwrap(fileStore.load(in: dir))
+        let newest = try XCTUnwrap(finished.completed.first { $0.assetID == "A-Edited" })
+        let newName = URL(fileURLWithPath: try XCTUnwrap(newest.files.first).path).lastPathComponent
+        XCTAssertNotEqual(PhotosExportExecutor.nameKey(newName), PhotosExportExecutor.nameKey("a-edited.jpg"))
+        XCTAssertEqual(try Data(contentsOf: dir.appendingPathComponent("a-edited.jpg")), recordedBefore,
+                       "The recorded edited file is untouched byte for byte")
+        XCTAssertEqual(context.assetIDs, ["a", "A-Edited"])
     }
 
     // AGENTS-INVARIANT: 22

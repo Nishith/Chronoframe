@@ -130,6 +130,25 @@ final class PhotosImportCheckpointTests: XCTestCase {
         }
     }
 
+    func testResourceRoleDefaultsToOriginal() {
+        let resource = PhotosExportableResource(assetID: "A", resourceIndex: 0, fileExtension: "heic", originalFilename: "IMG_A.HEIC")
+        XCTAssertEqual(resource.role, .original)
+        let edited = PhotosExportableResource(
+            assetID: "A", resourceIndex: 1, fileExtension: "jpg", originalFilename: "FullSizeRender.jpg", fileSize: 5, role: .editedRender
+        )
+        XCTAssertEqual(edited.role, .editedRender)
+        XCTAssertNotEqual(resource, edited)
+    }
+
+    func testEditedStillResourceDefaultsToNilForExistingDoubles() async throws {
+        struct LegacyDouble: PhotosResourceExporting {
+            func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource] { [] }
+            func writeResource(_ resource: PhotosExportableResource, to destinationURL: URL) async throws {}
+        }
+        let edited = try await LegacyDouble().editedStillResource(forAssetID: "A")
+        XCTAssertNil(edited)
+    }
+
     // MARK: - Store
 
     func testRoundTripThroughFileStorePreservesEveryField() throws {
@@ -167,8 +186,8 @@ final class PhotosImportCheckpointTests: XCTestCase {
         // Wrong version: save a valid checkpoint, then rewrite its version field.
         try store.save(makeCheckpoint(), in: tempRoot)
         let text = try String(contentsOf: url, encoding: .utf8)
-        XCTAssertTrue(text.contains("\"version\" : 1"))
-        try text.replacingOccurrences(of: "\"version\" : 1", with: "\"version\" : 99")
+        XCTAssertTrue(text.contains("\"version\" : \(PhotosImportCheckpoint.version)"))
+        try text.replacingOccurrences(of: "\"version\" : \(PhotosImportCheckpoint.version)", with: "\"version\" : 99")
             .write(to: url, atomically: true, encoding: .utf8)
         XCTAssertNil(store.load(in: tempRoot))
     }
@@ -207,5 +226,177 @@ final class PhotosImportCheckpointTests: XCTestCase {
         XCTAssertNil(store.load(in: tempRoot))
         XCTAssertTrue(FileManager.default.fileExists(atPath: sibling.path))
         store.remove(in: tempRoot)   // second removal is also a no-op
+    }
+
+    // MARK: - Edited versions (EPR WP-05)
+
+    /// Written by the pre-WP-05 encoder (version 1, no edited-version keys).
+    private let versionOneJSON = #"""
+{
+  "completed" : [
+    {
+      "assetID" : "A",
+      "files" : [
+        {
+          "assetID" : "A",
+          "path" : "\/staging\/IMG_A.HEIC",
+          "stagingStem" : "IMG_A"
+        }
+      ],
+      "sourceDateHints" : {
+        "\/staging\/IMG_A.HEIC" : {
+          "identity" : "10_d-\/staging\/IMG_A.HEIC",
+          "resolvedDate" : {
+            "confidence" : "high",
+            "date" : "2020-09-13T12:26:40Z",
+            "source" : "photoMetadata"
+          }
+        }
+      }
+    }
+  ],
+  "createdAt" : "2023-11-14T22:13:20Z",
+  "destinationBookmarkKeys" : [
+    "k1"
+  ],
+  "destinationPath" : "\/tmp\/dest",
+  "failures" : [
+    {
+      "assetID" : "B",
+      "message" : "iCloud unavailable"
+    }
+  ],
+  "importID" : "11111111-2222-3333-4444-555555555555",
+  "plan" : {
+    "entries" : [
+      {
+        "assetID" : "A",
+        "creationDate" : "2020-09-13T12:26:40Z",
+        "mediaKind" : "photo",
+        "stagingStem" : "IMG_A"
+      },
+      {
+        "assetID" : "B",
+        "creationDate" : "2020-09-13T12:26:40Z",
+        "mediaKind" : "photo",
+        "stagingStem" : "IMG_B"
+      }
+    ]
+  },
+  "state" : "stopped",
+  "updatedAt" : "2023-11-14T22:13:25Z",
+  "version" : 1
+}
+"""#
+
+    func testOldCheckpointDecodesWithEditedVersionsOff() throws {
+        let url = tempRoot.appendingPathComponent(PhotosImportCheckpoint.filename)
+        try Data(versionOneJSON.utf8).write(to: url)
+
+        let loaded = try XCTUnwrap(PhotosImportFileCheckpointStore().load(in: tempRoot))
+
+        XCTAssertEqual(loaded.version, 1)
+        XCTAssertFalse(loaded.includeEditedVersions)
+        XCTAssertTrue(loaded.variantFailures.isEmpty)
+        XCTAssertEqual(loaded.completed.count, 1)
+        XCTAssertNil(loaded.completed[0].editedFile)
+        XCTAssertEqual(loaded.completed[0].files.map(\.stagingStem), ["IMG_A"])
+        XCTAssertEqual(loaded.failures.map(\.assetID), ["B"])
+        XCTAssertEqual(loaded.state, .stopped)
+        XCTAssertEqual(loaded.importID, UUID(uuidString: "11111111-2222-3333-4444-555555555555"))
+    }
+
+    func testCheckpointRoundTripsEditedFileAndVariantFailure() throws {
+        XCTAssertEqual(PhotosImportCheckpoint.version, 2)
+        var checkpoint = PhotosImportCheckpoint(
+            importID: UUID(),
+            createdAt: t0,
+            destinationPath: "/tmp/dest",
+            destinationBookmarkKeys: ["k1"],
+            plan: plan(["A", "B"]),
+            includeEditedVersions: true
+        )
+        let edited = PhotosExportedFile(assetID: "A", stagingStem: "IMG_A-edited", path: "/staging/IMG_A-edited.jpg")
+        let base = record("A", names: ["IMG_A.HEIC"])
+        checkpoint.recordCompleted(
+            PhotosCompletedAssetRecord(assetID: "A", files: base.files, sourceDateHints: base.sourceDateHints, editedFile: edited),
+            at: t0.addingTimeInterval(1)
+        )
+        checkpoint.recordCompleted(record("B", names: ["IMG_B.HEIC"]), at: t0.addingTimeInterval(2))
+        checkpoint.recordVariantFailure(
+            PhotosVariantFailure(assetID: "B", reason: .editedRenderUnavailable),
+            at: t0.addingTimeInterval(3)
+        )
+
+        let store = PhotosImportFileCheckpointStore()
+        try store.save(checkpoint, in: tempRoot)
+        let loaded = try XCTUnwrap(store.load(in: tempRoot))
+
+        XCTAssertEqual(loaded, checkpoint)
+        XCTAssertEqual(loaded.version, 2)
+        XCTAssertTrue(loaded.includeEditedVersions)
+        XCTAssertEqual(loaded.completed[0].editedFile, edited)
+        XCTAssertNil(loaded.completed[1].editedFile)
+        XCTAssertEqual(loaded.variantFailures, [PhotosVariantFailure(assetID: "B", reason: .editedRenderUnavailable)])
+        XCTAssertEqual(loaded.updatedAt.timeIntervalSince1970, t0.addingTimeInterval(3).timeIntervalSince1970, accuracy: 1)
+        // A variant failure never removes the asset from "completed".
+        XCTAssertEqual(loaded.completedAssetIDs, ["A", "B"])
+        XCTAssertTrue(loaded.remainingEntries.isEmpty)
+    }
+
+    /// D-EPR-119: the "edited video or Live Photo not included" count lives in
+    /// the checkpoint, so it survives a Resume. No version change; older files
+    /// decode with none.
+    func testNotIncludedAssetIDsRoundTripAndOldCheckpointsHaveNone() throws {
+        var checkpoint = PhotosImportCheckpoint(
+            importID: UUID(), createdAt: t0, destinationPath: "/tmp/dest", destinationBookmarkKeys: [],
+            plan: plan(["A", "B"]), includeEditedVersions: true
+        )
+        XCTAssertTrue(checkpoint.editedNotIncludedAssetIDs.isEmpty)
+        checkpoint.recordCompleted(record("A", names: ["IMG_A.HEIC"]), at: t0.addingTimeInterval(1))
+        checkpoint.recordEditedNotIncluded(assetID: "A", at: t0.addingTimeInterval(2))
+
+        let store = PhotosImportFileCheckpointStore()
+        try store.save(checkpoint, in: tempRoot)
+        let loaded = try XCTUnwrap(store.load(in: tempRoot))
+
+        XCTAssertEqual(PhotosImportCheckpoint.version, 2)
+        XCTAssertEqual(loaded, checkpoint)
+        XCTAssertEqual(loaded.editedNotIncludedAssetIDs, ["A"])
+        XCTAssertEqual(loaded.updatedAt.timeIntervalSince1970, t0.addingTimeInterval(2).timeIntervalSince1970, accuracy: 1)
+
+        try Data(versionOneJSON.utf8).write(to: tempRoot.appendingPathComponent(PhotosImportCheckpoint.filename))
+        XCTAssertEqual(try XCTUnwrap(store.load(in: tempRoot)).editedNotIncludedAssetIDs, [])
+    }
+
+    /// D-EPR-119: an asset that resume validation drops is exported again, so
+    /// its earlier variant failure and not-included entry are stale.
+    func testDiscardCompletedClearsStaleVariantFailure() {
+        var checkpoint = PhotosImportCheckpoint(
+            importID: UUID(), createdAt: t0, destinationPath: "/tmp/dest", destinationBookmarkKeys: [],
+            plan: plan(["A", "B", "C"]), includeEditedVersions: true
+        )
+        for id in ["A", "B", "C"] {
+            checkpoint.recordCompleted(record(id, names: ["IMG_\(id).HEIC"]), at: t0)
+        }
+        checkpoint.recordVariantFailure(PhotosVariantFailure(assetID: "A", reason: .editedRenderUnavailable), at: t0)
+        checkpoint.recordVariantFailure(PhotosVariantFailure(assetID: "C", reason: .editedRenderUnavailable), at: t0)
+        checkpoint.recordEditedNotIncluded(assetID: "B", at: t0)
+        checkpoint.recordEditedNotIncluded(assetID: "C", at: t0)
+
+        checkpoint.discardCompleted(assetIDs: ["A", "B"])
+
+        XCTAssertEqual(checkpoint.completedAssetIDs, ["C"])
+        XCTAssertEqual(checkpoint.variantFailures.map(\.assetID), ["C"], "Only the discarded assets' failures are dropped")
+        XCTAssertEqual(checkpoint.editedNotIncludedAssetIDs, ["C"])
+    }
+
+    func testCheckpointLoaderRejectsUnknownVersion() throws {
+        let url = tempRoot.appendingPathComponent(PhotosImportCheckpoint.filename)
+        let store = PhotosImportFileCheckpointStore()
+        try Data(versionOneJSON.replacingOccurrences(of: "\"version\" : 1", with: "\"version\" : 3").utf8).write(to: url)
+        XCTAssertNil(store.load(in: tempRoot))
+        try Data(versionOneJSON.replacingOccurrences(of: "\"version\" : 1", with: "\"version\" : 0").utf8).write(to: url)
+        XCTAssertNil(store.load(in: tempRoot))
     }
 }

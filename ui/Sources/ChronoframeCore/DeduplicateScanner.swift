@@ -444,7 +444,21 @@ public final class DeduplicateScanner: @unchecked Sendable {
                     )
                     if cancelFlag.get() { continuation.finish(); return }
 
-                    let emittedClusters = dedupedClusters + perceptualVideoLane.clusters
+                    // INV-31: mark edited variants so the planner never
+                    // selects one for deletion on its own.
+                    let editedVariantPaths = pairDetection.editedVariantOriginals
+                    let emittedClusters = (dedupedClusters + perceptualVideoLane.clusters).map { cluster in
+                        guard cluster.members.contains(where: { editedVariantPaths[$0.path] != nil }) else {
+                            return cluster
+                        }
+                        var flagged = cluster
+                        flagged.members = cluster.members.map { member in
+                            var member = member
+                            member.isProtectedEditedVariant = editedVariantPaths[member.path] != nil
+                            return member
+                        }
+                        return flagged
+                    }
 
                     // 7. Capture immutable content identities for every path
                     // that a later user decision could place in a mutation

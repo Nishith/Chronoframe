@@ -47,13 +47,15 @@ public enum DeduplicationPlanner {
             let canAutoSelectDeletes = isAutomaticCommitEligible(cluster)
             for member in cluster.members {
                 let explicitDecision = decisions.decision(for: member.path)
+                // INV-31: an edited variant is deleted only by an explicit
+                // user Delete on that exact path, never by automatic selection.
                 let decision = explicitDecision
-                    ?? (canAutoSelectDeletes
+                    ?? (canAutoSelectDeletes && !member.isProtectedEditedVariant
                         ? (suggestedKeepers.contains(member.id) ? .keep : .delete)
                         : .keep)
                 let source: DecisionSource = if explicitDecision != nil {
                     .explicit
-                } else if canAutoSelectDeletes {
+                } else if canAutoSelectDeletes && !member.isProtectedEditedVariant {
                     .automatic
                 } else {
                     .defaultKeep
@@ -148,6 +150,14 @@ public enum DeduplicationPlanner {
                 if effective[partner]?.decision == .keep {
                     continue
                 }
+                // INV-31: pair fanout never adds an edited variant. A partner
+                // outside every cluster carries no scanner flag, so the file
+                // name convention is the fail-closed fallback.
+                if effective[partner]?.member.isProtectedEditedVariant
+                    ?? (DeduplicatePairDetector.editedVariantOriginalKey(forVariantPath: partner) != nil)
+                {
+                    continue
+                }
                 // Explicit per-pair Keep override. Lets the user preserve a
                 // singleton partner (typically the Live Photo MOV half) that
                 // isn't a cluster member and therefore has no slot in the
@@ -226,7 +236,28 @@ public enum DeduplicationPlanner {
             )
         }
 
-        return DeduplicationPlan(items: planItems.values.sorted { $0.path < $1.path })
+        // INV-31 footer count: protected variants that stay while an original
+        // beside them (same folder, same stem) is being deleted.
+        let deletedOriginalKeys = Set(planItems.values.compactMap { item in
+            item.pairOrigin == .sidecar
+                ? nil
+                : DeduplicatePairDetector.editedVariantOriginalKey(forOriginalPath: item.path)
+        })
+        var keptVariantPaths: Set<String> = []
+        for cluster in clusters {
+            for member in cluster.members where member.isProtectedEditedVariant && planItems[member.path] == nil {
+                if let key = DeduplicatePairDetector.editedVariantOriginalKey(forVariantPath: member.path),
+                   deletedOriginalKeys.contains(key)
+                {
+                    keptVariantPaths.insert(member.path)
+                }
+            }
+        }
+
+        return DeduplicationPlan(
+            items: planItems.values.sorted { $0.path < $1.path },
+            editedVariantsKeptCount: keptVariantPaths.count
+        )
     }
 
     public static func suggestedDecisions(
@@ -238,7 +269,8 @@ public enum DeduplicationPlanner {
         for cluster in clusters {
             let keepers = Set(cluster.suggestedKeeperIDs.prefix(1))
             for member in cluster.members {
-                byPath[member.path] = keepers.contains(member.id) ? .keep : .delete
+                // INV-31: a suggestion never marks an edited variant Delete.
+                byPath[member.path] = keepers.contains(member.id) || member.isProtectedEditedVariant ? .keep : .delete
             }
         }
         applyPairKeepWins(to: &byPath, clusters: clusters, configuration: configuration)
@@ -308,6 +340,7 @@ public enum DeduplicationPlanner {
         switch kind {
         case .rawJpeg: return configuration.treatRawJpegPairsAsUnit
         case .livePhoto: return configuration.treatLivePhotoPairsAsUnit
+        case .editedVariant: return false
         }
     }
 

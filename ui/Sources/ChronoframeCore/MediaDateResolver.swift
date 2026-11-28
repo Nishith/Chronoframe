@@ -13,6 +13,8 @@ public enum MediaLibraryRules {
 
     public static let allExtensions = photoExtensions.union(videoExtensions)
 
+    public static let companionExtensions: Set<String> = [".xmp", ".aae"]
+
     public static let skippedFilenames: Set<String> = [
         "run_organize.sh", "run_new_folder.sh", "reorganize_structure.sh",
         "profiles.yaml", "README.md",
@@ -33,6 +35,10 @@ public enum MediaLibraryRules {
 
     public static func isSupportedMediaFile(path: String) -> Bool {
         allExtensions.contains(normalizedExtension(for: path))
+    }
+
+    public static func isCompanionFile(path: String) -> Bool {
+        companionExtensions.contains(normalizedExtension(for: path))
     }
 
     public static func shouldSkipDiscoveredFile(named name: String) -> Bool {

@@ -1026,6 +1026,61 @@ final class DeduplicateSessionStoreTests: XCTestCase {
             "Safety rail must skip a cluster where all members are marked delete")
     }
 
+    // MARK: - Edited variants (edit preservation WP-08, INV-31)
+
+    private func editedVariantStoreCluster() -> (cluster: DuplicateCluster, variantPath: String) {
+        let keeper = PhotoCandidate(path: "/dest/other.jpg", size: 100, modificationTime: 0, qualityScore: 0.9)
+        let original = PhotoCandidate(path: "/dest/x.jpg", size: 50, modificationTime: 0, qualityScore: 0.4)
+        var variant = PhotoCandidate(path: "/dest/x-edited.jpg", size: 50, modificationTime: 0, qualityScore: 0.3)
+        variant.isProtectedEditedVariant = true
+        let cluster = DuplicateCluster(
+            kind: .exactDuplicate,
+            members: [keeper, original, variant],
+            suggestedKeeperIDs: [keeper.path],
+            bytesIfPruned: 100,
+            annotation: ClusterAnnotation(confidence: .high, matchReason: MatchReason(kind: .exactDuplicate))
+        )
+        return (cluster, variant.path)
+    }
+
+    // AGENTS-INVARIANT: 31
+    @MainActor
+    func testDeleteAllInClusterLeavesProtectedVariant() async throws {
+        let fixture = editedVariantStoreCluster()
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [fixture.cluster]))
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+
+        store.deleteAllInCluster(store.clusters[0])
+
+        XCTAssertEqual(store.decisions.byPath["/dest/x.jpg"], .delete)
+        XCTAssertEqual(store.decisions.byPath["/dest/other.jpg"], .delete)
+        XCTAssertEqual(store.decisions.byPath[fixture.variantPath], .keep)
+        XCTAssertFalse(store.currentDeletionPlan().pathsToDelete.contains(fixture.variantPath))
+    }
+
+    // AGENTS-INVARIANT: 31
+    @MainActor
+    func testReviewSuggestionsShowProtectedVariantAsKeep() async throws {
+        let fixture = editedVariantStoreCluster()
+        let store = DeduplicateSessionStore(engine: MockDeduplicateEngine(clusters: [fixture.cluster]))
+        store.startScan(configuration: DeduplicateConfiguration(destinationPath: "/dest"))
+        _ = await waitForCondition { store.status == .readyToReview }
+
+        // What the review shows with no explicit decision: the variant is Keep
+        // even though the high-confidence cluster auto-selects its other members.
+        let keepers = DedupeDecisions().keepersForCluster(store.clusters[0])
+        XCTAssertTrue(keepers.contains(fixture.variantPath))
+        XCTAssertTrue(keepers.contains("/dest/other.jpg"))
+        XCTAssertFalse(keepers.contains("/dest/x.jpg"))
+
+        // Accepting the suggestion stores Keep for it, and the plan agrees.
+        store.acceptSuggestionsForCluster(store.clusters[0])
+        XCTAssertEqual(store.decisions.byPath[fixture.variantPath], .keep)
+        XCTAssertEqual(store.decisions.byPath["/dest/x.jpg"], .delete)
+        XCTAssertEqual(store.currentDeletionPlan().pathsToDelete, ["/dest/x.jpg"])
+    }
+
     // MARK: - reviewedClusters / reviewedDeletionPlan / commitReviewed
 
     /// A cluster is reviewed when every member has an explicit decision in
