@@ -17,13 +17,28 @@ public struct PhotosExportableResource: Equatable, Sendable {
     public let originalFilename: String
     /// Size in bytes of the original resource when Photos reports it; nil when unknown.
     public let fileSize: Int64?
+    /// Which resource of the asset this is. Defaults to `.original`.
+    public let role: Role
 
-    public init(assetID: String, resourceIndex: Int, fileExtension: String, originalFilename: String, fileSize: Int64? = nil) {
+    public enum Role: String, Equatable, Sendable {
+        case original
+        case editedRender
+    }
+
+    public init(
+        assetID: String,
+        resourceIndex: Int,
+        fileExtension: String,
+        originalFilename: String,
+        fileSize: Int64? = nil,
+        role: Role = .original
+    ) {
         self.assetID = assetID
         self.resourceIndex = resourceIndex
         self.fileExtension = fileExtension
         self.originalFilename = originalFilename
         self.fileSize = fileSize
+        self.role = role
     }
 }
 
@@ -39,6 +54,9 @@ public protocol PhotosResourceExporting: Sendable {
     /// order they should be written. Read-only: implemented with
     /// `PHAssetResource.assetResources(for:)`.
     func originalResources(forAssetID id: String) async throws -> [PhotosExportableResource]
+    /// The asset's current edited still render (`.fullSizePhoto`), or nil when
+    /// the asset has none. Read-only, like `originalResources(forAssetID:)`.
+    func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource?
     /// Copies one resource's original bytes to `destinationURL`. Read-only
     /// against the library: implemented with `PHAssetResourceManager`, which
     /// only reads. Never calls `PHPhotoLibrary.performChanges`.
@@ -54,6 +72,11 @@ public protocol PhotosResourceExporting: Sendable {
 }
 
 public extension PhotosResourceExporting {
+    /// Default keeps every existing test double compiling: no edited render.
+    func editedStillResource(forAssetID id: String) async throws -> PhotosExportableResource? {
+        nil
+    }
+
     /// Default keeps every existing test double compiling: ignores progress.
     func writeResource(
         _ resource: PhotosExportableResource,

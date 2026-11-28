@@ -17,8 +17,8 @@ Prefix `EPR`. Status values: todo, in-progress, review, done, blocked. "done" re
 | WP-03 | Spike: companion plug-in points | done | n/a | n/a | n/a | (this commit) | answers D-EPR-103…111; no schema change (D-EPR-105); B-2 logged non-blocking |
 | WP-04 | Organize copies companions | done | build 0 | suite 0 (2461 passed); Companion* 7+9+5+4+2 pass; inv 0; l10n 0 | approved (4a: 2 rounds; 4b: 1 round + nits) | 9328af2 + (this commit) | safety-critical; orchestrator diff review: pass (4a discovery/resolver/planner/reduced traced to C-03, D-EPR-103…112; 4b engine changes limited to post-planning issues, metrics and read-only receipt count); app-layer guard 0; diff --check 0 |
 | G1 | Gate after companions | done | xcode 0 | suite 0 (2461 passed, run on the WP-04 tree), coverage 0 (meaningful 96.09%), inv 0, app-layer guard (origin/main) 0 | n/a | (this commit) | logs .tmp/epr-wp04-suite.log, .tmp/epr-g1-coverage.log, .tmp/epr-g1-xcode.log |
-| WP-05 | Export model, role, checkpoint fields | in-progress | | | | | |
-| WP-06 | Executor and service export edited still | todo | | | | | safety-critical; INV-22 wording |
+| WP-05 | Export model, role, checkpoint fields | done | build 0 | PhotosImportCheckpointTests 14/14, PhotosExportExecutorTests 32/32, PhotosImportResumeTests 28/28 (exit 0) | approved | (this commit) | failing-first: compile errors (no member role/editedStillResource/includeEditedVersions…); checkpoint v2, loader accepts 1–2 (D-EPR-13); one existing test now interpolates the version (not weakened, reviewer confirmed); diff --check 0 |
+| WP-06 | Executor and service export edited still | in-progress | | | | | safety-critical; INV-22 wording |
 | WP-07 | Import UI, summary, history copy | todo | | | | | |
 | WP-08 | Dedupe protects edited variants (INV-31) | todo | | | | | safety-critical |
 | G2 | Final gate | todo | | | n/a | | |
