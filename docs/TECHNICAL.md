@@ -266,6 +266,10 @@ The scan summary carries an immutable `DeduplicateScanSnapshot`. `DeduplicationP
 
 Commit preflights the receipt directory, writes a pending receipt and recovery journal, then handles RAW+JPEG, Live Photo, and sidecar ownership with Keep-wins semantics. Each mutation unit is renamed to a unique same-directory quarantine path, opened with `O_NOFOLLOW`, content-verified through the descriptor, and only then moved to Trash. Unit failures roll back together where the filesystem evidence permits.
 
+Sidecars are `.xmp` and `.aae` files that share a member's basename (replaced or appended form; an iPhone `IMG_E1234.AAE` also belongs to `IMG_1234.*`). They follow the same Keep-wins rule (INV-14).
+
+Edited variants (INV-31): `DeduplicatePairDetector` links `<stem>-edited.<ext>` to `<stem>.<any ext>` in the same folder, comparing stems case-insensitively, through `DetectionResult.editedVariantOriginals`, kept apart from `pairs`. The scanner sets `PhotoCandidate.isProtectedEditedVariant` fresh on every scan. The planner never selects a flagged variant automatically: not through a cluster suggestion, bulk Delete, pair fanout or sidecar rules. A pair partner outside every cluster is checked by file name instead, so the rule fails closed. Only an explicit user Delete on that exact path makes a variant a target. `DeduplicationPlan.editedVariantsKeptCount` feeds the commit footer's "N edited versions kept". The link is the file name only, so a user-named `*-edited.*` file is protected too.
+
 ## Apple Photos Import
 
 The **Photos** sidebar destination imports copies of photos and videos out of the Apple Photos library into the active organize destination. It is read-only, one-directional, and review-gated.
