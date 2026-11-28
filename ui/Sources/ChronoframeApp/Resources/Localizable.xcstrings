@@ -1277,6 +1277,23 @@
         }
       }
     },
+    "Also saves the edited version of each edited photo as a separate file. Edited videos and Live Photos are not included." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichert zusätzlich die bearbeitete Version jedes bearbeiteten Fotos als eigene Datei. Bearbeitete Videos und Live Photos werden nicht übernommen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also saves the edited version of each edited photo as a separate file. Edited videos and Live Photos are not included."
+          }
+        }
+      }
+    },
     "An import was interrupted." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -4529,6 +4546,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Identische Kopien"
+          }
+        }
+      }
+    },
+    "Imports the original photo or video. Edits made in Photos, such as crops and filters, are not included." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Importiert das Originalfoto oder -video. In Fotos vorgenommene Bearbeitungen wie Zuschnitte und Filter werden nicht übernommen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imports the original photo or video. Edits made in Photos, such as crops and filters, are not included."
           }
         }
       }

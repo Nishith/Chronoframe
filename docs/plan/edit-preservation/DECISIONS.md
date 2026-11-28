@@ -31,3 +31,4 @@ Choose the option that, in order: (1) keeps every `AGENTS.md` safety invariant; 
 ## Runtime decisions
 (Appended by the orchestrator as `D-EPR-1NN`.)
 - **D-EPR-12 Invariant number (2026-11-27).** `find-and-account` claims INV-30 (evidence-bound completion accounting) and comes first in the plan sequence, so this plan's edited-variant invariant is INV-31 and its tests are tagged `// AGENTS-INVARIANT: 31`. Ids are permanent: if this plan lands first, it still takes 31 and leaves 30 to find-and-account. Same rule, same owner approval as D-EPR-04.
+- **D-EPR-101 Caption helper (WP-01, default).** Options: extend `PhotosPreparationText` or add a new helper. Chose a new `PhotosImportEditsCaption` enum (`ui/Sources/ChronoframeApp/Views/Photos/PhotosImportEditsCaption.swift`) holding both C-01 strings; the view passes `includeEditedVersions: false` until WP-07 wires the toggle. Fewest lines touched in existing files.

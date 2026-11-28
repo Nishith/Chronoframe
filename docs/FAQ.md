@@ -144,6 +144,10 @@ A: Yes. Open the **Photos** tab, grant read access, pick photos and videos, and 
 
 A: No. The Photos import is strictly one-directional and read-only. Chronoframe never writes back to your Photos library — it only exports copies out of it.
 
+**Q: Does importing from Photos keep my edits?**
+
+A: No. By default, Chronoframe imports the original photo or video, so edits made in Photos, such as crops and filters, are not included. Your Photos library is never changed, and the edited version stays in Photos.
+
 **Q: The import stopped, or the drive is almost full. Do I have to start over?**
 
 A: No. Chronoframe keeps every item that finished preparing, and **Resume Import** carries on with the rest. See [Troubleshooting](./TROUBLESHOOTING.md#photos-import-issues).

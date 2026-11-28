@@ -90,6 +90,10 @@ struct PhotosImportView: View {
                     .scaledFont(.label)
                     .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Text(PhotosImportEditsCaption.text(includeEditedVersions: false))
+                    .scaledFont(.label)
+                    .foregroundStyle(DesignTokens.ColorSystem.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
         }

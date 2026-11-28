@@ -186,6 +186,13 @@ If the app or Mac stopped unexpectedly, reconnect the destination drive before r
 
 ## Photos Import Issues
 
+### Imported photos do not show my edits
+
+**Problem:** A photo you cropped or filtered in Photos looks unedited after import.
+
+**Solution:**
+- This is expected. By default, Chronoframe imports the original photo or video, and edits made in Photos, such as crops and filters, are not included. Your Photos library is never changed, so the edited version is still there.
+
 ### The import stopped. Do I have to start over?
 
 **Problem:** A Photos import stopped because you pressed **Stop**, the app quit, or it crashed while items were still being prepared, and you are not sure what was kept.
