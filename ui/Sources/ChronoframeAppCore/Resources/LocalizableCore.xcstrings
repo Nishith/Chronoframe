@@ -2348,6 +2348,74 @@
         }
       }
     },
+    "Not copied: %@ (could not be read)": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht kopiert: %@ (konnte nicht gelesen werden)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not copied: %@ (could not be read)"
+          }
+        }
+      }
+    },
+    "Not copied: %@ (matches more than one photo)": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht kopiert: %@ (passt zu mehr als einem Foto)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not copied: %@ (matches more than one photo)"
+          }
+        }
+      }
+    },
+    "Not copied: %@ (no matching photo)": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht kopiert: %@ (kein passendes Foto)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not copied: %@ (no matching photo)"
+          }
+        }
+      }
+    },
+    "Not copied: %@ (that name is already taken in the destination)": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nicht kopiert: %@ (dieser Name ist am Zielort bereits vergeben)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not copied: %@ (that name is already taken in the destination)"
+          }
+        }
+      }
+    },
     "Nothing has been copied here yet, so there is nothing to undo.": {
       "extractionState": "manual",
       "localizations": {

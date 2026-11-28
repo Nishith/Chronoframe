@@ -313,10 +313,21 @@ struct RunWorkspaceModel {
 
         case .finished:
             let copied = context.metrics.copiedCount
-            let subject = copied == 1 ? String(localized: "1 photo or video is", bundle: .module) : String(localized: "\(String(copied.formatted())) photos and videos are", bundle: .module)
+            let sidecars = min(max(0, context.metrics.copiedCompanionCount), copied)
+            let message: String
+            if sidecars > 0 {
+                message = String(
+                    format: AppLocalization.string("%1$@, %2$@ are in your organized library. Your originals were not changed.", bundle: .module),
+                    PluralPhrases.photosAndVideos(copied - sidecars),
+                    PluralPhrases.sidecarFiles(sidecars)
+                )
+            } else {
+                let subject = copied == 1 ? String(localized: "1 photo or video is", bundle: .module) : String(localized: "\(String(copied.formatted())) photos and videos are", bundle: .module)
+                message = String(localized: "\(String(subject)) in your organized library. Your originals were not changed.", bundle: .module)
+            }
             return RunHeroState(
                 title: String(localized: "Copy complete", bundle: .module),
-                message: String(localized: "\(String(subject)) in your organized library. Your originals were not changed.", bundle: .module),
+                message: message,
                 badgeTitle: String(localized: "Done", bundle: .module),
                 badgeSymbol: "checkmark.circle.fill",
                 heroSymbol: "checkmark.circle.fill",

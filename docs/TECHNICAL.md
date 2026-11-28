@@ -204,6 +204,21 @@ The Review tab is built from `.organize_logs/preview_review_*.jsonl` and include
 
 Inline edits save durable overrides by content identity plus source path. If the user edits a date or event name, the preview becomes stale and must be rebuilt before transfer.
 
+### Sidecar companions
+
+Organize copies `.xmp` and `.aae` files (edit metadata written by Lightroom, darktable, Capture One and the iPhone Photos app) beside the photo they belong to. A companion is an ordinary copy job: it goes through the same queue, atomic copy, verification, audit receipt and revert as any photo, and nothing in `TransferExecutor`, `RevertExecutor`, `.organize_cache.db` or the receipt schema is companion-specific. Only discovery and planning know about companions.
+
+- Discovery lists companions separately from media (`MediaDiscovery.discoverMediaAndCompanions`). A companion is never a media entry and is never counted as one. Hidden files are still skipped. Deduplicate, Guardian, Watched Sources and Library Health do not see companions as media.
+- `CompanionResolver` pairs a companion with a media file in the same folder when its name is `<media stem>.<ext>` or `<media full name>.<ext>`, compared case-insensitively. An iPhone `IMG_E1234.AAE` also pairs with `IMG_1234.*`. Photos, RAW files and videos are all eligible owners.
+- Exactly one owner resolves the companion. Zero owners, or several (a RAW+JPEG pair sharing `photo.xmp`, or a Live Photo's still and video), leave it unresolved.
+- The destination is the owner's final destination (after collision naming and duplicate placement) with the companion's own extension: `IMG_1.xmp` becomes `<owner dest stem>.xmp`, and `IMG_1.jpg.xmp` becomes `<owner dest name>.xmp`. It lands in the owner's folder and is never named independently. `.aae` keeps its on-disk spelling. If the owner is skipped, already present or excluded, the companion is skipped with it.
+- Unresolved companions are not copied and never block the run. The reasons are: more than one matching photo, no matching photo, the destination name is already taken (on disk, or by another planned file such as `IMG_1234.AAE` and `IMG_E1234.AAE` mapping to one name), and the companion could not be read.
+- Counts: planning, progress, free-space estimates and `copiedCount` count companions as files. `RunMetrics.plannedCompanionCount`, `copiedCompanionCount` and `unresolvedCompanionCount` let the summary say `N photos and videos, M sidecar files`. The copied split is read from the run's finalized audit receipt (destinations that are companions); when that receipt cannot be matched, a run with no failed or skipped files counts every planned companion and any other run leaves the split off.
+- Preview: `SwiftOrganizerEngine` emits one warning issue per unresolved companion after planning, worded `Not copied: <file name> (matches more than one photo)`, `(no matching photo)`, `(that name is already taken in the destination)` or `(could not be read)`. They appear in the Problems tab, and the preview headline shows `M sidecar files not copied`. Warnings do not turn a finished run into "Copy finished with problems".
+- A free test batch keeps each companion with its owner: `DryRunPlanningResult.reduced(to:)` drops a companion whose owner is not in the batch. Companions count as files toward the trial allowance.
+- In drag-and-drop manifest mode only companions that were themselves dropped are candidates; siblings of a dropped photo are not probed.
+- The source is read-only and nothing is written beside sources.
+
 ## Smart Event Suggestions
 
 Smart Events are opt-in from Settings. When enabled, preview suggests event groups using:

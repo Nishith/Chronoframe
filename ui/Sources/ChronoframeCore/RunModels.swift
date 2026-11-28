@@ -204,6 +204,12 @@ public struct RunMetrics: Equatable, Codable, Sendable {
     public var missingCount: Int
     public var movedCount: Int
     public var dateHistogram: [DateHistogramBucket]
+    /// Of `plannedCount`, how many are sidecar companions (`.xmp`, `.aae`).
+    public var plannedCompanionCount: Int
+    /// Of `copiedCount`, how many are sidecar companions.
+    public var copiedCompanionCount: Int
+    /// Companions the plan did not copy (no single owner, name taken, unreadable).
+    public var unresolvedCompanionCount: Int
 
     public init(
         discoveredCount: Int = 0,
@@ -222,7 +228,10 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         skippedCount: Int = 0,
         missingCount: Int = 0,
         movedCount: Int = 0,
-        dateHistogram: [DateHistogramBucket] = []
+        dateHistogram: [DateHistogramBucket] = [],
+        plannedCompanionCount: Int = 0,
+        copiedCompanionCount: Int = 0,
+        unresolvedCompanionCount: Int = 0
     ) {
         self.discoveredCount = discoveredCount
         self.plannedCount = plannedCount
@@ -241,6 +250,9 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         self.missingCount = missingCount
         self.movedCount = movedCount
         self.dateHistogram = dateHistogram
+        self.plannedCompanionCount = plannedCompanionCount
+        self.copiedCompanionCount = copiedCompanionCount
+        self.unresolvedCompanionCount = unresolvedCompanionCount
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -248,7 +260,8 @@ public struct RunMetrics: Equatable, Codable, Sendable {
              hashErrorCount, copiedCount, failedCount, errorCount, bytesCopied, bytesTotal,
              speedMBps, etaSeconds,
              revertedCount, skippedCount, missingCount, movedCount,
-             dateHistogram
+             dateHistogram,
+             plannedCompanionCount, copiedCompanionCount, unresolvedCompanionCount
     }
 
     public init(from decoder: Decoder) throws {
@@ -270,6 +283,9 @@ public struct RunMetrics: Equatable, Codable, Sendable {
         self.missingCount = try c.decodeIfPresent(Int.self, forKey: .missingCount) ?? 0
         self.movedCount = try c.decodeIfPresent(Int.self, forKey: .movedCount) ?? 0
         self.dateHistogram = try c.decodeIfPresent([DateHistogramBucket].self, forKey: .dateHistogram) ?? []
+        self.plannedCompanionCount = try c.decodeIfPresent(Int.self, forKey: .plannedCompanionCount) ?? 0
+        self.copiedCompanionCount = try c.decodeIfPresent(Int.self, forKey: .copiedCompanionCount) ?? 0
+        self.unresolvedCompanionCount = try c.decodeIfPresent(Int.self, forKey: .unresolvedCompanionCount) ?? 0
     }
 }
 
